@@ -5,7 +5,8 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 ## Status Atual
 
 **Framework:** Jest + React Native Testing Library
-**Snapshot de 24/07/2026:** 312/312 suites, 5729/5729 testes e 5/5 snapshots passando
+**Snapshot de 15/08/2026:** 331/331 suites, 5854/5854 testes e 5/5 snapshots passando
+(era 312/5729 em 24/07)
 **Threshold de cobertura:** 73% lines (última medição ~74%)
 
 O comando agregado `npm run validate` passou integralmente nesse snapshot. O
@@ -404,6 +405,37 @@ reporters: [
 - Não crie testes flaky (inconsistentes)
 - Não ignore erros de tipo nos testes
 - Não compartilhe estado entre testes
+
+### `waitFor` afirmando ausência precisa de âncora
+
+`await waitFor(() => expect(queryByText('...')).toBeNull())` logo depois de um
+`fireEvent` **falha mesmo com o código correto**: a asserção corre em paralelo
+com a atualização que deveria remover o elemento e conclui antes dela. O sintoma
+engana — parece que a correção não funciona, quando o que faltou foi esperar.
+
+Ancore numa precondição observável e só então afirme a ausência:
+
+```tsx
+fireEvent.press(getByTestId('selecionar-endereco'));
+
+// Âncora: espera o efeito visível chegar.
+await waitFor(() =>
+  expect(getByLabelText('Cidade').props.value).toBe('João Pessoa'),
+);
+
+// Só agora a ausência significa alguma coisa.
+expect(queryByText('Informe a cidade')).toBeNull();
+```
+
+Vale para qualquer asserção negativa (erro sumiu, spinner saiu, item removido).
+Ver `app/onboarding/__tests__/criar-unidade.test.tsx`.
+
+### Teste que passa de primeira não prova nada
+
+Um teste que nunca foi visto falhando pode estar passando por acidente — foi o
+que aconteceu três vezes nesta base. Antes de confiar nele, **remova a proteção
+que ele deveria vigiar e confirme que ele falha**. Se continuar verde, ele não
+mede o que você acha que mede.
 
 ## Debugging
 
