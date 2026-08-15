@@ -6,20 +6,24 @@ import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { Button, DesktopPageLayout, Dialog, Text, Toast } from '@/design-system';
+import {
+  Button,
+  DesktopPageLayout,
+  Dialog,
+  Text,
+  Toast,
+} from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-
 
 import { RotasTable } from './RotasTable';
 import { StatsCard } from '../shared/StatsCard';
 
 import type { DashboardData } from '../../_hooks/useDashboardData';
-
 
 interface DashboardDesktopProps extends DashboardData {
   filters: RouteFiltersType;
@@ -66,9 +70,12 @@ export function DashboardDesktop({
   });
 
   // Memoize showToast para evitar recriação
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
-    setToast({ visible: true, message, type });
-  }, []);
+  const showToast = useCallback(
+    (message: string, type: 'success' | 'error' | 'info') => {
+      setToast({ visible: true, message, type });
+    },
+    [],
+  );
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -83,22 +90,25 @@ export function DashboardDesktop({
   }, []);
 
   // Memoize execute delete
-  const executeDelete = useCallback(async (rotaId: string) => {
-    try {
-      const { error } = await supabase
-        .from('rotas')
-        .delete()
-        .eq('id', rotaId);
+  const executeDelete = useCallback(
+    async (rotaId: string) => {
+      try {
+        const { error } = await supabase
+          .from('rotas')
+          .delete()
+          .eq('id', rotaId);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      showToast('Rota excluída com sucesso', 'success');
-      onRefresh();
-    } catch (error) {
-      logger.error('Erro ao excluir rota:', error);
-      showToast('Erro ao excluir a rota', 'error');
-    }
-  }, [showToast, onRefresh]);
+        showToast('Rota excluída com sucesso', 'success');
+        onRefresh();
+      } catch (error) {
+        logger.error('Erro ao excluir rota:', error);
+        showToast('Erro ao excluir a rota', 'error');
+      }
+    },
+    [showToast, onRefresh],
+  );
 
   // Memoize confirm handler
   const handleConfirmDelete = useCallback(() => {
@@ -116,13 +126,16 @@ export function DashboardDesktop({
   }, []);
 
   // Memoize view details handler
-  const handleViewDetails = useCallback((rotaId: string) => {
-    router.push(`/gestor/mapa-rota?id=${rotaId}`);
-  }, [router]);
+  const handleViewDetails = useCallback(
+    (rotaId: string) => {
+      router.push(`/gestor/mapa-rota?id=${rotaId}`);
+    },
+    [router],
+  );
 
   // Memoize toast dismiss
   const handleToastDismiss = useCallback(() => {
-    setToast(prev => ({ ...prev, visible: false }));
+    setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
   return (
@@ -141,7 +154,7 @@ export function DashboardDesktop({
         }}
       >
         <View style={styles.content}>
-        <View style={styles.statsRow} testID="gestor-dashboard-stats">
+          <View style={styles.statsRow} testID="gestor-dashboard-stats">
             <AnimatedListItem index={0} style={styles.statCard}>
               <StatsCard
                 value={todayStats.totalHoje}
@@ -165,7 +178,7 @@ export function DashboardDesktop({
             </AnimatedListItem>
             <AnimatedListItem index={3} style={styles.statCard}>
               <StatsCard
-                value={stats.distanciaTotal.toFixed(1)}
+                value={formatarDecimal(stats.distanciaTotal)}
                 label="km Total"
                 backgroundColor={theme.colors.kpiDistancia}
               />

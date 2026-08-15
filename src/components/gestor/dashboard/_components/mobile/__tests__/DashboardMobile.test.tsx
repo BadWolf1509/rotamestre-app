@@ -359,10 +359,15 @@ describe('DashboardMobile', () => {
       expect(getByText('5')).toBeTruthy(); // stats.concluidas
     });
 
-    it('deve mostrar distância formatada', () => {
-      const { getByText } = render(<DashboardMobile {...defaultProps} />);
+    it('deve mostrar distância formatada com vírgula, não com ponto', () => {
+      // Este teste afirmava `150.5` e citava o `toFixed` no comentário: ele
+      // travou o defeito no lugar. App em pt-BR usa `formatarDecimal`.
+      const { getByText, queryByText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
 
-      expect(getByText('150.5')).toBeTruthy(); // stats.distanciaTotal.toFixed(1)
+      expect(getByText('150,5')).toBeTruthy();
+      expect(queryByText('150.5')).toBeNull();
     });
   });
 

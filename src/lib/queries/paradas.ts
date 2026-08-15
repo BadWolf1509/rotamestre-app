@@ -83,7 +83,7 @@ export interface ParadaWithDetails extends ParadaDB {
  * Fetch all paradas for a rota ordered by sequence
  */
 export async function fetchParadasByRota(
-  rotaId: string
+  rotaId: string,
 ): Promise<QueryResult<ParadaDB[]>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
@@ -101,7 +101,7 @@ export async function fetchParadasByRota(
  * Fetch single parada by ID
  */
 export async function fetchParadaById(
-  paradaId: string
+  paradaId: string,
 ): Promise<QueryResult<ParadaDB>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
@@ -119,7 +119,7 @@ export async function fetchParadaById(
  * Fetch checkpoint paradas only (excludes origin/depot)
  */
 export async function fetchCheckpointsByRota(
-  rotaId: string
+  rotaId: string,
 ): Promise<QueryResult<ParadaDB[]>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
@@ -137,15 +137,15 @@ export async function fetchCheckpointsByRota(
 /**
  * Get paradas stats for a rota
  */
-export async function fetchParadasStats(
-  rotaId: string
-): Promise<QueryResult<{
-  total: number;
-  concluidas: number;
-  pendentes: number;
-  puladas: number;
-  progresso: number;
-}>> {
+export async function fetchParadasStats(rotaId: string): Promise<
+  QueryResult<{
+    total: number;
+    concluidas: number;
+    pendentes: number;
+    puladas: number;
+    progresso: number;
+  }>
+> {
   return safeQuery(async () => {
     const { data, error } = await supabase
       .from('paradas')
@@ -177,9 +177,8 @@ export async function fetchParadasStats(
       }
     }
 
-    stats.progresso = stats.total > 0
-      ? Math.round((stats.concluidas / stats.total) * 100)
-      : 0;
+    stats.progresso =
+      stats.total > 0 ? Math.round((stats.concluidas / stats.total) * 100) : 0;
 
     return stats;
   });
@@ -189,7 +188,7 @@ export async function fetchParadasStats(
  * Create multiple paradas in batch
  */
 export async function createParadasBatch(
-  paradas: ParadaInsert[]
+  paradas: ParadaInsert[],
 ): Promise<QueryResult<ParadaDB[]>> {
   return withRetry(async () => {
     const { data, error } = await supabase
@@ -201,7 +200,7 @@ export async function createParadasBatch(
     return (data || []) as ParadaDB[];
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -211,7 +210,7 @@ export async function createParadasBatch(
 export async function updateParadaStatus(
   paradaId: string,
   status: StatusCheckpoint,
-  additionalFields?: Partial<ParadaUpdate>
+  additionalFields?: Partial<ParadaUpdate>,
 ): Promise<QueryResult<ParadaDB>> {
   return withRetry(async () => {
     const updateData: ParadaUpdate = {
@@ -235,7 +234,7 @@ export async function updateParadaStatus(
     return data as ParadaDB;
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -247,7 +246,7 @@ export async function completeParada(
   options?: {
     fotoUrl?: string;
     observacoes?: string;
-  }
+  },
 ): Promise<QueryResult<ParadaDB>> {
   return updateParadaStatus(paradaId, 'concluida', {
     foto_url: options?.fotoUrl,
@@ -261,7 +260,7 @@ export async function completeParada(
 export async function skipParada(
   paradaId: string,
   motivo: MotivoSkip,
-  observacoes?: string
+  observacoes?: string,
 ): Promise<QueryResult<ParadaDB>> {
   return updateParadaStatus(paradaId, 'pulada', {
     motivo_skip: motivo,
@@ -274,7 +273,7 @@ export async function skipParada(
  */
 export async function updateParada(
   paradaId: string,
-  data: ParadaUpdate
+  data: ParadaUpdate,
 ): Promise<QueryResult<ParadaDB>> {
   return withRetry(async () => {
     const { data: parada, error } = await supabase
@@ -288,7 +287,7 @@ export async function updateParada(
     return parada as ParadaDB;
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -297,7 +296,7 @@ export async function updateParada(
  */
 export async function updateParadaOrder(
   paradaId: string,
-  newOrder: number
+  newOrder: number,
 ): Promise<QueryResult<ParadaDB>> {
   return updateParada(paradaId, { ordem: newOrder });
 }
@@ -306,7 +305,7 @@ export async function updateParadaOrder(
  * Delete a parada
  */
 export async function deleteParada(
-  paradaId: string
+  paradaId: string,
 ): Promise<QueryResult<void>> {
   return withRetry(async () => {
     const { error } = await supabase
@@ -317,7 +316,7 @@ export async function deleteParada(
     if (error) throw error;
   }).then(
     () => ({ success: true as const, data: undefined }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -325,7 +324,7 @@ export async function deleteParada(
  * Delete all paradas for a rota
  */
 export async function deleteParadasByRota(
-  rotaId: string
+  rotaId: string,
 ): Promise<QueryResult<void>> {
   return withRetry(async () => {
     const { error } = await supabase
@@ -336,7 +335,7 @@ export async function deleteParadasByRota(
     if (error) throw error;
   }).then(
     () => ({ success: true as const, data: undefined }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -344,7 +343,7 @@ export async function deleteParadasByRota(
  * Fetch next pending parada for a rota
  */
 export async function fetchNextPendingParada(
-  rotaId: string
+  rotaId: string,
 ): Promise<QueryResult<ParadaDB | null>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
@@ -370,15 +369,17 @@ export async function logParadaAction(
   paradaId: string,
   rotaId: string,
   evento: string,
-  detalhes?: Record<string, unknown>
+  detalhes?: Record<string, unknown>,
 ): Promise<void> {
   try {
+    // `logs` não tem coluna `parada_id` (ver comentário em queries/logs.ts):
+    // mandá-la fazia o PostgREST recusar com 400 e o registro sumir sem aviso.
+    // A parada vai em `detalhes`.
     await supabase.from('logs').insert({
       usuario_id: usuarioId,
-      parada_id: paradaId,
       rota_id: rotaId,
       evento,
-      detalhes,
+      detalhes: { ...(detalhes ?? {}), parada_id: paradaId },
     });
   } catch (error) {
     // Log failures are not critical, just warn

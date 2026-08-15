@@ -19,6 +19,7 @@ import { Text, Toast } from '@/design-system';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { useToast } from '@/hooks/useToast';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { withOpacity } from '@/utils/color';
 import { getGreeting } from '@/utils/motivationalMessages';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -221,7 +222,7 @@ export function DashboardMobile({
           <AnimatedListItem index={3}>
             <View style={styles.statsStripCard}>
               <StatsCard
-                value={stats.distanciaTotal.toFixed(1)}
+                value={formatarDecimal(stats.distanciaTotal)}
                 label="km Total"
                 backgroundColor={theme.colors.kpiDistanciaDark}
                 icon="speedometer-outline"

@@ -262,12 +262,15 @@ class LocationTrackingService {
         data: { user },
       } = await supabase.auth.getUser();
       if (user && paradaAtual) {
+        // `logs` não tem coluna `parada_id` (ver comentário em
+        // queries/logs.ts): a parada vai em `detalhes`, como já fazem
+        // useAddStopForm, useEditStopForm e routeUtils.
         await supabase.from('logs').insert({
           usuario_id: user.id,
           rota_id: this.navigationState.rotaId,
-          parada_id: this.navigationState.currentStopId,
           evento: 'parada_concluida',
           detalhes: {
+            parada_id: this.navigationState.currentStopId,
             endereco: paradaAtual.endereco,
             tipo: paradaAtual.tipo,
             ordem: paradaAtual.ordem,

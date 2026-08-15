@@ -40,6 +40,32 @@ describe('logs queries', () => {
   });
 
   describe('logAction', () => {
+    // A tabela `logs` tem exatamente: id, usuario_id, rota_id, evento,
+    // detalhes, timestamp. NÃO existe coluna `parada_id` — mandá-la fazia o
+    // PostgREST recusar o insert com 400, e como o erro só virava logger.warn,
+    // o rastro de auditoria morria em silêncio. O vínculo com a parada vai em
+    // `detalhes`, que é o padrão já usado em useAddStopForm, useEditStopForm e
+    // routeUtils. Estes testes antes afirmavam `parada_id` no insert: eles
+    // travaram o defeito no lugar por meses, porque validavam um schema
+    // inventado em vez do real.
+    it('nunca manda a coluna parada_id, que não existe na tabela', async () => {
+      await logAction({
+        usuario_id: 'user-123',
+        evento: 'parada_concluida',
+        rota_id: 'rota-456',
+        parada_id: 'parada-789',
+      });
+
+      const payload = mockInsert.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('parada_id');
+      expect(Object.keys(payload).sort()).toEqual([
+        'detalhes',
+        'evento',
+        'rota_id',
+        'usuario_id',
+      ]);
+    });
+
     it('should insert log entry into logs table', async () => {
       await logAction({
         usuario_id: 'user-123',
@@ -51,7 +77,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'test_event',
         rota_id: null,
-        parada_id: null,
         detalhes: null,
       });
     });
@@ -67,25 +92,24 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'rota_iniciada',
         rota_id: 'rota-456',
-        parada_id: null,
         detalhes: null,
       });
     });
 
-    it('should include parada_id when provided', async () => {
+    it('guarda a parada dentro de detalhes, preservando o que já estava lá', async () => {
       await logAction({
         usuario_id: 'user-123',
         evento: 'parada_concluida',
         rota_id: 'rota-456',
         parada_id: 'parada-789',
+        detalhes: { metodo: 'manual' },
       });
 
       expect(mockInsert).toHaveBeenCalledWith({
         usuario_id: 'user-123',
         evento: 'parada_concluida',
         rota_id: 'rota-456',
-        parada_id: 'parada-789',
-        detalhes: null,
+        detalhes: { metodo: 'manual', parada_id: 'parada-789' },
       });
     });
 
@@ -102,7 +126,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'rota_status_alterado',
         rota_id: null,
-        parada_id: null,
         detalhes,
       });
     });
@@ -120,7 +143,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'test_event',
         rota_id: null,
-        parada_id: null,
         detalhes: null,
       });
     });
@@ -140,7 +162,7 @@ describe('logs queries', () => {
         expect.objectContaining({
           evento: 'test_event',
           error: { message: 'Insert failed' },
-        })
+        }),
       );
     });
 
@@ -157,7 +179,7 @@ describe('logs queries', () => {
         expect.objectContaining({
           evento: 'test_event',
           error: expect.any(Error),
-        })
+        }),
       );
     });
   });
@@ -170,7 +192,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'rota_iniciada',
         rota_id: 'rota-456',
-        parada_id: null,
         detalhes: null,
       });
     });
@@ -184,7 +205,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'rota_atribuida',
         rota_id: 'rota-456',
-        parada_id: null,
         detalhes,
       });
     });
@@ -192,14 +212,18 @@ describe('logs queries', () => {
 
   describe('logParadaAction', () => {
     it('should log action with parada and rota context', async () => {
-      await logParadaAction('user-123', 'parada-789', 'rota-456', 'parada_concluida');
+      await logParadaAction(
+        'user-123',
+        'parada-789',
+        'rota-456',
+        'parada_concluida',
+      );
 
       expect(mockInsert).toHaveBeenCalledWith({
         usuario_id: 'user-123',
         evento: 'parada_concluida',
         rota_id: 'rota-456',
-        parada_id: 'parada-789',
-        detalhes: null,
+        detalhes: { parada_id: 'parada-789' },
       });
     });
 
@@ -211,15 +235,14 @@ describe('logs queries', () => {
         'parada-789',
         'rota-456',
         'parada_foto_enviada',
-        detalhes
+        detalhes,
       );
 
       expect(mockInsert).toHaveBeenCalledWith({
         usuario_id: 'user-123',
         evento: 'parada_foto_enviada',
         rota_id: 'rota-456',
-        parada_id: 'parada-789',
-        detalhes,
+        detalhes: { ...detalhes, parada_id: 'parada-789' },
       });
     });
   });
@@ -232,7 +255,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'perfil_atualizado',
         rota_id: null,
-        parada_id: null,
         detalhes: null,
       });
     });
@@ -246,7 +268,6 @@ describe('logs queries', () => {
         usuario_id: 'user-123',
         evento: 'perfil_atualizado',
         rota_id: null,
-        parada_id: null,
         detalhes,
       });
     });
@@ -270,7 +291,9 @@ describe('logs queries', () => {
 
     it('should have incidente events', () => {
       expect(LOG_EVENTS.INCIDENTE_CRIADO).toBe('incidente_criado');
-      expect(LOG_EVENTS.INCIDENTE_STATUS_ALTERADO).toBe('incidente_status_alterado');
+      expect(LOG_EVENTS.INCIDENTE_STATUS_ALTERADO).toBe(
+        'incidente_status_alterado',
+      );
     });
 
     it('should have user events', () => {
