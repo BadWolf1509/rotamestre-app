@@ -45,38 +45,41 @@ trilhas" nas armadilhas) — recriar custa uma investigação inteira.
 Sessão de 15/08/2026 interrompida no meio. Tudo que segue é estado real
 verificado, não plano.
 
-### 1. Branch aberta, commit não enviado
+### 1. Branch aberta, sem push nem PR
 
-`fix/onboarding-prefill-nome`, commit `4e7abf7` — **não** foi feito push nem PR.
-Corrige o pré-preenchimento do nome na tela de onboarding (detalhe em "Onboarding
-validado até o passo 3"). `npm run validate` passou: 331 suites, 5849 testes.
+`fix/onboarding-prefill-nome`, três commits: `4e7abf7` (pré-preenchimento do
+nome), `1d8d479` (docs) e `c8b43db` (cidade/UF automáticas). **Nada foi enviado.**
+Suíte completa verde: 331 suites, 5854 testes.
 
-### 2. Próxima implementação, já desenhada e aprovada
+### 2. Cidade e UF automáticas — implementado em 15/08
 
-Preencher **cidade e UF automaticamente** ao selecionar o endereço no onboarding,
-e reordenar os campos. Design aprovado pelo gestor em 15/08:
+Selecionar o endereço preenche cidade e UF, e os campos foram reordenados para
+Nome → Empresa → **Endereço** → Cidade → UF. Só `app/onboarding/criar-unidade.tsx`.
+O que a implementação decidiu e por quê:
 
-- **Ordem nova:** Nome → Empresa → **Endereço** → Cidade → UF (o endereço vem
-  antes do que ele preenche).
-- **Sobrescreve** cidade/UF já digitados — decisão explícita do gestor: o
-  endereço é a fonte de verdade, senão a unidade nasce com cidade divergente do
-  endereço, sem aviso. Campos seguem editáveis.
-- **O autocomplete não entrega cidade/UF.** `onSelectAddress(address, placeId,
-coordinates?)` só dá isso; cidade e estado exigem uma chamada extra a
-  `googlePlacesService.getPlaceDetails(placeId)`.
-- **Copiar o padrão pronto de `app/unidade/index.tsx:228-255`**, que já resolve
-  as duas armadilhas: ignorar `place_id` que começa com `cep_` (sintético do
-  ViaCEP, o Places não resolve) e converter o estado com `nomeEstadoParaUF` —
-  senão "Paraíba" trunca para "Pa" no campo `maxLength={2}`.
-- **Falhar em silêncio é o certo aqui:** se o `getPlaceDetails` falhar, o
-  cadastro continua. Endereço e coordenadas já vieram do `onSelectAddress` e são
-  o que a RPC exige; cidade/UF caem para digitação manual, com `logger.warn`.
-- **Arquivo:** só `app/onboarding/criar-unidade.tsx`.
-- **Testes (TDD, RED primeiro):** preenche cidade e UF; UF chega como sigla e
-  não por extenso; sugestão de CEP não chama o Places; falha do `getPlaceDetails`
-  não impede o envio.
-- **Fora do escopo:** CEP e logradouro — a tela Minha Unidade preenche, este
-  formulário não tem esses campos.
+- **O endereço sobrescreve** cidade/UF já digitados (decisão do gestor): senão a
+  unidade nasce dizendo "Recife" com a sede em João Pessoa, sem aviso. Os dois
+  campos seguem editáveis.
+- **O autocomplete não entrega cidade/UF** — `onSelectAddress` só dá endereço,
+  `place_id` e coordenadas. Cidade e estado exigem `getPlaceDetails(placeId)`,
+  que cai no cache de 30 min aberto pelo próprio autocomplete.
+- Duas armadilhas herdadas de `app/unidade/index.tsx`: `place_id` iniciado por
+  `cep_` é sintético do ViaCEP e o Places não resolve; o estado chega por extenso
+  e truncaria para "Pa" no campo `maxLength={2}` — daí o `nomeEstadoParaUF`.
+- **Falha do Places é silenciosa** (`logger.warn`): as coordenadas já vieram do
+  `onSelectAddress` e são o que a RPC exige.
+- **Fora do escopo:** CEP e logradouro — este formulário não tem esses campos.
+
+Validado no navegador com o Places real: cidade e UF **vazias** antes do clique,
+"João Pessoa" e "PB" depois. Os 5 testes novos foram conferidos contra a ausência
+da própria proteção — sem a guarda de `cep_`, sem o `try/catch` ou sem o
+`clearErrors`, o teste correspondente falha.
+
+Um detalhe de teste que custou tempo e vai se repetir: `waitFor` afirmando
+**ausência** (`queryByText(...).toBeNull()`) logo após um `fireEvent` falha mesmo
+com o código certo — ele corre em paralelo com o preenchimento e conclui cedo.
+Ancore antes numa precondição observável (o campo com o valor esperado) e só
+então afirme a ausência.
 
 ### 3. Onboarding validado até o passo 3 (pendência 6, parcial)
 
