@@ -2,7 +2,10 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { authService } from '@/lib/auth';
-import { loginRateLimiter } from '@/lib/rateLimiter';
+import {
+  confirmationResendRateLimiter,
+  loginRateLimiter,
+} from '@/lib/rateLimiter';
 
 import Login from '../../../auth/login';
 
@@ -17,11 +20,21 @@ const mockRouter = require('expo-router').useRouter();
 jest.mock('@/lib/auth', () => ({
   authService: {
     signIn: jest.fn(),
+    resendConfirmation: jest.fn(),
   },
 }));
 
 jest.mock('@/lib/rateLimiter', () => ({
   loginRateLimiter: {
+    checkLimit: jest.fn().mockResolvedValue({
+      allowed: true,
+      remainingAttempts: 5,
+      retryAfterMs: null,
+      message: null,
+    }),
+    recordAttempt: jest.fn().mockResolvedValue(undefined),
+  },
+  confirmationResendRateLimiter: {
     checkLimit: jest.fn().mockResolvedValue({
       allowed: true,
       remainingAttempts: 5,
@@ -589,6 +602,163 @@ describe('Login Screen - Integration Tests', () => {
       await waitFor(() => {
         expect(authService.signIn).toHaveBeenCalledTimes(2);
         expect(mockRouter.replace).toHaveBeenCalledWith('/gestor/inicio');
+      });
+    });
+  });
+
+  // ============================================
+  // GRUPO 8: Reenvio da confirmação de cadastro
+  // ============================================
+  describe('Reenvio da confirmação de cadastro', () => {
+    /** Leva o login até o erro "email não confirmado". */
+    async function chegarAoErroDeConfirmacao(
+      email = 'naoconfirmado@rotamestre.com',
+    ) {
+      (authService.signIn as jest.Mock).mockRejectedValue(
+        new Error('Email not confirmed'),
+      );
+
+      const tela = render(<Login />);
+
+      fireEvent.changeText(tela.getByPlaceholderText('seu@email.com'), email);
+      fireEvent.changeText(tela.getByPlaceholderText('••••••••'), 'senha123');
+      fireEvent.press(tela.getByText('Entrar'));
+
+      await waitFor(() => {
+        expect(tela.getByText('E-mail não confirmado')).toBeTruthy();
+      });
+
+      return tela;
+    }
+
+    it('oferece reenviar o email quando a conta não foi confirmada', async () => {
+      const { getByText } = await chegarAoErroDeConfirmacao();
+
+      expect(getByText('Reenviar email')).toBeTruthy();
+    });
+
+    // O beco sem saída que este grupo existe para eliminar: antes, a única
+    // resposta era "verifique sua caixa de entrada" — inútil se o link expirou.
+    it('não oferece reenvio em erro de credencial inválida', async () => {
+      (authService.signIn as jest.Mock).mockRejectedValue(
+        new Error('Invalid login credentials'),
+      );
+
+      const { getByPlaceholderText, getByText, queryByText } = render(
+        <Login />,
+      );
+
+      fireEvent.changeText(
+        getByPlaceholderText('seu@email.com'),
+        'erro@rotamestre.com',
+      );
+      fireEvent.changeText(getByPlaceholderText('••••••••'), 'senhaerrada');
+      fireEvent.press(getByText('Entrar'));
+
+      await waitFor(() => {
+        expect(getByText('E-mail ou senha incorretos')).toBeTruthy();
+      });
+      expect(queryByText('Reenviar email')).toBeNull();
+    });
+
+    it('reenvia para o email digitado, em minúsculas', async () => {
+      (authService.resendConfirmation as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+
+      const { getByText } = await chegarAoErroDeConfirmacao(
+        'NaoConfirmado@Rotamestre.com',
+      );
+
+      fireEvent.press(getByText('Reenviar email'));
+
+      await waitFor(() => {
+        expect(authService.resendConfirmation).toHaveBeenCalledWith(
+          'naoconfirmado@rotamestre.com',
+        );
+      });
+    });
+
+    it('confirma o envio e registra no limitador', async () => {
+      (authService.resendConfirmation as jest.Mock).mockResolvedValue(
+        undefined,
+      );
+
+      const { getByText } = await chegarAoErroDeConfirmacao();
+
+      fireEvent.press(getByText('Reenviar email'));
+
+      await waitFor(() => {
+        expect(getByText('Email enviado!')).toBeTruthy();
+        expect(
+          confirmationResendRateLimiter.recordAttempt,
+        ).toHaveBeenCalledWith('naoconfirmado@rotamestre.com', true);
+      });
+    });
+
+    it('bloqueia quando o limitador local recusa, sem chamar o Supabase', async () => {
+      (
+        confirmationResendRateLimiter.checkLimit as jest.Mock
+      ).mockResolvedValueOnce({
+        allowed: false,
+        remainingAttempts: 0,
+        retryAfterMs: 300000,
+        message: 'Muitos envios. Aguarde 5 minutos.',
+      });
+
+      const { getByText } = await chegarAoErroDeConfirmacao();
+
+      fireEvent.press(getByText('Reenviar email'));
+
+      await waitFor(() => {
+        expect(getByText('Aguarde')).toBeTruthy();
+      });
+      expect(authService.resendConfirmation).not.toHaveBeenCalled();
+    });
+
+    // 429 não é erro do usuário: o email já saiu. Tratar como falha faria a
+    // pessoa achar que precisa tentar de novo.
+    it('trata 429 do Supabase como email já enviado', async () => {
+      (authService.resendConfirmation as jest.Mock).mockRejectedValue(
+        new Error('email rate limit exceeded'),
+      );
+
+      const { getByText } = await chegarAoErroDeConfirmacao();
+
+      fireEvent.press(getByText('Reenviar email'));
+
+      await waitFor(() => {
+        expect(getByText('Email já enviado')).toBeTruthy();
+      });
+    });
+
+    // Cenário real: um scanner de email abriu o link e confirmou a conta entre
+    // a tentativa de login e o clique em reenviar.
+    it('avisa quando a conta já foi confirmada nesse meio-tempo', async () => {
+      (authService.resendConfirmation as jest.Mock).mockRejectedValue(
+        new Error('Email link is invalid or user already confirmed'),
+      );
+
+      const { getByText } = await chegarAoErroDeConfirmacao();
+
+      fireEvent.press(getByText('Reenviar email'));
+
+      await waitFor(() => {
+        expect(getByText('Conta já confirmada')).toBeTruthy();
+      });
+    });
+
+    it('é honesto quando o envio falha no servidor de email', async () => {
+      (authService.resendConfirmation as jest.Mock).mockRejectedValue(
+        new Error('Error sending confirmation email'),
+      );
+
+      const { getByText } = await chegarAoErroDeConfirmacao();
+
+      fireEvent.press(getByText('Reenviar email'));
+
+      await waitFor(() => {
+        expect(getByText('Falha ao enviar')).toBeTruthy();
       });
     });
   });

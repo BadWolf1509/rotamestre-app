@@ -171,6 +171,23 @@ export const authService = {
     if (error) throw error;
   },
 
+  /**
+   * Reenvia o email de confirmação de cadastro.
+   *
+   * Chamado do login, quando o Supabase recusa a entrada com "Email not
+   * confirmed" — é o único ponto onde sabemos o email E que a conta existe sem
+   * ter confirmado, então não há enumeração a proteger aqui (diferente do
+   * `resetPassword`, acessível a quem só tem um palpite de endereço).
+   *
+   * Sem `emailRedirectTo`, igual ao `signUp`: o destino sai do Site URL. O
+   * email reenviado usa o template **Confirm signup**, que já carrega a
+   * proteção anti link-scanner (`supabase/templates/confirm-signup.html`).
+   */
+  async resendConfirmation(email: string) {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) throw error;
+  },
+
   // Atualizar senha
   async updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({

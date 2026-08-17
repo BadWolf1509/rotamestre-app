@@ -614,6 +614,7 @@ const mockSupabaseClient = {
     signOut: jest.fn().mockResolvedValue({ error: null }),
     resetPasswordForEmail: jest.fn().mockResolvedValue({ data: {}, error: null }),
     updateUser: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    resend: jest.fn().mockResolvedValue({ data: {}, error: null }),
     getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
     setSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),

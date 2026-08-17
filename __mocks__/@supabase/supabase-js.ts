@@ -7,6 +7,7 @@ export const mockSupabaseClient = {
     signOut: jest.fn(),
     resetPasswordForEmail: jest.fn(),
     updateUser: jest.fn(),
+    resend: jest.fn(),
     getSession: jest.fn(),
     onAuthStateChange: jest.fn(() => ({
       data: { subscription: { unsubscribe: jest.fn() } },

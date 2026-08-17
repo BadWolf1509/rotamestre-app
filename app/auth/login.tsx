@@ -27,7 +27,10 @@ import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { getErrorMessage } from '@/lib/errorMapping';
-import { loginRateLimiter } from '@/lib/rateLimiter';
+import {
+  confirmationResendRateLimiter,
+  loginRateLimiter,
+} from '@/lib/rateLimiter';
 import { loginSchema, type LoginInput } from '@/lib/schemas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -84,23 +87,119 @@ function LoginContent() {
     title: string;
     message: string;
     type: 'default' | 'error' | 'success' | 'warning';
+    /**
+     * Quando presente, o diálogo ganha o botão de reenviar a confirmação para
+     * este endereço. Só é preenchido no erro "email não confirmado", onde o
+     * Supabase já revelou que a conta existe sem ter confirmado.
+     */
+    reenviarPara?: string;
   }>({
     visible: false,
     title: '',
     message: '',
     type: 'error',
   });
+  const [reenviando, setReenviando] = useState(false);
 
   function showAlert(
     title: string,
     message: string,
     type: 'default' | 'error' | 'success' | 'warning' = 'error',
+    reenviarPara?: string,
   ) {
-    setAlertConfig({ visible: true, title, message, type });
+    setAlertConfig({ visible: true, title, message, type, reenviarPara });
   }
 
   function hideAlert() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
+  }
+
+  /**
+   * Reenvia o email de confirmação de cadastro.
+   *
+   * Só é alcançável a partir do erro "email não confirmado", então o endereço
+   * já é conhecido e não há enumeração a proteger — diferente do
+   * forgot-password, aberto a quem só tem um palpite de email.
+   */
+  async function handleReenviarConfirmacao(destino: string) {
+    const limite = await confirmationResendRateLimiter.checkLimit(destino);
+    if (!limite.allowed) {
+      showAlert(
+        'Aguarde',
+        limite.message ?? 'Muitas tentativas. Tente novamente mais tarde.',
+        'warning',
+      );
+      return;
+    }
+
+    setReenviando(true);
+    try {
+      await authService.resendConfirmation(destino);
+      // Envio bem-sucedido conta no limite (resetOnSuccess: false)
+      await confirmationResendRateLimiter.recordAttempt(destino, true);
+      showAlert(
+        'Email enviado!',
+        'Confira sua caixa de entrada e a pasta de spam. O link expira em 1 hora.',
+        'success',
+      );
+    } catch (error: unknown) {
+      const mensagem = error instanceof Error ? error.message : '';
+
+      if (mensagem.includes('rate limit') || mensagem.includes('429')) {
+        // 429 do Supabase = já enviou há pouco. Não é erro do usuário, então
+        // não conta como falha no limitador local.
+        showAlert(
+          'Email já enviado',
+          'Um email de confirmação foi enviado há pouco. Confira sua caixa de entrada e a pasta de spam.',
+          'success',
+        );
+      } else if (/already.*confirmed/i.test(mensagem)) {
+        // A conta pode ter sido confirmada entre a tentativa de login e o
+        // clique — inclusive por um scanner de email que abriu o link.
+        showAlert(
+          'Conta já confirmada',
+          'Este email já foi confirmado. Tente entrar novamente.',
+          'success',
+        );
+      } else if (/sending|smtp/i.test(mensagem)) {
+        showAlert(
+          'Falha ao enviar',
+          'Não conseguimos enviar o email agora. Tente novamente em alguns minutos.',
+          'error',
+        );
+      } else {
+        const amigavel = getErrorMessage(error);
+        showAlert(amigavel.title, amigavel.message, amigavel.type);
+      }
+    } finally {
+      setReenviando(false);
+    }
+  }
+
+  /**
+   * Função, não componente: declarar componente dentro do render remonta a
+   * subárvore a cada ciclo (ver CLAUDE.md). Chamada como `{renderDialog()}`
+   * nos dois layouts.
+   */
+  function renderDialog() {
+    const destino = alertConfig.reenviarPara;
+
+    return (
+      <Dialog
+        visible={alertConfig.visible}
+        variant={destino ? 'confirm' : 'alert'}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        confirmText={destino ? 'Reenviar email' : undefined}
+        cancelText={destino ? 'Fechar' : undefined}
+        loading={reenviando}
+        onConfirm={
+          destino ? () => handleReenviarConfirmacao(destino) : hideAlert
+        }
+        onCancel={destino ? hideAlert : undefined}
+      />
+    );
   }
 
   async function onSubmit(data: LoginInput) {
@@ -164,7 +263,23 @@ function LoginContent() {
         await loginRateLimiter.recordAttempt(email.toLowerCase(), false);
       }
 
-      showAlert(friendlyError.title, friendlyError.message, friendlyError.type);
+      if (friendlyError.code === 'AUTH_EMAIL_NOT_CONFIRMED') {
+        // "Verifique sua caixa de entrada" é um beco sem saída quando o link
+        // expirou ou o email nunca chegou. Aqui sabemos o endereço e sabemos
+        // que a conta existe sem confirmação, então dá para oferecer a saída.
+        showAlert(
+          friendlyError.title,
+          'Sua conta ainda não foi confirmada. Se o link expirou ou o email não chegou, podemos enviar outro.',
+          friendlyError.type,
+          email.toLowerCase(),
+        );
+      } else {
+        showAlert(
+          friendlyError.title,
+          friendlyError.message,
+          friendlyError.type,
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -295,14 +410,7 @@ function LoginContent() {
         </View>
 
         {/* Alert Dialog */}
-        <Dialog
-          visible={alertConfig.visible}
-          variant="alert"
-          title={alertConfig.title}
-          message={alertConfig.message}
-          type={alertConfig.type}
-          onConfirm={hideAlert}
-        />
+        {renderDialog()}
       </View>
     );
   }
@@ -440,14 +548,7 @@ function LoginContent() {
         </View>
 
         {/* Alert Dialog */}
-        <Dialog
-          visible={alertConfig.visible}
-          variant="alert"
-          title={alertConfig.title}
-          message={alertConfig.message}
-          type={alertConfig.type}
-          onConfirm={hideAlert}
-        />
+        {renderDialog()}
       </ScrollView>
     </KeyboardAvoidingView>
   );
