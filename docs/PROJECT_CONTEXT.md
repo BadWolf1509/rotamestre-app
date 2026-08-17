@@ -507,9 +507,13 @@ app.rotamestre.tec.br ── Expo Web / React Native
 1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
    Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
    demanda.
-2. `git status --short --branch`. **Espere ver `.claude/settings.json` modificado
-   e não commitado** — é uma permissão local do gestor, intencional. Não commite
-   e **não use `git reset --hard`**, que a destrói (já aconteceu três vezes).
+2. `git status --short --branch`. **Espere a árvore limpa.** Até 17/08 havia um
+   `.claude/settings.json` permanentemente modificado — a permissão local do
+   gestor, que `git reset --hard` destruiu três vezes. Ela foi movida para
+   `.claude/settings.local.json`, que o `.gitignore` cobre e o `reset --hard`
+   não toca (ele só mexe em arquivo rastreado). **Se esse diff reaparecer**, é
+   porque uma permissão foi salva no escopo "projeto" em vez de "local":
+   reverta o versionado e confira se a permissão está no `settings.local.json`.
 3. Confira `package.json`, o último commit e os checks do GitHub.
 4. Se houver banco no escopo, rode `npx supabase migration list` e compare o
    schema vivo antes de criar SQL. Releia "Armadilhas" antes de aplicar.
