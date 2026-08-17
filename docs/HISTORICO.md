@@ -420,6 +420,7 @@ que manter ajude.
 | 17/08/2026 | Templates de email do Auth: 5 defeitos corrigidos e versionados em `supabase/templates/`     | PR #390                                      |
 | 17/08/2026 | Proteção anti link-scanner estendida ao cadastro; lógica e layout extraídos do confirm-reset | PR #396                                      |
 | 17/08/2026 | Reenvio da confirmação de cadastro a partir do login, com rate limiter próprio               | PR #398                                      |
+| 17/08/2026 | Template do Magic Link removido do repo — nunca é enviado (o app não usa `signInWithOtp`)    | PR #400                                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como

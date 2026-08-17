@@ -50,7 +50,8 @@ desliga o botão e o gesto de voltar — a única saída visível era o "Sair", 
 desloga.
 
 **Fechadas em 17/08/2026, não reabra:** os **6 templates de email do Auth** foram
-corrigidos e passaram a ser versionados em `supabase/templates/` (PR #390) — cinco
+corrigidos, e **5 deles** passaram a ser versionados em `supabase/templates/`
+(PR #390; o Magic Link saiu depois no #400, ver abaixo) — cinco
 defeitos reais, sendo o pior o link alternativo do reset, que mandava para "Link
 inválido" quem copiava e colava. A proteção anti link-scanner foi **estendida ao
 cadastro** (PR #396), com a lógica extraída de `confirm-reset.tsx` para
@@ -274,6 +275,14 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   `href` e no texto visível** — trocar pelo `{{ .ConfirmationURL }}` direto
   devolve o OTP ao scanner corporativo (e, no cadastro, entrega junto os **tokens
   de sessão** que o verify carrega). Detalhe em `supabase/templates/README.md`.
+- **São 5 arquivos para 6 abas do painel, e isso é intencional.** O **Magic Link**
+  foi removido do repositório em 17/08/2026 (PR #400): o app nunca chama
+  `signInWithOtp`, então aquele email jamais é enviado, e versioná-lo custaria as
+  mesmas correções de Outlook e dark mode a cada rodada, para nada. A aba
+  **continua existindo no painel** com o layout antigo — inofensivo só enquanto
+  nada dispara o envio. Se o login sem senha entrar no produto, recupere
+  `supabase/templates/magic-link.html` do histórico do git **antes** de usar, ou o
+  template volta a viver só no painel, que é o problema que o #390 resolveu.
 - **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
   "Carregando..." **sem erro no console e com o CI verde**. Detalhe do que não
   pode ser removido em "Regras que não podem regredir".
