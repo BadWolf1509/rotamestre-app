@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 15/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 17/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências, armadilhas e validações
@@ -49,6 +49,17 @@ perfil** (PR #383): ela abria por URL para qualquer um, e o layout do onboarding
 desliga o botão e o gesto de voltar — a única saída visível era o "Sair", que
 desloga.
 
+**Fechadas em 17/08/2026, não reabra:** os **6 templates de email do Auth** foram
+corrigidos e passaram a ser versionados em `supabase/templates/` (PR #390) — cinco
+defeitos reais, sendo o pior o link alternativo do reset, que mandava para "Link
+inválido" quem copiava e colava. A proteção anti link-scanner foi **estendida ao
+cadastro** (PR #396), com a lógica extraída de `confirm-reset.tsx` para
+`src/lib/auth/confirmationLink.ts` + `src/components/auth/ConfirmLinkScreen.tsx`.
+Os templates **já foram colados no painel** e o fluxo de cadastro foi validado
+com email real (seção abaixo). O que cada defeito era e por que quebrava está em
+[HISTORICO.md](HISTORICO.md); as invariantes que não podem regredir, nas
+armadilhas.
+
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
 `mapLogToTimelinePreview` não exibe **6** dos eventos que `TIMELINE_LOG_EVENTS`
@@ -93,6 +104,35 @@ contas, zero órfãs e `self_service = 0`. A ordem importou: `usuarios.unidade_i
 é `SET NULL`, então apagar a unidade primeiro deixaria os perfis vivos e sem
 unidade — estado pior que conta órfã, porque nem o portão do onboarding recolhe.
 Apague as contas de auth primeiro (cascateiam os perfis), a unidade depois.
+
+### Emails do Auth — fluxo de cadastro validado em 17/08/2026
+
+Medido com email real, do cadastro até o banco. Cadastro às 13:33:31,
+`confirmation_sent_at` no mesmo segundo, `email_confirmed_at` às **13:35:41** —
+os dois minutos de intervalo são a prova de que o OTP **sobreviveu ao trânsito e
+à caixa de entrada** e só foi consumido no clique. Testado pelo caminho que
+estava quebrado: **copiar e colar o link alternativo**, não clicar no botão.
+
+Infraestrutura de envio conferida no mesmo dia, e está correta:
+
+| Item                | Estado                                                                 |
+| ------------------- | ---------------------------------------------------------------------- |
+| SMTP                | próprio, `no-reply@rotamestre.tec.br` via `mail.rotamestre.tec.br:587` |
+| Rate limit de email | **200/h** (não é o limite apertado do serviço embutido)                |
+| SPF                 | `v=spf1 mx a ip4:72.60.148.143 ~all` — cobre o IP que envia            |
+| DKIM                | selector `mail`, RSA/SHA-256                                           |
+| DMARC               | `p=quarantine` com `rua`/`ruf` — não é `p=none` decorativo             |
+| PTR                 | resolve para `mail.rotamestre.tec.br`, com FCrDNS completo             |
+| Confirm email       | **ligado** — o template de cadastro realmente dispara                  |
+| `otp_expiry`        | 3600s, batendo com o "expira em 1 hora" escrito nos templates          |
+
+Duas coisas que a validação revelou e não são defeito do trabalho: depois de
+confirmar, o usuário **cai no login** em vez de entrar direto — é o
+`detectSessionInUrl: false` de `src/lib/supabase.web.ts`, comportamento
+pré-existente e ligado à mecânica de `sessionRecovery.ts`; e **não existe
+`auth.resend`** no app, então um link de cadastro genuinamente expirado não tem
+como ser reenviado (a tela manda ao login, que costuma funcionar porque a conta
+acaba confirmada de qualquer forma).
 
 ### Auditoria de otimização — validada em 05/08/2026
 
@@ -201,6 +241,16 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
 - **`src/types/database.ts` NÃO existe.** Tipos de domínio são curados à mão. Não
   rode `/regenerate-supabase-types` (é aspiracional, nunca executado); acrescente
   os campos ao tipo em `src/types/`.
+- **Editar `supabase/templates/*.html` NÃO muda o email enviado.** Os arquivos são
+  versionados desde 17/08/2026, mas o Supabase lê **só do painel** (Auth → Emails):
+  é preciso colar. Não há MCP para isso, e `supabase config push` **sobrescreveria
+  a produção** com o `site_url = http://127.0.0.1:3000` do `config.toml`. Duas
+  invariantes vivem nesses arquivos e quebram em silêncio se alguém "simplificar":
+  o link de `reset-password.html` e `confirm-signup.html` precisa ser
+  `{{ .SiteURL }}/auth/confirm-{reset,signup}#url={{ .ConfirmationURL }}` **no
+  `href` e no texto visível** — trocar pelo `{{ .ConfirmationURL }}` direto
+  devolve o OTP ao scanner corporativo (e, no cadastro, entrega junto os **tokens
+  de sessão** que o verify carrega). Detalhe em `supabase/templates/README.md`.
 - **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
   "Carregando..." **sem erro no console e com o CI verde**. Detalhe do que não
   pode ser removido em "Regras que não podem regredir".
@@ -623,21 +673,22 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Mapa da documentação
 
-| Necessidade                               | Documento                                                                               |
-| ----------------------------------------- | --------------------------------------------------------------------------------------- |
-| Começar uma nova sessão / estado atual    | este arquivo                                                                            |
-| Como chegamos aqui / o que já foi tentado | [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR                      |
-| Arquitetura, padrões e phonebook técnico  | [`../CLAUDE.md`](../CLAUDE.md)                                                          |
-| Testes                                    | [TESTING.md](TESTING.md)                                                                |
-| Histórico e processo de migrations        | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)                                |
-| Google Play: procedimento                 | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)                                  |
-| Google Play: textos, assets e declarações | [play-store-metadata.md](play-store-metadata.md)                                        |
-| App Store / iOS: procedimento             | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)                                      |
-| Reconstrução da identidade Android        | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)                                    |
-| Firebase e push                           | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)                                          |
-| Recuperação de senha                      | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)                                            |
-| Marca e tokens                            | [`../brand-guidelines.md`](../brand-guidelines.md)                                      |
-| Specs e planos de features                | [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/) |
+| Necessidade                               | Documento                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Começar uma nova sessão / estado atual    | este arquivo                                                                                     |
+| Como chegamos aqui / o que já foi tentado | [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR                               |
+| Arquitetura, padrões e phonebook técnico  | [`../CLAUDE.md`](../CLAUDE.md)                                                                   |
+| Testes                                    | [TESTING.md](TESTING.md)                                                                         |
+| Histórico e processo de migrations        | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)                                         |
+| Google Play: procedimento                 | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)                                           |
+| Google Play: textos, assets e declarações | [play-store-metadata.md](play-store-metadata.md)                                                 |
+| App Store / iOS: procedimento             | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)                                               |
+| Reconstrução da identidade Android        | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)                                             |
+| Firebase e push                           | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)                                                   |
+| Recuperação de senha                      | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)                                                     |
+| Templates de email do Auth                | [`../supabase/templates/README.md`](../supabase/templates/README.md) — e por que colar no painel |
+| Marca e tokens                            | [`../brand-guidelines.md`](../brand-guidelines.md)                                               |
+| Specs e planos de features                | [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/)          |
 
 Os specs e planos em `superpowers/` são **registro de decisão**, não estado
 atual: leia-os quando for continuar a feature de que tratam (ex.: a Fase 2 da
