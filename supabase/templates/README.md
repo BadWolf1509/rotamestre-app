@@ -26,13 +26,20 @@ valores em produção hoje:
 | --------------------------- | -------------------- | ----------------------------- | -------------------------------------------------- |
 | `confirm-signup.html`       | Confirm signup       | Confirme seu cadastro         | **sim**, todo cadastro                             |
 | `reset-password.html`       | Reset Password       | Redefina sua senha            | **sim**                                            |
-| `magic-link.html`           | Magic Link           | Seu link mágico               | não — o app não usa `signInWithOtp`                |
 | `invite-user.html`          | Invite user          | Você foi convidado(a)         | só via convite manual no painel                    |
 | `change-email-address.html` | Change Email Address | Confirmar alteração de e-mail | não — `updateUser` só é chamado com `{ password }` |
 | `reauthentication.html`     | Reauthentication     | Confirmar reautenticação      | não                                                |
 
 Os três de baixo estão em texto simples de propósito: nenhum é disparado pelo
 app, então não valem o custo de manutenção de um layout completo.
+
+**O Magic Link não está aqui de propósito.** A aba existe no painel e tem um
+layout completo lá, mas o app nunca chama `signInWithOtp` — o template jamais é
+enviado. Versioná-lo custaria manutenção (as mesmas correções de Outlook, dark
+mode e acentuação a cada mudança) para um email que ninguém recebe. Se um dia o
+login sem senha entrar no produto, recupere a versão de
+`supabase/templates/magic-link.html` no histórico do git (removida em 17/08/2026)
+e traga de volta com o restante da lista.
 
 ## Invariantes
 
