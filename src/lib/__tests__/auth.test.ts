@@ -367,6 +367,55 @@ describe('AuthService - Unit Tests', () => {
   });
 
   // ============================================
+  // GRUPO 4b: resendConfirmation - Reenviar confirmação de cadastro
+  // ============================================
+  describe('resendConfirmation', () => {
+    it('deve reenviar a confirmação com type signup', async () => {
+      (mockSupabase.auth.resend as jest.Mock).mockResolvedValue({
+        data: {} as any,
+        error: null,
+      });
+
+      await authService.resendConfirmation('novo@rotamestre.com');
+
+      expect(mockSupabase.auth.resend).toHaveBeenCalledWith({
+        type: 'signup',
+        email: 'novo@rotamestre.com',
+      });
+    });
+
+    // Sem emailRedirectTo, igual ao signUp: o destino sai do Site URL, e é o
+    // template Confirm signup (com a proteção anti link-scanner) que é usado.
+    it('não deve passar emailRedirectTo', async () => {
+      (mockSupabase.auth.resend as jest.Mock).mockResolvedValue({
+        data: {} as any,
+        error: null,
+      });
+
+      await authService.resendConfirmation('novo@rotamestre.com');
+
+      const args = (mockSupabase.auth.resend as jest.Mock).mock.calls[0][0];
+      expect(args).not.toHaveProperty('options');
+    });
+
+    it('deve propagar o erro para a tela decidir a mensagem', async () => {
+      (mockSupabase.auth.resend as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          message:
+            'For security purposes, you can only request this after 60 seconds',
+        },
+      });
+
+      await expect(
+        authService.resendConfirmation('novo@rotamestre.com'),
+      ).rejects.toMatchObject({
+        message: expect.stringContaining('60 seconds'),
+      });
+    });
+  });
+
+  // ============================================
   // GRUPO 5: updatePassword - Atualizar Senha
   // ============================================
   describe('updatePassword', () => {

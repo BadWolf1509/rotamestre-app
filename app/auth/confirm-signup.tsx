@@ -10,9 +10,12 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
  * sessão válida. Com o fragmento (`#url=`) o token só é consumido quando uma
  * pessoa clica.
  *
- * Diferente do reset, aqui não há "solicitar novo link": o app não expõe
- * `auth.resend`. Como o scanner que consome o link deixa a conta confirmada, na
- * prática o login costuma funcionar — por isso a única ação é ir para lá.
+ * Diferente do reset, a única ação do estado inválido é ir para o login — e ela
+ * resolve os dois casos: se um scanner consumiu o link, a conta já está
+ * confirmada e o acesso funciona; se o link expirou de verdade, o login recusa
+ * com "email não confirmado" e oferece ali o reenvio
+ * (`handleReenviarConfirmacao` em `app/auth/login.tsx`). Um botão de reenvio
+ * aqui exigiria pedir o email de novo, já que o link inválido não diz quem é.
  *
  * Ver `supabase/templates/confirm-signup.html`.
  */
@@ -29,7 +32,7 @@ function ConfirmSignupContent() {
       invalido={{
         titulo: 'Link inválido',
         mensagem:
-          'O link de confirmação é inválido, expirou ou já foi utilizado. Tente entrar com seu email e senha — se a conta já estiver confirmada, o acesso funciona normalmente.',
+          'O link de confirmação é inválido, expirou ou já foi utilizado. Entre com seu email e senha: se a conta já estiver confirmada o acesso funciona normalmente, e se ainda faltar confirmar, o login oferece o reenvio do email.',
         acoes: [
           {
             label: 'Ir para o login',

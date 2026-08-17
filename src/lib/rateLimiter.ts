@@ -277,9 +277,29 @@ export const signupRateLimiter = createRateLimiter({
   storagePrefix: '@rotamestre/signup_limit_',
 });
 
+/**
+ * Rate limiter para reenvio do email de confirmação de cadastro
+ * - 5 envios por hora (envios bem-sucedidos também contam — resetOnSuccess: false)
+ * - Bloqueio exponencial: 5 min, 10 min... até 30 min
+ *
+ * Espelha o `passwordResetRateLimiter` de propósito: os dois disparam email a
+ * pedido de quem não está autenticado, e o gargalo real de frequência é o do
+ * Supabase (intervalo mínimo por usuário + limite/hora). Este é guarda-chuva
+ * anti-abuso, frouxo para não travar quem legitimamente não recebeu o email.
+ */
+export const confirmationResendRateLimiter = createRateLimiter({
+  maxAttempts: 5,
+  windowMs: 60 * 60 * 1000,
+  lockoutMs: 5 * 60 * 1000,
+  maxLockoutMs: 30 * 60 * 1000,
+  storagePrefix: '@rotamestre/confirm_resend_limit_',
+  resetOnSuccess: false,
+});
+
 export default {
   createRateLimiter,
   loginRateLimiter,
   passwordResetRateLimiter,
   signupRateLimiter,
+  confirmationResendRateLimiter,
 };
