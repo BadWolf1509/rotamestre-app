@@ -56,9 +56,11 @@ inválido" quem copiava e colava. A proteção anti link-scanner foi **estendida
 cadastro** (PR #396), com a lógica extraída de `confirm-reset.tsx` para
 `src/lib/auth/confirmationLink.ts` + `src/components/auth/ConfirmLinkScreen.tsx`.
 Os templates **já foram colados no painel** e o fluxo de cadastro foi validado
-com email real (seção abaixo). O que cada defeito era e por que quebrava está em
-[HISTORICO.md](HISTORICO.md); as invariantes que não podem regredir, nas
-armadilhas.
+com email real (seção abaixo). Fechando a sequência, o login passou a oferecer
+**reenvio da confirmação** quando recusa por email não confirmado (PR #398) — o
+beco sem saída de quem não confirmava a tempo. O que cada defeito era e por que
+quebrava está em [HISTORICO.md](HISTORICO.md); as invariantes que não podem
+regredir, nas armadilhas.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
@@ -126,13 +128,34 @@ Infraestrutura de envio conferida no mesmo dia, e está correta:
 | Confirm email       | **ligado** — o template de cadastro realmente dispara                  |
 | `otp_expiry`        | 3600s, batendo com o "expira em 1 hora" escrito nos templates          |
 
-Duas coisas que a validação revelou e não são defeito do trabalho: depois de
-confirmar, o usuário **cai no login** em vez de entrar direto — é o
+A validação revelou uma coisa que não é defeito do trabalho e continua valendo:
+depois de confirmar, o usuário **cai no login** em vez de entrar direto — é o
 `detectSessionInUrl: false` de `src/lib/supabase.web.ts`, comportamento
-pré-existente e ligado à mecânica de `sessionRecovery.ts`; e **não existe
-`auth.resend`** no app, então um link de cadastro genuinamente expirado não tem
-como ser reenviado (a tela manda ao login, que costuma funcionar porque a conta
-acaba confirmada de qualquer forma).
+pré-existente e ligado à mecânica de `sessionRecovery.ts`.
+
+Revelou também que **não havia como reenviar** um link de cadastro expirado.
+Isso foi resolvido no mesmo dia (PR #398): o login, ao recusar com
+`AUTH_EMAIL_NOT_CONFIRMED`, agora oferece **"Reenviar email"**. Validado com
+conta real — `confirmation_sent_at` avançou 64s em relação ao `created_at`,
+provando que o segundo email saiu.
+
+### Reenvio da confirmação — onde vive e por quê
+
+O botão fica **no login**, não em tela própria, porque é o único ponto onde
+sabemos o email (a pessoa acabou de digitar), sabemos que a conta existe sem
+confirmação (o Supabase acabou de dizer) e a pessoa está travada. Isso dispensa
+a anti-enumeração do `forgot-password`: lá o cuidado existe porque um estranho
+pode sondar endereços; aqui o estado da conta já foi revelado a quem acertou a
+senha. **Uma tela pública com campo de email reintroduziria o problema** sem
+resolver nada a mais — se alguém propuser isso, é este o motivo de não fazer.
+
+`authService.resendConfirmation` não passa `emailRedirectTo` (igual ao `signUp`),
+então o email reenviado usa o template **Confirm signup**, que já carrega a
+proteção anti link-scanner. Quatro desfechos são tratados em separado, e o
+segundo é o que engana: **429 do Supabase não é falha** — o email saiu, e tratar
+como erro faria a pessoa tentar de novo à toa. Os outros: limite local (não
+chega a chamar o Supabase), conta confirmada no meio-tempo (o cenário do scanner
+que abre o link) e falha de SMTP.
 
 ### Auditoria de otimização — validada em 05/08/2026
 
