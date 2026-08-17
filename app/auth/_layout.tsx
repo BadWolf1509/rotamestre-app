@@ -38,6 +38,12 @@ export default function AuthLayout() {
           title: 'Confirmar Recuperação',
         }}
       />
+      <Stack.Screen
+        name="confirm-signup"
+        options={{
+          title: 'Confirmar Cadastro',
+        }}
+      />
     </Stack>
   );
 }
