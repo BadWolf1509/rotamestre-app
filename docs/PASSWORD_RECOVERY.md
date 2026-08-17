@@ -24,6 +24,11 @@ native) concluem o fluxo **na web** — o app nativo não tem handler de deep li
    - A URL extraída é **validada** antes do redirect: precisa ser `https` com host
      idêntico ao do projeto Supabase (`EXPO_PUBLIC_SUPABASE_URL`). Sem isso a página
      seria um open redirect para phishing. URL reprovada cai no estado "Link inválido".
+   - Extração e validação vivem em `src/lib/auth/confirmationLink.ts`, e o layout
+     em `src/components/auth/ConfirmLinkScreen.tsx` — compartilhados com
+     `app/auth/confirm-signup.tsx`, que aplica a mesma proteção ao link de
+     confirmação de cadastro. Ao mexer nessas duas peças, os testes de
+     `confirm-reset` são a rede de segurança deste fluxo.
 
 3. **Verificação → formulário** — `app/auth/reset-password.tsx`
    - O verify do Supabase redireciona para `/auth/reset-password` com tokens no hash

@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
 
-// As 5 telas de auth chamam useResponsive durante o render. Fazê-lo lançar
+// As 6 telas de auth chamam useResponsive durante o render. Fazê-lo lançar
 // simula um defeito em qualquer ponto da árvore — é o cenário que hoje deixa
 // o usuário com tela branca na porta de entrada do app, sem recuperação.
 jest.mock('@/hooks/useResponsive', () => ({
@@ -24,6 +24,10 @@ const TELAS: { nome: string; carregar: () => React.ComponentType }[] = [
   {
     nome: 'confirm-reset',
     carregar: () => require('../confirm-reset').default,
+  },
+  {
+    nome: 'confirm-signup',
+    carregar: () => require('../confirm-signup').default,
   },
 ];
 

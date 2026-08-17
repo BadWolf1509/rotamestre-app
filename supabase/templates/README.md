@@ -36,24 +36,36 @@ app, então não valem o custo de manutenção de um layout completo.
 
 ## Invariantes
 
-**O botão do `reset-password.html` NÃO pode virar `{{ .ConfirmationURL }}` direto.**
-Ele aponta para a página intermediária com o link real no fragmento:
+**Os links de `reset-password.html` e `confirm-signup.html` NÃO podem virar
+`{{ .ConfirmationURL }}` direto.** Ambos apontam para uma página intermediária,
+com o link real do Supabase no fragmento:
 
 ```
-{{ .SiteURL }}/auth/confirm-reset#url={{ .ConfirmationURL }}
+{{ .SiteURL }}/auth/confirm-reset#url={{ .ConfirmationURL }}     ← reset-password.html
+{{ .SiteURL }}/auth/confirm-signup#url={{ .ConfirmationURL }}    ← confirm-signup.html
 ```
 
 Fragmento (`#…`) nunca é enviado ao servidor HTTP, então link scanner de email
-corporativo não consegue consumir o OTP single-use antes do usuário. Trocar pelo
-link direto reintroduz o bug corrigido em `43d3352`. Ver `docs/PASSWORD_RECOVERY.md`
-e `app/auth/confirm-reset.tsx`.
+corporativo não consegue consumir o OTP single-use antes do usuário.
+
+- No **reset**, o OTP consumido deixa o usuário sem redefinir a senha. Bug
+  corrigido em `43d3352`.
+- No **signup** o efeito é diferente e pior sob a ótica de segurança: o verify
+  redireciona com **tokens de sessão** na URL, então o scanner que consome o
+  link recebe uma sessão válida. (A conta acaba confirmada, e por isso o login
+  costuma funcionar — o problema não é o usuário travar, é a sessão vazar.)
 
 Pelo mesmo motivo, o **texto visível** do link alternativo precisa incluir o
-`#url=…`. Sem ele, quem copia e cola cai em `getConfirmationUrl() → null` e vê a
-tela "Link inválido".
+`#url=…` nos dois. Sem ele, quem copia e cola cai em
+`getConfirmationUrl() → null` e vê a tela "Link inválido".
+
+A extração e a validação do destino vivem em `src/lib/auth/confirmationLink.ts`
+(compartilhadas pelas duas telas); o layout, em
+`src/components/auth/ConfirmLinkScreen.tsx`. Ver também
+`docs/PASSWORD_RECOVERY.md`.
 
 Isso depende de `Site URL = https://app.rotamestre.tec.br` em
-`Authentication → URL Configuration`. Se o Site URL mudar, o link muda junto.
+`Authentication → URL Configuration`. Se o Site URL mudar, os links mudam junto.
 
 ## Restrições de cliente de email respeitadas aqui
 

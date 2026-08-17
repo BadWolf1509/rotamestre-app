@@ -56,13 +56,20 @@
 
               <!-- Botão bulletproof: o padding vive no <td>, porque o Outlook -->
               <!-- não aplica padding em <a> nem entende display:inline-block.  -->
+              <!--                                                              -->
+              <!-- O destino é a página intermediária /auth/confirm-signup, com  -->
+              <!-- o link real do Supabase no FRAGMENTO (#url=). Fragmento nunca -->
+              <!-- chega ao servidor, então link scanner corporativo não consome -->
+              <!-- o OTP — e não recebe os tokens de SESSÃO que o verify de      -->
+              <!-- signup devolve. Ver app/auth/confirm-signup.tsx.              -->
+              <!-- NÃO troque por {{ .ConfirmationURL }} direto: quebra a proteção. -->
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
                   <td align="center" style="padding: 20px 0;">
                     <table cellpadding="0" cellspacing="0" border="0" role="presentation" style="margin: 0 auto;">
                       <tr>
                         <td align="center" bgcolor="#10b981" style="background-color: #10b981; border-radius: 12px; padding: 16px 48px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);">
-                          <a href="{{ .ConfirmationURL }}" style="display: block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Confirmar Email</a>
+                          <a href="{{ .SiteURL }}/auth/confirm-signup#url={{ .ConfirmationURL }}" style="display: block; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">Confirmar Email</a>
                         </td>
                       </tr>
                     </table>
@@ -70,11 +77,12 @@
                 </tr>
               </table>
 
-              <!-- Link alternativo: o texto visível é a URL COMPLETA, para que copiar -->
-              <!-- e colar realmente funcione.                                          -->
+              <!-- Link alternativo: o texto visível PRECISA incluir o #url=, senão -->
+              <!-- quem copia e cola chega em /auth/confirm-signup sem fragmento e   -->
+              <!-- cai na tela "Link inválido" (getConfirmationUrl retorna null).    -->
               <p style="margin: 24px 0 0; color: #9ca3af; font-size: 14px; line-height: 1.5; text-align: center;">
                 Ou copie e cole este link no navegador:<br>
-                <a href="{{ .ConfirmationURL }}" style="color: #0D5A9C; word-break: break-all;">{{ .ConfirmationURL }}</a>
+                <a href="{{ .SiteURL }}/auth/confirm-signup#url={{ .ConfirmationURL }}" style="color: #0D5A9C; word-break: break-all;">{{ .SiteURL }}/auth/confirm-signup#url={{ .ConfirmationURL }}</a>
               </p>
 
               <!-- Avisos em <table>: Outlook tem suporte instável a padding em <div>. -->
