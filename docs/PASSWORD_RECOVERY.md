@@ -50,7 +50,11 @@ native) concluem o fluxo **na web** — o app nativo não tem handler de deep li
   `https://app.rotamestre.tec.br/auth/reset-password`. (A entrada antiga
   `rotamestre://reset-password` ficou obsoleta.)
 - **Auth → Email Templates → Reset Password**: o link deve ser
-  `https://app.rotamestre.tec.br/auth/confirm-reset#url={{ .ConfirmationURL }}`.
+  `{{ .SiteURL }}/auth/confirm-reset#url={{ .ConfirmationURL }}` — tanto no `href`
+  quanto no **texto visível** do link alternativo. Sem o `#url=` no texto, quem
+  copia e cola chega sem fragmento e cai em "Link inválido".
+  O HTML vive versionado em `supabase/templates/` (ver o README de lá); o painel
+  continua sendo o único lugar que o Supabase lê, então é preciso colar.
 - Se um **custom domain de auth** for configurado no futuro, o host do
   `ConfirmationURL` muda e a validação do confirm-reset (que compara com
   `EXPO_PUBLIC_SUPABASE_URL`) precisa ser ajustada junto.
