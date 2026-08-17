@@ -256,43 +256,134 @@ produção. O que importa para a próxima sessão:
   não prova nada, então cada guarda nova foi conferida contra a ausência da
   proteção que ela vigia (ver TESTING.md).
 
+## Estado confirmado em 17/08/2026
+
+### Emails do Auth: do painel para o repositório
+
+Os 6 templates existiam **só dentro do painel do Supabase** — sem histórico, sem
+revisão, sem ninguém saber que estavam quebrados. A sessão começou como "ajustar
+os templates" e virou uma auditoria.
+
+O diagnóstico separou o que dispara do que não dispara: só **Confirm signup** e
+**Reset password** são enviados pelo app. Magic Link, Change Email e
+Reauthentication nunca saem (`signInWithOtp` não existe no código; `updateUser` é
+sempre chamado com `{ password }`), e o Invite só por convite manual no painel.
+O Magic Link tinha ganhado um layout caprichado que nenhum usuário jamais veria.
+
+Cinco defeitos reais, todos corrigidos no PR #390:
+
+1. **O link alternativo do reset não funcionava.** O `href` trazia o `#url=`, mas
+   o **texto visível** não. Quem seguia a instrução "copie e cole este link"
+   chegava sem fragmento e caía em "Link inválido" — ou seja, quem já não tinha
+   conseguido clicar no botão era mandado para o beco sem saída.
+2. **Cabeçalho invisível no Outlook**: gradiente sem `background-color` de
+   fallback deixava o `<h1>` branco sobre fundo branco.
+3. **Botão sem área clicável no Outlook**: `<a>` com `display:inline-block` e
+   `padding`, que o engine do Word ignora. Virou `<table>`/`<td bgcolor>`.
+4. **Ícones invisíveis**: `<svg>` inline é removido pelo Gmail e não é suportado
+   pelo Outlook. Trocados por emoji.
+5. **Assunto em português, corpo em inglês** em três templates — pior que estar
+   tudo em inglês, porque atrai numa língua e entrega noutra.
+
+Mais dark mode (`meta color-scheme`), avisos migrados de `<div>` para `<table>`,
+`padding` movido para o `<td>` externo, `max-width` no mobile, preheader e
+`{{ .Email }}` identificando a conta.
+
+### A proteção anti-scanner chegou ao cadastro (PR #396)
+
+O reset já passava pela página intermediária desde `43d3352`. O cadastro não. O
+levantamento mostrou que **o efeito ali é diferente e pior**: o verify de signup
+redireciona com **tokens de sessão** na URL, então o scanner que faz prefetch não
+só confirma a conta antes do usuário — recebe uma sessão válida. O usuário, esse,
+não trava: como a conta acaba confirmada, o login funciona. O problema não era
+atrito, era sessão vazando.
+
+Em vez de duplicar as 298 linhas de `confirm-reset.tsx`, a lógica saiu para
+`src/lib/auth/confirmationLink.ts` e o layout para
+`src/components/auth/ConfirmLinkScreen.tsx`. O `confirm-reset` caiu para 52
+linhas. **O critério de segurança do refactor foi explícito: os 16 testes dele
+passam sem uma linha alterada no arquivo de teste** — é um fluxo já consertado
+duas vezes, e a suíte existente foi a rede.
+
+Decisão registrada: o estado de link inválido do cadastro oferece **só "Ir para o
+login"**. Implementar `auth.resend` puxaria rate limit, anti-enumeração e telas
+novas, e o login costuma ser a saída certa justamente porque o scanner deixou a
+conta confirmada.
+
+### Validação com email real, não só com teste
+
+Cadastro às 13:33:31, confirmação às **13:35:41**, `token_consumido = true`. Os
+dois minutos provam que o OTP atravessou o envio e a caixa de entrada intacto.
+Testado pelo caminho que estava quebrado: copiar e colar o link alternativo.
+
+A infraestrutura de envio foi conferida por DNS e está correta (SPF cobrindo o IP,
+DKIM no selector `mail`, DMARC em `p=quarantine`, PTR com FCrDNS, SMTP próprio e
+200 emails/h). O detalhe está em PROJECT_CONTEXT.md.
+
+Três coisas de método que valem para a próxima sessão:
+
+- **HTTP 200 no Expo web não prova que uma rota existe** — o SPA devolve o mesmo
+  HTML para qualquer caminho. A tela nova só foi dada como pronta depois de
+  renderizar os quatro cenários no navegador, produção incluída.
+- **Um "tudo verde" foi reportado sem valer.** Ao estender o script de invariantes
+  dos templates via `replace`, a substituição falhou em silêncio e a checagem do
+  cadastro nunca rodou — só apareceu porque a seção foi conferida na saída.
+  Verde de script que você mesmo acabou de editar merece uma conferência.
+- **Ler o painel antes de teorizar.** Duas hipóteses levantadas com confiança —
+  `site_url` local vazado para produção e assuntos em inglês — caíram assim que os
+  screenshots chegaram. Ambas eram plausíveis e nenhuma era verdade.
+
+### `rotamestre://reset-password` era do Android, e por isso saiu
+
+Investigado a pedido: a entrada na allow-list **era** o caminho do app nativo, e
+foi removida do código no PR #244 porque **estava quebrada** — o scheme existe em
+`app.config.js`, mas `detectSessionInUrl` é `false` no nativo e não há handler de
+deep link, então o link abria o app e nada acontecia.
+
+O achado que inverte a intuição: manter a entrada na allow-list **piora** o caso
+de um build antigo. Com ela, o Supabase aceita o redirect e o app engole o
+callback; sem ela, cai no Site URL e o fluxo web **funciona**. Não há cenário em
+que manter ajude.
+
 ## Mudanças relevantes desta etapa
 
-| Data       | Mudança                                                                                     | Referência                                   |
-| ---------- | ------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente    | commit `e1f1bd5`, migration `20260723223000` |
-| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                  | commit `de8a036`, migration `20260722195606` |
-| 24/07/2026 | Correção da autenticação Android após rotação de chave                                      | commit `6dd8aa8`                             |
-| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta         | commit `b7a39dc`                             |
-| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta          | commit `3788f55`                             |
-| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                     | commit `191db5a`                             |
-| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)            | PRs #341/#345/#343/#342/#344                 |
-| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                      | PR #346                                      |
-| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta            | PRs #347 e #348                              |
-| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline     | PR #350, migration `20260804235500`          |
-| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push`   | PR #351                                      |
-| 06/08/2026 | Onboarding self-service: RPC de criação de unidade + portão no `index.tsx` e no `login.tsx` | PR #354, migration `20260806175617`          |
-| 07/08/2026 | Credenciais hardcoded removidas do repositório público                                      | PR #353                                      |
-| 07/08/2026 | Tela "Minha Unidade" passa a salvar via RPC `atualizar_unidade`                             | PR #355, migration `20260807151639`          |
-| 07/08/2026 | Acentuação dos rótulos da tela de rota                                                      | PR #356                                      |
-| 08/08/2026 | Formulário de unidade: 7 defeitos + a causa raiz que impedia salvar a sede                  | PR #357                                      |
-| 08/08/2026 | OSRM real no dev web (`src/lib/osrm/config.ts`), constante de URL unificada                 | PR #358                                      |
-| 08/08/2026 | Erro de endereço que não sumia após selecionar a sugestão (nova-entrega + onboarding)       | PR #359                                      |
-| 08/08/2026 | `androidVersionCode` 3024 → 3025; build EAS e publicação em teste fechado + interno         | PR #360, build `d34a88d6`                    |
-| 15/08/2026 | Fallback Haversine do OSRM sinalizado (`is_estimated`) + guarda de rota com distância zero  | PR #371                                      |
-| 15/08/2026 | Remontagens invisíveis (componente no render) + dashboard não desmonta na troca de filtro   | PR #372                                      |
-| 15/08/2026 | `ErrorBoundary` nas 5 telas de auth                                                         | PR #373                                      |
-| 15/08/2026 | `ErrorBoundary` nas 5 rotas públicas restantes — cobertura de `app/` fechada                | PR #374                                      |
-| 15/08/2026 | Decimal com vírgula em 32 pontos de exibição, via `formatarDecimal`                         | PR #375                                      |
-| 15/08/2026 | Equipe: ativar/desativar membro não pisca mais a tela inteira                               | PR #376                                      |
-| 15/08/2026 | Lote do Dependabot: maplibre 6.3.0, supabase-js 2.112.3, web-vitals 6.1.0 e dev deps        | PRs #367/#369/#370/#368                      |
-| 15/08/2026 | Onboarding: nome pré-preenchido do cadastro + cidade/UF derivadas do endereço da sede       | PR #378                                      |
-| 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                   | PR #379                                      |
-| 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar      | PR #381 (o #380 subiu junto e foi fechado)   |
-| 15/08/2026 | Onboarding devolve ao portão quem já tem perfil, em vez de abrir um formulário condenado    | PR #383                                      |
-| 15/08/2026 | Nova Rota avisa e leva a Minha Unidade quando a unidade não tem sede geocodificada          | PR #385                                      |
-| 15/08/2026 | `admin_logs` perde a FK para `auth.users`: auditoria sobrevive à exclusão da conta          | PR #386, migration `20260815200000`          |
-| 15/08/2026 | Auditoria de usuários volta a gravar (coluna inexistente no insert) + decimal do dashboard  | PR #387                                      |
+| Data       | Mudança                                                                                      | Referência                                   |
+| ---------- | -------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente     | commit `e1f1bd5`, migration `20260723223000` |
+| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                   | commit `de8a036`, migration `20260722195606` |
+| 24/07/2026 | Correção da autenticação Android após rotação de chave                                       | commit `6dd8aa8`                             |
+| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta          | commit `b7a39dc`                             |
+| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta           | commit `3788f55`                             |
+| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                      | commit `191db5a`                             |
+| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)             | PRs #341/#345/#343/#342/#344                 |
+| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                       | PR #346                                      |
+| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta             | PRs #347 e #348                              |
+| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline      | PR #350, migration `20260804235500`          |
+| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push`    | PR #351                                      |
+| 06/08/2026 | Onboarding self-service: RPC de criação de unidade + portão no `index.tsx` e no `login.tsx`  | PR #354, migration `20260806175617`          |
+| 07/08/2026 | Credenciais hardcoded removidas do repositório público                                       | PR #353                                      |
+| 07/08/2026 | Tela "Minha Unidade" passa a salvar via RPC `atualizar_unidade`                              | PR #355, migration `20260807151639`          |
+| 07/08/2026 | Acentuação dos rótulos da tela de rota                                                       | PR #356                                      |
+| 08/08/2026 | Formulário de unidade: 7 defeitos + a causa raiz que impedia salvar a sede                   | PR #357                                      |
+| 08/08/2026 | OSRM real no dev web (`src/lib/osrm/config.ts`), constante de URL unificada                  | PR #358                                      |
+| 08/08/2026 | Erro de endereço que não sumia após selecionar a sugestão (nova-entrega + onboarding)        | PR #359                                      |
+| 08/08/2026 | `androidVersionCode` 3024 → 3025; build EAS e publicação em teste fechado + interno          | PR #360, build `d34a88d6`                    |
+| 15/08/2026 | Fallback Haversine do OSRM sinalizado (`is_estimated`) + guarda de rota com distância zero   | PR #371                                      |
+| 15/08/2026 | Remontagens invisíveis (componente no render) + dashboard não desmonta na troca de filtro    | PR #372                                      |
+| 15/08/2026 | `ErrorBoundary` nas 5 telas de auth                                                          | PR #373                                      |
+| 15/08/2026 | `ErrorBoundary` nas 5 rotas públicas restantes — cobertura de `app/` fechada                 | PR #374                                      |
+| 15/08/2026 | Decimal com vírgula em 32 pontos de exibição, via `formatarDecimal`                          | PR #375                                      |
+| 15/08/2026 | Equipe: ativar/desativar membro não pisca mais a tela inteira                                | PR #376                                      |
+| 15/08/2026 | Lote do Dependabot: maplibre 6.3.0, supabase-js 2.112.3, web-vitals 6.1.0 e dev deps         | PRs #367/#369/#370/#368                      |
+| 15/08/2026 | Onboarding: nome pré-preenchido do cadastro + cidade/UF derivadas do endereço da sede        | PR #378                                      |
+| 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                    | PR #379                                      |
+| 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar       | PR #381 (o #380 subiu junto e foi fechado)   |
+| 15/08/2026 | Onboarding devolve ao portão quem já tem perfil, em vez de abrir um formulário condenado     | PR #383                                      |
+| 15/08/2026 | Nova Rota avisa e leva a Minha Unidade quando a unidade não tem sede geocodificada           | PR #385                                      |
+| 15/08/2026 | `admin_logs` perde a FK para `auth.users`: auditoria sobrevive à exclusão da conta           | PR #386, migration `20260815200000`          |
+| 15/08/2026 | Auditoria de usuários volta a gravar (coluna inexistente no insert) + decimal do dashboard   | PR #387                                      |
+| 17/08/2026 | Templates de email do Auth: 5 defeitos corrigidos e versionados em `supabase/templates/`     | PR #390                                      |
+| 17/08/2026 | Proteção anti link-scanner estendida ao cadastro; lógica e layout extraídos do confirm-reset | PR #396                                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
