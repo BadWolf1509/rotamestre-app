@@ -3,14 +3,22 @@
 > Documento de entrada para novas sessões. Atualizado em 17/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
-> **O que este documento é:** estado atual, pendências, armadilhas e validações
-> feitas. **O que ele não é:** histórico (está em [HISTORICO.md](HISTORICO.md)),
-> arquitetura e padrões de código (em [`../CLAUDE.md`](../CLAUDE.md)), versões
-> (no `package.json`) nem estado de schema (`npx supabase migration list`).
-> Duplicar qualquer um deles aqui é como este arquivo já ficou desatualizado.
+> **O que este documento é:** estado atual, pendências e armadilhas — o que você
+> precisa para **começar a agir**. **O que ele não é:** histórico e validações já
+> feitas (em [HISTORICO.md](HISTORICO.md)), arquitetura e padrões de código (em
+> [`../CLAUDE.md`](../CLAUDE.md)), versões (no `package.json`) nem estado de
+> schema (`npx supabase migration list`). Duplicar qualquer um deles aqui é como
+> este arquivo já ficou desatualizado.
 >
 > **Para começar rápido:** leia Pendências → Armadilhas → Estado atual. Bastam
 > para agir; o resto é referência sob demanda.
+>
+> **Contrato de tamanho:** este arquivo é lido por inteiro em toda sessão, então
+> cresce a um custo que ninguém vê. Ele já foi cortado duas vezes — 923→633 em
+> 15/08 (histórico) e 736→534 em 17/08 (validações e varreduras). Antes de somar
+> uma seção, pergunte se ela precisa ser lida **em toda sessão** ou só quando
+> alguém for mexer naquele fluxo. No segundo caso, o lugar é o `HISTORICO.md` ou
+> o doc do tema, com uma linha no Mapa da documentação apontando para lá.
 
 ## Pendências (comece por aqui)
 
@@ -24,7 +32,7 @@ Lista única e canônica. Se resolver uma, risque daqui.
 | 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                                                         | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
 | 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                      | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
 | 6   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
-| 7   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" abaixo                             |
+| 7   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" em [HISTORICO.md](HISTORICO.md)    |
 
 **Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
 07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
@@ -36,7 +44,7 @@ mais o feature graphic v2 refeitos e commitados com a listagem já publicada.
 **Fechadas em 15/08/2026, não reabra:** o decimal com ponto (`18.1 km` num app
 pt-BR) foi centralizado em `formatarDecimal` e migrado em 32 pontos de exibição
 (PR #375); **toda rota sob `app/` tem ErrorBoundary** (PRs #373 e #374); as
-**contas órfãs em `auth.users` foram zeradas** (ver seção própria abaixo); no
+**contas órfãs em `auth.users` foram zeradas** (detalhe em [HISTORICO.md](HISTORICO.md)); no
 onboarding, o **nome do cadastro chega pré-preenchido** e **cidade e UF saem do
 endereço** da sede, com os campos reordenados (PR #378) — ambos validados no
 navegador com o Places real. E, fechando a lista de bugs da validação manual
@@ -74,181 +82,8 @@ consulta/promoção da Play ficaram **fora do repositório** (ver "Play Store:
 trilhas" nas armadilhas) — recriar custa uma investigação inteira.
 
 A varredura por **telas com precondição forte** foi feita em 15/08 e o resultado
-está em "Guardas de precondição" abaixo: o projeto está bem coberto, e o único
+está em "Guardas de precondição", hoje em [HISTORICO.md](HISTORICO.md): o projeto está bem coberto, e o único
 beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
-
-## Validações registradas
-
-Fluxos conferidos com dado real, não só por teste. Cada um diz o que foi medido
-e onde, para não ser refeito por dúvida.
-
-### Onboarding self-service — completo em 15/08/2026
-
-Percorrido de ponta a ponta com conta e dados reais, do cadastro à rota criada.
-Fecha a pendência 6, que nenhum teste automatizado cobre — nenhum toca o banco.
-
-| Passo                 | O que foi conferido                                                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1–3 Cadastro → portão | conta em `auth.users` **sem** linha em `usuarios`, `nome` íntegro no metadata, login caindo em `/onboarding/criar-unidade`                                         |
-| 4 Criar unidade       | RPC gravou as três linhas atomicamente: `origem='self_service'`, `status='trial'`, coordenadas não nulas, gestor com `is_gestor_principal`, vínculo `is_principal` |
-| 5 Cadastrar motorista | `papel='motorista'`, ativo, **`primeira_senha=true`** — o motorista troca a senha no 1º acesso                                                                     |
-| 6 Criar rota          | `status='pendente'`, geometria viária real, notificação `nova_rota_atribuida` entregue                                                                             |
-
-A auditoria de otimização registrou **18,23 km → 15,92 km** com carimbo em
-`otimizada_em`. As 4 paradas nasceram na ordem 0–3, com a sede como partida e
-chegada (`is_checkpoint=false`) e as duas entregas como checkpoints.
-
-**Um limite do assistente que reaparece a cada validação:** o passo 5 cria conta
-de acesso e pede senha inicial, então é o gestor quem faz. O login também. Todo o
-resto do fluxo o assistente percorre sozinho.
-
-Os dados de teste foram **removidos ao final** — banco de volta a 9 unidades, 16
-contas, zero órfãs e `self_service = 0`. A ordem importou: `usuarios.unidade_id`
-é `SET NULL`, então apagar a unidade primeiro deixaria os perfis vivos e sem
-unidade — estado pior que conta órfã, porque nem o portão do onboarding recolhe.
-Apague as contas de auth primeiro (cascateiam os perfis), a unidade depois.
-
-### Emails do Auth — fluxo de cadastro validado em 17/08/2026
-
-Medido com email real, do cadastro até o banco. Cadastro às 13:33:31,
-`confirmation_sent_at` no mesmo segundo, `email_confirmed_at` às **13:35:41** —
-os dois minutos de intervalo são a prova de que o OTP **sobreviveu ao trânsito e
-à caixa de entrada** e só foi consumido no clique. Testado pelo caminho que
-estava quebrado: **copiar e colar o link alternativo**, não clicar no botão.
-
-Infraestrutura de envio conferida no mesmo dia, e está correta:
-
-| Item                | Estado                                                                 |
-| ------------------- | ---------------------------------------------------------------------- |
-| SMTP                | próprio, `no-reply@rotamestre.tec.br` via `mail.rotamestre.tec.br:587` |
-| Rate limit de email | **200/h** (não é o limite apertado do serviço embutido)                |
-| SPF                 | `v=spf1 mx a ip4:72.60.148.143 ~all` — cobre o IP que envia            |
-| DKIM                | selector `mail`, RSA/SHA-256                                           |
-| DMARC               | `p=quarantine` com `rua`/`ruf` — não é `p=none` decorativo             |
-| PTR                 | resolve para `mail.rotamestre.tec.br`, com FCrDNS completo             |
-| Confirm email       | **ligado** — o template de cadastro realmente dispara                  |
-| `otp_expiry`        | 3600s, batendo com o "expira em 1 hora" escrito nos templates          |
-
-A validação revelou uma coisa que não é defeito do trabalho e continua valendo:
-depois de confirmar, o usuário **cai no login** em vez de entrar direto — é o
-`detectSessionInUrl: false` de `src/lib/supabase.web.ts`, comportamento
-pré-existente e ligado à mecânica de `sessionRecovery.ts`.
-
-Revelou também que **não havia como reenviar** um link de cadastro expirado.
-Isso foi resolvido no mesmo dia (PR #398): o login, ao recusar com
-`AUTH_EMAIL_NOT_CONFIRMED`, agora oferece **"Reenviar email"**. Validado com
-conta real — `confirmation_sent_at` avançou 64s em relação ao `created_at`,
-provando que o segundo email saiu.
-
-### Reenvio da confirmação — onde vive e por quê
-
-O botão fica **no login**, não em tela própria, porque é o único ponto onde
-sabemos o email (a pessoa acabou de digitar), sabemos que a conta existe sem
-confirmação (o Supabase acabou de dizer) e a pessoa está travada. Isso dispensa
-a anti-enumeração do `forgot-password`: lá o cuidado existe porque um estranho
-pode sondar endereços; aqui o estado da conta já foi revelado a quem acertou a
-senha. **Uma tela pública com campo de email reintroduziria o problema** sem
-resolver nada a mais — se alguém propuser isso, é este o motivo de não fazer.
-
-`authService.resendConfirmation` não passa `emailRedirectTo` (igual ao `signUp`),
-então o email reenviado usa o template **Confirm signup**, que já carrega a
-proteção anti link-scanner. Quatro desfechos são tratados em separado, e o
-segundo é o que engana: **429 do Supabase não é falha** — o email saiu, e tratar
-como erro faria a pessoa tentar de novo à toa. Os outros: limite local (não
-chega a chamar o Supabase), conta confirmada no meio-tempo (o cenário do scanner
-que abre o link) e falha de SMTP.
-
-### Auditoria de otimização — validada em 05/08/2026
-
-A pendência que ocupava a linha 1 desta tabela foi **fechada**. Rota de teste
-criada na Unidade Demo pelo Gestor Demo, com o botão "Otimizar", e depois
-reordenada à mão:
-
-| Momento        | `otimizacao_estado`  | `distancia_total` | `otimizacao_distancia_depois` |
-| -------------- | -------------------- | ----------------- | ----------------------------- |
-| Após otimizar  | `otimizada`          | 18,13 km          | 18,13 km                      |
-| Após reordenar | `otimizada_alterada` | **18,74 km**      | **18,13 km** (congelado)      |
-
-`antes` = 27,129 km e `otimizada_por` = Gestor Demo (via `auth.uid()`, não
-parâmetro do cliente). O par de colunas provou ser **registro histórico, não
-espelho do estado atual** — foi possível medir que a alteração manual custou
-610 m. Os 3 logs saíram corretos (incluindo `desfez_otimizacao: true`, que só
-grava `true` se o UPDATE de fato passou) e a Timeline narrou os 3 eventos.
-A rota de teste foi cancelada em seguida.
-
-### Massa demo criada por SQL em 08/08/2026
-
-A Unidade Demo (`aaaa0000-0000-4000-8000-000000000001`) tem 4 rotas inseridas
-**direto por SQL**, fora do fluxo do app, para servirem de cenário nos
-screenshots da loja. UUIDs fixos e reconhecíveis:
-
-| id (sufixo) | data  | status       | conteúdo                             |
-| ----------- | ----- | ------------ | ------------------------------------ |
-| `…020`      | 08/08 | em_andamento | 3 entregas: 1 concluída, 2 pendentes |
-| `…021`      | 07/08 | concluída    | 3 entregas, todas concluídas         |
-| `…022`      | 06/08 | concluída    | 3 entregas, todas concluídas         |
-| `…023`      | 05/08 | concluída    | 3 entregas, todas concluídas         |
-
-Endereços reais de João Pessoa, destinatários fictícios, distância e duração
-coerentes com o trajeto. Respeitam o invariante de partida/chegada
-(`is_checkpoint = false` na primeira e na última ordem).
-
-**Limitação conhecida:** as paradas concluídas **não têm `foto_url`**, então a
-tela mostra o placeholder "Sem foto registrada". Preencher exigiria upload real
-ao bucket privado `fotos-entrega`, que só acontece pelo app com sessão
-autenticada — não dá por SQL.
-
-Para remover: `delete from public.rotas where id in (…020, …021, …022, …023)`
-(as paradas caem por cascade). Não confunda com dado de cliente: nada disso
-existe fora da unidade de avaliação.
-
-### Política de senha — o que o plano free permite
-
-Verificado na doc oficial em 15/08/2026
-([Password security](https://supabase.com/docs/guides/auth/password-security)):
-a rejeição de senha vazada via HaveIBeenPwned é **Pro ou acima**. O advisor
-`auth_leaked_password_protection` aponta o problema sem dizer isso, e o registro
-inicial desta sessão descreveu o item como "um toggle no dashboard" — **estava
-errado**, corrigido antes de entrar na `main`.
-
-No plano free dá para endurecer, em Auth → Providers → Email:
-
-- comprimento mínimo (nada abaixo de 8);
-- caracteres exigidos — dígitos, minúsculas, maiúsculas e símbolos.
-
-Vale conferir o que está configurado no servidor: o app já exige 8 caracteres
-com maiúscula, número e especial em `src/lib/schemas/auth.ts`, mas isso é
-validação de **cliente** e não protege quem chama a API direto.
-
-Se um dia endurecerem a política: usuários existentes continuam entrando com a
-senha atual, porém recebem `WeakPasswordError` no `signInWithPassword`. Hoje
-esse erro cairia no `getErrorMessage` genérico — trate antes de mexer, ou a
-pessoa recebe uma mensagem que não explica nada.
-
-### Contas órfãs zeradas em 15/08/2026
-
-O indicador de saúde
-(`select au.email from auth.users au left join public.usuarios u on u.id = au.id where u.id is null;`)
-retornava **9 linhas** — resíduo do `signUp` em dois passos, que criava a conta
-no Auth e falhava no insert em `usuarios`. Todas foram excluídas a pedido do
-gestor, depois de conferido que nenhuma tinha rota, vínculo de unidade ou
-registro em `admin_logs`, e que nenhuma havia se recadastrado com sucesso.
-Hoje `auth.users` e `public.usuarios` batem: **16 para 16**, zero órfãs e zero
-usuários sem conta de auth. (Foram 17/17 logo após a limpeza; as contas usadas
-para validar o onboarding entraram e saíram no mesmo dia — ver "Validações
-registradas".)
-
-Seis eram **pessoas reais**, presas desde março de 2026 — uma delas voltou em
-abril, autenticou e não conseguiu usar o app, porque o perfil nunca existiu. A
-lista nominal foi entregue ao gestor **fora do repositório** (a seção "Segurança
-documental" proíbe registrá-la aqui) para eventual convite de volta; os e-mails
-ficaram livres para cadastro novo.
-
-Antes de apagar, vale saber: `admin_logs.admin_id` referencia `auth.users` com
-`NO ACTION` e **bloquearia** o delete se houvesse linha; todo o resto cascateia.
-A consulta de FKs pelo `information_schema` volta **vazia** por privilégio e
-levaria a concluir que não existe FK nenhuma — use `pg_constraint`, que mostra
-as 10 reais.
 
 ## Armadilhas que já custaram caro
 
@@ -472,34 +307,6 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   policy.** Verificação: um `.update()` direto em `unidades` pelo client tem
   que continuar falhando.
 
-## Guardas de precondição — varredura de 15/08/2026
-
-Duas telas quebraram no mesmo padrão em 15/08: **assumir um estado sem verificar
-se ele ainda vale**. Nova Rota assumia "existe motorista" (PR #381) e
-criar-unidade assumia "não existe perfil" (PR #383). A varredura das demais
-mostrou que o resto está coberto:
-
-| Onde                                           | Precondição                            | Como é garantida                                        |
-| ---------------------------------------------- | -------------------------------------- | ------------------------------------------------------- |
-| `gestor/`, `motorista/`, `perfil/`, `unidade/` | autenticado + papel + `primeira_senha` | `useRequireAuth` no `_layout` de cada grupo             |
-| `onboarding/first-password`                    | `primeira_senha === true`              | checa e redireciona ao destino certo                    |
-| `onboarding/criar-unidade`                     | sessão **sem** perfil                  | checa e devolve ao portão `/` (PR #383)                 |
-| `unidade/transferir`                           | é gestor principal                     | renderiza tela explicativa no lugar do formulário       |
-| `auth/*`                                       | não autenticado                        | **não verifica** — nada trava e reautenticar é legítimo |
-
-**`useRequireAuth` ignora de propósito os grupos `auth` e `onboarding`**
-(`src/hooks/useRequireAuth.ts:46`) — é por isso que as telas de onboarding
-precisam da própria checagem, e foi essa exceção que deixou o criar-unidade
-aberto por meses.
-
-O único beco que a varredura encontrou foi a Nova Rota **sem sede geocodificada**
-(PR #385): o cartão de partida sumia sem explicação e o erro só aparecia no
-submit, num toast de 5 segundos, dizendo "sede geocodificada" — jargão que não
-indica ação. Hoje o aviso é fixo, em português direto, e leva a Minha Unidade.
-
-Ao criar uma tela com precondição forte, a pergunta é sempre a mesma: **o que
-acontece com quem chega aqui por URL, ou com a precondição já quebrada?**
-
 ## Estado atual
 
 - Caminho local canônico: `D:\rota-mestre\rotamestre-app`.
@@ -679,12 +486,13 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Roteiro para a próxima sessão
 
-0. **Não há frente aberta nem dado de teste solto.** A sessão de 15/08 encerrou
-   com a `main` limpa, nenhum PR aberto e o banco de volta ao estado anterior ao
-   teste (9 unidades, 16 contas, zero órfãs). A seção "Trabalho em curso" que
-   existia aqui foi apagada porque suas quatro frentes fecharam — o que ela tinha
-   de durável está em "Armadilhas" e "Validações registradas". Se criar uma nova,
-   siga o mesmo contrato: estado real verificado, e apagada ao fechar.
+0. **Não há frente aberta nem dado de teste solto.** A sessão de **17/08**
+   encerrou com a `main` limpa, nenhum PR aberto, nenhuma branch órfã no remoto e
+   a conta de teste do fluxo de email removida do banco. Se abrir uma seção
+   "Trabalho em curso", siga o contrato da que existia aqui: estado real
+   verificado, e apagada ao fechar — o que ela tiver de durável vai para
+   "Armadilhas" (aqui) ou "Validações registradas" (em
+   [HISTORICO.md](HISTORICO.md)).
 1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
    Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
    demanda.
@@ -705,22 +513,23 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Mapa da documentação
 
-| Necessidade                               | Documento                                                                                        |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Começar uma nova sessão / estado atual    | este arquivo                                                                                     |
-| Como chegamos aqui / o que já foi tentado | [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR                               |
-| Arquitetura, padrões e phonebook técnico  | [`../CLAUDE.md`](../CLAUDE.md)                                                                   |
-| Testes                                    | [TESTING.md](TESTING.md)                                                                         |
-| Histórico e processo de migrations        | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)                                         |
-| Google Play: procedimento                 | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)                                           |
-| Google Play: textos, assets e declarações | [play-store-metadata.md](play-store-metadata.md)                                                 |
-| App Store / iOS: procedimento             | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)                                               |
-| Reconstrução da identidade Android        | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)                                             |
-| Firebase e push                           | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)                                                   |
-| Recuperação de senha                      | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)                                                     |
-| Templates de email do Auth                | [`../supabase/templates/README.md`](../supabase/templates/README.md) — e por que colar no painel |
-| Marca e tokens                            | [`../brand-guidelines.md`](../brand-guidelines.md)                                               |
-| Specs e planos de features                | [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/)          |
+| Necessidade                                       | Documento                                                                                                                                                              |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Começar uma nova sessão / estado atual            | este arquivo                                                                                                                                                           |
+| Como chegamos aqui / o que já foi tentado         | [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR                                                                                                     |
+| **Este fluxo já foi validado? o que foi medido?** | [HISTORICO.md](HISTORICO.md) → "Validações e varreduras": onboarding, otimizador, massa demo, política de senha, contas órfãs, emails do Auth e guardas de precondição |
+| Arquitetura, padrões e phonebook técnico          | [`../CLAUDE.md`](../CLAUDE.md)                                                                                                                                         |
+| Testes                                            | [TESTING.md](TESTING.md)                                                                                                                                               |
+| Histórico e processo de migrations                | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)                                                                                                               |
+| Google Play: procedimento                         | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)                                                                                                                 |
+| Google Play: textos, assets e declarações         | [play-store-metadata.md](play-store-metadata.md)                                                                                                                       |
+| App Store / iOS: procedimento                     | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)                                                                                                                     |
+| Reconstrução da identidade Android                | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)                                                                                                                   |
+| Firebase e push                                   | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)                                                                                                                         |
+| Recuperação de senha                              | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)                                                                                                                           |
+| Templates de email do Auth                        | [`../supabase/templates/README.md`](../supabase/templates/README.md) — e por que colar no painel                                                                       |
+| Marca e tokens                                    | [`../brand-guidelines.md`](../brand-guidelines.md)                                                                                                                     |
+| Specs e planos de features                        | [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/)                                                                                |
 
 Os specs e planos em `superpowers/` são **registro de decisão**, não estado
 atual: leia-os quando for continuar a feature de que tratam (ex.: a Fase 2 da
