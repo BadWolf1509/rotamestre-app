@@ -333,6 +333,41 @@ Três coisas de método que valem para a próxima sessão:
   `site_url` local vazado para produção e assuntos em inglês — caíram assim que os
   screenshots chegaram. Ambas eram plausíveis e nenhuma era verdade.
 
+### O reenvio da confirmação (PR #398)
+
+A validação deixou aparente o beco: quem se cadastrava e não confirmava dentro
+de 1h recebia do login um "Verifique sua caixa de entrada" — conselho inútil
+para um link que já expirou. `auth.resend` não existia no app.
+
+A decisão de onde colocar o botão veio da pergunta "onde sabemos o email?". Na
+tela `confirm-signup` com link inválido **não sabemos**: o fragmento quebrado
+não diz quem é a pessoa, e pedir o endereço num campo reabriria a necessidade de
+anti-enumeração. No login sabemos — e, mais que isso, o Supabase acabou de
+revelar o estado da conta a quem acertou a senha. Por isso o botão vive no
+diálogo de erro do login, e a `confirm-signup` apenas encaminha para lá.
+
+Detalhe que salvou trabalho: `resend` com `type: 'signup'` reusa o template
+Confirm signup, então o email reenviado já nasceu com a proteção do #396.
+
+O tratamento de erro que mais importa é o do **429**: não é falha, o email saiu.
+Tratá-lo como erro faria a pessoa clicar de novo achando que não funcionou.
+
+Validado com conta real no dev server: o diálogo trouxe o botão, o clique
+respondeu "Email enviado!", e o banco registrou `confirmation_sent_at` 64s após
+`created_at` — a prova de que o segundo email saiu, e não só de que a UI disse
+que sim. A conta de teste foi removida depois, com as dependências conferidas.
+
+Duas notas de método desta etapa:
+
+- **`gh` falhou com HTTP 503 e saiu com código 0.** O GitHub estava em "Partial
+  System Outage" e a API GraphQL — usada por `gh pr create` e `gh pr checks` —
+  estava fora. O PR foi aberto e os checks acompanhados **pela REST**, que
+  continuava de pé. Confiar no código de retorno teria feito reportar sucesso
+  sem nada ter sido consultado.
+- **A branch `feat/resend-confirmation` já existia** (era onde a sessão começou).
+  Antes de commitar, stash, reflog e diff foram conferidos para descartar
+  sobrescrita de trabalho anterior: não havia commit exclusivo nem nada guardado.
+
 ### `rotamestre://reset-password` era do Android, e por isso saiu
 
 Investigado a pedido: a entrada na allow-list **era** o caminho do app nativo, e
@@ -384,6 +419,7 @@ que manter ajude.
 | 15/08/2026 | Auditoria de usuários volta a gravar (coluna inexistente no insert) + decimal do dashboard   | PR #387                                      |
 | 17/08/2026 | Templates de email do Auth: 5 defeitos corrigidos e versionados em `supabase/templates/`     | PR #390                                      |
 | 17/08/2026 | Proteção anti link-scanner estendida ao cadastro; lógica e layout extraídos do confirm-reset | PR #396                                      |
+| 17/08/2026 | Reenvio da confirmação de cadastro a partir do login, com rate limiter próprio               | PR #398                                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
