@@ -587,6 +587,62 @@ indica ação. Hoje o aviso é fixo, em português direto, e leva a Minha Unidad
 Ao criar uma tela com precondição forte, a pergunta é sempre a mesma: **o que
 acontece com quem chega aqui por URL, ou com a precondição já quebrada?**
 
+### O episódio do Sentry: um diagnóstico errado corrigido pela medição
+
+Cinco PRs do Dependabot chegaram em 17/08. Dois foram mergeados sem história
+(#393, #394) e um foi fechado (#391) porque sobe `@react-native/jest-preset` para
+0.87 enquanto o projeto está em react-native 0.85.3, fixado pelo Expo 56 — o
+preset novo procura `react-native/setup-env`, que não existe nessa versão, e a
+suíte inteira morre com `Could not locate module`.
+
+Os dois do Sentry (#392 `@sentry/react`, #395 `@sentry/browser`) renderam a
+lição.
+
+**O erro.** O #395 sozinho estourava o limite de bundle em 338 kB. Eu li isso
+como crescimento real da biblioteca — "+338 kB gzipped num bump minor é muito" —
+e recomendei subir o teto de 3.5 MB para 4 MB, o que virou o PR #403. **Não abri
+o `package-lock` antes de recomendar.**
+
+**A causa real.** `@sentry/react@10.69.0` depende de `@sentry/browser` em versão
+**exata**, não em range. Subir só o browser faz o npm aninhar uma segunda cópia
+do Sentry inteiro dentro do react. O lock do #395 mostrava isso à vista:
+`+147/-19` linhas, adicionando
+`@sentry/react/node_modules/@sentry/{browser,replay,replay-canvas,feedback}` e
+várias cópias de `@sentry/core`. O #392 sozinho tinha `+35/-35` e **zero**
+aninhamento. Os 338 kB nunca foram o custo da versão: eram o custo de mergear
+separado.
+
+**A medição que fechou.** Com os dois em 10.70, o CI reportou **3.33 MB** —
+abaixo até do teto original de 3.5 MB:
+
+| Estado                                    | Bundle      |
+| ----------------------------------------- | ----------- |
+| #395 sozinho (browser 10.70, react 10.69) | 3.84 MB     |
+| ambos em 10.70                            | **3.33 MB** |
+
+O limite voltou a 3.5 MB no PR #407, junto com o alinhamento do `package.json`
+(`@sentry/browser: ^10.70.0`) e a regeneração do lock.
+
+**O desfecho.** Nem foi preciso mergear os dois: o merge do #392 já levou o
+`browser` a 10.70 no lock, porque o `react` novo o exige, e o Dependabot fechou o
+#395 sozinho — _"Looks like @sentry/browser is up-to-date now"_.
+
+**O bot estava travado por labels.** O `@dependabot rebase` ficou horas sem
+resposta. Ele havia reclamado às 12:10 que as labels `dependencies` e `npm` não
+existiam no repositório; criadas por volta das 18h, rebaseou os dois PRs em
+minutos. A reclamação falava em _aplicar labels_, não em rebasear — a conexão só
+apareceu ao testar.
+
+Três coisas para levar adiante:
+
+- **Pacotes do mesmo scope que se fixam por versão exata precisam subir juntos.**
+  A regra de dependência acoplada já estava registrada desde 04/08, mas só como
+  recomendação; agora tem o mecanismo e o número.
+- **Um número anômalo merece a apuração antes da decisão.** "+338 kB num bump
+  minor" era estranho o bastante para abrir o lock, e a resposta estava no
+  primeiro `grep`.
+- **Se o Dependabot ignorar comandos, confira as labels que ele pede.**
+
 ## Mudanças relevantes desta etapa
 
 | Data       | Mudança                                                                                      | Referência                                   |
@@ -629,6 +685,9 @@ acontece com quem chega aqui por URL, ou com a precondição já quebrada?**
 | 17/08/2026 | Reenvio da confirmação de cadastro a partir do login, com rate limiter próprio               | PR #398                                      |
 | 17/08/2026 | Template do Magic Link removido do repo — nunca é enviado (o app não usa `signInWithOtp`)    | PR #400                                      |
 | 17/08/2026 | Consolidação: 201 linhas saem do documento de entrada; contexto por sessão cai 863 → 672     | PR #402                                      |
+| 17/08/2026 | Dependabot triado: 2 mergeados, #391 fechado (jest-preset 0.87 × RN 0.85.3)                  | PRs #393/#394/#404                           |
+| 17/08/2026 | Permissão do gestor sai do `settings.json` versionado; árvore de trabalho fica limpa         | PR #405                                      |
+| 17/08/2026 | Sentry 10.70; bundle 3.84 → 3.33 MB ao alinhar versões; limite volta a 3.5 MB                | PRs #392/#403/#406/#407                      |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
