@@ -55,7 +55,7 @@
     "@expo-google-fonts/viga": "^0.4.1",
     "@expo/log-box": "~56.0.13",
     "@expo/vector-icons": "^15.1.1",
-    "@hookform/resolvers": "^5.8.0",
+    "@hookform/resolvers": "^5.9.1",
     "@mapbox/polyline": "^1.2.1",
     "@maplibre/maplibre-react-native": "^11.3.6",
     "@react-native-async-storage/async-storage": "2.2.0",
