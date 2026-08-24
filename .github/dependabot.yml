@@ -41,6 +41,11 @@ updates:
       - dependency-name: "@expo/*"
       - dependency-name: "jest-expo"
       - dependency-name: "react-native"
+      # @react-native/* são publicados do mesmo monorepo do react-native e precisam
+      # acompanhar a versão dele, que o SDK fixa (RN 0.85.3 no SDK 56). O bump isolado
+      # de @react-native/jest-preset para 0.87.0 (PR #409) quebrou as 334 suítes: o
+      # preset mocka react-native/setup-env, ausente na 0.85.3. Sobem só no SDK.
+      - dependency-name: "@react-native/*"
       - dependency-name: "react-native-worklets"
       - dependency-name: "react-native-reanimated"
       - dependency-name: "react-native-gesture-handler"
