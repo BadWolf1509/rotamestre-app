@@ -54,6 +54,11 @@ updates:
       - dependency-name: "react-native-svg"
       - dependency-name: "react-native-web"
       - dependency-name: "@react-native-async-storage/async-storage"
+      # @react-native-community/* também é fixado pelo SDK em bundledNativeModules
+      # (slider 5.2.0, datetimepicker 9.1.0, netinfo 12.0.1 — todos travados sem
+      # caret no package.json por expo install). São módulos nativos: o CI web não
+      # executa uma linha deles, então o bump passa verde e só quebra no build EAS.
+      - dependency-name: "@react-native-community/*"
       # React é fixado pelo SDK em 19.2.3 (jest-expo valida a versão exata) e sobe
       # só via expo install. Bumps isolados quebram os testes (react-test-renderer).
       - dependency-name: "react"
