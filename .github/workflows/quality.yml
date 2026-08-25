@@ -45,6 +45,45 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
         continue-on-error: true
 
+      - name: Expo SDK dependency check
+        # `expo install --check` compara o que está INSTALADO em node_modules
+        # (isto é, o que o package-lock resolve) com as versões que o SDK fixa em
+        # bundledNativeModules. Não olha os ranges declarados no package.json.
+        #
+        # Existe porque essa deriva é invisível de outra forma: `expo`, `expo-*`
+        # e `@expo/*` estão fora do Dependabot de propósito — devem subir em
+        # lockstep com o SDK via `expo install`, nunca isoladamente (ver o bloco
+        # ignore em .github/dependabot.yml). Ninguém os atualiza automaticamente
+        # e nada avisava: em 24/08/2026 a defasagem tinha chegado a 7 patches, e
+        # o bump do expo-router passou a exigir react-native-screens ^4.26.0 —
+        # com a raiz em 4.25.2 o npm instalava uma segunda cópia aninhada do
+        # módulo nativo (PRs #421 e #423).
+        #
+        # Informativo (continue-on-error), no mesmo espírito do audit acima: um
+        # patch recém-publicado pela Expo deixaria todo PR vermelho até alguém
+        # rodar `expo install --fix`, bloqueando trabalho não relacionado. O
+        # resultado vai para o summary do job, então fica visível mesmo quando
+        # o job passa. Para torná-lo bloqueante, basta remover o
+        # `continue-on-error` abaixo.
+        run: |
+          saida=$(npx expo install --check 2>&1) && codigo=0 || codigo=$?
+          echo "$saida"
+          if [ "$codigo" -ne 0 ]; then
+            {
+              echo "### :warning: Dependências do Expo fora do que o SDK fixa"
+              echo
+              echo '```'
+              echo "$saida" | sed -n '/should be updated/,$p'
+              echo '```'
+              echo
+              echo 'Corrija com `npx expo install --fix` em um PR próprio.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '### :white_check_mark: Dependências do Expo alinhadas com o SDK' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$codigo"
+        continue-on-error: true
+
       - name: TypeScript type check
         run: npm run type-check
 
