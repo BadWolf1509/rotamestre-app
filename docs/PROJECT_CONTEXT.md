@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 17/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 25/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -438,7 +438,25 @@ app.rotamestre.tec.br ── Expo Web / React Native
   Não remova `tools/scripts/copy-maplibre-worker.cjs` do `postinstall`/`build:web`,
   a chamada de `configureMaplibreWorker()` nos componentes de mapa web, nem os
   `.mjs` copiados. Quebrar isso trava o mapa em "Carregando..." **sem erro no
-  console e com o CI verde** — nenhum teste automatizado detecta.
+  console e com o CI verde** — nenhum teste automatizado detecta. Confirmado em
+  25/08: os dois testes de mapa **não rodam em CI** (o job usa
+  `test:visual:public`, que pula os autenticados) e a baseline commitada de
+  `visual-motorista-mapa` é um screenshot do mapa **travado em "Carregando
+  mapa..."** — o teste passa quando o mapa está quebrado e falha quando funciona.
+  Para validar mapa, use produção ou um harness que asserte `isStyleLoaded()`.
+- **O bloco `ignore` do `.github/dependabot.yml` não é burocracia.** `expo`,
+  `expo-*`, `@expo/*`, `@react-native/*`, `@react-native-community/*`,
+  `react-native` e os demais pacotes fixados pelo SDK sobem **só** por
+  `npx expo install`, em lockstep. Bump isolado quebra: em 24/08 o
+  `@react-native/jest-preset` 0.87 derrubou **as 334 suítes de uma vez** (o preset
+  mocka `react-native/setup-env`, ausente na 0.85.3). O preço da regra é deriva
+  silenciosa — coberta pelo `expo install --check` no CI, informativo de propósito.
+- **O audit de produção bloqueia merge** e mantém allowlist **por ID de advisory**
+  em `scripts/audit-producao.js` (nunca por pacote, para que advisory novo no
+  mesmo pacote continue quebrando). Quando falhar: suba a dependência se houver
+  correção upstream; se não houver e o risco for aceitável, acrescente o ID com
+  motivo e data de revisão. **Não devolva `continue-on-error`** — foi assim que 4
+  advisories high do `image-size` ficaram falhando sem ninguém ver.
 - `otimizacao_estado = NULL` significa **sem registro**, nunca `'manual'`. Não
   conte, filtre nem exiba rota antiga como manual: não há como saber se ela foi
   otimizada, e assumir falsearia a auditoria.

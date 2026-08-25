@@ -380,6 +380,82 @@ de um build antigo. Com ela, o Supabase aceita o redirect e o app engole o
 callback; sem ela, cai no Site URL e o fluxo web **funciona**. Não há cenário em
 que manter ajude.
 
+## Estado confirmado em 25/08/2026
+
+### Varredura de dependências: 5 PRs do Dependabot viraram 13 commits
+
+Os cinco PRs abertos eram todos do Dependabot. Um deles, o grupo
+`development-dependencies` (#409), estava com **334 de 334 suítes falhando** — e
+nenhum teste chegara a executar: o `@react-native/jest-preset` 0.87 mocka
+`react-native/setup-env`, arquivo que não existe na RN 0.85.3 fixada pelo SDK 56.
+
+A causa estrutural era o `ignore` do `.github/dependabot.yml` cobrir
+`react-native` mas não a família `@react-native/*`, publicada do mesmo monorepo.
+Corrigido no #414 — e o Dependabot **fechou o #409 cinco segundos depois do
+merge**, recriando-o como #416 sem os dois pacotes, com os testes verdes.
+
+O mesmo padrão reapareceu logo em seguida: o #415 trazia
+`@react-native-community/slider`, fixado pelo SDK em `bundledNativeModules`.
+Em vez de tapar buraco a buraco, cruzei o `bundledNativeModules` inteiro com o
+`package.json` e o `ignore`: das 40 dependências fixadas pelo SDK, **3 estavam
+descobertas**, todas em `@react-native-community/*` (slider, datetimepicker,
+netinfo). Fechadas no #417 com uma entrada de namespace.
+
+### maplibre 6.5.0 — e um falso positivo que quase virou relatório
+
+Validei o bump com um harness reproduzindo a config de produção (worker servido
+da raiz, style Liberty). Na primeira rodada, **a candidata "falhou" exatamente
+como o bug clássico do worker** — `loadFired: false`, canvas em branco, console
+limpo. Só o controle 6.3.0 falhando **igual** revelou que o quebrado era o
+ambiente: o painel do Browser não compõe frames quando não está visível, sem
+`requestAnimationFrame` o loop de render nunca roda. Refeito no Chromium headless
+do Playwright, as duas versões renderizaram idênticas.
+
+Depois, com credenciais de E2E, o mapa do motorista travou em "Carregando mapa…"
+no dev server local — mas **funciona em produção**, com rota e paradas
+renderizadas. E a baseline commitada do teste (de 09/01/2026) é justamente um
+screenshot do estado travado.
+
+### nitro 0.37.0: análise estática confirmada pelo compilador
+
+O `react-native-nitro-modules` está no projeto só como peer do
+`react-native-unistyles`, sem import direto. Não há asserção de versão em lugar
+nenhum — `NITRO_VERSION` só é reportado ao JS, nunca comparado —, então o
+acoplamento é de compilação e sem rede de proteção.
+
+Comparando header a header, o delta 0.36.5 → 0.37.0 são **7 arquivos, todos em
+`cpp/views/` e `cpp/templates/`**. O Unistyles gera só HybridObjects e **zero
+Nitro Views**; dos 6 headers que inclui, 5 são byte-idênticos e o 6º difere só na
+string de versão. Previsão: compila. O build EAS `85e60844` confirmou.
+
+### A deriva do Expo, e o acoplamento que a separação revelou
+
+`expo install --check` acusava 15 pacotes atrasados, alguns em 7 patches — o
+custo previsto do `ignore`, que ninguém pagava porque nada avisava. Corrigido
+no #421.
+
+Ao separar o `react-native-screens` num PR próprio (#423), apareceu que os dois
+eram **acoplados**: o `expo-router` 56.2.19 exige `screens ^4.26.0`, enquanto o
+56.2.12 exigia `^4.25.2`. Com a raiz em 4.25.2 o npm não conseguia deduplicar e
+instalava uma **segunda cópia aninhada** do módulo nativo — 1 cópia antes, 2 com
+o #421 sozinho, 1 de volta com o #423 + `npm dedupe`. Validado pelo build EAS
+`26f2b0e9`, cujo fingerprint difere do anterior, provando recompilação real.
+
+### Três checks de CI que não existiam ou não funcionavam
+
+- **`expo install --check`** (#424), informativo, escrevendo no summary do job.
+  Detalhe aprendido testando: ele valida o que está **instalado**, não os ranges
+  do `package.json` — mexer só no manifesto não o faz acusar nada.
+- **Audit de produção com allowlist por advisory** (#425). O `npm audit` cru
+  ficava vermelho para sempre por advisory sem correção upstream, e o
+  `continue-on-error` escondia: **4 high do `image-size` falhavam havia tempo** e
+  o comentário do step ainda afirmava que ele passava. O `image-size` não tem
+  correção — o advisory diz literalmente "Patched versions: None", a 2.0.2 é a
+  última publicada e o range vulnerável é `<=2.0.2`. Chega via metro, que é
+  bundler e não vai para o bundle do app; risco aceito e datado para 01/11/2026.
+- **Audit tornado bloqueante** (#426), possível só depois da allowlist: antes,
+  bloquear significaria travar merge para sempre.
+
 ## Validações e varreduras registradas
 
 Fluxos conferidos com dado real, não só por teste. Cada um diz o que foi medido
