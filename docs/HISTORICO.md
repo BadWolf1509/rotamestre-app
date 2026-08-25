@@ -441,6 +441,35 @@ instalava uma **segunda cópia aninhada** do módulo nativo — 1 cópia antes, 
 o #421 sozinho, 1 de volta com o #423 + `npm dedupe`. Validado pelo build EAS
 `26f2b0e9`, cujo fingerprint difere do anterior, provando recompilação real.
 
+### Os testes de mapa: dois defeitos, um deles meu
+
+A correção dos testes de mapa (#428) trocou o screenshot mascarado por asserção
+funcional, e pareceu resolvido: verificado localmente que removendo
+`public/maplibre-gl-worker.mjs` o teste falhava. Só que verificar em CI mostrou
+outra coisa.
+
+**Defeito 1 — a asserção passava vazia.** Com o worker quebrado de propósito num
+branch descartável, o job ficou VERDE. O diagnóstico explicou:
+`{"overlays":0,"canvases":0,"mapDivs":0,"mapaView":false}` — a tela estava em
+"Sem rota no momento". Sem rota atribuída o componente renderiza
+`motorista-mapa-empty` e nenhum mapa é criado, então o `toHaveCount(0)` sobre o
+overlay de carregamento era trivialmente verdadeiro. A correção foi de ordem:
+exigir que o mapa exista antes de assertar que carregou.
+
+**Defeito 2 — o mapa nunca funcionou em CI.** Corrigida a ordem, o teste ficou
+vermelho com o worker íntegro. Causa: os jobs instalam com
+`npm ci --ignore-scripts`, que pula o `postinstall` — quem roda o
+`copy-maplibre-worker.cjs` —, e o job de visual regression não executa
+`build:web`. O arquivo nunca existiu em CI. Passou despercebido porque o único
+teste de mapa era screenshot que mascarava o mapa.
+
+Isso também corrigiu uma imprecisão do dia anterior: o run em que "quebrei o
+worker para provar a detecção" teria falhado de qualquer forma, porque o arquivo
+já faltava. O teste detecta mapa quebrado — só que a quebra em CI era real.
+
+Fechado no #429: ordem das asserções + step explícito de cópia do worker, com
+verificação nos dois sentidos em CI (quebrado → failure, íntegro → passa).
+
 ### Três checks de CI que não existiam ou não funcionavam
 
 - **`expo install --check`** (#424), informativo, escrevendo no summary do job.

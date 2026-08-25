@@ -438,12 +438,22 @@ app.rotamestre.tec.br ── Expo Web / React Native
   Não remova `tools/scripts/copy-maplibre-worker.cjs` do `postinstall`/`build:web`,
   a chamada de `configureMaplibreWorker()` nos componentes de mapa web, nem os
   `.mjs` copiados. Quebrar isso trava o mapa em "Carregando..." **sem erro no
-  console e com o CI verde** — nenhum teste automatizado detecta. Confirmado em
-  25/08: os dois testes de mapa **não rodam em CI** (o job usa
-  `test:visual:public`, que pula os autenticados) e a baseline commitada de
-  `visual-motorista-mapa` é um screenshot do mapa **travado em "Carregando
-  mapa..."** — o teste passa quando o mapa está quebrado e falha quando funciona.
-  Para validar mapa, use produção ou um harness que asserte `isStyleLoaded()`.
+  console** — nenhum teste **de screenshot** detecta, porque os que existiam
+  mascaravam justamente a região do mapa.
+  **O job de visual regression precisa copiar o worker explicitamente**
+  (`.github/workflows/test.yml`): ele instala com `npm ci --ignore-scripts`, que
+  pula o `postinstall`, e não roda `build:web`. Sem esse step o arquivo não
+  existe em CI e o mapa trava lá — foi assim de sempre até 25/08/2026, quando o
+  teste funcional expôs. Cobertura hoje: `renders motorista mapa` assere que o
+  mapa monta **e** que terminou de carregar (`mapa-web-carregando` some só no
+  evento `load`), e roda em CI desde que os secrets `E2E_*` existam.
+- **Asserção de ausência nunca vem sozinha.** `toHaveCount(0)`,
+  `not.toBeVisible()` e afins são satisfeitas tanto pelo sucesso quanto por "a
+  tela nem chegou lá" — precisam vir **depois** de uma asserção de presença que
+  estabeleça o contexto. Em 25/08/2026 o teste do mapa foi escrito assim e ficou
+  verde com o worker do maplibre destruído de propósito: sem rota atribuída a
+  tela renderiza `motorista-mapa-empty`, nenhum mapa é criado, e o
+  `toHaveCount(0)` sobre o overlay de carregamento era trivialmente verdadeiro.
 - **O bloco `ignore` do `.github/dependabot.yml` não é burocracia.** `expo`,
   `expo-*`, `@expo/*`, `@react-native/*`, `@react-native-community/*`,
   `react-native` e os demais pacotes fixados pelo SDK sobem **só** por
