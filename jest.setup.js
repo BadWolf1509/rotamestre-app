@@ -177,6 +177,29 @@ const mockTheme = {
     fontSansBold: 'System',
   },
   spacing: {
+    // Escala numerica (grade de 4px) — o codigo de producao usa
+    // theme.spacing['4'], ['14'] etc. Sem estas chaves o mock devolvia
+    // undefined e qualquer teste sobre tamanho virava vacuo.
+    '0': 0,
+    '0.5': 2,
+    '1': 4,
+    '1.5': 6,
+    '2': 8,
+    '2.5': 10,
+    '3': 12,
+    '3.5': 14,
+    '4': 16,
+    '5': 20,
+    '6': 24,
+    '7': 28,
+    '8': 32,
+    '10': 40,
+    '12': 48,
+    '14': 56,
+    '16': 64,
+    '20': 80,
+    '24': 96,
+    // Apelidos semanticos
     xs: 4,
     sm: 8,
     md: 16,

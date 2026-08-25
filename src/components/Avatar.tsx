@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image } from 'react-native';
 
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+import { getInitials } from '@/lib/initials';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AvatarProps {
@@ -39,23 +40,6 @@ function AvatarComponent({
 }: AvatarProps) {
   const { url: signedImageUrl } = useSignedUrl(imageUrl);
   const { theme } = useUnistyles();
-
-  // Gerar iniciais do nome
-  const getInitials = (fullName: string): string => {
-    if (!fullName) return '?';
-
-    const words = fullName
-      .trim()
-      .split(' ')
-      .filter((w) => w.length > 0);
-
-    if (words.length === 1) {
-      return words[0].substring(0, 2).toUpperCase();
-    }
-
-    // Primeira letra do primeiro e último nome
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-  };
 
   const initials = getInitials(name);
 
