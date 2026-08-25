@@ -152,6 +152,15 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Copiar worker do MapLibre
+        # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
+        # script — e o job não executa `build:web`, o outro lugar que o chama.
+        # Sem isto, public/maplibre-gl-worker.mjs não existe em CI e o mapa web
+        # trava em "Carregando mapa...", exatamente o modo de falha descrito no
+        # CLAUDE.md. Passou despercebido até 25/08/2026 porque o teste de mapa
+        # era um screenshot que mascarava justamente o mapa.
+        run: node tools/scripts/copy-maplibre-worker.cjs
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
