@@ -14,8 +14,10 @@
 > para agir; o resto é referência sob demanda.
 >
 > **Contrato de tamanho:** este arquivo é lido por inteiro em toda sessão, então
-> cresce a um custo que ninguém vê. Ele já foi cortado duas vezes — 923→633 em
-> 15/08 (histórico) e 736→534 em 17/08 (validações e varreduras). Antes de somar
+> cresce a um custo que ninguém vê. Ele já foi cortado três vezes — 923→633
+> em 15/08 (histórico), 736→534 em 17/08 (validações e varreduras) e 612→508 em
+> 25/08 (a narrativa das armadilhas, que passou ao HISTORICO; aqui ficou a regra
+> e a assinatura da falha). Antes de somar
 > uma seção, pergunte se ela precisa ser lida **em toda sessão** ou só quando
 > alguém for mexer naquele fluxo. No segundo caso, o lugar é o `HISTORICO.md` ou
 > o doc do tema, com uma linha no Mapa da documentação apontando para lá.
@@ -117,178 +119,45 @@ beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
 ## Armadilhas que já custaram caro
 
 Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
+O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 
-- **`supabase db push`:** o histórico foi reconciliado em 05/08/2026 e hoje está
-  sem pendências, mas o MCP `apply_migration` registra sob **timestamp próprio**
-  (≠ nome do arquivo) e colar no Dashboard não registra nada. Rode
-  `npx supabase migration list` antes de qualquer push. Detalhe em
-  `database/MIGRATIONS.md`.
+**Banco e migrations**
+
+- **`supabase db push`:** o MCP `apply_migration` registra sob **timestamp
+  próprio** (≠ nome do arquivo) e colar no Dashboard não registra nada. Rode
+  `npx supabase migration list` antes de qualquer push. Ver `database/MIGRATIONS.md`.
 - **Banco único = produção.** Não há staging. Peça aval antes de aplicar
-  migration e **nunca deixe subagente escrever no banco** — foi essa regra que
-  impediu um `CREATE OR REPLACE` defeituoso de derrubar a criação de rotas.
-- **`src/types/database.ts` NÃO existe.** Tipos de domínio são curados à mão. Não
-  rode `/regenerate-supabase-types` (é aspiracional, nunca executado); acrescente
-  os campos ao tipo em `src/types/`.
-- **Editar `supabase/templates/*.html` NÃO muda o email enviado.** Os arquivos são
-  versionados desde 17/08/2026, mas o Supabase lê **só do painel** (Auth → Emails):
-  é preciso colar. Não há MCP para isso, e `supabase config push` **sobrescreveria
-  a produção** com o `site_url = http://127.0.0.1:3000` do `config.toml`. Duas
-  invariantes vivem nesses arquivos e quebram em silêncio se alguém "simplificar":
-  o link de `reset-password.html` e `confirm-signup.html` precisa ser
-  `{{ .SiteURL }}/auth/confirm-{reset,signup}#url={{ .ConfirmationURL }}` **no
-  `href` e no texto visível** — trocar pelo `{{ .ConfirmationURL }}` direto
-  devolve o OTP ao scanner corporativo (e, no cadastro, entrega junto os **tokens
-  de sessão** que o verify carrega). Detalhe em `supabase/templates/README.md`.
-- **São 5 arquivos para 6 abas do painel, e isso é intencional.** O **Magic Link**
-  foi removido do repositório em 17/08/2026 (PR #400): o app nunca chama
-  `signInWithOtp`, então aquele email jamais é enviado, e versioná-lo custaria as
-  mesmas correções de Outlook e dark mode a cada rodada, para nada. A aba
-  **continua existindo no painel** com o layout antigo — inofensivo só enquanto
-  nada dispara o envio. Se o login sem senha entrar no produto, recupere
-  `supabase/templates/magic-link.html` do histórico do git **antes** de usar, ou o
-  template volta a viver só no painel, que é o problema que o #390 resolveu.
-- **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
-  "Carregando..." **sem erro no console e com o CI verde**. Detalhe do que não
-  pode ser removido em "Regras que não podem regredir".
-- **OSRM no dev web usa outro servidor (desde 08/08/2026, PR #358).** O nosso
-  `osrm.rotamestre.tec.br` responde
-  `Access-Control-Allow-Origin: https://app.rotamestre.tec.br` **fixo**, então o
-  browser bloqueava toda chamada a partir de `localhost` e o otimizador caía no
-  `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — a rota
-  "otimizava" com distância plausível e ninguém percebia a ausência de
-  roteamento por vias. `src/lib/osrm/config.ts` agora resolve a URL nesta
-  ordem: `EXPO_PUBLIC_OSRM_URL` → demo público (**só em dev web**) →
-  self-hosted. Produção e dev nativo **não mudaram**. Duas consequências: o
-  demo público cobre o planeta em vez do extrato do Nordeste, então as
-  distâncias em dev **não conferem exatamente** com produção; e a correção
-  definitiva continua sendo liberar `localhost` no CORS do nosso openresty —
-  **CORS não é controle de acesso**, o endpoint já responde a qualquer um via
-  `curl`, o header só restringe browser.
-- **O Fast Refresh não aplica no dev web — recarregue antes de medir.** Em
-  15/08/2026, validando pelo `preview_start`/`expo-web`, as edições de código
-  **não chegavam ao navegador**: o Metro registrava só o bundle inicial e a
-  página seguia executando a versão antiga. Isso produziu três medições
-  contraditórias, incluindo um teste diferencial em que o bug foi reintroduzido
-  de propósito e o navegador insistiu que ele não existia — quase virou
-  conclusão errada no relatório. Antes de medir qualquer coisa pelo navegador,
-  force `window.location.reload()` e espere o bundle voltar (~10 s até o
-  dashboard reaparecer). Se duas medições se contradisserem, suspeite do Fast
-  Refresh antes de suspeitar do código. Para ter certeza de qual versão está
-  sendo servida, baixe o bundle e procure o símbolo:
-  `curl -s "http://localhost:8082/index.ts.bundle?platform=web&dev=true" | grep -c meuSimbolo`.
-- **O toast vermelho de erro e o `Unexpected text node` são do LogBox — não
-  existem em produção.** Os dois foram registrados como bug em 15/08 e depois
-  desmentidos por medição: no bundle de produção servido pela Vercel,
-  `LogBoxNotification`, `LogBoxInspector`, `LogBoxData` e `LogBoxLog` aparecem
-  **zero** vezes, e a string "Unexpected text node" também. Nenhum componente do
-  app renderiza saída de log — se você vê texto de `console.error` na tela, é
-  ferramenta de desenvolvimento. O aviso de text node ainda por cima **já é
-  suprimido** em dev por `src/utils/configureLogBox.ts`, que substitui
-  `console.error`. A armadilha de método: um interceptor de console instalado
-  **depois** desse arquivo fica **acima** do filtro e conta mensagens que nunca
-  chegam ao console. Ao instrumentar console, verifique se alguém já o
-  substituiu, e confirme o achado no console real (`read_console_messages`)
-  antes de chamá-lo de bug.
-- **O rascunho de rota não vive no `sessionStorage`.** A fonte é a tabela
-  **`rascunhos_rota`**, com expiração de 7 dias; o `sessionStorage`
-  (`rotamestre:nova-entrega:<gestor>:<unidade>`) é espelho síncrono, e
-  `useNovaEntregaDraft` compara os dois carimbos e usa o mais recente. Ver a
-  chave local e concluir "morre com a aba" foi um falso positivo em 15/08 —
-  fechar o navegador **não** perde o rascunho.
-- **A tabela `logs` não tem coluna `parada_id` — a parada vai em `detalhes`.** O
-  schema real é `id, usuario_id, rota_id, evento, detalhes, timestamp`. Três
-  lugares mandavam `parada_id` no insert (`queries/logs.ts`, `queries/paradas.ts`,
-  `services/locationTracking.ts`); o PostgREST recusa com **400** e a falha só
-  virava `logger.warn` — em `logParadaAction` nem isso, porque o supabase-js
-  **devolve** o erro em vez de lançar, e o `try/catch` não pegava nada. Resultado
-  medido: `motorista_criado` ficou parado em **04/12/2025**, oito meses de
-  auditoria de gestão de usuários perdidos sem um sinal. Corrigido no PR #387.
-  Duas coisas para não errar de novo: o padrão certo (`parada_id` dentro de
-  `detalhes`) já existia em `useAddStopForm`, `useEditStopForm` e `routeUtils`; e
-  os eventos de **rota e parada continuam cobertos por triggers no banco**
-  (`log_parada_status`, `log_rota_status`) — foi por isso que `parada_concluida`
-  tinha 3039 registros e o estrago pareceu maior do que era.
-- **Teste que afirma um schema inventado dá cobertura ao defeito.** Os dois bugs
-  do PR #387 sobreviveram porque os testes os _exigiam_: `logs.test.ts` esperava
-  `parada_id` no insert, e `DashboardMobile.test.tsx` esperava `'150.5'` citando
-  o `toFixed` no próprio comentário. Um teste escrito a partir do código, e não
-  do contrato real, transforma o bug em requisito. Ao testar escrita em tabela,
-  confira as colunas no banco (`information_schema.columns`) antes de fixar o
-  payload esperado.
-- **Não use here-string do PowerShell (`-m @'…'@`) na ferramenta Bash.** O bash
-  não conhece essa sintaxe: o `@` vira texto e o Git toma essa primeira linha
-  como **assunto** do commit. Foi o que produziu `ca8ebc3` na `main`, registrado
-  como `@ (#379)` — a mensagem inteira ficou no corpo, só o assunto virou lixo.
-  Os outros PRs escaparam porque o GitHub usa o título do PR ao fazer squash; o
-  #379 tinha um único commit e herdou o assunto dele. No bash use heredoc
-  (`git commit -F -`); a sintaxe `@'…'@` só vale na ferramenta PowerShell.
-- **`loading` que troca a página inteira pelo spinner.** `DesktopPageLayout`
-  (linha 109) e `DashboardMobile` (441) retornam **só** o `ActivityIndicator`
-  quando `loading` é true — descartam cabeçalho, filtros, tabela e qualquer
-  seletor aberto. Isso é correto na carga inicial e vira defeito quando
-  `loading` volta a `true` com conteúdo já na tela. Dois casos corrigidos em
-  15/08: o dashboard religava em **toda troca de filtro** (medido: 843 ms de
-  tela em branco por filtro, em dev com base vazia — PR #372) e a Equipe
-  religava depois de ativar/desativar um membro, logo após o toast de sucesso
-  (PR #376). A regra: **`loading` só na carga inicial**; recarga sinaliza por
-  `refreshing` ou pelo toast da própria ação. `useGestaoRotas` já fazia certo
-  desde sempre ("only show loading if no cache") e `motorista-perfil.tsx`
-  também — foram a referência.
-- **Componente declarado dentro do render remonta a subárvore a cada tecla.**
-  `const Form = () => (...)` usado como `<Form />` ganha identidade nova a cada
-  renderização, e identidade nova é **tipo** novo para o React. Custou caro na
-  tela "Minha Unidade": o autocomplete da sede **nunca funcionou** ali, porque
-  cada caractere destruía o nó do DOM, perdia o foco e zerava o
-  `hasUserInteracted` do `AddressAutocomplete`
-  (`src/components/AddressAutocomplete.tsx:135`), matando o debounce antes de
-  disparar. Sem sugestão não há coordenadas, e sem coordenadas a sede não salva
-  — o gestor não estava mal orientado, a operação era **impossível**. Correção:
-  chamar como função (`{renderForm()}`), nunca como componente. Diagnóstico
-  rápido: marque o nó (`el.dataset.x = '1'`) e digite uma letra; se a marca
-  sumir, remontou.
-  **Mais dois casos em 15/08 (PR #372):** `FilterContent` no `RouteFilters` e
-  `SettingsContent` no `NavigationSettings` — este último destruía o `Slider` de
-  raio de proximidade **no meio do arrasto**, já que cada tick dispara
-  `setSettings`. Onde a tela tem vários returns (as 5 de auth somam 11), o
-  boundary/invólucro vai **em volta** do componente de conteúdo, não return a
-  return: envolver um a um deixa algum de fora e os returns futuros nascem
-  descobertos. Duas lições sobre **medir** essa remontagem: o teste unitário usa
-  contador de montagens num filho mockado; no navegador, guarde a referência do
-  nó e cheque `node.isConnected` — e, acima de tudo, **prove que o pai
-  re-renderizou** (um controle observável, como o ✓ migrando de opção). Sem esse
-  controle a medição passa mesmo com o defeito presente: aconteceu três vezes
-  nesta sessão, por cliques que não registravam e por leitura errada do estado.
-- **Erro de formulário num campo pode ser causado por outro.** Nos schemas de
-  endereço, o `refine`/`superRefine` pendura a mensagem em `endereco` mas quem a
-  causa é a ausência de `latitude`/`longitude`. Como `setValue` sem opções **não
-  revalida** e a revalidação assíncrona do `onChange` perde a corrida, o erro
-  ficava preso na tela ao lado do badge verde "Validado" — dois sinais opostos
-  no mesmo campo. Reordenar as chamadas e `trigger()` explícito **não
-  resolveram**; só `clearErrors('endereco')` é determinístico. Vale para
-  `nova-entrega` e `onboarding`; `AddStopModal`/`EditStopModal` são imunes
-  (usam `useState` puro e já limpam o erro).
-- **Play Store: precedência de trilha e `eas submit` não promove.** A Play serve
-  sempre a trilha de maior prioridade a que a conta tem direito —
-  **internal ganha de closed**. Publicar só no teste fechado deixa os testadores
-  internos presos na versão antiga, e o sintoma engana: o link de teste fechado
-  funciona, o opt-in é aceito, e mesmo assim chega o build velho (aconteceu em
-  08/08 — link de `alpha`, aparelho recebeu o `3021` da internal). Publique nas
-  duas. E `eas submit` **sempre faz upload**, então falha com
-  "You've already submitted this version" quando o versionCode já subiu:
-  promover entre trilhas exige a API (`edits` → `PUT tracks/<track>` →
-  `:commit`). O padrão de autenticação pronto está em
-  `scripts/publish-play-listing.mjs` — JWT RS256 com `node:crypto`, sem
-  dependências.
-- **As API keys legacy estão DESABILITADAS (verificado 06/08/2026).** O projeto
-  migrou para o formato novo: `sb_publishable_…` no lugar da `anon` e
-  `sb_secret_…` no lugar da `service_role` (Settings → API Keys, aba
-  _Publishable and secret_). `.env` local, EAS `production` e EAS `preview` já
-  usam a publishable — **a variável continua com o nome herdado
-  `EXPO_PUBLIC_SUPABASE_ANON_KEY`**, o que engana. Pegadinha cara: a
-  `sb_secret_…` devolve **401 na Admin API do Auth** (`/auth/v1/admin/users/…`),
-  provavelmente porque o endpoint ainda espera um JWT e não um token opaco. Para
-  redefinir senha de usuário, use o **SQL Editor** — `pgcrypto` está instalada no
-  schema `extensions` e o Auth guarda bcrypt (`$2a$`, 60 chars):
+  migration e **nunca deixe subagente escrever no banco**.
+- **`src/types/database.ts` NÃO existe.** Tipos de domínio são curados à mão em
+  `src/types/`. Não rode `/regenerate-supabase-types` — é aspiracional.
+- **RPC com parâmetro novo cria _overload_** (custou a `criar_rota_com_paradas`), não substitui (identidade de função
+  no Postgres = nome + tipos). Exige `DROP` da assinatura antiga + reaplicar os
+  grants. Reverter a migration depois de mergear o código derruba a criação de
+  rotas: **reverta o código primeiro**.
+- **`unidades` não tem — e não deve ter — policy de UPDATE.** A tabela tem 17
+  colunas fora do que o app edita, várias comerciais (`plano`, `status`,
+  `desconto_percentual`, `asaas_customer_id`). Como `authenticated` já tem grant
+  cheio e RLS **não restringe coluna**, uma policy de UPDATE libera as 17 de uma
+  vez — o gestor se promoveria de plano. A escrita passa pela RPC
+  `atualizar_unidade`. **Se ela parar de funcionar, o conserto não é adicionar
+  policy.** Verificação: `.update()` direto em `unidades` tem que falhar.
+- **A tabela `logs` não tem coluna `parada_id`** — a parada vai dentro de
+  `detalhes`. Schema real: `id, usuario_id, rota_id, evento, detalhes, timestamp`.
+  Mandá-la como coluna faz o PostgREST recusar com **400**, e a falha só vira
+  `logger.warn` (o supabase-js **devolve** o erro em vez de lançar, então
+  `try/catch` não pega). Custou oito meses de auditoria de gestão de usuários.
+  Padrão certo em `useAddStopForm`/`useEditStopForm`/`routeUtils`; eventos de
+  rota e parada já são cobertos por triggers no banco (`log_parada_status`,
+  `log_rota_status`).
+
+**Auth, chaves e segredos**
+
+- **As API keys legacy estão DESABILITADAS.** O projeto usa `sb_publishable_…` e
+  `sb_secret_…` — mas **a variável mantém o nome herdado
+  `EXPO_PUBLIC_SUPABASE_ANON_KEY`**, o que engana. Pegadinha: a `sb_secret_…`
+  devolve **401 na Admin API do Auth** (`/auth/v1/admin/users/…`). Para redefinir senha, use o SQL Editor (o
+  Auth guarda bcrypt e `pgcrypto` está em `extensions`), e limpe o editor depois —
+  o histórico de execuções guarda a query:
 
   ```sql
   update auth.users
@@ -297,44 +166,97 @@ Cada uma quebrou algo de verdade. Leia antes de agir na área correspondente.
   where id = '<uuid>';
   ```
 
-  Limpe o editor depois: o histórico de execuções recentes guarda a query.
-
-- **Credenciais hardcoded (05/08/2026).** Dois scripts de criação de usuário de
-  teste, o fixture de E2E, um script de RLS e a seed traziam senha em texto puro
-  num repositório **público**, e quatro dessas contas estavam **vivas em
-  produção**. Todas removidas do código (agora exigem variável de ambiente, sem
-  fallback) e as 4 contas foram excluídas. Regra: **nenhuma senha no repo, nem
-  como fallback, nem em `console.log`** — o log sobrevive no scrollback e no CI.
-- **RPC `criar_rota_com_paradas`:** acrescentar parâmetro cria _overload_ em vez
-  de substituir (identidade de função no Postgres = nome + tipos). Exige `DROP`
-  da assinatura antiga + reaplicar os grants. Reverter a migration depois de
-  mergear o código derruba a criação de rotas — **reverta o código primeiro**.
-- **Cadastro público quebrado — o portão já está aplicado desde o PR #354.**
-  `signUp` criava a conta no Auth e depois inseria em `usuarios` — insert que o
-  RLS bloqueia porque exige que o autor já seja gestor. O erro vinha DEPOIS da
-  conta criada: pessoas reais ficaram com conta órfã, e `app/index.tsx` as
-  devolvia ao login sem mensagem. Hoje `index.tsx` **e** `login.tsx` mandam
-  sessão-sem-perfil para `/onboarding/criar-unidade`, então deixou de ser beco
-  sem saída. **Validado com conta real em 15/08 até a criação da unidade**: o
-  portão leva à tela certa e a RPC grava as três linhas atomicamente (pendência 6
-  segue aberta só nos passos de motorista e rota).
-  _(Até 15/08 esta entrada dizia "correção ainda não aplicada", o que contradizia
-  a própria tabela de mudanças e o código; corrigido após conferir o
-  `login.tsx`.)_
-  Lição: **operação que precisa de mais de uma linha vira RPC em transação**,
-  nunca dois passos no client. Indicador de saúde — hoje retorna **zero**, ver
-  "Contas órfãs zeradas":
+- **Nenhuma senha no repo** — nem como fallback, nem em `console.log`. O
+  repositório é público e o log sobrevive no scrollback e no CI. Em 05/08/2026
+  quatro contas com senha em texto puro estavam vivas em produção.
+- **Editar `supabase/templates/*.html` NÃO muda o email enviado.** O Supabase lê
+  **só do painel** (Auth → Emails); não há MCP, e `supabase config push`
+  sobrescreveria a produção com o `site_url` local. Invariante que quebra em
+  silêncio: o link de `reset-password.html` e `confirm-signup.html` precisa ser
+  `{{ .SiteURL }}/auth/confirm-{reset,signup}#url={{ .ConfirmationURL }}` **no
+  `href` e no texto visível** — trocar pelo `{{ .ConfirmationURL }}` direto
+  devolve o OTP ao scanner corporativo e, no cadastro, entrega junto os **tokens
+  de sessão**. Ver `supabase/templates/README.md`.
+- **São 5 arquivos para 6 abas do painel, e é intencional.** O Magic Link saiu do
+  repo porque o app nunca chama `signInWithOtp`. A aba continua no painel com o
+  layout antigo — inofensivo só enquanto nada dispara o envio. Se o login sem
+  senha entrar no produto, recupere `supabase/templates/magic-link.html` do git **antes** de usar.
+- **Operação que precisa de mais de uma linha vira RPC em transação**, nunca dois
+  passos no client. O cadastro público criava a conta no Auth e só depois inseria
+  em `usuarios`, insert que o RLS bloqueia — pessoas reais ficaram com conta
+  órfã. Indicador de saúde (hoje retorna zero):
   `select au.email from auth.users au left join public.usuarios u on u.id = au.id where u.id is null;`
-- **`unidades` não tem — e não deve ter — policy de UPDATE.** A tabela tem 17
-  colunas fora do que o app edita, várias comerciais (`plano`, `status`,
-  `desconto_percentual`, `asaas_customer_id`, `observacoes_admin`). Como
-  `anon`/`authenticated` já têm grant de tabela cheio (default do Supabase) e
-  RLS **não restringe coluna**, criar uma policy de UPDATE libera as 17 de uma
-  vez — um gestor poderia se promover de plano e estender o próprio trial. A
-  escrita passa pela RPC `atualizar_unidade`, que aceita 10 campos explícitos.
-  **Se algum dia essa RPC parar de funcionar, o conserto não é adicionar
-  policy.** Verificação: um `.update()` direto em `unidades` pelo client tem
-  que continuar falhando.
+
+**React e formulários**
+
+- **Não declare componente dentro do render de outro.** `const Form = () => (...)`
+  usado como `<Form />` ganha identidade nova a cada render, e identidade nova é
+  **tipo** novo para o React: remonta a subárvore, quebra foco, zera refs e mata
+  debounce — sem erro no console e com o CI verde. Manteve o autocomplete da sede
+  **impossível** de usar em "Minha Unidade", e destruiu um `Slider` no meio do
+  arrasto. Correção: chamar como função (`{renderForm()}`). Diagnóstico: marque o
+  nó (`el.dataset.x = '1'`) e digite uma letra; se a marca sumir, remontou. Onde a
+  tela tem vários returns, o invólucro vai **em volta** do componente de conteúdo,
+  não return a return.
+- **`loading` vale só para a carga inicial.** `DesktopPageLayout` e
+  `DashboardMobile` retornam **só** o spinner quando `loading` é true — descartam
+  cabeçalho, filtros e tabela. Religá-lo numa recarga apaga a página com conteúdo
+  já na tela. Recarga sinaliza por `refreshing` ou pelo toast da própria ação.
+- **Erro de formulário num campo pode ser causado por outro.** Nos schemas de
+  endereço o `refine` pendura a mensagem em `endereco`, mas quem a causa é a
+  ausência de `latitude`/`longitude`. `setValue` sem opções **não revalida** e a
+  revalidação do `onChange` perde a corrida — o erro fica preso ao lado do badge
+  verde "Validado". Reordenar e `trigger()` não resolvem; só
+  `clearErrors('endereco')` é determinístico. Vale para `nova-entrega` e
+  `onboarding`.
+
+**Medição e testes**
+
+- **O Fast Refresh não aplica no dev web — recarregue antes de medir.** O Metro
+  registra só o bundle inicial e a página segue executando código velho. Já
+  produziu três medições contraditórias, incluindo um teste diferencial em que o
+  bug foi reintroduzido de propósito e o navegador insistiu que não existia. Force
+  `window.location.reload()` e espere (~10 s). Para saber qual versão está no ar:
+  `curl -s "http://localhost:8082/index.ts.bundle?platform=web&dev=true" | grep -c meuSimbolo`.
+- **O toast vermelho de erro e o `Unexpected text node` são do LogBox — não
+  existem em produção.** Nenhum componente do app renderiza saída de log; se você
+  vê `console.error` na tela, é ferramenta de dev. Armadilha de método: um
+  interceptor instalado **depois** de `src/utils/configureLogBox.ts` fica acima do
+  filtro e conta mensagens que nunca chegaram ao console.
+- **Teste que afirma um schema inventado dá cobertura ao defeito.** Dois bugs
+  sobreviveram porque os testes os _exigiam_ — um esperava `parada_id` no insert,
+  outro esperava `'150.5'` citando o `toFixed` no próprio comentário. Ao testar
+  escrita em tabela, confira as colunas no banco (`information_schema.columns`) antes de fixar o payload.
+- **O rascunho de rota não vive no `sessionStorage`.** A fonte é a tabela
+  `rascunhos_rota`, com expiração de 7 dias; o `sessionStorage` é espelho
+  síncrono. Fechar o navegador **não** perde o rascunho.
+
+**Infra e distribuição**
+
+- **OSRM no dev web usa outro servidor.** O nosso `osrm.rotamestre.tec.br`
+  responde `Access-Control-Allow-Origin` fixo para o domínio de produção, então o
+  browser bloqueava toda chamada de `localhost` e o otimizador caía no
+  `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — a rota
+  "otimizava" com distância plausível e sem roteamento por vias.
+  `src/lib/osrm/config.ts` resolve nesta ordem: `EXPO_PUBLIC_OSRM_URL` → demo
+  público (**só dev web**) → self-hosted. Produção e dev nativo não mudaram.
+  Consequência: distâncias em dev **não conferem** com produção. A correção
+  definitiva é liberar `localhost` no CORS do nosso openresty — **CORS não é
+  controle de acesso**, o endpoint já responde a qualquer um via `curl`.
+- **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
+  "Carregando..." sem erro no console. O que não pode ser removido está em
+  "Regras que não podem regredir".
+- **Play Store: precedência de trilha e `eas submit` não promove.** A Play serve
+  sempre a trilha de maior prioridade a que a conta tem direito — **internal ganha
+  de closed**. Publicar só no fechado deixa os testadores internos na versão
+  antiga, e o sintoma engana: o link funciona, o opt-in é aceito, e chega o build
+  velho. Publique nas duas. `eas submit` **sempre faz upload**, então falha quando
+  o versionCode já subiu; promover entre trilhas exige a API (`edits` →
+  `PUT tracks/<track>` → `:commit`). Padrão de autenticação pronto em
+  `scripts/publish-play-listing.mjs`.
+- **Não use here-string do PowerShell (`-m @'…'@`) na ferramenta Bash.** O `@` vira texto e o
+  Git toma a primeira linha como **assunto** do commit. No bash use heredoc
+  (`git commit -F -`).
 
 ## Estado atual
 
@@ -507,76 +429,53 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Próximas ações
 
-> As pendências ativas estão na **tabela do topo deste documento**, que é a lista
-> canônica. Esta seção guarda só o detalhe operacional de cada frente e o
-> backlog de médio prazo — não repita itens aqui.
+> As pendências ativas estão na **tabela do topo**, que é a lista canônica. Aqui
+> fica só o detalhe operacional das frentes abertas. O backlog de médio prazo
+> (métricas de produto, retomada do Asaas, estratégia de rollout pós-aprovação)
+> saiu daqui em 25/08/2026 — não precisava ser lido em toda sessão.
 
 ### P0 — concluir distribuição móvel (detalhe das pendências 4 e 5)
 
-1. Confirmar no Play Console a quantidade e a continuidade dos participantes
-   com opt-in; divulgue o hub `/testar` para ampliar a base. Contas cadastradas
-   sem opt-in não contam para o requisito.
-2. Solicitar acesso à produção quando o requisito mostrado pelo Console estiver
-   satisfeito e **promover** o build `3025` — já publicado em teste fechado e
-   interno. Promoção entre trilhas é feita pela API, não por `eas submit`; não
-   gere um AAB novo só para repetir a tentativa.
-3. Revisar “Conteúdo do app”, Segurança de dados, classificação, público-alvo,
+1. Confirmar no Play Console a quantidade e a continuidade dos participantes com
+   opt-in; divulgue o hub `/testar` para ampliar a base. Contas cadastradas sem
+   opt-in não contam para o requisito.
+2. Solicitar acesso à produção quando o requisito estiver satisfeito e
+   **promover** o build já publicado em teste fechado e interno. Promoção entre
+   trilhas é feita pela API, não por `eas submit`; não gere um AAB novo só para
+   repetir a tentativa.
+3. Revisar "Conteúdo do app", Segurança de dados, classificação, público-alvo,
    acesso do revisor e URLs legais contra `play-store-metadata.md`.
-4. Concluir a autenticação interativa da Apple para criar/validar certificado e
-   provisioning profile, gerar o primeiro build iOS e testá-lo no TestFlight.
-5. Preencher a ficha e o App Privacy no App Store Connect, anexar screenshots
-   de iPhone/iPad e enviar o build validado para revisão.
+4. Concluir a autenticação interativa da Apple, gerar o primeiro build iOS e
+   testá-lo no TestFlight.
+5. Preencher a ficha e o App Privacy no App Store Connect, anexar screenshots de
+   iPhone/iPad e enviar o build para revisão.
 
 ### P1 — qualidade e acompanhamento funcional
 
 1. Monitorar erros da Nova Entrega: recuperação de rascunho após refresh,
    importação em massa, dependências retirada/entrega, retries e duplicidade.
-2. Provisionar de forma segura as contas-fixture autenticadas do Playwright e
-   rerodar o E2E completo.
-3. Validar no Android e no iOS o ciclo completo de um motorista em rede instável.
-4. Confirmar entrega de push nos artefatos instalados pelas lojas e revisar
-   tickets/receipts da Expo.
-5. Planejar o aviso aos usuários do app antigo sem interromper o backend
+2. Validar no Android e no iOS o ciclo completo de um motorista em rede instável.
+3. Confirmar entrega de push nos artefatos instalados pelas lojas.
+4. Planejar o aviso aos usuários do app antigo sem interromper o backend
    compartilhado.
-
-### P2 — evolução posterior ao rollout
-
-1. Definir métricas de produto e alertas operacionais sem coletar dados além do
-   declarado.
-2. Retomar cobrança/Asaas somente com regras comerciais e de acesso definidas.
-3. Definir uma estratégia de rollout e monitoramento equivalente para Android e
-   iOS após a aprovação das lojas.
 
 ## Roteiro para a próxima sessão
 
-0. **Não há frente aberta nem dado de teste solto.** A sessão de **17/08**
-   encerrou com a `main` limpa, nenhum PR aberto, nenhuma branch órfã no remoto e
-   a conta de teste do fluxo de email removida do banco. Se abrir uma seção
-   "Trabalho em curso", siga o contrato da que existia aqui: estado real
-   verificado, e apagada ao fechar — o que ela tiver de durável vai para
-   "Armadilhas" (aqui) ou "Validações registradas" (em
-   [HISTORICO.md](HISTORICO.md)).
-1. Leia, **nesta ordem**, as três primeiras seções deste documento: Pendências,
-   Armadilhas e Estado atual. Elas bastam para começar; o resto é referência sob
-   demanda.
-2. `git status --short --branch`. **Espere a árvore limpa.** Até 17/08 havia um
-   `.claude/settings.json` permanentemente modificado — a permissão local do
-   gestor, que `git reset --hard` destruiu três vezes. Ela foi movida para
-   `.claude/settings.local.json`, que o `.gitignore` cobre e o `reset --hard`
-   não toca (ele só mexe em arquivo rastreado). **Se esse diff reaparecer**, é
-   porque uma permissão foi salva no escopo "projeto" em vez de "local":
-   reverta o versionado e confira se a permissão está no `settings.local.json`.
-3. Confira `package.json`, o último commit e os checks do GitHub.
-4. Se houver banco no escopo, rode `npx supabase migration list` e compare o
-   schema vivo antes de criar SQL. Releia "Armadilhas" antes de aplicar.
-5. Se houver release Android no escopo, consulte primeiro o Play Console e o
-   EAS; não gere build só para descobrir o estado.
-6. Execute a menor validação proporcional à mudança e registre aqui qualquer
-   nova decisão, estado externo ou pendência.
-7. Se for validar pelo navegador, **recarregue a página antes de medir** — o
-   Fast Refresh não aplica no dev web (ver armadilhas). E monte um controle
-   observável que prove que a interação aconteceu; sem ele a medição passa mesmo
-   com o defeito presente.
+1. `git status --short --branch` — espere a árvore limpa. Se aparecer
+   `.claude/settings.json` modificado, é porque uma permissão foi salva no escopo
+   "projeto" em vez de "local": reverta o versionado e mova para
+   `.claude/settings.local.json`, que o `.gitignore` cobre.
+2. Confira `package.json`, o último commit e os checks do GitHub.
+3. Se houver banco no escopo, rode `npx supabase migration list` e compare o
+   schema vivo antes de criar SQL.
+4. Se houver release Android no escopo, consulte o Play Console e o EAS — não
+   gere build só para descobrir o estado.
+5. Execute a menor validação proporcional à mudança, e registre aqui o que for
+   durável: regra que pode regredir vai para "Armadilhas" ou "Regras que não
+   podem regredir"; relato datado vai para [HISTORICO.md](HISTORICO.md).
+
+> Se abrir uma seção "Trabalho em curso", siga o contrato: estado real
+> verificado, e apagada ao fechar.
 
 ## Mapa da documentação
 
