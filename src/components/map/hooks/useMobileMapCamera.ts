@@ -9,6 +9,7 @@
 
 import { useRef, useEffect, useMemo, type RefObject } from 'react';
 
+import { useMapFitPadding } from '@/components/map/mobile/useMapFitPadding';
 import { getBounds, toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada } from '@/types/parada-map';
 
@@ -83,6 +84,7 @@ export function useMobileMapCamera(
   paradasComCoord: Parada[],
 ): UseMobileMapCameraResult {
   const cameraRef = useRef<CameraRef>(null);
+  const fitPadding = useMapFitPadding();
 
   // Fit all paradas into view once loaded
   useEffect(() => {
@@ -98,7 +100,7 @@ export function useMobileMapCamera(
         cameraRef.current?.fitBounds(
           [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
           {
-            padding: { top: 50, right: 50, bottom: 50, left: 50 },
+            padding: fitPadding,
             duration: 500,
           },
         );
@@ -107,7 +109,7 @@ export function useMobileMapCamera(
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [paradasComCoord]);
+  }, [paradasComCoord, fitPadding]);
 
   const initialRegion = useMemo(
     () => computeInitialRegion(paradasComCoord),

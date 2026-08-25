@@ -534,8 +534,9 @@ export default function MotoristasGestor() {
               <View style={styles.infoBox}>
                 <Text style={styles.infoText}>
                   {motoristas.length}{' '}
-                  {motoristas.length === 1 ? 'motorista' : 'motoristas'}{' '}
-                  cadastrados
+                  {motoristas.length === 1
+                    ? 'motorista cadastrado'
+                    : 'motoristas cadastrados'}
                 </Text>
               </View>
               <TouchableOpacity

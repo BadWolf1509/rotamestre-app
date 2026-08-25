@@ -9,6 +9,7 @@
 
 import { useCallback, useMemo, type RefObject } from 'react';
 
+import { useMapFitPadding } from '@/components/map/mobile/useMapFitPadding';
 import { useAlert } from '@/hooks/useAlert';
 import { getBounds } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada } from '@/types/parada-map';
@@ -32,6 +33,7 @@ export function useNavigationActions(
   cameraRef: RefObject<CameraRef | null>,
 ): UseNavigationActionsResult {
   const { showWarning } = useAlert();
+  const fitPadding = useMapFitPadding();
 
   const proximaParadaPendente = useMemo(
     () =>
@@ -66,12 +68,12 @@ export function useNavigationActions(
       cameraRef.current.fitBounds(
         [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
         {
-          padding: { top: 80, right: 50, bottom: 120, left: 50 },
+          padding: fitPadding,
           duration: 500,
         },
       );
     }
-  }, [cameraRef, paradasComCoord]);
+  }, [cameraRef, paradasComCoord, fitPadding]);
 
   return { proximaParadaPendente, handleNavigate, handleFitAll };
 }

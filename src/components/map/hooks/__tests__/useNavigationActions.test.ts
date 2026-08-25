@@ -112,4 +112,33 @@ describe('useNavigationActions', () => {
     });
     expect(cameraRef.current.fitBounds).toHaveBeenCalledTimes(1);
   });
+
+  it('afasta o enquadramento da coluna de FABs', () => {
+    // Regressao: o padding era `right: 50`, menor que a coluna de botoes que
+    // flutua sobre o canto inferior direito do mapa, entao marcadores perto da
+    // borda direita nasciam ATRAS dos botoes (visto em aparelho no build 3026).
+    // A coluna tem a largura do maior FAB (spacing['14'] = 56) e encosta a
+    // spacing['4'] = 16 da borda.
+    const LARGURA_COLUNA = 56;
+    const FOLGA = 16;
+
+    const cameraRef = makeCameraRef();
+    const { result } = renderHook(() =>
+      useNavigationActions(
+        [pendente] as any,
+        [pendente] as any,
+        cameraRef as any,
+      ),
+    );
+    act(() => {
+      result.current.handleFitAll();
+    });
+
+    const { padding } = (cameraRef.current.fitBounds as jest.Mock).mock
+      .calls[0][1];
+
+    expect(Number.isFinite(padding.right)).toBe(true);
+    expect(padding.right).toBeGreaterThanOrEqual(LARGURA_COLUNA + FOLGA);
+    expect(padding.bottom).toBeGreaterThanOrEqual(LARGURA_COLUNA + FOLGA);
+  });
 });
