@@ -195,22 +195,34 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
     // `toHaveScreenshot` com `mask` sobre a região do mapa — ou seja, apagava o
     // mapa antes de comparar — e a baseline commitada era o mapa travado em
     // "Carregando mapa...". Passava com o mapa quebrado e falhava quando ele
-    // funcionava. O screenshot saiu por três motivos: mascarava o único elemento
-    // exclusivo desta tela, dependia de dados vivos do banco, e a baseline não
-    // podia ser regenerada em CI (o `test:visual:update` roda `--public-only`).
+    // funcionava.
     //
+    // ORDEM IMPORTA. O mapa só monta quando o motorista tem rota ativa; sem rota
+    // a tela mostra `motorista-mapa-empty` e não existe overlay nenhum — logo um
+    // `toHaveCount(0)` sozinho é trivialmente verdadeiro e o teste passa sem
+    // testar nada. Foi o que aconteceu na primeira versão: em CI o motorista
+    // estava sem rota (canvases=0, mapDivs=0) e o teste ficou verde mesmo com o
+    // worker do maplibre deliberadamente quebrado.
+    //
+    // Por isso: primeiro exigir que o mapa EXISTA, só então que ele terminou de
+    // carregar. O timeout generoso também cobre a query da rota, que em CI pode
+    // demorar mais que o `waitForTimeout(1000)` do `navigateToMapa()`.
+    const mapView = page.getByTestId('motorista-mapa-view');
+    await expect(
+      mapView,
+      'Mapa não montou: o motorista de teste precisa ter rota ativa, senão a tela fica no estado vazio e este teste não valida nada.',
+    ).toBeVisible({ timeout: 60000 });
+    await expect(mapView.locator('canvas.maplibregl-canvas')).toBeVisible({
+      timeout: 60000,
+    });
+
     // `mapa-web-carregando` só desaparece quando o evento `load` do maplibre
-    // dispara. A tela tem DOIS mapas (o MiniMap do topo e o principal), e o
-    // toHaveCount(0) cobre os dois; o canvas é buscado dentro do container
-    // principal porque sem escopo o locator casa com ambos.
+    // dispara — é o mesmo `mapLoaded` que controla o overlay no componente. A
+    // tela tem DOIS mapas (o MiniMap do topo e o principal) e o toHaveCount
+    // cobre os dois.
     await expect(page.getByTestId('mapa-web-carregando')).toHaveCount(0, {
       timeout: 60000,
     });
-    await expect(
-      page
-        .getByTestId('motorista-mapa-view')
-        .locator('canvas.maplibregl-canvas'),
-    ).toBeVisible();
   });
 
   test('renders motorista paradas', async ({ page, loginAsMotorista }) => {
