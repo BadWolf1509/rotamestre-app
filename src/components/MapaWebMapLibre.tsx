@@ -688,7 +688,11 @@ export default function MapaWebMapLibre({
         }}
       />
       {!mapLoaded && (
-        <View style={styles.loadingOverlay}>
+        // O testID é o gancho dos testes: `mapLoaded` só vira true no evento
+        // `load` do maplibre, então a ausência deste nó significa que o mapa
+        // terminou de carregar de verdade. Sem ele, o único sinal seria o texto
+        // do rótulo — e screenshot não serve, porque os testes mascaram o mapa.
+        <View style={styles.loadingOverlay} testID="mapa-web-carregando">
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={styles.loadingText}>Carregando mapa...</Text>
         </View>

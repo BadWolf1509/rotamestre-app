@@ -162,6 +162,38 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
+      - name: Testes de mapa (autenticados)
+        # Os testes de mapa vivem no describe `@auth`, que o step acima NÃO roda:
+        # `test:visual:public` filtra por `@visual.*@public`. Sem este step o mapa
+        # fica sem cobertura nenhuma em CI — foi assim que duas baselines
+        # congelando o mapa travado em "Carregando mapa..." sobreviveram desde
+        # 09/01/2026 sem ninguém notar.
+        #
+        # Depende de conta de teste. Sem os secrets configurados, o step avisa e
+        # sai sem falhar, em vez de quebrar o job de quem não os tem.
+        #
+        # ATENÇÃO: `Visual Regression` não está entre os checks exigidos pela
+        # proteção da main, então uma falha aqui NÃO bloqueia merge — aparece
+        # como job vermelho e anotação. Para bloquear, inclua este job em
+        # required_status_checks.
+        if: ${{ github.event.inputs.update_snapshots != 'true' }}
+        run: |
+          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_GESTOR_EMAIL" ]; then
+            echo "::warning title=Mapa sem cobertura::Secrets E2E_* ausentes; os testes de mapa não rodaram. Configure E2E_MOTORISTA_EMAIL, E2E_MOTORISTA_PASSWORD, E2E_GESTOR_EMAIL e E2E_GESTOR_PASSWORD em Settings > Secrets."
+            echo '### :warning: Testes de mapa não executados (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx playwright test e2e/visual-critical.e2e.ts --project=chromium -g "mapa"
+          echo '### :white_check_mark: Testes de mapa executados' >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VISUAL_REGRESSION: '1'
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
+          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
+          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
+          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
+
       - name: Update visual regression snapshots
         if: ${{ github.event.inputs.update_snapshots == 'true' }}
         run: npx playwright test --update-snapshots || true
