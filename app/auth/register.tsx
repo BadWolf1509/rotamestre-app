@@ -79,14 +79,21 @@ function RegisterContent() {
   }
 
   return (
-    <ResponsiveContainer>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(20, insets.bottom + 20) },
-        ]}
-      >
+    // O ScrollView vem POR FORA do ResponsiveContainer, mesmo padrão de
+    // app/onboarding/criar-unidade.tsx. Invertido, esta tela ficava VAZIA no
+    // Android: o ResponsiveContainer é um View sem `flex`, então dimensiona pelo
+    // conteúdo — e um filho `flex: 1` dentro de um pai de altura automática
+    // contribui zero para essa altura, deixando os dois com altura 0. Na web o
+    // React Native Web mapeia para CSS e o sintoma não aparece, o que manteve o
+    // cadastro pelo app quebrado desde 05/11/2025 sem nenhum teste detectar.
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[
+        styles.scrollContent,
+        { paddingBottom: Math.max(20, insets.bottom + 20) },
+      ]}
+    >
+      <ResponsiveContainer>
         <View style={[styles.content, isDesktop && styles.contentDesktop]}>
           <Card padding="large" style={styles.card} testID="auth-register-card">
             <Text variant="title" style={styles.title}>
@@ -189,9 +196,9 @@ function RegisterContent() {
             </View>
           </Card>
         </View>
-      </ScrollView>
+      </ResponsiveContainer>
       {AlertDialog}
-    </ResponsiveContainer>
+    </ScrollView>
   );
 }
 
