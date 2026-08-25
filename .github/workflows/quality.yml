@@ -34,28 +34,30 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Security Audit (produção, informativo)
+      - name: Security Audit (produção)
         # Roda scripts/audit-producao.js em vez do `npm audit` cru.
         #
         # O comando cru ficava vermelho para SEMPRE por causa de advisory sem
         # correção upstream — e um check cronicamente vermelho deixa de sinalizar
         # qualquer coisa nova. Foi exatamente o que aconteceu: em 25/08/2026 este
         # step estava falhando com 4 high do `image-size` e ninguém percebeu,
-        # porque o `continue-on-error` engolia. O comentário anterior aqui ainda
-        # afirmava "atualmente PASSA (0 high/critical de produção)", o que havia
-        # deixado de ser verdade.
+        # porque um `continue-on-error` engolia.
         #
         # O script mantém allowlist POR ID DE ADVISORY — nunca por pacote, para
         # que um advisory novo no mesmo pacote continue quebrando — com motivo e
-        # data de revisão em cada entrada, e escreve o resultado no summary do
-        # job (visível na página de checks mesmo com o job verde).
+        # data de revisão em cada entrada, e escreve o resultado no summary do job.
         #
-        # Segue informativo por ora, para que um advisory publicado de madrugada
-        # não bloqueie PR não relacionado. Com os insolúveis agora explicitamente
-        # aceitos, tornar bloqueante é só remover o `continue-on-error` — e passou
-        # a ser uma opção defensável, o que antes não era.
+        # BLOQUEANTE: este job ("TypeScript & Linting") é um dos dois checks
+        # exigidos pela proteção da main, então uma falha aqui trava o merge. É
+        # deliberado — foi a invisibilidade que deixou 4 high passarem despercebidos.
+        #
+        # Quando quebrar, há dois caminhos, nessa ordem:
+        #   1. Existe correção upstream? Suba a dependência.
+        #   2. Não existe e o risco é aceitável? Acrescente o ID do advisory a
+        #      ACEITOS em scripts/audit-producao.js, com motivo e data de revisão.
+        # O que não vale é reverter para `continue-on-error` — foi assim que a
+        # rede de segurança parou de servir para alguma coisa.
         run: node scripts/audit-producao.js
-        continue-on-error: true
 
       - name: Expo SDK dependency check
         # `expo install --check` compara o que está INSTALADO em node_modules
