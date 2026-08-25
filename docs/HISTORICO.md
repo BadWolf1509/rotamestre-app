@@ -470,6 +470,30 @@ já faltava. O teste detecta mapa quebrado — só que a quebra em CI era real.
 Fechado no #429: ordem das asserções + step explícito de cópia do worker, com
 verificação nos dois sentidos em CI (quebrado → failure, íntegro → passa).
 
+### Verificar as três redes: duas escondiam defeito
+
+Depois dos testes de mapa, as outras duas redes de CI criadas no mesmo dia
+(`expo install --check` e o audit de produção) foram verificadas pelo mesmo
+método — branch descartável com quebra deliberada, PR aberto só para disparar
+o `quality.yml`, que não tem `workflow_dispatch`.
+
+Resultado das quebras: retirar `GHSA-5p2g-fcmc-qvqq` da allowlist deixou o
+`TypeScript & Linting` vermelho nomeando exatamente aquele advisory — e **só**
+ele, o que prova que a allowlist é por ID e não por pacote disfarçado. Fixar
+`expo-linking` em 56.0.14 produziu `expected version: ~56.0.17` /
+`Found outdated dependencies`, com exit 1 engolido pelo `continue-on-error`.
+
+Detalhe útil para leitura futura: um step `continue-on-error` que falha aparece
+como `success` na API de steps do Actions. Quem olhar só o status não vê nada;
+o sinal está no log e no summary do job.
+
+**O defeito que a verificação achou** foi de ordem. Com o audit bloqueante
+falhando, os três steps seguintes ficaram `skipped` — typecheck e lint incluídos.
+Corrigido no #432 movendo o audit para o fim do job.
+
+Placar do método nesta leva: três redes verificadas quebrando de propósito,
+duas esconderam defeito que o caminho feliz nunca mostraria.
+
 ### Três checks de CI que não existiam ou não funcionavam
 
 - **`expo install --check`** (#424), informativo, escrevendo no summary do job.
