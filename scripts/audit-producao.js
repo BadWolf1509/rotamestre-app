@@ -37,7 +37,7 @@ const ACEITOS = {
       'e alguém rodar o build — trava a build, não atinge usuário final.',
     revisarEm: '2026-11-01',
   },
-  'GHSA-5p2g-fcmc-qvqq': {
+  'GHSA-removido-para-teste': {
     pacote: 'image-size',
     motivo:
       'DoS por loop infinito nos parsers JXL e HEIF. Mesma origem, mesma ' +
