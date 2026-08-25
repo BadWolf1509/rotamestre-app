@@ -198,6 +198,15 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   nó (`el.dataset.x = '1'`) e digite uma letra; se a marca sumir, remontou. Onde a
   tela tem vários returns, o invólucro vai **em volta** do componente de conteúdo,
   não return a return.
+- **`ResponsiveContainer` envolvendo `ScrollView flex:1` dá tela vazia no nativo.**
+  O container é um `View` sem `flex`, então o Yoga o dimensiona pelo conteúdo — e
+  um filho `flex: 1` dentro de pai de altura automática contribui zero para essa
+  altura: os dois ficam com altura 0. Na web o React Native Web mapeia para CSS e
+  o sintoma **não existe**, então o teste de screenshot passa. Manteve
+  `/auth/register` completamente vazia no Android por **nove meses** — ninguém
+  conseguia criar conta pelo app. Ordem correta: `ScrollView` **por fora**,
+  container por dentro (padrão de `app/onboarding/criar-unidade.tsx`). Sintoma:
+  cabeçalho de navegação aparece, corpo em branco, sem erro no logcat.
 - **`loading` vale só para a carga inicial.** `DesktopPageLayout` e
   `DashboardMobile` retornam **só** o spinner quando `loading` é true — descartam
   cabeçalho, filtros e tabela. Religá-lo numa recarga apaga a página com conteúdo
