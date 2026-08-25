@@ -15,6 +15,7 @@
     "bump:android": "node scripts/bump-android-version-code.js",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "audit:prod": "node scripts/audit-producao.js",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
     "build:android:release": "npm run bump:android && cd android && gradlew.bat assembleRelease",
     "build:tokens": "node tools/scripts/build-tokens.cjs",

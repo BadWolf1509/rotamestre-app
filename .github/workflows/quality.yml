@@ -35,14 +35,26 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Security Audit (produção, informativo)
-        # Foca em deps de produção (--omit=dev) no nível high+. Atualmente PASSA
-        # (0 high/critical de produção após #292+ — shell-quote/form-data/xlsx
-        # corrigidas). O único advisory transitivo restante é `uuid` (moderate,
-        # via xcode → @expo/config-plugins, tooling de build que não vai pro
-        # bundle; fix exigiria downgrade breaking do Expo). Mantido informativo
-        # (continue-on-error) como rede de segurança se um high/critical de
-        # produção reaparecer.
-        run: npm audit --omit=dev --audit-level=high
+        # Roda scripts/audit-producao.js em vez do `npm audit` cru.
+        #
+        # O comando cru ficava vermelho para SEMPRE por causa de advisory sem
+        # correção upstream — e um check cronicamente vermelho deixa de sinalizar
+        # qualquer coisa nova. Foi exatamente o que aconteceu: em 25/08/2026 este
+        # step estava falhando com 4 high do `image-size` e ninguém percebeu,
+        # porque o `continue-on-error` engolia. O comentário anterior aqui ainda
+        # afirmava "atualmente PASSA (0 high/critical de produção)", o que havia
+        # deixado de ser verdade.
+        #
+        # O script mantém allowlist POR ID DE ADVISORY — nunca por pacote, para
+        # que um advisory novo no mesmo pacote continue quebrando — com motivo e
+        # data de revisão em cada entrada, e escreve o resultado no summary do
+        # job (visível na página de checks mesmo com o job verde).
+        #
+        # Segue informativo por ora, para que um advisory publicado de madrugada
+        # não bloqueie PR não relacionado. Com os insolúveis agora explicitamente
+        # aceitos, tornar bloqueante é só remover o `continue-on-error` — e passou
+        # a ser uma opção defensável, o que antes não era.
+        run: node scripts/audit-producao.js
         continue-on-error: true
 
       - name: Expo SDK dependency check
