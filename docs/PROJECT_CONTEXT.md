@@ -447,6 +447,12 @@ app.rotamestre.tec.br ── Expo Web / React Native
   teste funcional expôs. Cobertura hoje: `renders motorista mapa` assere que o
   mapa monta **e** que terminou de carregar (`mapa-web-carregando` some só no
   evento `load`), e roda em CI desde que os secrets `E2E_*` existam.
+- **Step bloqueante de CI vai no fim do job.** Quando um step sem
+  `continue-on-error` falha, o Actions **pula todos os seguintes** — eles
+  aparecem como `skipped`, não como falha. Em 25/08/2026 o audit de produção
+  estava antes do typecheck e do lint, e um advisory escondia o resultado dos
+  dois: quem abrisse o PR via só o audit vermelho. Vale para qualquer step novo
+  que você torne bloqueante.
 - **Asserção de ausência nunca vem sozinha.** `toHaveCount(0)`,
   `not.toBeVisible()` e afins são satisfeitas tanto pelo sucesso quanto por "a
   tela nem chegou lá" — precisam vir **depois** de uma asserção de presença que
