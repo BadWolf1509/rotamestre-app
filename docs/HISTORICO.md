@@ -494,6 +494,39 @@ Corrigido no #432 movendo o audit para o fim do job.
 Placar do método nesta leva: três redes verificadas quebrando de propósito,
 duas esconderam defeito que o caminho feliz nunca mostraria.
 
+### O cadastro pelo Android estava morto havia nove meses
+
+Investigando o link "Solicitar acesso" da tela de login, no aparelho: a navegação
+funcionava — cabeçalho virava "Criar Conta", botão de voltar aparecia — e o corpo
+da tela ficava **completamente vazio**. Sem formulário, sem erro no logcat, sem
+crash. Dois screenshots com 15 s de intervalo saíram byte a byte idênticos, então
+não era render lento.
+
+A causa: `ResponsiveContainer` é um `View` com `width: 100%` e padding, **sem
+`flex`**. Envolvendo um `ScrollView` com `flex: 1`, o Yoga dimensiona o pai pelo
+conteúdo, e um filho `flex: 1` em pai de altura automática contribui zero para
+essa altura — os dois terminam com altura 0. Na web, o React Native Web mapeia
+para CSS e o sintoma não aparece.
+
+Três evidências fecharam o diagnóstico: `login.tsx` não usa o container e
+renderiza bem no Android; `criar-unidade.tsx` usa com a aninhagem invertida, que
+é a correta; e o teste público `renders auth register` passa em CI a cada push.
+Mesmo código, web renderiza, Android vazio.
+
+Introduzido em `ccce2d9` (05/11/2025, migração para Unistyles) — cerca de **nove
+meses** durante os quais ninguém conseguiu criar conta pelo app. Não foi
+detectado porque toda a cobertura daquela tela é web.
+
+A correção (#436) inverteu a aninhagem sem tocar em nenhum componente ou estilo,
+de propósito: assim a baseline do `renders auth register` virou a verificação de
+que o layout web não regrediu — e passou. Validado no build EAS `e9eea465`,
+instalado num moto g15: o formulário aparece completo.
+
+**A lição que vale além deste bug:** tela compartilhada web+nativo precisa ser
+vista nas duas plataformas. Layout é justamente a categoria onde o React Native
+Web mais diverge do Yoga, e é onde um teste verde numa plataforma dá a impressão
+mais convincente de cobertura.
+
 ### Três checks de CI que não existiam ou não funcionavam
 
 - **`expo install --check`** (#424), informativo, escrevendo no summary do job.
