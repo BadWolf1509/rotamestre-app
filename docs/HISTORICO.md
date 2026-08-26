@@ -542,6 +542,53 @@ mais convincente de cobertura.
 - **Audit tornado bloqueante** (#426), possível só depois da allowlist: antes,
   bloquear significaria travar merge para sempre.
 
+### A 1.12.3 saiu de um teste no aparelho, não de um relatório
+
+Depois de publicar a 3026, o app foi percorrido num moto g15 com a versão
+instalada **pela Play** — não sideload. Cinco coisas foram levantadas; **três
+eram defeitos** e viraram o PR #439.
+
+O mais caro era o avatar exibindo `G(`. A regra de iniciais estava **duplicada**
+em `Avatar` e `AvatarEditable`, byte a byte, e as duas cópias pegavam a primeira
+letra da última palavra sem descartar pontuação. Como os nomes de demonstração
+terminam em `(Avaliacao)`, a última palavra era `(Avaliacao)`. Com nome comum o
+defeito some — o que significa que ele aparecia **exatamente na conta que o
+revisor da Play usa**. Virou `src/lib/initials.ts`, que trata sufixo entre
+parênteses como anotação e não como sobrenome.
+
+Os outros dois: "1 motorista **cadastrados**" (o substantivo era pluralizado, o
+particípio não) e marcadores do mapa nascendo atrás da coluna de botões
+flutuantes. Este último tinha causa mais interessante do que "sobreposição":
+existiam **dois** `fitBounds` — um na carga, outro no botão "ajustar" — cada um
+com o padding escrito à mão, e ambos com `right: 50`, menor que a coluna. O
+teste que existia afirmava apenas que `fitBounds` **fora chamado**, nunca o
+argumento; por isso os valores puderam divergir do tamanho real do botão sem
+ninguém ver. O novo padding sai dos mesmos tokens que dimensionam os FABs, e o
+teste afirma a relação. Foi verificado quebrando: falha com 50, passa com 88.
+
+No caminho, o `mockTheme` do Jest revelou-se incompleto — tinha só os apelidos
+de `spacing` (`xs`…`xl`) enquanto o código usa a escala numérica —, então
+asserções sobre tamanho liam `undefined` e passavam por acidente. A escala foi
+adicionada; as 335 suítes seguiram verdes.
+
+**Dois dos cinco itens não eram defeitos, e conferir isso valeu mais do que
+"corrigir".** O terceiro card do dashboard aparece cortado porque é um
+`ScrollView horizontal` deliberado, com `accessibilityHint="Deslize para ver mais
+estatísticas"` — o corte é a dica. E o teclado no login: a leitura inicial foi
+"compensação dupla entre `adjustResize` e `KeyboardAvoidingView`", e o dump da
+janela desmentiu — `EDGE_TO_EDGE_ENFORCED` com `frame=[0,0][1080,2400]`
+inalterado de teclado aberto. Sem encolhimento, não há duplicação: o
+`KeyboardAvoidingView` é a **única** coisa tratando o teclado, e removê-lo —
+que era a correção pretendida — deixaria o campo em foco atrás dele. Virou
+armadilha no documento de entrada.
+
+Duas lições operacionais ficaram. A primeira: **atualizar pela Play preserva a
+sessão**, enquanto `adb install` exige desinstalar (assinaturas divergem) e
+derruba o login — além de testar um binário que não é o que o testador recebe.
+A segunda: **trocar só o `versionName` custa um versionCode**. A 3027 já tinha
+subido como 1.12.2 quando se decidiu por 1.12.3, e um versionCode enviado não
+aceita metadados novos; foi preciso a 3028, idêntica exceto pelo rótulo.
+
 ## Validações e varreduras registradas
 
 Fluxos conferidos com dado real, não só por teste. Cada um diz o que foi medido
@@ -807,49 +854,52 @@ Três coisas para levar adiante:
 
 ## Mudanças relevantes desta etapa
 
-| Data       | Mudança                                                                                      | Referência                                   |
-| ---------- | -------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente     | commit `e1f1bd5`, migration `20260723223000` |
-| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                   | commit `de8a036`, migration `20260722195606` |
-| 24/07/2026 | Correção da autenticação Android após rotação de chave                                       | commit `6dd8aa8`                             |
-| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta          | commit `b7a39dc`                             |
-| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta           | commit `3788f55`                             |
-| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                      | commit `191db5a`                             |
-| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)             | PRs #341/#345/#343/#342/#344                 |
-| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                       | PR #346                                      |
-| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta             | PRs #347 e #348                              |
-| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline      | PR #350, migration `20260804235500`          |
-| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push`    | PR #351                                      |
-| 06/08/2026 | Onboarding self-service: RPC de criação de unidade + portão no `index.tsx` e no `login.tsx`  | PR #354, migration `20260806175617`          |
-| 07/08/2026 | Credenciais hardcoded removidas do repositório público                                       | PR #353                                      |
-| 07/08/2026 | Tela "Minha Unidade" passa a salvar via RPC `atualizar_unidade`                              | PR #355, migration `20260807151639`          |
-| 07/08/2026 | Acentuação dos rótulos da tela de rota                                                       | PR #356                                      |
-| 08/08/2026 | Formulário de unidade: 7 defeitos + a causa raiz que impedia salvar a sede                   | PR #357                                      |
-| 08/08/2026 | OSRM real no dev web (`src/lib/osrm/config.ts`), constante de URL unificada                  | PR #358                                      |
-| 08/08/2026 | Erro de endereço que não sumia após selecionar a sugestão (nova-entrega + onboarding)        | PR #359                                      |
-| 08/08/2026 | `androidVersionCode` 3024 → 3025; build EAS e publicação em teste fechado + interno          | PR #360, build `d34a88d6`                    |
-| 15/08/2026 | Fallback Haversine do OSRM sinalizado (`is_estimated`) + guarda de rota com distância zero   | PR #371                                      |
-| 15/08/2026 | Remontagens invisíveis (componente no render) + dashboard não desmonta na troca de filtro    | PR #372                                      |
-| 15/08/2026 | `ErrorBoundary` nas 5 telas de auth                                                          | PR #373                                      |
-| 15/08/2026 | `ErrorBoundary` nas 5 rotas públicas restantes — cobertura de `app/` fechada                 | PR #374                                      |
-| 15/08/2026 | Decimal com vírgula em 32 pontos de exibição, via `formatarDecimal`                          | PR #375                                      |
-| 15/08/2026 | Equipe: ativar/desativar membro não pisca mais a tela inteira                                | PR #376                                      |
-| 15/08/2026 | Lote do Dependabot: maplibre 6.3.0, supabase-js 2.112.3, web-vitals 6.1.0 e dev deps         | PRs #367/#369/#370/#368                      |
-| 15/08/2026 | Onboarding: nome pré-preenchido do cadastro + cidade/UF derivadas do endereço da sede        | PR #378                                      |
-| 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                    | PR #379                                      |
-| 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar       | PR #381 (o #380 subiu junto e foi fechado)   |
-| 15/08/2026 | Onboarding devolve ao portão quem já tem perfil, em vez de abrir um formulário condenado     | PR #383                                      |
-| 15/08/2026 | Nova Rota avisa e leva a Minha Unidade quando a unidade não tem sede geocodificada           | PR #385                                      |
-| 15/08/2026 | `admin_logs` perde a FK para `auth.users`: auditoria sobrevive à exclusão da conta           | PR #386, migration `20260815200000`          |
-| 15/08/2026 | Auditoria de usuários volta a gravar (coluna inexistente no insert) + decimal do dashboard   | PR #387                                      |
-| 17/08/2026 | Templates de email do Auth: 5 defeitos corrigidos e versionados em `supabase/templates/`     | PR #390                                      |
-| 17/08/2026 | Proteção anti link-scanner estendida ao cadastro; lógica e layout extraídos do confirm-reset | PR #396                                      |
-| 17/08/2026 | Reenvio da confirmação de cadastro a partir do login, com rate limiter próprio               | PR #398                                      |
-| 17/08/2026 | Template do Magic Link removido do repo — nunca é enviado (o app não usa `signInWithOtp`)    | PR #400                                      |
-| 17/08/2026 | Consolidação: 201 linhas saem do documento de entrada; contexto por sessão cai 863 → 672     | PR #402                                      |
-| 17/08/2026 | Dependabot triado: 2 mergeados, #391 fechado (jest-preset 0.87 × RN 0.85.3)                  | PRs #393/#394/#404                           |
-| 17/08/2026 | Permissão do gestor sai do `settings.json` versionado; árvore de trabalho fica limpa         | PR #405                                      |
-| 17/08/2026 | Sentry 10.70; bundle 3.84 → 3.33 MB ao alinhar versões; limite volta a 3.5 MB                | PRs #392/#403/#406/#407                      |
+| Data       | Mudança                                                                                        | Referência                                   |
+| ---------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 23/07/2026 | Nova Entrega com rascunho persistente, importação, revisão e criação atômica/idempotente       | commit `e1f1bd5`, migration `20260723223000` |
+| 23/07/2026 | Migration de segurança já aplicada foi incorporada ao histórico versionado                     | commit `de8a036`, migration `20260722195606` |
+| 24/07/2026 | Correção da autenticação Android após rotação de chave                                         | commit `6dd8aa8`                             |
+| 24/07/2026 | Preparação do app e da ficha para o Google Play, páginas legais e exclusão de conta            | commit `b7a39dc`                             |
+| 24/07/2026 | Geometria viária persistida nos mapas; remoção dos fallbacks visuais em linha reta             | commit `3788f55`                             |
+| 24/07/2026 | Configuração inicial de distribuição e conformidade iOS                                        | commit `191db5a`                             |
+| 04/08/2026 | Integração de 5 PRs: `/testar`, maplibre 6, Sentry, deps e Node 22 (baseline/CI)               | PRs #341/#345/#343/#342/#344                 |
+| 04/08/2026 | Correção do worker do maplibre 6 (mapa web travado em "Carregando...")                         | PR #346                                      |
+| 04/08/2026 | Correções do autocomplete de endereço: interação após limpar e resposta obsoleta               | PRs #347 e #348                              |
+| 05/08/2026 | Auditoria de uso do otimizador, Fase 1 (registrar): colunas, RPC de 11 params, Timeline        | PR #350, migration `20260804235500`          |
+| 05/08/2026 | Histórico de migrations reconciliado + `IF NOT EXISTS` no arquivo que travava o `db push`      | PR #351                                      |
+| 06/08/2026 | Onboarding self-service: RPC de criação de unidade + portão no `index.tsx` e no `login.tsx`    | PR #354, migration `20260806175617`          |
+| 07/08/2026 | Credenciais hardcoded removidas do repositório público                                         | PR #353                                      |
+| 07/08/2026 | Tela "Minha Unidade" passa a salvar via RPC `atualizar_unidade`                                | PR #355, migration `20260807151639`          |
+| 07/08/2026 | Acentuação dos rótulos da tela de rota                                                         | PR #356                                      |
+| 08/08/2026 | Formulário de unidade: 7 defeitos + a causa raiz que impedia salvar a sede                     | PR #357                                      |
+| 08/08/2026 | OSRM real no dev web (`src/lib/osrm/config.ts`), constante de URL unificada                    | PR #358                                      |
+| 08/08/2026 | Erro de endereço que não sumia após selecionar a sugestão (nova-entrega + onboarding)          | PR #359                                      |
+| 08/08/2026 | `androidVersionCode` 3024 → 3025; build EAS e publicação em teste fechado + interno            | PR #360, build `d34a88d6`                    |
+| 15/08/2026 | Fallback Haversine do OSRM sinalizado (`is_estimated`) + guarda de rota com distância zero     | PR #371                                      |
+| 15/08/2026 | Remontagens invisíveis (componente no render) + dashboard não desmonta na troca de filtro      | PR #372                                      |
+| 15/08/2026 | `ErrorBoundary` nas 5 telas de auth                                                            | PR #373                                      |
+| 15/08/2026 | `ErrorBoundary` nas 5 rotas públicas restantes — cobertura de `app/` fechada                   | PR #374                                      |
+| 15/08/2026 | Decimal com vírgula em 32 pontos de exibição, via `formatarDecimal`                            | PR #375                                      |
+| 15/08/2026 | Equipe: ativar/desativar membro não pisca mais a tela inteira                                  | PR #376                                      |
+| 15/08/2026 | Lote do Dependabot: maplibre 6.3.0, supabase-js 2.112.3, web-vitals 6.1.0 e dev deps           | PRs #367/#369/#370/#368                      |
+| 15/08/2026 | Onboarding: nome pré-preenchido do cadastro + cidade/UF derivadas do endereço da sede          | PR #378                                      |
+| 15/08/2026 | Validação manual do onboarding até o passo 4 registrada, com os 7 achados                      | PR #379                                      |
+| 15/08/2026 | Bugs da validação: PGRST116 fora do Sentry, saída sem motorista, endereço sem duplicar         | PR #381 (o #380 subiu junto e foi fechado)   |
+| 15/08/2026 | Onboarding devolve ao portão quem já tem perfil, em vez de abrir um formulário condenado       | PR #383                                      |
+| 15/08/2026 | Nova Rota avisa e leva a Minha Unidade quando a unidade não tem sede geocodificada             | PR #385                                      |
+| 15/08/2026 | `admin_logs` perde a FK para `auth.users`: auditoria sobrevive à exclusão da conta             | PR #386, migration `20260815200000`          |
+| 15/08/2026 | Auditoria de usuários volta a gravar (coluna inexistente no insert) + decimal do dashboard     | PR #387                                      |
+| 17/08/2026 | Templates de email do Auth: 5 defeitos corrigidos e versionados em `supabase/templates/`       | PR #390                                      |
+| 17/08/2026 | Proteção anti link-scanner estendida ao cadastro; lógica e layout extraídos do confirm-reset   | PR #396                                      |
+| 17/08/2026 | Reenvio da confirmação de cadastro a partir do login, com rate limiter próprio                 | PR #398                                      |
+| 17/08/2026 | Template do Magic Link removido do repo — nunca é enviado (o app não usa `signInWithOtp`)      | PR #400                                      |
+| 17/08/2026 | Consolidação: 201 linhas saem do documento de entrada; contexto por sessão cai 863 → 672       | PR #402                                      |
+| 17/08/2026 | Dependabot triado: 2 mergeados, #391 fechado (jest-preset 0.87 × RN 0.85.3)                    | PRs #393/#394/#404                           |
+| 17/08/2026 | Permissão do gestor sai do `settings.json` versionado; árvore de trabalho fica limpa           | PR #405                                      |
+| 17/08/2026 | Sentry 10.70; bundle 3.84 → 3.33 MB ao alinhar versões; limite volta a 3.5 MB                  | PRs #392/#403/#406/#407                      |
+| 25/08/2026 | Cadastro pelo Android abria tela vazia havia nove meses (`ResponsiveContainer` × `ScrollView`) | PR #436                                      |
+| 25/08/2026 | Iniciais do avatar (`G(`), concordância de plural e enquadramento do mapa fora dos FABs        | PR #439                                      |
+| 25/08/2026 | 1.12.3 publicada em teste interno e fechado, validada no aparelho pela Play                    | PRs #438/#440/#441                           |
 
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
