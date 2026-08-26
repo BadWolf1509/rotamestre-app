@@ -17,7 +17,8 @@
 > cresce a um custo que ninguém vê. Ele já foi cortado três vezes — 923→633
 > em 15/08 (histórico), 736→534 em 17/08 (validações e varreduras) e 612→508 em
 > 25/08 (a narrativa das armadilhas, que passou ao HISTORICO; aqui ficou a regra
-> e a assinatura da falha). Antes de somar
+> e a assinatura da falha). **Voltou a ~560 no mesmo 25/08** — o crescimento é
+> sempre por acréscimo legítimo, e é por isso que ele reaparece. Antes de somar
 > uma seção, pergunte se ela precisa ser lida **em toda sessão** ou só quando
 > alguém for mexer naquele fluxo. No segundo caso, o lugar é o `HISTORICO.md` ou
 > o doc do tema, com uma linha no Mapa da documentação apontando para lá.
@@ -31,7 +32,7 @@ Lista única e canônica. Se resolver uma, risque daqui.
 | 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                                                                                  | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
 | 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                                                                              | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
 | 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                      | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store: produção continua vazia.** O `3025` está publicado em **teste fechado (`alpha`) e teste interno**, ambos `completed`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                                                         | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
+| 4   | **Play Store: produção continua vazia.** Teste fechado (`alpha`) e teste interno estão publicados e `completed` — confira qual build com `npm run play:status`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                             | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
 | 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                      | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
 | 6   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
 | 7   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" em [HISTORICO.md](HISTORICO.md)    |
@@ -108,13 +109,27 @@ Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimizaçã
 conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
 `parada_reaberta`, `parada_retomada` e `motorista_alterado` —, então o widget
 colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
-citava só `rota_otimizada`, era maior que isso); os dois scripts de
-consulta/promoção da Play ficaram **fora do repositório** (ver "Play Store:
-trilhas" nas armadilhas) — recriar custa uma investigação inteira.
+citava só `rota_otimizada`, era maior que isso).
 
 A varredura por **telas com precondição forte** foi feita em 15/08 e o resultado
 está em "Guardas de precondição", hoje em [HISTORICO.md](HISTORICO.md): o projeto está bem coberto, e o único
 beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
+
+**Fechadas em 25/08/2026, não reabra:** a **1.12.3 está publicada** em teste
+interno e fechado, validada no aparelho. Fecha o cadastro morto no Android
+(#436) e três defeitos achados testando o próprio build num moto g15 (#439):
+avatar exibindo `G(`, "1 motorista **cadastrados**" e marcadores do mapa atrás
+da coluna de botões. Os dois primeiros só aparecem com parênteses no nome — ou
+seja, **na conta que o revisor da Play usa**.
+
+Dois itens da mesma bateria **não eram defeitos**: o terceiro card do dashboard
+sai cortado porque é `ScrollView horizontal` deliberado, e o teclado no login é
+consequência do edge-to-edge (virou armadilha). Não os "conserte".
+
+**Para testar no aparelho, atualize pela Play, não por `adb install`:** preserva
+a sessão (o sideload exige desinstalar, porque a assinatura diverge) e exercita
+o binário que o testador realmente recebe. O relato completo está em
+[HISTORICO.md](HISTORICO.md).
 
 ## Armadilhas que já custaram caro
 
@@ -207,6 +222,16 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   conseguia criar conta pelo app. Ordem correta: `ScrollView` **por fora**,
   container por dentro (padrão de `app/onboarding/criar-unidade.tsx`). Sintoma:
   cabeçalho de navegação aparece, corpo em branco, sem erro no logcat.
+- **Não remova o `KeyboardAvoidingView` das telas de auth "porque o
+  `adjustResize` já resolve".** Ele não resolve mais. O manifest declara
+  `android:windowSoftInputMode="adjustResize"`, mas a janela roda com
+  `EDGE_TO_EDGE_ENFORCED` e **não encolhe**: medido no aparelho, o frame segue
+  `[0,0][1080,2400]` com o teclado aberto. O sistema entrega insets e cabe ao app
+  consumir — hoje quem faz isso é o `KeyboardAvoidingView` de `login`,
+  `forgot-password` e `reset-password`. Tirá-lo deixa o campo em foco atrás do
+  teclado. Como verificar antes de mexer:
+  `adb shell dumpsys window windows | grep -A3 MainActivity` e compare o `frame=`
+  com o teclado aberto e fechado.
 - **`loading` vale só para a carga inicial.** `DesktopPageLayout` e
   `DashboardMobile` retornam **só** o spinner quando `loading` é true — descartam
   cabeçalho, filtros e tabela. Religá-lo numa recarga apaga a página com conteúdo
@@ -236,6 +261,17 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   sobreviveram porque os testes os _exigiam_ — um esperava `parada_id` no insert,
   outro esperava `'150.5'` citando o `toFixed` no próprio comentário. Ao testar
   escrita em tabela, confira as colunas no banco (`information_schema.columns`) antes de fixar o payload.
+- **Teste que só verifica "foi chamado" não cobre o argumento.** O teste do
+  `fitBounds` do mapa afirmava `toHaveBeenCalledTimes(1)` e nada mais, então o
+  `padding` pôde divergir da largura real dos botões flutuantes sem ninguém ver —
+  marcadores nasciam atrás deles. Quando o defeito mora **no valor**, afirme o
+  valor, e de preferência como relação (`padding.right >= largura do botão`), não
+  como número mágico.
+- **O `mockTheme` do `jest.setup.js` precisa acompanhar o tema real.** Ele tinha
+  só os apelidos (`xs`…`xl`) enquanto o código usa a escala numérica
+  (`theme.spacing['14']`), então qualquer asserção sobre tamanho lia `undefined`
+  e passava por acidente. A escala numérica foi adicionada em 25/08; se o tema
+  ganhar tokens novos, replique lá — mock incompleto não falha, mente.
 - **O rascunho de rota não vive no `sessionStorage`.** A fonte é a tabela
   `rascunhos_rota`, com expiração de 7 dias; o `sessionStorage` é espelho
   síncrono. Fechar o navegador **não** perde o rascunho.
@@ -261,8 +297,15 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   antiga, e o sintoma engana: o link funciona, o opt-in é aceito, e chega o build
   velho. Publique nas duas. `eas submit` **sempre faz upload**, então falha quando
   o versionCode já subiu; promover entre trilhas exige a API (`edits` →
-  `PUT tracks/<track>` → `:commit`). Padrão de autenticação pronto em
-  `scripts/publish-play-listing.mjs`.
+  `PUT tracks/<track>` → `:commit`). **Está tudo versionado:**
+  `npm run play:status` (leitura) e `npm run play:promote -- <trilha> <code>
+[nome]` (publica de verdade), sobre `scripts/lib/play-api.mjs`. O fluxo de
+  release é: `eas submit` ao **interno** uma vez, depois `play:promote` para o
+  fechado — nunca dois `eas submit`.
+- **Trocar só o `versionName` exige `versionCode` novo.** Um versionCode já
+  enviado não aceita metadados diferentes, então renomear 1.12.2 → 1.12.3 sobre
+  um build já submetido não existe: é build novo. Decida o nome **antes** de
+  submeter, ou aceite queimar um code.
 - **Não use here-string do PowerShell (`-m @'…'@`) na ferramenta Bash.** O `@` vira texto e o
   Git toma a primeira linha como **assunto** do commit. No bash use heredoc
   (`git commit -F -`).
@@ -273,14 +316,15 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 - Web: <https://app.rotamestre.tec.br> publicada e validada. Deploy automático a
   cada push na `main`.
 - **Node 22** é o baseline de dev/CI/EAS/Vercel (`.nvmrc`, `engines.node`,
-  matriz `22.x`). A proteção da `main` exige `Run Tests (22.x)` e
-  `TypeScript & Linting`; o check do Vercel aparece como _pending_ e não bloqueia.
+  matriz `22.x`). A proteção da `main` exige **três** checks: `Run Tests (22.x)`,
+  `TypeScript & Linting` e `Visual Regression (22.x)` (este entrou em 25/08). O
+  check do Vercel aparece como _pending_ e não bloqueia.
 - Merge exige **admin override** (`gh pr merge --squash --admin`): a `main` pede
   1 review, o gestor é autor de tudo e não há segundo revisor. Histórico linear
   obrigatório, então squash — merge commit não passa.
-- Android: o build **`3025`** está concluído em teste fechado **e** interno;
-  produção nunca teve release (pend. 4). A versão do código sai do
-  `package.json`.
+- Android: teste fechado **e** interno servem o mesmo build; produção nunca teve
+  release (pend. 4). **Não anote o versionCode aqui** — ele muda a cada release e
+  já deixou este documento errado. Pergunte com `npm run play:status`.
 - iOS: configuração versionada, sem build (pend. 5).
 
 ## Resumo executivo
