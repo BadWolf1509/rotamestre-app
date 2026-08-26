@@ -589,6 +589,75 @@ A segunda: **trocar só o `versionName` custa um versionCode**. A 3027 já tinha
 subido como 1.12.2 quando se decidiu por 1.12.3, e um versionCode enviado não
 aceita metadados novos; foi preciso a 3028, idêntica exceto pelo rótulo.
 
+## Frentes fechadas, por data
+
+> Vieram do `PROJECT_CONTEXT` em 25/08/2026: eram **86 linhas** lidas em toda
+> sessão para responder "isso já foi resolvido?", que é pergunta rara. O texto
+> é o que estava lá, salvo o episódio do Sentry — já detalhado neste arquivo,
+> com a tabela de medição, e por isso descartado em vez de duplicado.
+>
+> **Consulte antes de reabrir uma frente.** O que virou regra durável está nas
+> Armadilhas do `PROJECT_CONTEXT`, não aqui.
+
+**Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
+07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
+falhando); o **primeiro build EAS sob Node 22** aconteceu — build `3025`,
+que resolveu o Node pelo `.nvmrc` e passou sem ajuste; os assets da loja foram
+resolvidos — `final/` versionado, `raw/` no `.gitignore`, e os 8 screenshots
+mais o feature graphic v2 refeitos e commitados com a listagem já publicada.
+
+**Fechadas em 15/08/2026, não reabra:** o decimal com ponto (`18.1 km` num app
+pt-BR) foi centralizado em `formatarDecimal` e migrado em 32 pontos de exibição
+(PR #375); **toda rota sob `app/` tem ErrorBoundary** (PRs #373 e #374); as
+**contas órfãs em `auth.users` foram zeradas** (detalhe em [HISTORICO.md](HISTORICO.md)); no
+onboarding, o **nome do cadastro chega pré-preenchido** e **cidade e UF saem do
+endereço** da sede, com os campos reordenados (PR #378) — ambos validados no
+navegador com o Places real. E, fechando a lista de bugs da validação manual
+(PR #381): o **`PGRST116` deixou de virar erro no Sentry** a cada cadastro
+bem-sucedido (`.single()` → `.maybeSingle()`), a Nova Rota **dá saída ao gestor
+sem motorista**, o endereço da sede **não repete mais cidade e UF**, o campo de
+endereço do onboarding **ganhou rótulo** e `PERFIL_JA_EXISTE` **ganhou mensagem
+própria**. Por fim, a tela de criar unidade **devolve ao portão quem já tem
+perfil** (PR #383): ela abria por URL para qualquer um, e o layout do onboarding
+desliga o botão e o gesto de voltar — a única saída visível era o "Sair", que
+desloga.
+
+**Fechadas em 17/08/2026, não reabra:** os **6 templates de email do Auth** foram
+corrigidos, e **5 deles** passaram a ser versionados em `supabase/templates/`
+(PR #390; o Magic Link saiu depois no #400, ver abaixo) — cinco
+defeitos reais, sendo o pior o link alternativo do reset, que mandava para "Link
+inválido" quem copiava e colava. A proteção anti link-scanner foi **estendida ao
+cadastro** (PR #396), com a lógica extraída de `confirm-reset.tsx` para
+`src/lib/auth/confirmationLink.ts` + `src/components/auth/ConfirmLinkScreen.tsx`.
+Ainda em 17/08, a leva do Dependabot foi triada: **#393** (`@hookform/resolvers`)
+e **#394** (`react-hook-form`) mergeados; **#391** (8 dev dependencies) **fechado**
+porque sobe `@react-native/jest-preset` para 0.87 e o projeto está em
+react-native 0.85.3 (fixado pelo Expo 56) — o preset novo procura
+`react-native/setup-env`, que não existe nessa versão, e a suíte inteira morre
+com `Could not locate module`. Alinhar exigiria subir Expo, que é migração e não
+bump. As outras sete atualizações do lote não têm problema conhecido: o que as
+bloqueava era estarem no mesmo PR.
+
+A varredura por **telas com precondição forte** foi feita em 15/08 e o resultado
+está em "Guardas de precondição", hoje em [HISTORICO.md](HISTORICO.md): o projeto está bem coberto, e o único
+beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
+
+**Fechadas em 25/08/2026, não reabra:** a **1.12.3 está publicada** em teste
+interno e fechado, validada no aparelho. Fecha o cadastro morto no Android
+(#436) e três defeitos achados testando o próprio build num moto g15 (#439):
+avatar exibindo `G(`, "1 motorista **cadastrados**" e marcadores do mapa atrás
+da coluna de botões. Os dois primeiros só aparecem com parênteses no nome — ou
+seja, **na conta que o revisor da Play usa**.
+
+Dois itens da mesma bateria **não eram defeitos**: o terceiro card do dashboard
+sai cortado porque é `ScrollView horizontal` deliberado, e o teclado no login é
+consequência do edge-to-edge (virou armadilha). Não os "conserte".
+
+**Para testar no aparelho, atualize pela Play, não por `adb install`:** preserva
+a sessão (o sideload exige desinstalar, porque a assinatura diverge) e exercita
+o binário que o testador realmente recebe. O relato completo está em
+[HISTORICO.md](HISTORICO.md).
+
 ## Validações e varreduras registradas
 
 Fluxos conferidos com dado real, não só por teste. Cada um diz o que foi medido

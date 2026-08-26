@@ -14,14 +14,17 @@
 > para agir; o resto é referência sob demanda.
 >
 > **Contrato de tamanho:** este arquivo é lido por inteiro em toda sessão, então
-> cresce a um custo que ninguém vê. Ele já foi cortado três vezes — 923→633
-> em 15/08 (histórico), 736→534 em 17/08 (validações e varreduras) e 612→508 em
-> 25/08 (a narrativa das armadilhas, que passou ao HISTORICO; aqui ficou a regra
-> e a assinatura da falha). **Voltou a ~560 no mesmo 25/08** — o crescimento é
-> sempre por acréscimo legítimo, e é por isso que ele reaparece. Antes de somar
-> uma seção, pergunte se ela precisa ser lida **em toda sessão** ou só quando
-> alguém for mexer naquele fluxo. No segundo caso, o lugar é o `HISTORICO.md` ou
-> o doc do tema, com uma linha no Mapa da documentação apontando para lá.
+> cresce a um custo que ninguém vê. Já foi cortado **quatro vezes** — 923→633 em
+> 15/08 (histórico), 736→534 em 17/08 (validações e varreduras), 612→508 em 25/08
+> (a narrativa das armadilhas) e 563→491 no mesmo 25/08 (as listas "Fechadas
+> em ...", que respondiam a uma pergunta rara).
+>
+> Repare no padrão: ele **volta a crescer entre um corte e o seguinte**, sempre
+> por acréscimo legítimo. O que sobrevive a um corte é regra que muda decisão;
+> o que sai é relato de trabalho terminado. Antes de somar uma seção, pergunte se
+> ela precisa ser lida **em toda sessão** ou só quando alguém for mexer naquele
+> fluxo. No segundo caso, o lugar é o `HISTORICO.md` ou o doc do tema, com uma
+> linha no Mapa da documentação apontando para lá.
 
 ## Pendências (comece por aqui)
 
@@ -37,71 +40,11 @@ Lista única e canônica. Se resolver uma, risque daqui.
 | 6   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
 | 7   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" em [HISTORICO.md](HISTORICO.md)    |
 
-**Fechadas em 08/08/2026, não reabra:** a Migration 22 foi aplicada em
-07/08 e validada na tela (edição gravou no banco; `.update()` direto continua
-falhando); o **primeiro build EAS sob Node 22** aconteceu — build `3025`,
-que resolveu o Node pelo `.nvmrc` e passou sem ajuste; os assets da loja foram
-resolvidos — `final/` versionado, `raw/` no `.gitignore`, e os 8 screenshots
-mais o feature graphic v2 refeitos e commitados com a listagem já publicada.
-
-**Fechadas em 15/08/2026, não reabra:** o decimal com ponto (`18.1 km` num app
-pt-BR) foi centralizado em `formatarDecimal` e migrado em 32 pontos de exibição
-(PR #375); **toda rota sob `app/` tem ErrorBoundary** (PRs #373 e #374); as
-**contas órfãs em `auth.users` foram zeradas** (detalhe em [HISTORICO.md](HISTORICO.md)); no
-onboarding, o **nome do cadastro chega pré-preenchido** e **cidade e UF saem do
-endereço** da sede, com os campos reordenados (PR #378) — ambos validados no
-navegador com o Places real. E, fechando a lista de bugs da validação manual
-(PR #381): o **`PGRST116` deixou de virar erro no Sentry** a cada cadastro
-bem-sucedido (`.single()` → `.maybeSingle()`), a Nova Rota **dá saída ao gestor
-sem motorista**, o endereço da sede **não repete mais cidade e UF**, o campo de
-endereço do onboarding **ganhou rótulo** e `PERFIL_JA_EXISTE` **ganhou mensagem
-própria**. Por fim, a tela de criar unidade **devolve ao portão quem já tem
-perfil** (PR #383): ela abria por URL para qualquer um, e o layout do onboarding
-desliga o botão e o gesto de voltar — a única saída visível era o "Sair", que
-desloga.
-
-**Fechadas em 17/08/2026, não reabra:** os **6 templates de email do Auth** foram
-corrigidos, e **5 deles** passaram a ser versionados em `supabase/templates/`
-(PR #390; o Magic Link saiu depois no #400, ver abaixo) — cinco
-defeitos reais, sendo o pior o link alternativo do reset, que mandava para "Link
-inválido" quem copiava e colava. A proteção anti link-scanner foi **estendida ao
-cadastro** (PR #396), com a lógica extraída de `confirm-reset.tsx` para
-`src/lib/auth/confirmationLink.ts` + `src/components/auth/ConfirmLinkScreen.tsx`.
-Ainda em 17/08, a leva do Dependabot foi triada: **#393** (`@hookform/resolvers`)
-e **#394** (`react-hook-form`) mergeados; **#391** (8 dev dependencies) **fechado**
-porque sobe `@react-native/jest-preset` para 0.87 e o projeto está em
-react-native 0.85.3 (fixado pelo Expo 56) — o preset novo procura
-`react-native/setup-env`, que não existe nessa versão, e a suíte inteira morre
-com `Could not locate module`. Alinhar exigiria subir Expo, que é migração e não
-bump. As outras sete atualizações do lote não têm problema conhecido: o que as
-bloqueava era estarem no mesmo PR.
-
-**O Sentry foi para 10.70 e o episódio do bundle fechou com uma lição medida.**
-O #395 (`@sentry/browser` sozinho) estourava o teto em 338 kB, o que foi lido
-como crescimento real da biblioteca — e o limite subiu para 4 MB (PR #403) por
-causa disso. **Estava errado.** `@sentry/react@10.69.0` fixa `@sentry/browser`
-em exatamente 10.69.0, então subir só um faz o npm aninhar **uma segunda cópia
-do Sentry inteiro**; os 338 kB eram duplicação, não tamanho.
-
-A prova veio do próprio CI: com os dois em 10.70, o bundle mediu **3.33 MB** —
-abaixo até do teto original. O merge do #392 levou o `browser` a 10.70 no lock
-(o `react` novo o exige), e o Dependabot fechou o #395 sozinho dizendo
-_"@sentry/browser is up-to-date now"_. O limite voltou a **3.5 MB**, o
-`package.json` passou a declarar `^10.70.0` nos dois, e o lock não tem nenhuma
-cópia aninhada de `@sentry/*`.
-
-Duas coisas para levar adiante: **pacotes do mesmo scope que se fixam por versão
-exata precisam subir juntos** — é a regra de dependência acoplada, agora com o
-mecanismo; e o Dependabot ficou horas sem processar `@dependabot rebase` porque
-as labels `dependencies` e `npm` não existiam no repositório. **Criá-las
-destravou o bot na hora** — elas agora existem.
-
-Os templates **já foram colados no painel** e o fluxo de cadastro foi validado
-com email real (seção abaixo). Fechando a sequência, o login passou a oferecer
-**reenvio da confirmação** quando recusa por email não confirmado (PR #398) — o
-beco sem saída de quem não confirmava a tempo. O que cada defeito era e por que
-quebrava está em [HISTORICO.md](HISTORICO.md); as invariantes que não podem
-regredir, nas armadilhas.
+**Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
+de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
+**86 linhas** lidas em toda sessão para responder "isso já foi resolvido?", que
+é pergunta rara. Consulte-as lá antes de reabrir qualquer frente. O que era
+regra durável ficou nas Armadilhas; o que segue **aberto** está abaixo.
 
 Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
 (o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
@@ -110,26 +53,6 @@ conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
 `parada_reaberta`, `parada_retomada` e `motorista_alterado` —, então o widget
 colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
 citava só `rota_otimizada`, era maior que isso).
-
-A varredura por **telas com precondição forte** foi feita em 15/08 e o resultado
-está em "Guardas de precondição", hoje em [HISTORICO.md](HISTORICO.md): o projeto está bem coberto, e o único
-beco aberto que ela encontrou (Nova Rota sem sede) foi fechado no PR #385.
-
-**Fechadas em 25/08/2026, não reabra:** a **1.12.3 está publicada** em teste
-interno e fechado, validada no aparelho. Fecha o cadastro morto no Android
-(#436) e três defeitos achados testando o próprio build num moto g15 (#439):
-avatar exibindo `G(`, "1 motorista **cadastrados**" e marcadores do mapa atrás
-da coluna de botões. Os dois primeiros só aparecem com parênteses no nome — ou
-seja, **na conta que o revisor da Play usa**.
-
-Dois itens da mesma bateria **não eram defeitos**: o terceiro card do dashboard
-sai cortado porque é `ScrollView horizontal` deliberado, e o teclado no login é
-consequência do edge-to-edge (virou armadilha). Não os "conserte".
-
-**Para testar no aparelho, atualize pela Play, não por `adb install`:** preserva
-a sessão (o sideload exige desinstalar, porque a assinatura diverge) e exercita
-o binário que o testador realmente recebe. O relato completo está em
-[HISTORICO.md](HISTORICO.md).
 
 ## Armadilhas que já custaram caro
 
@@ -272,6 +195,10 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   (`theme.spacing['14']`), então qualquer asserção sobre tamanho lia `undefined`
   e passava por acidente. A escala numérica foi adicionada em 25/08; se o tema
   ganhar tokens novos, replique lá — mock incompleto não falha, mente.
+- **O terceiro card de estatísticas do dashboard aparece cortado de propósito.**
+  É um `ScrollView horizontal` com `accessibilityHint="Deslize para ver mais
+estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
+  numa bateria de teste; não "conserte".
 - **O rascunho de rota não vive no `sessionStorage`.** A fonte é a tabela
   `rascunhos_rota`, com expiração de 7 dias; o `sessionStorage` é espelho
   síncrono. Fechar o navegador **não** perde o rascunho.
@@ -302,6 +229,10 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 [nome]` (publica de verdade), sobre `scripts/lib/play-api.mjs`. O fluxo de
   release é: `eas submit` ao **interno** uma vez, depois `play:promote` para o
   fechado — nunca dois `eas submit`.
+- **Para testar no aparelho, atualize pela Play — não `adb install`.** O sideload
+  exige desinstalar (a assinatura do EAS diverge da do Play App Signing), o que
+  derruba a sessão e ainda testa um binário que **não** é o que o testador
+  recebe. Publique no interno e atualize pela loja: os dados sobrevivem.
 - **Trocar só o `versionName` exige `versionCode` novo.** Um versionCode já
   enviado não aceita metadados diferentes, então renomear 1.12.2 → 1.12.3 sobre
   um build já submetido não existe: é build novo. Decida o nome **antes** de
@@ -536,6 +467,7 @@ app.rotamestre.tec.br ── Expo Web / React Native
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Começar uma nova sessão / estado atual            | este arquivo                                                                                                                                                           |
 | Como chegamos aqui / o que já foi tentado         | [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR                                                                                                     |
+| **Isso já foi resolvido? posso reabrir?**         | [HISTORICO.md](HISTORICO.md) → "Frentes fechadas, por data": as listas "Fechadas em ..., não reabra" de 08, 15, 17 e 25/08                                             |
 | **Este fluxo já foi validado? o que foi medido?** | [HISTORICO.md](HISTORICO.md) → "Validações e varreduras": onboarding, otimizador, massa demo, política de senha, contas órfãs, emails do Auth e guardas de precondição |
 | Arquitetura, padrões e phonebook técnico          | [`../CLAUDE.md`](../CLAUDE.md)                                                                                                                                         |
 | Testes                                            | [TESTING.md](TESTING.md)                                                                                                                                               |
