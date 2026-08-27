@@ -973,3 +973,22 @@ Três coisas para levar adiante:
 O histórico completo do rebuild está em
 [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
 registro de decisão e rollout — não como checklist inicial ainda não executado.
+
+## Cortes do PROJECT_CONTEXT.md
+
+O contrato de tamanho do [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) cita esta
+cronologia, que mora aqui por ser histórico. Em linhas:
+
+| Data  | Corte   | O que saiu                                                                  |
+| ----- | ------- | --------------------------------------------------------------------------- |
+| 15/08 | 923→633 | histórico e snapshots datados (vieram para cá)                              |
+| 17/08 | 736→534 | validações e varreduras (vieram para cá)                                    |
+| 25/08 | 612→508 | a narrativa das armadilhas, mantendo só a regra                             |
+| 25/08 | 563→491 | as listas "Fechadas em ...", que respondiam a pergunta rara                 |
+| 27/08 | 495→…   | duplicação com o `CLAUDE.md` e entre as próprias seções Armadilhas e Regras |
+
+O padrão que a série mostra: o arquivo **volta a crescer entre um corte e o
+seguinte**, sempre por acréscimo legítimo. O corte de 27/08 foi o primeiro por
+**duplicação** em vez de excesso — quatro fatos apareciam duas vezes dentro do
+próprio arquivo, e outros seis também estavam no `CLAUDE.md`, que é lido na
+mesma sessão.
