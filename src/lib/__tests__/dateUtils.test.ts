@@ -7,6 +7,7 @@ import {
   parseLocalDate,
   formatDateBR,
   formatDateTimeBR,
+  formatTimeBR,
   getTodayISO,
   isToday,
   isPast,
@@ -140,12 +141,16 @@ describe('lib/dateUtils', () => {
     });
 
     it('deve formatar data/hora com ano quando showYear=true', () => {
-      const result = formatDateTimeBR('2025-01-15T14:30:00Z', { showYear: true });
+      const result = formatDateTimeBR('2025-01-15T14:30:00Z', {
+        showYear: true,
+      });
       expect(result).toMatch(/\d{2}\/\d{2}\/\d{4}/);
     });
 
     it('deve formatar data/hora com segundos quando showSeconds=true', () => {
-      const result = formatDateTimeBR('2025-01-15T14:30:45Z', { showSeconds: true });
+      const result = formatDateTimeBR('2025-01-15T14:30:45Z', {
+        showSeconds: true,
+      });
       expect(result).toMatch(/\d{2}:\d{2}:\d{2}/);
     });
 
@@ -478,11 +483,7 @@ describe('lib/dateUtils', () => {
   describe('tratamento de timezone', () => {
     it('parseLocalDate não deve ter shift de dia perto da meia-noite', () => {
       // Datas que podem causar problemas com UTC
-      const dates = [
-        '2025-01-01',
-        '2025-06-15',
-        '2025-12-31',
-      ];
+      const dates = ['2025-01-01', '2025-06-15', '2025-12-31'];
 
       dates.forEach((dateStr) => {
         const parsed = parseLocalDate(dateStr);
@@ -511,6 +512,39 @@ describe('lib/dateUtils', () => {
     it('formatDateTimeBR deve formatar corretamente ISO com offset negativo', () => {
       const result = formatDateTimeBR('2025-01-15T00:00:00-03:00');
       expect(result).not.toBe('-');
+    });
+  });
+
+  describe('formatTimeBR', () => {
+    // Datas sem offset sao interpretadas como hora LOCAL, entao estes testes
+    // independem do fuso da maquina que roda a suite.
+    it('deve formatar hora e minuto com dois digitos', () => {
+      expect(formatTimeBR('2026-08-27T07:43:26')).toBe('07:43');
+    });
+
+    it('deve preservar horario da tarde sem converter para 12h', () => {
+      expect(formatTimeBR('2026-08-27T22:00:00')).toBe('22:00');
+    });
+
+    it('deve zerar-preencher a meia-noite', () => {
+      expect(formatTimeBR('2026-08-27T00:05:00')).toBe('00:05');
+    });
+
+    it('deve converter timestamp UTC para o horario local do aparelho', () => {
+      // Mesmo instante escrito das duas formas: o resultado tem de ser igual.
+      const comZ = formatTimeBR('2026-08-27T10:43:26Z');
+      const equivalente = new Date('2026-08-27T10:43:26Z');
+      const esperado = `${String(equivalente.getHours()).padStart(2, '0')}:${String(
+        equivalente.getMinutes(),
+      ).padStart(2, '0')}`;
+      expect(comZ).toBe(esperado);
+    });
+
+    it('deve devolver "-" para entrada vazia ou invalida', () => {
+      expect(formatTimeBR(null)).toBe('-');
+      expect(formatTimeBR(undefined)).toBe('-');
+      expect(formatTimeBR('')).toBe('-');
+      expect(formatTimeBR('nao e uma data')).toBe('-');
     });
   });
 });

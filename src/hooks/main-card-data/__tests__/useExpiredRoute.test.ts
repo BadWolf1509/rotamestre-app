@@ -91,7 +91,10 @@ describe('useExpiredRoute', () => {
     it('should set expiredRoute to null on rotas error', async () => {
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupSupabaseChain({ data: null, error: { message: 'Error' } });
+          return setupSupabaseChain({
+            data: null,
+            error: { message: 'Error' },
+          });
         }
         return setupSupabaseChain({ data: [], error: null });
       });
@@ -126,7 +129,8 @@ describe('useExpiredRoute', () => {
           const chain: any = {
             select: jest.fn(() => chain),
             eq: jest.fn(() => chain),
-            then: (resolve: any) => Promise.resolve({ data: mockParadas, error: null }).then(resolve),
+            then: (resolve: any) =>
+              Promise.resolve({ data: mockParadas, error: null }).then(resolve),
           };
           return chain;
         }
@@ -149,6 +153,50 @@ describe('useExpiredRoute', () => {
       expect(result.current.expiredRoute?.paradas_pendentes).toBe(2);
     });
 
+    it('should expose updated_at as expirada_em so the card can show the real time', async () => {
+      // A rota só chega aqui enquanto está em `nao_executada`, e a transição
+      // PARA esse status é a própria expiração — então `updated_at` é a hora
+      // dela. Sem isto o card volta a inventar um horário fixo.
+      const mockRota = {
+        id: 'rota-expired',
+        data: '2024-01-01',
+        updated_at: '2024-01-01T10:00:00Z',
+      };
+
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rotas') {
+          return setupSupabaseChain({ data: mockRota, error: null });
+        }
+        if (table === 'paradas') {
+          const chain: any = {
+            select: jest.fn(() => chain),
+            eq: jest.fn(() => chain),
+            then: (resolve: any) =>
+              Promise.resolve({
+                data: [{ status: 'pendente', is_checkpoint: true }],
+                error: null,
+              }).then(resolve),
+          };
+          return chain;
+        }
+        return setupSupabaseChain({ data: [], error: null });
+      });
+
+      const { result } = renderHook(() => useExpiredRoute('motorista-123'));
+
+      await act(async () => {
+        await result.current.loadExpiredRoute();
+      });
+
+      await waitFor(() => {
+        expect(result.current.expiredRoute).not.toBeNull();
+      });
+
+      expect(result.current.expiredRoute?.expirada_em).toBe(
+        '2024-01-01T10:00:00Z',
+      );
+    });
+
     it('should set expiredRoute to null on paradas error', async () => {
       const mockRota = {
         id: 'rota-expired',
@@ -164,7 +212,10 @@ describe('useExpiredRoute', () => {
           const chain: any = {
             select: jest.fn(() => chain),
             eq: jest.fn(() => chain),
-            then: (resolve: any) => Promise.resolve({ data: null, error: { message: 'Error' } }).then(resolve),
+            then: (resolve: any) =>
+              Promise.resolve({ data: null, error: { message: 'Error' } }).then(
+                resolve,
+              ),
           };
           return chain;
         }

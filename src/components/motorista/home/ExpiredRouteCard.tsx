@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import React, { memo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 
-import { formatDateRelative } from '@/lib/dateUtils';
+import { formatDateRelative, formatTimeBR } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ExpiredRouteData {
@@ -24,6 +24,8 @@ interface ExpiredRouteData {
   total_paradas: number;
   /** Número de paradas concluídas */
   paradas_concluidas: number;
+  /** Momento em que a rota foi expirada (ISO). Ausente = horário desconhecido. */
+  expirada_em?: string;
 }
 
 interface ExpiredRouteCardProps {
@@ -36,12 +38,25 @@ interface ExpiredRouteCardProps {
  * ExpiredRouteCard - Card memoizado de aviso de rota expirada
  * Memoizado para evitar re-renders desnecessários
  */
-export const ExpiredRouteCard = memo(function ExpiredRouteCard({ data, onDismiss }: ExpiredRouteCardProps) {
+export const ExpiredRouteCard = memo(function ExpiredRouteCard({
+  data,
+  onDismiss,
+}: ExpiredRouteCardProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
 
   const dataFormatada = formatDateRelative(data.data);
   const hasCompletedSome = data.paradas_concluidas > 0;
+
+  // O horário era fixo em "22h". Como o agendador pode rodar atrasado, isso
+  // chegou a afirmar "expirou às 22h" para uma rota morta às 07:43 — a frase
+  // contradizia o que o motorista tinha acabado de viver. Sem horário confiável,
+  // é melhor não afirmar nenhum.
+  const horaExpiracao = data.expirada_em
+    ? formatTimeBR(data.expirada_em)
+    : null;
+  const sufixoHora =
+    horaExpiracao && horaExpiracao !== '-' ? ` às ${horaExpiracao}` : '';
 
   const handleViewHistory = () => {
     router.push('/motorista/historico');
@@ -73,7 +88,7 @@ export const ExpiredRouteCard = memo(function ExpiredRouteCard({ data, onDismiss
 
       {/* Conteúdo principal */}
       <Text style={styles.message}>
-        Sua rota de {dataFormatada} não foi concluída e expirou às 22h.
+        Sua rota de {dataFormatada} não foi concluída e expirou{sufixoHora}.
       </Text>
 
       {/* Estatísticas */}
@@ -87,20 +102,18 @@ export const ExpiredRouteCard = memo(function ExpiredRouteCard({ data, onDismiss
                 color={theme.colors.success}
               />
               <Text style={[styles.statText, { color: theme.colors.success }]}>
-                {data.paradas_concluidas} concluída{data.paradas_concluidas !== 1 ? 's' : ''}
+                {data.paradas_concluidas} concluída
+                {data.paradas_concluidas !== 1 ? 's' : ''}
               </Text>
             </View>
             <View style={styles.statDivider} />
           </>
         ) : null}
         <View style={styles.stat}>
-          <Ionicons
-            name="close-circle"
-            size={14}
-            color={theme.colors.error}
-          />
+          <Ionicons name="close-circle" size={14} color={theme.colors.error} />
           <Text style={[styles.statText, { color: theme.colors.error }]}>
-            {data.paradas_pendentes} pendente{data.paradas_pendentes !== 1 ? 's' : ''}
+            {data.paradas_pendentes} pendente
+            {data.paradas_pendentes !== 1 ? 's' : ''}
           </Text>
         </View>
       </View>
