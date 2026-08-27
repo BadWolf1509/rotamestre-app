@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 25/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 27/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -14,31 +14,29 @@
 > para agir; o resto é referência sob demanda.
 >
 > **Contrato de tamanho:** este arquivo é lido por inteiro em toda sessão, então
-> cresce a um custo que ninguém vê. Já foi cortado **quatro vezes** — 923→633 em
-> 15/08 (histórico), 736→534 em 17/08 (validações e varreduras), 612→508 em 25/08
-> (a narrativa das armadilhas) e 563→491 no mesmo 25/08 (as listas "Fechadas
-> em ...", que respondiam a uma pergunta rara).
+> cresce a um custo que ninguém vê. Já foi cortado **cinco vezes** — a cronologia
+> está em [HISTORICO.md](HISTORICO.md) — e **volta a crescer entre um corte e o
+> seguinte**, sempre por acréscimo legítimo.
 >
-> Repare no padrão: ele **volta a crescer entre um corte e o seguinte**, sempre
-> por acréscimo legítimo. O que sobrevive a um corte é regra que muda decisão;
-> o que sai é relato de trabalho terminado. Antes de somar uma seção, pergunte se
-> ela precisa ser lida **em toda sessão** ou só quando alguém for mexer naquele
-> fluxo. No segundo caso, o lugar é o `HISTORICO.md` ou o doc do tema, com uma
-> linha no Mapa da documentação apontando para lá.
+> O que sobrevive a um corte é regra que muda decisão. Sai daqui: relato de
+> trabalho terminado, e **cópia do que já está no `CLAUDE.md`** — os dois são
+> lidos em toda sessão, então duplicar entre eles custa em dobro e ainda deixa as
+> versões divergirem. Antes de somar uma seção, pergunte se ela precisa ser lida
+> **em toda sessão** ou só quando alguém for mexer naquele fluxo; no segundo
+> caso, o lugar é o `HISTORICO.md` ou o doc do tema, com uma linha no Mapa da
+> documentação.
 
 ## Pendências (comece por aqui)
 
 Lista única e canônica. Se resolver uma, risque daqui.
 
-| #   | Pendência                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Quem pode fazer                                | Onde está o detalhe                                    |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------ |
-| 1   | **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.                                                                                                                                                                                                                                  | gestor (Supabase → Auth → Users)               | "Credenciais hardcoded" abaixo                         |
-| 2   | **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.                                                                                                                                                                                                                                                                                                                                              | requer design (o fix óbvio quebra o motorista) | Security Advisory privado `GHSA-vw63-jxg2-28vx`        |
-| 3   | **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.                                                                                                                                                                                                                                                                                      | qualquer sessão                                | spec `2026-08-04-auditoria-otimizacao-rotas-design.md` |
-| 4   | **Play Store: produção continua vazia.** Teste fechado (`alpha`) e teste interno estão publicados e `completed` — confira qual build com `npm run play:status`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.                                                                                                                                                                             | gestor (Play Console)                          | `GOOGLE_PLAY_DEPLOYMENT.md`                            |
-| 5   | **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).                                                                                                                                                                                                                                                                                                                                      | gestor (Apple ID + 2FA)                        | `APP_STORE_DEPLOYMENT.md`                              |
-| 6   | **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida. | gestor (edita a unidade ativa)                 | `database/MIGRATIONS.md` (Migration 22)                |
-| 7   | **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.                                                                        | gestor (decisão de plano; ou ajuste no Email)  | "Política de senha" em [HISTORICO.md](HISTORICO.md)    |
+- **1.** **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.<br>_Quem:_ gestor (Supabase → Auth → Users) · _Detalhe:_ "Credenciais hardcoded" abaixo
+- **2.** **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.<br>_Quem:_ requer design (o fix óbvio quebra o motorista) · _Detalhe:_ Security Advisory privado `GHSA-vw63-jxg2-28vx`
+- **3.** **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.<br>_Quem:_ qualquer sessão · _Detalhe:_ spec `2026-08-04-auditoria-otimizacao-rotas-design.md`
+- **4.** **Play Store: produção continua vazia.** Teste fechado (`alpha`) e teste interno estão publicados e `completed` — confira qual build com `npm run play:status`. Falta cumprir o requisito de testadores para solicitar acesso à produção. Ampliar opt-in divulgando o hub público `/testar`.<br>_Quem:_ gestor (Play Console) · _Detalhe:_ `GOOGLE_PLAY_DEPLOYMENT.md`
+- **5.** **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).<br>_Quem:_ gestor (Apple ID + 2FA) · _Detalhe:_ `APP_STORE_DEPLOYMENT.md`
+- **6.** **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida.<br>_Quem:_ gestor (edita a unidade ativa) · _Detalhe:_ `database/MIGRATIONS.md` (Migration 22)
+- **7.** **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.<br>_Quem:_ gestor (decisão de plano; ou ajuste no Email) · _Detalhe:_ "Política de senha" em [HISTORICO.md](HISTORICO.md)
 
 **Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
 de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
@@ -79,14 +77,12 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   vez — o gestor se promoveria de plano. A escrita passa pela RPC
   `atualizar_unidade`. **Se ela parar de funcionar, o conserto não é adicionar
   policy.** Verificação: `.update()` direto em `unidades` tem que falhar.
-- **A tabela `logs` não tem coluna `parada_id`** — a parada vai dentro de
-  `detalhes`. Schema real: `id, usuario_id, rota_id, evento, detalhes, timestamp`.
-  Mandá-la como coluna faz o PostgREST recusar com **400**, e a falha só vira
-  `logger.warn` (o supabase-js **devolve** o erro em vez de lançar, então
-  `try/catch` não pega). Custou oito meses de auditoria de gestão de usuários.
-  Padrão certo em `useAddStopForm`/`useEditStopForm`/`routeUtils`; eventos de
-  rota e parada já são cobertos por triggers no banco (`log_parada_status`,
-  `log_rota_status`).
+- **O supabase-js _devolve_ o erro em vez de lançar, então `try/catch` não pega.**
+  A escrita falha, o código segue, e a falha vira no máximo um `logger.warn`. Foi
+  assim que a coluna inexistente `logs.parada_id` custou **oito meses** de
+  auditoria de gestão de usuários — o schema real e o padrão certo estão no
+  phonebook do [`../CLAUDE.md`](../CLAUDE.md). Vale para qualquer `.insert()`:
+  confira `error` no retorno, não confie em exceção.
 
 **Auth, chaves e segredos**
 
@@ -107,14 +103,9 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 - **Nenhuma senha no repo** — nem como fallback, nem em `console.log`. O
   repositório é público e o log sobrevive no scrollback e no CI. Em 05/08/2026
   quatro contas com senha em texto puro estavam vivas em produção.
-- **Editar `supabase/templates/*.html` NÃO muda o email enviado.** O Supabase lê
-  **só do painel** (Auth → Emails); não há MCP, e `supabase config push`
-  sobrescreveria a produção com o `site_url` local. Invariante que quebra em
-  silêncio: o link de `reset-password.html` e `confirm-signup.html` precisa ser
-  `{{ .SiteURL }}/auth/confirm-{reset,signup}#url={{ .ConfirmationURL }}` **no
-  `href` e no texto visível** — trocar pelo `{{ .ConfirmationURL }}` direto
-  devolve o OTP ao scanner corporativo e, no cadastro, entrega junto os **tokens
-  de sessão**. Ver `supabase/templates/README.md`.
+- **Editar `supabase/templates/*.html` NÃO muda o email enviado** — o Supabase lê
+  só do painel. A regra completa, com a proteção anti link-scanner, está no
+  phonebook do [`../CLAUDE.md`](../CLAUDE.md) e em `supabase/templates/README.md`.
 - **São 5 arquivos para 6 abas do painel, e é intencional.** O Magic Link saiu do
   repo porque o app nunca chama `signInWithOtp`. A aba continua no painel com o
   layout antigo — inofensivo só enquanto nada dispara o envio. Se o login sem
@@ -127,15 +118,12 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 
 **React e formulários**
 
-- **Não declare componente dentro do render de outro.** `const Form = () => (...)`
-  usado como `<Form />` ganha identidade nova a cada render, e identidade nova é
-  **tipo** novo para o React: remonta a subárvore, quebra foco, zera refs e mata
-  debounce — sem erro no console e com o CI verde. Manteve o autocomplete da sede
-  **impossível** de usar em "Minha Unidade", e destruiu um `Slider` no meio do
-  arrasto. Correção: chamar como função (`{renderForm()}`). Diagnóstico: marque o
-  nó (`el.dataset.x = '1'`) e digite uma letra; se a marca sumir, remontou. Onde a
-  tela tem vários returns, o invólucro vai **em volta** do componente de conteúdo,
-  não return a return.
+- **Componente aninhado no render** — a regra e o mecanismo estão em
+  [`../CLAUDE.md`](../CLAUDE.md). O que só existe aqui: manteve o autocomplete da
+  sede **impossível** de usar em "Minha Unidade" e destruiu um `Slider` no meio do
+  arrasto. Diagnóstico: marque o nó (`el.dataset.x = '1'`) e digite uma letra; se
+  a marca sumir, remontou. Onde a tela tem vários returns, o invólucro vai **em
+  volta** do componente de conteúdo, não return a return.
 - **`ResponsiveContainer` envolvendo `ScrollView flex:1` dá tela vazia no nativo.**
   O container é um `View` sem `flex`, então o Yoga o dimensiona pelo conteúdo — e
   um filho `flex: 1` dentro de pai de altura automática contribui zero para essa
@@ -159,13 +147,9 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   `DashboardMobile` retornam **só** o spinner quando `loading` é true — descartam
   cabeçalho, filtros e tabela. Religá-lo numa recarga apaga a página com conteúdo
   já na tela. Recarga sinaliza por `refreshing` ou pelo toast da própria ação.
-- **Erro de formulário num campo pode ser causado por outro.** Nos schemas de
-  endereço o `refine` pendura a mensagem em `endereco`, mas quem a causa é a
-  ausência de `latitude`/`longitude`. `setValue` sem opções **não revalida** e a
-  revalidação do `onChange` perde a corrida — o erro fica preso ao lado do badge
-  verde "Validado". Reordenar e `trigger()` não resolvem; só
-  `clearErrors('endereco')` é determinístico. Vale para `nova-entrega` e
-  `onboarding`.
+- **Erro de formulário num campo pode ser causado por outro** — coberto por
+  inteiro em [`../CLAUDE.md`](../CLAUDE.md) ("Erro cruzado em form"), com os dois
+  arquivos de exemplo.
 
 **Medição e testes**
 
@@ -258,36 +242,23 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
   já deixou este documento errado. Pergunte com `npm run play:status`.
 - iOS: configuração versionada, sem build (pend. 5).
 
-## Resumo executivo
-
-Este repositório contém o produto operacional do Rota Mestre:
-
-- painel web para gestores em <https://app.rotamestre.tec.br>;
-- aplicativo Android para motoristas;
-- backend compartilhado no Supabase;
-- otimização, execução e acompanhamento de rotas;
-- fotos privadas de comprovação, ocorrências, notificações e histórico.
-
-O app foi reconstruído sob uma nova identidade Android após a perda das contas de
-distribuição originais; o Supabase e os dados dos usuários foram preservados.
-**Versão e `androidVersionCode` saem do `package.json`** — não os repita aqui,
-foi assim que este documento já ficou desatualizado antes.
-
 ## Identidades e serviços
 
-| Item                     | Valor atual                            | Fonte de verdade                       |
-| ------------------------ | -------------------------------------- | -------------------------------------- |
-| Repositório              | `BadWolf1509/rotamestre-app`           | `git remote -v`                        |
-| Caminho local canônico   | `D:\rota-mestre\rotamestre-app`        | workspace                              |
-| Branch de produção       | `main`                                 | Git/Vercel                             |
-| Web                      | <https://app.rotamestre.tec.br>        | Vercel                                 |
-| Android package          | `br.tec.rotamestre.app`                | `app.config.js`                        |
-| Versão Android no código | leia de `package.json`                 | `package.json` (não duplique aqui)     |
-| EAS project              | `c6401a59-af97-484a-93b7-c75016bf331d` | `app.config.js`                        |
-| Firebase                 | `rota-mestre-97084`                    | console Firebase / configuração nativa |
-| Supabase project ref     | `xezslsyxjivunmhhyxtd`                 | `supabase/.temp/project-ref`           |
-| Site institucional/legal | <https://rotamestre.tec.br>            | repositório `lp-rotamestre`            |
-| Plataforma               | Expo 56, React Native 0.85.3, React 19 | `package.json`                         |
+O que o produto é e quais serviços externos usa está na abertura do
+[`../CLAUDE.md`](../CLAUDE.md) — não repetimos aqui. **Versão e
+`androidVersionCode` saem do `package.json`**; foi duplicando isso que este
+documento já ficou errado antes.
+
+Só o que **não** está no `CLAUDE.md` (que já traz package Android, EAS project,
+Firebase e o ref do Supabase):
+
+| Item                     | Valor atual                     | Fonte de verdade            |
+| ------------------------ | ------------------------------- | --------------------------- |
+| Repositório              | `BadWolf1509/rotamestre-app`    | `git remote -v`             |
+| Caminho local canônico   | `D:\rota-mestre\rotamestre-app` | workspace                   |
+| Branch de produção       | `main`                          | Git/Vercel                  |
+| Web                      | <https://app.rotamestre.tec.br> | Vercel                      |
+| Site institucional/legal | <https://rotamestre.tec.br>     | repositório `lp-rotamestre` |
 
 Não copie versões para outros documentos. Quando houver divergência, prevalecem
 `package.json`, `app.config.js`, `eas.json` e o estado consultado nos consoles.
@@ -324,6 +295,13 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Regras que não podem regredir
 
+> As **Armadilhas** acima também não podem regredir — esta seção não as repete.
+> Quatro entradas saíram daqui em 27/08/2026 por serem cópia literal de lá
+> (`loading` na recarga, componente aninhado no render, `src/types/database.ts`,
+> OSRM no dev web). Duplicar entre as duas seções custa leitura dobrada em toda
+> sessão e cria o risco de as cópias divergirem. O que entra aqui é regra que
+> **não** tem armadilha correspondente.
+
 - Nunca exponha `service_role`, chave do Google Places ou credencial do Play no
   cliente ou no Git.
 - Toda leitura/escrita de tenant deve respeitar `unidade_id` e RLS.
@@ -340,19 +318,12 @@ app.rotamestre.tec.br ── Expo Web / React Native
   alinhadas; Unistyles e Nitro Modules devem ser testados juntos em build EAS.
 - O baseline de runtime é **Node 22** (`.nvmrc`, `engines.node`, CI e EAS). Não
   regrida para Node 20; a proteção da `main` espera `Run Tests (22.x)`.
-- O mapa web só funciona com o worker do `maplibre-gl 6` servido de `public/`.
-  Não remova `tools/scripts/copy-maplibre-worker.cjs` do `postinstall`/`build:web`,
-  a chamada de `configureMaplibreWorker()` nos componentes de mapa web, nem os
-  `.mjs` copiados. Quebrar isso trava o mapa em "Carregando..." **sem erro no
-  console** — nenhum teste **de screenshot** detecta, porque os que existiam
-  mascaravam justamente a região do mapa.
-  **O job de visual regression precisa copiar o worker explicitamente**
-  (`.github/workflows/test.yml`): ele instala com `npm ci --ignore-scripts`, que
-  pula o `postinstall`, e não roda `build:web`. Sem esse step o arquivo não
-  existe em CI e o mapa trava lá — foi assim de sempre até 25/08/2026, quando o
-  teste funcional expôs. Cobertura hoje: `renders motorista mapa` assere que o
-  mapa monta **e** que terminou de carregar (`mapa-web-carregando` some só no
-  evento `load`), e roda em CI desde que os secrets `E2E_*` existam.
+- O mapa web só funciona com o worker do `maplibre-gl 6` servido de `public/` —
+  a cadeia inteira que não pode ser quebrada (postinstall, `build:web`,
+  `configureMaplibreWorker()` e o step explícito no job de visual regression)
+  está em [`../CLAUDE.md`](../CLAUDE.md). O e2e `renders motorista mapa` cobre
+  isso funcionalmente desde 25/08/2026, e roda em CI enquanto os secrets `E2E_*`
+  existirem.
 - **Step bloqueante de CI vai no fim do job.** Quando um step sem
   `continue-on-error` falha, o Actions **pula todos os seguintes** — eles
   aparecem como `skipped`, não como falha. Em 25/08/2026 o audit de produção
@@ -385,12 +356,6 @@ app.rotamestre.tec.br ── Expo Web / React Native
 - Autoria de ações sensíveis vem de `auth.uid()` **dentro** da função
   `SECURITY DEFINER`, nunca de parâmetro enviado pelo cliente — caso contrário
   qualquer usuário autenticado pode forjá-la.
-- Não existe `src/types/database.ts`. Os tipos de domínio são curados à mão em
-  `src/types/`; não introduza tipos gerados sem decidir isso para o projeto todo.
-- **Não declare componente dentro do render de outro componente.** Se precisar
-  quebrar um JSX grande, use função de render chamada como `{renderX()}`. Como
-  `<X />`, o React remonta a subárvore a cada renderização — quebra foco, zera
-  refs e mata debounce, tudo sem erro no console e com o CI verde.
 - **Toda rota sob `app/` tem `ErrorBoundary`** (desde 15/08, PRs #373 e #374).
   Auth e `index` são os mais críticos: são a porta de entrada, sem tela anterior
   para onde voltar. Ao criar rota nova, inclua o boundary. Verificação:
@@ -404,12 +369,6 @@ app.rotamestre.tec.br ── Expo Web / React Native
   devolve en-US calado: sairia certo na web e errado no aparelho. Chave de
   cache, coordenada, valor que vai para o banco e célula numérica de planilha
   continuam com `toFixed` — não são exibição.
-- **`loading` vale só para a carga inicial.** Religá-lo numa recarga faz
-  `DesktopPageLayout`/`DashboardMobile` descartarem a página inteira. Recarga
-  sinaliza por `refreshing` ou pelo toast da própria ação.
-- O default do `OSRM_BASE_URL` em produção e em dev **nativo** é o self-hosted.
-  Só o dev **web** cai no demo público, e só porque o CORS bloqueia. Não
-  generalize a troca para as outras plataformas.
 
 ## Próximas ações
 
@@ -463,24 +422,22 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 ## Mapa da documentação
 
-| Necessidade                                       | Documento                                                                                                                                                              |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Começar uma nova sessão / estado atual            | este arquivo                                                                                                                                                           |
-| Como chegamos aqui / o que já foi tentado         | [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR                                                                                                     |
-| **Isso já foi resolvido? posso reabrir?**         | [HISTORICO.md](HISTORICO.md) → "Frentes fechadas, por data": as listas "Fechadas em ..., não reabra" de 08, 15, 17 e 25/08                                             |
-| **Este fluxo já foi validado? o que foi medido?** | [HISTORICO.md](HISTORICO.md) → "Validações e varreduras": onboarding, otimizador, massa demo, política de senha, contas órfãs, emails do Auth e guardas de precondição |
-| Arquitetura, padrões e phonebook técnico          | [`../CLAUDE.md`](../CLAUDE.md)                                                                                                                                         |
-| Testes                                            | [TESTING.md](TESTING.md)                                                                                                                                               |
-| Histórico e processo de migrations                | [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)                                                                                                               |
-| Google Play: procedimento                         | [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)                                                                                                                 |
-| Google Play: textos, assets e declarações         | [play-store-metadata.md](play-store-metadata.md)                                                                                                                       |
-| App Store / iOS: procedimento                     | [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)                                                                                                                     |
-| Reconstrução da identidade Android                | [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)                                                                                                                   |
-| Firebase e push                                   | [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)                                                                                                                         |
-| Recuperação de senha                              | [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)                                                                                                                           |
-| Templates de email do Auth                        | [`../supabase/templates/README.md`](../supabase/templates/README.md) — e por que colar no painel                                                                       |
-| Marca e tokens                                    | [`../brand-guidelines.md`](../brand-guidelines.md)                                                                                                                     |
-| Specs e planos de features                        | [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/)                                                                                |
+- **Começar uma nova sessão / estado atual** — este arquivo
+- **Como chegamos aqui / o que já foi tentado** — [HISTORICO.md](HISTORICO.md) — snapshots datados e mudanças por PR
+- ****Isso já foi resolvido? posso reabrir?**** — [HISTORICO.md](HISTORICO.md) → "Frentes fechadas, por data": as listas "Fechadas em ..., não reabra" de 08, 15, 17 e 25/08
+- ****Este fluxo já foi validado? o que foi medido?**** — [HISTORICO.md](HISTORICO.md) → "Validações e varreduras": onboarding, otimizador, massa demo, política de senha, contas órfãs, emails do Auth e guardas de precondição
+- **Arquitetura, padrões e phonebook técnico** — [`../CLAUDE.md`](../CLAUDE.md)
+- **Testes** — [TESTING.md](TESTING.md)
+- **Histórico e processo de migrations** — [`../database/MIGRATIONS.md`](../database/MIGRATIONS.md)
+- **Google Play: procedimento** — [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)
+- **Google Play: textos, assets e declarações** — [play-store-metadata.md](play-store-metadata.md)
+- **App Store / iOS: procedimento** — [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)
+- **Reconstrução da identidade Android** — [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)
+- **Firebase e push** — [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)
+- **Recuperação de senha** — [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)
+- **Templates de email do Auth** — [`../supabase/templates/README.md`](../supabase/templates/README.md) — e por que colar no painel
+- **Marca e tokens** — [`../brand-guidelines.md`](../brand-guidelines.md)
+- **Specs e planos de features** — [`superpowers/specs/`](superpowers/specs/) e [`superpowers/plans/`](superpowers/plans/)
 
 Os specs e planos em `superpowers/` são **registro de decisão**, não estado
 atual: leia-os quando for continuar a feature de que tratam (ex.: a Fase 2 da
