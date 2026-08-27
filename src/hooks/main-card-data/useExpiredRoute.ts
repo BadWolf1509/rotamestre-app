@@ -22,7 +22,9 @@ interface UseExpiredRouteReturn {
  * Hook that loads the last expired route within 24h
  */
 export function useExpiredRoute(motoristaId?: string): UseExpiredRouteReturn {
-  const [expiredRoute, setExpiredRoute] = useState<ExpiredRouteData | null>(null);
+  const [expiredRoute, setExpiredRoute] = useState<ExpiredRouteData | null>(
+    null,
+  );
   const [expiredRouteDismissed, setExpiredRouteDismissed] = useState(false);
 
   /**
@@ -65,9 +67,12 @@ export function useExpiredRoute(motoristaId?: string): UseExpiredRouteReturn {
       }
 
       // Filter real stops (not checkpoints)
-      const paradasReais = paradasData?.filter(p => p.is_checkpoint !== false) || [];
+      const paradasReais =
+        paradasData?.filter((p) => p.is_checkpoint !== false) || [];
       const totalParadas = paradasReais.length;
-      const paradasConcluidas = paradasReais.filter(p => p.status === 'concluida').length;
+      const paradasConcluidas = paradasReais.filter(
+        (p) => p.status === 'concluida',
+      ).length;
       const paradasPendentes = totalParadas - paradasConcluidas;
 
       setExpiredRoute({
@@ -76,6 +81,11 @@ export function useExpiredRoute(motoristaId?: string): UseExpiredRouteReturn {
         paradas_pendentes: paradasPendentes,
         total_paradas: totalParadas,
         paradas_concluidas: paradasConcluidas,
+        // A rota só aparece aqui enquanto está em `nao_executada`, e a transição
+        // PARA esse status é a própria expiração — então `updated_at` é o
+        // horário dela. Deriva se o gestor editar a rota expirada antes de
+        // reativá-la; nesse caso o card mostra a hora da última alteração.
+        expirada_em: rota.updated_at ?? undefined,
       });
     } catch (error) {
       logger.error('Error loading expired route:', error);

@@ -69,6 +69,8 @@ export interface ExpiredRouteData {
   paradas_pendentes: number;
   total_paradas: number;
   paradas_concluidas: number;
+  /** Momento em que a rota foi expirada (ISO). Ausente = horário desconhecido. */
+  expirada_em?: string;
 }
 
 // Last route data

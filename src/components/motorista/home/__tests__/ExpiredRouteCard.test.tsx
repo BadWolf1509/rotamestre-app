@@ -72,25 +72,19 @@ describe('ExpiredRouteCard', () => {
 
   describe('Renderização Básica', () => {
     it('deve renderizar o título "Rota expirada"', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       expect(getByText('Rota expirada')).toBeTruthy();
     });
 
     it('deve renderizar ícone de alerta', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       expect(getByText('alert-circle')).toBeTruthy();
     });
 
     it('deve renderizar mensagem com data formatada', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       // 24/12/2025 is "ontem" when today is 25/12/2025
       expect(getByText(/Sua rota de ontem não foi concluída/)).toBeTruthy();
@@ -98,7 +92,7 @@ describe('ExpiredRouteCard', () => {
 
     it('deve formatar data como "ontem" quando é o dia anterior', () => {
       const { getByText } = render(
-        <ExpiredRouteCard data={{ ...defaultData, data: '2025-12-24' }} />
+        <ExpiredRouteCard data={{ ...defaultData, data: '2025-12-24' }} />,
       );
 
       expect(getByText(/ontem/)).toBeTruthy();
@@ -106,27 +100,57 @@ describe('ExpiredRouteCard', () => {
 
     it('deve formatar data como DD/MM quando não é ontem', () => {
       const { getByText } = render(
-        <ExpiredRouteCard data={{ ...defaultData, data: '2025-12-20' }} />
+        <ExpiredRouteCard data={{ ...defaultData, data: '2025-12-20' }} />,
       );
 
       expect(getByText(/20\/12/)).toBeTruthy();
     });
   });
 
+  describe('Hora da expiração', () => {
+    // O texto era fixo em "expirou às 22h". Em 27/08/2026 o job de expiração
+    // rodou atrasado e matou rotas às 07:43, mas o motorista leu "22h" —
+    // mensagem que contradizia o que ele tinha acabado de viver.
+    it('deve mostrar a hora real da expiração quando conhecida', () => {
+      const { getByText } = render(
+        <ExpiredRouteCard
+          data={{ ...defaultData, expirada_em: '2025-12-24T07:43:26' }}
+        />,
+      );
+
+      expect(getByText(/expirou às 07:43\./)).toBeTruthy();
+    });
+
+    it('não deve afirmar 22h quando a expiração ocorreu em outro horário', () => {
+      const { queryByText } = render(
+        <ExpiredRouteCard
+          data={{ ...defaultData, expirada_em: '2025-12-24T07:43:26' }}
+        />,
+      );
+
+      expect(queryByText(/22h/)).toBeNull();
+    });
+
+    it('deve omitir o horário quando a hora da expiração é desconhecida', () => {
+      const { getByText, queryByText } = render(
+        <ExpiredRouteCard data={defaultData} />,
+      );
+
+      expect(getByText(/não foi concluída e expirou\./)).toBeTruthy();
+      expect(queryByText(/às/)).toBeNull();
+    });
+  });
+
   describe('Estatísticas', () => {
     it('deve mostrar paradas concluídas quando há alguma', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       expect(getByText('2 concluídas')).toBeTruthy();
       expect(getByText('checkmark-circle')).toBeTruthy();
     });
 
     it('deve mostrar paradas pendentes', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       expect(getByText('3 pendentes')).toBeTruthy();
       expect(getByText('close-circle')).toBeTruthy();
@@ -136,7 +160,7 @@ describe('ExpiredRouteCard', () => {
       const { queryByText, getByText } = render(
         <ExpiredRouteCard
           data={{ ...defaultData, paradas_concluidas: 0, paradas_pendentes: 5 }}
-        />
+        />,
       );
 
       // Should not show the "X concluída(s)" stat (pattern: number + concluída)
@@ -146,9 +170,7 @@ describe('ExpiredRouteCard', () => {
 
     it('deve usar singular "pendente" para 1 parada', () => {
       const { getByText } = render(
-        <ExpiredRouteCard
-          data={{ ...defaultData, paradas_pendentes: 1 }}
-        />
+        <ExpiredRouteCard data={{ ...defaultData, paradas_pendentes: 1 }} />,
       );
 
       expect(getByText('1 pendente')).toBeTruthy();
@@ -156,9 +178,7 @@ describe('ExpiredRouteCard', () => {
 
     it('deve usar singular "concluída" para 1 parada', () => {
       const { getByText } = render(
-        <ExpiredRouteCard
-          data={{ ...defaultData, paradas_concluidas: 1 }}
-        />
+        <ExpiredRouteCard data={{ ...defaultData, paradas_concluidas: 1 }} />,
       );
 
       expect(getByText('1 concluída')).toBeTruthy();
@@ -168,23 +188,21 @@ describe('ExpiredRouteCard', () => {
   describe('Botão Dismiss', () => {
     it('deve renderizar botão de fechar quando onDismiss é fornecido', () => {
       const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} onDismiss={mockOnDismiss} />
+        <ExpiredRouteCard data={defaultData} onDismiss={mockOnDismiss} />,
       );
 
       expect(getByText('close')).toBeTruthy();
     });
 
     it('não deve renderizar botão de fechar quando onDismiss não é fornecido', () => {
-      const { queryByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { queryByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       expect(queryByText('close')).toBeNull();
     });
 
     it('deve chamar onDismiss ao clicar no botão de fechar', () => {
       const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} onDismiss={mockOnDismiss} />
+        <ExpiredRouteCard data={defaultData} onDismiss={mockOnDismiss} />,
       );
 
       fireEvent.press(getByText('close'));
@@ -195,18 +213,14 @@ describe('ExpiredRouteCard', () => {
 
   describe('Navegação para Histórico', () => {
     it('deve renderizar link "Ver no histórico"', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       expect(getByText('Ver no histórico')).toBeTruthy();
       expect(getByText('arrow-forward')).toBeTruthy();
     });
 
     it('deve navegar para histórico ao clicar no link', () => {
-      const { getByText } = render(
-        <ExpiredRouteCard data={defaultData} />
-      );
+      const { getByText } = render(<ExpiredRouteCard data={defaultData} />);
 
       fireEvent.press(getByText('Ver no histórico'));
 
@@ -217,7 +231,7 @@ describe('ExpiredRouteCard', () => {
   describe('Acessibilidade', () => {
     it('deve ter accessibilityLabel no botão dismiss', () => {
       const { getByLabelText } = render(
-        <ExpiredRouteCard data={defaultData} onDismiss={mockOnDismiss} />
+        <ExpiredRouteCard data={defaultData} onDismiss={mockOnDismiss} />,
       );
 
       expect(getByLabelText('Dispensar aviso')).toBeTruthy();
@@ -225,7 +239,7 @@ describe('ExpiredRouteCard', () => {
 
     it('deve ter accessibilityLabel no link do histórico', () => {
       const { getByLabelText } = render(
-        <ExpiredRouteCard data={defaultData} />
+        <ExpiredRouteCard data={defaultData} />,
       );
 
       expect(getByLabelText('Ver detalhes no histórico')).toBeTruthy();

@@ -10,7 +10,9 @@
  * @param dateStr - String no formato YYYY-MM-DD
  * @returns Date local ou null se inválido
  */
-export function parseLocalDate(dateStr: string | undefined | null): Date | null {
+export function parseLocalDate(
+  dateStr: string | undefined | null,
+): Date | null {
   if (!dateStr) return null;
   const [year, month, day] = dateStr.split('-').map(Number);
   if (!year || !month || !day) return null;
@@ -40,7 +42,7 @@ export function formatDateTimeBR(
   options: {
     showYear?: boolean;
     showSeconds?: boolean;
-  } = {}
+  } = {},
 ): string {
   if (!dateStr) return '-';
 
@@ -62,6 +64,27 @@ export function formatDateTimeBR(
     // Fallback seguro para data inválida
     return '-';
   }
+}
+
+/**
+ * Formata apenas a hora de um timestamp, no fuso local do aparelho: "HH:mm".
+ *
+ * Montada na mão em vez de `toLocaleTimeString`: o Hermes pode não trazer os
+ * dados de locale do ICU, e aí o formato volta diferente do esperado sem erro
+ * nenhum — o mesmo motivo que mantém `formatarDecimal` manual.
+ *
+ * @param dateStr Timestamp ISO (com ou sem offset). Sem offset é lido como hora local.
+ * @returns Hora formatada ou '-' se inválido
+ */
+export function formatTimeBR(dateStr: string | undefined | null): string {
+  if (!dateStr) return '-';
+
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+
+  const horas = String(date.getHours()).padStart(2, '0');
+  const minutos = String(date.getMinutes()).padStart(2, '0');
+  return `${horas}:${minutos}`;
 }
 
 /**
@@ -110,7 +133,7 @@ export function isPast(dateStr: string | undefined | null): boolean {
  */
 export function daysDifference(
   dateStr1: string | undefined | null,
-  dateStr2: string | undefined | null
+  dateStr2: string | undefined | null,
 ): number | null {
   const date1 = parseLocalDate(dateStr1);
   const date2 = parseLocalDate(dateStr2);
