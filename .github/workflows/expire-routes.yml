@@ -1,5 +1,15 @@
 name: Route Reminders and Expiration
 
+# ATENÇÃO: o cron do GitHub Actions é best-effort. Em 27/08/2026 o evento das
+# 01:00 UTC foi entregue às 10:43 UTC (+9h43) e a expiração apagou rotas criadas
+# naquela manhã. O horário abaixo é, portanto, uma INTENÇÃO, não uma garantia.
+#
+# A proteção real mora na função SQL `expire_old_pending_routes` (migration
+# 20260827190000): ela só expira rotas do dia corrente depois das 22:00
+# America/Sao_Paulo. Se este job chegar atrasado, ele limpa dias anteriores e
+# não toca no dia corrente. NÃO remova aquela guarda contando com a pontualidade
+# daqui.
+
 on:
   schedule:
     # Lembrete às 16:00 Brasília (19:00 UTC) - Segunda a Sexta
@@ -37,6 +47,7 @@ jobs:
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
 
           http_code=$(echo "$response" | tail -n1)
@@ -67,6 +78,7 @@ jobs:
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             -d '{"urgency": "final"}')
 
@@ -98,6 +110,7 @@ jobs:
           response=$(curl -s -w "\n%{http_code}" -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/expire-routes" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
 
           http_code=$(echo "$response" | tail -n1)

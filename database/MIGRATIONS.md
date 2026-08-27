@@ -807,4 +807,67 @@ profundidade. Não tem relação com esta migration.
 
 ---
 
-**Última atualização:** 15/08/2026
+### ✅ Migration 24: Expiração de rotas — data em BRT e guarda de horário
+
+**Arquivo:** `20260827190000_expiracao_rota_fuso_e_guarda_horario.sql`
+
+**Motivada por incidente em produção (27/08/2026).** O job de expiração,
+agendado para 22:00 BRT (`0 1 * * 2-6`, 01:00 UTC), foi entregue pelo GitHub
+Actions às **10:43 UTC — 9h43min atrasado**, ou seja 07:43 BRT. Como
+`expire_old_pending_routes` filtrava por `ro.data <= CURRENT_DATE` sem olhar as
+horas, ela matou duas rotas criadas naquela mesma manhã: José Inácio (5 paradas,
+criada 07:22, ~2h56min parado) e Lucas Cosme (6 paradas, criada 07:37, ~1h44min
+parado), mais 4 notificações falsas. Ambas foram reativadas e concluídas; nada
+foi perdido além do tempo.
+
+**Duas falhas independentes, corrigidas juntas:**
+
+1. **`CURRENT_DATE` é UTC.** Às 22:00 BRT já é 01:00 UTC do dia seguinte, então
+   `data <= CURRENT_DATE` também alcançava rotas **pré-criadas para amanhã** —
+   bug latente que só não mordeu porque ninguém adianta rota na véspera hoje.
+   Simulado: num run pontual de 31/08 22:00 BRT, `CURRENT_DATE` = `2026-09-01` e
+   uma rota de 01/09 seria apagada. Passa a usar
+   `(now() AT TIME ZONE 'America/Sao_Paulo')::date`.
+2. **A função não tinha noção de horário.** O filtro passa a ter dois ramos:
+   `data < hoje` expira a qualquer hora; `data = hoje` só a partir das 22:00 BRT.
+
+**Por que o filtro NÃO virou uma guarda global de "só rode após as 22h"** (era a
+proposta inicial, e estava errada): dos 19 eventos `rota_expirada` desde
+29/12/2025, **17 rodaram entre 00:22 e 02:07 BRT** limpando o dia anterior — o
+agendador quase sempre chega depois da meia-noite. Uma guarda global teria
+bloqueado todos eles e as rotas nunca expirariam.
+
+**Também:** `remind_pending_routes` recebeu a mesma correção de fuso (usava
+`ro.data = CURRENT_DATE`), e ganhou-se `p_dry_run` em
+`expire_old_pending_routes` — o projeto não tem pgTAP, então é a única forma
+honesta de conferir a função em produção sem mutar dados.
+
+**Cuidado preservado no DROP/CREATE:** a assinatura mudou (`p_dry_run`), então
+foi preciso `DROP` + `CREATE`. `CREATE FUNCTION` concede `EXECUTE` a `PUBLIC`
+por padrão — sem os `REVOKE` explícitos, a função `SECURITY DEFINER` que expira
+rotas de **todas** as unidades teria ficado aberta a `anon`/`authenticated`.
+Verificado após aplicar: `public_pode = false`, apenas `service_role`.
+
+**Status:** ✅ Aplicada em 27/08/2026 via `mcp__supabase__apply_migration`.
+
+**Verificação funcional** (sonda transacional desfeita por `RAISE EXCEPTION`,
+sem deixar resíduo — confirmado: 0 rotas, 0 logs, 0 notificações criadas):
+
+```
+hora_brt=16:50:10 | rota_de_HOJE_expira=0 (esperado 0)
+                  | rota_de_ONTEM_expira=1 (esperado 1)
+```
+
+Fronteira conferida: `17:00 → não`, `21:59 → não`, `22:00 → sim`, `23:30 → sim`.
+
+**Drift esperado, não é erro:** arquivo `20260827190000`, registro remoto
+`20260827194804`.
+
+**Fora do escopo desta migration, mas na mesma linha de tiro:** o aviso "expira
+em 2 horas" pode chegar de madrugada se o run das 20:00 BRT atrasar (aconteceu
+em 27/08, entregue 01:08 BRT). É mensagem confusa, não perda de trabalho —
+resolver com uma janela de sanidade em `remind_pending_routes`.
+
+---
+
+**Última atualização:** 27/08/2026
