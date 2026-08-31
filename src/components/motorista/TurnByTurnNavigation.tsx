@@ -17,11 +17,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
-import {
-  MAPLIBRE_RASTER_STYLE_JSON,
-  toLineString,
-  toLngLat,
-} from '@/lib/maplibre';
+import { OPENFREEMAP_STYLE_URL, toLineString, toLngLat } from '@/lib/maplibre';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
@@ -560,7 +556,7 @@ export function TurnByTurnNavigation({
       <MapLibreGL.Map
         testID="map-view"
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        mapStyle={OPENFREEMAP_STYLE_URL}
         touchRotate={false}
         compass={false}
         logo={false}

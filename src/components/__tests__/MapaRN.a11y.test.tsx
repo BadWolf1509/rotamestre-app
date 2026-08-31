@@ -25,7 +25,7 @@ jest.mock('@/components/map/infoWindowBuilders', () => ({
 }));
 
 jest.mock('@/lib/maplibre', () => ({
-  MAPLIBRE_RASTER_STYLE: 'https://example.com/style.json',
+  OPENFREEMAP_STYLE_URL: 'https://example.com/style.json',
   toLineString: jest.fn(() => null),
   toLngLat: jest.fn(
     ({ latitude, longitude }: { latitude: number; longitude: number }) => [

@@ -19,36 +19,30 @@ type MapBounds = {
   sw: LngLatTuple;
 };
 
-const CARTO_VOYAGER_RASTER_STYLE = {
-  version: 8,
-  sources: {
-    carto: {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '(c) OpenStreetMap contributors (c) CARTO',
-    },
-  },
-  layers: [
-    {
-      id: 'carto-voyager',
-      type: 'raster',
-      source: 'carto',
-      minzoom: 0,
-      maxzoom: 20,
-    },
-  ],
-} as const;
-
-export const MAPLIBRE_RASTER_STYLE = CARTO_VOYAGER_RASTER_STYLE;
-export const MAPLIBRE_RASTER_STYLE_JSON = JSON.stringify(
-  CARTO_VOYAGER_RASTER_STYLE,
-);
+/**
+ * Fonte de tiles do app — web e nativo. Fonte unica: o web importa esta
+ * constante em `src/lib/openFreeMapStyle.ts`, o nativo passa direto no
+ * `mapStyle`.
+ *
+ * Antes daqui saia um raster da Carto (`basemaps.cartocdn.com/rastertiles/
+ * voyager`) sem chave, so no nativo — o web ja usava OpenFreeMap. Em 31/08/2026
+ * a Carto passou a exigir API key: o endpoint responde 200, mas com tiles
+ * marcados "API KEY REQUIRED", que chegavam ao motorista. Nada quebrava, nada
+ * falhava — so aparecia errado na tela.
+ *
+ * Chave da Carto foi descartada como saida: ela teria de viajar no bundle do
+ * app, de onde e extraivel. O padrao do projeto e chave server-side (a do
+ * Google Places vive nos secrets das Edge Functions), e uma fonte sem chave
+ * dispensa o problema.
+ *
+ * O nativo recebe a URL crua porque o `mapStyle` do
+ * `@maplibre/maplibre-react-native` aceita `string | StyleSpecification` e o SDK
+ * busca e interpreta o estilo sozinho. O web nao pode: precisa do
+ * `getOpenFreeMapStyle()`, que baixa o JSON e corrige filtros que o maplibre-gl
+ * rejeita. Esse patch e especifico do maplibre-gl e nao se aplica ao nativo.
+ */
+export const OPENFREEMAP_STYLE_URL =
+  'https://tiles.openfreemap.org/styles/liberty';
 
 export function toLngLat({ latitude, longitude }: LatLng): LngLatTuple {
   return [longitude, latitude];
