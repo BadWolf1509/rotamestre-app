@@ -3,8 +3,22 @@ import type { MotivoSkip } from '@/constants/skipReasons';
 import { Endereco, Coordenadas } from './endereco';
 
 export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
+/**
+ * Espelha o CHECK `rotas_status_check` do banco, que é a fonte autoritativa:
+ * `pendente, em_andamento, concluida, cancelada, nao_executada`.
+ *
+ * `nao_executada` faltava aqui desde sempre, embora o banco já tenha 17 linhas
+ * assim — é o estado que `expire_old_pending_routes` grava ao encerrar rota que
+ * não foi cumprida. Passou despercebido porque os componentes que exibem status
+ * tipam o parâmetro como `string` (ver `getStatusBadgeVariant` e
+ * `formatStatusLabel` em `RouteInfoHeader.tsx`), então o typecheck nunca teve
+ * chance de reclamar.
+ *
+ * Ao adicionar valor aqui, atualize também `validStatusRota` em
+ * `src/lib/type-guards.ts` — a lista é manual e não deriva deste tipo.
+ */
 export type StatusRota =
-  'pendente' | 'em_andamento' | 'concluida' | 'cancelada';
+  'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
 export type StatusCheckpoint = 'pendente' | 'concluida' | 'pulada';
 
 /**

@@ -25,6 +25,7 @@ import {
   getNumberProperty,
   getColumnValue,
   asIoniconName,
+  isRota,
 } from '../type-guards';
 
 describe('type-guards', () => {
@@ -104,17 +105,25 @@ describe('type-guards', () => {
 
   describe('hasValidCoordinates', () => {
     it('should return true for valid coordinates', () => {
-      expect(hasValidCoordinates({ latitude: -23.55, longitude: -46.63 })).toBe(true);
+      expect(hasValidCoordinates({ latitude: -23.55, longitude: -46.63 })).toBe(
+        true,
+      );
       expect(hasValidCoordinates({ latitude: 0, longitude: 0 })).toBe(true);
       expect(hasValidCoordinates({ latitude: 90, longitude: 180 })).toBe(true);
-      expect(hasValidCoordinates({ latitude: -90, longitude: -180 })).toBe(true);
+      expect(hasValidCoordinates({ latitude: -90, longitude: -180 })).toBe(
+        true,
+      );
     });
 
     it('should return false for invalid coordinates', () => {
       expect(hasValidCoordinates({ latitude: 91, longitude: 0 })).toBe(false);
       expect(hasValidCoordinates({ latitude: 0, longitude: 181 })).toBe(false);
-      expect(hasValidCoordinates({ latitude: 'invalid', longitude: 0 })).toBe(false);
-      expect(hasValidCoordinates({ latitude: null, longitude: null })).toBe(false);
+      expect(hasValidCoordinates({ latitude: 'invalid', longitude: 0 })).toBe(
+        false,
+      );
+      expect(hasValidCoordinates({ latitude: null, longitude: null })).toBe(
+        false,
+      );
       expect(hasValidCoordinates(null)).toBe(false);
       expect(hasValidCoordinates({})).toBe(false);
     });
@@ -123,11 +132,15 @@ describe('type-guards', () => {
   describe('hasOptionalCoordinates', () => {
     it('should return true when both are undefined', () => {
       expect(hasOptionalCoordinates({})).toBe(true);
-      expect(hasOptionalCoordinates({ latitude: undefined, longitude: undefined })).toBe(true);
+      expect(
+        hasOptionalCoordinates({ latitude: undefined, longitude: undefined }),
+      ).toBe(true);
     });
 
     it('should return true when both are valid', () => {
-      expect(hasOptionalCoordinates({ latitude: -23.55, longitude: -46.63 })).toBe(true);
+      expect(
+        hasOptionalCoordinates({ latitude: -23.55, longitude: -46.63 }),
+      ).toBe(true);
     });
 
     it('should return false when only one is defined', () => {
@@ -147,12 +160,65 @@ describe('type-guards', () => {
       expect(isStatusRota('em_andamento')).toBe(true);
       expect(isStatusRota('concluida')).toBe(true);
       expect(isStatusRota('cancelada')).toBe(true);
+      // Estado que `expire_old_pending_routes` grava ao encerrar rota nao
+      // cumprida. Faltava na lista, embora o CHECK `rotas_status_check` o
+      // aceite e o banco ja tenha 17 linhas assim.
+      expect(isStatusRota('nao_executada')).toBe(true);
     });
 
     it('should return false for invalid status values', () => {
       expect(isStatusRota('invalid')).toBe(false);
       expect(isStatusRota('')).toBe(false);
       expect(isStatusRota(null)).toBe(false);
+    });
+
+    it('cobre os 5 valores do CHECK rotas_status_check', () => {
+      // Guarda contra a lista voltar a divergir do banco. Se um valor novo
+      // entrar no CHECK, este teste continua passando — mas o
+      // `Record<StatusRota, true>` em type-guards.ts quebra a compilacao, que e
+      // onde a divergencia deve doer.
+      const doCheckDoBanco = [
+        'pendente',
+        'em_andamento',
+        'concluida',
+        'cancelada',
+        'nao_executada',
+      ];
+      expect(doCheckDoBanco.every(isStatusRota)).toBe(true);
+    });
+  });
+
+  describe('isRota', () => {
+    const rotaBase = {
+      id: '123e4567-e89b-42d3-a456-426614174000',
+      unidade_id: '123e4567-e89b-42d3-a456-426614174001',
+    };
+
+    it('aceita rota expirada (`nao_executada`)', () => {
+      // Esta era a consequencia real do valor faltando: `isRota` delega o status
+      // a `isStatusRota`, entao TODA rota expirada era rejeitada pela propria
+      // guarda de tipo do projeto.
+      expect(isRota({ ...rotaBase, status: 'nao_executada' })).toBe(true);
+    });
+
+    it('aceita os demais status validos', () => {
+      expect(isRota({ ...rotaBase, status: 'pendente' })).toBe(true);
+      expect(isRota({ ...rotaBase, status: 'em_andamento' })).toBe(true);
+      expect(isRota({ ...rotaBase, status: 'concluida' })).toBe(true);
+      expect(isRota({ ...rotaBase, status: 'cancelada' })).toBe(true);
+    });
+
+    it('rejeita status invalido e objeto malformado', () => {
+      expect(isRota({ ...rotaBase, status: 'inventado' })).toBe(false);
+      expect(isRota({ ...rotaBase })).toBe(false);
+      expect(
+        isRota({
+          id: 'nao-e-uuid',
+          unidade_id: rotaBase.unidade_id,
+          status: 'pendente',
+        }),
+      ).toBe(false);
+      expect(isRota(null)).toBe(false);
     });
   });
 
@@ -185,41 +251,55 @@ describe('type-guards', () => {
   describe('Supabase response guards', () => {
     describe('hasSupabaseData', () => {
       it('should return true when data is present and no error', () => {
-        expect(hasSupabaseData({ data: { id: '123' }, error: null })).toBe(true);
+        expect(hasSupabaseData({ data: { id: '123' }, error: null })).toBe(
+          true,
+        );
         expect(hasSupabaseData({ data: [], error: null })).toBe(true);
       });
 
       it('should return false when error is present or data is null', () => {
         expect(hasSupabaseData({ data: null, error: null })).toBe(false);
-        expect(hasSupabaseData({ data: { id: '123' }, error: { message: 'Error' } })).toBe(false);
+        expect(
+          hasSupabaseData({ data: { id: '123' }, error: { message: 'Error' } }),
+        ).toBe(false);
       });
     });
 
     describe('hasSupabaseError', () => {
       it('should return true when error is present', () => {
-        expect(hasSupabaseError({ data: null, error: { message: 'Error' } })).toBe(true);
+        expect(
+          hasSupabaseError({ data: null, error: { message: 'Error' } }),
+        ).toBe(true);
       });
 
       it('should return false when no error', () => {
-        expect(hasSupabaseError({ data: { id: '123' }, error: null })).toBe(false);
+        expect(hasSupabaseError({ data: { id: '123' }, error: null })).toBe(
+          false,
+        );
       });
     });
 
     describe('extractSupabaseData', () => {
       it('should return data when no error', () => {
-        const result = extractSupabaseData({ data: { id: '123' }, error: null });
+        const result = extractSupabaseData({
+          data: { id: '123' },
+          error: null,
+        });
         expect(result).toEqual({ id: '123' });
       });
 
       it('should throw when error is present', () => {
         expect(() =>
-          extractSupabaseData({ data: null, error: { message: 'Test error' } })
+          extractSupabaseData({ data: null, error: { message: 'Test error' } }),
         ).toThrow('Supabase query failed: Test error');
       });
 
       it('should use custom error message', () => {
         expect(() =>
-          extractSupabaseData({ data: null, error: { message: 'Test error' } }, 'Custom message')
+          extractSupabaseData(
+            { data: null, error: { message: 'Test error' } },
+            'Custom message',
+          ),
         ).toThrow('Custom message: Test error');
       });
     });
@@ -227,7 +307,9 @@ describe('type-guards', () => {
     describe('isSupabaseArray', () => {
       it('should return true when data is an array', () => {
         expect(isSupabaseArray({ data: [], error: null })).toBe(true);
-        expect(isSupabaseArray({ data: [{ id: '1' }], error: null })).toBe(true);
+        expect(isSupabaseArray({ data: [{ id: '1' }], error: null })).toBe(
+          true,
+        );
       });
 
       it('should return false when data is not an array', () => {
