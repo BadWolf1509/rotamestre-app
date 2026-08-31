@@ -6,8 +6,18 @@
 import { Platform } from 'react-native';
 
 import type { Coordenadas } from '@/types/endereco';
-import type { StatusRota, StatusCheckpoint, Checkpoint, Rota } from '@/types/rota';
-import type { Usuario, TipoUsuario, UnidadeDB, UsuarioUnidade } from '@/types/usuario';
+import type {
+  StatusRota,
+  StatusCheckpoint,
+  Checkpoint,
+  Rota,
+} from '@/types/rota';
+import type {
+  Usuario,
+  TipoUsuario,
+  UnidadeDB,
+  UsuarioUnidade,
+} from '@/types/usuario';
 
 // ============================================================================
 // Basic Type Guards
@@ -39,7 +49,8 @@ export function isValidNumber(value: unknown): value is number {
  */
 export function isUUID(value: unknown): value is string {
   if (typeof value !== 'string') return false;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(value);
 }
 
@@ -76,10 +87,13 @@ export function hasValidCoordinates(value: unknown): value is Coordenadas {
  * Check if an object has optional coordinates that are valid when present
  */
 export function hasOptionalCoordinates(
-  value: unknown
+  value: unknown,
 ): value is { latitude?: number; longitude?: number } {
   if (!isObject(value)) return false;
-  const { latitude, longitude } = value as { latitude?: unknown; longitude?: unknown };
+  const { latitude, longitude } = value as {
+    latitude?: unknown;
+    longitude?: unknown;
+  };
 
   // Both undefined is valid
   if (latitude === undefined && longitude === undefined) return true;
@@ -96,21 +110,48 @@ export function hasOptionalCoordinates(
 // Route & Checkpoint Guards
 // ============================================================================
 
-const validStatusRota: StatusRota[] = ['pendente', 'em_andamento', 'concluida', 'cancelada'];
-const validStatusCheckpoint: StatusCheckpoint[] = ['pendente', 'concluida', 'pulada'];
+// `Record<StatusRota, true>` em vez de `StatusRota[]` de propósito: um array
+// anotado protege contra valor INVÁLIDO, mas não contra valor FALTANDO — e foi
+// exatamente assim que `nao_executada` ficou de fora, fazendo `isRota()`
+// reprovar toda rota expirada (o banco já tem 17 delas). Nenhuma das duas
+// guardas é consumida em produção hoje, só em teste, então era mina e não
+// incêndio — mas a mina continuaria armada.
+//
+// Com o Record, esquecer um valor novo de `StatusRota` vira erro de compilação
+// aqui, não bug silencioso. Mesmo padrão vale para `validStatusCheckpoint`
+// abaixo, hoje correto — deixado como está para não mexer no que não quebrou.
+const STATUS_ROTA_VALIDOS: Record<StatusRota, true> = {
+  pendente: true,
+  em_andamento: true,
+  concluida: true,
+  cancelada: true,
+  nao_executada: true,
+};
+
+const validStatusRota = Object.keys(STATUS_ROTA_VALIDOS) as StatusRota[];
+const validStatusCheckpoint: StatusCheckpoint[] = [
+  'pendente',
+  'concluida',
+  'pulada',
+];
 
 /**
  * Check if value is a valid StatusRota
  */
 export function isStatusRota(value: unknown): value is StatusRota {
-  return typeof value === 'string' && validStatusRota.includes(value as StatusRota);
+  return (
+    typeof value === 'string' && validStatusRota.includes(value as StatusRota)
+  );
 }
 
 /**
  * Check if value is a valid StatusCheckpoint
  */
 export function isStatusCheckpoint(value: unknown): value is StatusCheckpoint {
-  return typeof value === 'string' && validStatusCheckpoint.includes(value as StatusCheckpoint);
+  return (
+    typeof value === 'string' &&
+    validStatusCheckpoint.includes(value as StatusCheckpoint)
+  );
 }
 
 /**
@@ -134,11 +175,7 @@ export function isCheckpoint(value: unknown): value is Checkpoint {
 export function isRota(value: unknown): value is Rota {
   if (!isObject(value)) return false;
   const obj = value as Partial<Rota>;
-  return (
-    isUUID(obj.id) &&
-    isUUID(obj.unidade_id) &&
-    isStatusRota(obj.status)
-  );
+  return isUUID(obj.id) && isUUID(obj.unidade_id) && isStatusRota(obj.status);
 }
 
 // ============================================================================
@@ -151,7 +188,9 @@ const validTipoUsuario: TipoUsuario[] = ['gestor', 'motorista'];
  * Check if value is a valid TipoUsuario
  */
 export function isTipoUsuario(value: unknown): value is TipoUsuario {
-  return typeof value === 'string' && validTipoUsuario.includes(value as TipoUsuario);
+  return (
+    typeof value === 'string' && validTipoUsuario.includes(value as TipoUsuario)
+  );
 }
 
 /**
@@ -211,7 +250,7 @@ export interface SupabaseResponse<T> {
  * Check if Supabase response has data (no error)
  */
 export function hasSupabaseData<T>(
-  response: SupabaseResponse<T>
+  response: SupabaseResponse<T>,
 ): response is { data: T; error: null } {
   return response.error === null && response.data !== null;
 }
@@ -220,7 +259,7 @@ export function hasSupabaseData<T>(
  * Check if Supabase response has error
  */
 export function hasSupabaseError<T>(
-  response: SupabaseResponse<T>
+  response: SupabaseResponse<T>,
 ): response is { data: null; error: { message: string; code?: string } } {
   return response.error !== null;
 }
@@ -230,7 +269,7 @@ export function hasSupabaseError<T>(
  */
 export function extractSupabaseData<T>(
   response: SupabaseResponse<T>,
-  errorMessage = 'Supabase query failed'
+  errorMessage = 'Supabase query failed',
 ): T {
   if (hasSupabaseError(response)) {
     throw new Error(`${errorMessage}: ${response.error.message}`);
@@ -245,7 +284,7 @@ export function extractSupabaseData<T>(
  * Check if Supabase response data is an array
  */
 export function isSupabaseArray<T>(
-  response: SupabaseResponse<T>
+  response: SupabaseResponse<T>,
 ): response is { data: T & unknown[]; error: null } {
   return hasSupabaseData(response) && Array.isArray(response.data);
 }
@@ -257,7 +296,9 @@ export function isSupabaseArray<T>(
 /**
  * Type-safe Platform.OS check
  */
-export function isPlatformOS(os: 'ios' | 'android' | 'web' | 'windows' | 'macos'): boolean {
+export function isPlatformOS(
+  os: 'ios' | 'android' | 'web' | 'windows' | 'macos',
+): boolean {
   return Platform.OS === os;
 }
 
@@ -288,7 +329,7 @@ export interface PressableStateWithHover {
 }
 
 export function hasPressableHover(
-  state: unknown
+  state: unknown,
 ): state is PressableStateWithHover {
   if (!isObject(state)) return false;
   if (!('pressed' in state)) return false;
@@ -355,7 +396,7 @@ export function safeFocus(element: unknown): void {
 export function getProperty<T>(
   obj: unknown,
   key: string,
-  validator?: (value: unknown) => value is T
+  validator?: (value: unknown) => value is T,
 ): T | undefined {
   if (!isObject(obj)) return undefined;
   const value = obj[key];
@@ -368,14 +409,20 @@ export function getProperty<T>(
 /**
  * Safely access a string property
  */
-export function getStringProperty(obj: unknown, key: string): string | undefined {
+export function getStringProperty(
+  obj: unknown,
+  key: string,
+): string | undefined {
   return getProperty(obj, key, isNonEmptyString);
 }
 
 /**
  * Safely access a number property
  */
-export function getNumberProperty(obj: unknown, key: string): number | undefined {
+export function getNumberProperty(
+  obj: unknown,
+  key: string,
+): number | undefined {
   return getProperty(obj, key, isValidNumber);
 }
 
@@ -384,7 +431,7 @@ export function getNumberProperty(obj: unknown, key: string): number | undefined
  */
 export function getColumnValue<T extends Record<string, unknown>>(
   item: T,
-  key: keyof T
+  key: keyof T,
 ): T[keyof T] {
   return item[key];
 }
@@ -524,16 +571,58 @@ export type IoniconName =
 export function asIoniconName(name: string): IoniconName | undefined {
   // This is a simplified check - in production you might want a full list
   const commonIcons = new Set<string>([
-    'home', 'home-outline', 'map', 'map-outline', 'person', 'person-outline',
-    'settings', 'settings-outline', 'warning', 'warning-outline', 'checkmark',
-    'checkmark-circle', 'close', 'close-circle', 'add', 'remove',
-    'chevron-forward', 'chevron-back', 'menu', 'search', 'refresh',
-    'time', 'time-outline', 'location', 'location-outline', 'navigate',
-    'navigate-outline', 'car', 'car-outline', 'calendar', 'calendar-outline',
-    'notifications', 'notifications-outline', 'log-out', 'log-out-outline',
-    'camera', 'camera-outline', 'image', 'image-outline', 'trash', 'trash-outline',
-    'create', 'create-outline', 'eye', 'eye-outline', 'eye-off', 'eye-off-outline',
-    'alert-circle', 'information-circle', 'help-circle', 'flag', 'flag-outline',
+    'home',
+    'home-outline',
+    'map',
+    'map-outline',
+    'person',
+    'person-outline',
+    'settings',
+    'settings-outline',
+    'warning',
+    'warning-outline',
+    'checkmark',
+    'checkmark-circle',
+    'close',
+    'close-circle',
+    'add',
+    'remove',
+    'chevron-forward',
+    'chevron-back',
+    'menu',
+    'search',
+    'refresh',
+    'time',
+    'time-outline',
+    'location',
+    'location-outline',
+    'navigate',
+    'navigate-outline',
+    'car',
+    'car-outline',
+    'calendar',
+    'calendar-outline',
+    'notifications',
+    'notifications-outline',
+    'log-out',
+    'log-out-outline',
+    'camera',
+    'camera-outline',
+    'image',
+    'image-outline',
+    'trash',
+    'trash-outline',
+    'create',
+    'create-outline',
+    'eye',
+    'eye-outline',
+    'eye-off',
+    'eye-off-outline',
+    'alert-circle',
+    'information-circle',
+    'help-circle',
+    'flag',
+    'flag-outline',
   ]);
 
   if (commonIcons.has(name)) {
