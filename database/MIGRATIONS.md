@@ -870,4 +870,92 @@ resolver com uma janela de sanidade em `remind_pending_routes`.
 
 ---
 
-**Última atualização:** 27/08/2026
+### ⏳ Migration 25: Expiração alcança rotas em andamento (carência de 7 dias)
+
+**Arquivo:** `20260831230000_expirar_rotas_em_andamento.sql`
+
+`expire_old_pending_routes` filtrava `status = 'pendente'` e mais nada. Rota que
+o motorista **inicia e abandona** ficava imortal: nunca expirava, nunca gerava
+aviso ao gestor, e o `remind_pending_routes` também não a alcançava (mesmo
+filtro). Descoberto em 31/08/2026 pela rota demo
+`aaaa0000-0000-4000-8000-000000000020`, aberta em `em_andamento` desde 08/08 —
+23 dias, 3 de 5 paradas pendentes.
+
+Confirmado que a lacuna era total: em todo o schema `public`, só duas funções
+mencionam `nao_executada` — esta e o trigger `log_rota_status_change`. Nenhuma
+expirava `em_andamento`.
+
+**A lacuna era latente, não ativa.** Das 641 rotas: 620 `concluida`, 17
+`nao_executada`, 3 `cancelada` e **exatamente 1** `em_andamento` — a demo,
+semeada nesse estado (`created_at` = `updated_at`, linha nunca atualizada).
+Nenhuma rota real ficou presa; o buraco é para frente.
+
+**Por que 7 dias e não "junto com as pendentes".** A leitura literal foi testada
+por replay contra o histórico real de `motorista_iniciou_rota` /
+`motorista_concluiu_rota` e **reprovada**: 67 das 604 rotas concluídas (11%)
+foram fechadas **depois das 22:00 da própria data**. Teriam sido marcadas
+`nao_executada` com o motorista ainda entregando — o incidente da Migration 24
+em escala 33×. Rota em andamento não é rota esquecida: das 67 tardias, só 1
+fechou antes da meia-noite e 47 fecharam no dia seguinte; mediana 10,1h após as
+22:00, p90 58,8h.
+
+Falsos positivos por carência, sobre as 604 concluídas com log:
+
+| carência    | falsos |     | carência   | falsos            |
+| ----------- | ------ | --- | ---------- | ----------------- |
+| 0 (literal) | 67     |     | 3 dias     | 4                 |
+| 1 dia       | 19     |     | **7 dias** | **2** ← escolhido |
+| 2 dias      | 19     |     | 14 dias    | 0                 |
+
+**`CREATE OR REPLACE`, não `DROP`/`CREATE`:** a assinatura não muda, então o
+REPLACE preserva os GRANTs (`postgres`, `service_role`) e evita reconceder
+`EXECUTE` a `PUBLIC` — a armadilha documentada na Migration 24.
+
+**Mensagem própria para o ramo novo.** "não foi executada" é falso para rota com
+paradas concluídas. O texto das pendentes fica byte a byte igual; o `tipo`
+continua `rota_nao_executada` de propósito, para não quebrar consumidores que
+filtram por ele.
+
+**Verificação da fronteira** (lógica pura, sem tocar no banco), nos dois ramos e
+em dois horários:
+
+```
+pendente  amanha  21:00 nao | 22:00 nao   (proteção da Migration 24 intacta)
+pendente  hoje    21:00 nao | 22:00 SIM   (guarda de hora intacta)
+pendente  ontem   21:00 SIM | 22:00 SIM
+andamento hoje    21:00 nao | 22:00 nao
+andamento 6 dias  21:00 nao | 22:00 nao
+andamento 7 dias  21:00 SIM | 22:00 SIM   <- fronteira
+andamento 23 dias 21:00 SIM | 22:00 SIM   <- rota demo
+```
+
+**Raio de alcance na base real:** o predicado novo casa com **1 rota** — a demo.
+
+**Status:** ✅ Aplicada em 31/08/2026 via `mcp__supabase__apply_migration`.
+
+**Verificação funcional pós-aplicação**, com `p_dry_run => true`:
+
+```
+expire_old_pending_routes(p_dry_run => true)
+  -> expired_count = 1, notifications_sent = 2   (1 gestor + 1 motorista)
+```
+
+Confirmado que o dry-run não deixou resíduo: `notificacoes` em 2194 antes e
+depois, rota demo ainda `em_andamento`, 0 linhas em `logs` para ela.
+
+Permissões preservadas pelo `CREATE OR REPLACE`, como planejado:
+`EXECUTE` apenas para `postgres, service_role` — nada de `PUBLIC`, `anon` ou
+`authenticated`. `prosecdef = true`, `search_path = public`.
+
+**Drift esperado, não é erro:** arquivo `20260831230000`, registro remoto
+`20260831222717`.
+
+**Fora do escopo, mas descoberto junto:** (1) `StatusRota` em `src/types/rota.ts`
+não inclui `nao_executada`, embora o banco já tenha 17 linhas assim; os
+componentes contornam tipando `status?: string`. (2) `remind_pending_routes`
+também filtra só `pendente` — com esta migration, uma rota em andamento passa a
+expirar sem nunca ter recebido aviso. Ambos merecem tratamento próprio.
+
+---
+
+**Última atualização:** 31/08/2026
