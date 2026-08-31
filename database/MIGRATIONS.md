@@ -958,4 +958,71 @@ expirar sem nunca ter recebido aviso. Ambos merecem tratamento próprio.
 
 ---
 
+### ✅ Migration 26: Lembrete alcança rota em andamento prestes a expirar
+
+**Arquivo:** `20260831234500_lembrete_rota_em_andamento.sql`
+
+Consequência direta da Migration 25. `remind_pending_routes` continuou filtrando
+só `status = 'pendente'`, então a rota abandonada passava a expirar **sem nunca
+ter recebido aviso** — nem o lembrete das 16:00 nem o final das 20:00. Encerrar
+trabalho de alguém sem avisar é pior que não encerrar.
+
+**Quando avisar.** O ramo novo usa **o mesmo predicado da expiração**
+(`em_andamento AND data <= hoje - 7`), então os dois lembretes caem no dia em que
+a rota de fato expira: 16:00 dá 6h de antecedência, 20:00 dá 2h — o mesmo desenho
+que já existe para as pendentes.
+
+Descartado avisar no dia 6 ("expira amanhã"): o agendador só roda em dias úteis,
+então "amanhã" seria falso toda sexta, e a Migration 24 documenta que o cron
+atrasa horas. Ancorar no mesmo predicado é o que impede lembrete e expiração de
+divergirem quando o agendador escorrega.
+
+**Texto próprio, porque o atual seria mentira.** O aviso final diz "expira às
+22:00! **Inicie agora** ou ela será marcada como não executada" — "inicie agora"
+está errado para rota já iniciada, e "não executada" é falso quando há paradas
+concluídas.
+
+**Bug de contagem que só aparece no ramo novo.** `remind_pending_routes` conta
+**todas** as paradas (`is_checkpoint`), sem filtrar status. Para rota `pendente`
+é inofensivo (nenhuma concluída); para `em_andamento` seria errado — a rota demo
+diria "3 parada(s)" onde a tela do motorista mostra **2 restantes**. O ramo novo
+conta só as pendentes, como `expire_old_pending_routes`. O ramo antigo fica
+intocado: corrigi-lo mudaria mensagem que hoje está correta.
+
+**Status:** ✅ Aplicada em 31/08/2026 via `mcp__supabase__apply_migration`.
+
+**Verificação por sonda transacional** (desfeita por `RAISE EXCEPTION`, porque
+esta função **não tem `p_dry_run`** e uma chamada real notificaria o motorista):
+
+```
+FINAL  (20:00) found=1 sent=1
+  [🚨 URGENTE: Rota será encerrada em 2 horas!]
+  Sua rota de 08/08 está aberta há 23 dias e será encerrada às 22:00.
+  Conclua as 2 parada(s) restantes agora.
+
+NORMAL (16:00) found=1 sent=1
+  [⏰ Lembrete: Rota em aberto!]
+  Sua rota de 08/08 está aberta há 23 dias e será encerrada hoje às 22:00
+  se não for concluída. Faltam 2 parada(s).
+```
+
+As duas dizem "2 parada(s)", batendo com o "2 restantes" da tela.
+
+> **Armadilha da sonda, registrada porque custou uma rodada:** a primeira versão
+> capturava a notificação com `ORDER BY created_at DESC LIMIT 1`. Dentro de uma
+> transação o `now()` é **fixo**, então as duas inserções compartilham o mesmo
+> `created_at` e a ordenação não as distingue — o bloco "normal" exibiu o texto
+> do "final", e o ramo das 16:00 ficou **sem verificação nenhuma** parecendo
+> verificado. A v2 identifica por `id` (`array_agg` antes de cada chamada,
+> `NOT (id = ANY(...))` depois). Em sonda transacional, nunca ordene por tempo.
+
+Sem resíduo: `notificacoes` em 2194 antes e depois. Textos do ramo antigo
+conferidos **byte a byte** no `prosrc` implantado. `EXECUTE` apenas para
+`postgres, service_role`; `prosecdef = true`; `search_path = public`.
+
+**Drift esperado, não é erro:** arquivo `20260831234500`, registro remoto
+`20260831223705`.
+
+---
+
 **Última atualização:** 31/08/2026
