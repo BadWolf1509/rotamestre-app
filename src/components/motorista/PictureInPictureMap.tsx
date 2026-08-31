@@ -37,7 +37,7 @@ import { usePiPPositioning } from '@/hooks/navigation/pip/usePiPPositioning';
 import { usePiPPulse } from '@/hooks/navigation/pip/usePiPPulse';
 import { usePiPPosition } from '@/hooks/usePiPPosition';
 import {
-  MAPLIBRE_RASTER_STYLE_JSON,
+  OPENFREEMAP_STYLE_URL,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
@@ -240,7 +240,7 @@ export function PictureInPictureMap({
       <MapLibreGL.Map
         testID="pip-map-view"
         style={[styles.map, { pointerEvents: isExpanded ? 'auto' : 'none' }]}
-        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        mapStyle={OPENFREEMAP_STYLE_URL}
         touchRotate={false}
         touchPitch={false}
         dragPan={isExpanded}

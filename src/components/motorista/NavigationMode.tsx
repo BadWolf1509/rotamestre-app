@@ -22,7 +22,7 @@ import {
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
 import {
-  MAPLIBRE_RASTER_STYLE_JSON,
+  OPENFREEMAP_STYLE_URL,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
@@ -349,7 +349,7 @@ export function NavigationMode({
       <MapLibreGL.Map
         testID="map-view"
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        mapStyle={OPENFREEMAP_STYLE_URL}
         touchRotate={false}
         touchPitch={false}
         compass={false}

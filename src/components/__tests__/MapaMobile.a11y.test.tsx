@@ -53,7 +53,7 @@ jest.mock('@/components/MotoristaMarker', () => ({
 
 // maplibre helpers – stubs so the component doesn't error on coordinate math
 jest.mock('@/lib/maplibre', () => ({
-  MAPLIBRE_RASTER_STYLE: 'https://example.com/style.json',
+  OPENFREEMAP_STYLE_URL: 'https://example.com/style.json',
   getBounds: jest.fn(() => ({
     ne: [-46.6, -23.5],
     sw: [-46.7, -23.6],

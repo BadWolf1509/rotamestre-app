@@ -1,6 +1,10 @@
-import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+// A URL vive em `@/lib/maplibre` porque o nativo tambem a consome, e este
+// modulo e web-only (tipos do maplibre-gl, patch de filtros). Duplicar a
+// constante deixaria web e nativo divergirem em silencio — foi assim que o
+// nativo ficou preso na Carto enquanto o web ja usava OpenFreeMap.
+import { OPENFREEMAP_STYLE_URL } from '@/lib/maplibre';
 
-const OPENFREEMAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
+import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 
 type FilterExpression = any[] | boolean;
 
@@ -8,14 +12,22 @@ let cachedStyle: StyleSpecification | null = null;
 let cachedStylePromise: Promise<StyleSpecification> | null = null;
 
 function isGetExpression(value: unknown): value is ['get', string] {
-  return Array.isArray(value) && value[0] === 'get' && typeof value[1] === 'string';
+  return (
+    Array.isArray(value) && value[0] === 'get' && typeof value[1] === 'string'
+  );
 }
 
-function extractNumericGetProps(filter: FilterExpression, props = new Set<string>()): Set<string> {
+function extractNumericGetProps(
+  filter: FilterExpression,
+  props = new Set<string>(),
+): Set<string> {
   if (!Array.isArray(filter)) return props;
 
   const [op, left, right] = filter;
-  if (typeof op === 'string' && ['==', '!=', '>', '>=', '<', '<='].includes(op)) {
+  if (
+    typeof op === 'string' &&
+    ['==', '!=', '>', '>=', '<', '<='].includes(op)
+  ) {
     if (isGetExpression(left) && typeof right === 'number') {
       props.add(left[1]);
     }
@@ -31,7 +43,10 @@ function extractNumericGetProps(filter: FilterExpression, props = new Set<string
   return props;
 }
 
-function collectHasProps(filter: FilterExpression, props = new Set<string>()): Set<string> {
+function collectHasProps(
+  filter: FilterExpression,
+  props = new Set<string>(),
+): Set<string> {
   if (!Array.isArray(filter)) return props;
 
   const [op, value] = filter;
@@ -53,7 +68,9 @@ function patchFilter(filter: FilterExpression): FilterExpression {
   if (numericProps.size === 0) return filter;
 
   const existingHas = collectHasProps(filter);
-  const missingProps = [...numericProps].filter((prop) => !existingHas.has(prop));
+  const missingProps = [...numericProps].filter(
+    (prop) => !existingHas.has(prop),
+  );
   if (missingProps.length === 0) return filter;
 
   const hasClauses = missingProps.map((prop) => ['has', prop] as const);
@@ -115,7 +132,9 @@ type StyleImageMissingEvent = {
   id: string;
 };
 
-export function installOpenFreeMapMissingImageHandler(map: MapLibreMap): () => void {
+export function installOpenFreeMapMissingImageHandler(
+  map: MapLibreMap,
+): () => void {
   const handleMissingImage = (event: StyleImageMissingEvent) => {
     if (map.hasImage(event.id)) return;
     map.addImage(event.id, {

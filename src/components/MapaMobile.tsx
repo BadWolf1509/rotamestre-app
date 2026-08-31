@@ -16,7 +16,7 @@ import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
 import type { RouteInfo } from '@/hooks/useRouteDirections';
 import { formatarDecimal } from '@/lib/formatNumber';
-import { MAPLIBRE_RASTER_STYLE_JSON, toLngLat } from '@/lib/maplibre';
+import { OPENFREEMAP_STYLE_URL, toLngLat } from '@/lib/maplibre';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
 
@@ -118,7 +118,7 @@ export function MapaMobile({
     <View style={styles.container}>
       <MapLibreGL.Map
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        mapStyle={OPENFREEMAP_STYLE_URL}
         logo={false}
         attribution={false}
         compass={true}

@@ -7,7 +7,7 @@ import { useDirectionsMobile } from '@/components/map/hooks';
 import { getStatusColor } from '@/components/map/infoWindowBuilders';
 import { useAlert } from '@/hooks/useAlert';
 import {
-  MAPLIBRE_RASTER_STYLE_JSON,
+  OPENFREEMAP_STYLE_URL,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
@@ -134,7 +134,7 @@ export function MapaRN({
     <View style={styles.container}>
       <MapLibreGL.Map
         style={styles.map}
-        mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+        mapStyle={OPENFREEMAP_STYLE_URL}
         logo={false}
         attribution={false}
       >

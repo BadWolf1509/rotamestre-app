@@ -19,7 +19,7 @@ import {
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { formatarDecimal } from '@/lib/formatNumber';
 import {
-  MAPLIBRE_RASTER_STYLE_JSON,
+  OPENFREEMAP_STYLE_URL,
   getBounds,
   toLineString,
   toLngLat,
@@ -353,7 +353,7 @@ export function MiniMap({
           <MapLibreGL.Map
             testID="map-view"
             style={[styles.map, { height: expectedHeight }]}
-            mapStyle={MAPLIBRE_RASTER_STYLE_JSON}
+            mapStyle={OPENFREEMAP_STYLE_URL}
             onDidFinishLoadingMap={handleMapReady}
             dragPan={false}
             touchZoom={false}
