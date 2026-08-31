@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
 import { formatarDecimal } from '@/lib/formatNumber';
+import type { StatusRota } from '@/types/rota';
 import { useUnistyles, type Theme } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -19,8 +20,22 @@ interface RouteInfoHeaderProps {
   onCancelPress?: () => void;
 }
 
-function getStatusBadgeVariant(theme: Theme, status?: string) {
-  const palette = {
+/**
+ * O parâmetro é `StatusRota`, não `string`: era o alargamento aqui que deixava
+ * o compilador cego para status faltando na union.
+ *
+ * O fallback cinza no fim **fica**. O tipo é uma afirmação sobre o que vem do
+ * Supabase, não garantia — `queries/rotas.ts` faz `as StatusRota` sobre string
+ * crua do Postgres. Se o CHECK do banco ganhar um valor novo antes de este tipo
+ * acompanhar, a badge degrada para cinza em vez de quebrar a tela.
+ */
+function getStatusBadgeVariant(theme: Theme, status?: StatusRota) {
+  // `Record<StatusRota, …>` em vez de objeto solto: esquecer um status novo
+  // vira erro de compilação aqui, do mesmo jeito que em `type-guards.ts`.
+  const palette: Record<
+    StatusRota,
+    { bg: string; border: string; text: string }
+  > = {
     pendente: {
       bg: theme.colors.warningBg,
       border: theme.colors.warning,
@@ -48,8 +63,11 @@ function getStatusBadgeVariant(theme: Theme, status?: string) {
     },
   };
 
-  if (status && palette[status as keyof typeof palette]) {
-    const paletteData = palette[status as keyof typeof palette];
+  // Sem `as keyof typeof`: com o parâmetro tipado, o índice é seguro. O
+  // `?? undefined` cobre o caso de runtime em que chega valor fora da union.
+  const paletteData = status ? (palette[status] ?? undefined) : undefined;
+
+  if (paletteData) {
     return {
       container: {
         backgroundColor: paletteData.bg,
@@ -72,10 +90,20 @@ function getStatusBadgeVariant(theme: Theme, status?: string) {
   };
 }
 
-function formatStatusLabel(status?: string) {
+/**
+ * Como `getStatusBadgeVariant`: parâmetro tipado, defesas de runtime mantidas.
+ *
+ * `toLowerCase()` e o fallback `_ -> espaço` continuam porque o valor pode
+ * chegar fora da union (ver nota em `types.ts`). A ORDEM importa: normalizar
+ * ANTES de consultar o mapa é o que faz `'CONCLUIDA'` devolver "concluída" com
+ * acento, em vez de cair no fallback e perder o acento.
+ */
+function formatStatusLabel(status?: StatusRota) {
   if (!status) return '-';
   const normalized = status.toLowerCase();
-  const labels: Record<string, string> = {
+  // `Record<StatusRota, string>` dá exaustividade; o alargamento na consulta é
+  // o que permite procurar por uma string já normalizada em runtime.
+  const labels: Record<StatusRota, string> = {
     pendente: 'pendente',
     em_andamento: 'em andamento',
     concluida: 'concluída',
@@ -83,8 +111,9 @@ function formatStatusLabel(status?: string) {
     nao_executada: 'não executada',
   };
 
-  if (labels[normalized]) {
-    return labels[normalized];
+  const label = (labels as Record<string, string | undefined>)[normalized];
+  if (label) {
+    return label;
   }
 
   return normalized.replace(/_/g, ' ');
