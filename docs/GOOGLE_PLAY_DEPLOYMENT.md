@@ -249,6 +249,25 @@ não estejam efetivamente disponíveis e comprovados.
 Em cada etapa, registre versão, data, percentual da distribuição e decisão de
 avançar ou interromper.
 
+O rollout gradual do passo 4 é feito com a flag `--rollout`:
+
+```bash
+npm run play:promote -- production 3030 1.12.5 --rollout=10
+```
+
+Ela produz `status: inProgress` com `userFraction`, e a expansão do passo 6 é a
+mesma chamada com um percentual maior. **Sem a flag, publica para 100%** — que
+era o único comportamento até 31/08/2026, quando este passo do roteiro não tinha
+ferramenta correspondente.
+
+Aceita de 1 a 99. **`--rollout=100` é recusado de propósito**: rollout encerrado
+e rollout em curso a 100% são estados diferentes na Play, e adivinhar qual você
+quis seria pior que perguntar — para 100%, omita a flag.
+
+Antes de qualquer promoção, `--dry-run` imprime o corpo exato da requisição sem
+tocar na Play. Vale usar sempre que a trilha for `production`: o edit é
+commitado, e não há desfazer.
+
 ## Credenciais e continuidade
 
 A reconstrução do app foi causada pela perda das contas e chaves originais.
