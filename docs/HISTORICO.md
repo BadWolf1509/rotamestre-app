@@ -589,6 +589,163 @@ A segunda: **trocar só o `versionName` custa um versionCode**. A 3027 já tinha
 subido como 1.12.2 quando se decidiu por 1.12.3, e um versionCode enviado não
 aceita metadados novos; foi preciso a 3028, idêntica exceto pelo rótulo.
 
+## Estado confirmado em 31/08/2026
+
+A sessão começou como "analise os PRs abertos" — seis do Dependabot — e terminou
+com o v1.12.5 nas trilhas interna e fechada. O que puxou a linha foi olhar a
+tela do aparelho.
+
+### O que o verde dos PRs escondia
+
+Seis PRs do Dependabot, cinco verdes e um vermelho. O vermelho (#450,
+`@sentry/browser` 10.70→10.71) estourava o limite de bundle em 344 KB — mas não
+por crescimento do Sentry: subir **só** o `browser`, com `@sentry/react` parado
+em 10.70, fazia o npm instalar uma segunda cópia de `@sentry/core` aninhada. O
+#452, que subia o `react`, resolvia os dois para 10.71 numa cópia só e ficava em
+3,33 MB. Mergeado o #452, o Dependabot fechou o #450 sozinho: _"Looks like
+@sentry/browser is up-to-date now"_.
+
+Mais grave que o vermelho: **os testes de mapa não rodam em PR do Dependabot.**
+O step sai com `exit 0` e um warning quando faltam os `E2E_*`, e o store de
+secrets do Dependabot está **vazio** (`gh secret list --app dependabot` não
+retorna nada) — os secrets do repositório não valem para ele. Confirmado no log
+do #453, justamente o bump do `maplibre-gl`. O `Visual Regression` verde ali não
+significava mapa testado. Em PR de branch do próprio repositório os secrets
+existem e o teste roda; a distinção é essa, e eu a errei uma vez nesta mesma
+sessão antes de conferir.
+
+Achado de contabilidade: a `main` tinha `package.json` em 1.12.4 e
+`package-lock.json` em **1.12.2**. O commit de release `3630980` editou só o
+primeiro. Os PRs do Dependabot corrigiram de carona.
+
+### O mapa do motorista estava marcado, e nenhum check via
+
+Instalado o APK de validação e aberta a tela, o mapa aparecia com **"API KEY
+REQUIRED / carto.com/basemaps/apikey"** atravessado. Reproduzido fora do app:
+`curl` no tile `12/1580/2100` devolve **200 com um PNG de 5095 bytes que É a
+marca d'água**. Mudança de política da Carto, não regressão do código.
+
+A causa de ninguém ver: **web e nativo usavam fontes diferentes** — o web já
+estava em OpenFreeMap, o nativo seguia na Carto — e essa assimetria não estava
+escrita em lugar nenhum. Como o e2e de mapa roda só a build web, o lado quebrado
+nunca foi exercitado. E o e2e parava no evento `load`, que dispara mesmo com
+tile falhando.
+
+Eram **seis** componentes nativos, não os dois que a primeira leitura sugeriu.
+Unificado em `src/lib/maplibre.ts` como fonte única (#454). Descartada chave da
+Carto: viajaria no bundle, de onde é extraível.
+
+### O replay que reprovou o pedido literal
+
+A rota demo estava `em_andamento` havia 23 dias sem expirar. Causa:
+`expire_old_pending_routes` filtrava `status = 'pendente'` e nada mais — rota
+iniciada e abandonada era **imortal**. Em todo o schema `public`, só duas
+funções mencionam `nao_executada`, e nenhuma alcançava `em_andamento`.
+
+O pedido foi "expira junto com as pendentes". **O replay contra o histórico real
+reprovou:** 67 das 604 rotas concluídas (**11%**) foram fechadas depois das
+22:00 da própria data — teriam sido marcadas "não executada" com o motorista
+ainda entregando, o incidente de 27/08 em escala 33×. Rota em andamento não é
+rota esquecida: das 67, só 1 fechou antes da meia-noite e 47 fecharam no dia
+seguinte; mediana 10,1h após as 22:00.
+
+Falsos positivos por carência, sobre 604 rotas: 0 dias → 67; 1 dia → 19; 2 dias
+→ 19; 3 dias → 4; **7 dias → 2**; 14 dias → 0. Escolhido 7 (#455).
+
+A lacuna era **latente, não ativa**: das 641 rotas da base, exatamente uma
+estava `em_andamento` — a demo, semeada nesse estado (`created_at` =
+`updated_at`).
+
+### Uma sonda que se enganou sozinha
+
+O #456 fez o lembrete acompanhar a expiração — sem ele a rota passaria a expirar
+**sem nunca ter recebido aviso**. Como `remind_pending_routes` não tem
+`p_dry_run`, a verificação foi sonda transacional desfeita por
+`RAISE EXCEPTION`.
+
+**A primeira sonda mentiu.** Ela capturava a notificação com
+`ORDER BY created_at DESC LIMIT 1`. Dentro de uma transação o `now()` é
+**fixo**, então as duas inserções compartilham o mesmo `created_at` e a
+ordenação não as distingue: o bloco "normal" exibiu o texto do "final", e o ramo
+das 16:00 ficou **sem verificação nenhuma parecendo verificado**. A v2 identifica
+por `id`. Em sonda transacional, nunca ordene por tempo.
+
+Horas depois, o lembrete disparou em produção pela primeira vez — texto da
+variante das 16:00 chegando no horário do slot das 20:00. Não era bug: o
+histórico do workflow mostra que rodou o job das 16:00, com os das 20:00 e 22:00
+pulados. O evento das 19:00 UTC foi entregue às 23:06 UTC, **4h06 atrasado** — o
+mesmo comportamento que a migration de 27/08 documenta.
+
+### O tipo mentia, e o typecheck não podia reclamar
+
+`StatusRota` declarava 4 valores; o CHECK `rotas_status_check` aceita **5**.
+Faltava `nao_executada`, que o banco já tinha em 17 linhas. O typecheck nunca
+acusou porque os componentes tipavam `status?: string` — com a union alargada
+para `string`, a ausência ficou invisível.
+
+A consequência real: `validStatusRota` repetia a lista de 4, então
+`isStatusRota('nao_executada')` era `false` e `isRota()` **rejeitaria toda rota
+expirada**. Mina, não incêndio — nenhuma das guardas é consumida em produção
+hoje, só em teste.
+
+Corrigido o tipo (#457) e a causa: a lista virou `Record<StatusRota, true>`, em
+que esquecer um valor é erro de compilação. Depois os consumidores foram
+apertados de `string` para `StatusRota` (#458), incluindo o `Rota` local de
+`mapa-rota/types.ts`, que era a origem do alargamento. As defesas de runtime
+ficaram: o tipo é afirmação sobre o que o Supabase devolve, não garantia —
+`queries/rotas.ts` faz `as StatusRota` sobre string crua do Postgres.
+
+Descoberto no caminho: os testes **não são type-checkados** — `**/__tests__` e
+`**/*.test.tsx` estão na lista de `exclude` do `tsconfig`. Por isso os que
+passam string inválida de propósito seguem compilando.
+
+### Duas ferramentas que envelheceram, e um erro meu de 30 minutos
+
+O `eas-cli` global estava em 22.6.0 com a 23.1.0 publicada — **uma major atrás
+em 4 dias**. O modo de falha é o registrado: "Build request failed" **depois** de
+subir 85 MB, com mensagem que não aponta para o CLI. Rodado por
+`npx eas-cli@latest` e depois atualizado o global.
+
+O erro foi meu: lancei o primeiro build como `... --wait 2>&1 | tail -40`. O
+`tail` segura o stream inteiro até o fim, então o arquivo de saída ficou vazio,
+o monitor não teve o que casar, e eu fiquei cego por **30 minutos** — até o
+`build:list` mostrar que **nenhum build havia sido criado**. O silêncio não era
+o build correndo bem; era eu tendo tapado a única janela que tinha.
+
+### v1.12.5, e o rollout que o doc pedia sem ferramenta
+
+Release v1.12.5 / versionCode 3030, conferido no Play Console **antes** de
+incrementar. Desta vez `npm version patch --no-git-tag-version` sincronizou
+`package.json` e `package-lock.json` — a defasagem do 1.12.4 veio de editar o
+`package.json` à mão.
+
+Submetido à trilha interna e promovido à fechada, ambas em 3030. Produção segue
+vazia por decisão: o requisito de testadores não está cumprido, e o
+`play-promote.mjs` fixava `status: 'completed'` — 100% de imediato, contra a
+seção "Rollout recomendado" do próprio doc. Quem seguisse o doc **não tinha
+ferramenta**. Corrigido no #461, com `--rollout=N`, `--dry-run` e 8 testes sobre
+`montarRelease` — a primeira coisa em `scripts/` coberta por teste.
+
+`--rollout=100` é recusado de propósito: rollout encerrado e rollout em curso a
+100% são estados diferentes na Play.
+
+### O que a cobertura de mapa fecha, e o que não
+
+O #462 fechou a parte determinística: teste estático sobre os 8 componentes
+(quebra se um lado embutir outro provedor, verificado reproduzindo o bug
+histórico) e o e2e passou a exigir tile de dados buscado, sem resposta `>= 400`,
+só do provedor esperado.
+
+A prova de que o `load` não bastava veio de quebrar: apontando a constante para
+outro provedor, **o mapa carregou normalmente e todas as asserções antigas
+passaram** — só a nova pegou.
+
+**Não fechado, e escrito na pendência 8 em vez de riscado:** mapa nativo em CI
+exigiria emulador Android + app compilado (~25 min por execução); e tile com
+marca d'água chega como **200 com PNG válido**, indistinguível de tile bom sem
+análise de imagem. Se a fonte atual degradar igual à Carto, estes testes seguem
+verdes.
+
 ## Frentes fechadas, por data
 
 > Vieram do `PROJECT_CONTEXT` em 25/08/2026: eram **86 linhas** lidas em toda
