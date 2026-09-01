@@ -66,8 +66,9 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   `npx supabase migration list` antes de qualquer push. Ver `database/MIGRATIONS.md`.
 - **Banco único = produção.** Não há staging. Peça aval antes de aplicar
   migration e **nunca deixe subagente escrever no banco**.
-- **`src/types/database.ts` NÃO existe.** Tipos de domínio são curados à mão em
-  `src/types/`. Não rode `/regenerate-supabase-types` — é aspiracional.
+- **`src/types/database.ts` não existe** — regra e motivo em
+  [`../CLAUDE.md`](../CLAUDE.md), seção Skills. Escapou da deduplicação de
+  27/08, que pegou a cópia em "Regras" e deixou esta.
 - **RPC com parâmetro novo cria _overload_** (custou a `criar_rota_com_paradas`), não substitui (identidade de função
   no Postgres = nome + tipos). Exige `DROP` da assinatura antiga + reaplicar os
   grants. Reverter a migration depois de mergear o código derruba a criação de
@@ -209,7 +210,10 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
   assimetria não estava escrita em lugar nenhum. Quando a Carto passou a exigir
   chave, o endpoint continuou respondendo **200 com um PNG marcado "API KEY
   REQUIRED"**, não erro: nada quebrava, nada falhava, só aparecia errado para o
-  motorista. Unificado em `src/lib/maplibre.ts` como fonte única. **Chave de
+  motorista. Unificado em `src/lib/maplibre.ts` como fonte única, **hoje guardada
+  por teste** (`maplibre-fonte-unica.test.ts` quebra se um lado embutir outro
+  provedor; o e2e julga o tráfego de tiles). Não refaça a análise: o que
+  continua sem cobertura é tile marcado, que chega como 200 válido. **Chave de
   tiles no bundle é extraível** — se um dia precisar de uma, ela vai
   server-side, como a do Google Places.
 - **Play Store: precedência de trilha e `eas submit` não promove.** A Play serve
