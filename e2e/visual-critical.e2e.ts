@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 
+import { garantirRotaDoMapa } from './fixtures/garantir-rota-do-mapa';
 import { test, e2eUrl } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
 import { MotoristaPage } from './pages/motorista.page';
@@ -186,6 +187,18 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
   });
 
   test('renders motorista mapa', async ({ page, loginAsMotorista }) => {
+    // O cenário é preparado ANTES do login: sem rota que monte o mapa, o teste
+    // falha na guarda mais abaixo sem ter testado nada. Ver o cabeçalho de
+    // `garantir-rota-do-mapa.ts` para por que a regra de expiração criada em
+    // 31/08 tornou isto necessário.
+    const fixture = await garantirRotaDoMapa();
+    // Registrar sempre, inclusive no caminho feliz: quando este teste falhar,
+    // a primeira pergunta é em que estado o cenário estava.
+    console.log(
+      `[fixture] rota ${fixture.rotaId}: ${fixture.acao} ` +
+        `(antes: ${fixture.statusAntes}, ${fixture.dataAntes})`,
+    );
+
     const motoristaPage = new MotoristaPage(page);
     await loginAsMotorista();
 
