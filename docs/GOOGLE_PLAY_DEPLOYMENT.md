@@ -1,36 +1,39 @@
 # Publicação Android no Google Play
 
-> Runbook operacional. Atualizado em 24/07/2026.
+> Runbook operacional. Atualizado em 31/08/2026.
 > Textos, assets e declarações da loja ficam em
 > [play-store-metadata.md](play-store-metadata.md).
 
-## Estado e identidades
+## Identidades
 
-| Item                           | Valor                                  |
-| ------------------------------ | -------------------------------------- |
-| Package definitivo             | `br.tec.rotamestre.app`                |
-| Versão no código               | `1.12.2`                               |
-| `androidVersionCode` no código | `3025`                                 |
-| EAS project                    | `c6401a59-af97-484a-93b7-c75016bf331d` |
-| Firebase                       | `rota-mestre-97084`                    |
-| Formato de produção            | Android App Bundle (`.aab`)            |
-| Play App Signing               | habilitado                             |
+Só o que **não muda**. Versão, `versionCode` e estado das trilhas mudam a cada
+release e saíram daqui em 31/08/2026: estavam congelados em `1.12.2` / `3025`
+desde julho e **contradiziam a seção "Fontes de verdade" logo abaixo**, que já
+mandava consultar `package.json` e o Play Console.
 
-Estado consultado pela Google Play Developer API em 08/08/2026:
+| Item                | Valor                                  |
+| ------------------- | -------------------------------------- |
+| Package definitivo  | `br.tec.rotamestre.app`                |
+| EAS project         | `c6401a59-af97-484a-93b7-c75016bf331d` |
+| Firebase            | `rota-mestre-97084`                    |
+| Formato de produção | Android App Bundle (`.aab`)            |
+| Play App Signing    | habilitado                             |
 
-- teste fechado (`alpha`): `1.12.2` / `3025`, concluído;
-- teste interno: `1.12.2` / `3025`, concluído (promovido, ver abaixo);
-- `beta`: vazia;
-- produção: **vazia — nunca teve release**;
-- AAB `1.12.2` / `3025`: build EAS
-  `d34a88d6-fcf2-48a6-a6d0-1a8bcc7225e9`, concluído;
-- instalação confirmada por `adb` no aparelho `ZF5257FKKM`:
-  `versionCode=3025`, instalador `com.android.vending`.
+Para o estado atual, pergunte a quem sabe:
+
+```bash
+npm run play:status                    # versão e status de cada trilha
+node -p "require('./package.json').version"
+```
+
+Não copie o resultado para cá. Foi assim que este bloco passou três semanas
+afirmando `1.12.2` / `3025` enquanto a loja já servia outra coisa.
 
 A tentativa histórica de submissão à produção
 (`f3c7e7a5-db29-4131-bafe-972d7b565946`) foi recusada com
 `Precondition check failed` — a conta ainda precisa cumprir o requisito de
-teste fechado.
+teste fechado. O detalhe de **qual** requisito, e por que o mesmo erro também
+bloqueia o teste aberto, está em "Problemas comuns".
 
 A quantidade de participantes com opt-in contínuo, a situação do teste fechado
 e a elegibilidade para produção continuam sendo estados externos. Consulte o
