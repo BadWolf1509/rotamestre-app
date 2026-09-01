@@ -73,19 +73,17 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   no Postgres = nome + tipos). Exige `DROP` da assinatura antiga + reaplicar os
   grants. Reverter a migration depois de mergear o código derruba a criação de
   rotas: **reverta o código primeiro**.
-- **`unidades` não tem — e não deve ter — policy de UPDATE.** A tabela tem 17
-  colunas fora do que o app edita, várias comerciais (`plano`, `status`,
-  `desconto_percentual`, `asaas_customer_id`). Como `authenticated` já tem grant
-  cheio e RLS **não restringe coluna**, uma policy de UPDATE libera as 17 de uma
-  vez — o gestor se promoveria de plano. A escrita passa pela RPC
-  `atualizar_unidade`. **Se ela parar de funcionar, o conserto não é adicionar
-  policy.** Verificação: `.update()` direto em `unidades` tem que falhar.
+- **`unidades` não tem — e não deve ter — policy de UPDATE.** RLS **não restringe
+  coluna** e `authenticated` já tem grant cheio, então uma policy liberaria as 17
+  colunas fora do app de uma vez, incluindo comerciais (`plano`, `status`,
+  `desconto_percentual`, `asaas_customer_id`) — o gestor se promoveria de plano. A
+  escrita passa pela RPC `atualizar_unidade`; **se ela parar, o conserto não é
+  adicionar policy.** Verificação: `.update()` direto em `unidades` tem que falhar.
 - **O supabase-js _devolve_ o erro em vez de lançar, então `try/catch` não pega.**
-  A escrita falha, o código segue, e a falha vira no máximo um `logger.warn`. Foi
-  assim que a coluna inexistente `logs.parada_id` custou **oito meses** de
-  auditoria de gestão de usuários — o schema real e o padrão certo estão no
-  phonebook do [`../CLAUDE.md`](../CLAUDE.md). Vale para qualquer `.insert()`:
-  confira `error` no retorno, não confie em exceção.
+  A escrita falha, o código segue, e a falha vira no máximo um `logger.warn` —
+  foi assim que `logs.parada_id`, coluna inexistente, custou **oito meses** de
+  auditoria. Em qualquer `.insert()`, confira `error` no retorno. Schema real e
+  padrão no phonebook do [`../CLAUDE.md`](../CLAUDE.md).
 
 **Auth, chaves e segredos**
 
@@ -128,24 +126,21 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   a marca sumir, remontou. Onde a tela tem vários returns, o invólucro vai **em
   volta** do componente de conteúdo, não return a return.
 - **`ResponsiveContainer` envolvendo `ScrollView flex:1` dá tela vazia no nativo.**
-  O container é um `View` sem `flex`, então o Yoga o dimensiona pelo conteúdo — e
-  um filho `flex: 1` dentro de pai de altura automática contribui zero para essa
-  altura: os dois ficam com altura 0. Na web o React Native Web mapeia para CSS e
-  o sintoma **não existe**, então o teste de screenshot passa. Manteve
-  `/auth/register` completamente vazia no Android por **nove meses** — ninguém
-  conseguia criar conta pelo app. Ordem correta: `ScrollView` **por fora**,
-  container por dentro (padrão de `app/onboarding/criar-unidade.tsx`). Sintoma:
-  cabeçalho de navegação aparece, corpo em branco, sem erro no logcat.
+  Um filho `flex: 1` dentro de pai de altura automática contribui zero para a
+  altura: ambos ficam em 0. Na web o RN Web mapeia para CSS e o sintoma **não
+  existe** — o screenshot passa. Manteve `/auth/register` vazia no Android por
+  **nove meses**. Ordem correta: `ScrollView` **por fora**, container por dentro
+  (padrão de `app/onboarding/criar-unidade.tsx`). Sintoma: cabeçalho aparece,
+  corpo em branco, sem erro no logcat.
 - **Não remova o `KeyboardAvoidingView` das telas de auth "porque o
-  `adjustResize` já resolve".** Ele não resolve mais. O manifest declara
-  `android:windowSoftInputMode="adjustResize"`, mas a janela roda com
-  `EDGE_TO_EDGE_ENFORCED` e **não encolhe**: medido no aparelho, o frame segue
-  `[0,0][1080,2400]` com o teclado aberto. O sistema entrega insets e cabe ao app
-  consumir — hoje quem faz isso é o `KeyboardAvoidingView` de `login`,
-  `forgot-password` e `reset-password`. Tirá-lo deixa o campo em foco atrás do
-  teclado. Como verificar antes de mexer:
-  `adb shell dumpsys window windows | grep -A3 MainActivity` e compare o `frame=`
-  com o teclado aberto e fechado.
+  `adjustResize` já resolve".** Não resolve mais: com
+  `android:windowSoftInputMode="adjustResize"` a janela roda em
+  `EDGE_TO_EDGE_ENFORCED` e **não encolhe** — medido, o frame segue
+  `[0,0][1080,2400]` com o teclado aberto. Quem consome os insets é o
+  `KeyboardAvoidingView` de `login`, `forgot-password` e `reset-password`; sem
+  ele o campo em foco fica atrás do teclado. Verifique com
+  `adb shell dumpsys window windows | grep -A3 MainActivity`, comparando o
+  `frame=` com teclado aberto e fechado.
 - **`loading` vale só para a carga inicial.** `DesktopPageLayout` e
   `DashboardMobile` retornam **só** o spinner quando `loading` é true — descartam
   cabeçalho, filtros e tabela. Religá-lo numa recarga apaga a página com conteúdo
@@ -192,41 +187,36 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
 
 **Infra e distribuição**
 
-- **OSRM no dev web usa outro servidor.** O nosso `osrm.rotamestre.tec.br`
-  responde `Access-Control-Allow-Origin` fixo para o domínio de produção, então o
-  browser bloqueava toda chamada de `localhost` e o otimizador caía no
-  `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — a rota
-  "otimizava" com distância plausível e sem roteamento por vias.
-  `src/lib/osrm/config.ts` resolve nesta ordem: `EXPO_PUBLIC_OSRM_URL` → demo
-  público (**só dev web**) → self-hosted. Produção e dev nativo não mudaram.
-  Consequência: distâncias em dev **não conferem** com produção. A correção
-  definitiva é liberar `localhost` no CORS do nosso openresty — **CORS não é
-  controle de acesso**, o endpoint já responde a qualquer um via `curl`.
+- **OSRM no dev web usa outro servidor.** O `Access-Control-Allow-Origin` fixo de
+  `osrm.rotamestre.tec.br` bloqueia chamadas de `localhost`, e o otimizador caía
+  no `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — rota
+  "otimizada" com distância plausível e sem roteamento por vias. Por isso
+  `src/lib/osrm/config.ts` resolve `EXPO_PUBLIC_OSRM_URL` → demo público (**só
+  dev web**) → self-hosted; produção e dev nativo não mudaram. Consequência:
+  distâncias em dev **não conferem** com produção. Correção definitiva é liberar
+  `localhost` no CORS do openresty — **CORS não é controle de acesso**, o
+  endpoint já responde a qualquer um via `curl`.
 - **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
   "Carregando..." sem erro no console. O que não pode ser removido está em
   "Regras que não podem regredir".
-- **Fonte de tiles: web e nativo eram diferentes, e serviço externo degrada em
-  silêncio.** Até 31/08/2026 o web usava OpenFreeMap e o nativo, Carto — a
-  assimetria não estava escrita em lugar nenhum. Quando a Carto passou a exigir
-  chave, o endpoint continuou respondendo **200 com um PNG marcado "API KEY
-  REQUIRED"**, não erro: nada quebrava, nada falhava, só aparecia errado para o
-  motorista. Unificado em `src/lib/maplibre.ts` como fonte única, **hoje guardada
-  por teste** (`maplibre-fonte-unica.test.ts` quebra se um lado embutir outro
-  provedor; o e2e julga o tráfego de tiles). Não refaça a análise: o que
-  continua sem cobertura é tile marcado, que chega como 200 válido. **Chave de
-  tiles no bundle é extraível** — se um dia precisar de uma, ela vai
-  server-side, como a do Google Places.
+- **Fonte de tiles: serviço externo degrada em silêncio.** Até 31/08/2026 o web
+  usava OpenFreeMap e o nativo, Carto — assimetria não escrita em lugar nenhum.
+  Quando a Carto passou a exigir chave, o endpoint respondeu **200 com PNG
+  marcado "API KEY REQUIRED"**, não erro: nada quebrou, só apareceu errado para o
+  motorista. Unificado em `src/lib/maplibre.ts` e **guardado por teste**
+  (`maplibre-fonte-unica.test.ts`; o e2e julga o tráfego). Não refaça a análise —
+  o que segue sem cobertura é tile marcado, que chega como 200 válido. **Chave de
+  tiles no bundle é extraível**: se precisar de uma, vai server-side.
 - **Play Store: precedência de trilha e `eas submit` não promove.** A Play serve
-  sempre a trilha de maior prioridade a que a conta tem direito — **internal ganha
-  de closed**. Publicar só no fechado deixa os testadores internos na versão
-  antiga, e o sintoma engana: o link funciona, o opt-in é aceito, e chega o build
-  velho. Publique nas duas. `eas submit` **sempre faz upload**, então falha quando
-  o versionCode já subiu; promover entre trilhas exige a API (`edits` →
-  `PUT tracks/<track>` → `:commit`). **Está tudo versionado:**
-  `npm run play:status` (leitura) e `npm run play:promote -- <trilha> <code>
-[nome]` (publica de verdade), sobre `scripts/lib/play-api.mjs`. O fluxo de
-  release é: `eas submit` ao **interno** uma vez, depois `play:promote` para o
-  fechado — nunca dois `eas submit`.
+  a trilha de maior prioridade a que a conta tem direito — **internal ganha de
+  closed** —, então publicar só no fechado prende o testador interno na versão
+  antiga com sintoma enganoso: o link funciona, o opt-in é aceito, chega o build
+  velho. Publique nas duas. `eas submit` **sempre faz upload** e falha se o
+  versionCode já subiu; promover exige a API (`edits` → `PUT tracks/<track>` →
+  `:commit`), já versionada em `npm run play:status` e
+  `npm run play:promote -- <trilha> <code> [nome]` sobre
+  `scripts/lib/play-api.mjs`. Fluxo: `eas submit` ao **interno** uma vez, depois
+  `play:promote` — nunca dois `eas submit`.
 - **Para testar no aparelho, atualize pela Play — não `adb install`.** O sideload
   exige desinstalar (a assinatura do EAS diverge da do Play App Signing), o que
   derruba a sessão e ainda testa um binário que **não** é o que o testador
