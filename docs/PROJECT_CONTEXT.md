@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 27/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 31/08/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -37,6 +37,8 @@ Lista única e canônica. Se resolver uma, risque daqui.
 - **5.** **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).<br>_Quem:_ gestor (Apple ID + 2FA) · _Detalhe:_ `APP_STORE_DEPLOYMENT.md`
 - **6.** **4 das 9 unidades têm coordenadas de sede NULL, mas só 1 está ativa** — o registro anterior dizia "4 unidades não conseguem gerar rota"; conferido no banco em 15/08, três delas estão inativas e o impacto real hoje é **uma**. A tela "Minha Unidade" é o caminho de conserto e desde 08/08 funciona de verdade (ver Migration 22 e a armadilha do componente aninhado). Desde o PR #385 a Nova Rota avisa e leva até lá, em vez de só sumir com o cartão de partida.<br>_Quem:_ gestor (edita a unidade ativa) · _Detalhe:_ `database/MIGRATIONS.md` (Migration 22)
 - **7.** **Proteção contra senha vazada: exige plano Pro, não dá para ligar hoje.** O advisor aponta `auth_leaked_password_protection`, mas a checagem contra o HaveIBeenPwned é **Pro ou acima** — a assinatura é por organização, não por projeto. **Não é um toggle**, é upgrade de plano. O que o free permite e vale conferir: comprimento mínimo e caracteres exigidos, em Auth → Providers → Email.<br>_Quem:_ gestor (decisão de plano; ou ajuste no Email) · _Detalhe:_ "Política de senha" em [HISTORICO.md](HISTORICO.md)
+
+- **8.** **O mapa nativo não tem cobertura de CI, e o e2e web não olha o conteúdo do tile.** Nenhum check executa o mapa nativo; o `renders motorista mapa` roda só a build web e afirma que o mapa **monta** — canvas presente, overlay sumindo —, não o que ele mostra. Um mapa com marca d'água passa em tudo, e foi exatamente assim que a degradação da Carto sobreviveu (armadilha "Fonte de tiles").<br>_Quem:_ qualquer sessão · _Detalhe:_ `e2e/visual-critical.e2e.ts`
 
 **Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
 de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
@@ -202,6 +204,14 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
 - **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
   "Carregando..." sem erro no console. O que não pode ser removido está em
   "Regras que não podem regredir".
+- **Fonte de tiles: web e nativo eram diferentes, e serviço externo degrada em
+  silêncio.** Até 31/08/2026 o web usava OpenFreeMap e o nativo, Carto — a
+  assimetria não estava escrita em lugar nenhum. Quando a Carto passou a exigir
+  chave, o endpoint continuou respondendo **200 com um PNG marcado "API KEY
+  REQUIRED"**, não erro: nada quebrava, nada falhava, só aparecia errado para o
+  motorista. Unificado em `src/lib/maplibre.ts` como fonte única. **Chave de
+  tiles no bundle é extraível** — se um dia precisar de uma, ela vai
+  server-side, como a do Google Places.
 - **Play Store: precedência de trilha e `eas submit` não promove.** A Play serve
   sempre a trilha de maior prioridade a que a conta tem direito — **internal ganha
   de closed**. Publicar só no fechado deixa os testadores internos na versão
@@ -316,6 +326,14 @@ app.rotamestre.tec.br ── Expo Web / React Native
   um plano formal de migração.
 - Dependências acopladas exigem validação nativa: versões de Sentry devem ficar
   alinhadas; Unistyles e Nitro Modules devem ser testados juntos em build EAS.
+- **A carência de 7 dias para expirar rota `em_andamento` não é número
+  arbitrário.** Expirá-la junto com as pendentes, às 22:00 do próprio dia, teria
+  encerrado **67 das 604 rotas concluídas (11%)** com o motorista ainda
+  entregando — 47 delas fecham no dia seguinte. Antes de mexer no predicado de
+  `expire_old_pending_routes`, refaça o replay contra o histórico de
+  `motorista_iniciou_rota`/`motorista_concluiu_rota`. `remind_pending_routes`
+  usa o **mesmo** predicado de propósito: separá-los faz a rota expirar sem
+  aviso. Ver `database/MIGRATIONS.md` (Migrations 25 e 26).
 - O baseline de runtime é **Node 22** (`.nvmrc`, `engines.node`, CI e EAS). Não
   regrida para Node 20; a proteção da `main` espera `Run Tests (22.x)`.
 - O mapa web só funciona com o worker do `maplibre-gl 6` servido de `public/` —
