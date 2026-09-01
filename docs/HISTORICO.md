@@ -746,6 +746,87 @@ marca d'água chega como **200 com PNG válido**, indistinguível de tile bom se
 análise de imagem. Se a fonte atual degradar igual à Carto, estes testes seguem
 verdes.
 
+## Estado confirmado em 01/09/2026
+
+Dia curto e de uma lição só, aprendida pelo caminho caro: **a regra que você
+liga hoje recolhe o dado do qual alguém depende amanhã.**
+
+### A expiração rodou pela primeira vez — e quebrou o CI
+
+As migrations 25 e 26, criadas na véspera, dispararam em produção contra a rota
+demo:
+
+```
+31/08 22:30 BRT  🚨 URGENTE: Rota será encerrada em 2 horas!
+01/09 05:49 UTC  ⚠️ Rota abandonada — "24 dias aberta… 2 parada(s)"
+```
+
+Aviso antes, encerramento depois, texto e contagem de paradas corretos. O
+sistema fez exatamente o desenhado, e a rota estava mesmo abandonada.
+
+**E foi isso que derrubou o `renders motorista mapa` em TODO PR.** Aquela rota
+era o cenário do teste — um registro semeado à mão em produção, sem definição
+versionada — e o teste exige rota ativa. A falha apareceu num PR de
+documentação que não tinha relação nenhuma com rotas, o que a fez parecer
+_flaky_; perdi tempo procurando regressão de código antes de olhar o banco.
+
+O erro de método foi parar um passo cedo: ao escrever a regra eu listei o que
+ela alcançaria (uma rota, a demo) e me tranquilizei com o número. A pergunta
+seguinte era **"e essa rota serve para alguma coisa?"**.
+
+**Reativar pelo caminho do app não resolveria.** O `useMapaRotaHandlers` deixa a
+rota `pendente` datada de hoje — correto como produto, porque dá o dia ao
+motorista, e inútil como cenário, porque expira às 22:00. Cruzando as regras,
+só um estado sobrevive: `em_andamento` com data dentro dos 7 dias.
+
+Fechado em duas partes: destravar o dado (UPDATE idempotente, paradas
+intactas) e um fixture que **garante** esse estado antes do teste — nunca cria,
+e falha alto se o motorista não tiver rota, porque fabricar cenário esconderia
+problema de cadastro atrás de teste verde. O ramo de reparo foi exercitado
+invertendo a condição no código, não corrompendo produção para depois
+consertar.
+
+Isso trouxe uma postura nova, registrada no `CLAUDE.md` e no
+`PROJECT_CONTEXT`: **o CI agora escreve no banco de produção**, condicionalmente.
+Duas execuções reais reportaram `nada-a-fazer` — ele não escreve à toa.
+
+### O teste aberto estava bloqueado, e meu diagnóstico estava errado
+
+A promoção do 3030 para `beta` falhou com `FAILED_PRECONDITION`. Vi as trilhas
+vazias no JSON da API, concluí "falta configurar no Console" e **escrevi isso na
+documentação**. Errado.
+
+Abrindo a página, ela diz com cadeado: _"O teste aberto fica disponível quando
+você tem o acesso de produção"_. A dependência corre no sentido inverso do que a
+intuição sugere. E o acesso à produção tem requisito próprio, visível no Painel:
+**12 testadores por 14 dias — havia 6**, com o botão desabilitado.
+
+A lição de método: **mensagem genérica de API não sustenta diagnóstico.**
+`Precondition check failed` não diz qual precondição. Bastava abrir a página — e
+o próprio runbook já dizia, desde julho, que a recusa histórica de produção era
+o requisito de teste fechado. O documento sabia antes de mim.
+
+### Um passe de consolidação que mediu e quase não cortou
+
+Pedido de "eficiência máxima de contexto", a resposta honesta foi que **a
+alavanca grande já tinha sido puxada**: o corte de 26/08 levou os dois arquivos
+lidos em toda sessão de 72,6 para 46,7 KB.
+
+As três alavancas conhecidas estavam gastas: tabelas (193 bytes de padding),
+duplicação entre os arquivos (34 identificadores em comum, quase todos
+legítimos — `parada_id` aparece nos dois porque um traz o fato e o outro o
+custo, que é a divisão correta) e as Armadilhas (29 entradas densas de 300 a
+826 bytes).
+
+Ofereci 3 a 5 KB movendo narrativa; lendo de perto, **a oferta estava errada** —
+a regra do repo diz que custo e diagnóstico moram no `PROJECT_CONTEXT`. Sobrou
+apertar prosa: **−788 bytes**, com os ~200 identificadores preservados.
+
+Num segundo pedido de consolidação, medir mostrou **delta zero** desde o
+primeiro. O que existia eram duas lacunas abertas pelo trabalho do próprio dia,
+e fechá-las custou +496 bytes. Consolidação que só encolhe está otimizando a
+métrica, não o documento.
+
 ## Frentes fechadas, por data
 
 > Vieram do `PROJECT_CONTEXT` em 25/08/2026: eram **86 linhas** lidas em toda
