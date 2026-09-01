@@ -28,6 +28,7 @@ import {
   loadCredentials,
   withEdit,
 } from './lib/play-api.mjs';
+import { montarRelease } from './lib/play-release.js';
 
 const TRILHAS = ['internal', 'alpha', 'beta', 'production'];
 
@@ -36,33 +37,6 @@ const USO =
   `trilhas: ${TRILHAS.join(', ')}\n` +
   '--rollout=N  publica para N% dos usuários (1-99). Sem a flag, 100%.\n' +
   '--dry-run    mostra o que seria enviado e sai, sem tocar na Play.';
-
-/**
- * Monta o `release` da requisição. Isolada de propósito: é a única parte com
- * regra de negócio, e o `--dry-run` a imprime sem rede — é como se verifica
- * este script sem publicar.
- *
- * Regras da Play API, não escolhas nossas:
- *   - `userFraction` só vale com `inProgress` (ou `halted`);
- *   - `completed` NÃO pode carregar `userFraction` — a requisição é recusada;
- *   - a fração é estritamente entre 0 e 1.
- */
-export function montarRelease({ versionCode, releaseName, percentual }) {
-  const base = {
-    versionCodes: [versionCode],
-    ...(releaseName ? { name: releaseName } : {}),
-  };
-
-  if (percentual === undefined) {
-    return { ...base, status: 'completed' };
-  }
-
-  return {
-    ...base,
-    status: 'inProgress',
-    userFraction: percentual / 100,
-  };
-}
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
