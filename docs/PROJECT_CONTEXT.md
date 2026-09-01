@@ -65,7 +65,10 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   próprio** (≠ nome do arquivo) e colar no Dashboard não registra nada. Rode
   `npx supabase migration list` antes de qualquer push. Ver `database/MIGRATIONS.md`.
 - **Banco único = produção.** Não há staging. Peça aval antes de aplicar
-  migration e **nunca deixe subagente escrever no banco**.
+  migration e **nunca deixe subagente escrever no banco**. Desde 01/09/2026 o
+  **CI também escreve**: `e2e/fixtures/garantir-rota-do-mapa.ts` faz um UPDATE
+  idempotente na rota do motorista de teste quando ela não serve mais. É a menor
+  escrita possível e condicional — mas conte com ela ao auditar acesso ao banco.
 - **`src/types/database.ts` não existe** — regra e motivo em
   [`../CLAUDE.md`](../CLAUDE.md), seção Skills. Escapou da deduplicação de
   27/08, que pegou a cópia em "Regras" e deixou esta.
