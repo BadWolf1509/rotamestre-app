@@ -188,6 +188,23 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
   test('renders motorista mapa', async ({ page, loginAsMotorista }) => {
     const motoristaPage = new MotoristaPage(page);
     await loginAsMotorista();
+
+    // Tráfego de tiles, capturado ANTES de navegar — depois já é tarde.
+    //
+    // Por que existe: até 31/08/2026 este teste parava no evento `load`, e o
+    // `load` do maplibre dispara mesmo quando os tiles falham. O mapa podia
+    // montar vazio, ou apontando para outro provedor, e o teste ficava verde.
+    // Foi assim que o nativo passou meses na Carto sem ninguém ver — o web
+    // rodava aqui e não olhava de onde vinha imagem nenhuma.
+    const requisicoesDeTile: { url: string; status: number }[] = [];
+    const HOSTS_DE_TILE =
+      /(tiles\.openfreemap\.org|basemaps\.cartocdn\.com|api\.mapbox\.com|api\.maptiler\.com|tile\.openstreetmap\.org|tiles\.stadiamaps\.com)/;
+    page.on('response', (res) => {
+      if (HOSTS_DE_TILE.test(res.url())) {
+        requisicoesDeTile.push({ url: res.url(), status: res.status() });
+      }
+    });
+
     await motoristaPage.navigateToMapa();
     await page.waitForLoadState('networkidle');
 
@@ -223,6 +240,38 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
     await expect(page.getByTestId('mapa-web-carregando')).toHaveCount(0, {
       timeout: 60000,
     });
+
+    // Só agora o tráfego pode ser julgado: o mapa terminou de carregar.
+
+    // 1. Buscou tile de verdade, não só o manifesto do estilo. Sem isto, um
+    //    mapa que carrega o estilo e não renderiza nada passaria.
+    const tilesDeDados = requisicoesDeTile.filter(
+      (r) => !r.url.includes('/styles/'),
+    );
+    expect(
+      tilesDeDados.length,
+      `Nenhum tile buscado. Requisições vistas: ${JSON.stringify(requisicoesDeTile)}`,
+    ).toBeGreaterThan(0);
+
+    // 2. Nenhuma falhou. `load` dispara mesmo com tile em 403/404.
+    const falhas = requisicoesDeTile.filter((r) => r.status >= 400);
+    expect(falhas, `Tiles falharam: ${JSON.stringify(falhas)}`).toHaveLength(0);
+
+    // 3. Tudo veio do provedor esperado. Se alguém apontar o mapa para outro
+    //    — inclusive um que exija chave, que é o caminho de volta ao bug —,
+    //    quebra aqui em runtime, e não só no teste estático de fonte única.
+    const forasteiros = requisicoesDeTile.filter(
+      (r) => !r.url.includes('tiles.openfreemap.org'),
+    );
+    expect(
+      forasteiros,
+      `Tiles vieram de outro provedor: ${JSON.stringify(forasteiros)}`,
+    ).toHaveLength(0);
+
+    // O QUE ISTO NÃO PEGA: tile com marca d'água chega como 200 com PNG
+    // válido. Nenhuma asserção aqui distingue isso de um tile bom — foi
+    // exatamente assim que a Carto degradou. Só análise de imagem ou olho
+    // humano pega, e o custo não se justifica num check de PR.
   });
 
   test('renders motorista paradas', async ({ page, loginAsMotorista }) => {
