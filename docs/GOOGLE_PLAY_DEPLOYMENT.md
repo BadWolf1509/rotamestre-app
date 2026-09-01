@@ -303,9 +303,9 @@ Por isso:
 | Submit sem permissão                        | revisar vínculo e permissões da service account                                               |
 | Localização para em segundo plano           | revisar permissões, declaração do Play e teste em aparelho real                               |
 | Revisor não acessa o produto                | revisar instruções de acesso e conta de demonstração no Console                               |
-| Promoção falha com `FAILED_PRECONDITION`    | trilha ainda não configurada no Console — é passo de UI, não de API                           |
+| Promoção falha com `FAILED_PRECONDITION`    | trilha bloqueada até haver acesso de produção — não há o que configurar                       |
 
-### Trilha sem configuração recusa release por API
+### `beta` e `production` são bloqueadas, não desconfiguradas
 
 Em 31/08/2026 a promoção do 3030 para `beta` falhou com:
 
@@ -314,8 +314,8 @@ Play API 400: { "code": 400, "message": "Precondition check failed.",
                 "status": "FAILED_PRECONDITION" }
 ```
 
-Não é problema de credencial nem de versionCode. Lendo as trilhas pela API, a
-diferença aparece:
+Não é credencial nem `versionCode`. Lendo as trilhas pela API, `beta` e
+`production` aparecem vazias, enquanto as outras trazem o release:
 
 ```json
 { "track": "production" }
@@ -324,16 +324,28 @@ diferença aparece:
 { "track": "internal", "releases": [{ "versionCodes": ["3030"], "status": "completed" }] }
 ```
 
-`beta` e `production` são trilhas **vazias, sem configuração alguma** — nem
-países, nem alcance. A Play recusa release por API enquanto a trilha não for
-criada e configurada no Console (**Teste → Teste aberto**, ou **Produção**).
-É passo de interface; não existe atalho por API.
+**Não adianta procurar uma tela de configuração: ela não existe.** A página
+_Teste → Teste aberto_ mostra um cadeado e a frase _"O teste aberto fica
+disponível quando você tem o acesso de produção"_. Ou seja, a dependência corre
+no sentido contrário do que a intuição sugere — **o teste aberto é liberado pelo
+acesso à produção**, não um degrau anterior a ele.
 
-**Nada é publicado quando isso acontece.** O `withEdit` abandona o edit no erro,
-então a falha é limpa — confirmado por `npm run play:status` e por leitura direta
-das trilhas. Antes de tentar de novo, use `--dry-run`, que mostra o corpo exato
-sem tocar na Play.
+E o acesso à produção tem requisito próprio, visível no **Painel** do app:
 
-Em aberto, e não confirmado: se abrir teste aberto interfere no requisito de
-teste fechado que libera o acesso à produção. O fechado continua populado, então
-em princípio não — mas confira no Console antes de contar com isso.
+1. publicar uma versão de teste fechado;
+2. ter **12 testadores** que aceitaram participar do teste fechado;
+3. manter o teste fechado com esses 12 por **14 dias**.
+
+Em 31/08/2026 o app estava com **6 testadores**, e o botão _Solicitar a
+produção_ aparecia desabilitado. Enquanto isso não fechar, `beta` e `production`
+recusam release — por API e pela interface.
+
+**Nada é publicado quando o erro acontece.** O `withEdit` abandona o edit, então
+a falha é limpa — confirmado por `npm run play:status` e por leitura direta das
+trilhas. Antes de tentar de novo, use `--dry-run`.
+
+> **Correção:** a primeira versão desta seção dizia que a trilha "ainda não
+> estava configurada no Console" e mandava configurá-la lá. Estava errado, e
+> mandaria a próxima sessão procurar uma tela que não existe. O diagnóstico veio
+> de abrir a página no Console, não da mensagem da API — que só diz
+> "Precondition check failed" e não indica qual precondição.
