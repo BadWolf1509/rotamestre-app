@@ -11,7 +11,9 @@ type NavAppPreference = 'waze' | 'google_maps' | 'apple_maps' | 'default';
 /**
  * Mapeia preferência do usuário para formato interno
  */
-function mapPreferenceToApp(pref: NavAppPreference): 'waze' | 'google' | 'apple' | null {
+function mapPreferenceToApp(
+  pref: NavAppPreference,
+): 'waze' | 'google' | 'apple' | null {
   switch (pref) {
     case 'waze':
       return 'waze';
@@ -47,10 +49,22 @@ interface OpcaoNavegacao {
  * Gera URL de navegação para Waze
  */
 function gerarUrlWaze(coords: Coordenadas): OpcaoNavegacao {
+  // O Waze só INICIA navegação pelo universal link. Medido no aparelho em
+  // 05/09/2026, mesmo destino, Waze instalado: `waze://ul?ll=…&navigate=yes` e
+  // `waze://?ll=…&navigate=yes` abrem o app na tela inicial, sem destino;
+  // `https://waze.com/ul?ll=…&navigate=yes` traça a rota. Como o esquema
+  // custom está registrado, `canOpenURL` dizia true e o app abria o link
+  // quebrado — o universal link, que já estava aqui como `fallback`, só era
+  // usado quando o Waze NÃO estava instalado, exatamente ao contrário.
+  const url = `https://waze.com/ul?ll=${coords.latitude},${coords.longitude}&navigate=yes`;
+
   return {
     nome: 'Waze',
-    url: `waze://ul?ll=${coords.latitude},${coords.longitude}&navigate=yes`,
-    fallback: `https://waze.com/ul?ll=${coords.latitude},${coords.longitude}&navigate=yes`,
+    url,
+    // Mesma URL de propósito: o universal link já É o caminho web (sem o app
+    // instalado ele abre a página do Waze), então cobre também um eventual
+    // falso-negativo de `canOpenURL`.
+    fallback: url,
     icone: '🚗',
   };
 }
@@ -59,10 +73,11 @@ function gerarUrlWaze(coords: Coordenadas): OpcaoNavegacao {
  * Gera URL de navegação para Google Maps
  */
 function gerarUrlGoogleMaps(coords: Coordenadas): OpcaoNavegacao {
-  const url = Platform.select({
-    ios: `comgooglemaps://?daddr=${coords.latitude},${coords.longitude}&directionsmode=driving`,
-    android: `google.navigation:q=${coords.latitude},${coords.longitude}&mode=d`,
-  }) || '';
+  const url =
+    Platform.select({
+      ios: `comgooglemaps://?daddr=${coords.latitude},${coords.longitude}&directionsmode=driving`,
+      android: `google.navigation:q=${coords.latitude},${coords.longitude}&mode=d`,
+    }) || '';
 
   return {
     nome: 'Google Maps',
@@ -102,7 +117,7 @@ async function tentarAbrirApp(opcao: OpcaoNavegacao): Promise<boolean> {
     } else {
       Alert.alert(
         'App não instalado',
-        `${opcao.nome} não está instalado neste dispositivo.`
+        `${opcao.nome} não está instalado neste dispositivo.`,
       );
       return false;
     }
@@ -110,7 +125,7 @@ async function tentarAbrirApp(opcao: OpcaoNavegacao): Promise<boolean> {
     logger.error('[Navigation] Erro ao abrir navegação:', error);
     Alert.alert(
       'Erro',
-      `Não foi possível abrir ${opcao.nome}. Tente novamente.`
+      `Não foi possível abrir ${opcao.nome}. Tente novamente.`,
     );
     return false;
   }
@@ -136,7 +151,7 @@ function abrirMenuIOS(opcoes: OpcaoNavegacao[], coords: Coordenadas) {
         const opcaoSelecionada = opcoes[buttonIndex];
         await tentarAbrirApp(opcaoSelecionada);
       }
-    }
+    },
   );
 }
 
@@ -155,7 +170,7 @@ function abrirMenuAndroid(opcoes: OpcaoNavegacao[], coords: Coordenadas) {
         onPress: () => tentarAbrirApp(opcao),
       })),
       { text: 'Cancelar', style: 'cancel' },
-    ]
+    ],
   );
 }
 
@@ -189,7 +204,7 @@ export async function abrirNavegacao(coords: Coordenadas): Promise<void> {
   if (!coords.latitude || !coords.longitude) {
     Alert.alert(
       'Coordenadas Inválidas',
-      'Não foi possível obter a localização desta parada.'
+      'Não foi possível obter a localização desta parada.',
     );
     return;
   }
@@ -203,7 +218,7 @@ export async function abrirNavegacao(coords: Coordenadas): Promise<void> {
   ) {
     Alert.alert(
       'Coordenadas Inválidas',
-      'As coordenadas fornecidas estão fora do range válido.'
+      'As coordenadas fornecidas estão fora do range válido.',
     );
     return;
   }
@@ -211,8 +226,11 @@ export async function abrirNavegacao(coords: Coordenadas): Promise<void> {
   // Verificar se há um app preferido configurado
   try {
     const prefs = await LocationTrackingService.getNavigationPreferences();
-    const preferredNavApp = prefs.preferredNavApp as NavAppPreference | undefined;
-    const appPreferido = preferredNavApp ? mapPreferenceToApp(preferredNavApp) : null;
+    const preferredNavApp = prefs.preferredNavApp as
+      NavAppPreference | undefined;
+    const appPreferido = preferredNavApp
+      ? mapPreferenceToApp(preferredNavApp)
+      : null;
 
     if (appPreferido) {
       // Usuário tem app preferido - abrir diretamente
@@ -263,7 +281,7 @@ function mostrarMenuNavegacao(coords: Coordenadas): void {
  */
 export async function abrirNavegacaoDireta(
   coords: Coordenadas,
-  appPreferido: 'waze' | 'google' | 'apple'
+  appPreferido: 'waze' | 'google' | 'apple',
 ): Promise<boolean> {
   let opcao: OpcaoNavegacao;
 
@@ -292,7 +310,7 @@ export async function abrirNavegacaoDireta(
  * @returns Promise<boolean>
  */
 export async function verificarAppInstalado(
-  app: 'waze' | 'google' | 'apple'
+  app: 'waze' | 'google' | 'apple',
 ): Promise<boolean> {
   let url: string;
 
@@ -301,10 +319,11 @@ export async function verificarAppInstalado(
       url = 'waze://';
       break;
     case 'google':
-      url = Platform.select({
-        ios: 'comgooglemaps://',
-        android: 'google.navigation:q=0,0',
-      }) || '';
+      url =
+        Platform.select({
+          ios: 'comgooglemaps://',
+          android: 'google.navigation:q=0,0',
+        }) || '';
       break;
     case 'apple':
       url = 'maps://';
@@ -334,7 +353,7 @@ export function abrirNavegacaoRotaCompleta(paradas: Coordenadas[]) {
   if (paradas.length < 2) {
     Alert.alert(
       'Rota Incompleta',
-      'É necessário pelo menos 2 paradas para iniciar navegação.'
+      'É necessário pelo menos 2 paradas para iniciar navegação.',
     );
     return;
   }
@@ -342,18 +361,15 @@ export function abrirNavegacaoRotaCompleta(paradas: Coordenadas[]) {
   const origem = paradas[0];
   const destino = paradas[paradas.length - 1];
   const opcoes: OpcaoNavegacao[] = [
-    {
-      nome: 'Waze',
-      url: `waze://ul?ll=${origem.latitude},${origem.longitude}&navigate=yes`,
-      fallback: `https://waze.com/ul?ll=${origem.latitude},${origem.longitude}&navigate=yes`,
-      icone: '🚗',
-    },
+    // Reusa o gerador para não ter duas versões da URL do Waze divergindo.
+    gerarUrlWaze(origem),
     {
       nome: 'Google Maps',
-      url: Platform.select({
-        ios: `comgooglemaps://?saddr=${origem.latitude},${origem.longitude}&daddr=${destino.latitude},${destino.longitude}&directionsmode=driving`,
-        android: `google.navigation:q=${destino.latitude},${destino.longitude}&mode=d`,
-      }) || '',
+      url:
+        Platform.select({
+          ios: `comgooglemaps://?saddr=${origem.latitude},${origem.longitude}&daddr=${destino.latitude},${destino.longitude}&directionsmode=driving`,
+          android: `google.navigation:q=${destino.latitude},${destino.longitude}&mode=d`,
+        }) || '',
       fallback: `https://www.google.com/maps/dir/?api=1&origin=${origem.latitude},${origem.longitude}&destination=${destino.latitude},${destino.longitude}`,
       icone: '🗺️',
     },

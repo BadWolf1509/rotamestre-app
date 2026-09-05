@@ -17,8 +17,8 @@ const mockOpenURL = jest.fn();
 
 jest.mock('react-native', () => ({
   Linking: {
-    canOpenURL: () => mockCanOpenURL(),
-    openURL: () => mockOpenURL(),
+    canOpenURL: (url: string) => mockCanOpenURL(url),
+    openURL: (url: string) => mockOpenURL(url),
   },
   Platform: {
     OS: 'ios',
@@ -99,6 +99,33 @@ describe('navigation', () => {
       expect(mockOpenURL).toHaveBeenCalledTimes(1);
     });
 
+    it('sonda o Waze pelo esquema, mas abre pelo universal link', async () => {
+      // Regressão: `waze://?ll=…` abre o app sem destino. A URL aberta tem de
+      // ser a https; a sondagem tem de continuar no esquema, senão https passa
+      // sempre no canOpenURL e o Google Maps nunca é tentado.
+      mockCanOpenURL.mockResolvedValueOnce(true);
+      mockOpenURL.mockResolvedValueOnce(undefined);
+
+      await openNavigation(mockDestination);
+
+      expect(mockCanOpenURL).toHaveBeenCalledWith('waze://');
+      expect(mockOpenURL).toHaveBeenCalledWith(
+        `https://waze.com/ul?ll=${mockDestination.latitude},${mockDestination.longitude}&navigate=yes`,
+      );
+    });
+
+    it('cai no Google Maps quando o Waze não está instalado', async () => {
+      // Waze ausente (sondagem pelo esquema falha), Google Maps presente.
+      mockCanOpenURL.mockResolvedValueOnce(false);
+      mockCanOpenURL.mockResolvedValueOnce(true);
+      mockOpenURL.mockResolvedValueOnce(undefined);
+
+      await openNavigation(mockDestination);
+
+      expect(mockOpenURL).toHaveBeenCalledTimes(1);
+      expect(mockOpenURL.mock.calls[0][0]).not.toContain('waze');
+    });
+
     it('deve tentar Apple Maps no iOS se outros não disponíveis', async () => {
       // Waze não disponível
       mockCanOpenURL.mockResolvedValueOnce(false);
@@ -142,7 +169,7 @@ describe('navigation', () => {
       expect(Alert.alert).toHaveBeenCalledWith(
         'Navegar com',
         'Escolha o app de navegação',
-        expect.any(Array)
+        expect.any(Array),
       );
     });
 
@@ -152,7 +179,9 @@ describe('navigation', () => {
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const options = alertCall[2];
 
-      expect(options.some((opt: { text: string }) => opt.text === 'Waze')).toBe(true);
+      expect(options.some((opt: { text: string }) => opt.text === 'Waze')).toBe(
+        true,
+      );
     });
 
     it('deve incluir opção Google Maps', () => {
@@ -161,7 +190,9 @@ describe('navigation', () => {
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const options = alertCall[2];
 
-      expect(options.some((opt: { text: string }) => opt.text === 'Google Maps')).toBe(true);
+      expect(
+        options.some((opt: { text: string }) => opt.text === 'Google Maps'),
+      ).toBe(true);
     });
 
     it('deve incluir opção Cancelar', () => {
@@ -170,7 +201,9 @@ describe('navigation', () => {
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const options = alertCall[2];
 
-      const cancelOption = options.find((opt: { text: string }) => opt.text === 'Cancelar');
+      const cancelOption = options.find(
+        (opt: { text: string }) => opt.text === 'Cancelar',
+      );
       expect(cancelOption).toBeDefined();
       expect(cancelOption.style).toBe('cancel');
     });

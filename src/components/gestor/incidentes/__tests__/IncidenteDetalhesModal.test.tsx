@@ -171,6 +171,42 @@ describe('IncidenteDetalhesModal', () => {
     });
   });
 
+  describe('data da rota', () => {
+    // O bug só aparece em fuso negativo. O runner do CI roda em UTC, onde o
+    // código quebrado acertaria a data — sem pinar o fuso este teste passaria
+    // vazio lá.
+    const tzOriginal = process.env.TZ;
+    beforeAll(() => {
+      process.env.TZ = 'America/Sao_Paulo';
+    });
+    afterAll(() => {
+      if (tzOriginal === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = tzOriginal;
+      }
+    });
+
+    it('mostra o dia exato de rota_data, sem deslocar por fuso', () => {
+      // Guarda: se o ambiente ignorar a pinagem de TZ, o caso deixa de exercer
+      // o bug e o teste vira decoração. Falhar aqui é melhor que passar vazio.
+      expect(new Date('2026-09-05').toLocaleDateString('pt-BR')).toBe(
+        '04/09/2026',
+      );
+
+      // Regressão: era esse `new Date(...)` cru que o modal usava, e a rota de
+      // 05/09 aparecia como "Rota de 04/09/2026". `formatDateBR` monta a data
+      // com componentes locais.
+      const { getByText } = render(
+        <IncidenteDetalhesModal
+          {...defaultProps}
+          incidente={{ ...incidente, rota_data: '2026-09-05' }}
+        />,
+      );
+      expect(getByText('Rota de 05/09/2026')).toBeTruthy();
+    });
+  });
+
   describe('hook unconditional call', () => {
     it('calls useSignedUrl even when incidente is null (hook must be before early return)', () => {
       // incidente=null triggers early return — hook must still be called
