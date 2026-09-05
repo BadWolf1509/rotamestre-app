@@ -19,6 +19,11 @@ import {
 import { Progress } from '@/components/Progress';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
+import {
+  lerConclusaoEmVoo,
+  limparConclusaoEmVoo,
+  marcarConclusaoEmVoo,
+} from '@/lib/motorista/conclusaoEmVoo';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
@@ -65,6 +70,50 @@ export default function CameraUpload({
       }
     };
     checkOfflinePhoto();
+  }, [paradaId]);
+
+  // Recupera a foto tirada logo antes de o Android recriar a Activity. Ver
+  // `src/lib/motorista/conclusaoEmVoo.ts` para o porquê.
+  //
+  // A recuperação é SEMPRE portão-fechado: só tenta quando existe marcador
+  // desta parada. `getPendingResultAsync` guarda o último resultado do picker,
+  // e chamá-lo sem essa guarda faria uma reabertura do modal adotar a foto da
+  // parada anterior — pior que perder a foto, porque grava comprovante errado.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    let cancelado = false;
+
+    const recuperarFotoPendente = async () => {
+      const marcador = await lerConclusaoEmVoo();
+      if (!marcador || marcador.paradaId !== paradaId) return;
+
+      await limparConclusaoEmVoo();
+
+      let pendente: Awaited<
+        ReturnType<typeof ImagePicker.getPendingResultAsync>
+      > = null;
+      try {
+        pendente = await ImagePicker.getPendingResultAsync();
+      } catch (error) {
+        // Não-crítico: sem a foto recuperada o motorista tira outra. O modal
+        // já foi reaberto na parada certa, que é o essencial.
+        logger.warn('[CameraUpload] Falha ao recuperar foto pendente', error);
+        return;
+      }
+
+      if (cancelado || !pendente || 'code' in pendente) return;
+      if (pendente.canceled || !pendente.assets?.[0]) return;
+
+      const compressedUri = await compressImage(pendente.assets[0].uri);
+      if (!cancelado) setSelectedImage(compressedUri);
+    };
+
+    recuperarFotoPendente();
+
+    return () => {
+      cancelado = true;
+    };
   }, [paradaId]);
 
   /**
@@ -125,11 +174,19 @@ export default function CameraUpload({
       return;
     }
 
+    // Antes de abrir a câmera, e não depois: se o Android recriar a Activity
+    // enquanto ela está aberta, não existe "depois" neste componente.
+    await marcarConclusaoEmVoo(paradaId, rotaId);
+
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
     });
+
+    // Chegou aqui = a Activity sobreviveu e o resultado veio inline. Não há
+    // nada pendente para recuperar depois.
+    await limparConclusaoEmVoo();
 
     if (!result.canceled && result.assets && result.assets[0]) {
       const compressedUri = await compressImage(result.assets[0].uri);

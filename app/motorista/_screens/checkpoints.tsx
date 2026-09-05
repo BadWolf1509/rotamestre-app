@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   View,
   FlatList,
@@ -23,6 +30,11 @@ import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import {
+  lerConclusaoEmVoo,
+  limparConclusaoEmVoo,
+  paradaParaReabrir,
+} from '@/lib/motorista/conclusaoEmVoo';
 import { abrirNavegacao } from '@/lib/navigation';
 import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -31,7 +43,8 @@ import { toParada, toParadaData } from '@/utils/typeMappers';
 export default function CheckpointsMotorista() {
   const { theme } = useUnistyles();
   const { userData } = useUser();
-  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
+  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } =
+    useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
   const {
@@ -45,22 +58,26 @@ export default function CheckpointsMotorista() {
 
   // Estados locais de UI apenas
   const [refreshing, setRefreshing] = useState(false);
-  const [concluindoParada, _setConcluindoParada] = useState<string | null>(null);
+  const [concluindoParada, _setConcluindoParada] = useState<string | null>(
+    null,
+  );
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
   const [retomandoParada, setRetomandoParada] = useState<string | null>(null);
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
-  const [selectedParadaForIncident, setSelectedParadaForIncident] = useState<Parada | null>(null);
+  const [selectedParadaForIncident, setSelectedParadaForIncident] =
+    useState<Parada | null>(null);
   // Estado para o modal de conclusão de parada (com foto)
   const [showCompletionFlow, setShowCompletionFlow] = useState(false);
-  const [selectedParadaForCompletion, setSelectedParadaForCompletion] = useState<ParadaData | null>(null);
+  const [selectedParadaForCompletion, setSelectedParadaForCompletion] =
+    useState<ParadaData | null>(null);
   // Estado para o modal de motivo de skip
   const [skipModalParada, setSkipModalParada] = useState<Parada | null>(null);
 
   // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
   // e converter para tipo Parada do ParadaCard
   const paradas = useMemo(
-    () => paradasContext.filter(p => p.is_checkpoint !== false).map(toParada),
-    [paradasContext]
+    () => paradasContext.filter((p) => p.is_checkpoint !== false).map(toParada),
+    [paradasContext],
   );
 
   // Broadcast localização do motorista quando a rota está em andamento
@@ -74,14 +91,17 @@ export default function CheckpointsMotorista() {
     (parada: Parada) => {
       // Validar se a rota foi iniciada
       if (route?.status !== 'em_andamento') {
-        showWarning('Rota não iniciada', 'Você precisa iniciar a rota antes de concluir paradas.');
+        showWarning(
+          'Rota não iniciada',
+          'Você precisa iniciar a rota antes de concluir paradas.',
+        );
         return;
       }
 
       setSelectedParadaForCompletion(toParadaData(parada));
       setShowCompletionFlow(true);
     },
-    [route?.status, showWarning]
+    [route?.status, showWarning],
   );
 
   // Handler quando conclusão é bem-sucedida
@@ -90,13 +110,57 @@ export default function CheckpointsMotorista() {
     refreshRoute();
   }
 
+  // Reabre o fluxo de conclusão que a recriação da Activity interrompeu.
+  //
+  // Sem isto o motorista tira a foto, o Android recria a Activity sob pressão
+  // de memória, ele volta para a Início e NADA indica que a conclusão se
+  // perdeu — foi o que aconteceu no smoke test de 05/09/2026. Ver
+  // `src/lib/motorista/conclusaoEmVoo.ts`.
+  //
+  // A ordem importa: aqui o marcador é lido e NÃO apagado, porque quem o
+  // consome é o `CameraUpload` que monta junto com o modal — é ele que troca o
+  // marcador pela foto pendente.
+  const conclusaoJaRestaurada = useRef(false);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (conclusaoJaRestaurada.current) return;
+    // Sem rota carregada ainda não dá para saber se o marcador é desta rota.
+    if (!route || paradas.length === 0) return;
+
+    let cancelado = false;
+
+    const restaurarConclusao = async () => {
+      const marcador = await lerConclusaoEmVoo();
+      if (cancelado || !marcador) return;
+
+      const parada = paradaParaReabrir(marcador, route, paradas);
+
+      if (!parada) {
+        // Rota trocada, parada já resolvida noutro aparelho, rota encerrada:
+        // o marcador perdeu o sentido. Apagar aqui evita o modal reabrir do
+        // nada numa próxima montagem.
+        await limparConclusaoEmVoo();
+        return;
+      }
+
+      if (cancelado) return;
+
+      conclusaoJaRestaurada.current = true;
+      setSelectedParadaForCompletion(toParadaData(parada));
+      setShowCompletionFlow(true);
+    };
+
+    restaurarConclusao();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [route, paradas]);
+
   // Abre o modal de motivo de skip
-  const pularParada = useCallback(
-    (parada: Parada) => {
-      setSkipModalParada(parada);
-    },
-    []
-  );
+  const pularParada = useCallback((parada: Parada) => {
+    setSkipModalParada(parada);
+  }, []);
 
   // Confirma o skip com motivo estruturado (usa contexto para promover próxima parada)
   const confirmarSkip = useCallback(
@@ -116,7 +180,7 @@ export default function CheckpointsMotorista() {
         setPulandoParada(null);
       }
     },
-    [skipModalParada, skipStop, showSuccess, showError]
+    [skipModalParada, skipStop, showSuccess, showError],
   );
 
   const retomarParada = useCallback(
@@ -151,7 +215,7 @@ export default function CheckpointsMotorista() {
         setRetomandoParada(null);
       }
     },
-    [userData, route, refreshRoute, showConfirm, showSuccess, showError]
+    [userData, route, refreshRoute, showConfirm, showSuccess, showError],
   );
 
   const onRefresh = useCallback(async () => {
@@ -163,16 +227,19 @@ export default function CheckpointsMotorista() {
   // IMPORTANTE: Todos os hooks DEVEM estar antes de qualquer early return
   // Calcular estatísticas das paradas (já filtradas no useMemo acima)
   const paradasPendentes = useMemo(
-    () => paradas.filter((p) => p.status === 'pendente' || p.status === 'em_andamento').length,
-    [paradas]
+    () =>
+      paradas.filter(
+        (p) => p.status === 'pendente' || p.status === 'em_andamento',
+      ).length,
+    [paradas],
   );
   const paradasConcluidas = useMemo(
     () => paradas.filter((p) => p.status === 'concluida').length,
-    [paradas]
+    [paradas],
   );
   const paradasPuladas = useMemo(
     () => paradas.filter((p) => p.status === 'pulada').length,
-    [paradas]
+    [paradas],
   );
 
   // Memoizar keyExtractor
@@ -229,15 +296,19 @@ export default function CheckpointsMotorista() {
       retomarParada,
       handleNavegar,
       handleReportar,
-    ]
+    ],
   );
 
-  const showEmptyState = !loading && (routeStatus === 'no-route' || paradas.length === 0);
+  const showEmptyState =
+    !loading && (routeStatus === 'no-route' || paradas.length === 0);
 
   // Early return para empty state (evita renderizar dentro do GestureHandlerRootView)
   if (showEmptyState) {
     return (
-      <View testID="motorista-checkpoints-empty" style={{ flex: 1, backgroundColor: theme.colors.gray50 }}>
+      <View
+        testID="motorista-checkpoints-empty"
+        style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
+      >
         <MobileEmptyState
           icon="📋"
           title="Nenhuma rota ativa no momento"
@@ -253,35 +324,84 @@ export default function CheckpointsMotorista() {
   if (loading) {
     content = (
       <View style={styles.container as ViewStyle}>
-          {/* Skeleton Header */}
-          <View style={styles.header as ViewStyle}>
-            <View style={{ width: 200, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-            <View style={{ width: 150, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
-          </View>
+        {/* Skeleton Header */}
+        <View style={styles.header as ViewStyle}>
+          <View
+            style={{
+              width: 200,
+              height: 28,
+              backgroundColor: theme.colors.gray200,
+              borderRadius: theme.borderRadius.sm,
+            }}
+          />
+          <View
+            style={{
+              width: 150,
+              height: 14,
+              backgroundColor: theme.colors.gray200,
+              borderRadius: theme.borderRadius.sm,
+              marginTop: theme.spacing.xs,
+            }}
+          />
+        </View>
 
-          {/* Skeleton Stats */}
-          <View style={styles.statsRow as ViewStyle}>
-            {[1, 2, 3].map((i) => (
-              <View key={i} style={styles.statItem as ViewStyle}>
-                <View style={{ width: 40, height: 28, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-                <View style={{ width: 60, height: 12, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm, marginTop: theme.spacing.xs }} />
-              </View>
-            ))}
-          </View>
-
-          {/* Skeleton Progress */}
-          <View style={styles.progressSection as ViewStyle}>
-            <View style={{ width: 120, height: 14, backgroundColor: theme.colors.gray200, borderRadius: theme.borderRadius.sm }} />
-            <View style={[styles.progressContainer as ViewStyle, { marginTop: theme.spacing.xs }]}>
-              <View style={{ width: '30%', height: '100%', backgroundColor: theme.colors.gray300, borderRadius: theme.borderRadius.full }} />
+        {/* Skeleton Stats */}
+        <View style={styles.statsRow as ViewStyle}>
+          {[1, 2, 3].map((i) => (
+            <View key={i} style={styles.statItem as ViewStyle}>
+              <View
+                style={{
+                  width: 40,
+                  height: 28,
+                  backgroundColor: theme.colors.gray200,
+                  borderRadius: theme.borderRadius.sm,
+                }}
+              />
+              <View
+                style={{
+                  width: 60,
+                  height: 12,
+                  backgroundColor: theme.colors.gray200,
+                  borderRadius: theme.borderRadius.sm,
+                  marginTop: theme.spacing.xs,
+                }}
+              />
             </View>
-          </View>
+          ))}
+        </View>
 
-          {/* Skeleton Cards */}
-          <View style={styles.listContainer as ViewStyle}>
-            <ParadaCardSkeletonList count={3} />
+        {/* Skeleton Progress */}
+        <View style={styles.progressSection as ViewStyle}>
+          <View
+            style={{
+              width: 120,
+              height: 14,
+              backgroundColor: theme.colors.gray200,
+              borderRadius: theme.borderRadius.sm,
+            }}
+          />
+          <View
+            style={[
+              styles.progressContainer as ViewStyle,
+              { marginTop: theme.spacing.xs },
+            ]}
+          >
+            <View
+              style={{
+                width: '30%',
+                height: '100%',
+                backgroundColor: theme.colors.gray300,
+                borderRadius: theme.borderRadius.full,
+              }}
+            />
           </View>
         </View>
+
+        {/* Skeleton Cards */}
+        <View style={styles.listContainer as ViewStyle}>
+          <ParadaCardSkeletonList count={3} />
+        </View>
+      </View>
     );
   } else {
     // Estilo com overflow para web (scroll habilita rolagem)
@@ -292,88 +412,107 @@ export default function CheckpointsMotorista() {
 
     content = (
       <View style={contentStyle}>
-      {/* Header Compacto */}
-      <View style={styles.headerCompact as ViewStyle}>
-        {/* Linha 1: Título e unidade */}
-        <View style={styles.headerRow as ViewStyle}>
-          <Text style={styles.headerTitle as TextStyle}>Checkpoints</Text>
-          <Text style={styles.headerDivider as TextStyle}>·</Text>
-          <Text style={styles.headerSubtitleCompact as TextStyle} numberOfLines={1}>
-            {route?.unidade_nome}
-          </Text>
-        </View>
-
-        {/* Linha 2: Stats inline */}
-        <View style={styles.statsInline as ViewStyle}>
-          <Text style={styles.statsInlineText as TextStyle}>
-            {paradas.length} paradas ·{' '}
-            <Text style={{ color: theme.colors.success }}>{paradasConcluidas}✓</Text> ·{' '}
-            <Text style={{ color: theme.colors.warning }}>{paradasPendentes}○</Text>
-            {paradasPuladas > 0 && (
-              <>
-                {' '}· <Text style={{ color: theme.colors.error }}>{paradasPuladas}↷</Text>
-              </>
-            )}
-            {' '}· {paradas.length > 0 ? Math.round((paradasConcluidas / paradas.length) * 100) : 0}%
-          </Text>
-        </View>
-
-        {/* Barra de Progresso */}
-        <View style={styles.progressContainer as ViewStyle}>
-          <View
-            style={[
-              styles.progressBar as ViewStyle,
-              { width: `${paradas.length > 0 ? (paradasConcluidas / paradas.length) * 100 : 0}%` },
-            ]}
-          />
-        </View>
-      </View>
-
-      {/* Lista de Paradas */}
-      <FlatList
-        testID="motorista-checkpoints-list"
-        data={paradas}
-        keyExtractor={keyExtractor}
-        renderItem={renderParada}
-        style={styles.flatList as ViewStyle}
-        contentContainerStyle={styles.listContainer as ViewStyle}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        windowSize={3}
-        removeClippedSubviews={Platform.OS === 'android'}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyListContainer as ViewStyle}>
-            <Text style={styles.emptyListText as TextStyle}>Nenhuma parada cadastrada</Text>
+        {/* Header Compacto */}
+        <View style={styles.headerCompact as ViewStyle}>
+          {/* Linha 1: Título e unidade */}
+          <View style={styles.headerRow as ViewStyle}>
+            <Text style={styles.headerTitle as TextStyle}>Checkpoints</Text>
+            <Text style={styles.headerDivider as TextStyle}>·</Text>
+            <Text
+              style={styles.headerSubtitleCompact as TextStyle}
+              numberOfLines={1}
+            >
+              {route?.unidade_nome}
+            </Text>
           </View>
-        }
-      />
 
-      {/* Incident Report Wizard */}
-      {showIncidentWizard && selectedParadaForIncident && route && (
-        <IncidentReportWizard
-          visible={showIncidentWizard}
-          onClose={() => {
-            setShowIncidentWizard(false);
-            setSelectedParadaForIncident(null);
-          }}
-          onSubmit={(report) => {
-            logger.debug('Incidente reportado:', report);
-            refreshRoute(); // Contexto atualiza automaticamente
-          }}
-          paradaId={selectedParadaForIncident.id}
-          rotaId={route.id}
-          motoristaId={userData?.id || ''}
-          endereco={selectedParadaForIncident.endereco}
+          {/* Linha 2: Stats inline */}
+          <View style={styles.statsInline as ViewStyle}>
+            <Text style={styles.statsInlineText as TextStyle}>
+              {paradas.length} paradas ·{' '}
+              <Text style={{ color: theme.colors.success }}>
+                {paradasConcluidas}✓
+              </Text>{' '}
+              ·{' '}
+              <Text style={{ color: theme.colors.warning }}>
+                {paradasPendentes}○
+              </Text>
+              {paradasPuladas > 0 && (
+                <>
+                  {' '}
+                  ·{' '}
+                  <Text style={{ color: theme.colors.error }}>
+                    {paradasPuladas}↷
+                  </Text>
+                </>
+              )}{' '}
+              ·{' '}
+              {paradas.length > 0
+                ? Math.round((paradasConcluidas / paradas.length) * 100)
+                : 0}
+              %
+            </Text>
+          </View>
+
+          {/* Barra de Progresso */}
+          <View style={styles.progressContainer as ViewStyle}>
+            <View
+              style={[
+                styles.progressBar as ViewStyle,
+                {
+                  width: `${paradas.length > 0 ? (paradasConcluidas / paradas.length) * 100 : 0}%`,
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Lista de Paradas */}
+        <FlatList
+          testID="motorista-checkpoints-list"
+          data={paradas}
+          keyExtractor={keyExtractor}
+          renderItem={renderParada}
+          style={styles.flatList as ViewStyle}
+          contentContainerStyle={styles.listContainer as ViewStyle}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyListContainer as ViewStyle}>
+              <Text style={styles.emptyListText as TextStyle}>
+                Nenhuma parada cadastrada
+              </Text>
+            </View>
+          }
         />
-      )}
 
+        {/* Incident Report Wizard */}
+        {showIncidentWizard && selectedParadaForIncident && route && (
+          <IncidentReportWizard
+            visible={showIncidentWizard}
+            onClose={() => {
+              setShowIncidentWizard(false);
+              setSelectedParadaForIncident(null);
+            }}
+            onSubmit={(report) => {
+              logger.debug('Incidente reportado:', report);
+              refreshRoute(); // Contexto atualiza automaticamente
+            }}
+            paradaId={selectedParadaForIncident.id}
+            rotaId={route.id}
+            motoristaId={userData?.id || ''}
+            endereco={selectedParadaForIncident.endereco}
+          />
+        )}
       </View>
     );
   }
@@ -384,31 +523,31 @@ export default function CheckpointsMotorista() {
   return (
     <Container style={styles.container as ViewStyle}>
       <ErrorBoundary>
-      {content}
+        {content}
 
-      {/* Modal de Conclusão de Parada (com foto) */}
-      <StopCompletionFlow
-        parada={selectedParadaForCompletion}
-        visible={showCompletionFlow}
-        onClose={() => {
-          setShowCompletionFlow(false);
-          setSelectedParadaForCompletion(null);
-        }}
-        onSuccess={handleCompletionSuccess}
-        allowSkipPhoto={true}
-      />
-
-      {/* Modal de Motivo de Skip */}
-      {skipModalParada && (
-        <SkipReasonModal
-          visible={!!skipModalParada}
-          parada={toParadaData(skipModalParada)}
-          onConfirm={confirmarSkip}
-          onCancel={() => setSkipModalParada(null)}
+        {/* Modal de Conclusão de Parada (com foto) */}
+        <StopCompletionFlow
+          parada={selectedParadaForCompletion}
+          visible={showCompletionFlow}
+          onClose={() => {
+            setShowCompletionFlow(false);
+            setSelectedParadaForCompletion(null);
+          }}
+          onSuccess={handleCompletionSuccess}
+          allowSkipPhoto={true}
         />
-      )}
 
-      {AlertDialog}
+        {/* Modal de Motivo de Skip */}
+        {skipModalParada && (
+          <SkipReasonModal
+            visible={!!skipModalParada}
+            parada={toParadaData(skipModalParada)}
+            onConfirm={confirmarSkip}
+            onCancel={() => setSkipModalParada(null)}
+          />
+        )}
+
+        {AlertDialog}
       </ErrorBoundary>
     </Container>
   );
@@ -531,4 +670,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray500,
   },
 }));
-
