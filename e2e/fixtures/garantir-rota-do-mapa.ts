@@ -70,12 +70,21 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
 
   // O motorista é achado pela unidade, não por e-mail: a credencial é secreta e
   // o e-mail de login não precisa coincidir com o cadastro.
+  //
+  // ATENÇÃO ao `ativo` e à ordenação. Isto já era um `.limit(1)` sem `order by`
+  // — coin flip do Postgres — e funcionava só porque a unidade demo tinha um
+  // motorista só. Em 05/09/2026 um segundo motorista foi cadastrado ali (teste
+  // de gestão de equipe, depois desativado) e o fixture o escolheu: ele não
+  // tinha rota nenhuma, e o `renders motorista mapa` quebrou num PR que não
+  // tinha nada a ver. Agora: só motorista ATIVO (inativo não executa rota, logo
+  // nunca é o cenário), ordem estável, e quem decide é ter rota — não a sorte.
   const { data: motoristas, error: erroMotorista } = await supabase
     .from('usuarios')
     .select('id, nome')
     .eq('unidade_id', UNIDADE_DEMO)
     .eq('papel', 'motorista')
-    .limit(1);
+    .eq('ativo', true)
+    .order('created_at', { ascending: true });
 
   if (erroMotorista) {
     throw new Error(
@@ -84,32 +93,41 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   }
   if (!motoristas?.length) {
     throw new Error(
-      'Nenhum motorista na unidade demo. O cenário do mapa não existe — ' +
+      'Nenhum motorista ativo na unidade demo. O cenário do mapa não existe — ' +
         'isto é problema de dado, não do teste.',
     );
   }
-  const motorista = motoristas[0];
 
-  const { data: rotas, error: erroRota } = await supabase
-    .from('rotas')
-    .select('id, status, data')
-    .eq('motorista_id', motorista.id)
-    .order('data', { ascending: false })
-    .limit(1);
+  let motorista: (typeof motoristas)[number] | null = null;
+  let rota: { id: string; status: string; data: string } | null = null;
 
-  if (erroRota) {
-    throw new Error(`Não foi possível ler as rotas: ${erroRota.message}`);
+  for (const candidato of motoristas) {
+    const { data: rotas, error: erroRota } = await supabase
+      .from('rotas')
+      .select('id, status, data')
+      .eq('motorista_id', candidato.id)
+      .order('data', { ascending: false })
+      .limit(1);
+
+    if (erroRota) {
+      throw new Error(`Não foi possível ler as rotas: ${erroRota.message}`);
+    }
+    if (rotas?.length) {
+      motorista = candidato;
+      rota = rotas[0];
+      break;
+    }
   }
-  if (!rotas?.length) {
+
+  if (!motorista || !rota) {
     // Deliberadamente NÃO cria rota: fabricar dado aqui esconderia um problema
     // real de cadastro atrás de um teste verde.
+    const nomes = motoristas.map((m) => m.nome).join(', ');
     throw new Error(
-      `O motorista ${motorista.nome} não tem rota nenhuma. O fixture restaura ` +
-        'estado, não inventa cenário — crie a rota demo antes.',
+      `Nenhum motorista ativo da unidade demo tem rota (${nomes}). O fixture ` +
+        'restaura estado, não inventa cenário — crie a rota demo antes.',
     );
   }
-
-  const rota = rotas[0];
   const hoje = new Date();
   const hojeStr = hoje.toISOString().slice(0, 10);
   const limite = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000)
