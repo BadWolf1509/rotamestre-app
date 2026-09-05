@@ -20,6 +20,7 @@ import type {
   StatusLabel,
 } from '@/hooks/incidentes-gestor/types';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+import { formatDateBR } from '@/lib/dateUtils';
 import { styles } from '@/styles/gestor/incidentes.styles';
 import { useUnistyles } from '@/utils/styles';
 
@@ -210,7 +211,7 @@ export function IncidenteDetalhesModal({
               ]}
             >
               {incidente.rota_data
-                ? `Rota de ${new Date(incidente.rota_data).toLocaleDateString('pt-BR')}`
+                ? `Rota de ${formatDateBR(incidente.rota_data)}`
                 : 'N/A'}
             </Text>
           </View>

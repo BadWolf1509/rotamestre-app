@@ -171,6 +171,24 @@ describe('IncidenteDetalhesModal', () => {
     });
   });
 
+  describe('data da rota', () => {
+    it('mostra o dia exato de rota_data', () => {
+      // ATENÇÃO ao que este caso cobre: o bug original (`new Date(rota_data)`,
+      // que é meia-noite UTC) só desloca o dia em fuso negativo. Rodando em
+      // UTC — como os runners do CI — o código quebrado acerta a data e este
+      // teste passa igual. Ele vale na máquina de quem desenvolve daqui;
+      // a guarda que vale em qualquer fuso é estática, em
+      // `src/lib/__tests__/data-local-sem-utc.test.ts`.
+      const { getByText } = render(
+        <IncidenteDetalhesModal
+          {...defaultProps}
+          incidente={{ ...incidente, rota_data: '2026-09-05' }}
+        />,
+      );
+      expect(getByText('Rota de 05/09/2026')).toBeTruthy();
+    });
+  });
+
   describe('hook unconditional call', () => {
     it('calls useSignedUrl even when incidente is null (hook must be before early return)', () => {
       // incidente=null triggers early return — hook must still be called

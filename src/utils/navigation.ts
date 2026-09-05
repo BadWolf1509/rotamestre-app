@@ -17,12 +17,18 @@ type NavigationApp = 'waze' | 'google-maps' | 'apple-maps';
 /**
  * Gera URL para abrir app de navegação
  */
-function getNavigationUrl(app: NavigationApp, destination: NavigationDestination): string {
+function getNavigationUrl(
+  app: NavigationApp,
+  destination: NavigationDestination,
+): string {
   const { latitude, longitude, label } = destination;
 
   switch (app) {
     case 'waze':
-      return `waze://?ll=${latitude},${longitude}&navigate=yes`;
+      // Universal link, não o esquema custom: `waze://?ll=…` (e `waze://ul?…`)
+      // abrem o app na tela inicial sem destino. Ver `gerarUrlWaze` em
+      // `src/lib/navigation.ts` para a medição.
+      return `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
     case 'google-maps':
       // Android: use google.navigation para iniciar navegação diretamente
       // iOS: use comgooglemaps://
@@ -50,10 +56,17 @@ function getWebFallbackUrl(destination: NavigationDestination): string {
 /**
  * Tenta abrir um app de navegação específico
  */
-async function tryOpenApp(app: NavigationApp, destination: NavigationDestination): Promise<boolean> {
+async function tryOpenApp(
+  app: NavigationApp,
+  destination: NavigationDestination,
+): Promise<boolean> {
   try {
     const url = getNavigationUrl(app, destination);
-    const canOpen = await Linking.canOpenURL(url);
+    // A URL do Waze é https, e https sempre passa no `canOpenURL` — sondar por
+    // ela faria `openNavigation` dar Waze como aberto sem o app instalado e
+    // nunca chegar no Google Maps. A detecção continua pelo esquema custom.
+    const probeUrl = app === 'waze' ? 'waze://' : url;
+    const canOpen = await Linking.canOpenURL(probeUrl);
     if (canOpen) {
       await Linking.openURL(url);
       return true;
@@ -68,7 +81,9 @@ async function tryOpenApp(app: NavigationApp, destination: NavigationDestination
 /**
  * Abre navegação para um destino, tentando Waze primeiro, depois Google Maps
  */
-export async function openNavigation(destination: NavigationDestination): Promise<void> {
+export async function openNavigation(
+  destination: NavigationDestination,
+): Promise<void> {
   // Tentar Waze primeiro
   const openedWaze = await tryOpenApp('waze', destination);
   if (openedWaze) return;
@@ -90,7 +105,7 @@ export async function openNavigation(destination: NavigationDestination): Promis
     Alert.alert(
       'Erro',
       'Não foi possível abrir nenhum app de navegação. Verifique se você tem o Waze ou Google Maps instalado.',
-      [{ text: 'OK' }]
+      [{ text: 'OK' }],
     );
     logger.warn('[Navigation] Erro ao abrir fallback:', error);
   }
@@ -99,26 +114,37 @@ export async function openNavigation(destination: NavigationDestination): Promis
 /**
  * Mostra seletor de app de navegação
  */
-export function showNavigationOptions(destination: NavigationDestination): void {
-  const options: { text: string; onPress?: () => void; style?: 'cancel' | 'default' | 'destructive' }[] = [];
+export function showNavigationOptions(
+  destination: NavigationDestination,
+): void {
+  const options: {
+    text: string;
+    onPress?: () => void;
+    style?: 'cancel' | 'default' | 'destructive';
+  }[] = [];
 
   // Adicionar opções de navegação
   options.push({
     text: 'Waze',
-    onPress: () => tryOpenApp('waze', destination).then(success => {
-      if (!success) {
-        Alert.alert('Waze não instalado', 'Instale o Waze para usar esta opção.');
-      }
-    }),
+    onPress: () =>
+      tryOpenApp('waze', destination).then((success) => {
+        if (!success) {
+          Alert.alert(
+            'Waze não instalado',
+            'Instale o Waze para usar esta opção.',
+          );
+        }
+      }),
   });
 
   options.push({
     text: 'Google Maps',
-    onPress: () => tryOpenApp('google-maps', destination).then(success => {
-      if (!success) {
-        Linking.openURL(getWebFallbackUrl(destination));
-      }
-    }),
+    onPress: () =>
+      tryOpenApp('google-maps', destination).then((success) => {
+        if (!success) {
+          Linking.openURL(getWebFallbackUrl(destination));
+        }
+      }),
   });
 
   if (Platform.OS === 'ios') {
@@ -133,17 +159,15 @@ export function showNavigationOptions(destination: NavigationDestination): void 
     style: 'cancel',
   });
 
-  Alert.alert(
-    'Navegar com',
-    'Escolha o app de navegação',
-    options
-  );
+  Alert.alert('Navegar com', 'Escolha o app de navegação', options);
 }
 
 /**
  * Gera URL para compartilhar localização
  */
-export function getShareLocationUrl(destination: NavigationDestination): string {
+export function getShareLocationUrl(
+  destination: NavigationDestination,
+): string {
   const { latitude, longitude, label } = destination;
   const encodedLabel = label ? encodeURIComponent(label) : '';
   return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}&query_place_id=${encodedLabel}`;
