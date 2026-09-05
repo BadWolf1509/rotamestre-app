@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   View,
   FlatList,
@@ -26,15 +19,11 @@ import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
+import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
-import {
-  lerConclusaoEmVoo,
-  limparConclusaoEmVoo,
-  paradaParaReabrir,
-} from '@/lib/motorista/conclusaoEmVoo';
 import { abrirNavegacao } from '@/lib/navigation';
 import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -111,51 +100,11 @@ export default function CheckpointsMotorista() {
   }
 
   // Reabre o fluxo de conclusão que a recriação da Activity interrompeu.
-  //
-  // Sem isto o motorista tira a foto, o Android recria a Activity sob pressão
-  // de memória, ele volta para a Início e NADA indica que a conclusão se
-  // perdeu — foi o que aconteceu no smoke test de 05/09/2026. Ver
-  // `src/lib/motorista/conclusaoEmVoo.ts`.
-  //
-  // A ordem importa: aqui o marcador é lido e NÃO apagado, porque quem o
-  // consome é o `CameraUpload` que monta junto com o modal — é ele que troca o
-  // marcador pela foto pendente.
-  const conclusaoJaRestaurada = useRef(false);
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    if (conclusaoJaRestaurada.current) return;
-    // Sem rota carregada ainda não dá para saber se o marcador é desta rota.
-    if (!route || paradas.length === 0) return;
-
-    let cancelado = false;
-
-    const restaurarConclusao = async () => {
-      const marcador = await lerConclusaoEmVoo();
-      if (cancelado || !marcador) return;
-
-      const parada = paradaParaReabrir(marcador, route, paradas);
-
-      if (!parada) {
-        // Rota trocada, parada já resolvida noutro aparelho, rota encerrada:
-        // o marcador perdeu o sentido. Apagar aqui evita o modal reabrir do
-        // nada numa próxima montagem.
-        await limparConclusaoEmVoo();
-        return;
-      }
-
-      if (cancelado) return;
-
-      conclusaoJaRestaurada.current = true;
-      setSelectedParadaForCompletion(toParadaData(parada));
-      setShowCompletionFlow(true);
-    };
-
-    restaurarConclusao();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [route, paradas]);
+  // Ver `src/hooks/motorista/useRestaurarConclusaoEmVoo.ts`.
+  useRestaurarConclusaoEmVoo(route, paradas, (parada) => {
+    setSelectedParadaForCompletion(toParadaData(parada));
+    setShowCompletionFlow(true);
+  });
 
   // Abre o modal de motivo de skip
   const pularParada = useCallback((parada: Parada) => {
