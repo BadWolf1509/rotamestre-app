@@ -337,14 +337,42 @@ it('mostra erro quando a RPC recusa a transferência', async () => {
     },
   });
 
-  render(<TransferirGestao />);
-  fireEvent.changeText(screen.getByTestId('confirmacao-input'), 'TRANSFERIR');
-  fireEvent.press(screen.getByTestId('confirmar-transferencia'));
+  render(<TransferirGestaoScreen />);
+
+  // Chegar até a confirmação: selecionar o gestor destino primeiro.
+  fireEvent.press(await screen.findByText('Gestor Dois'));
+  fireEvent.changeText(screen.getByPlaceholderText('TRANSFERIR'), 'TRANSFERIR');
+  fireEvent.press(screen.getByText('Confirmar'));
 
   await waitFor(() => {
     expect(mockShowError).toHaveBeenCalled();
   });
   expect(mockShowSuccess).not.toHaveBeenCalled();
+});
+```
+
+**Consulta por texto, não por `testID`.** A tela **não tem nenhum `testID`**
+hoje, e a irmã `app/unidade/__tests__/equipe.test.tsx` consulta por texto. O
+spec pede o teste, não instrumentar a tela — acrescentar `testID` seria escopo
+que ninguém pediu. O componente exportado chama-se `TransferirGestaoScreen`.
+
+E o caminho feliz, para provar que a RPC recebe os argumentos certos:
+
+```tsx
+it('chama a RPC com a unidade e o gestor destino', async () => {
+  mockRpc.mockResolvedValue({ error: null });
+
+  render(<TransferirGestaoScreen />);
+  fireEvent.press(await screen.findByText('Gestor Dois'));
+  fireEvent.changeText(screen.getByPlaceholderText('TRANSFERIR'), 'TRANSFERIR');
+  fireEvent.press(screen.getByText('Confirmar'));
+
+  await waitFor(() => {
+    expect(mockRpc).toHaveBeenCalledWith('transferir_gestao_principal', {
+      p_unidade_id: 'unidade-1',
+      p_novo_gestor_id: 'gestor-2',
+    });
+  });
 });
 ```
 
