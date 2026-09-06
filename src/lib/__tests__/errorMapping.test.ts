@@ -269,6 +269,56 @@ describe('errorMapping', () => {
       });
     });
 
+    describe('TRANSFER_SELF_TARGET', () => {
+      it('orienta escolher outro gestor em vez de se autoatribuir como principal', () => {
+        const resultado = getErrorMessage({
+          message: 'O novo gestor principal precisa ser outra pessoa',
+        });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).not.toContain('Algo deu errado');
+        expect(resultado.code).toBe('TRANSFER_SELF_TARGET');
+      });
+    });
+
+    describe('TRANSFER_PERMISSION_REQUIRED', () => {
+      it('orienta que só o gestor principal pode transferir a gestão', () => {
+        const resultado = getErrorMessage({
+          message: 'Só o gestor principal da unidade pode transferir a gestão',
+        });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).not.toContain('Algo deu errado');
+        expect(resultado.code).toBe('PERMISSION_DENIED');
+      });
+
+      it('usa code PERMISSION_DENIED para que isPermissionError() reconheça a sentinela', () => {
+        const resultado = getErrorMessage({
+          message: 'Só o gestor principal da unidade pode transferir a gestão',
+        });
+
+        expect(resultado.code).toBe('PERMISSION_DENIED');
+        expect(
+          isPermissionError({
+            message:
+              'Só o gestor principal da unidade pode transferir a gestão',
+          }),
+        ).toBe(true);
+      });
+    });
+
+    describe('TRANSFER_TARGET_INVALID', () => {
+      it('orienta atualizar a lista de destinatários antes de confirmar', () => {
+        const resultado = getErrorMessage({
+          message: 'O destinatário precisa ser gestor ativo desta unidade',
+        });
+
+        expect(resultado.title).not.toBe('Algo deu errado');
+        expect(resultado.message).not.toContain('Algo deu errado');
+        expect(resultado.code).toBe('TRANSFER_TARGET_INVALID');
+      });
+    });
+
     describe('database constraint errors', () => {
       it('should handle foreign key violation', () => {
         const error = new Error('violates foreign key constraint');
