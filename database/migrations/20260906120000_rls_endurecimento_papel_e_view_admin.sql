@@ -206,6 +206,24 @@ COMMENT ON POLICY incidentes_delete_optimized ON public.incidentes IS
 -- sobre a coluna LEGADA `usuarios.unidade_id`. Por isso a RPC exige que as duas
 -- pessoas tenham essa coluna apontando para `p_unidade_id` — senão o flag
 -- cairia no "slot" de outra unidade, em silêncio.
+--
+-- Efeito colateral que esta migration abre e não fecha: depois dela não sobra
+-- NENHUM caminho de `authenticated` para estabelecer o PRIMEIRO gestor
+-- principal de uma unidade. Esta RPC só transfere — exige que quem chama já
+-- seja principal —, e `criar_unidade_para_novo_gestor` só liga o flag na
+-- criação da unidade, não depois disso.
+--
+-- Medido em 06/09/2026: NENHUMA das 9 unidades tem gestor principal (0 de 16
+-- usuarios com o flag ligado), porque nenhuma delas passou pelo fluxo
+-- self-service — o único que liga `is_gestor_principal`. Ou seja, hoje não
+-- existe unidade em condições de chamar esta RPC.
+--
+-- Não é esquecimento, é decisão de produto pendente: o bootstrap do primeiro
+-- principal de cada unidade existente vai exigir `service_role` ou uma RPC
+-- dedicada de bootstrap — nenhuma das duas existe ainda. E não é regressão: o
+-- caminho que esta migration fecha era qualquer gestor se autopromover com um
+-- `.update()` direto do cliente contra `usuarios_update_optimized` sem WITH
+-- CHECK — o mesmo buraco que o REVOKE do item 2 tapa.
 CREATE OR REPLACE FUNCTION public.transferir_gestao_principal(
   p_unidade_id uuid,
   p_novo_gestor_id uuid
@@ -213,7 +231,7 @@ CREATE OR REPLACE FUNCTION public.transferir_gestao_principal(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_chamador uuid := auth.uid();
@@ -230,12 +248,13 @@ BEGIN
   -- Quem chama tem de ser o gestor principal ATIVO desta unidade.
   IF NOT EXISTS (
     SELECT 1
-    FROM usuario_unidades uu
-    JOIN usuarios u ON u.id = uu.usuario_id
+    FROM public.usuario_unidades uu
+    JOIN public.usuarios u ON u.id = uu.usuario_id
     WHERE uu.usuario_id = v_chamador
       AND uu.unidade_id = p_unidade_id
       AND uu.papel = 'gestor'
       AND uu.ativo = true
+      AND u.ativo = true
       AND u.unidade_id = p_unidade_id
       AND u.is_gestor_principal = true
   ) THEN
@@ -246,8 +265,8 @@ BEGIN
   -- O alvo tem de ser gestor ativo da MESMA unidade.
   IF NOT EXISTS (
     SELECT 1
-    FROM usuario_unidades uu
-    JOIN usuarios u ON u.id = uu.usuario_id
+    FROM public.usuario_unidades uu
+    JOIN public.usuarios u ON u.id = uu.usuario_id
     WHERE uu.usuario_id = p_novo_gestor_id
       AND uu.unidade_id = p_unidade_id
       AND uu.papel = 'gestor'
@@ -261,8 +280,8 @@ BEGIN
 
   -- Ordem importa: limpar ANTES de conceder, senão o índice único parcial
   -- recusa os dois principais coexistindo por um instante.
-  UPDATE usuarios SET is_gestor_principal = false WHERE id = v_chamador;
-  UPDATE usuarios SET is_gestor_principal = true  WHERE id = p_novo_gestor_id;
+  UPDATE public.usuarios SET is_gestor_principal = false WHERE id = v_chamador;
+  UPDATE public.usuarios SET is_gestor_principal = true  WHERE id = p_novo_gestor_id;
 END;
 $$;
 
