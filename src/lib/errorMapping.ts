@@ -198,6 +198,53 @@ const ERROR_PATTERNS: Array<{
     },
   },
 
+  // Sentinelas da RPC transferir_gestao_principal (ver
+  // database/migrations/20260906120000_rls_endurecimento_papel_e_view_admin.sql).
+  // Diferente das sentinelas acima (constantes UPPER_SNAKE_CASE), esta RPC
+  // levanta a frase de negócio já pronta para o gestor ler — o padrão casa a
+  // frase inteira e o `message` do resultado a repete verbatim, para que
+  // apareça na tela exatamente como o banco escreveu.
+  {
+    // Quem chama tentou se indicar como o próprio novo gestor principal. A
+    // lista de destinatários (loadGestoresElegiveis em transferir.tsx) já
+    // exclui o chamador, então isto só é alcançável fora do fluxo normal da
+    // tela — mesmo assim, sem esta entrada caía no DEFAULT_ERROR genérico.
+    pattern: /o novo gestor principal precisa ser outra pessoa/i,
+    result: {
+      title: 'Seleção inválida',
+      message: 'O novo gestor principal precisa ser outra pessoa',
+      type: 'warning',
+      code: 'TRANSFER_SELF_TARGET',
+    },
+  },
+  {
+    // Quem chama deixou de ser o gestor principal ATIVO da unidade entre o
+    // carregamento da tela e a confirmação (ex.: outra transferência já
+    // aconteceu, ou a conta foi desativada nesse intervalo). code usa a
+    // convenção semântica de SEM_PERMISSAO (não o nome cru da sentinela) para
+    // que isPermissionError() reconheça este erro também.
+    pattern: /só o gestor principal da unidade pode transferir a gestão/i,
+    result: {
+      title: 'Sem permissão',
+      message: 'Só o gestor principal da unidade pode transferir a gestão',
+      type: 'error',
+      code: 'PERMISSION_DENIED',
+    },
+  },
+  {
+    // O destinatário escolhido deixou de ser gestor ativo desta unidade entre
+    // o carregamento da lista (loadGestoresElegiveis) e a confirmação — foi
+    // desativado, trocou de unidade ou foi removido. A ação certa é atualizar
+    // a lista de gestores elegíveis, não "contate o suporte".
+    pattern: /o destinatário precisa ser gestor ativo desta unidade/i,
+    result: {
+      title: 'Destinatário indisponível',
+      message: 'O destinatário precisa ser gestor ativo desta unidade',
+      type: 'warning',
+      code: 'TRANSFER_TARGET_INVALID',
+    },
+  },
+
   // Erros de RLS/Permissão
   {
     pattern: /rls|row.*level.*security|policy/i,

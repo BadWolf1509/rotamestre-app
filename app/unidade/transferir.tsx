@@ -126,11 +126,13 @@ export default function TransferirGestaoScreen() {
       );
     } catch (error) {
       logger.error('Erro ao transferir gestão', error);
-      showError({
-        title: 'Erro',
-        message:
-          'Não foi possível transferir a gestão. Tente novamente ou entre em contato com o suporte.',
-      });
+      // Repassa o erro bruto da RPC (em vez de um texto fixo) para que
+      // useAlert/getErrorMessage (src/lib/errorMapping.ts) traduza as
+      // exceções de negócio de transferir_gestao_principal na frase exata
+      // que a RPC já escreve para o gestor. Erros inesperados (rede,
+      // Postgres técnico) continuam caindo no fallback genérico do
+      // errorMapping, só que agora compartilhado com o resto do app.
+      showError(error);
     } finally {
       setTransferring(false);
     }
