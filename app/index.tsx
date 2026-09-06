@@ -4,6 +4,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { authService } from '@/lib/auth';
+import { obterSessaoComTimeout } from '@/lib/auth/sessaoComTimeout';
 import { logger } from '@/lib/logger';
 import { isRecoveryRedirect } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -65,18 +66,15 @@ function IndexContent() {
     }
 
     try {
-      // Add timeout to prevent hanging in CI when Supabase isn't configured
+      // Timeout para o app não travar quando o Supabase não responde.
       // See: https://github.com/supabase/supabase/issues/35754
       const SESSION_TIMEOUT = 10000; // 10 seconds (increased for slow emulators)
-      const sessionPromise = authService.getSession();
-      const timeoutPromise = new Promise<null>((resolve) => {
-        setTimeout(() => {
-          logger.warn('⏱️ Session check timeout - assuming not authenticated');
-          resolve(null);
-        }, SESSION_TIMEOUT);
-      });
-
-      const session = await Promise.race([sessionPromise, timeoutPromise]);
+      const session = await obterSessaoComTimeout(
+        () => authService.getSession(),
+        SESSION_TIMEOUT,
+        () =>
+          logger.warn('⏱️ Session check timeout - assuming not authenticated'),
+      );
 
       if (session?.user) {
         // Usuário autenticado: buscar dados completos para verificar primeira_senha

@@ -20,6 +20,7 @@ import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
+import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
@@ -104,6 +105,13 @@ export default function CheckpointsMotorista() {
   useRestaurarConclusaoEmVoo(route, paradas, (parada) => {
     setSelectedParadaForCompletion(toParadaData(parada));
     setShowCompletionFlow(true);
+  });
+
+  // Reabre o wizard de incidente interrompido. Mesma razão do de cima: o
+  // wizard só monta com `showIncidentWizard`, que some na remontagem.
+  useRestaurarRascunhoIncidente(route, paradas, (parada) => {
+    setSelectedParadaForIncident(parada);
+    setShowIncidentWizard(true);
   });
 
   // Abre o modal de motivo de skip

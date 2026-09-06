@@ -92,10 +92,21 @@ export function formatTimeBR(dateStr: string | undefined | null): string {
  * Usa data local para evitar problemas de timezone
  */
 export function getTodayISO(): string {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
+  return toLocalISODate(new Date());
+}
+
+/**
+ * Formata um Date como YYYY-MM-DD usando os componentes LOCAIS.
+ *
+ * Existe para substituir `date.toISOString().split('T')[0]`, que devolve o dia
+ * em UTC: em UTC-3, a partir das 21:00 isso já é o dia seguinte. Toda
+ * comparação com `rotas.data` — uma coluna `date` do negócio — tem que usar o
+ * dia do calendário de quem está olhando, não o de Greenwich.
+ */
+export function toLocalISODate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 

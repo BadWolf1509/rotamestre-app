@@ -99,3 +99,23 @@ describe('fonte de tiles é única entre web e nativo', () => {
     expect(ler(ARQUIVO_FONTE)).toMatch(HOSTS_DE_TILE);
   });
 });
+
+/**
+ * Atribuição é obrigação de licença, não enfeite. Os tiles vêm de
+ * OpenFreeMap/OpenMapTiles sobre dados do OpenStreetMap, e a ODbL exige o
+ * crédito visível onde o dado é mostrado.
+ *
+ * Em 05/09/2026 o mapa **web** exibia "MapLibre | OpenFreeMap © OpenMapTiles
+ * Data from OpenStreetMap" e os **seis** componentes nativos passavam
+ * `attribution={false}`. A assimetria é a mesma família do bug dos tiles: um
+ * lado certo, o outro não, e ninguém tinha escrito isso em lugar nenhum.
+ */
+describe('mapa nativo credita a fonte dos tiles', () => {
+  it('nenhum componente nativo desliga a atribuição', () => {
+    const infratores = COMPONENTES_NATIVOS.filter((caminho) =>
+      /attribution=\{false\}/.test(ler(caminho)),
+    );
+
+    expect(infratores).toEqual([]);
+  });
+});

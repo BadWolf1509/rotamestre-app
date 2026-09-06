@@ -354,7 +354,7 @@ export function NavigationMode({
         touchPitch={false}
         compass={false}
         logo={false}
-        attribution={false}
+        attribution={true}
       >
         {cameraSettings && (
           <MapLibreGL.Camera ref={cameraRef} {...cameraSettings} />

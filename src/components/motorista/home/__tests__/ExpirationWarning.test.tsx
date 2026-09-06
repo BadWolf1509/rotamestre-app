@@ -53,15 +53,42 @@ describe('ExpirationWarning', () => {
 
   describe('Renderização Básica', () => {
     it('deve renderizar componente quando no período de aviso', () => {
-      const { getByText } = render(<ExpirationWarning rotaData="2025-12-25" />);
+      const { getByText } = render(
+        <ExpirationWarning rotaData="2025-12-25" rotaStatus="pendente" />,
+      );
 
       expect(getByText(/Rota expira/)).toBeTruthy();
     });
 
     it('deve mostrar ícone de tempo', () => {
-      const { getByText } = render(<ExpirationWarning rotaData="2025-12-25" />);
+      const { getByText } = render(
+        <ExpirationWarning rotaData="2025-12-25" rotaStatus="pendente" />,
+      );
 
       expect(getByText('time-outline')).toBeTruthy();
+    });
+  });
+
+  describe('Regra de expiração por status', () => {
+    // A regra real vive em `expire_old_pending_routes` (produção):
+    //   pendente     + data = hoje      -> expira as 22:00 BRT
+    //   em_andamento + data <= hoje - 7 -> expira (carencia de 7 dias)
+    // Avisar "expira em 1h" numa rota em andamento inventa um prazo que nao
+    // existe e pressiona o motorista a correr no fim do dia.
+    it('não avisa quando a rota está em andamento', () => {
+      const { queryByText } = render(
+        <ExpirationWarning rotaData="2025-12-25" rotaStatus="em_andamento" />,
+      );
+
+      expect(queryByText(/Rota expira/)).toBeNull();
+    });
+
+    it('avisa quando a rota está pendente', () => {
+      const { getByText } = render(
+        <ExpirationWarning rotaData="2025-12-25" rotaStatus="pendente" />,
+      );
+
+      expect(getByText(/Rota expira/)).toBeTruthy();
     });
   });
 
@@ -69,7 +96,9 @@ describe('ExpirationWarning', () => {
     it('não deve renderizar antes das 20h', () => {
       jest.setSystemTime(new Date('2025-12-25T15:00:00'));
 
-      const { queryByText } = render(<ExpirationWarning rotaData="2025-12-25" />);
+      const { queryByText } = render(
+        <ExpirationWarning rotaData="2025-12-25" rotaStatus="pendente" />,
+      );
 
       expect(queryByText(/Rota expira/)).toBeNull();
     });
@@ -77,7 +106,9 @@ describe('ExpirationWarning', () => {
     it('não deve renderizar para rota de outro dia', () => {
       jest.setSystemTime(new Date('2025-12-25T20:00:00'));
 
-      const { queryByText } = render(<ExpirationWarning rotaData="2025-12-24" />);
+      const { queryByText } = render(
+        <ExpirationWarning rotaData="2025-12-24" rotaStatus="pendente" />,
+      );
 
       expect(queryByText(/Rota expira/)).toBeNull();
     });
@@ -85,7 +116,9 @@ describe('ExpirationWarning', () => {
 
   describe('Props', () => {
     it('deve aceitar prop rotaData', () => {
-      const { getByText } = render(<ExpirationWarning rotaData="2025-12-25" />);
+      const { getByText } = render(
+        <ExpirationWarning rotaData="2025-12-25" rotaStatus="pendente" />,
+      );
 
       expect(getByText(/Rota expira/)).toBeTruthy();
     });
@@ -93,7 +126,11 @@ describe('ExpirationWarning', () => {
     it('deve aceitar prop onExpire opcional', () => {
       const onExpire = jest.fn();
       const { getByText } = render(
-        <ExpirationWarning rotaData="2025-12-25" onExpire={onExpire} />
+        <ExpirationWarning
+          rotaData="2025-12-25"
+          rotaStatus="pendente"
+          onExpire={onExpire}
+        />,
       );
 
       expect(getByText(/Rota expira/)).toBeTruthy();

@@ -560,7 +560,7 @@ export function TurnByTurnNavigation({
         touchRotate={false}
         compass={false}
         logo={false}
-        attribution={false}
+        attribution={true}
       >
         <MapLibreGL.Camera ref={cameraRef} initialViewState={initialCamera} />
 

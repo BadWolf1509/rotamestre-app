@@ -73,47 +73,68 @@ export const MainCardActive = memo(function MainCardActive({
   const paradasReais = useMemo(() => filterRealStops(paradas), [paradas]);
 
   // Memoize próxima parada
-  const upcomingStop = useMemo(() => (
-    nextStop || paradas.find(p =>
-      p.is_checkpoint !== false &&
-      p.status === 'pendente' &&
-      p.id !== currentStop?.id
-    )
-  ), [nextStop, paradas, currentStop?.id]);
+  const upcomingStop = useMemo(
+    () =>
+      nextStop ||
+      paradas.find(
+        (p) =>
+          p.is_checkpoint !== false &&
+          p.status === 'pendente' &&
+          p.id !== currentStop?.id,
+      ),
+    [nextStop, paradas, currentStop?.id],
+  );
 
   // Memoize swipe actions para evitar re-render do SwipeableRow
-  const swipeActions = useMemo(() => ({
-    leftActions: [{
-      icon: 'checkmark-circle' as const,
-      label: 'Concluir',
-      color: theme.colors.success,
-      onPress: onSwipeRight || (() => {}),
-    }],
-    rightActions: [{
-      icon: 'arrow-forward-circle' as const,
-      label: 'Pular',
-      color: theme.colors.warning,
-      onPress: onSwipeLeft || (() => {}),
-    }],
-  }), [theme.colors.success, theme.colors.warning, onSwipeRight, onSwipeLeft]);
+  const swipeActions = useMemo(
+    () => ({
+      leftActions: [
+        {
+          icon: 'checkmark-circle' as const,
+          label: 'Concluir',
+          color: theme.colors.success,
+          onPress: onSwipeRight || (() => {}),
+        },
+      ],
+      rightActions: [
+        {
+          icon: 'arrow-forward-circle' as const,
+          label: 'Pular',
+          color: theme.colors.warning,
+          onPress: onSwipeLeft || (() => {}),
+        },
+      ],
+    }),
+    [theme.colors.success, theme.colors.warning, onSwipeRight, onSwipeLeft],
+  );
 
   return (
     <>
       {/* Aviso de expiração (a partir das 20:00) */}
       {route?.data && (
         <View style={styles.expirationWarningContainer}>
-          <ExpirationWarning rotaData={route.data} />
+          <ExpirationWarning rotaData={route.data} rotaStatus={route.status} />
         </View>
       )}
       <SwipeableRow {...swipeActions}>
-        <TouchableOpacity style={styles.content} onPress={onPress} activeOpacity={0.9}>
+        <TouchableOpacity
+          style={styles.content}
+          onPress={onPress}
+          activeOpacity={0.9}
+        >
           <View style={styles.header}>
-            <View style={[
-              styles.badge,
-              state === 'last-stop' && { backgroundColor: theme.colors.successDark }
-            ]}>
+            <View
+              style={[
+                styles.badge,
+                state === 'last-stop' && {
+                  backgroundColor: theme.colors.successDark,
+                },
+              ]}
+            >
               <Text style={styles.badgeText}>
-                {state === 'last-stop' ? 'ÚLTIMA PARADA! 🎯' : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
+                {state === 'last-stop'
+                  ? 'ÚLTIMA PARADA! 🎯'
+                  : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
               </Text>
             </View>
             <View style={styles.timer}>
@@ -121,8 +142,20 @@ export const MainCardActive = memo(function MainCardActive({
                 <ActivityIndicator size="small" color={theme.colors.primary} />
               ) : (
                 <>
-                  <Ionicons name="time-outline" size={14} color={theme.colors.primary} />
-                  <Text style={[styles.timerText, { color: theme.colors.primary, fontFamily: theme.typography.fontSansSemiBold }]}>
+                  <Ionicons
+                    name="time-outline"
+                    size={14}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.timerText,
+                      {
+                        color: theme.colors.primary,
+                        fontFamily: theme.typography.fontSansSemiBold,
+                      },
+                    ]}
+                  >
                     {distanceInfo.durationText}
                   </Text>
                 </>
@@ -134,31 +167,58 @@ export const MainCardActive = memo(function MainCardActive({
 
           {currentStop.destinatario && (
             <View style={styles.contactInfo}>
-              <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
+              <Ionicons
+                name="person-outline"
+                size={14}
+                color={theme.colors.gray500}
+              />
               <Text style={styles.contactText}>{currentStop.destinatario}</Text>
             </View>
           )}
 
           {currentStop.telefone && (
             <View style={styles.contactInfo}>
-              <Ionicons name="call-outline" size={14} color={theme.colors.gray500} />
+              <Ionicons
+                name="call-outline"
+                size={14}
+                color={theme.colors.gray500}
+              />
               <Text style={styles.contactText}>{currentStop.telefone}</Text>
             </View>
           )}
 
           {currentStop.observacoes && (
             <View style={styles.observationBox}>
-              <Text style={styles.observationText}>{currentStop.observacoes}</Text>
+              <Text style={styles.observationText}>
+                {currentStop.observacoes}
+              </Text>
             </View>
           )}
 
-          <View style={[styles.distanceBar, { backgroundColor: theme.colors.primary }]}>
+          <View
+            style={[
+              styles.distanceBar,
+              { backgroundColor: theme.colors.primary },
+            ]}
+          >
             {distanceInfo.isLoading ? (
               <ActivityIndicator size="small" color={theme.colors.white} />
             ) : (
               <>
-                <Ionicons name="navigate" size={16} color={theme.colors.white} />
-                <Text style={[styles.distanceText, { color: theme.colors.white, fontFamily: theme.typography.fontSansSemiBold }]}>
+                <Ionicons
+                  name="navigate"
+                  size={16}
+                  color={theme.colors.white}
+                />
+                <Text
+                  style={[
+                    styles.distanceText,
+                    {
+                      color: theme.colors.white,
+                      fontFamily: theme.typography.fontSansSemiBold,
+                    },
+                  ]}
+                >
                   {distanceInfo.distanceKm} • {distanceInfo.durationText}
                 </Text>
               </>
@@ -168,9 +228,15 @@ export const MainCardActive = memo(function MainCardActive({
           {/* Indicador de swipe inteligente */}
           {!swipeHint.hideCompletely && (
             <View style={styles.swipeHint}>
-              <Ionicons name="swap-horizontal" size={16} color={theme.colors.gray400} />
+              <Ionicons
+                name="swap-horizontal"
+                size={16}
+                color={theme.colors.gray400}
+              />
               {swipeHint.showFullHint && (
-                <Text style={styles.swipeHintText}>Deslize para ações rápidas</Text>
+                <Text style={styles.swipeHintText}>
+                  Deslize para ações rápidas
+                </Text>
               )}
             </View>
           )}

@@ -9,11 +9,18 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Animated, Text } from 'react-native';
 
+import { toLocalISODate } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface ExpirationWarningProps {
   /** Data da rota (formato YYYY-MM-DD) */
   rotaData: string;
+  /**
+   * Status da rota. OBRIGATÓRIO de propósito: só `pendente` expira às 22:00.
+   * Deixar opcional faria um call site esquecido voltar a inventar prazo em
+   * rota que não expira, e em silêncio.
+   */
+  rotaStatus: string;
   /** Callback quando expirar */
   onExpire?: () => void;
 }
@@ -22,9 +29,21 @@ interface ExpirationWarningProps {
  * Calcula tempo restante até 22:00
  * Retorna null se não estiver no período de aviso (antes das 20:00)
  */
-function getTimeUntilExpiration(rotaData: string): { minutes: number; isUrgent: boolean } | null {
+function getTimeUntilExpiration(
+  rotaData: string,
+  rotaStatus: string,
+): { minutes: number; isUrgent: boolean } | null {
+  // A regra de expiração vive em `expire_old_pending_routes` (produção):
+  //   pendente     + data = hoje      -> expira às 22:00 BRT
+  //   em_andamento + data <= hoje - 7 -> expira (carência de 7 dias)
+  // O corte das 22:00 só existe para `pendente`. Avisar numa rota em
+  // andamento inventa um prazo e pressiona o motorista no fim do dia.
+  if (rotaStatus !== 'pendente') {
+    return null;
+  }
+
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = toLocalISODate(now);
 
   // Só mostrar aviso se a rota é de hoje
   if (rotaData !== today) {
@@ -71,9 +90,16 @@ function formatTimeRemaining(minutes: number): string {
   return `${mins}min`;
 }
 
-export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps) {
+export function ExpirationWarning({
+  rotaData,
+  rotaStatus,
+  onExpire,
+}: ExpirationWarningProps) {
   const { theme } = useUnistyles();
-  const [timeInfo, setTimeInfo] = useState<{ minutes: number; isUrgent: boolean } | null>(null);
+  const [timeInfo, setTimeInfo] = useState<{
+    minutes: number;
+    isUrgent: boolean;
+  } | null>(null);
 
   // Animação de pulso para estado urgente
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -81,7 +107,7 @@ export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps
   // Atualizar countdown a cada minuto
   useEffect(() => {
     const updateTime = () => {
-      const info = getTimeUntilExpiration(rotaData);
+      const info = getTimeUntilExpiration(rotaData, rotaStatus);
       setTimeInfo(info);
 
       // Se expirou, chamar callback
@@ -97,7 +123,7 @@ export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps
     const interval = setInterval(updateTime, 60000);
 
     return () => clearInterval(interval);
-  }, [rotaData, onExpire]);
+  }, [rotaData, rotaStatus, onExpire]);
 
   // Animação de pulso quando urgente
   useEffect(() => {
@@ -114,7 +140,7 @@ export function ExpirationWarning({ rotaData, onExpire }: ExpirationWarningProps
             duration: 500,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       );
       pulse.start();
 

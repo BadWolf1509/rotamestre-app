@@ -12,6 +12,7 @@ import {
   isToday,
   isPast,
   daysDifference,
+  toLocalISODate,
 } from '../dateUtils';
 
 // Helper para criar string ISO local (evita problemas de timezone)
@@ -546,5 +547,20 @@ describe('lib/dateUtils', () => {
       expect(formatTimeBR('')).toBe('-');
       expect(formatTimeBR('nao e uma data')).toBe('-');
     });
+  });
+});
+
+describe('toLocalISODate', () => {
+  it('formata a data com componentes locais, sem passar por UTC', () => {
+    // 21:30 em UTC-3 ja e o dia seguinte em UTC. O dia do calendario do
+    // usuario continua sendo 05/09 — e e esse que vale para comparar com
+    // `rotas.data`, que e uma coluna `date` do negocio.
+    const noite = new Date(2026, 8, 5, 21, 30, 0);
+
+    expect(toLocalISODate(noite)).toBe('2026-09-05');
+  });
+
+  it('preenche mes e dia com zero a esquerda', () => {
+    expect(toLocalISODate(new Date(2026, 0, 7, 12, 0, 0))).toBe('2026-01-07');
   });
 });

@@ -18,17 +18,24 @@
  */
 
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState, useCallback, memo } from 'react';
-import {
-  ScrollView,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import React, { useState, useCallback, useEffect, useRef, memo } from 'react';
+import { Platform, ScrollView, View, useWindowDimensions } from 'react-native';
 
-import { DesktopModal, Dialog, StepIndicator, type Step } from '@/design-system';
+import {
+  DesktopModal,
+  Dialog,
+  StepIndicator,
+  type Step,
+} from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
+import { logger } from '@/lib/logger';
+import {
+  lerRascunhoIncidente,
+  limparRascunhoIncidente,
+  salvarRascunhoIncidente,
+} from '@/lib/motorista/rascunhoIncidente';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
@@ -102,7 +109,61 @@ function IncidentReportWizardComponent({
   // Calcular largura da imagem baseado na tela
   const imageWidth = isDesktop ? 400 : screenWidth - 80;
 
+  // Restaura o rascunho que a recriacao da Activity interrompeu, e recupera a
+  // foto pendente quando foi a camera que provocou a recriacao. Ver
+  // `src/lib/motorista/rascunhoIncidente.ts`.
+  //
+  // So no Android: o bug e da recriacao de Activity e `getPendingResultAsync`
+  // nao existe nas outras plataformas.
+  const rascunhoJaRestaurado = useRef(false);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!visible || rascunhoJaRestaurado.current) return;
+
+    let cancelado = false;
+
+    const restaurar = async () => {
+      const rascunho = await lerRascunhoIncidente();
+      if (cancelado || !rascunho) return;
+
+      // Rascunho de outra parada perdeu o sentido — e adotar a descricao de
+      // outro reporte seria pior que perde-la.
+      if (rascunho.paradaId !== paradaId) {
+        await limparRascunhoIncidente();
+        return;
+      }
+
+      rascunhoJaRestaurado.current = true;
+      setCurrentStep(rascunho.passo);
+      setSelectedCategory(rascunho.categoria);
+      setDescription(rascunho.descricao);
+      if (rascunho.fotoUri) setPhotoUri(rascunho.fotoUri);
+
+      await limparRascunhoIncidente();
+
+      if (!rascunho.cameraAberta) return;
+
+      try {
+        const pendente = await ImagePicker.getPendingResultAsync();
+        if (cancelado || !pendente || 'code' in pendente) return;
+        if (pendente.canceled || !pendente.assets?.[0]) return;
+        setPhotoUri(pendente.assets[0].uri);
+      } catch (error) {
+        // Nao-critico: sem a foto recuperada o motorista tira outra. O wizard
+        // ja voltou no passo certo, com categoria e descricao, que e o caro.
+        logger.warn('[IncidentWizard] Falha ao recuperar foto pendente', error);
+      }
+    };
+
+    restaurar();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [visible, paradaId]);
+
   const resetWizard = useCallback(() => {
+    limparRascunhoIncidente();
     setCurrentStep(0);
     setSelectedCategory('');
     setDescription('');
@@ -153,8 +214,29 @@ function IncidentReportWizardComponent({
   const takePhoto = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      showWarning('Permissão necessária', 'Precisamos da permissão da câmera para tirar fotos');
+      showWarning(
+        'Permissão necessária',
+        'Precisamos da permissão da câmera para tirar fotos',
+      );
       return;
+    }
+
+    // Antes de abrir a camera, e nao depois: se o Android recriar a Activity
+    // enquanto ela esta aberta, nao existe "depois" neste componente.
+    //
+    // Sem parada/rota nao ha identidade estavel para religar o rascunho: e
+    // preferivel nao salvar a arriscar restaurar a descricao noutro contexto.
+    if (paradaId && rotaId) {
+      await salvarRascunhoIncidente({
+        paradaId,
+        rotaId,
+        passo: currentStep,
+        categoria: selectedCategory,
+        descricao: description,
+        fotoUri: photoUri,
+        cameraAberta: true,
+        em: Date.now(),
+      });
     }
 
     const result = await ImagePicker.launchCameraAsync({
@@ -163,15 +245,29 @@ function IncidentReportWizardComponent({
       quality: 0.7,
     });
 
+    // Chegou aqui = a Activity sobreviveu e o resultado veio inline.
+    await limparRascunhoIncidente();
+
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
     }
-  }, [showWarning]);
+  }, [
+    showWarning,
+    paradaId,
+    rotaId,
+    currentStep,
+    selectedCategory,
+    description,
+    photoUri,
+  ]);
 
   const pickImage = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      showWarning('Permissão necessária', 'Precisamos da permissão para acessar suas fotos');
+      showWarning(
+        'Permissão necessária',
+        'Precisamos da permissão para acessar suas fotos',
+      );
       return;
     }
 
@@ -212,7 +308,8 @@ function IncidentReportWizardComponent({
   }, []);
 
   // Gerar URI com cache-busting para retry
-  const displayPhotoUri = photoRetryCount > 0 ? `${photoUri}?retry=${photoRetryCount}` : photoUri;
+  const displayPhotoUri =
+    photoRetryCount > 0 ? `${photoUri}?retry=${photoRetryCount}` : photoUri;
 
   const handleSubmit = useCallback(async () => {
     const result = await submitIncident({
@@ -228,10 +325,22 @@ function IncidentReportWizardComponent({
     if (result.success) {
       setShowSuccessModal(true);
     } else {
-      setErrorMessage(result.error || 'Não foi possível enviar o reporte. Tente novamente.');
+      setErrorMessage(
+        result.error || 'Não foi possível enviar o reporte. Tente novamente.',
+      );
       setShowErrorModal(true);
     }
-  }, [submitIncident, selectedCategory, description, photoUri, paradaId, rotaId, motoristaId, endereco, manualEndereco]);
+  }, [
+    submitIncident,
+    selectedCategory,
+    description,
+    photoUri,
+    paradaId,
+    rotaId,
+    motoristaId,
+    endereco,
+    manualEndereco,
+  ]);
 
   const handleSuccessConfirm = useCallback(() => {
     setShowSuccessModal(false);
@@ -248,7 +357,19 @@ function IncidentReportWizardComponent({
     resetWizard();
     onSubmit(report);
     onClose();
-  }, [selectedCategory, description, photoUri, paradaId, rotaId, motoristaId, endereco, manualEndereco, resetWizard, onSubmit, onClose]);
+  }, [
+    selectedCategory,
+    description,
+    photoUri,
+    paradaId,
+    rotaId,
+    motoristaId,
+    endereco,
+    manualEndereco,
+    resetWizard,
+    onSubmit,
+    onClose,
+  ]);
 
   const handleCategorySelect = useCallback((value: string) => {
     setSelectedCategory(value);
@@ -364,10 +485,10 @@ function IncidentReportWizardComponent({
       >
         <View style={styles.container} accessibilityLiveRegion="polite">
           <StepIndicator
-              steps={STEPS}
-              currentStep={currentStep}
-              accessibilityLabel={`Passo ${currentStep + 1} de ${STEPS.length}: ${STEPS[currentStep]?.title}`}
-            />
+            steps={STEPS}
+            currentStep={currentStep}
+            accessibilityLabel={`Passo ${currentStep + 1} de ${STEPS.length}: ${STEPS[currentStep]?.title}`}
+          />
 
           <ScrollView
             style={styles.scrollContent}

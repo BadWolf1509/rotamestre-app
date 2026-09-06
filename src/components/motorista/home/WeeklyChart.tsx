@@ -8,6 +8,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Text, View } from 'react-native';
 
 import { WeeklyData } from '@/hooks/useMilestones';
+import { getTodayISO } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface WeeklyChartProps {
@@ -18,13 +19,18 @@ interface WeeklyChartProps {
   compact?: boolean;
 }
 
-export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = false }: WeeklyChartProps) {
+export function WeeklyChart({
+  data,
+  averagePerDay,
+  isLoading = false,
+  compact = false,
+}: WeeklyChartProps) {
   const { theme } = useUnistyles();
   const barAnims = useRef(data.map(() => new Animated.Value(0))).current;
 
   // Encontrar o máximo para escala
-  const maxEntregas = Math.max(...data.map(d => d.entregas), 1);
-  const today = new Date().toISOString().split('T')[0];
+  const maxEntregas = Math.max(...data.map((d) => d.entregas), 1);
+  const today = getTodayISO();
 
   // Calcular total da semana
   const totalSemana = data.reduce((sum, d) => sum + d.entregas, 0);
@@ -65,14 +71,24 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = 
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Ionicons name="bar-chart-outline" size={16} color={theme.colors.gray500} />
+            <Ionicons
+              name="bar-chart-outline"
+              size={16}
+              color={theme.colors.gray500}
+            />
             <Text style={styles.title}>Semana</Text>
           </View>
         </View>
         <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={24} color={theme.colors.gray400} />
+          <Ionicons
+            name="calendar-outline"
+            size={24}
+            color={theme.colors.gray400}
+          />
           <Text style={styles.emptyText}>Sem entregas esta semana</Text>
-          <Text style={styles.emptySubtext}>Complete rotas para ver seu progresso</Text>
+          <Text style={styles.emptySubtext}>
+            Complete rotas para ver seu progresso
+          </Text>
         </View>
       </View>
     );
@@ -83,19 +99,29 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = 
       {/* Header com título e totais */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="bar-chart-outline" size={compact ? 14 : 16} color={theme.colors.gray500} />
+          <Ionicons
+            name="bar-chart-outline"
+            size={compact ? 14 : 16}
+            color={theme.colors.gray500}
+          />
           <Text style={[styles.title, compact && styles.titleCompact]}>
             {compact ? 'Semana' : 'Última semana'}
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={[styles.totalValue, compact && styles.totalValueCompact]}>{totalSemana}</Text>
+          <Text
+            style={[styles.totalValue, compact && styles.totalValueCompact]}
+          >
+            {totalSemana}
+          </Text>
           <Text style={styles.totalLabel}>entregas</Text>
         </View>
       </View>
 
       {/* Gráfico de barras */}
-      <View style={[styles.chartContainer, compact && styles.chartContainerCompact]}>
+      <View
+        style={[styles.chartContainer, compact && styles.chartContainerCompact]}
+      >
         {data.map((item, index) => {
           const isToday = item.date === today;
           const barColor = isToday
@@ -131,19 +157,20 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = 
                   />
                 )}
               </View>
-              <Text style={[
-                styles.dayLabel,
-                isToday && styles.dayLabelToday,
-                compact && styles.dayLabelCompact,
-              ]}>
+              <Text
+                style={[
+                  styles.dayLabel,
+                  isToday && styles.dayLabelToday,
+                  compact && styles.dayLabelCompact,
+                ]}
+              >
                 {item.day}
               </Text>
               {/* Valores apenas no modo normal */}
               {!compact && item.entregas > 0 && (
-                <Text style={[
-                  styles.barValue,
-                  isToday && styles.barValueToday
-                ]}>
+                <Text
+                  style={[styles.barValue, isToday && styles.barValueToday]}
+                >
                   {item.entregas}
                 </Text>
               )}
@@ -156,12 +183,22 @@ export function WeeklyChart({ data, averagePerDay, isLoading = false, compact = 
       {!compact && (
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+            <View
+              style={[
+                styles.legendDot,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            />
             <Text style={styles.legendText}>Hoje</Text>
           </View>
           {averagePerDay > 0 && (
             <View style={styles.legendItem}>
-              <View style={[styles.legendLine, { backgroundColor: theme.colors.warning }]} />
+              <View
+                style={[
+                  styles.legendLine,
+                  { backgroundColor: theme.colors.warning },
+                ]}
+              />
               <Text style={styles.legendText}>Média: {averagePerDay}/dia</Text>
             </View>
           )}
