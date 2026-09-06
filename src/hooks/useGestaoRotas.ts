@@ -23,32 +23,36 @@
  * - gestao-rotas/routeExportPDF.ts: Per-route PDF export utility
  */
 
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Platform } from 'react-native';
 
-import { useRealtimeRoutes } from "@/hooks/useRealtimeRoutes";
-import { useToast } from "@/hooks/useToast";
-import { useUnidadeAtiva } from "@/hooks/useUnidadeAtiva";
-import { useUser } from "@/hooks/useUser";
-import { logger } from "@/lib/logger";
+import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
+import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
+import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
+import {
+  classifyError,
+  isPostgrestAbortShape,
+} from '@/lib/queries/queryClient';
 import {
   ROTA_STATUS_LABELS,
   FILTRO_STATUS_OPTIONS as FILTRO_OPTIONS,
   getRotaStatusLabel,
   type RotaStatus,
   type FiltroStatus,
-} from "@/lib/statusLabels";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+} from '@/lib/statusLabels';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 import {
   useRotasCache,
   useRotasFiltering,
   exportRotasToCSV,
   exportRotasToXLSX,
-} from "./gestao-rotas";
+} from './gestao-rotas';
 
-import type { RotaHistorico } from "./gestao-rotas";
+import type { RotaHistorico } from './gestao-rotas';
 
 // Re-export types for backwards compatibility
 export type { RotaStatus, FiltroStatus, RotaHistorico };
@@ -134,43 +138,43 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
       // MOCK DATA FOR E2E/CI
       if (!isSupabaseConfigured) {
-        logger.warn("[GestaoRotas] Mocking data for E2E/CI");
+        logger.warn('[GestaoRotas] Mocking data for E2E/CI');
         await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate delay
 
         const mockRotas: RotaHistorico[] = [
           {
-            id: "rota-1",
+            id: 'rota-1',
             data: new Date().toISOString(),
-            status: "em_andamento",
+            status: 'em_andamento',
             distancia_total: 15.5,
             iniciada_em: new Date().toISOString(),
             concluida_em: undefined,
-            motorista_id: "mot-1",
-            motorista_nome: "Motorista Teste 1",
+            motorista_id: 'mot-1',
+            motorista_nome: 'Motorista Teste 1',
             paradas_count: 10,
             paradas_concluidas: 4,
           },
           {
-            id: "rota-2",
+            id: 'rota-2',
             data: new Date(Date.now() - 86400000).toISOString(),
-            status: "concluida",
+            status: 'concluida',
             distancia_total: 12.0,
             iniciada_em: new Date(Date.now() - 90000000).toISOString(),
             concluida_em: new Date(Date.now() - 86400000).toISOString(),
-            motorista_id: "mot-2",
-            motorista_nome: "Motorista Teste 2",
+            motorista_id: 'mot-2',
+            motorista_nome: 'Motorista Teste 2',
             paradas_count: 8,
             paradas_concluidas: 8,
           },
           {
-            id: "rota-3",
+            id: 'rota-3',
             data: new Date().toISOString(),
-            status: "pendente",
+            status: 'pendente',
             distancia_total: 8.2,
             iniciada_em: undefined,
             concluida_em: undefined,
             motorista_id: undefined,
-            motorista_nome: "Sem motorista",
+            motorista_nome: 'Sem motorista',
             paradas_count: 5,
             paradas_concluidas: 0,
           },
@@ -184,18 +188,18 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       // Fetch routes and stops in parallel (2 queries instead of N+1)
       const [rotasResult, paradasResult] = await Promise.all([
         supabase
-          .from("rotas")
+          .from('rotas')
           .select(
-            "id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)",
+            'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)',
           )
-          .eq("unidade_id", unidadeAtiva)
-          .order("data", { ascending: false })
+          .eq('unidade_id', unidadeAtiva)
+          .order('data', { ascending: false })
           .limit(100)
           .abortSignal(abortControllerRef.current.signal),
         supabase
-          .from("paradas")
-          .select("rota_id, status, is_checkpoint, rotas!inner(unidade_id)")
-          .eq("rotas.unidade_id", unidadeAtiva)
+          .from('paradas')
+          .select('rota_id, status, is_checkpoint, rotas!inner(unidade_id)')
+          .eq('rotas.unidade_id', unidadeAtiva)
           .abortSignal(abortControllerRef.current.signal),
       ]);
 
@@ -218,7 +222,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
           const stats = paradasPorRota.get(rotaId)!;
           stats.total++;
-          if (parada.status === "concluida") {
+          if (parada.status === 'concluida') {
             stats.concluidas++;
           }
         }
@@ -255,13 +259,35 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       // Save to cache for future use
       await saveToCache(rotasComParadas);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
+      // Cancelamento causado pelo PRÓPRIO hook — uma chamada nova a
+      // loadRotas substituindo esta (linhas acima) ou o cleanup de unmount
+      // (useEffect abaixo) abortando o MESMO abortControllerRef usado em
+      // `.abortSignal()` nas duas queries. Não é falha: é o cancelamento
+      // fazendo o que devia, e um Alert aqui avisaria de um erro que o
+      // próprio app decidiu ter, não que aconteceu.
+      //
+      // `rotasResult.error` (lançado acima) NUNCA é `instanceof Error`: o
+      // `@supabase/postgrest-js` não relança essa rejeição, converte num
+      // objeto plano antes de resolver a promise — ver `isPostgrestAbortShape`
+      // (queryClient.ts) para a forma medida contra a biblioteca instalada.
+      // Uma guarda por `instanceof Error` (como esta antes desta correção)
+      // nunca casava, e todo cancelamento caía no Alert abaixo.
+      //
+      // Excluído do silêncio: o NOSSO PRÓPRIO timeout de 15s
+      // (fetchComTimeout.ts) chega com a MESMA forma, mas é uma falha real
+      // — a resposta nunca voltou. `classifyError` já dá a ele o tipo
+      // dedicado 'timeout'; deixamos esse cair no Alert, em vez de
+      // desaparecer como os cancelamentos.
+      if (
+        isPostgrestAbortShape(error) &&
+        classifyError(error).type !== 'timeout'
+      ) {
         return;
       }
       // Only show error if no cached data
       if (!cachedData || cachedData.length === 0) {
-        logger.error("Erro ao carregar rotas:", error);
-        Alert.alert("Erro", "Não foi possível carregar as rotas");
+        logger.error('Erro ao carregar rotas:', error);
+        Alert.alert('Erro', 'Não foi possível carregar as rotas');
       }
     } finally {
       setLoading(false);
@@ -298,7 +324,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const verDetalhes = useCallback(
     (rota: RotaHistorico) => {
       router.push({
-        pathname: "/gestor/mapa-rota",
+        pathname: '/gestor/mapa-rota',
         params: { id: rota.id },
       });
     },
@@ -308,7 +334,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const executarExclusao = useCallback(
     async (rota: RotaHistorico) => {
       if (!userData?.id) {
-        showToast("Erro de autenticação. Faça login novamente.", "error");
+        showToast('Erro de autenticação. Faça login novamente.', 'error');
         return;
       }
 
@@ -318,18 +344,18 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         await withToast(
           async () => {
             const { error } = await supabase
-              .from("rotas")
+              .from('rotas')
               .delete()
-              .eq("id", rota.id);
+              .eq('id', rota.id);
 
             if (error) throw error;
 
-            await supabase.from("logs").insert({
+            await supabase.from('logs').insert({
               usuario_id: usuarioId,
               rota_id: rota.id,
-              evento: "rota_excluida",
+              evento: 'rota_excluida',
               detalhes: {
-                motivo: "Excluída pelo gestor",
+                motivo: 'Excluída pelo gestor',
                 motorista: rota.motorista_nome,
                 paradas_count: rota.paradas_count,
                 status_anterior: rota.status,
@@ -337,15 +363,15 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
             });
           },
           {
-            loading: "Excluindo rota...",
-            success: "Rota excluída com sucesso!",
-            error: "Não foi possível excluir a rota",
+            loading: 'Excluindo rota...',
+            success: 'Rota excluída com sucesso!',
+            error: 'Não foi possível excluir a rota',
           },
         );
 
         loadRotas();
       } catch (error) {
-        logger.error("Erro ao excluir rota:", error);
+        logger.error('Erro ao excluir rota:', error);
       }
     },
     [userData?.id, showToast, withToast, loadRotas],
@@ -354,34 +380,34 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const excluirRota = useCallback(
     (rota: RotaHistorico) => {
       // Validation: don't allow deleting routes in progress
-      if (rota.status === "em_andamento") {
-        if (Platform.OS === "web") {
+      if (rota.status === 'em_andamento') {
+        if (Platform.OS === 'web') {
           showToast(
-            "Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.",
-            "error",
+            'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.',
+            'error',
             5000,
           );
         } else {
           Alert.alert(
-            "Ação não permitida",
-            "Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.",
+            'Ação não permitida',
+            'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.',
           );
         }
         return;
       }
 
       // Web: use custom modal
-      if (Platform.OS === "web") {
+      if (Platform.OS === 'web') {
         setRotaToDelete(rota);
         setShowConfirmModal(true);
       } else {
         // Mobile: use native Alert.alert
-        const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista_nome || "Sem motorista"}\nParadas: ${rota.paradas_count}\n\nEsta ação não pode ser desfeita.`;
-        Alert.alert("Confirmar Exclusão", mensagem, [
-          { text: "Cancelar", style: "cancel" },
+        const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista_nome || 'Sem motorista'}\nParadas: ${rota.paradas_count}\n\nEsta ação não pode ser desfeita.`;
+        Alert.alert('Confirmar Exclusão', mensagem, [
+          { text: 'Cancelar', style: 'cancel' },
           {
-            text: "Excluir",
-            style: "destructive",
+            text: 'Excluir',
+            style: 'destructive',
             onPress: () => executarExclusao(rota),
           },
         ]);

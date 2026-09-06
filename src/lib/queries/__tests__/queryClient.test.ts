@@ -4,6 +4,7 @@
 
 import {
   classifyError,
+  isPostgrestAbortShape,
   withRetry,
   safeQuery,
   buildCacheKey,
@@ -142,35 +143,18 @@ describe('queryClient', () => {
       expect(result.message).toBe('Something went wrong');
     });
 
-    it('should handle Error without message', () => {
-      // Caso de borda: mensagem vazia. Não depende mais de "escapar" do
-      // fallback genérico de objeto — o ramo `name === 'AbortError'` roda
-      // ANTES dele agora (ver teste abaixo com mensagem realista).
-      const error = new Error();
-      error.name = 'AbortError';
-      error.message = ''; // Clear message
-      const result = classifyError(error);
-
-      expect(result.type).toBe('network');
-      expect(result.message).toBe('Requisição cancelada.');
-    });
-
-    // Regressão do item 5 (fix-report-2.md, PR #480): este ramo só era
-    // alcançado em teste porque a fixture zerava `.message` de propósito
-    // para escapar do fallback "Default with message" — um abort REAL do
-    // runtime quase nunca tem mensagem vazia ("The operation was aborted."
-    // etc.), e essa mensagem não-vazia entrava ANTES no fallback genérico,
-    // saindo como 'unknown' com texto cru em inglês. A checagem por
-    // `name === 'AbortError'` agora roda antes do bloco de objeto genérico
-    // — este teste usa uma mensagem realista, não-vazia, para provar isso.
-    it('should classify a real (non-empty message) AbortError as cancellation, not unknown', () => {
-      const error = new Error('The operation was aborted.');
-      error.name = 'AbortError';
-      const result = classifyError(error);
-
-      expect(result.type).toBe('network');
-      expect(result.message).toBe('Requisição cancelada.');
-    });
+    // NOTE (fix-report-3.md, PR #480, item 2): os dois testes que viviam
+    // aqui ('should handle Error without message' e 'should classify a
+    // real (non-empty message) AbortError as cancellation, not unknown')
+    // cobriam o ramo `error instanceof Error && error.name === 'AbortError'`
+    // — removido por estar morto. Nem postgrest-js (converte pra objeto
+    // plano, nunca `instanceof Error`) nem storage-js (relança como `Error`,
+    // mas `name` vira 'StorageUnknownError', nunca 'AbortError') produzem
+    // essa forma neste repo — e nenhum upload/download passa um
+    // AbortSignal do chamador (`grep -n "signal" src/lib/storage.ts` não
+    // acha nada), então nem um cancelamento hipotético do storage-js
+    // chegaria com `name: 'AbortError'`. Os dois testes só passavam porque
+    // construíam a fixture à mão; nenhum caminho real os exercitava.
 
     it('should handle object with only message', () => {
       const error = { message: 'Custom error message' };
@@ -245,6 +229,61 @@ describe('queryClient', () => {
       const result = classifyError(cancelamentoDoChamador);
 
       expect(result.type).not.toBe('timeout');
+    });
+  });
+
+  describe('isPostgrestAbortShape', () => {
+    // Extraído de classifyError no fix-report-3.md (PR #480, item 1), pra
+    // useGestaoRotas reconhecer um cancelamento sem duplicar a checagem de
+    // forma. Precisa reconhecer AMBOS os sufixos (o nosso timeout E um
+    // cancelamento genérico do chamador) — a distinção entre os dois é
+    // trabalho de `classifyError`, não desta função.
+    it('reconhece o objeto convertido pelo postgrest-js para o NOSSO timeout', () => {
+      expect(
+        isPostgrestAbortShape({
+          message: 'AbortError: timeout',
+          details: '',
+          hint: '',
+          code: '',
+        }),
+      ).toBe(true);
+    });
+
+    it('reconhece o objeto convertido pelo postgrest-js para um cancelamento do CHAMADOR', () => {
+      expect(
+        isPostgrestAbortShape({
+          message: 'AbortError: The operation was aborted.',
+          details: '',
+          hint: '',
+          code: '',
+        }),
+      ).toBe(true);
+    });
+
+    // Guarda de negativo: não é só "tem a palavra AbortError em algum
+    // lugar" — o prefixo tem que estar no INÍCIO de `.message` (é isso que
+    // `${fetchError.name}: ${fetchError.message}` produz).
+    it('não reconhece um erro comum do postgrest (sem o prefixo)', () => {
+      expect(
+        isPostgrestAbortShape({ code: 'PGRST301', message: 'invalid token' }),
+      ).toBe(false);
+    });
+
+    // Um `Error` de verdade com `name: 'AbortError'` (storage-js, ou fetch
+    // cru fora do supabase-js) tem outra FORMA — não passa por aqui.
+    // `classifyError` trata esse caso num branch dedicado (instanceof
+    // Error && message === 'timeout'); esta função só reconhece o objeto
+    // plano do postgrest-js.
+    it('não reconhece um Error de verdade (forma do storage-js, não do postgrest-js)', () => {
+      const erro = new Error('timeout');
+      erro.name = 'AbortError';
+      expect(isPostgrestAbortShape(erro)).toBe(false);
+    });
+
+    it('não reconhece null, undefined ou valores primitivos', () => {
+      expect(isPostgrestAbortShape(null)).toBe(false);
+      expect(isPostgrestAbortShape(undefined)).toBe(false);
+      expect(isPostgrestAbortShape('AbortError: timeout')).toBe(false);
     });
   });
 

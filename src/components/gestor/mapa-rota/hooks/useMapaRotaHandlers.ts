@@ -43,6 +43,14 @@ import type { Parada, Rota } from '../types';
  * real. RLS bloqueia por policy — é tudo ou nada entre as linhas elegíveis
  * de uma mesma unidade — então "zero afetadas" continua sendo o sinal certo
  * de falha real; um número parcial não é.
+ *
+ * Essa leitura de "RLS é tudo ou nada" está ACOPLADA à forma atual da
+ * policy `paradas_update`: ela decide por UNIDADE, a mesma regra pra todas
+ * as linhas elegíveis de uma chamada. Se um dia essa policy ganhar um
+ * predicado que varie POR LINHA (não só por unidade), a premissa cai — um
+ * bloqueio PARCIAL (RLS deixa passar algumas linhas e barra outras da MESMA
+ * chamada) passaria por aqui em silêncio, porque a checagem só distingue
+ * "zero" de "não-zero", não "todas" de "algumas".
  */
 function assertUpdateAfetouLinhas(
   data: { id: string }[] | null,
@@ -230,9 +238,15 @@ export function useMapaRotaHandlers({
         'Rota não foi reativada (RLS ou rota inexistente)',
       );
 
-      // `esperado` aqui é quantas paradas o filtro .neq('status','concluida')
-      // DEVERIA afetar, não 1 fixo: se a rota já estava com tudo concluído,
-      // zero linhas é o resultado certo, e não pode virar falso-erro.
+      // `paradasReais` exclui partida e chegada (is_checkpoint=false —
+      // useMapaRotaData.ts:44-47), mas o UPDATE abaixo filtra só por
+      // rota_id + status, sem is_checkpoint — pode afetar até 2 linhas A
+      // MAIS do que esta contagem, se partida/chegada também não
+      // estiverem 'concluida'. Por isso `paradasNaoConcluidas` NÃO é
+      // "quantas linhas o UPDATE deveria afetar": serve só de booleano pra
+      // assertUpdateAfetouLinhas — "havia algo pra reativar?" (`> 0`) vs.
+      // "tudo já estava concluído, zero afetadas é o resultado certo"
+      // (`=== 0`) — nunca uma contagem exata.
       const paradasNaoConcluidas = paradasReais.filter(
         (p) => p.status !== 'concluida',
       ).length;
@@ -252,7 +266,7 @@ export function useMapaRotaHandlers({
         paradasData,
         paradasError,
         paradasNaoConcluidas,
-        'Paradas não foram todas reativadas (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
+        'Nenhuma parada foi reativada (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
       );
 
       await supabase.from('logs').insert({
