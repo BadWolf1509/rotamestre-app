@@ -655,13 +655,38 @@ describe('LocationTrackingService', () => {
       };
     }
 
-    /** Chain em que o UPDATE resolve com o resultado que o teste escolher. */
-    function chainComUpdate(resultadoDoUpdate: { error: unknown }) {
+    /**
+     * Chain em que o UPDATE resolve com o resultado que o teste escolher.
+     *
+     * `.update(...).eq(...)` agora encadeia `.select('id')` (revisão do PR
+     * #480, item 4) — por isso o mock resolve DEPOIS desse `.select`, não em
+     * `.eq(...)` direto. Quando o teste não informa `data`, ela é inferida
+     * de `error`: sucesso (sem erro) vira 1 linha afetada, erro vira
+     * nenhuma — o shape mais comum nos dois casos já cobertos abaixo. Um
+     * teste que precise do caso "zero linhas, error: null" (RLS) passa
+     * `data: []` explicitamente.
+     */
+    function chainComUpdate(resultadoDoUpdate: {
+      error: unknown;
+      data?: { id: string }[] | null;
+    }) {
+      const dataDoUpdate =
+        resultadoDoUpdate.data !== undefined
+          ? resultadoDoUpdate.data
+          : resultadoDoUpdate.error
+            ? null
+            : [{ id: 'stop-1' }];
+
       const chain: any = {};
       chain.select = jest.fn().mockReturnValue(chain);
       chain.insert = jest.fn().mockResolvedValue({ error: null });
       chain.update = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue(resultadoDoUpdate),
+        eq: jest.fn().mockReturnValue({
+          select: jest.fn().mockResolvedValue({
+            data: dataDoUpdate,
+            error: resultadoDoUpdate.error,
+          }),
+        }),
       });
       chain.eq = jest.fn().mockReturnValue(chain);
       chain.order = jest.fn().mockReturnValue(chain);
@@ -713,6 +738,25 @@ describe('LocationTrackingService', () => {
       // return) chegaria em 'stop-1' de novo — passava nas duas versões. A
       // contagem de chamadas a `.single()` é o que de fato prova que a busca
       // da próxima parada nem foi tentada.
+      expect(chain.single).toHaveBeenCalledTimes(1);
+    });
+
+    // Item 4 do fix-report-2.md (PR #480): checar só `erroConclusao` não
+    // bastava. RLS pode barrar o UPDATE devolvendo 204 com ZERO linhas e
+    // `error: null` — o mesmo defeito que `assertUpdateAfetouLinhas`
+    // (useMapaRotaHandlers.ts) já cobre para o gestor. Janela estreita (o
+    // `.single()` de `paradaAtual` costuma falhar antes se a parada já não
+    // pertence mais a este motorista) mas real: se o gestor reatribuir a
+    // rota ENTRE aquele SELECT e este UPDATE, sem esta checagem o log de
+    // `parada_concluida` teria passado mesmo com a parada intocada no banco.
+    it('aborta sem notificar quando RLS barra o UPDATE (zero linhas, error: null)', async () => {
+      prepararEstado();
+      const chain = chainComUpdate({ error: null, data: [] });
+      mockFrom.mockImplementation(() => chain);
+
+      await (locationTrackingService as any).autoAdvanceToNextStop();
+
+      expect(mockFrom).not.toHaveBeenCalledWith('logs');
       expect(chain.single).toHaveBeenCalledTimes(1);
     });
 

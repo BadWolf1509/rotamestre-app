@@ -44,17 +44,69 @@ export function classifyError(error: unknown): QueryError {
   }
 
   // Timeout do NOSSO wrapper (fetchComTimeout.ts), marcado com
-  // `new Error('timeout')` de propósito. Tem que vir ANTES do bloco genérico
-  // de objeto logo abaixo: um `Error` de verdade também é `typeof ===
-  // 'object'`, e cairia no fallback "Default with message" dali — 'unknown'
-  // por acidente de ordem, com a mensagem crua em inglês vazando pra UI.
-  // Aqui é deliberado: tipo PRÓPRIO ('timeout'), fora de `retryableTypes`
-  // (['network', 'server']) — abortar por prazo depois da resposta já ter
-  // gravado no servidor não pode virar um retry que duplica um INSERT como
-  // `createIncidente`. Cancelamento LEGÍTIMO do chamador (`.abortSignal()`
-  // em `useGestaoRotas`) não passa por aqui — chega com outro `message` e
-  // `name: 'AbortError'`, tratado mais abaixo.
+  // `new Error('timeout')` + `name: 'AbortError'` de propósito. Tem que vir
+  // ANTES do bloco genérico de objeto logo abaixo: um `Error` de verdade
+  // também é `typeof === 'object'`, e cairia no fallback "Default with
+  // message" dali — 'unknown' por acidente de ordem, com a mensagem crua em
+  // inglês vazando pra UI. Aqui é deliberado: tipo PRÓPRIO ('timeout'), fora
+  // de `retryableTypes` (['network', 'server']) — abortar por prazo depois
+  // da resposta já ter gravado no servidor não pode virar um retry que
+  // duplica um INSERT como `createIncidente`.
+  //
+  // Esta forma (`instanceof Error`) é a que chega quando quem processou o
+  // fetch rejeitado foi o `storage-js` (upload/download de foto): ele
+  // relança um `Error` de verdade (`StorageUnknownError`) preservando
+  // `.message` do original. Cancelamento LEGÍTIMO do chamador nessa mesma
+  // via chega aqui também como `Error`, mas com outra `.message` — cai no
+  // ramo `AbortError` logo abaixo, antes do bloco genérico de objeto.
   if (error instanceof Error && error.message === 'timeout') {
+    return {
+      type: 'timeout',
+      message: 'A operação demorou muito e foi cancelada. Tente novamente.',
+      originalError: error,
+    };
+  }
+
+  // Cancelamento LEGÍTIMO do chamador (ex.: `.abortSignal()` em
+  // `useGestaoRotas`) chegando como `Error` de verdade — `name: 'AbortError'`
+  // com QUALQUER mensagem do runtime (nunca a nossa string fixa 'timeout',
+  // tratada acima). Tem que vir aqui, ANTES do bloco de objeto genérico: a
+  // mensagem de um abort real quase nunca é vazia ("The operation was
+  // aborted.", "Aborted" etc.), e uma mensagem não-vazia entra antes no
+  // fallback "Default with message" ali embaixo, saindo como 'unknown' com
+  // texto cru do runtime — o ramo dedicado (antes no fim do arquivo) só era
+  // alcançado por um teste que zerava `.message` de propósito para escapar
+  // desse fallback; não cobria o caso real.
+  if (error instanceof Error && error.name === 'AbortError') {
+    return {
+      type: 'network',
+      message: 'Requisição cancelada.',
+      originalError: error,
+    };
+  }
+
+  // Mesmo cancelamento (nosso timeout OU o do chamador), só que processado
+  // pelo `postgrest-js` (toda leitura/escrita via `.from(...)`). Diferença
+  // de storage-js: o postgrest-js NUNCA relança — não usamos
+  // `.throwOnError()` em lugar nenhum do repo — ele converte a rejeição do
+  // fetch num objeto plano ANTES de resolver a promise, dentro do seu
+  // `.then()` interno
+  // (`node_modules/@supabase/postgrest-js/dist/index.cjs`, por volta da
+  // linha 425): `message: \`${fetchError.name}: ${fetchError.message}\``.
+  // Por isso NÃO é `instanceof Error` — os dois `if`s acima não pegam.
+  //
+  // Com `name: 'AbortError'` (fetchComTimeout.ts) e `message: 'timeout'`, a
+  // forma observada — confirmada rodando a biblioteca instalada de verdade,
+  // não suposta; ver fix-report-2.md do PR #480, item 2 — é
+  // `message: 'AbortError: timeout'`. Um cancelamento do chamador passando
+  // pelo mesmo caminho gera `'AbortError: ' + <mensagem real do runtime>`,
+  // que nunca é exatamente 'timeout' — por isso a comparação exata abaixo
+  // não confunde os dois.
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { message?: unknown }).message === 'AbortError: timeout'
+  ) {
     return {
       type: 'timeout',
       message: 'A operação demorou muito e foi cancelada. Tente novamente.',
@@ -158,15 +210,11 @@ export function classifyError(error: unknown): QueryError {
   }
 
   // Handle Error objects
+  //
+  // `name === 'AbortError'` já foi tratado bem acima (antes do bloco de
+  // objeto genérico) — chegar aqui como `Error` significa que não é nem o
+  // nosso timeout nem um cancelamento, então é mesmo 'unknown'.
   if (error instanceof Error) {
-    if (error.name === 'AbortError') {
-      return {
-        type: 'network',
-        message: 'Requisição cancelada.',
-        originalError: error,
-      };
-    }
-
     return {
       type: 'unknown',
       message: error.message,

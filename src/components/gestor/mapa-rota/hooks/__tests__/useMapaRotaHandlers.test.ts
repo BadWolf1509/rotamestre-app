@@ -210,8 +210,16 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // O UPDATE de otimizacao_estado agora encadeia `.select('id')` e passa
+    // pelo mesmo `assertUpdateAfetouLinhas` das outras escritas desta tela
+    // (revisão do PR #480, item 3) — sem isso, uma linha 0 (RLS) e `error:
+    // null` era anunciada como sucesso na auditoria.
     mockUpdate = jest.fn(() => ({
-      eq: jest.fn().mockResolvedValue({ error: null }),
+      eq: jest.fn(() => ({
+        select: jest
+          .fn()
+          .mockResolvedValue({ data: [{ id: 'rota-1' }], error: null }),
+      })),
     }));
     mockLogInsert = jest.fn().mockResolvedValue({ error: null });
     (supabase.from as jest.Mock).mockImplementation(() => ({
@@ -302,7 +310,11 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
       otimizacao_estado: 'otimizada',
     });
     mockUpdate.mockReturnValueOnce({
-      eq: jest.fn().mockResolvedValue({ error: { message: 'boom' } }),
+      eq: jest.fn(() => ({
+        select: jest
+          .fn()
+          .mockResolvedValue({ data: null, error: { message: 'boom' } }),
+      })),
     });
 
     await act(async () => {
@@ -329,7 +341,11 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
       otimizacao_estado: 'otimizada',
     });
     mockUpdate.mockReturnValueOnce({
-      eq: jest.fn().mockResolvedValue({ error: { message: 'boom' } }),
+      eq: jest.fn(() => ({
+        select: jest
+          .fn()
+          .mockResolvedValue({ data: null, error: { message: 'boom' } }),
+      })),
     });
 
     await act(async () => {
@@ -339,6 +355,39 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
     // O UPDATE falhou: `rotas.otimizacao_estado` continua 'otimizada' no
     // banco. O log não pode afirmar `desfez_otimizacao: true` nesse caso —
     // isso mentiria sobre o que de fato aconteceu.
+    expect(mockLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evento: 'paradas_reordenadas',
+        detalhes: expect.objectContaining({ desfez_otimizacao: false }),
+      }),
+    );
+  });
+
+  // Revisão do PR #480, item 3: antes desta correção, este UPDATE não
+  // encadeava `.select('id')` — um RLS barrando a escrita voltava 204 com
+  // ZERO linhas e `error: null`, e a auditoria gravava `desfez_otimizacao:
+  // true` para uma coluna que o banco nunca mudou. Sem `.select`, não havia
+  // como distinguir este caso do sucesso: por isso o mock aqui, diferente do
+  // 'boom' acima, não tem `error` nenhum.
+  it('RLS barra o UPDATE de otimizacao_estado (zero linhas, error:null): não afirma desfez_otimizacao', async () => {
+    const { result } = setupReorder({
+      ...rotaBase,
+      otimizacao_estado: 'otimizada',
+    });
+    mockUpdate.mockReturnValueOnce({
+      eq: jest.fn(() => ({
+        select: jest.fn().mockResolvedValue({ data: [], error: null }),
+      })),
+    });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
+      expect.anything(),
+    );
     expect(mockLogInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         evento: 'paradas_reordenadas',
@@ -576,6 +625,31 @@ describe('useMapaRotaHandlers — reativar rota', () => {
     expect(loadRotaEParadas).not.toHaveBeenCalled();
   });
 
+  // Regressão do item 5 (fix-report-2.md, PR #480): `paradasReais` é um
+  // snapshot do CLIENTE. Se outro gestor concluir uma parada entre o
+  // carregamento da tela e este clique, `.neq('status', 'concluida')`
+  // (corretamente) deixa de pegá-la, e o UPDATE afeta MENOS linhas do que
+  // `paradasReais` fazia crer — sem que nada tenha dado errado. Antes desta
+  // correção, comparar `afetado < esperado` (2 esperadas, 1 afetada) lançava
+  // um falso "Erro ao reativar rota" numa reativação que na verdade
+  // funcionou, e pulava o `loadRotaEParadas()` que traria a tela pro estado
+  // real.
+  it('outro gestor concluiu 1 parada nesse meio-tempo (1 afetada de 2 esperadas): ainda anuncia sucesso', async () => {
+    mockParadasSelect.mockResolvedValue({ data: [{ id: 'p1' }], error: null });
+    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
+    const { result, loadRotaEParadas } = setupReativar(paradas);
+
+    await act(async () => {
+      await result.current.handleConfirmReactivate();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Rota reativada com sucesso',
+      'success',
+    );
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
   // Prova de que a checagem não é ingênua (`data.length > 0` fixo): quando
   // TODAS as paradas já estavam concluídas, o filtro
   // `.neq('status', 'concluida')` legitimamente não bate em nenhuma linha —
@@ -609,6 +683,136 @@ describe('useMapaRotaHandlers — reativar rota', () => {
 
     expect(mockShowToast).toHaveBeenCalledWith(
       'Rota reativada com sucesso',
+      'success',
+    );
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ============================================================================
+// alterar motorista — revisão do PR #480, item 3: o comentário de
+// `assertUpdateAfetouLinhas` afirmava que "todo UPDATE nesta tela encadeia
+// `.select('id')` e passa o resultado por aqui", mas este UPDATE não fazia
+// nem uma coisa nem outra — um RLS barrando a troca voltava 204 com ZERO
+// linhas e `error: null`, e a auditoria (`logs`) gravava `motorista_alterado`
+// para uma troca que o banco nunca fez.
+// ============================================================================
+
+describe('useMapaRotaHandlers — alterar motorista', () => {
+  const rotaAtiva: Rota = {
+    id: 'rota-1',
+    data: '2026-06-22',
+    status: 'em_andamento',
+    motorista_id: 'motorista-antigo',
+  };
+
+  let mockRotasSelect: jest.Mock;
+  let mockLogInsert: jest.Mock;
+
+  const setupAlterarMotorista = (
+    loadRotaEParadas: jest.Mock = jest.fn().mockResolvedValue(undefined),
+  ) => {
+    const { result } = renderHook(() =>
+      useMapaRotaHandlers({
+        rotaId: 'rota-1',
+        rota: rotaAtiva,
+        paradas: [],
+        paradasReais: [],
+        enderecoUnidade: { latitude: -23.5, longitude: -46.6 },
+        loadRotaEParadas,
+      }),
+    );
+    return { result, loadRotaEParadas };
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRotasSelect = jest.fn();
+    mockLogInsert = jest.fn().mockResolvedValue({ error: null });
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === 'rotas') {
+        return {
+          update: jest.fn(() => ({
+            eq: jest.fn(() => ({ select: mockRotasSelect })),
+          })),
+        };
+      }
+      if (table === 'logs') {
+        return { insert: mockLogInsert };
+      }
+      return {};
+    });
+  });
+
+  it('RLS barra o UPDATE (204, zero linhas, error:null): não grava auditoria nem anuncia sucesso', async () => {
+    mockRotasSelect.mockResolvedValue({ data: [], error: null });
+    const { result, loadRotaEParadas } = setupAlterarMotorista();
+
+    await act(async () => {
+      await result.current.handleChangeDriver(
+        'motorista-novo',
+        'Novo Motorista',
+      );
+    });
+
+    // A troca "aconteceu" para quem só olhasse o log — exatamente o efeito
+    // que a revisão apontou: auditoria afirmando o que o banco contradiz.
+    expect(mockLogInsert).not.toHaveBeenCalled();
+    expect(mockShowToast).not.toHaveBeenCalledWith(
+      'Motorista alterado com sucesso',
+      'success',
+    );
+    expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'error');
+    expect(loadRotaEParadas).not.toHaveBeenCalled();
+  });
+
+  it('erro explícito do Supabase: não grava auditoria nem anuncia sucesso', async () => {
+    mockRotasSelect.mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+    const { result, loadRotaEParadas } = setupAlterarMotorista();
+
+    await act(async () => {
+      await result.current.handleChangeDriver(
+        'motorista-novo',
+        'Novo Motorista',
+      );
+    });
+
+    expect(mockLogInsert).not.toHaveBeenCalled();
+    expect(mockShowToast).not.toHaveBeenCalledWith(
+      'Motorista alterado com sucesso',
+      'success',
+    );
+    expect(loadRotaEParadas).not.toHaveBeenCalled();
+  });
+
+  it('UPDATE realmente afeta 1 linha: grava auditoria, anuncia sucesso e recarrega', async () => {
+    mockRotasSelect.mockResolvedValue({
+      data: [{ id: 'rota-1' }],
+      error: null,
+    });
+    const { result, loadRotaEParadas } = setupAlterarMotorista();
+
+    await act(async () => {
+      await result.current.handleChangeDriver(
+        'motorista-novo',
+        'Novo Motorista',
+      );
+    });
+
+    expect(mockLogInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evento: 'motorista_alterado',
+        detalhes: expect.objectContaining({
+          motorista_novo_id: 'motorista-novo',
+          motorista_novo_nome: 'Novo Motorista',
+        }),
+      }),
+    );
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Motorista alterado com sucesso',
       'success',
     );
     expect(loadRotaEParadas).toHaveBeenCalledTimes(1);

@@ -20,7 +20,8 @@ import { supabase } from '@/lib/supabase';
 import type { Parada, Rota } from '../types';
 
 /**
- * Confere se um UPDATE realmente afetou os registros esperados.
+ * Confere se um UPDATE realmente afetou algum registro, quando algum era
+ * esperado.
  *
  * RLS pode barrar um UPDATE devolvendo 204 com ZERO linhas e `error: null`
  * (o `Prefer: return=minimal` default não distingue "0 linhas" de "N linhas"
@@ -30,6 +31,18 @@ import type { Parada, Rota } from '../types';
  * `esperado` não é sempre 1: o UPDATE de paradas em `handleConfirmReactivate`
  * tem `.neq('status', 'concluida')`, e zero linhas é o resultado CORRETO
  * quando todas já estavam concluídas — nesse caso `esperado` também é zero.
+ *
+ * A checagem é "afetou ZERO quando devia afetar alguma", não "afetou MENOS
+ * que o esperado". Para esse mesmo UPDATE de paradas, `esperado` vem de uma
+ * contagem no CLIENTE (`paradasReais`, um snapshot que pode datar de antes
+ * do clique) — se outro gestor concluir uma parada nesse meio-tempo, o
+ * `.neq('status', 'concluida')` (corretamente) deixa de pegá-la, e o número
+ * afetado cai abaixo do esperado sem que nada tenha dado errado. Comparar
+ * com `<` alarmava falso ("Erro ao reativar rota" numa reativação que
+ * funcionou) e pulava o `loadRotaEParadas()` que traria a tela pro estado
+ * real. RLS bloqueia por policy — é tudo ou nada entre as linhas elegíveis
+ * de uma mesma unidade — então "zero afetadas" continua sendo o sinal certo
+ * de falha real; um número parcial não é.
  */
 function assertUpdateAfetouLinhas(
   data: { id: string }[] | null,
@@ -38,7 +51,7 @@ function assertUpdateAfetouLinhas(
   mensagem: string,
 ): void {
   if (error) throw error;
-  if ((data?.length ?? 0) < esperado) {
+  if (esperado > 0 && (data?.length ?? 0) === 0) {
     throw new Error(mensagem);
   }
 }
@@ -273,12 +286,18 @@ export function useMapaRotaHandlers({
       if (!id || !rota) return;
 
       try {
-        const { error: updateError } = await supabase
+        const { data, error } = await supabase
           .from('rotas')
           .update({ motorista_id: newMotoristaId })
-          .eq('id', id);
+          .eq('id', id)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertUpdateAfetouLinhas(
+          data,
+          error,
+          1,
+          'Motorista não foi alterado (RLS ou rota inexistente)',
+        );
 
         await supabase.from('logs').insert({
           usuario_id: userData?.id,
@@ -479,15 +498,27 @@ export function useMapaRotaHandlers({
         // permanece sem registro — não inventamos o passado dela.
         const desfezOtimizacao = rota.otimizacao_estado === 'otimizada';
         // Escopo elevado até o log abaixo: o log precisa saber se o UPDATE
-        // realmente aconteceu, não só se ele foi tentado.
-        let estadoError: unknown = null;
+        // realmente aconteceu, não só se ele foi tentado — mesmo motivo (e
+        // mesmo helper) de `assertUpdateAfetouLinhas` acima: RLS pode barrar
+        // o UPDATE devolvendo 204 com ZERO linhas e `error: null`, e checar
+        // só `error` não bastava.
+        let otimizacaoMarcadaComoDesfeita = false;
         if (desfezOtimizacao) {
-          const updateResult = await supabase
-            .from('rotas')
-            .update({ otimizacao_estado: 'otimizada_alterada' })
-            .eq('id', id);
-          estadoError = updateResult.error;
-          if (estadoError) {
+          try {
+            const { data, error } = await supabase
+              .from('rotas')
+              .update({ otimizacao_estado: 'otimizada_alterada' })
+              .eq('id', id)
+              .select('id');
+
+            assertUpdateAfetouLinhas(
+              data,
+              error,
+              1,
+              'UPDATE de otimizacao_estado não afetou nenhuma linha (RLS ou rota inexistente)',
+            );
+            otimizacaoMarcadaComoDesfeita = true;
+          } catch (estadoError) {
             // `error`, não `warn`: warn é __DEV__-only (src/lib/logger.ts) e em
             // produção some. Este é o único ramo em que uma escrita de auditoria
             // falha em silêncio — a coluna fica 'otimizada' e o log registra
@@ -508,10 +539,13 @@ export function useMapaRotaHandlers({
           detalhes: {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
             alterado_por: userData?.nome,
-            // Reflete o que de fato foi gravado: se o UPDATE acima falhou,
-            // `rotas.otimizacao_estado` continua 'otimizada' no banco — o
-            // log não pode afirmar que a otimização foi desfeita.
-            desfez_otimizacao: desfezOtimizacao && !estadoError,
+            // Reflete o que de fato foi gravado: `otimizacaoMarcadaComoDesfeita`
+            // só fica `true` quando o UPDATE acima passou por
+            // `assertUpdateAfetouLinhas` sem lançar — ou seja, quando ele
+            // realmente afetou a linha. Se falhou (erro OU zero linhas por
+            // RLS), `rotas.otimizacao_estado` continua 'otimizada' no banco —
+            // o log não pode afirmar que a otimização foi desfeita.
+            desfez_otimizacao: otimizacaoMarcadaComoDesfeita,
           },
         });
 

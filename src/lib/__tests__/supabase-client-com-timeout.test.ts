@@ -18,11 +18,16 @@
  *    saudável nunca produz. O teste passaria verde com ou sem o wrapper.
  *
  * O QUE ESTA GUARDA AFIRMA: todo `createClient(` do repositório (varrido em
- * `src/`, não uma lista fixa de arquivos — ver abaixo) recebe, na opção
- * `global.fetch`, o wrapper `criarFetchComTimeout()` (`./fetchComTimeout.ts`).
- * Cada arquivo de cliente tem DOIS `createClient`: o real e um placeholder
- * usado quando faltam variáveis de ambiente (E2E/CI) — o placeholder também
- * faz requisição de rede, então precisa do mesmo wrapper.
+ * `src/` E `app/`, não uma lista fixa de arquivos — ver abaixo) recebe, na
+ * opção `global.fetch`, o wrapper `criarFetchComTimeout()`
+ * (`./fetchComTimeout.ts`). Cada arquivo de cliente tem DOIS `createClient`:
+ * o real e um placeholder usado quando faltam variáveis de ambiente (E2E/CI)
+ * — o placeholder também faz requisição de rede, então precisa do mesmo
+ * wrapper. `e2e/` fica DE FORA de propósito: é infraestrutura de teste que
+ * roda no processo do Playwright, não no app entregue ao usuário (ver
+ * `e2e/fixtures/garantir-rota-do-mapa.ts`, que cria seu próprio cliente para
+ * semear dados) — a rede ruim que este wrapper existe para tolerar é a do
+ * motorista em campo, não a da máquina que roda os testes.
  *
  * POR QUE A DESCOBERTA É DINÂMICA, e não uma lista de dois caminhos escrita à
  * mão: uma lista fixa protegeria só os dois clientes de hoje. Um terceiro
@@ -37,12 +42,24 @@
  * varredura é textual e não resolve import. Também assume que os parênteses
  * de cada chamada não escondem parênteses "soltos" dentro de string/comentário
  * — não há esse caso nos clientes atuais (URLs e chaves não têm parênteses).
+ * Comentários (`//` e `/* *\/`) são removidos do texto ANTES de testar o
+ * padrão do wrapper (ver `removerComentarios` abaixo) — sem isso, um
+ * `// TODO: passar fetch: criarFetchComTimeout()` esquecido dentro do options
+ * object deixaria a guarda verde sem nenhum wrapper de verdade ligado ao
+ * `fetch`. A remoção também é textual: um `//` dentro de uma string (a URL do
+ * placeholder, `'https://...'`) corta até o fim daquela linha, mas isso nunca
+ * colide com o texto do wrapper, que está sempre em linha própria nos
+ * clientes atuais — mesma categoria de limitação documentada acima.
  */
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { extname, join, relative } from 'path';
 
 const RAIZ = join(__dirname, '..', '..', '..');
 const RAIZ_SRC = join(RAIZ, 'src');
+// Screens do Expo Router (`app/`) também podem, em tese, criar um cliente
+// Supabase próprio — a varredura cobre os dois. `e2e/` fica de fora de
+// propósito (ver o comentário no topo do arquivo).
+const RAIZ_APP = join(RAIZ, 'app');
 const EXTENSOES = new Set(['.ts', '.tsx']);
 
 function listarFontes(dir: string): string[] {
@@ -73,6 +90,23 @@ const ABERTURA_CREATE_CLIENT = /createClient\s*\(/g;
 
 /** O wrapper único deste repo para dar prazo ao fetch do Supabase. */
 const WRAPPER_DE_TIMEOUT = /fetch\s*:\s*criarFetchComTimeout\(/;
+
+/**
+ * Remove comentários `/* *\/` e `//` do texto de UMA chamada createClient(...)
+ * antes de testar `WRAPPER_DE_TIMEOUT` contra ele.
+ *
+ * SEM ISSO, `// TODO: passar fetch: criarFetchComTimeout()` dentro do options
+ * object deixava a guarda verde: ela testa o TEXTO bruto, não resolve se
+ * aquele texto está ativo ou comentado. Textual, não um parser — mesma
+ * categoria de limitação já documentada no topo do arquivo para parênteses
+ * dentro de string: um `//` dentro de uma string (a URL do placeholder,
+ * `'https://...'`) também é cortado até o fim da linha, mas isso nunca
+ * colide com o texto do wrapper, que está sempre em linha própria nos
+ * clientes atuais.
+ */
+function removerComentarios(texto: string): string {
+  return texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
 
 function numeroDaLinha(fonte: string, indice: number): number {
   return fonte.slice(0, indice).split('\n').length;
@@ -128,9 +162,9 @@ function encontrarChamadas(caminhoAbsoluto: string): ChamadaCreateClient[] {
 }
 
 describe('todo createClient( recebe fetch com timeout', () => {
-  const fontes = listarFontes(RAIZ_SRC);
+  const fontes = [...listarFontes(RAIZ_SRC), ...listarFontes(RAIZ_APP)];
 
-  it('a varredura acha arquivos de fonte em src/ (senão passaria vazia)', () => {
+  it('a varredura acha arquivos de fonte em src/ e app/ (senão passaria vazia)', () => {
     expect(fontes.length).toBeGreaterThan(200);
   });
 
@@ -145,10 +179,31 @@ describe('todo createClient( recebe fetch com timeout', () => {
 
   it('nenhum createClient( fica sem o wrapper de timeout no fetch', () => {
     const infratores = chamadas
-      .filter((c) => !WRAPPER_DE_TIMEOUT.test(c.texto))
+      .filter((c) => !WRAPPER_DE_TIMEOUT.test(removerComentarios(c.texto)))
       .map((c) => `${c.arquivo}:${c.linha}`);
 
     expect(infratores).toEqual([]);
+  });
+
+  it('um comentário mencionando o wrapper não engana a guarda', () => {
+    // A forma exata do bug que motivou o item: alguém deixa um TODO em vez
+    // do `fetch:` de verdade, e o texto bruto ainda "contém" o nome do
+    // wrapper.
+    const comentado = [
+      'const x = createClient(url, key, {',
+      '  auth: { persistSession: true },',
+      '  global: {',
+      '    // TODO: passar fetch: criarFetchComTimeout()',
+      '  },',
+      '});',
+    ].join('\n');
+
+    const chamada = extrairChamada(comentado, comentado.indexOf('('));
+
+    // Sem `removerComentarios`, isto passaria (o nome aparece no texto bruto)
+    // — é exatamente o falso-positivo que este teste existe para barrar.
+    expect(WRAPPER_DE_TIMEOUT.test(chamada)).toBe(true);
+    expect(WRAPPER_DE_TIMEOUT.test(removerComentarios(chamada))).toBe(false);
   });
 
   it('a extração + o padrão distinguem a forma quebrada da corrigida', () => {

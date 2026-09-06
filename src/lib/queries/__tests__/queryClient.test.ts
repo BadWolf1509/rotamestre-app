@@ -143,13 +143,31 @@ describe('queryClient', () => {
     });
 
     it('should handle Error without message', () => {
-      // Error objects with empty message reach the instanceof Error check
+      // Caso de borda: mensagem vazia. Não depende mais de "escapar" do
+      // fallback genérico de objeto — o ramo `name === 'AbortError'` roda
+      // ANTES dele agora (ver teste abaixo com mensagem realista).
       const error = new Error();
       error.name = 'AbortError';
       error.message = ''; // Clear message
       const result = classifyError(error);
 
-      // With empty message, the generic object check doesn't catch it
+      expect(result.type).toBe('network');
+      expect(result.message).toBe('Requisição cancelada.');
+    });
+
+    // Regressão do item 5 (fix-report-2.md, PR #480): este ramo só era
+    // alcançado em teste porque a fixture zerava `.message` de propósito
+    // para escapar do fallback "Default with message" — um abort REAL do
+    // runtime quase nunca tem mensagem vazia ("The operation was aborted."
+    // etc.), e essa mensagem não-vazia entrava ANTES no fallback genérico,
+    // saindo como 'unknown' com texto cru em inglês. A checagem por
+    // `name === 'AbortError'` agora roda antes do bloco de objeto genérico
+    // — este teste usa uma mensagem realista, não-vazia, para provar isso.
+    it('should classify a real (non-empty message) AbortError as cancellation, not unknown', () => {
+      const error = new Error('The operation was aborted.');
+      error.name = 'AbortError';
+      const result = classifyError(error);
+
       expect(result.type).toBe('network');
       expect(result.message).toBe('Requisição cancelada.');
     });
@@ -169,12 +187,19 @@ describe('queryClient', () => {
       expect(result.message).toBe('Erro desconhecido');
     });
 
-    // fetchComTimeout.ts aborta por prazo com `new Error('timeout')` — motivo
-    // deliberado, para não ser confundido com o cancelamento legítimo do
-    // chamador (AbortError -> 'network', que continua retentável). Precisa
-    // de tipo PRÓPRIO, fora de retryableTypes (['network', 'server']).
-    it('should classify our fetch-timeout marker as its own non-retryable type', () => {
+    // fetchComTimeout.ts aborta por prazo com `new Error('timeout')` +
+    // `name: 'AbortError'` — motivo deliberado, para não ser confundido com o
+    // cancelamento legítimo do chamador (AbortError -> 'network', que
+    // continua retentável). Precisa de tipo PRÓPRIO, fora de retryableTypes
+    // (['network', 'server']). `name: 'AbortError'` também presente aqui
+    // (fetchComTimeout.ts a define para que o retry do postgrest-js desista
+    // na hora — ver fix-report-2.md, item 1): a checagem por `message ===
+    // 'timeout'` tem que vencer a checagem por `name === 'AbortError'` que
+    // vem logo depois dela em classifyError, senão nosso próprio timeout
+    // virava 'network' (retentável) por causa do `name`.
+    it('should classify our fetch-timeout marker as its own non-retryable type (message wins over name=AbortError)', () => {
       const timeoutError = new Error('timeout');
+      timeoutError.name = 'AbortError';
       const result = classifyError(timeoutError);
 
       expect(result.type).toBe('timeout');
@@ -182,23 +207,44 @@ describe('queryClient', () => {
       expect(result.message).not.toBe('timeout'); // mensagem amigável, não a crua
     });
 
-    // Guarda a distinção: só o timeout do NOSSO wrapper vira 'timeout'. O
-    // cancelamento legítimo do chamador (ex.: `.abortSignal()` em
-    // useGestaoRotas) continua caindo no ramo de AbortError — senão um
-    // cancelamento de verdade passaria a ser tratado como se tivesse gravado
-    // no servidor. Mensagem vazia de propósito: é o mesmo cenário do teste
-    // "should handle Error without message" acima — mensagem NÃO-vazia entra
-    // antes no fallback genérico de objeto (comportamento preexistente,
-    // alheio a este PR; setError.message==='timeout' é a única checagem nova
-    // e ela roda ANTES desse fallback).
-    it('should keep classifying an AbortError as network (cancellation), not timeout', () => {
-      const error = new Error();
-      error.name = 'AbortError';
-      error.message = '';
-      const result = classifyError(error);
+    // Item 2 do fix-report-2.md (PR #480): o `@supabase/postgrest-js` (usado
+    // por TODA leitura/escrita via `.from(...)`) nunca relança o erro do
+    // fetch — não há `.throwOnError()` em lugar nenhum do repo — ele
+    // converte a rejeição num objeto plano ANTES de resolver a promise,
+    // dentro do seu `.then()` interno. Por isso NÃO é `instanceof Error`, e
+    // os ramos acima (que dependem disso) não pegam. A forma abaixo foi
+    // confirmada rodando o pacote REALMENTE instalado (não suposta) com um
+    // fetch falso que rejeita como fetchComTimeout.ts rejeita — ver
+    // fix-report-2.md para as duas saídas do experimento.
+    it('should classify the postgrest-js-converted shape of our timeout as timeout, in Portuguese', () => {
+      const errorConvertidoPeloPostgrestJs = {
+        message: 'AbortError: timeout',
+        details: 'AbortError: timeout\n    at ...',
+        hint: 'Request was aborted (timeout or manual cancellation)',
+        code: '',
+      };
+      const result = classifyError(errorConvertidoPeloPostgrestJs);
 
-      expect(result.type).toBe('network');
-      expect(result.message).toBe('Requisição cancelada.');
+      expect(result.type).toBe('timeout');
+      expect(result.message).toBe(
+        'A operação demorou muito e foi cancelada. Tente novamente.',
+      );
+    });
+
+    // Guarda a distinção também nessa forma: um cancelamento do CHAMADOR
+    // passando pelo mesmo caminho do postgrest-js gera a mesma mensagem
+    // prefixada, mas nunca com o sufixo exato ':' + 'timeout' — não pode
+    // virar 'timeout' (não-retentável) por acidente de prefixo.
+    it('should NOT classify a caller AbortError converted by postgrest-js as timeout', () => {
+      const cancelamentoDoChamador = {
+        message: 'AbortError: The operation was aborted.',
+        details: '',
+        hint: 'Request was aborted (timeout or manual cancellation)',
+        code: '',
+      };
+      const result = classifyError(cancelamentoDoChamador);
+
+      expect(result.type).not.toBe('timeout');
     });
   });
 

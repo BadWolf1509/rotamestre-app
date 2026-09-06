@@ -82,6 +82,32 @@ function metodoDe(input: EntradaDeFetch, init?: OpcoesDeFetch): string {
 }
 
 /**
+ * Erro de abort por PRAZO deste wrapper — com a IDENTIDADE de abort que o
+ * `@supabase/postgrest-js` (embutido no `supabase-js` já usado aqui, retry
+ * ligado por default) reconhece antes de decidir se desiste ou tenta de
+ * novo: `node_modules/@supabase/postgrest-js/dist/index.cjs`, por volta da
+ * linha 371, `fetchError?.name === "AbortError" || fetchError?.code ===
+ * "ABORT_ERR"`. Um `new Error('timeout')` puro tem `name: 'Error'` — não
+ * bate em nenhum dos dois — e por isso NÃO é reconhecido como abort: cai no
+ * mesmo balde de uma falha de rede comum, e cada tentativa nova (até 4, em
+ * GET/HEAD/OPTIONS) ganha um timer inteiro deste wrapper. Medido por
+ * experimento contra a biblioteca instalada (fix-report-2.md do PR #480,
+ * item 1): 4 chamadas ao fetch antes desta correção, 1 depois.
+ *
+ * `.code = 'ABORT_ERR'` é redundante com `.name` para o check acima (é um
+ * OR), mas cobre qualquer outro consumidor deste erro que olhe só `code` —
+ * mesmo padrão que runtimes como o `undici` do Node usam.
+ */
+type ErroDeAbort = Error & { code: string };
+
+function criarErroDeTimeout(): ErroDeAbort {
+  const erro = new Error('timeout') as ErroDeAbort;
+  erro.name = 'AbortError';
+  erro.code = 'ABORT_ERR';
+  return erro;
+}
+
+/**
  * Paths do Storage que devolvem metadados — um JSON pequeno — mesmo estando
  * debaixo de `/storage/v1/`, onde o padrão (bytes de arquivo) pede o prazo
  * longo. `createSignedUrlForFoto` (`lib/storage.ts`) bate em `/object/sign/`,
@@ -152,7 +178,7 @@ export function criarFetchComTimeout(
       expirouPorPrazo = true;
       // O motivo fica registrado no signal para quem inspecionar (breadcrumb,
       // etc.), mas a classificação abaixo não depende disso — ver a flag acima.
-      controller.abort(new Error('timeout'));
+      controller.abort(criarErroDeTimeout());
     }, prazo);
 
     try {
@@ -164,8 +190,13 @@ export function criarFetchComTimeout(
       // transação: se o servidor gravou e a resposta não voltou, repetir
       // duplicaria. O cancelamento do chamador precisa continuar como
       // "Requisição cancelada" (retentável), sem mudança de comportamento.
+      //
+      // `name: 'AbortError'` (ver `criarErroDeTimeout` acima) não é só para
+      // quem lê o erro: é o que faz o RETRY PRÓPRIO do postgrest-js desistir
+      // na primeira tentativa em vez de tentar mais 3 vezes, cada uma com um
+      // timer inteiro deste wrapper.
       if (expirouPorPrazo) {
-        throw new Error('timeout');
+        throw criarErroDeTimeout();
       }
       throw error;
     } finally {
