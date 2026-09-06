@@ -248,14 +248,56 @@ class LocationTrackingService {
         .single();
 
       // Mark current stop as completed
-      await supabase
+      //
+      // O payload mandava `auto_concluida: true`, e essa coluna NÃO EXISTE em
+      // `paradas`. O PostgREST recusava o UPDATE inteiro (PGRST204) e o erro
+      // não era lido — a parada seguia `pendente`. O dano real NÃO era um
+      // push: `sendNotification`, mais abaixo, é um stub vazio (nunca saiu
+      // nenhuma notificação, daqui ou de qualquer outro fluxo deste
+      // serviço). O dano de verdade é que o INSERT em `logs` alguns passos
+      // abaixo (evento `parada_concluida`) PASSAVA normalmente — é outra
+      // tabela, outra escrita — e a trilha de auditoria afirmava a conclusão
+      // de uma parada que o próprio banco mostrava `pendente`: o gestor via
+      // um registro que a rota contradizia.
+      //
+      // O fato de ter sido automática já é registrado onde cabe: dentro de
+      // `detalhes` do log, que é jsonb. Nada se perde ao tirar daqui.
+      const { data: paradaAtualizada, error: erroConclusao } = await supabase
         .from('paradas')
         .update({
           status: 'concluida',
           concluida_em: new Date().toISOString(),
-          auto_concluida: true,
         })
-        .eq('id', this.navigationState.currentStopId);
+        .eq('id', this.navigationState.currentStopId)
+        .select('id');
+
+      // Abortar é a degradação certa: sem gravação confirmada, qualquer log,
+      // notificação ou avanço daqui para baixo seria mentira. A parada fica
+      // `pendente` e o motorista conclui pela tela, que funciona.
+      // `logger.error` de propósito — `logger.warn` é no-op em produção.
+      //
+      // Checar só `erroConclusao` não basta: RLS pode barrar o UPDATE
+      // devolvendo 204 com ZERO linhas e `error: null` (o `Prefer:
+      // return=minimal` default não distingue "0 linhas" de "N linhas" sem
+      // `.select()` encadeado) — por isso o `.select('id')` acima e a
+      // checagem de `paradaAtualizada` aqui (mesmo padrão de
+      // `assertUpdateAfetouLinhas` em useMapaRotaHandlers.ts). A janela é
+      // estreita — o `.single()` do SELECT de `paradaAtual` acima costuma
+      // falhar antes se a parada já não pertence mais a este motorista —,
+      // mas existe: se o gestor reatribuir a rota ENTRE aquele SELECT e este
+      // UPDATE, `paradaAtual` já está preenchido, e sem esta checagem o log
+      // de `parada_concluida` abaixo passaria mesmo com a parada seguindo
+      // intocada no banco.
+      if (erroConclusao || (paradaAtualizada?.length ?? 0) === 0) {
+        logger.error(
+          '[LocationTracking] Auto-conclusão não gravou; parada segue pendente',
+          erroConclusao ??
+            new Error(
+              'UPDATE não afetou nenhuma linha (RLS ou parada não pertence mais a este motorista)',
+            ),
+        );
+        return;
+      }
 
       // Criar log para auto-conclusão
       const {

@@ -19,6 +19,51 @@ import { supabase } from '@/lib/supabase';
 
 import type { Parada, Rota } from '../types';
 
+/**
+ * Confere se um UPDATE realmente afetou algum registro, quando algum era
+ * esperado.
+ *
+ * RLS pode barrar um UPDATE devolvendo 204 com ZERO linhas e `error: null`
+ * (o `Prefer: return=minimal` default não distingue "0 linhas" de "N linhas"
+ * sem `.select()` encadeado) — checar só `error` não basta. Por isso todo
+ * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui.
+ *
+ * `esperado` não é sempre 1: o UPDATE de paradas em `handleConfirmReactivate`
+ * tem `.neq('status', 'concluida')`, e zero linhas é o resultado CORRETO
+ * quando todas já estavam concluídas — nesse caso `esperado` também é zero.
+ *
+ * A checagem é "afetou ZERO quando devia afetar alguma", não "afetou MENOS
+ * que o esperado". Para esse mesmo UPDATE de paradas, `esperado` vem de uma
+ * contagem no CLIENTE (`paradasReais`, um snapshot que pode datar de antes
+ * do clique) — se outro gestor concluir uma parada nesse meio-tempo, o
+ * `.neq('status', 'concluida')` (corretamente) deixa de pegá-la, e o número
+ * afetado cai abaixo do esperado sem que nada tenha dado errado. Comparar
+ * com `<` alarmava falso ("Erro ao reativar rota" numa reativação que
+ * funcionou) e pulava o `loadRotaEParadas()` que traria a tela pro estado
+ * real. RLS bloqueia por policy — é tudo ou nada entre as linhas elegíveis
+ * de uma mesma unidade — então "zero afetadas" continua sendo o sinal certo
+ * de falha real; um número parcial não é.
+ *
+ * Essa leitura de "RLS é tudo ou nada" está ACOPLADA à forma atual da
+ * policy `paradas_update`: ela decide por UNIDADE, a mesma regra pra todas
+ * as linhas elegíveis de uma chamada. Se um dia essa policy ganhar um
+ * predicado que varie POR LINHA (não só por unidade), a premissa cai — um
+ * bloqueio PARCIAL (RLS deixa passar algumas linhas e barra outras da MESMA
+ * chamada) passaria por aqui em silêncio, porque a checagem só distingue
+ * "zero" de "não-zero", não "todas" de "algumas".
+ */
+function assertUpdateAfetouLinhas(
+  data: { id: string }[] | null,
+  error: unknown,
+  esperado: number,
+  mensagem: string,
+): void {
+  if (error) throw error;
+  if (esperado > 0 && (data?.length ?? 0) === 0) {
+    throw new Error(mensagem);
+  }
+}
+
 interface UseMapaRotaHandlersOptions {
   rotaId: string | string[] | undefined;
   rota: Rota | null;
@@ -147,7 +192,19 @@ export function useMapaRotaHandlers({
     if (!id) return;
 
     try {
-      await supabase.from('rotas').update({ status: 'cancelada' }).eq('id', id);
+      const { data, error } = await supabase
+        .from('rotas')
+        .update({ status: 'cancelada' })
+        .eq('id', id)
+        .select('id');
+
+      assertUpdateAfetouLinhas(
+        data,
+        error,
+        1,
+        'Rota não foi cancelada (RLS ou rota inexistente)',
+      );
+
       showToast('Rota cancelada com sucesso', 'success');
       await loadRotaEParadas();
     } catch (error) {
@@ -163,7 +220,7 @@ export function useMapaRotaHandlers({
     try {
       const todayStr = getTodayISO();
 
-      await supabase
+      const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
         .update({
           status: 'pendente',
@@ -171,13 +228,46 @@ export function useMapaRotaHandlers({
           iniciada_em: null,
           concluida_em: null,
         })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
-      await supabase
+      assertUpdateAfetouLinhas(
+        rotaData,
+        rotaError,
+        1,
+        'Rota não foi reativada (RLS ou rota inexistente)',
+      );
+
+      // `paradasReais` exclui partida e chegada (is_checkpoint=false —
+      // useMapaRotaData.ts:44-47), mas o UPDATE abaixo filtra só por
+      // rota_id + status, sem is_checkpoint — pode afetar até 2 linhas A
+      // MAIS do que esta contagem, se partida/chegada também não
+      // estiverem 'concluida'. Por isso `paradasNaoConcluidas` NÃO é
+      // "quantas linhas o UPDATE deveria afetar": serve só de booleano pra
+      // assertUpdateAfetouLinhas — "havia algo pra reativar?" (`> 0`) vs.
+      // "tudo já estava concluído, zero afetadas é o resultado certo"
+      // (`=== 0`) — nunca uma contagem exata.
+      const paradasNaoConcluidas = paradasReais.filter(
+        (p) => p.status !== 'concluida',
+      ).length;
+
+      const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
         .update({ status: 'pendente', concluida_em: null })
         .eq('rota_id', id)
-        .neq('status', 'concluida');
+        .neq('status', 'concluida')
+        .select('id');
+
+      // Duas escritas independentes: se a de rotas passou e esta falhar, a
+      // rota já voltou a 'pendente' mas as paradas continuam 'concluida' —
+      // estado inconsistente. Não é seguro anunciar sucesso, nem tentar
+      // desfazer sozinho aqui (não há RPC atômica para isso ainda).
+      assertUpdateAfetouLinhas(
+        paradasData,
+        paradasError,
+        paradasNaoConcluidas,
+        'Nenhuma parada foi reativada (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
+      );
 
       await supabase.from('logs').insert({
         usuario_id: userData?.id,
@@ -195,7 +285,14 @@ export function useMapaRotaHandlers({
       logger.error('[useMapaRotaHandlers] Erro ao reativar rota', error);
       showToast('Erro ao reativar rota', 'error');
     }
-  }, [getIdString, loadRotaEParadas, showToast, userData?.id, userData?.nome]);
+  }, [
+    getIdString,
+    loadRotaEParadas,
+    paradasReais,
+    showToast,
+    userData?.id,
+    userData?.nome,
+  ]);
 
   const handleChangeDriver = useCallback(
     async (newMotoristaId: string, newMotoristaNome: string) => {
@@ -203,12 +300,18 @@ export function useMapaRotaHandlers({
       if (!id || !rota) return;
 
       try {
-        const { error: updateError } = await supabase
+        const { data, error } = await supabase
           .from('rotas')
           .update({ motorista_id: newMotoristaId })
-          .eq('id', id);
+          .eq('id', id)
+          .select('id');
 
-        if (updateError) throw updateError;
+        assertUpdateAfetouLinhas(
+          data,
+          error,
+          1,
+          'Motorista não foi alterado (RLS ou rota inexistente)',
+        );
 
         await supabase.from('logs').insert({
           usuario_id: userData?.id,
@@ -409,15 +512,27 @@ export function useMapaRotaHandlers({
         // permanece sem registro — não inventamos o passado dela.
         const desfezOtimizacao = rota.otimizacao_estado === 'otimizada';
         // Escopo elevado até o log abaixo: o log precisa saber se o UPDATE
-        // realmente aconteceu, não só se ele foi tentado.
-        let estadoError: unknown = null;
+        // realmente aconteceu, não só se ele foi tentado — mesmo motivo (e
+        // mesmo helper) de `assertUpdateAfetouLinhas` acima: RLS pode barrar
+        // o UPDATE devolvendo 204 com ZERO linhas e `error: null`, e checar
+        // só `error` não bastava.
+        let otimizacaoMarcadaComoDesfeita = false;
         if (desfezOtimizacao) {
-          const updateResult = await supabase
-            .from('rotas')
-            .update({ otimizacao_estado: 'otimizada_alterada' })
-            .eq('id', id);
-          estadoError = updateResult.error;
-          if (estadoError) {
+          try {
+            const { data, error } = await supabase
+              .from('rotas')
+              .update({ otimizacao_estado: 'otimizada_alterada' })
+              .eq('id', id)
+              .select('id');
+
+            assertUpdateAfetouLinhas(
+              data,
+              error,
+              1,
+              'UPDATE de otimizacao_estado não afetou nenhuma linha (RLS ou rota inexistente)',
+            );
+            otimizacaoMarcadaComoDesfeita = true;
+          } catch (estadoError) {
             // `error`, não `warn`: warn é __DEV__-only (src/lib/logger.ts) e em
             // produção some. Este é o único ramo em que uma escrita de auditoria
             // falha em silêncio — a coluna fica 'otimizada' e o log registra
@@ -438,10 +553,13 @@ export function useMapaRotaHandlers({
           detalhes: {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
             alterado_por: userData?.nome,
-            // Reflete o que de fato foi gravado: se o UPDATE acima falhou,
-            // `rotas.otimizacao_estado` continua 'otimizada' no banco — o
-            // log não pode afirmar que a otimização foi desfeita.
-            desfez_otimizacao: desfezOtimizacao && !estadoError,
+            // Reflete o que de fato foi gravado: `otimizacaoMarcadaComoDesfeita`
+            // só fica `true` quando o UPDATE acima passou por
+            // `assertUpdateAfetouLinhas` sem lançar — ou seja, quando ele
+            // realmente afetou a linha. Se falhou (erro OU zero linhas por
+            // RLS), `rotas.otimizacao_estado` continua 'otimizada' no banco —
+            // o log não pode afirmar que a otimização foi desfeita.
+            desfez_otimizacao: otimizacaoMarcadaComoDesfeita,
           },
         });
 

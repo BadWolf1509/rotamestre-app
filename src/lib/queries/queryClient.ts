@@ -19,6 +19,7 @@ export type QueryErrorType =
   | 'not_found'
   | 'permission'
   | 'server'
+  | 'timeout'
   | 'unknown';
 
 export interface QueryError {
@@ -32,8 +33,44 @@ export interface QueryError {
  * Query result with discriminated union for type-safe error handling
  */
 export type QueryResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: QueryError };
+  { success: true; data: T } | { success: false; error: QueryError };
+
+/**
+ * Verdadeiro se `error` tem a forma que o `@supabase/postgrest-js` produz
+ * para QUALQUER fetch abortado que passe por ele — usado por TODA
+ * leitura/escrita via `.from(...)`. Cobre tanto o NOSSO timeout
+ * (`fetchComTimeout.ts`) quanto um cancelamento do CHAMADOR (ex.:
+ * `.abortSignal()` em `useGestaoRotas`) — os dois chegam aqui com o MESMO
+ * formato, distinguíveis só pelo sufixo da mensagem (`classifyError`, logo
+ * abaixo, dá ao nosso timeout um tipo próprio; ver ali).
+ *
+ * postgrest-js NUNCA relança essa rejeição — não usamos `.throwOnError()`
+ * em lugar nenhum do repo — ele converte a rejeição do fetch num objeto
+ * PLANO antes de resolver a promise, dentro do seu `.then()` interno
+ * (`node_modules/@supabase/postgrest-js/dist/index.cjs`, por volta da linha
+ * 425): `message: \`${fetchError.name}: ${fetchError.message}\``. Por isso
+ * NÃO é `instanceof Error` — uma guarda escrita pra `Error` (como a que
+ * existia em `useGestaoRotas` antes desta correção) nunca casa com o que
+ * chega de verdade. Forma confirmada contra a biblioteca REALMENTE
+ * instalada, não suposta — ver o teste de contrato em
+ * `__tests__/postgrestAbortContract.test.ts` (roda o `@supabase/postgrest-js`
+ * de verdade contra um fetch falso) e fix-report-2.md / fix-report-3.md do
+ * PR 480.
+ *
+ * Extraído aqui — em vez de cada chamador escrever seu próprio
+ * `.startsWith('AbortError:')` — pra não duplicar esse conhecimento em dois
+ * lugares. `useGestaoRotas.ts` usa isto (mais o `type` de `classifyError`,
+ * pra não silenciar o NOSSO timeout junto) pra decidir se um erro de
+ * carregamento foi o próprio app cancelando uma requisição, não uma falha.
+ */
+export function isPostgrestAbortShape(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    typeof (error as { message?: unknown }).message === 'string' &&
+    (error as { message: string }).message.startsWith('AbortError:')
+  );
+}
 
 /**
  * Classify Supabase error into a QueryError type
@@ -43,12 +80,78 @@ export function classifyError(error: unknown): QueryError {
     return { type: 'unknown', message: 'Erro desconhecido' };
   }
 
+  // Timeout do NOSSO wrapper (fetchComTimeout.ts), marcado com
+  // `new Error('timeout')` + `name: 'AbortError'` de propósito. Tem que vir
+  // ANTES do bloco genérico de objeto logo abaixo: um `Error` de verdade
+  // também é `typeof === 'object'`, e cairia no fallback "Default with
+  // message" dali — 'unknown' por acidente de ordem, com a mensagem crua em
+  // inglês vazando pra UI. Aqui é deliberado: tipo PRÓPRIO ('timeout'), fora
+  // de `retryableTypes` (['network', 'server']) — abortar por prazo depois
+  // da resposta já ter gravado no servidor não pode virar um retry que
+  // duplica um INSERT como `createIncidente`.
+  //
+  // Esta forma (`instanceof Error`) é a que chega quando quem processou o
+  // fetch rejeitado foi o `storage-js` (upload/download de foto): ele
+  // relança um `Error` de verdade (`StorageUnknownError`) preservando
+  // `.message` do original. NENHUM upload/download deste repo passa um
+  // AbortSignal do CHAMADOR pro storage (`grep -n "signal" src/lib/storage.ts`
+  // não acha nada) — então o único abort que chega aqui vindo do storage-js
+  // é o NOSSO próprio timeout, sempre com esta mensagem exata. Um
+  // cancelamento do CHAMADOR pelo storage-js chegaria também como `Error`
+  // (`StorageUnknownError`), mas com outra `.message` — cairia direto no
+  // bloco genérico de objeto logo abaixo (`typeof === 'object'` também vale
+  // pra instâncias de `Error`), saindo como 'unknown' com texto cru do
+  // runtime. Não escrevemos um branch dedicado pra esse caso: sem nenhum
+  // caminho real que o exercite, um teste só alcançaria com fixture
+  // inventada — exatamente o defeito que o item 2 do fix-report-3.md
+  // (PR 480) existiu pra desfazer (ali, o branch morto `name === 'AbortError'`
+  // que ocupava este lugar).
+  if (error instanceof Error && error.message === 'timeout') {
+    return {
+      type: 'timeout',
+      message: 'A operação demorou muito e foi cancelada. Tente novamente.',
+      originalError: error,
+    };
+  }
+
+  // Mesmo cancelamento (nosso timeout OU o do chamador), só que convertido
+  // pelo postgrest-js na forma que `isPostgrestAbortShape` (acima)
+  // reconhece — não é `instanceof Error`, então o `if` anterior não pega.
+  //
+  // Com `name: 'AbortError'` (fetchComTimeout.ts) e `message: 'timeout'`, a
+  // forma observada — confirmada rodando a biblioteca instalada de verdade,
+  // não suposta; ver fix-report-2.md do PR 480, item 2 — é
+  // `message: 'AbortError: timeout'`. Um cancelamento do chamador passando
+  // pelo mesmo caminho gera `'AbortError: ' + <mensagem real do runtime>`,
+  // que nunca é exatamente 'timeout' — por isso a comparação exata abaixo
+  // não confunde os dois (esse outro caso — cancelamento genuíno do
+  // chamador — fica classificado mais abaixo, no fallback genérico de
+  // objeto, como 'unknown'; `isPostgrestAbortShape` existe justamente pra
+  // quem precisa reconhecê-lo sem depender do `type` de `classifyError`).
+  if (
+    isPostgrestAbortShape(error) &&
+    (error as { message: string }).message === 'AbortError: timeout'
+  ) {
+    return {
+      type: 'timeout',
+      message: 'A operação demorou muito e foi cancelada. Tente novamente.',
+      originalError: error,
+    };
+  }
+
   // Handle PostgrestError
   if (typeof error === 'object' && error !== null) {
-    const pgError = error as { code?: string; message?: string; details?: string };
+    const pgError = error as {
+      code?: string;
+      message?: string;
+      details?: string;
+    };
 
     // Network errors
-    if (pgError.message?.includes('network') || pgError.message?.includes('fetch')) {
+    if (
+      pgError.message?.includes('network') ||
+      pgError.message?.includes('fetch')
+    ) {
       return {
         type: 'network',
         message: 'Erro de conexão. Verifique sua internet.',
@@ -58,7 +161,20 @@ export function classifyError(error: unknown): QueryError {
     }
 
     // Auth errors
-    if (pgError.code?.startsWith('PGRST1') || pgError.message?.includes('JWT')) {
+    //
+    // O prefixo aqui era `PGRST1`, que pegava a família ERRADA: os códigos de
+    // autenticação do PostgREST são a família `PGRST30x` (301 JWT inválido,
+    // 302 acesso anônimo negado, 303). `PGRST116` — "zero linhas", o retorno
+    // normal de um `.single()` sem resultado — começa com `PGRST1` e caía aqui,
+    // tornando o ramo `not_found` logo abaixo INALCANÇÁVEL.
+    //
+    // Efeito medido: registro que não existe mais (rota reatribuída, parada
+    // removida por outro gestor) virava "Sessão expirada. Faça login
+    // novamente." O motorista deslogava, relogava, e o problema continuava.
+    if (
+      pgError.code?.startsWith('PGRST30') ||
+      pgError.message?.includes('JWT')
+    ) {
       return {
         type: 'auth',
         message: 'Sessão expirada. Faça login novamente.',
@@ -119,15 +235,14 @@ export function classifyError(error: unknown): QueryError {
   }
 
   // Handle Error objects
+  //
+  // Um Error que chega aqui não foi tratado pelos ramos anteriores: não é o
+  // nosso timeout próprio (message !== 'timeout') nem a forma do postgrest-js
+  // (que seria um objeto plano, não instanceof Error). Pode ser um
+  // cancelamento legítimo do chamador (que chegaria do storage-js ou outro,
+  // com message !== 'timeout') ou um erro genérico — sem informação que os
+  // distinga, classificamos como 'unknown'.
   if (error instanceof Error) {
-    if (error.name === 'AbortError') {
-      return {
-        type: 'network',
-        message: 'Requisição cancelada.',
-        originalError: error,
-      };
-    }
-
     return {
       type: 'unknown',
       message: error.message,
@@ -171,7 +286,7 @@ function sleep(ms: number): Promise<void> {
  */
 export async function withRetry<T>(
   queryFn: () => Promise<T>,
-  options?: RetryOptions
+  options?: RetryOptions,
 ): Promise<T> {
   const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
   let lastError: unknown;
@@ -196,13 +311,16 @@ export async function withRetry<T>(
       // Calculate delay with exponential backoff
       const delay = Math.min(
         opts.baseDelayMs * Math.pow(2, attempt - 1),
-        opts.maxDelayMs
+        opts.maxDelayMs,
       );
 
-      logger.warn(`Query failed (attempt ${attempt}/${opts.maxAttempts}), retrying in ${delay}ms...`, {
-        errorType: classifiedError.type,
-        message: classifiedError.message,
-      });
+      logger.warn(
+        `Query failed (attempt ${attempt}/${opts.maxAttempts}), retrying in ${delay}ms...`,
+        {
+          errorType: classifiedError.type,
+          message: classifiedError.message,
+        },
+      );
 
       await sleep(delay);
     }
@@ -215,7 +333,7 @@ export async function withRetry<T>(
  * Wrap a query function to return QueryResult instead of throwing
  */
 export async function safeQuery<T>(
-  queryFn: () => Promise<T>
+  queryFn: () => Promise<T>,
 ): Promise<QueryResult<T>> {
   try {
     const data = await queryFn();
@@ -271,7 +389,10 @@ export const USUARIO_SELECT_FIELDS = {
 /**
  * Build cache key for queries
  */
-export function buildCacheKey(namespace: string, ...parts: (string | number | undefined)[]): string {
+export function buildCacheKey(
+  namespace: string,
+  ...parts: (string | number | undefined)[]
+): string {
   const validParts = parts.filter((p): p is string | number => p !== undefined);
   return [namespace, ...validParts].join(':');
 }

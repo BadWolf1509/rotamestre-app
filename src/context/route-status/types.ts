@@ -42,8 +42,6 @@ export interface ParadaData {
   is_checkpoint?: boolean;
   /** Timestamp quando a parada foi concluída */
   concluida_em?: string;
-  /** true se a parada foi concluída automaticamente pelo sistema de tracking */
-  auto_concluida?: boolean;
 }
 
 /** Dados retornados pela query de rotas do Supabase */

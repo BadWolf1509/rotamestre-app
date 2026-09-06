@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import { createClient, type SupportedStorage } from '@supabase/supabase-js';
 
+import { criarFetchComTimeout } from '@/lib/fetchComTimeout';
 import { logger } from '@/lib/logger';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -51,6 +52,17 @@ if (isSupabaseConfigured) {
       // Disable realtime on web to avoid node-fetch import issues
       // Web app doesn't need realtime updates for MVP
     },
+
+    global: {
+      // O Metro resolve `.web.ts` sobre `.ts` — este é o cliente que serve
+      // TODA a superfície do gestor no navegador, e também o motorista via
+      // `NavigationMode.web.tsx`. `src/lib/supabase.ts` (nativo) já usa
+      // `criarFetchComTimeout()`; sem o mesmo wrapper aqui, o `fetch` sem
+      // prazo do browser continuava por baixo dele — o app web nunca teve
+      // proteção nenhuma contra uma chamada Supabase pendurada. Ver
+      // `fetchComTimeout.ts` para o prazo por caminho (REST/auth vs. Storage).
+      fetch: criarFetchComTimeout(),
+    },
   });
 } else {
   logger.warn(
@@ -69,6 +81,10 @@ if (isSupabaseConfigured) {
         persistSession: false,
 
         detectSessionInUrl: false,
+      },
+
+      global: {
+        fetch: criarFetchComTimeout(),
       },
     },
   );
