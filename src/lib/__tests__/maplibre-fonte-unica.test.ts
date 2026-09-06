@@ -32,7 +32,6 @@ const ARQUIVO_FONTE = 'src/lib/maplibre.ts';
 
 /** Todo componente que desenha mapa, nos dois lados da plataforma. */
 const COMPONENTES_NATIVOS = [
-  'src/components/MapaRN.tsx',
   'src/components/MapaMobile.tsx',
   'src/components/motorista/home/MiniMap.tsx',
   'src/components/motorista/NavigationMode.tsx',

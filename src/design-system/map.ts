@@ -13,7 +13,5 @@
 // Map Components
 export { MapaAdapter } from '@/components/MapaAdapter';
 export { MapaMobile } from '@/components/MapaMobile';
-export { MapaRotas } from '@/components/MapaRotas';
-export { MapaRN } from '@/components/MapaRN';
 export { default as MapaWebMapLibre } from '@/components/MapaWebMapLibre';
 export { MotoristaMarker } from '@/components/MotoristaMarker';
