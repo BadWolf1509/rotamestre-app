@@ -181,10 +181,11 @@ jobs:
         # Depende de conta de teste. Sem os secrets configurados, o step avisa e
         # sai sem falhar, em vez de quebrar o job de quem não os tem.
         #
-        # ATENÇÃO: `Visual Regression` não está entre os checks exigidos pela
-        # proteção da main, então uma falha aqui NÃO bloqueia merge — aparece
-        # como job vermelho e anotação. Para bloquear, inclua este job em
-        # required_status_checks.
+        # ATENÇÃO: `Visual Regression (22.x)` JÁ É check exigido pela proteção
+        # da main (com `TypeScript & Linting` e `Run Tests (22.x)`) — conferido
+        # em 06/09/2026. Mas job obrigatório e verde NÃO prova que o mapa foi
+        # testado: o `exit 0` acima faz este step passar quando os secrets
+        # faltam. O ícone verde cobre as duas coisas; só o log distingue.
         if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: |
           if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_GESTOR_EMAIL" ]; then

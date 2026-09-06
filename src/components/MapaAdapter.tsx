@@ -1,7 +1,7 @@
 /**
  * MapaAdapter (Mobile) - Wrapper para plataformas nativas (iOS/Android)
  *
- * Usa MapaMobile (MapLibre Native + tiles Carto/OSM)
+ * Usa MapaMobile (MapLibre Native + tiles OpenFreeMap)
  * Metro automaticamente resolve este arquivo para builds native.
  *
  * Nota: A versão web está em MapaAdapter.web.tsx

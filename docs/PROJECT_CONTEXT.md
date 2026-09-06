@@ -40,6 +40,10 @@ Lista única e canônica. Se resolver uma, risque daqui.
 
 - **8.** **Mapa nativo continua sem executar em CI — e nenhum check distingue tile com marca d'água.** Fechado em 31/08: a divergência web/nativo virou teste estático (`src/lib/__tests__/maplibre-fonte-unica.test.ts`, quebra se um lado embutir outro provedor) e o e2e passou a exigir que tiles reais tenham sido buscados, sem falha e só do provedor esperado — antes ele parava no evento `load`, que dispara mesmo com tile em 403. **O que sobra é o caro:** rodar o mapa nativo exigiria emulador Android + app compilado (~25 min por execução), desproporcional para check de PR; e tile marcado chega como **200 com PNG válido**, que só análise de imagem ou olho humano distingue. Para essa classe, o caminho é canário agendado contra o endpoint, não check de PR.<br>_Quem:_ qualquer sessão · _Detalhe:_ armadilha "Fonte de tiles"
 
+- **9.** **Duas decisões de produto levantadas no smoke de 05/09/2026 — nenhuma é defeito.** (a) **"Excluir motorista" é só desativar**, e o vínculo em `usuario_unidades` continua `ativo` — o seletor do app checa os dois, mas código que filtre só pelo vínculo veria um motorista desativado. (b) **Não existe caminho para reabrir parada concluída** em nenhuma das duas contas: o botão "Retomar" só aparece para parada _pulada_, e o painel do gestor não oferece a ação.<br>_Quem:_ gestor (decisão) · _Detalhe:_ [HISTORICO.md](HISTORICO.md), sessão de 05/09
+
+- **10.** **O app coleta localização em background e persiste — a ficha do Play precisa dizer isso.** Medido em 06/09/2026: `motorista_locations` tem **17.725 linhas em 414 rotas** desde 18/12/2025, e o código pede `requestBackgroundPermissionsAsync()` (`src/services/unifiedLocationTracking.ts:151`) e roda `startLocationUpdatesAsync` com foreground service (`:256`). Isso obriga a **Declaração de Permissões Sensíveis** com vídeo demonstrativo e a marcação de coleta **em background** na Segurança de Dados — divergência entre ficha e comportamento é motivo de suspensão. A produção ainda está vazia (pendência 4), então dá para corrigir antes de pedir acesso. A _prominent disclosure_ que o Google exige **já está** implementada e correta (`:157`), antes do diálogo do sistema. **Como o registro anterior errou:** observou-se `ProviderRequest[OFF]` com o app em background e concluiu-se "só primeiro plano" — mas o rastreamento só começa em `startRoute`, então medir fora de uma rota `em_andamento` produz `OFF` tanto no código certo quanto no errado. Evidência que não distingue as hipóteses, a mesma armadilha do banner de expiração.<br>_Quem:_ gestor (Play Console) · _Detalhe:_ `GOOGLE_PLAY_DEPLOYMENT.md`
+
 **Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
 de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
 **86 linhas** lidas em toda sessão para responder "isso já foi resolvido?", que
@@ -154,6 +158,20 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 
 **Medição e testes**
 
+- **`always_finish_activities` mata o swipe injetado por `adb` — o tap continua
+  funcionando.** É o flag que reproduz a recriação de Activity de forma
+  determinística, mas com ele ligado o gesto de swipe simplesmente não chega ao
+  app; em 05/09 gastei seis tentativas achando que o build tinha quebrado o
+  gesto. A receita é ligar o flag **só na ida à câmera**: abre o modal com o flag
+  em `0`, liga, dispara a foto, observa a volta, desliga. Devolva sempre para `0`
+  no fim — com ele ligado o aparelho fica ruim de usar.
+- **Dev build + Metro transforma build de 20 min em reload.** `eas build
+--profile development`, instalar uma vez, `adb reverse tcp:8081 tcp:8081`,
+  `npx expo start --dev-client` e abrir por
+  `rotamestre://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081`. A
+  partir daí o JS servido é o da árvore de trabalho. Cuidado ao concluir: no dev
+  client a recriação de Activity **recarrega o bundle inteiro**, condição mais
+  dura que produção, onde o contexto JS sobrevive.
 - **O Fast Refresh não aplica no dev web — recarregue antes de medir.** O Metro
   registra só o bundle inicial e a página segue executando código velho. Já
   produziu três medições contraditórias, incluindo um teste diferencial em que o
@@ -412,7 +430,10 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 1. Monitorar erros da Nova Entrega: recuperação de rascunho após refresh,
    importação em massa, dependências retirada/entrega, retries e duplicidade.
-2. Validar no Android e no iOS o ciclo completo de um motorista em rede instável.
+2. Validar o ciclo completo de um motorista **em rede instável** — o ciclo
+   em rede boa foi percorrido no Android em 05/09/2026 (iniciar, concluir com
+   foto, pular, reportar incidente, finalizar, e a recriação de Activity). O
+   iOS segue sem build (pend. 5).
 3. Confirmar entrega de push nos artefatos instalados pelas lojas.
 4. Planejar o aviso aos usuários do app antigo sem interromper o backend
    compartilhado.
