@@ -635,7 +635,7 @@ export async function oferecerSaidaParaConfiguracoes(
 - [ ] **Step 4: Rodar e confirmar que passa**
 
 Run: `npx jest src/lib/__tests__/permissoes.test.ts`
-Expected: PASS, 12 testes.
+Expected: PASS, 11 testes.
 
 - [ ] **Step 5: Commit**
 
@@ -679,23 +679,9 @@ export const COPY_LOCALIZACAO: CopyDePermissao = {
   mensagemBloqueada:
     'O acesso à localização está bloqueado. Libere em Configurações para navegar até a entrega.',
 };
-
-export const COPY_CAMERA: CopyDePermissao = {
-  titulo: 'Acesso à câmera',
-  mensagemNegada:
-    'Sem acesso à câmera não é possível registrar o comprovante desta entrega.',
-  mensagemBloqueada:
-    'O acesso à câmera está bloqueado. Libere em Configurações para registrar o comprovante.',
-};
-
-export const COPY_GALERIA: CopyDePermissao = {
-  titulo: 'Acesso às fotos',
-  mensagemNegada:
-    'Sem acesso às suas fotos não é possível anexar o comprovante desta entrega.',
-  mensagemBloqueada:
-    'O acesso às fotos está bloqueado. Libere em Configurações para anexar o comprovante.',
-};
 ```
+
+**Só `COPY_LOCALIZACAO` nesta task.** `COPY_CAMERA` e `COPY_GALERIA` entram no mesmo arquivo na Task 6, que é quem as usa — criá-las aqui deixaria duas constantes sem consumidor no diff desta task, e código sem uso é defeito.
 
 - [ ] **Step 2: `NavigationMode.tsx` — trocar o efeito das linhas 132-165**
 
@@ -1172,33 +1158,53 @@ O padrão já existe no repo: `src/components/motorista/home/NextStopPreview.tsx
 
 - [ ] **Step 1: Escrever o teste que falha**
 
-Acrescente a `src/components/motorista/__tests__/NavigationMode.test.tsx`:
+**Por que este teste é estático, e por que isso é legítimo aqui.** `useNavigationModeLogic` não é mockado em `NavigationMode.test.tsx` — o hook real roda. Chegar ao ramo `navigationMode === 'turn-by-turn' && userLocation` exigiria simular o clique que troca o modo mais um fix de GPS que popule `userLocation`: maquinaria frágil para um fato que o texto do arquivo resolve sozinho. Um literal de objeto em JSX **não tem como** ser referencialmente estável — a ausência dele não é um indício da propriedade, é a propriedade.
+
+Isto é o oposto do caso do watcher na Task 1, onde a presença da flag `cancelado` não provava nada sobre o `remove()` ter sido chamado. Lá o teste precisava executar; aqui não há o que executar.
+
+Acrescente a `src/components/motorista/__tests__/NavigationMode.test.tsx`, como um `describe` próprio no fim do arquivo:
 
 ```tsx
-it('não recria destination quando só a posição do motorista muda', () => {
-  const recebidos: unknown[] = [];
-  (TurnByTurnNavigation as unknown as jest.Mock).mockImplementation(
-    (props: { destination: unknown }) => {
-      recebidos.push(props.destination);
-      return null;
-    },
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+describe('identidade das props passadas a TurnByTurnNavigation', () => {
+  const fonte = readFileSync(
+    join(__dirname, '..', 'NavigationMode.tsx'),
+    'utf8',
   );
 
-  const { rerender } = render(<NavigationMode {...PROPS_BASE} />);
-  // Um novo tick de GPS: outra posição do motorista, mesma parada de destino.
-  rerender(<NavigationMode {...PROPS_BASE} />);
+  // Recorta só o elemento <TurnByTurnNavigation …/>: o resto do arquivo tem
+  // literais legítimos (estilos, regiões de mapa) que não são props dele.
+  const elemento = fonte.slice(
+    fonte.indexOf('<TurnByTurnNavigation'),
+    fonte.indexOf('/>', fonte.indexOf('<TurnByTurnNavigation')),
+  );
 
-  expect(recebidos.length).toBeGreaterThan(1);
-  expect(recebidos[0]).toBe(recebidos[recebidos.length - 1]);
+  it('recorta o elemento de fato (a guarda não passa por ausência)', () => {
+    expect(elemento).toContain('destination=');
+    expect(elemento).toContain('onExit=');
+  });
+
+  it('nenhuma prop é literal de objeto', () => {
+    // `destination={{…}}` ganha identidade nova a cada render. Como
+    // `destination` está nas deps do efeito do watcher de
+    // TurnByTurnNavigation e `origin={userLocation}` muda a 1 Hz, isso
+    // desmontava e remontava aquele efeito uma vez por segundo, dirigindo.
+    expect(elemento).not.toMatch(/=\{\{/);
+  });
+
+  it('nenhuma prop é arrow function inline', () => {
+    // `onExit={() => …}` tem o mesmo efeito por outro caminho.
+    expect(elemento).not.toMatch(/=\{\s*\(\s*\)\s*=>/);
+  });
 });
 ```
 
-`toBe` e não `toEqual`: o que quebra o efeito de `TurnByTurnNavigation` é a **identidade**, não o valor. Um `toEqual` passaria com o bug presente. `PROPS_BASE` e o mock de `TurnByTurnNavigation` já existem no arquivo — reaproveite; se o mock não existir, adicione `jest.mock('../TurnByTurnNavigation')` no topo.
-
 - [ ] **Step 2: Rodar e confirmar que falha**
 
-Run: `npx jest src/components/motorista/__tests__/NavigationMode.test.tsx -t "não recria destination"`
-Expected: FAIL — os dois objetos são iguais em valor e diferentes em identidade.
+Run: `npx jest src/components/motorista/__tests__/NavigationMode.test.tsx -t "identidade das props"`
+Expected: **FAIL** em dois dos três — `destination={{` casa com `/=\{\{/` e `onExit={() =>` casa com a arrow inline. O primeiro teste (o que confere o recorte) passa.
 
 - [ ] **Step 3: Memoizar**
 
@@ -1207,7 +1213,7 @@ Antes do `return`, no corpo do componente:
 ```tsx
 // Dependências primitivas, não o objeto `currentStop`: ele também muda de
 // identidade a cada render, e o memo não valeria nada. Mesmo padrão de
-// `usePiPRouteInfo.ts:158`.
+// `src/hooks/navigation/pip/usePiPRouteInfo.ts:158`.
 const destinoDaNavegacao = useMemo(
   () => ({
     latitude: currentStop?.latitude,
@@ -1217,7 +1223,10 @@ const destinoDaNavegacao = useMemo(
   [currentStop?.latitude, currentStop?.longitude, currentStop?.endereco],
 );
 
-const sairDaNavegacao = useCallback(() => setNavigationMode('map'), []);
+const sairDaNavegacao = useCallback(
+  () => setNavigationMode('map'),
+  [setNavigationMode],
+);
 ```
 
 E troque as props nas linhas 334-341:
@@ -1239,7 +1248,7 @@ Confirme que `useMemo` e `useCallback` estão importados de `react`.
 - [ ] **Step 4: Rodar e confirmar que passa**
 
 Run: `npx jest src/components/motorista/__tests__/NavigationMode.test.tsx`
-Expected: PASS.
+Expected: PASS, incluindo os três testes novos e todos os que já existiam.
 
 - [ ] **Step 5: Conferir `waypoints` e `origin` — as outras duas props**
 
@@ -1620,7 +1629,10 @@ describe('fonte única do pedido de permissão', () => {
       // mencionam o nome. O que a guarda proíbe é consumir o `status` direto.
       .filter((caminho) => {
         const fonte = semComentarios(readFileSync(join(RAIZ, caminho), 'utf8'));
-        return /const\s*\{\s*status\s*[},]/.test(fonte);
+        // O `:` cobre a forma com alias — `const { status: permStatus }` —
+        // que é exatamente a que `PreRouteChecklist` usa. Sem ele a guarda
+        // teria um buraco do tamanho de um call site real.
+        return /const\s*\{\s*status\s*[},:]/.test(fonte);
       });
 
     expect(infratores).toEqual([]);
