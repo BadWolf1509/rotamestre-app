@@ -247,7 +247,7 @@ export function PictureInPictureMap({
         touchZoom={isExpanded}
         compass={false}
         logo={false}
-        attribution={false}
+        attribution={true}
         onDidFinishLoadingMap={() => setMapLoading(false)}
       >
         {cameraSettings && (

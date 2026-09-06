@@ -5,19 +5,19 @@
  * stats aggregation, and error handling.
  */
 
-import { renderHook, act, waitFor } from "@testing-library/react-native";
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 // Mock supabase
 const mockFrom = jest.fn();
 
-jest.mock("@/lib/supabase", () => ({
+jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockFrom(table),
   },
 }));
 
 // Mock logger
-jest.mock("@/lib/logger", () => ({
+jest.mock('@/lib/logger', () => ({
   logger: {
     error: jest.fn(),
     warn: jest.fn(),
@@ -25,9 +25,9 @@ jest.mock("@/lib/logger", () => ({
   },
 }));
 
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
-import { useDesempenhoStats } from "../useDesempenhoStats";
+import { useDesempenhoStats } from '../useDesempenhoStats';
 
 // Helper to setup supabase chain for rotas
 const setupRotasChain = (finalResult: any) => {
@@ -53,40 +53,40 @@ const setupParadasChain = (finalResult: any) => {
   return chain;
 };
 
-describe("useDesempenhoStats", () => {
+describe('useDesempenhoStats', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("initialization", () => {
-    it("starts with loading true and null stats", () => {
+  describe('initialization', () => {
+    it('starts with loading true and null stats', () => {
       // Prevent the auto-fetch from completing immediately
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       // loading starts true (set in useEffect before loadStats resolves)
       expect(result.current.stats).toBeNull();
-      expect(result.current.periodo).toBe("30d");
+      expect(result.current.periodo).toBe('30d');
       expect(result.current.error).toBeNull();
     });
 
-    it("provides setPeriodo and refresh functions", () => {
+    it('provides setPeriodo and refresh functions', () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
-      expect(typeof result.current.setPeriodo).toBe("function");
-      expect(typeof result.current.refresh).toBe("function");
+      expect(typeof result.current.setPeriodo).toBe('function');
+      expect(typeof result.current.refresh).toBe('function');
     });
   });
 
-  describe("no userId", () => {
-    it("sets stats to null and loading to false when userId is undefined", async () => {
+  describe('no userId', () => {
+    it('sets stats to null and loading to false when userId is undefined', async () => {
       const { result } = renderHook(() => useDesempenhoStats(undefined));
 
       await waitFor(() => {
@@ -98,13 +98,13 @@ describe("useDesempenhoStats", () => {
     });
   });
 
-  describe("empty data", () => {
-    it("returns zero stats when no routes exist", async () => {
+  describe('empty data', () => {
+    it('returns zero stats when no routes exist', async () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -123,55 +123,55 @@ describe("useDesempenhoStats", () => {
       });
     });
 
-    it("does not query paradas when there are no routes", async () => {
+    it('does not query paradas when there are no routes', async () => {
       const rotasChain = setupRotasChain({ data: [], error: null });
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") return rotasChain;
+        if (table === 'rotas') return rotasChain;
         // Should not be called
         return setupParadasChain({ data: [], error: null });
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
       // Only rotas was queried
-      expect(mockFrom).toHaveBeenCalledWith("rotas");
-      expect(mockFrom).not.toHaveBeenCalledWith("paradas");
+      expect(mockFrom).toHaveBeenCalledWith('rotas');
+      expect(mockFrom).not.toHaveBeenCalledWith('paradas');
     });
   });
 
-  describe("stats aggregation", () => {
-    it("correctly aggregates route statistics", async () => {
+  describe('stats aggregation', () => {
+    it('correctly aggregates route statistics', async () => {
       const mockRotas = [
-        { id: "rota-1", status: "concluida", distancia_total: 25 },
-        { id: "rota-2", status: "concluida", distancia_total: 35 },
-        { id: "rota-3", status: "cancelada", distancia_total: 10 },
-        { id: "rota-4", status: "em_andamento", distancia_total: 15 },
+        { id: 'rota-1', status: 'concluida', distancia_total: 25 },
+        { id: 'rota-2', status: 'concluida', distancia_total: 35 },
+        { id: 'rota-3', status: 'cancelada', distancia_total: 10 },
+        { id: 'rota-4', status: 'em_andamento', distancia_total: 15 },
       ];
 
       const mockParadas = [
-        { id: "p-1", status: "concluida", rota_id: "rota-1" },
-        { id: "p-2", status: "concluida", rota_id: "rota-1" },
-        { id: "p-3", status: "pulada", rota_id: "rota-2" },
-        { id: "p-4", status: "concluida", rota_id: "rota-2" },
-        { id: "p-5", status: "pendente", rota_id: "rota-3" },
-        { id: "p-6", status: "concluida", rota_id: "rota-4" },
+        { id: 'p-1', status: 'concluida', rota_id: 'rota-1' },
+        { id: 'p-2', status: 'concluida', rota_id: 'rota-1' },
+        { id: 'p-3', status: 'pulada', rota_id: 'rota-2' },
+        { id: 'p-4', status: 'concluida', rota_id: 'rota-2' },
+        { id: 'p-5', status: 'pendente', rota_id: 'rota-3' },
+        { id: 'p-6', status: 'concluida', rota_id: 'rota-4' },
       ];
 
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") {
+        if (table === 'rotas') {
           return setupRotasChain({ data: mockRotas, error: null });
         }
-        if (table === "paradas") {
+        if (table === 'paradas') {
           return setupParadasChain({ data: mockParadas, error: null });
         }
         return setupRotasChain({ data: [], error: null });
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -190,23 +190,23 @@ describe("useDesempenhoStats", () => {
       });
     });
 
-    it("handles routes with null distancia_total", async () => {
+    it('handles routes with null distancia_total', async () => {
       const mockRotas = [
-        { id: "rota-1", status: "concluida", distancia_total: null },
-        { id: "rota-2", status: "concluida", distancia_total: 20 },
+        { id: 'rota-1', status: 'concluida', distancia_total: null },
+        { id: 'rota-2', status: 'concluida', distancia_total: 20 },
       ];
 
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") {
+        if (table === 'rotas') {
           return setupRotasChain({ data: mockRotas, error: null });
         }
-        if (table === "paradas") {
+        if (table === 'paradas') {
           return setupParadasChain({ data: [], error: null });
         }
         return setupRotasChain({ data: [], error: null });
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -215,23 +215,23 @@ describe("useDesempenhoStats", () => {
       expect(result.current.stats!.totalKm).toBe(20); // 0 + 20
     });
 
-    it("calculates 100% success rate when all routes are completed", async () => {
+    it('calculates 100% success rate when all routes are completed', async () => {
       const mockRotas = [
-        { id: "rota-1", status: "concluida", distancia_total: 10 },
-        { id: "rota-2", status: "concluida", distancia_total: 15 },
+        { id: 'rota-1', status: 'concluida', distancia_total: 10 },
+        { id: 'rota-2', status: 'concluida', distancia_total: 15 },
       ];
 
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") {
+        if (table === 'rotas') {
           return setupRotasChain({ data: mockRotas, error: null });
         }
-        if (table === "paradas") {
+        if (table === 'paradas') {
           return setupParadasChain({ data: [], error: null });
         }
         return setupRotasChain({ data: [], error: null });
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -240,35 +240,35 @@ describe("useDesempenhoStats", () => {
       expect(result.current.stats!.taxaSucesso).toBe(100);
     });
 
-    it("rounds mediaParadasPorRota correctly", async () => {
+    it('rounds mediaParadasPorRota correctly', async () => {
       const mockRotas = [
-        { id: "rota-1", status: "concluida", distancia_total: 10 },
-        { id: "rota-2", status: "concluida", distancia_total: 10 },
-        { id: "rota-3", status: "concluida", distancia_total: 10 },
+        { id: 'rota-1', status: 'concluida', distancia_total: 10 },
+        { id: 'rota-2', status: 'concluida', distancia_total: 10 },
+        { id: 'rota-3', status: 'concluida', distancia_total: 10 },
       ];
 
       // 7 paradas / 3 rotas = 2.33 -> rounds to 2
       const mockParadas = [
-        { id: "p-1", status: "concluida", rota_id: "rota-1" },
-        { id: "p-2", status: "concluida", rota_id: "rota-1" },
-        { id: "p-3", status: "concluida", rota_id: "rota-1" },
-        { id: "p-4", status: "concluida", rota_id: "rota-2" },
-        { id: "p-5", status: "concluida", rota_id: "rota-2" },
-        { id: "p-6", status: "concluida", rota_id: "rota-3" },
-        { id: "p-7", status: "concluida", rota_id: "rota-3" },
+        { id: 'p-1', status: 'concluida', rota_id: 'rota-1' },
+        { id: 'p-2', status: 'concluida', rota_id: 'rota-1' },
+        { id: 'p-3', status: 'concluida', rota_id: 'rota-1' },
+        { id: 'p-4', status: 'concluida', rota_id: 'rota-2' },
+        { id: 'p-5', status: 'concluida', rota_id: 'rota-2' },
+        { id: 'p-6', status: 'concluida', rota_id: 'rota-3' },
+        { id: 'p-7', status: 'concluida', rota_id: 'rota-3' },
       ];
 
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") {
+        if (table === 'rotas') {
           return setupRotasChain({ data: mockRotas, error: null });
         }
-        if (table === "paradas") {
+        if (table === 'paradas') {
           return setupParadasChain({ data: mockParadas, error: null });
         }
         return setupRotasChain({ data: [], error: null });
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -278,41 +278,41 @@ describe("useDesempenhoStats", () => {
     });
   });
 
-  describe("period filtering", () => {
-    it("defaults to 30d period", () => {
+  describe('period filtering', () => {
+    it('defaults to 30d period', () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
-      expect(result.current.periodo).toBe("30d");
+      expect(result.current.periodo).toBe('30d');
     });
 
-    it("allows changing period", async () => {
+    it('allows changing period', async () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
       act(() => {
-        result.current.setPeriodo("7d");
+        result.current.setPeriodo('7d');
       });
 
-      expect(result.current.periodo).toBe("7d");
+      expect(result.current.periodo).toBe('7d');
     });
 
-    it("reloads data when period changes", async () => {
+    it('reloads data when period changes', async () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -325,25 +325,49 @@ describe("useDesempenhoStats", () => {
       );
 
       act(() => {
-        result.current.setPeriodo("7d");
+        result.current.setPeriodo('7d');
       });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(mockFrom).toHaveBeenCalledWith("rotas");
+      expect(mockFrom).toHaveBeenCalledWith('rotas');
     });
 
-    it("applies gte filter for 7d and 30d periods", async () => {
+    it('filtra pelo dia da rota, nao pela data de criacao', async () => {
+      // `rotas.data` e o dia em que a rota RODA; `created_at` e quando o
+      // gestor criou o registro. Filtrar por created_at faz rota planejada com
+      // antecedencia sumir do "7 dias" mesmo tendo sido rodada ontem — e
+      // planejar com antecedencia e o uso normal do gestor.
       let capturedChain: any;
       mockFrom.mockImplementation((table: string) => {
         const chain = setupRotasChain({ data: [], error: null });
-        if (table === "rotas") capturedChain = chain;
+        if (table === 'rotas') capturedChain = chain;
         return chain;
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const [coluna, valor] = capturedChain.gte.mock.calls[0];
+      expect(coluna).toBe('data');
+      // Coluna `date` compara com YYYY-MM-DD, nao com timestamp ISO.
+      expect(valor).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it('applies gte filter for 7d and 30d periods', async () => {
+      let capturedChain: any;
+      mockFrom.mockImplementation((table: string) => {
+        const chain = setupRotasChain({ data: [], error: null });
+        if (table === 'rotas') capturedChain = chain;
+        return chain;
+      });
+
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -351,7 +375,7 @@ describe("useDesempenhoStats", () => {
 
       // 30d period should call gte
       expect(capturedChain.gte).toHaveBeenCalledWith(
-        "created_at",
+        'data',
         expect.any(String),
       );
     });
@@ -360,11 +384,11 @@ describe("useDesempenhoStats", () => {
       let capturedChain: any;
       mockFrom.mockImplementation((table: string) => {
         const chain = setupRotasChain({ data: [], error: null });
-        if (table === "rotas") capturedChain = chain;
+        if (table === 'rotas') capturedChain = chain;
         return chain;
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -375,12 +399,12 @@ describe("useDesempenhoStats", () => {
       capturedChain = null;
       mockFrom.mockImplementation((table: string) => {
         const chain = setupRotasChain({ data: [], error: null });
-        if (table === "rotas") capturedChain = chain;
+        if (table === 'rotas') capturedChain = chain;
         return chain;
       });
 
       act(() => {
-        result.current.setPeriodo("all");
+        result.current.setPeriodo('all');
       });
 
       await waitFor(() => {
@@ -392,13 +416,13 @@ describe("useDesempenhoStats", () => {
     });
   });
 
-  describe("refresh", () => {
-    it("sets refreshing to true while loading", async () => {
+  describe('refresh', () => {
+    it('sets refreshing to true while loading', async () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -414,12 +438,12 @@ describe("useDesempenhoStats", () => {
       });
     });
 
-    it("reloads stats on refresh", async () => {
+    it('reloads stats on refresh', async () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -438,66 +462,66 @@ describe("useDesempenhoStats", () => {
         expect(result.current.refreshing).toBe(false);
       });
 
-      expect(mockFrom).toHaveBeenCalledWith("rotas");
+      expect(mockFrom).toHaveBeenCalledWith('rotas');
     });
   });
 
-  describe("error handling", () => {
-    it("sets error message on rotas query failure", async () => {
+  describe('error handling', () => {
+    it('sets error message on rotas query failure', async () => {
       mockFrom.mockImplementation(() =>
-        setupRotasChain({ data: null, error: { message: "Network error" } }),
+        setupRotasChain({ data: null, error: { message: 'Network error' } }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
       expect(result.current.error).toBe(
-        "Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.",
+        'Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.',
       );
       expect(result.current.stats).toBeNull();
       expect(logger.error).toHaveBeenCalled();
     });
 
-    it("sets error message on paradas query failure", async () => {
+    it('sets error message on paradas query failure', async () => {
       const mockRotas = [
-        { id: "rota-1", status: "concluida", distancia_total: 10 },
+        { id: 'rota-1', status: 'concluida', distancia_total: 10 },
       ];
 
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") {
+        if (table === 'rotas') {
           return setupRotasChain({ data: mockRotas, error: null });
         }
-        if (table === "paradas") {
+        if (table === 'paradas') {
           return setupParadasChain({
             data: null,
-            error: { message: "DB error" },
+            error: { message: 'DB error' },
           });
         }
         return setupRotasChain({ data: [], error: null });
       });
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
       expect(result.current.error).toBe(
-        "Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.",
+        'Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.',
       );
       expect(result.current.stats).toBeNull();
     });
 
-    it("clears error on successful retry", async () => {
+    it('clears error on successful retry', async () => {
       // First call fails
       mockFrom.mockImplementation(() =>
-        setupRotasChain({ data: null, error: { message: "Error" } }),
+        setupRotasChain({ data: null, error: { message: 'Error' } }),
       );
 
-      const { result } = renderHook(() => useDesempenhoStats("user-123"));
+      const { result } = renderHook(() => useDesempenhoStats('user-123'));
 
       await waitFor(() => {
         expect(result.current.error).not.toBeNull();
@@ -524,15 +548,15 @@ describe("useDesempenhoStats", () => {
     });
   });
 
-  describe("userId change", () => {
-    it("reloads stats when userId changes", async () => {
+  describe('userId change', () => {
+    it('reloads stats when userId changes', async () => {
       mockFrom.mockImplementation(() =>
         setupRotasChain({ data: [], error: null }),
       );
 
       const { result, rerender } = renderHook(
         ({ userId }) => useDesempenhoStats(userId),
-        { initialProps: { userId: "user-1" as string | undefined } },
+        { initialProps: { userId: 'user-1' as string | undefined } },
       );
 
       await waitFor(() => {
@@ -544,20 +568,20 @@ describe("useDesempenhoStats", () => {
         setupRotasChain({ data: [], error: null }),
       );
 
-      rerender({ userId: "user-2" });
+      rerender({ userId: 'user-2' });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(mockFrom).toHaveBeenCalledWith("rotas");
+      expect(mockFrom).toHaveBeenCalledWith('rotas');
     });
 
-    it("clears stats when userId becomes undefined", async () => {
+    it('clears stats when userId becomes undefined', async () => {
       mockFrom.mockImplementation((table: string) => {
-        if (table === "rotas") {
+        if (table === 'rotas') {
           return setupRotasChain({
-            data: [{ id: "r-1", status: "concluida", distancia_total: 10 }],
+            data: [{ id: 'r-1', status: 'concluida', distancia_total: 10 }],
             error: null,
           });
         }
@@ -566,7 +590,7 @@ describe("useDesempenhoStats", () => {
 
       const { result, rerender } = renderHook(
         ({ userId }) => useDesempenhoStats(userId),
-        { initialProps: { userId: "user-1" as string | undefined } },
+        { initialProps: { userId: 'user-1' as string | undefined } },
       );
 
       await waitFor(() => {

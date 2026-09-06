@@ -136,7 +136,7 @@ export function MapaRN({
         style={styles.map}
         mapStyle={OPENFREEMAP_STYLE_URL}
         logo={false}
-        attribution={false}
+        attribution={true}
       >
         <MapLibreGL.Camera initialViewState={initialCamera} />
 

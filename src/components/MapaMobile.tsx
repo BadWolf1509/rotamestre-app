@@ -120,7 +120,7 @@ export function MapaMobile({
         style={styles.map}
         mapStyle={OPENFREEMAP_STYLE_URL}
         logo={false}
-        attribution={false}
+        attribution={true}
         compass={true}
         onPress={handleMapPress}
       >

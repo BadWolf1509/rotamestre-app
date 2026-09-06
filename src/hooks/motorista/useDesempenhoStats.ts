@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+import { toLocalISODate } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -32,7 +33,9 @@ export interface UseDesempenhoStatsReturn {
   error: string | null;
 }
 
-export function useDesempenhoStats(userId: string | undefined): UseDesempenhoStatsReturn {
+export function useDesempenhoStats(
+  userId: string | undefined,
+): UseDesempenhoStatsReturn {
   const [stats, setStats] = useState<PerformanceStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,11 +59,11 @@ export function useDesempenhoStats(userId: string | undefined): UseDesempenhoSta
       if (periodo === '7d') {
         const date = new Date(now);
         date.setDate(date.getDate() - 7);
-        dataInicio = date.toISOString();
+        dataInicio = toLocalISODate(date);
       } else if (periodo === '30d') {
         const date = new Date(now);
         date.setDate(date.getDate() - 30);
-        dataInicio = date.toISOString();
+        dataInicio = toLocalISODate(date);
       }
 
       // Buscar rotas do motorista
@@ -70,7 +73,10 @@ export function useDesempenhoStats(userId: string | undefined): UseDesempenhoSta
         .eq('motorista_id', userId);
 
       if (dataInicio) {
-        rotasQuery = rotasQuery.gte('created_at', dataInicio);
+        // `rotas.data` (o dia em que a rota roda), nao `created_at` (quando o
+        // gestor criou o registro). Filtrar por created_at fazia rota planejada
+        // com antecedencia sumir do periodo mesmo tendo sido rodada dentro dele.
+        rotasQuery = rotasQuery.gte('data', dataInicio);
       }
 
       const { data: rotas, error: rotasError } = await rotasQuery;
@@ -80,10 +86,18 @@ export function useDesempenhoStats(userId: string | undefined): UseDesempenhoSta
       // Calcular estatisticas de rotas
       const rotasData = rotas || [];
       const totalRotas = rotasData.length;
-      const rotasConcluidas = rotasData.filter((r) => r.status === 'concluida').length;
-      const rotasCanceladas = rotasData.filter((r) => r.status === 'cancelada').length;
-      const taxaSucesso = totalRotas > 0 ? Math.round((rotasConcluidas / totalRotas) * 100) : 0;
-      const totalKm = rotasData.reduce((acc, r) => acc + (r.distancia_total || 0), 0);
+      const rotasConcluidas = rotasData.filter(
+        (r) => r.status === 'concluida',
+      ).length;
+      const rotasCanceladas = rotasData.filter(
+        (r) => r.status === 'cancelada',
+      ).length;
+      const taxaSucesso =
+        totalRotas > 0 ? Math.round((rotasConcluidas / totalRotas) * 100) : 0;
+      const totalKm = rotasData.reduce(
+        (acc, r) => acc + (r.distancia_total || 0),
+        0,
+      );
 
       // Buscar paradas das rotas
       const rotaIds = rotasData.map((r) => r.id);
@@ -101,9 +115,14 @@ export function useDesempenhoStats(userId: string | undefined): UseDesempenhoSta
       }
 
       const totalParadas = paradasData.length;
-      const paradasConcluidas = paradasData.filter((p) => p.status === 'concluida').length;
-      const paradasPuladas = paradasData.filter((p) => p.status === 'pulada').length;
-      const mediaParadasPorRota = totalRotas > 0 ? Math.round(totalParadas / totalRotas) : 0;
+      const paradasConcluidas = paradasData.filter(
+        (p) => p.status === 'concluida',
+      ).length;
+      const paradasPuladas = paradasData.filter(
+        (p) => p.status === 'pulada',
+      ).length;
+      const mediaParadasPorRota =
+        totalRotas > 0 ? Math.round(totalParadas / totalRotas) : 0;
 
       setStats({
         totalRotas,
@@ -119,7 +138,9 @@ export function useDesempenhoStats(userId: string | undefined): UseDesempenhoSta
     } catch (err: unknown) {
       logger.error('Erro ao carregar estatisticas:', err);
       setStats(null);
-      setError('Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.');
+      setError(
+        'Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.',
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);

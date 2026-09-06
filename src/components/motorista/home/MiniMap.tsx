@@ -360,7 +360,7 @@ export function MiniMap({
             touchRotate={false}
             touchPitch={false}
             logo={false}
-            attribution={false}
+            attribution={true}
           >
             <MapLibreGL.Camera
               ref={cameraRef}
