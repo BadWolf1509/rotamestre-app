@@ -1026,3 +1026,55 @@ conferidos **byte a byte** no `prosrc` implantado. `EXECUTE` apenas para
 ---
 
 **Última atualização:** 31/08/2026
+
+---
+
+### ⏳ Migration 27: Endurecimento de RLS — papel, view admin, notificações
+
+**Arquivo:** `20260906120000_rls_endurecimento_papel_e_view_admin.sql`
+
+Quatro buracos que a varredura de 06/09/2026 confirmou no banco vivo. Os dois
+primeiros eram exploráveis com uma chamada comum do cliente Supabase.
+
+**`admin_dashboard_metrics` era legível sem login.** A view pertence a
+`postgres` (`rolbypassrls`) e estava sem `security_invoker`, então rodava
+ignorando RLS — e `anon` tinha SELECT. Como a ANON_KEY vai no bundle web,
+qualquer visitante do site lia MRR, churn, taxa de conversão e contagens de
+todos os tenants. É **reaplicação**: a Migration de 22/06 já trazia estas duas
+instruções, e as linhas irmãs do mesmo bloco pegaram (`vw_rotas_resumo` e
+`vw_performance_motoristas` estão corretas). Só estas não. Causa não
+determinada, por isso a migration é idempotente.
+
+**Motorista podia se promover a gestor.** `usuarios_update_optimized` tem um
+ramo `id = auth.uid()` no `USING` que não depende de outra coluna; sem
+`WITH CHECK`, o Postgres reusa o `USING` contra a linha nova e esse ramo aprova
+qualquer valor. Não havia grant de coluna barrando `papel`, `admin_role`,
+`unidade_id`, `ativo` nem `is_gestor_principal`.
+
+**Por que REVOKE de coluna e não só `WITH CHECK`.** `WITH CHECK` enxerga apenas
+a linha NOVA — "esta coluna não pode mudar de valor" não é expressável nele. É o
+mesmo raciocínio já registrado para `unidades` no `PROJECT_CONTEXT` ("RLS não
+restringe coluna"), onde a saída foi não ter policy de UPDATE; aqui a saída é o
+grant. `papel` e `admin_role` não são escritos por nenhum caminho do app
+(conferido em `src/`, `app/`, `supabase/functions/`, `scripts/`), então revogar
+é cirúrgico. `unidade_id` **é** escrita (`useUnidadeAtiva.ts:197`), então
+continua gravável, mas o `WITH CHECK` novo a prende às unidades da própria
+pessoa — isso é expressável porque é propriedade do valor novo.
+
+**Notificações.** Mesma forma: `USING (usuario_id = auth.uid())` sem
+`WITH CHECK`, e o dono reescrevia `titulo`/`mensagem`/`tipo`. O app escreve
+exatamente um campo (`lida`), então o grant foi reduzido a ele — o que também
+protege colunas futuras por padrão.
+
+**`incidentes_delete_optimized`.** Era a única policy de `incidentes` ainda
+apoiada em `usuarios.papel` + `usuarios.unidade_id`. Isolada, negava gestor
+multi-unidade legítimo; combinada com o furo acima, virava o gadget para DELETE
+cross-tenant. A tradução para `usuario_unidades` é fiel de propósito — mantém a
+base "gestor da unidade **da rota**" e só troca a fonte da verdade.
+
+**Follow-up registrado, não resolvido aqui:** `incidentes_update` decide pela
+unidade **do autor**, não da rota. A divergência é anterior a esta migration.
+
+**Fora de escopo, deliberadamente:** `rotas_update` (pendência 2, advisory
+`GHSA-vw63-jxg2-28vx` — o fix óbvio quebra o motorista) e a validação de
+`foto_url` que alimenta a policy de `storage.objects`. Os dois exigem design.
