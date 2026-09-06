@@ -251,10 +251,14 @@ class LocationTrackingService {
       //
       // O payload mandava `auto_concluida: true`, e essa coluna NÃO EXISTE em
       // `paradas`. O PostgREST recusava o UPDATE inteiro (PGRST204) e o erro
-      // não era lido — a parada seguia `pendente`, a busca da "próxima
-      // pendente" logo abaixo devolvia ela mesma, e o motorista recebia
-      // "Parada concluída! Próxima parada: {onde ele já está}". Entrega feita,
-      // registro inexistente, e o gestor sem nada.
+      // não era lido — a parada seguia `pendente`. O dano real NÃO era um
+      // push: `sendNotification`, mais abaixo, é um stub vazio (nunca saiu
+      // nenhuma notificação, daqui ou de qualquer outro fluxo deste
+      // serviço). O dano de verdade é que o INSERT em `logs` alguns passos
+      // abaixo (evento `parada_concluida`) PASSAVA normalmente — é outra
+      // tabela, outra escrita — e a trilha de auditoria afirmava a conclusão
+      // de uma parada que o próprio banco mostrava `pendente`: o gestor via
+      // um registro que a rota contradizia.
       //
       // O fato de ter sido automática já é registrado onde cabe: dentro de
       // `detalhes` do log, que é jsonb. Nada se perde ao tirar daqui.

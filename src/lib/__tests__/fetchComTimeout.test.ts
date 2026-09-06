@@ -178,4 +178,175 @@ describe('criarFetchComTimeout', () => {
     jest.advanceTimersByTime(TIMEOUT_STORAGE_MS);
     await expect(capturada).resolves.toBeInstanceOf(Error);
   });
+
+  // ==========================================================================
+  // prazoParaUrl por MÉTODO: metadados do Storage (createSignedUrl, list,
+  // info) devolvem JSON pequeno mesmo debaixo de /storage/v1/, onde o padrão
+  // é o prazo de upload (180s). createSignedUrlForFoto (lib/storage.ts) bate
+  // em /object/sign/ — é uma chamada no caminho de render (useSignedUrl faz
+  // dedupe por path), então ficava presa ao prazo de upload sem necessidade.
+  // ==========================================================================
+
+  describe('prazoParaUrl — metadados do Storage por método', () => {
+    const signUrl =
+      'https://x.supabase.co/storage/v1/object/sign/fotos-entrega/a.jpg';
+    const listUrl =
+      'https://x.supabase.co/storage/v1/object/list/fotos-entrega';
+    const infoUrl =
+      'https://x.supabase.co/storage/v1/object/info/fotos-entrega/a.jpg';
+    const objetoUrl =
+      'https://x.supabase.co/storage/v1/object/fotos-entrega/a.jpg';
+
+    it('createSignedUrl é um POST em /object/sign/: prazo curto', () => {
+      expect(prazoParaUrl(signUrl, 'POST')).toBe(TIMEOUT_SUPABASE_MS);
+    });
+
+    it('list() é um POST em /object/list/: prazo curto', () => {
+      expect(prazoParaUrl(listUrl, 'POST')).toBe(TIMEOUT_SUPABASE_MS);
+    });
+
+    it('info() é um GET em /object/info/: prazo curto', () => {
+      expect(prazoParaUrl(infoUrl, 'GET')).toBe(TIMEOUT_SUPABASE_MS);
+    });
+
+    // O ponto que a revisão pediu para investigar: o link que createSignedUrl
+    // devolve usa o MESMO path /object/sign/. Buscar a foto por ele é um GET,
+    // não um POST — e esse GET precisa continuar com o prazo longo.
+    it('baixar pelo MESMO link assinado é GET (não POST): prazo continua longo', () => {
+      expect(prazoParaUrl(signUrl, 'GET')).toBe(TIMEOUT_STORAGE_MS);
+    });
+
+    it('sem método informado, um path de /object/sign/ assume o caso caro', () => {
+      expect(prazoParaUrl(signUrl)).toBe(TIMEOUT_STORAGE_MS);
+    });
+
+    it('upload (POST no path puro do objeto) continua longo', () => {
+      expect(prazoParaUrl(objetoUrl, 'POST')).toBe(TIMEOUT_STORAGE_MS);
+    });
+
+    it('update (PUT no path puro do objeto) continua longo', () => {
+      expect(prazoParaUrl(objetoUrl, 'PUT')).toBe(TIMEOUT_STORAGE_MS);
+    });
+  });
+
+  it('criarFetchComTimeout repassa o método para prazoParaUrl: createSignedUrl não espera 3 minutos', async () => {
+    const base = jest.fn(
+      (_url: unknown, init?: { signal?: AbortSignal }) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () =>
+            reject(new Error('AbortError')),
+          );
+        }),
+    ) as unknown as typeof fetch;
+
+    const promessa = criarFetchComTimeout(undefined, base)(
+      'https://x.supabase.co/storage/v1/object/sign/fotos-entrega/a.jpg',
+      {
+        method: 'POST',
+      },
+    );
+    const capturada = promessa.catch((e: Error) => e);
+
+    // Prazo curto (15s) é o que vale aqui — não os 180s de upload.
+    jest.advanceTimersByTime(TIMEOUT_SUPABASE_MS + 1000);
+    await expect(capturada).resolves.toBeInstanceOf(Error);
+  });
+
+  // ==========================================================================
+  // Distinguir timeout de cancelamento do chamador. AbortError -> 'network'
+  // é retentável em queryClient.ts, e createIncidente é um INSERT
+  // não-idempotente: o abort mata o cliente, não a transação. Se o servidor
+  // gravou e a resposta não voltou, repetir duplicaria o incidente.
+  // ==========================================================================
+
+  describe('timeout vs. cancelamento do chamador', () => {
+    it('quando o PRAZO estoura, o erro rejeitado é reconhecível como timeout', async () => {
+      // O mock simula um fetch real que NÃO repropaga o motivo do abort — só
+      // um AbortError genérico. A distinção não pode depender do runtime
+      // fazer isso "direito".
+      const base = jest.fn(
+        (_url: unknown, init?: { signal?: AbortSignal }) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              const erro = new Error('Aborted');
+              erro.name = 'AbortError';
+              reject(erro);
+            });
+          }),
+      ) as unknown as typeof fetch;
+
+      const fetchComTimeout = criarFetchComTimeout(1000, base);
+      const promessa = fetchComTimeout(
+        'https://x.supabase.co/rest/v1/incidentes',
+      );
+      const capturada = promessa.catch((e: Error) => e);
+
+      jest.advanceTimersByTime(1001);
+
+      const erro = await capturada;
+      expect(erro.message).toBe('timeout');
+    });
+
+    it('quando é o CHAMADOR quem aborta, o erro NÃO vira "timeout"', async () => {
+      const doChamador = new AbortController();
+      const base = jest.fn(
+        (_url: unknown, init?: { signal?: AbortSignal }) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              const erro = new Error('Aborted');
+              erro.name = 'AbortError';
+              reject(erro);
+            });
+          }),
+      ) as unknown as typeof fetch;
+
+      const promessa = criarFetchComTimeout(10000, base)(
+        'https://x.supabase.co/rest/v1/rotas',
+        { signal: doChamador.signal },
+      );
+      const capturada = promessa.catch((e: Error) => e);
+
+      doChamador.abort();
+
+      const erro = await capturada;
+      expect(erro.message).not.toBe('timeout');
+      expect(erro.name).toBe('AbortError');
+    });
+  });
+
+  it('não vaza o timer quando fetchBase lança SINCRONAMENTE (antes de existir uma Promise)', async () => {
+    const base = jest.fn(() => {
+      throw new Error('explodiu antes de criar a Promise');
+    }) as unknown as typeof fetch;
+
+    await expect(
+      criarFetchComTimeout(1000, base)('https://exemplo/x'),
+    ).rejects.toThrow('explodiu antes de criar a Promise');
+
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('resolve o `fetch` global no momento da CHAMADA, não na criação do wrapper', async () => {
+    const original = global.fetch;
+    try {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue({ marca: 'antigo' } as unknown as Response);
+
+      // Cria o wrapper SEM fetchBase explícito — usa o default lazy.
+      const fetchComTimeout = criarFetchComTimeout(5000);
+
+      // Troca o fetch global DEPOIS de criar o wrapper — é o que aconteceria
+      // se o Sentry instrumentasse `fetch` na inicialização, que roda depois
+      // do boot do módulo `supabase.ts`.
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue({ marca: 'novo' } as unknown as Response);
+
+      const resposta = await fetchComTimeout('https://exemplo/x');
+      expect(resposta).toEqual({ marca: 'novo' });
+    } finally {
+      global.fetch = original;
+    }
+  });
 });

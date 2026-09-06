@@ -19,6 +19,7 @@ export type QueryErrorType =
   | 'not_found'
   | 'permission'
   | 'server'
+  | 'timeout'
   | 'unknown';
 
 export interface QueryError {
@@ -40,6 +41,25 @@ export type QueryResult<T> =
 export function classifyError(error: unknown): QueryError {
   if (!error) {
     return { type: 'unknown', message: 'Erro desconhecido' };
+  }
+
+  // Timeout do NOSSO wrapper (fetchComTimeout.ts), marcado com
+  // `new Error('timeout')` de propósito. Tem que vir ANTES do bloco genérico
+  // de objeto logo abaixo: um `Error` de verdade também é `typeof ===
+  // 'object'`, e cairia no fallback "Default with message" dali — 'unknown'
+  // por acidente de ordem, com a mensagem crua em inglês vazando pra UI.
+  // Aqui é deliberado: tipo PRÓPRIO ('timeout'), fora de `retryableTypes`
+  // (['network', 'server']) — abortar por prazo depois da resposta já ter
+  // gravado no servidor não pode virar um retry que duplica um INSERT como
+  // `createIncidente`. Cancelamento LEGÍTIMO do chamador (`.abortSignal()`
+  // em `useGestaoRotas`) não passa por aqui — chega com outro `message` e
+  // `name: 'AbortError'`, tratado mais abaixo.
+  if (error instanceof Error && error.message === 'timeout') {
+    return {
+      type: 'timeout',
+      message: 'A operação demorou muito e foi cancelada. Tente novamente.',
+      originalError: error,
+    };
   }
 
   // Handle PostgrestError

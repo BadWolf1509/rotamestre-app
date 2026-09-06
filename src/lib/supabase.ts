@@ -92,6 +92,11 @@ if (isSupabaseConfigured) {
         persistSession: false,
         detectSessionInUrl: false,
       },
+      // Mesmo motivo do cliente real acima: sem isto, o placeholder usado em
+      // E2E/CI herda o `fetch` sem prazo do runtime.
+      global: {
+        fetch: criarFetchComTimeout(),
+      },
     },
   );
 }

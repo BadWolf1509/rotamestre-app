@@ -634,9 +634,11 @@ describe('LocationTrackingService', () => {
   // Bug encontrado em 06/09/2026: o UPDATE mandava `auto_concluida: true`, e
   // essa coluna NÃO EXISTE em `paradas` (schema de produção conferido). O
   // PostgREST recusava o UPDATE inteiro, e o `error` nunca era lido — então a
-  // parada continuava `pendente`, a busca da "próxima pendente" devolvia ela
-  // mesma, e o motorista recebia "✅ Parada concluída! Próxima parada: {o
-  // endereço onde ele já está}". Entrega feita, registro inexistente.
+  // parada continuava `pendente`. Isso NÃO virava um push errado:
+  // `sendNotification` é um stub vazio, nenhuma notificação saía daqui. O
+  // dano real é que o INSERT em `logs` (evento `parada_concluida`) PASSAVA
+  // normalmente — tabela e escrita diferentes — e a trilha de auditoria
+  // afirmava a conclusão de uma parada que o banco mostrava `pendente`.
   // =========================================================================
 
   describe('autoAdvanceToNextStop', () => {
@@ -704,10 +706,14 @@ describe('LocationTrackingService', () => {
       // Sem log de conclusão e sem busca da próxima parada: o UPDATE falhou,
       // então não há nada de verdadeiro a anunciar.
       expect(mockFrom).not.toHaveBeenCalledWith('logs');
-      // E a parada corrente NÃO avança — era isso que produzia o laço.
-      expect(
-        (locationTrackingService as any).navigationState.currentStopId,
-      ).toBe('stop-1');
+      // `chain.single` é usado 3x no caminho feliz (paradaAtual, nextStop,
+      // followingStop) e só 1x (paradaAtual) no early-return. Checar
+      // `currentStopId` aqui NÃO discriminava: o mock devolve sempre a MESMA
+      // parada como "próxima", então mesmo o código antigo (sem o early
+      // return) chegaria em 'stop-1' de novo — passava nas duas versões. A
+      // contagem de chamadas a `.single()` é o que de fato prova que a busca
+      // da próxima parada nem foi tentada.
+      expect(chain.single).toHaveBeenCalledTimes(1);
     });
 
     it('registra a auto-conclusão em `detalhes` do log, não como coluna', async () => {

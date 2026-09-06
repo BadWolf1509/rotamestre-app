@@ -44,8 +44,13 @@ describe('queryClient', () => {
       expect(result.message).toBe('Erro de conexão. Verifique sua internet.');
     });
 
+    // PGRST116 é "zero linhas" (not_found), não um código de auth — usar essa
+    // fixture aqui esconderia a checagem de prefixo por trás da checagem de
+    // mensagem (a msg 'JWT expired' já classifica sozinha). PGRST301 é um
+    // código de auth REAL do PostgREST, sem 'JWT' na mensagem: só passa se a
+    // checagem de prefixo `PGRST30` estiver de fato funcionando.
     it('should classify auth errors from code', () => {
-      const authError = { code: 'PGRST116', message: 'JWT expired' };
+      const authError = { code: 'PGRST301', message: 'invalid token' };
       const result = classifyError(authError);
 
       expect(result.type).toBe('auth');
@@ -163,6 +168,38 @@ describe('queryClient', () => {
       expect(result.type).toBe('unknown');
       expect(result.message).toBe('Erro desconhecido');
     });
+
+    // fetchComTimeout.ts aborta por prazo com `new Error('timeout')` — motivo
+    // deliberado, para não ser confundido com o cancelamento legítimo do
+    // chamador (AbortError -> 'network', que continua retentável). Precisa
+    // de tipo PRÓPRIO, fora de retryableTypes (['network', 'server']).
+    it('should classify our fetch-timeout marker as its own non-retryable type', () => {
+      const timeoutError = new Error('timeout');
+      const result = classifyError(timeoutError);
+
+      expect(result.type).toBe('timeout');
+      expect(result.type).not.toBe('network');
+      expect(result.message).not.toBe('timeout'); // mensagem amigável, não a crua
+    });
+
+    // Guarda a distinção: só o timeout do NOSSO wrapper vira 'timeout'. O
+    // cancelamento legítimo do chamador (ex.: `.abortSignal()` em
+    // useGestaoRotas) continua caindo no ramo de AbortError — senão um
+    // cancelamento de verdade passaria a ser tratado como se tivesse gravado
+    // no servidor. Mensagem vazia de propósito: é o mesmo cenário do teste
+    // "should handle Error without message" acima — mensagem NÃO-vazia entra
+    // antes no fallback genérico de objeto (comportamento preexistente,
+    // alheio a este PR; setError.message==='timeout' é a única checagem nova
+    // e ela roda ANTES desse fallback).
+    it('should keep classifying an AbortError as network (cancellation), not timeout', () => {
+      const error = new Error();
+      error.name = 'AbortError';
+      error.message = '';
+      const result = classifyError(error);
+
+      expect(result.type).toBe('network');
+      expect(result.message).toBe('Requisição cancelada.');
+    });
   });
 
   describe('withRetry', () => {
@@ -176,10 +213,26 @@ describe('queryClient', () => {
     });
 
     it('should not retry on non-retryable errors', async () => {
-      const authError = { code: 'PGRST116', message: 'JWT expired' };
+      // Mesma correção de fixture do teste de classifyError acima: PGRST301 é
+      // um código de auth real, sem 'JWT' na mensagem.
+      const authError = { code: 'PGRST301', message: 'invalid token' };
       const queryFn = jest.fn().mockRejectedValue(authError);
 
       await expect(withRetry(queryFn)).rejects.toEqual(authError);
+      expect(queryFn).toHaveBeenCalledTimes(1);
+    });
+
+    // RISCO NOVO introduzido pelo fetchComTimeout: antes, um fetch pendurado
+    // nunca rejeitava, então isto não podia acontecer. Agora um timeout
+    // aborta e classifyError precisa continuar tratando isso como
+    // NÃO-retentável — createIncidente (queries/incidentes.ts) é um INSERT, e
+    // o abort mata o cliente, não a transação: se o servidor gravou e a
+    // resposta não voltou, repetir duplicaria o incidente.
+    it('should NOT retry our own fetch-timeout marker (would duplicate a non-idempotent INSERT)', async () => {
+      const timeoutError = new Error('timeout');
+      const queryFn = jest.fn().mockRejectedValue(timeoutError);
+
+      await expect(withRetry(queryFn)).rejects.toThrow('timeout');
       expect(queryFn).toHaveBeenCalledTimes(1);
     });
 

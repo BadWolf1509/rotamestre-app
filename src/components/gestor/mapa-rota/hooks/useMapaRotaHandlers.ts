@@ -19,6 +19,30 @@ import { supabase } from '@/lib/supabase';
 
 import type { Parada, Rota } from '../types';
 
+/**
+ * Confere se um UPDATE realmente afetou os registros esperados.
+ *
+ * RLS pode barrar um UPDATE devolvendo 204 com ZERO linhas e `error: null`
+ * (o `Prefer: return=minimal` default não distingue "0 linhas" de "N linhas"
+ * sem `.select()` encadeado) — checar só `error` não basta. Por isso todo
+ * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui.
+ *
+ * `esperado` não é sempre 1: o UPDATE de paradas em `handleConfirmReactivate`
+ * tem `.neq('status', 'concluida')`, e zero linhas é o resultado CORRETO
+ * quando todas já estavam concluídas — nesse caso `esperado` também é zero.
+ */
+function assertUpdateAfetouLinhas(
+  data: { id: string }[] | null,
+  error: unknown,
+  esperado: number,
+  mensagem: string,
+): void {
+  if (error) throw error;
+  if ((data?.length ?? 0) < esperado) {
+    throw new Error(mensagem);
+  }
+}
+
 interface UseMapaRotaHandlersOptions {
   rotaId: string | string[] | undefined;
   rota: Rota | null;
@@ -147,7 +171,19 @@ export function useMapaRotaHandlers({
     if (!id) return;
 
     try {
-      await supabase.from('rotas').update({ status: 'cancelada' }).eq('id', id);
+      const { data, error } = await supabase
+        .from('rotas')
+        .update({ status: 'cancelada' })
+        .eq('id', id)
+        .select('id');
+
+      assertUpdateAfetouLinhas(
+        data,
+        error,
+        1,
+        'Rota não foi cancelada (RLS ou rota inexistente)',
+      );
+
       showToast('Rota cancelada com sucesso', 'success');
       await loadRotaEParadas();
     } catch (error) {
@@ -163,7 +199,7 @@ export function useMapaRotaHandlers({
     try {
       const todayStr = getTodayISO();
 
-      await supabase
+      const { data: rotaData, error: rotaError } = await supabase
         .from('rotas')
         .update({
           status: 'pendente',
@@ -171,13 +207,40 @@ export function useMapaRotaHandlers({
           iniciada_em: null,
           concluida_em: null,
         })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
-      await supabase
+      assertUpdateAfetouLinhas(
+        rotaData,
+        rotaError,
+        1,
+        'Rota não foi reativada (RLS ou rota inexistente)',
+      );
+
+      // `esperado` aqui é quantas paradas o filtro .neq('status','concluida')
+      // DEVERIA afetar, não 1 fixo: se a rota já estava com tudo concluído,
+      // zero linhas é o resultado certo, e não pode virar falso-erro.
+      const paradasNaoConcluidas = paradasReais.filter(
+        (p) => p.status !== 'concluida',
+      ).length;
+
+      const { data: paradasData, error: paradasError } = await supabase
         .from('paradas')
         .update({ status: 'pendente', concluida_em: null })
         .eq('rota_id', id)
-        .neq('status', 'concluida');
+        .neq('status', 'concluida')
+        .select('id');
+
+      // Duas escritas independentes: se a de rotas passou e esta falhar, a
+      // rota já voltou a 'pendente' mas as paradas continuam 'concluida' —
+      // estado inconsistente. Não é seguro anunciar sucesso, nem tentar
+      // desfazer sozinho aqui (não há RPC atômica para isso ainda).
+      assertUpdateAfetouLinhas(
+        paradasData,
+        paradasError,
+        paradasNaoConcluidas,
+        'Paradas não foram todas reativadas (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
+      );
 
       await supabase.from('logs').insert({
         usuario_id: userData?.id,
@@ -195,7 +258,14 @@ export function useMapaRotaHandlers({
       logger.error('[useMapaRotaHandlers] Erro ao reativar rota', error);
       showToast('Erro ao reativar rota', 'error');
     }
-  }, [getIdString, loadRotaEParadas, showToast, userData?.id, userData?.nome]);
+  }, [
+    getIdString,
+    loadRotaEParadas,
+    paradasReais,
+    showToast,
+    userData?.id,
+    userData?.nome,
+  ]);
 
   const handleChangeDriver = useCallback(
     async (newMotoristaId: string, newMotoristaNome: string) => {
