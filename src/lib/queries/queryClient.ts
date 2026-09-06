@@ -55,7 +55,7 @@ export type QueryResult<T> =
  * instalada, não suposta — ver o teste de contrato em
  * `__tests__/postgrestAbortContract.test.ts` (roda o `@supabase/postgrest-js`
  * de verdade contra um fetch falso) e fix-report-2.md / fix-report-3.md do
- * PR #480.
+ * PR 480.
  *
  * Extraído aqui — em vez de cada chamador escrever seu próprio
  * `.startsWith('AbortError:')` — pra não duplicar esse conhecimento em dois
@@ -103,8 +103,8 @@ export function classifyError(error: unknown): QueryError {
   // pra instâncias de `Error`), saindo como 'unknown' com texto cru do
   // runtime. Não escrevemos um branch dedicado pra esse caso: sem nenhum
   // caminho real que o exercite, um teste só alcançaria com fixture
-  // inventada — exatamente o defeito que o item 2 do fix-report-3.md (PR
-  // #480) existiu pra desfazer (ali, o branch morto `name === 'AbortError'`
+  // inventada — exatamente o defeito que o item 2 do fix-report-3.md
+  // (PR 480) existiu pra desfazer (ali, o branch morto `name === 'AbortError'`
   // que ocupava este lugar).
   if (error instanceof Error && error.message === 'timeout') {
     return {
@@ -120,7 +120,7 @@ export function classifyError(error: unknown): QueryError {
   //
   // Com `name: 'AbortError'` (fetchComTimeout.ts) e `message: 'timeout'`, a
   // forma observada — confirmada rodando a biblioteca instalada de verdade,
-  // não suposta; ver fix-report-2.md do PR #480, item 2 — é
+  // não suposta; ver fix-report-2.md do PR 480, item 2 — é
   // `message: 'AbortError: timeout'`. Um cancelamento do chamador passando
   // pelo mesmo caminho gera `'AbortError: ' + <mensagem real do runtime>`,
   // que nunca é exatamente 'timeout' — por isso a comparação exata abaixo

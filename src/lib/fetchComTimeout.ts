@@ -91,7 +91,7 @@ function metodoDe(input: EntradaDeFetch, init?: OpcoesDeFetch): string {
  * bate em nenhum dos dois — e por isso NÃO é reconhecido como abort: cai no
  * mesmo balde de uma falha de rede comum, e cada tentativa nova (até 4, em
  * GET/HEAD/OPTIONS) ganha um timer inteiro deste wrapper. Medido por
- * experimento contra a biblioteca instalada (fix-report-2.md do PR #480,
+ * experimento contra a biblioteca instalada (fix-report-2.md do PR 480,
  * item 1): 4 chamadas ao fetch antes desta correção, 1 depois.
  *
  * `.code = 'ABORT_ERR'` é redundante com `.name` para o check acima (é um
