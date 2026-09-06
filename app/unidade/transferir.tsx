@@ -1,10 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -116,49 +112,27 @@ export default function TransferirGestaoScreen() {
     try {
       setTransferring(true);
 
-      // Iniciar transação: remover do atual, adicionar ao novo
-      // 1. Remover is_gestor_principal do atual
-      const { error: removeError } = await supabase
-        .from('usuarios')
-        .update({ is_gestor_principal: false })
-        .eq('id', userData!.id);
+      const { error } = await supabase.rpc('transferir_gestao_principal', {
+        p_unidade_id: userData!.unidade_id,
+        p_novo_gestor_id: selectedGestor,
+      });
 
-      if (removeError) throw removeError;
-
-      // 2. Adicionar is_gestor_principal ao novo
-      const { error: addError } = await supabase
-        .from('usuarios')
-        .update({ is_gestor_principal: true })
-        .eq('id', selectedGestor);
-
-      if (addError) {
-        // Reverter mudança anterior
-        await supabase
-          .from('usuarios')
-          .update({ is_gestor_principal: true })
-          .eq('id', userData!.id);
-        throw addError;
-      }
-
-      // 3. Registrar log da transferência (opcional, se você tiver tabela de logs)
-      // await supabase.from('logs').insert({
-      //   tipo: 'transferencia_gestao',
-      //   usuario_id: userData!.id,
-      //   novo_gestor_id: selectedGestor,
-      //   unidade_id: userData!.unidade_id,
-      // });
+      if (error) throw error;
 
       showSuccess(
         'Transferência Concluída!',
         `A gestão principal foi transferida para ${novoGestor.nome}. Você continuará como gestor, mas sem privilégios de gestor principal.`,
-        () => router.replace('/gestor/inicio')
+        () => router.replace('/gestor/inicio'),
       );
     } catch (error) {
       logger.error('Erro ao transferir gestão', error);
-      showError({
-        title: 'Erro',
-        message: 'Não foi possível transferir a gestão. Tente novamente ou entre em contato com o suporte.',
-      });
+      // Repassa o erro bruto da RPC (em vez de um texto fixo) para que
+      // useAlert/getErrorMessage (src/lib/errorMapping.ts) traduza as
+      // exceções de negócio de transferir_gestao_principal na frase exata
+      // que a RPC já escreve para o gestor. Erros inesperados (rede,
+      // Postgres técnico) continuam caindo no fallback genérico do
+      // errorMapping, só que agora compartilhado com o resto do app.
+      showError(error);
     } finally {
       setTransferring(false);
     }
@@ -206,7 +180,9 @@ export default function TransferirGestaoScreen() {
       {confirming ? (
         <View style={styles.confirmationSection}>
           <View style={styles.confirmationCard}>
-            <Text style={styles.confirmationTitle}>Confirmar Transferência</Text>
+            <Text style={styles.confirmationTitle}>
+              Confirmar Transferência
+            </Text>
             <Text style={styles.confirmationText}>
               Você está transferindo a gestão principal para:
             </Text>
@@ -226,8 +202,9 @@ export default function TransferirGestaoScreen() {
               </View>
             </View>
             <Text style={styles.confirmationInstructions}>
-              Para confirmar, digite <Text style={styles.confirmationKeyword}>TRANSFERIR</Text>
-              {' '}no campo abaixo.
+              Para confirmar, digite{' '}
+              <Text style={styles.confirmationKeyword}>TRANSFERIR</Text> no
+              campo abaixo.
             </Text>
             <Input
               value={confirmationText}
@@ -259,7 +236,9 @@ export default function TransferirGestaoScreen() {
         </View>
       ) : (
         <View style={styles.listSection}>
-          <Text style={styles.listTitle}>Selecione o novo gestor principal</Text>
+          <Text style={styles.listTitle}>
+            Selecione o novo gestor principal
+          </Text>
           {gestores.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
@@ -277,13 +256,16 @@ export default function TransferirGestaoScreen() {
                 onPress={() => handleSelectGestor(gestor.id)}
               >
                 <View style={styles.avatarGestor}>
-                  <Text style={styles.avatarText}>{gestor.nome.charAt(0).toUpperCase()}</Text>
+                  <Text style={styles.avatarText}>
+                    {gestor.nome.charAt(0).toUpperCase()}
+                  </Text>
                 </View>
                 <View style={styles.gestorDetails}>
                   <Text style={styles.gestorNome}>{gestor.nome}</Text>
                   <Text style={styles.gestorEmail}>{gestor.email}</Text>
                   <Text style={styles.gestorData}>
-                    Gestor desde {new Date(gestor.created_at).toLocaleDateString('pt-BR')}
+                    Gestor desde{' '}
+                    {new Date(gestor.created_at).toLocaleDateString('pt-BR')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -366,7 +348,9 @@ export default function TransferirGestaoScreen() {
             <View style={styles.headerContent}>
               <View>
                 <Text style={styles.headerTitle}>Transferir Gestão</Text>
-                <Text style={styles.headerSubtitle}>{userData?.unidades?.nome}</Text>
+                <Text style={styles.headerSubtitle}>
+                  {userData?.unidades?.nome}
+                </Text>
               </View>
             </View>
           </View>
@@ -385,10 +369,16 @@ export default function TransferirGestaoScreen() {
     <ErrorBoundary>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         <View style={styles.mobileContent}>
-          <MobileCard title="Transferir Gestão Principal" subtitle={userData?.unidades?.nome} variant="bordered">
+          <MobileCard
+            title="Transferir Gestão Principal"
+            subtitle={userData?.unidades?.nome}
+            variant="bordered"
+          >
             {renderMainContent()}
           </MobileCard>
         </View>
@@ -676,6 +666,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginRight: theme.spacing.md,
   },
 }));
-
-
-

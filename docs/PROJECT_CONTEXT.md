@@ -28,10 +28,12 @@
 
 ## Pendências (comece por aqui)
 
-Lista única e canônica. Se resolver uma, risque daqui.
+Lista única e canônica. Se resolver uma, risque daqui. **Os números não são
+renumerados** quando uma sai — a 2 foi fechada em 06/09/2026 e o resto do
+documento cita as outras pelo número ("pendência 4"), que passaria a apontar
+para outra coisa.
 
 - **1.** **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.<br>_Quem:_ gestor (Supabase → Auth → Users) · _Detalhe:_ "Credenciais hardcoded" abaixo
-- **2.** **Furo de RLS:** motorista pode alterar `unidade_id` da própria rota. Pré-existente, exige motorista malicioso fora do app.<br>_Quem:_ requer design (o fix óbvio quebra o motorista) · _Detalhe:_ Security Advisory privado `GHSA-vw63-jxg2-28vx`
 - **3.** **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.<br>_Quem:_ qualquer sessão · _Detalhe:_ spec `2026-08-04-auditoria-otimizacao-rotas-design.md`
 - **4.** **Play Store: produção continua vazia, e o gargalo é contável.** Teste fechado (`alpha`) e interno publicados e `completed` — confira qual build com `npm run play:status`. Para solicitar produção faltam **12 testadores com opt-in mantidos por 14 dias corridos** no teste fechado (em 31/08 eram **6**; o número vivo está no Painel do app no Console, não aqui). O caminho para os que faltam é divulgar o hub público `/testar`. **O teste aberto não é atalho:** ele fica bloqueado até haver acesso de produção — a dependência corre nesse sentido, e tentar promover para `beta` antes disso devolve `FAILED_PRECONDITION`.<br>_Quem:_ gestor (Play Console) · _Detalhe:_ `GOOGLE_PLAY_DEPLOYMENT.md`
 - **5.** **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).<br>_Quem:_ gestor (Apple ID + 2FA) · _Detalhe:_ `APP_STORE_DEPLOYMENT.md`
@@ -56,7 +58,14 @@ Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimizaçã
 conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
 `parada_reaberta`, `parada_retomada` e `motorista_alterado` —, então o widget
 colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
-citava só `rota_otimizada`, era maior que isso).
+citava só `rota_otimizada`, era maior que isso); `finalizar_rota` em
+`src/lib/offline.ts:389` faz `.update()` com objeto genérico sem allowlist de
+colunas — sem produtor hoje (nenhum `addToOfflineQueue` enfileira esse tipo),
+mas `setupOfflineSync` drena a fila a cada reconexão, então é código vivo sobre
+dado morto: se uma futura conclusão de rota offline espalhar um `Rota` inteiro
+no payload, o `REVOKE UPDATE (unidade_id)` de `rotas` (Migration 27, RLS)
+derruba o `UPDATE` inteiro — `status` e `concluida_em` junto — e a ação
+reenfileira em silêncio.
 
 ## Armadilhas que já custaram caro
 
