@@ -54,7 +54,6 @@ REVOKE ALL ON public.admin_dashboard_metrics FROM anon, authenticated;
 -- Quem legitimamente precisa escrever nessas colunas não é afetado: as RPCs
 -- SECURITY DEFINER (onboarding) rodam como o definidor, e o painel usa
 -- service_role. Os dois ignoram grants de `authenticated`.
-REVOKE UPDATE (papel, admin_role) ON public.usuarios FROM authenticated;
 
 -- `unidade_id` continua gravável porque o app escreve nela de verdade
 -- (`useUnidadeAtiva.ts:197`, troca de unidade ativa). Mas passa a ser
@@ -112,7 +111,34 @@ CREATE POLICY usuarios_update_optimized ON public.usuarios
   );
 
 COMMENT ON POLICY usuarios_update_optimized ON public.usuarios IS
-  'Auto-edição + gestor edita motorista da sua unidade. O WITH CHECK prende unidade_id às unidades do próprio usuário; papel e admin_role são protegidos por REVOKE de coluna, porque WITH CHECK não enxerga a linha antiga.';
+  'Auto-edição + gestor edita motorista da sua unidade. O WITH CHECK prende unidade_id às unidades do próprio usuário; papel, admin_role e is_gestor_principal são protegidos por REVOKE de coluna, porque WITH CHECK não enxerga a linha antiga.';
+
+-- `is_gestor_principal` entra na lista porque a RPC do item 6 passa a ser a
+-- única porta até ela. `anon` também perde: hoje é inofensivo (toda policy
+-- depende de `auth.uid()`, nulo para anônimo), mas é a mesma defesa em
+-- profundidade que justifica o resto do arquivo.
+REVOKE UPDATE (papel, admin_role, is_gestor_principal)
+  ON public.usuarios FROM authenticated, anon;
+
+-- ---------------------------------------------------------------------------
+-- 5. Motorista podia mover a própria rota para outro tenant (pendência 2)
+-- ---------------------------------------------------------------------------
+-- `rotas_update` não tem WITH CHECK, e o ramo `motorista_id = auth.uid()` não
+-- depende de `unidade_id` — então a linha nova recasa no mesmo ramo. Mover a
+-- rota leva junto TODAS as paradas (nome, endereço e telefone do destinatário),
+-- porque `paradas_select`/`paradas_update` decidem por `rotas.unidade_id`; e
+-- como `rotas` está na publicação `supabase_realtime`, o gestor de destino
+-- recebe o evento ao vivo.
+--
+-- O registro da pendência diz que "o fix óbvio quebra o motorista", e está
+-- certo sobre o fix óbvio: um WITH CHECK exigindo que o motorista pertença à
+-- unidade da rota tira dele a capacidade de iniciar e concluir a própria rota.
+--
+-- Mas o app NUNCA escreve `rotas.unidade_id` — levantamento em src/ e app/: só
+-- `status`, `data`, `iniciada_em`, `concluida_em`, `distancia_total` e
+-- `tempo_total`. A unidade nasce em `criar_rota_com_paradas`, que é SECURITY
+-- DEFINER e portanto imune a grant. Nenhuma Edge Function toca `rotas`.
+REVOKE UPDATE (unidade_id) ON public.rotas FROM authenticated, anon;
 
 -- ---------------------------------------------------------------------------
 -- 3. Dono de notificação podia reescrever o conteúdo dela
@@ -122,7 +148,7 @@ COMMENT ON POLICY usuarios_update_optimized ON public.usuarios IS
 -- exatamente um campo — `lida: true`, em NotificationDataContext.tsx:227 — então
 -- o grant pode ser reduzido a ele. Revogar tudo e reconceder só `lida` também
 -- protege colunas futuras por padrão.
-REVOKE UPDATE ON public.notificacoes FROM authenticated;
+REVOKE UPDATE ON public.notificacoes FROM authenticated, anon;
 GRANT UPDATE (lida) ON public.notificacoes TO authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -159,6 +185,95 @@ CREATE POLICY incidentes_delete_optimized ON public.incidentes
 COMMENT ON POLICY incidentes_delete_optimized ON public.incidentes IS
   'Gestor ativo da unidade da rota. Migrado de usuarios.papel/unidade_id (legado, envenenável) para usuario_unidades em 06/09/2026.';
 
+-- ---------------------------------------------------------------------------
+-- 6. Transferência de gestão principal deixava a unidade sem nenhum gestor
+-- ---------------------------------------------------------------------------
+-- `transferir.tsx` faz dois UPDATE soltos. O segundo, no alvo `papel='gestor'`,
+-- JÁ É NEGADO pelo `USING` de `usuarios_update_optimized`, que só libera
+-- terceiros quando o alvo é `papel='motorista'`. Sem `.select()`, zero linhas
+-- não produz erro: o `if (addError) throw` nunca dispara e a tela mostra
+-- "Transferência Concluída!" — mas o passo anterior já tirou o flag do gestor
+-- antigo. A unidade fica SEM NENHUM principal, e como só o principal
+-- transfere, o estado é irrecuperável pelo app.
+--
+-- A saída NÃO é alargar a policy: um ramo "principal edita outro gestor"
+-- liberaria a LINHA INTEIRA do outro (unidade_id, ativo, foto_url) para
+-- consertar um booleano — o erro contra o qual este arquivo inteiro argumenta.
+-- E não resolveria o defeito de verdade, que é de atomicidade.
+--
+-- ATENÇÃO ao escopo do flag: o índice único é
+-- `UNIQUE(unidade_id) WHERE is_gestor_principal AND ativo AND papel='gestor'`,
+-- sobre a coluna LEGADA `usuarios.unidade_id`. Por isso a RPC exige que as duas
+-- pessoas tenham essa coluna apontando para `p_unidade_id` — senão o flag
+-- cairia no "slot" de outra unidade, em silêncio.
+CREATE OR REPLACE FUNCTION public.transferir_gestao_principal(
+  p_unidade_id uuid,
+  p_novo_gestor_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_chamador uuid := auth.uid();
+BEGIN
+  IF v_chamador IS NULL THEN
+    RAISE EXCEPTION 'Não autenticado' USING ERRCODE = '28000';
+  END IF;
+
+  IF v_chamador = p_novo_gestor_id THEN
+    RAISE EXCEPTION 'O novo gestor principal precisa ser outra pessoa'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Quem chama tem de ser o gestor principal ATIVO desta unidade.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM usuario_unidades uu
+    JOIN usuarios u ON u.id = uu.usuario_id
+    WHERE uu.usuario_id = v_chamador
+      AND uu.unidade_id = p_unidade_id
+      AND uu.papel = 'gestor'
+      AND uu.ativo = true
+      AND u.unidade_id = p_unidade_id
+      AND u.is_gestor_principal = true
+  ) THEN
+    RAISE EXCEPTION 'Só o gestor principal da unidade pode transferir a gestão'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- O alvo tem de ser gestor ativo da MESMA unidade.
+  IF NOT EXISTS (
+    SELECT 1
+    FROM usuario_unidades uu
+    JOIN usuarios u ON u.id = uu.usuario_id
+    WHERE uu.usuario_id = p_novo_gestor_id
+      AND uu.unidade_id = p_unidade_id
+      AND uu.papel = 'gestor'
+      AND uu.ativo = true
+      AND u.ativo = true
+      AND u.unidade_id = p_unidade_id
+  ) THEN
+    RAISE EXCEPTION 'O destinatário precisa ser gestor ativo desta unidade'
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Ordem importa: limpar ANTES de conceder, senão o índice único parcial
+  -- recusa os dois principais coexistindo por um instante.
+  UPDATE usuarios SET is_gestor_principal = false WHERE id = v_chamador;
+  UPDATE usuarios SET is_gestor_principal = true  WHERE id = p_novo_gestor_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.transferir_gestao_principal(uuid, uuid)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.transferir_gestao_principal(uuid, uuid)
+  TO authenticated;
+
+COMMENT ON FUNCTION public.transferir_gestao_principal(uuid, uuid) IS
+  'Transfere is_gestor_principal entre dois gestores ativos da mesma unidade, atomicamente. Existe para não alargar usuarios_update_optimized: RLS não restringe coluna.';
+
 COMMIT;
 
 -- ROLLBACK:
@@ -179,7 +294,7 @@ COMMIT;
 --         WHERE uu.usuario_id = usuarios.id AND uu.ativo = true))));
 --
 -- -- 3. notificacoes
--- GRANT UPDATE ON public.notificacoes TO authenticated;
+-- GRANT UPDATE ON public.notificacoes TO authenticated, anon;
 --
 -- -- 4. incidentes
 -- DROP POLICY IF EXISTS incidentes_delete_optimized ON public.incidentes;
@@ -187,4 +302,9 @@ COMMIT;
 --   USING (EXISTS (SELECT 1 FROM public.usuarios u
 --     WHERE u.id = (SELECT auth.uid()) AND (u.papel)::text = 'gestor'::text
 --       AND u.unidade_id = (SELECT r.unidade_id FROM public.rotas r WHERE r.id = incidentes.rota_id)));
+--
+-- GRANT UPDATE (papel, admin_role, is_gestor_principal) ON public.usuarios TO authenticated, anon;
+-- GRANT UPDATE (unidade_id) ON public.rotas TO authenticated, anon;
+-- GRANT UPDATE ON public.notificacoes TO anon;
+-- DROP FUNCTION IF EXISTS public.transferir_gestao_principal(uuid, uuid);
 -- COMMIT;
