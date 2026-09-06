@@ -236,9 +236,12 @@ export function classifyError(error: unknown): QueryError {
 
   // Handle Error objects
   //
-  // `name === 'AbortError'` já foi tratado bem acima (antes do bloco de
-  // objeto genérico) — chegar aqui como `Error` significa que não é nem o
-  // nosso timeout nem um cancelamento, então é mesmo 'unknown'.
+  // Um Error que chega aqui não foi tratado pelos ramos anteriores: não é o
+  // nosso timeout próprio (message !== 'timeout') nem a forma do postgrest-js
+  // (que seria um objeto plano, não instanceof Error). Pode ser um
+  // cancelamento legítimo do chamador (que chegaria do storage-js ou outro,
+  // com message !== 'timeout') ou um erro genérico — sem informação que os
+  // distinga, classificamos como 'unknown'.
   if (error instanceof Error) {
     return {
       type: 'unknown',

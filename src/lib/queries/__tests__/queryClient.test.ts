@@ -269,12 +269,11 @@ describe('queryClient', () => {
       ).toBe(false);
     });
 
-    // Um `Error` de verdade com `name: 'AbortError'` (storage-js, ou fetch
-    // cru fora do supabase-js) tem outra FORMA — não passa por aqui.
-    // `classifyError` trata esse caso num branch dedicado (instanceof
-    // Error && message === 'timeout'); esta função só reconhece o objeto
-    // plano do postgrest-js.
-    it('não reconhece um Error de verdade (forma do storage-js, não do postgrest-js)', () => {
+    // isPostgrestAbortShape testa APENAS a forma da mensagem
+    // (.startsWith('AbortError:')), não o tipo do objeto. Não existe uma
+    // guarda de `instanceof Error` na função. Um Error com message !== 'AbortError: ...'
+    // falha porque a mensagem está errada, não porque seja Error.
+    it('retorna false quando a mensagem não começa com o padrão AbortError:', () => {
       const erro = new Error('timeout');
       erro.name = 'AbortError';
       expect(isPostgrestAbortShape(erro)).toBe(false);
