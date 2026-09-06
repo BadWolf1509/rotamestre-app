@@ -36,8 +36,12 @@ const mockRequestCameraPermissionsAsync = jest.fn();
 const mockRequestMediaLibraryPermissionsAsync = jest.fn();
 const mockLaunchCameraAsync = jest.fn();
 const mockLaunchImageLibraryAsync = jest.fn();
+const mockGetPendingResultAsync = jest.fn();
 const mockManipulateAsync = jest.fn();
 const mockUploadELinkFotoParada = jest.fn();
+const mockLerConclusaoEmVoo = jest.fn();
+const mockLimparConclusaoEmVoo = jest.fn();
+const mockMarcarConclusaoEmVoo = jest.fn();
 
 // Mock expo-image-picker
 jest.mock('expo-image-picker', () => ({
@@ -48,6 +52,13 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: (...args: any[]) => mockLaunchCameraAsync(...args),
   launchImageLibraryAsync: (...args: any[]) =>
     mockLaunchImageLibraryAsync(...args),
+  getPendingResultAsync: (...args: any[]) => mockGetPendingResultAsync(...args),
+}));
+
+jest.mock('@/lib/motorista/conclusaoEmVoo', () => ({
+  lerConclusaoEmVoo: (...args: any[]) => mockLerConclusaoEmVoo(...args),
+  limparConclusaoEmVoo: (...args: any[]) => mockLimparConclusaoEmVoo(...args),
+  marcarConclusaoEmVoo: (...args: any[]) => mockMarcarConclusaoEmVoo(...args),
 }));
 
 // Mock expo-image-manipulator
@@ -92,6 +103,12 @@ describe('CameraUpload Component', () => {
     // Setup default camera/gallery responses (canceled by default)
     mockLaunchCameraAsync.mockResolvedValue({ canceled: true });
     mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true });
+
+    // Sem conclusão interrompida por padrão
+    mockLerConclusaoEmVoo.mockResolvedValue(null);
+    mockLimparConclusaoEmVoo.mockResolvedValue(undefined);
+    mockMarcarConclusaoEmVoo.mockResolvedValue(undefined);
+    mockGetPendingResultAsync.mockResolvedValue(null);
   });
 
   describe('Renderização Inicial', () => {
@@ -843,6 +860,133 @@ describe('CameraUpload Component', () => {
           configurable: true,
         });
       }
+    });
+  });
+  describe('Recuperação após a Activity ser recriada', () => {
+    // O bug: em 05/09/2026, no aparelho, tirar a foto pela câmera e voltar
+    // deixava a conclusão pelo caminho — o Android recria a Activity sob
+    // pressão de memória e o React remonta a árvore. A foto ia junto.
+    const comAndroid = async (teste: () => Promise<void>) => {
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+      try {
+        await teste();
+      } finally {
+        Object.defineProperty(Platform, 'OS', {
+          get: () => originalPlatform,
+          configurable: true,
+        });
+      }
+    };
+
+    it('marca a conclusão ANTES de abrir a câmera', async () => {
+      await comAndroid(async () => {
+        const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+        fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+        const botoes = (Alert.alert as jest.Mock).mock.calls[0][2];
+        const tirarFoto = botoes.find((b: { text: string }) =>
+          b.text.includes('Tirar Foto'),
+        );
+
+        await act(async () => {
+          await tirarFoto.onPress();
+        });
+
+        expect(mockMarcarConclusaoEmVoo).toHaveBeenCalledWith(
+          defaultProps.paradaId,
+          defaultProps.rotaId,
+        );
+        // Ordem: marcar tem de acontecer antes do launch, senão numa recriação
+        // não existe "depois" para marcar.
+        expect(
+          mockMarcarConclusaoEmVoo.mock.invocationCallOrder[0],
+        ).toBeLessThan(mockLaunchCameraAsync.mock.invocationCallOrder[0]);
+      });
+    });
+
+    it('recupera a foto pendente quando o marcador é desta parada', async () => {
+      await comAndroid(async () => {
+        mockLerConclusaoEmVoo.mockResolvedValue({
+          paradaId: defaultProps.paradaId,
+          rotaId: defaultProps.rotaId,
+          em: Date.now(),
+        });
+        mockGetPendingResultAsync.mockResolvedValue({
+          canceled: false,
+          assets: [{ uri: 'foto-recuperada' }],
+        });
+
+        const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+        await waitFor(() => {
+          expect(getByText('📤 Enviar Foto')).toBeTruthy();
+        });
+        expect(mockManipulateAsync).toHaveBeenCalledWith(
+          'foto-recuperada',
+          expect.anything(),
+          expect.anything(),
+        );
+        // Consumiu o marcador: sem isto o modal reabriria sozinho depois.
+        expect(mockLimparConclusaoEmVoo).toHaveBeenCalled();
+      });
+    });
+
+    it('NÃO adota foto pendente de outra parada', async () => {
+      // Regressão perigosa: adotar a foto da parada anterior grava comprovante
+      // errado — pior que perder a foto.
+      await comAndroid(async () => {
+        mockLerConclusaoEmVoo.mockResolvedValue({
+          paradaId: 'outra-parada',
+          rotaId: defaultProps.rotaId,
+          em: Date.now(),
+        });
+        mockGetPendingResultAsync.mockResolvedValue({
+          canceled: false,
+          assets: [{ uri: 'foto-da-outra-parada' }],
+        });
+
+        const { queryByText } = render(<CameraUpload {...defaultProps} />);
+
+        await waitFor(() => {
+          expect(mockLerConclusaoEmVoo).toHaveBeenCalled();
+        });
+        expect(mockGetPendingResultAsync).not.toHaveBeenCalled();
+        expect(queryByText('📤 Enviar Foto')).toBeNull();
+      });
+    });
+
+    it('sem marcador não pergunta por foto pendente', async () => {
+      await comAndroid(async () => {
+        render(<CameraUpload {...defaultProps} />);
+
+        await waitFor(() => {
+          expect(mockLerConclusaoEmVoo).toHaveBeenCalled();
+        });
+        expect(mockGetPendingResultAsync).not.toHaveBeenCalled();
+      });
+    });
+
+    it('falha ao recuperar não quebra a tela', async () => {
+      await comAndroid(async () => {
+        mockLerConclusaoEmVoo.mockResolvedValue({
+          paradaId: defaultProps.paradaId,
+          rotaId: defaultProps.rotaId,
+          em: Date.now(),
+        });
+        mockGetPendingResultAsync.mockRejectedValue(new Error('sem resultado'));
+
+        const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+        await waitFor(() => {
+          expect(logger.warn).toHaveBeenCalled();
+        });
+        // Segue utilizável: o motorista tira outra foto.
+        expect(getByText('📸 Adicionar Foto do Comprovante')).toBeTruthy();
+      });
     });
   });
 });
