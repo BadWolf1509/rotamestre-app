@@ -25,6 +25,7 @@ import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useInicioModals } from '@/hooks/motorista/useInicioModals';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
+import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
@@ -73,6 +74,13 @@ function MotoristaInicioContent() {
   // Ver `src/hooks/motorista/useRestaurarConclusaoEmVoo.ts`.
   useRestaurarConclusaoEmVoo(route, paradas, (parada) => {
     modals.openCompletionFlow(parada);
+  });
+
+  // Reabre o wizard de incidente interrompido. Sem isto o rascunho fica salvo
+  // e ninguém o busca — o wizard só monta com `showIncidentWizard`, que é
+  // estado de componente e some na remontagem.
+  useRestaurarRascunhoIncidente(route, paradas, (parada) => {
+    modals.openIncidentWizard(parada);
   });
 
   // Local state (loading/async - not suitable for reducer)
@@ -522,7 +530,7 @@ function MotoristaInicioContent() {
             logger.debug('Incidente reportado:', report);
             modals.closeIncidentWizard();
           }}
-          paradaId={currentStop?.id}
+          paradaId={modals.selectedParadaForIncident?.id ?? currentStop?.id}
           rotaId={route?.id}
           motoristaId={userData?.id || ''}
           endereco={currentStop?.endereco}
