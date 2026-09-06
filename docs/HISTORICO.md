@@ -827,6 +827,100 @@ primeiro. O que existia eram duas lacunas abertas pelo trabalho do próprio dia,
 e fechá-las custou +496 bytes. Consolidação que só encolhe está otimizando a
 métrica, não o documento.
 
+## Estado confirmado em 05/09/2026
+
+Sessão longa, guiada por um smoke test manual nas duas contas (motorista no
+Android, gestor no navegador). O tema do dia: **corrigir a classe, não a
+instância** — dois defeitos que eu tratei como pontuais eram famílias.
+
+### Quatro PRs em `main`
+
+`f01e425` (#473) · `68bb718` (#474) · `c1e1b70` (#475) · `3fec5a5` (#476).
+
+### O Waze abria sem destino, e o `fallback` certo nunca era usado
+
+`gerarUrlWaze` mandava `waze://ul?ll=…&navigate=yes`. Medido no aparelho, mesmo
+destino, com `am force-stop` entre as tentativas:
+
+| URL                                     | resultado                  |
+| --------------------------------------- | -------------------------- |
+| `waze://ul?ll=…&navigate=yes`           | tela inicial, sem destino  |
+| `waze://?ll=…&navigate=yes`             | tela inicial, sem destino  |
+| `https://waze.com/ul?ll=…&navigate=yes` | **navega** (18 min, 10 km) |
+
+O universal link já estava no código como `fallback`, mas `canOpenURL` responde
+true para o esquema registrado — então o link quebrado ganhava sempre, e o certo
+só entraria se o Waze **não** estivesse instalado. Exatamente ao contrário. Pior
+para quem escolhe Waze como app preferido em Configurações: aí nem há menu.
+
+### A conclusão com foto sumia em silêncio
+
+Concluir parada com foto **tirada pela câmera**: foto tirada e confirmada, o app
+volta, o modal sumiu, a aba voltou para Início e **nada foi gravado**. Sem erro
+na tela. Descartei as explicações fáceis antes de escrever código — o processo
+não morreu (mesmo pid, bundle JS sem recarregar) e "não manter atividades"
+estava desligado. O que sobra é o Android **recriar a Activity** sob pressão de
+memória (128 MB livres; o `lowmemorykiller` matou a própria câmera em seguida).
+Contraprova no mesmo aparelho: pela galeria o modal sobreviveu.
+
+A correção tem duas metades — marcador em disco antes de abrir a câmera, e
+`getPendingResultAsync()` na volta —, e **a segunda metade quase ficou pela
+metade**: a primeira versão só restaurava no `checkpoints`, mas depois da
+recriação o app reaparece na **Início**. Descobri ligando
+`always_finish_activities` no build **sem** correção, para ter o controle antes
+do tratamento.
+
+### O fuso: um banner, depois 11 lugares
+
+O banner "Rota expira em 1h 17min" aparecia em rota `em_andamento`, que tem
+carência de 7 dias e não expira às 22:00 — prazo inventado em cima do motorista.
+Investigando, o mesmo componente escondia o aviso **verdadeiro** das 21:00 às
+22:00: comparava data em UTC (`toISOString().split('T')[0]`) com hora local
+(`getHours()`), e em UTC-3 a data UTC vira amanhã às 21:00. O estado `isUrgent`
+era inalcançável em produção.
+
+O `grep` da forma errada achou o padrão em **11 lugares, 7 arquivos**.
+
+**Como isso virou guarda.** Não é testável em runtime no CI: o bug só existe em
+fuso negativo e os runners rodam em UTC, onde o código quebrado acerta.
+Verifiquei: com o bug reintroduzido e `TZ=UTC`, o teste de renderização passa.
+Tentei pinar `process.env.TZ` num `beforeAll` — funciona no Node 24 local e
+**não** no Node 22 do CI (o ICU já cacheou o fuso), e a asserção-guarda que eu
+tinha posto justamente para isso falhou no CI. Resultado certo para uma rede que
+não pega nada. A garantia virou estática.
+
+### O wizard: persistir não basta se ninguém monta quem lê
+
+Apliquei "a mesma correção" ao wizard de incidente: rascunho persistido, 7
+testes verdes. No aparelho, o rascunho ia para o disco e voltava íntegro — e
+**ninguém o buscava**, porque o efeito de restauração vivia dentro do wizard, que
+só monta por estado que acabou de se perder. É a mesma lacuna do caso anterior,
+horas depois, com a lição já escrita. Virou memória própria.
+
+### Duas coisas que investiguei e **não** viraram código
+
+- **`Invalid geometry in line layer`**: instrumentei a geometria entregue ao
+  `GeoJSONSource` — `LineString`, 286 pontos, 0 não-finitos. Os avisos aparecem
+  **antes** disso, de 3 workers de tile diferentes: é o parsing dos tiles do
+  basemap. De quebra, a instrumentação revelou que **`MapaRN` não era o
+  componente da aba Mapa** — o log não disparava —, o que levou ao #476.
+- **Mapa do gestor "travado" em Carregando**: quase virou relatório de bug. O
+  tráfego mostrava style, sprites, fontes e tiles todos 200, e a captura seguinte
+  trazia o mapa inteiro. Era lentidão.
+
+### O flag que atrapalha quem o usa
+
+`always_finish_activities=1` reproduz a recriação de forma determinística — e
+**mata o swipe injetado por `adb`**, mantendo o tap funcionando. Perdi seis
+tentativas achando que meu build tinha quebrado o gesto. A receita é ligar o flag
+só na ida à câmera.
+
+### Uma evidência que quase aceitei sem discriminar
+
+Às 22:04 o banner estava ausente e isso "parecia" prova da correção — mas
+naquela hora o código antigo também o esconderia. Só o par discriminou: 22:37 em
+rota `em_andamento` (ausente) e 22:49 em rota `pendente` (presente).
+
 ## Frentes fechadas, por data
 
 > Vieram do `PROJECT_CONTEXT` em 25/08/2026: eram **86 linhas** lidas em toda
