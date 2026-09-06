@@ -1029,7 +1029,7 @@ conferidos **byte a byte** no `prosrc` implantado. `EXECUTE` apenas para
 
 ---
 
-### ⏳ Migration 27: Endurecimento de RLS — papel, view admin, notificações
+### ✅ Migration 27: Endurecimento de RLS — papel, view admin, notificações
 
 **Arquivo:** `20260906120000_rls_endurecimento_papel_e_view_admin.sql`
 
@@ -1075,6 +1075,48 @@ base "gestor da unidade **da rota**" e só troca a fonte da verdade.
 **Follow-up registrado, não resolvido aqui:** `incidentes_update` decide pela
 unidade **do autor**, não da rota. A divergência é anterior a esta migration.
 
-**Fora de escopo, deliberadamente:** `rotas_update` (pendência 2, advisory
-`GHSA-vw63-jxg2-28vx` — o fix óbvio quebra o motorista) e a validação de
-`foto_url` que alimenta a policy de `storage.objects`. Os dois exigem design.
+**Aplicada em 06/09/2026 — e a aplicação ensinou uma armadilha nova.**
+
+`REVOKE UPDATE (coluna)` **não tem efeito quando o papel já tem `UPDATE` em
+nível de TABELA**: no Postgres o grant de tabela subsume o de coluna, o REVOKE
+vira no-op silencioso e `has_column_privilege` continua devolvendo `true`. O
+`apply_migration` devolveu `success: true` e **quatro** dos itens não mudaram
+nada — `usuarios.papel`, `usuarios.admin_role`, `usuarios.is_gestor_principal`
+e `rotas.unidade_id` seguiam graváveis.
+
+Só apareceu porque a verificação consulta o **efeito**, não o retorno do apply.
+O item de notificações funcionou de primeira por acidente feliz: ele já revogava
+a tabela e reconcedia só `lida`, que é o padrão certo.
+
+O padrão correto, portanto, é **revogar a tabela e reconceder as colunas**,
+nunca `REVOKE` de coluna isolado. As colunas reconcedidas são todas as
+existentes menos as bloqueadas — sem aproveitar para apertar `id`/`created_at`,
+porque quebrar uma escrita legítima em silêncio é pior que a folga.
+
+**Também fechou a pendência 2** (`GHSA-vw63-jxg2-28vx`), parada desde dezembro
+com a nota "o fix óbvio quebra o motorista". A nota estava certa sobre o fix
+óbvio — um `WITH CHECK` no ramo do motorista tiraria dele a capacidade de
+iniciar e concluir a própria rota. Mas o app **nunca escreve** `rotas.unidade_id`;
+a unidade nasce em `criar_rota_com_paradas`, que é `SECURITY DEFINER`. Revogar a
+coluna fecha o furo sem o motorista sentir.
+
+**Verificação:** 28 checagens, 0 divergências — 4 colunas bloqueadas, `anon` sem
+escrita, as 20 reconcedidas graváveis, `service_role` intacto. A RPC foi sondada
+por chamada real: sem auth devolve `28000 Não autenticado` (linha 6) e com um
+`uid` falso devolve `42501` na **linha 26**, o que prova que a consulta em
+`public.usuario_unidades` executa sob `search_path = ''` — referência mal
+qualificada teria dado `42P01 relation does not exist`.
+
+**Pendente, e é decisão de produto:** nenhuma das 9 unidades tem gestor
+principal (0 de 16 usuários com o flag), porque nenhuma passou pelo fluxo
+self-service, o único que o liga. Depois desta migration não há caminho de
+`authenticated` para estabelecer o **primeiro** principal — vai exigir
+`service_role` ou uma RPC de bootstrap. Não é regressão: o caminho anterior era
+qualquer gestor se autopromover com um `.update()` direto, que é o buraco que o
+REVOKE fecha.
+
+**Fora de escopo, deliberadamente:** a validação de `foto_url` que alimenta a
+policy de `storage.objects` — mexer nela é mexer na invariante das fotos, e não
+deve viajar no mesmo lote que seis outras mudanças — e o `ativo` de `usuarios`,
+que permite a alguém desfazer a própria desativação mas não escala privilégio
+(o controle de acesso real usa `usuario_unidades.ativo`).
