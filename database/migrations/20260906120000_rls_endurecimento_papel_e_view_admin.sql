@@ -61,6 +61,14 @@ REVOKE ALL ON public.admin_dashboard_metrics FROM anon, authenticated;
 -- — isso É expressável, porque é propriedade do valor NOVO, não comparação com
 -- o antigo. Sem isso, um motorista apontaria a própria `unidade_id` para outro
 -- tenant e envenenaria as telas que ainda leem essa coluna legada.
+--
+-- ATENÇÃO ao alcance: essa restrição vale só para o ramo de auto-edição
+-- (abaixo). O ramo gestor→motorista é cópia literal do USING e não menciona
+-- unidade_id — um gestor pode gravar qualquer unidade_id na linha de um
+-- motorista da sua unidade, inclusive de outro tenant. Não é regressão desta
+-- migration (sem WITH CHECK nenhum, já era possível antes), mas não é verdade
+-- dizer que o WITH CHECK novo prende unidade_id nos dois ramos — só no
+-- primeiro.
 DROP POLICY IF EXISTS usuarios_update_optimized ON public.usuarios;
 
 CREATE POLICY usuarios_update_optimized ON public.usuarios
@@ -111,8 +119,31 @@ CREATE POLICY usuarios_update_optimized ON public.usuarios
   );
 
 COMMENT ON POLICY usuarios_update_optimized ON public.usuarios IS
-  'Auto-edição + gestor edita motorista da sua unidade. O WITH CHECK prende unidade_id às unidades do próprio usuário; papel, admin_role e is_gestor_principal são protegidos por REVOKE de coluna, porque WITH CHECK não enxerga a linha antiga.';
+  'Auto-edição + gestor edita motorista da sua unidade. O WITH CHECK prende unidade_id às unidades do próprio usuário só no ramo de auto-edição — o ramo gestor→motorista copia o USING e não restringe unidade_id. papel, admin_role e is_gestor_principal são protegidos por REVOKE de coluna, porque WITH CHECK não enxerga a linha antiga.';
 
+-- ARMADILHA não prevista no desenho original: WITH CHECK é avaliado contra a
+-- linha NOVA INTEIRA em TODO UPDATE, inclusive os que não tocam unidade_id.
+-- Consequência: um `UPDATE usuarios SET ultimo_login = now()` (ou push_token,
+-- primeira_senha, foto_url — qualquer coluna ainda gravável) passa a exigir
+-- que o unidade_id JÁ ARMAZENADO na linha esteja em get_my_unidade_ids(). Uma
+-- pessoa cujo usuarios.unidade_id legado não esteja entre os vínculos ATIVOS
+-- em usuario_unidades perde a capacidade de escrever QUALQUER COISA no
+-- próprio perfil — inclusive o próprio login (`src/lib/auth.ts:80`, que não
+-- confere o erro do update, então a falha é silenciosa).
+--
+-- Medido em 06/09/2026: ZERO usuários nesse estado.
+--   SELECT count(*) FROM public.usuarios u
+--   WHERE u.unidade_id IS NOT NULL
+--     AND NOT EXISTS (SELECT 1 FROM public.usuario_unidades uu
+--                     WHERE uu.usuario_id=u.id AND uu.unidade_id=u.unidade_id AND uu.ativo=true);
+--
+-- Mas é alcançável por operação normal, não só por corrupção de dado: em
+-- `supabase/functions/criar-motorista/index.ts` o INSERT em `usuarios` grava
+-- `unidade_id` (linha ~188) e, se o INSERT seguinte em `usuario_unidades`
+-- falhar (linha ~214), a função só loga o erro e PROSSEGUE — produzindo
+-- exatamente essa linha órfã: unidade_id preenchido, sem vínculo ativo
+-- correspondente.
+--
 -- `is_gestor_principal` entra na lista porque a RPC do item 6 passa a ser a
 -- única porta até ela. `anon` também perde: hoje é inofensivo (toda policy
 -- depende de `auth.uid()`, nulo para anônimo), mas é a mesma defesa em

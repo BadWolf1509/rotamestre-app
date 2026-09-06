@@ -176,8 +176,13 @@ pontas e registrar auditoria.
    `service_role`; nenhuma das duas é atingida.
 3. **`usuarios.unidade_id`**: continua gravável (a troca de unidade ativa a
    escreve, em `useUnidadeAtiva.ts:197`), mas presa por `WITH CHECK` a
-   `get_my_unidade_ids()`, que já filtra por `ativo = true`. O revisor confirmou
-   que o conjunto de valores que a tela pode enviar é exatamente esse.
+   `get_my_unidade_ids()` **só no ramo de auto-edição** — que já filtra por
+   `ativo = true`. O revisor confirmou que o conjunto de valores que a tela
+   pode enviar é exatamente esse. **O ramo gestor→motorista não tem a mesma
+   proteção:** é cópia literal do `USING` e não menciona `unidade_id`, então um
+   gestor pode gravar qualquer valor na linha de um motorista da sua unidade,
+   inclusive de outro tenant. Não é regressão — sem `WITH CHECK` nenhum, já era
+   possível antes —, mas o `WITH CHECK` novo não fecha essa porta.
 4. **`notificacoes`**: `REVOKE UPDATE` da tabela + `GRANT UPDATE (lida)`. O app
    escreve exatamente esse campo. Revogar tudo e reconceder um também protege
    colunas futuras por padrão.

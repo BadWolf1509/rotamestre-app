@@ -1059,7 +1059,26 @@ grant. `papel` e `admin_role` não são escritos por nenhum caminho do app
 (conferido em `src/`, `app/`, `supabase/functions/`, `scripts/`), então revogar
 é cirúrgico. `unidade_id` **é** escrita (`useUnidadeAtiva.ts:197`), então
 continua gravável, mas o `WITH CHECK` novo a prende às unidades da própria
-pessoa — isso é expressável porque é propriedade do valor novo.
+pessoa **só no ramo de auto-edição** — isso é expressável porque é propriedade
+do valor novo. O ramo gestor→motorista é cópia literal do `USING` e não
+restringe `unidade_id`: um gestor pode gravar qualquer valor na linha de um
+motorista da sua unidade, inclusive de outro tenant. Não é regressão — sem
+`WITH CHECK` nenhum, já era possível antes —, mas os dois ramos não têm a
+mesma proteção.
+
+**Efeito colateral que ninguém previu.** `WITH CHECK` é avaliado contra a
+linha NOVA INTEIRA em **todo** `UPDATE`, inclusive os que não tocam
+`unidade_id`. Um `UPDATE usuarios SET ultimo_login = now()` passa a exigir que
+o `unidade_id` **já armazenado** esteja em `get_my_unidade_ids()`. Uma pessoa
+cujo `usuarios.unidade_id` legado não esteja entre os vínculos **ativos** em
+`usuario_unidades` perde a capacidade de escrever qualquer coisa no próprio
+perfil — login (`src/lib/auth.ts:80`, que descarta o erro e portanto falha em
+silêncio), push token, `primeira_senha`, foto, edição de perfil. Medido em
+06/09/2026: zero usuários nesse estado — mas
+`supabase/functions/criar-motorista/index.ts` grava `unidade_id` e, se o
+vínculo em `usuario_unidades` falhar logo depois, só loga o erro e prossegue,
+produzindo exatamente essa linha órfã. Alcançável por operação normal, não só
+por corrupção de dado.
 
 **Notificações.** Mesma forma: `USING (usuario_id = auth.uid())` sem
 `WITH CHECK`, e o dono reescrevia `titulo`/`mensagem`/`tipo`. O app escreve
@@ -1101,11 +1120,14 @@ a unidade nasce em `criar_rota_com_paradas`, que é `SECURITY DEFINER`. Revogar 
 coluna fecha o furo sem o motorista sentir.
 
 **Verificação:** 28 checagens, 0 divergências — 4 colunas bloqueadas, `anon` sem
-escrita, as 20 reconcedidas graváveis, `service_role` intacto. A RPC foi sondada
-por chamada real: sem auth devolve `28000 Não autenticado` (linha 6) e com um
-`uid` falso devolve `42501` na **linha 26**, o que prova que a consulta em
-`public.usuario_unidades` executa sob `search_path = ''` — referência mal
-qualificada teria dado `42P01 relation does not exist`.
+escrita, `service_role` intacto. A migration reconcede **31** colunas (12 em
+`usuarios`, 18 em `rotas`, 1 em `notificacoes`) — vinte foram conferidas uma a
+uma, as demais por reconciliação da lista do `GRANT` contra as colunas da
+tabela, não individualmente. A RPC foi sondada por chamada real: sem auth
+devolve `28000 Não autenticado` (linha 6) e com um `uid` falso devolve `42501`
+na **linha 26**, o que prova que a consulta em `public.usuario_unidades`
+executa sob `search_path = ''` — referência mal qualificada teria dado `42P01
+relation does not exist`.
 
 **Pendente, e é decisão de produto:** nenhuma das 9 unidades tem gestor
 principal (0 de 16 usuários com o flag), porque nenhuma passou pelo fluxo

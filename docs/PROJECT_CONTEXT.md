@@ -58,7 +58,14 @@ Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimizaçã
 conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
 `parada_reaberta`, `parada_retomada` e `motorista_alterado` —, então o widget
 colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
-citava só `rota_otimizada`, era maior que isso).
+citava só `rota_otimizada`, era maior que isso); `finalizar_rota` em
+`src/lib/offline.ts:389` faz `.update()` com objeto genérico sem allowlist de
+colunas — sem produtor hoje (nenhum `addToOfflineQueue` enfileira esse tipo),
+mas `setupOfflineSync` drena a fila a cada reconexão, então é código vivo sobre
+dado morto: se uma futura conclusão de rota offline espalhar um `Rota` inteiro
+no payload, o `REVOKE UPDATE (unidade_id)` de `rotas` (Migration 27, RLS)
+derruba o `UPDATE` inteiro — `status` e `concluida_em` junto — e a ação
+reenfileira em silêncio.
 
 ## Armadilhas que já custaram caro
 
