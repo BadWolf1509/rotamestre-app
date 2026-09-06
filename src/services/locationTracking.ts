@@ -248,14 +248,35 @@ class LocationTrackingService {
         .single();
 
       // Mark current stop as completed
-      await supabase
+      //
+      // O payload mandava `auto_concluida: true`, e essa coluna NÃO EXISTE em
+      // `paradas`. O PostgREST recusava o UPDATE inteiro (PGRST204) e o erro
+      // não era lido — a parada seguia `pendente`, a busca da "próxima
+      // pendente" logo abaixo devolvia ela mesma, e o motorista recebia
+      // "Parada concluída! Próxima parada: {onde ele já está}". Entrega feita,
+      // registro inexistente, e o gestor sem nada.
+      //
+      // O fato de ter sido automática já é registrado onde cabe: dentro de
+      // `detalhes` do log, que é jsonb. Nada se perde ao tirar daqui.
+      const { error: erroConclusao } = await supabase
         .from('paradas')
         .update({
           status: 'concluida',
           concluida_em: new Date().toISOString(),
-          auto_concluida: true,
         })
         .eq('id', this.navigationState.currentStopId);
+
+      // Abortar é a degradação certa: sem gravação confirmada, qualquer log,
+      // notificação ou avanço daqui para baixo seria mentira. A parada fica
+      // `pendente` e o motorista conclui pela tela, que funciona.
+      // `logger.error` de propósito — `logger.warn` é no-op em produção.
+      if (erroConclusao) {
+        logger.error(
+          '[LocationTracking] Auto-conclusão não gravou; parada segue pendente',
+          erroConclusao,
+        );
+        return;
+      }
 
       // Criar log para auto-conclusão
       const {

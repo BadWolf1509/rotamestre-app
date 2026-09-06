@@ -627,4 +627,101 @@ describe('LocationTrackingService', () => {
       );
     });
   });
+
+  // =========================================================================
+  // autoAdvanceToNextStop
+  //
+  // Bug encontrado em 06/09/2026: o UPDATE mandava `auto_concluida: true`, e
+  // essa coluna NÃO EXISTE em `paradas` (schema de produção conferido). O
+  // PostgREST recusava o UPDATE inteiro, e o `error` nunca era lido — então a
+  // parada continuava `pendente`, a busca da "próxima pendente" devolvia ela
+  // mesma, e o motorista recebia "✅ Parada concluída! Próxima parada: {o
+  // endereço onde ele já está}". Entrega feita, registro inexistente.
+  // =========================================================================
+
+  describe('autoAdvanceToNextStop', () => {
+    function prepararEstado() {
+      (locationTrackingService as any).navigationState = {
+        enabled: true,
+        autoAdvance: true,
+        soundAlerts: false,
+        vibrationAlerts: false,
+        proximityRadius: 50,
+        currentStopLocation: { latitude: -23.55, longitude: -46.63 },
+        currentStopId: 'stop-1',
+        rotaId: 'rota-1',
+      };
+    }
+
+    /** Chain em que o UPDATE resolve com o resultado que o teste escolher. */
+    function chainComUpdate(resultadoDoUpdate: { error: unknown }) {
+      const chain: any = {};
+      chain.select = jest.fn().mockReturnValue(chain);
+      chain.insert = jest.fn().mockResolvedValue({ error: null });
+      chain.update = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue(resultadoDoUpdate),
+      });
+      chain.eq = jest.fn().mockReturnValue(chain);
+      chain.order = jest.fn().mockReturnValue(chain);
+      chain.limit = jest.fn().mockReturnValue(chain);
+      chain.single = jest.fn().mockResolvedValue({
+        data: {
+          id: 'stop-1',
+          endereco: 'Rua A, 1',
+          tipo: 'entrega',
+          ordem: 1,
+          vinculo_parada_id: null,
+        },
+        error: null,
+      });
+      return chain;
+    }
+
+    it('não manda `auto_concluida` no UPDATE — a coluna não existe em paradas', async () => {
+      prepararEstado();
+      const chain = chainComUpdate({ error: null });
+      mockFrom.mockImplementation(() => chain);
+
+      await (locationTrackingService as any).autoAdvanceToNextStop();
+
+      expect(chain.update).toHaveBeenCalled();
+      const payload = chain.update.mock.calls[0][0];
+      expect(payload).not.toHaveProperty('auto_concluida');
+      // O que o UPDATE precisa continuar fazendo:
+      expect(payload.status).toBe('concluida');
+      expect(payload.concluida_em).toEqual(expect.any(String));
+    });
+
+    it('aborta sem notificar quando o UPDATE da parada falha', async () => {
+      prepararEstado();
+      const chain = chainComUpdate({
+        error: { code: 'PGRST204', message: 'column does not exist' },
+      });
+      mockFrom.mockImplementation(() => chain);
+
+      await (locationTrackingService as any).autoAdvanceToNextStop();
+
+      // Sem log de conclusão e sem busca da próxima parada: o UPDATE falhou,
+      // então não há nada de verdadeiro a anunciar.
+      expect(mockFrom).not.toHaveBeenCalledWith('logs');
+      // E a parada corrente NÃO avança — era isso que produzia o laço.
+      expect(
+        (locationTrackingService as any).navigationState.currentStopId,
+      ).toBe('stop-1');
+    });
+
+    it('registra a auto-conclusão em `detalhes` do log, não como coluna', async () => {
+      prepararEstado();
+      const chain = chainComUpdate({ error: null });
+      mockFrom.mockImplementation(() => chain);
+
+      await (locationTrackingService as any).autoAdvanceToNextStop();
+
+      expect(chain.insert).toHaveBeenCalled();
+      const log = chain.insert.mock.calls[0][0];
+      expect(log.evento).toBe('parada_concluida');
+      expect(log.detalhes.auto_concluida).toBe(true);
+      expect(log.detalhes.metodo).toBe('localizacao_automatica');
+    });
+  });
 });

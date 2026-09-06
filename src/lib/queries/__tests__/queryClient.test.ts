@@ -74,12 +74,33 @@ describe('queryClient', () => {
       expect(result.type).toBe('permission');
     });
 
+    // PGRST116 é "zero linhas", não sessão expirada. A versão anterior deste
+    // teste aceitava `['not_found', 'auth']` com o comentário "PGRST116 is also
+    // caught by auth check first" — alguém viu o bug e afrouxou o teste em vez
+    // de corrigir o código. O efeito em produção: registro que não existe mais
+    // (rota reatribuída, parada removida por outro gestor) mandava o motorista
+    // fazer login de novo, e o problema continuava depois do login.
     it('should classify not_found errors', () => {
       const notFoundError = { code: 'PGRST116' };
       const result = classifyError(notFoundError);
 
-      // Note: PGRST116 is also caught by auth check first
-      expect(['not_found', 'auth']).toContain(result.type);
+      expect(result.type).toBe('not_found');
+      expect(result.message).toBe('Registro não encontrado.');
+    });
+
+    // Os códigos de auth REAIS do PostgREST são a família PGRST30x. O prefixo
+    // `PGRST1` que estava aqui pegava justamente a família errada.
+    it.each(['PGRST301', 'PGRST302', 'PGRST303'])(
+      'should classify %s as auth',
+      (code) => {
+        expect(classifyError({ code }).type).toBe('auth');
+      },
+    );
+
+    // Guarda contra a regressão simétrica: outros PGRST1xx não devem virar auth
+    // só por causa do prefixo.
+    it('should not classify PGRST100 (parse error) as auth', () => {
+      expect(classifyError({ code: 'PGRST100' }).type).not.toBe('auth');
     });
 
     it('should classify validation errors with code starting with 22', () => {
@@ -91,7 +112,10 @@ describe('queryClient', () => {
     });
 
     it('should classify validation errors with code starting with 23', () => {
-      const validationError = { code: '23505', message: 'Unique constraint violation' };
+      const validationError = {
+        code: '23505',
+        message: 'Unique constraint violation',
+      };
       const result = classifyError(validationError);
 
       expect(result.type).toBe('validation');
@@ -161,7 +185,8 @@ describe('queryClient', () => {
 
     it('should retry on retryable errors and eventually succeed', async () => {
       const networkError = { message: 'network error' };
-      const queryFn = jest.fn()
+      const queryFn = jest
+        .fn()
         .mockRejectedValueOnce(networkError)
         .mockResolvedValueOnce('success');
 
@@ -181,7 +206,7 @@ describe('queryClient', () => {
       const queryFn = jest.fn().mockRejectedValue(networkError);
 
       await expect(
-        withRetry(queryFn, { maxAttempts: 2, baseDelayMs: 1, maxDelayMs: 1 })
+        withRetry(queryFn, { maxAttempts: 2, baseDelayMs: 1, maxDelayMs: 1 }),
       ).rejects.toEqual(networkError);
       expect(queryFn).toHaveBeenCalledTimes(2);
     }, 10000);

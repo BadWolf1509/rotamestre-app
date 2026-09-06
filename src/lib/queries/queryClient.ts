@@ -32,8 +32,7 @@ export interface QueryError {
  * Query result with discriminated union for type-safe error handling
  */
 export type QueryResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: QueryError };
+  { success: true; data: T } | { success: false; error: QueryError };
 
 /**
  * Classify Supabase error into a QueryError type
@@ -45,10 +44,17 @@ export function classifyError(error: unknown): QueryError {
 
   // Handle PostgrestError
   if (typeof error === 'object' && error !== null) {
-    const pgError = error as { code?: string; message?: string; details?: string };
+    const pgError = error as {
+      code?: string;
+      message?: string;
+      details?: string;
+    };
 
     // Network errors
-    if (pgError.message?.includes('network') || pgError.message?.includes('fetch')) {
+    if (
+      pgError.message?.includes('network') ||
+      pgError.message?.includes('fetch')
+    ) {
       return {
         type: 'network',
         message: 'Erro de conexão. Verifique sua internet.',
@@ -58,7 +64,20 @@ export function classifyError(error: unknown): QueryError {
     }
 
     // Auth errors
-    if (pgError.code?.startsWith('PGRST1') || pgError.message?.includes('JWT')) {
+    //
+    // O prefixo aqui era `PGRST1`, que pegava a família ERRADA: os códigos de
+    // autenticação do PostgREST são a família `PGRST30x` (301 JWT inválido,
+    // 302 acesso anônimo negado, 303). `PGRST116` — "zero linhas", o retorno
+    // normal de um `.single()` sem resultado — começa com `PGRST1` e caía aqui,
+    // tornando o ramo `not_found` logo abaixo INALCANÇÁVEL.
+    //
+    // Efeito medido: registro que não existe mais (rota reatribuída, parada
+    // removida por outro gestor) virava "Sessão expirada. Faça login
+    // novamente." O motorista deslogava, relogava, e o problema continuava.
+    if (
+      pgError.code?.startsWith('PGRST30') ||
+      pgError.message?.includes('JWT')
+    ) {
       return {
         type: 'auth',
         message: 'Sessão expirada. Faça login novamente.',
@@ -171,7 +190,7 @@ function sleep(ms: number): Promise<void> {
  */
 export async function withRetry<T>(
   queryFn: () => Promise<T>,
-  options?: RetryOptions
+  options?: RetryOptions,
 ): Promise<T> {
   const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
   let lastError: unknown;
@@ -196,13 +215,16 @@ export async function withRetry<T>(
       // Calculate delay with exponential backoff
       const delay = Math.min(
         opts.baseDelayMs * Math.pow(2, attempt - 1),
-        opts.maxDelayMs
+        opts.maxDelayMs,
       );
 
-      logger.warn(`Query failed (attempt ${attempt}/${opts.maxAttempts}), retrying in ${delay}ms...`, {
-        errorType: classifiedError.type,
-        message: classifiedError.message,
-      });
+      logger.warn(
+        `Query failed (attempt ${attempt}/${opts.maxAttempts}), retrying in ${delay}ms...`,
+        {
+          errorType: classifiedError.type,
+          message: classifiedError.message,
+        },
+      );
 
       await sleep(delay);
     }
@@ -215,7 +237,7 @@ export async function withRetry<T>(
  * Wrap a query function to return QueryResult instead of throwing
  */
 export async function safeQuery<T>(
-  queryFn: () => Promise<T>
+  queryFn: () => Promise<T>,
 ): Promise<QueryResult<T>> {
   try {
     const data = await queryFn();
@@ -271,7 +293,10 @@ export const USUARIO_SELECT_FIELDS = {
 /**
  * Build cache key for queries
  */
-export function buildCacheKey(namespace: string, ...parts: (string | number | undefined)[]): string {
+export function buildCacheKey(
+  namespace: string,
+  ...parts: (string | number | undefined)[]
+): string {
   const validParts = parts.filter((p): p is string | number => p !== undefined);
   return [namespace, ...validParts].join(':');
 }

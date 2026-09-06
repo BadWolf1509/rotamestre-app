@@ -3,6 +3,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
+import { criarFetchComTimeout } from './fetchComTimeout';
 import { logger } from './logger';
 import { secureAuthStorage } from './secureAuthStorage';
 
@@ -46,6 +47,18 @@ if (isSupabaseConfigured) {
       params: {
         eventsPerSecond: 10,
       },
+    },
+    global: {
+      // O `fetch` do runtime não tem timeout: numa rede que aceita a conexão
+      // TCP e nunca responde — uma barra de sinal, em movimento — a promessa
+      // não resolve nem rejeita. Media no fluxo de conclusão de parada: o
+      // `finally { setIsCompleting(false) }` nunca rodava e o botão "Concluir"
+      // girava para sempre, sem cancelamento.
+      //
+      // O prazo varia por caminho: 15 s para REST/auth, 3 min para o Storage,
+      // porque o mesmo cliente carrega o upload da foto do comprovante. Ver
+      // `fetchComTimeout.ts`.
+      fetch: criarFetchComTimeout(),
     },
   });
 
