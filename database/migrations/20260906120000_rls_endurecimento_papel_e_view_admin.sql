@@ -117,8 +117,24 @@ COMMENT ON POLICY usuarios_update_optimized ON public.usuarios IS
 -- única porta até ela. `anon` também perde: hoje é inofensivo (toda policy
 -- depende de `auth.uid()`, nulo para anônimo), mas é a mesma defesa em
 -- profundidade que justifica o resto do arquivo.
-REVOKE UPDATE (papel, admin_role, is_gestor_principal)
-  ON public.usuarios FROM authenticated, anon;
+-- ATENÇÃO — `REVOKE UPDATE (coluna)` sozinho NÃO FUNCIONA aqui. `authenticated`
+-- e `anon` têm UPDATE em nível de TABELA nesta tabela, e no Postgres o grant de
+-- tabela SUBSUME o de coluna: o REVOKE de coluna vira no-op silencioso e
+-- `has_column_privilege` continua devolvendo true.
+--
+-- Descoberto aplicando: a primeira tentativa devolveu `success: true` e não
+-- mudou nada nestas colunas. Só apareceu porque a verificação consulta o
+-- EFEITO, não o retorno do apply. O item 3 (notificações) funcionou de primeira
+-- justamente porque já usava este padrão.
+--
+-- As colunas reconcedidas são TODAS as existentes menos as bloqueadas.
+-- Deliberadamente não se aproveita para apertar `id`/`created_at`: quebrar uma
+-- escrita legítima em silêncio é pior que a folga.
+REVOKE UPDATE ON public.usuarios FROM authenticated, anon;
+GRANT UPDATE (
+  id, nome, email, unidade_id, telefone, ativo, created_at, updated_at,
+  primeira_senha, foto_url, ultimo_login, push_token
+) ON public.usuarios TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 5. Motorista podia mover a própria rota para outro tenant (pendência 2)
@@ -138,7 +154,15 @@ REVOKE UPDATE (papel, admin_role, is_gestor_principal)
 -- `status`, `data`, `iniciada_em`, `concluida_em`, `distancia_total` e
 -- `tempo_total`. A unidade nasce em `criar_rota_com_paradas`, que é SECURITY
 -- DEFINER e portanto imune a grant. Nenhuma Edge Function toca `rotas`.
-REVOKE UPDATE (unidade_id) ON public.rotas FROM authenticated, anon;
+-- Mesmo motivo do bloco de `usuarios` acima: revogar a tabela e reconceder as
+-- colunas, porque o REVOKE de coluna sozinho é no-op sob grant de tabela.
+REVOKE UPDATE ON public.rotas FROM authenticated, anon;
+GRANT UPDATE (
+  id, motorista_id, data, status, distancia_total, tempo_total, polyline,
+  observacoes, created_at, updated_at, iniciada_em, concluida_em,
+  client_request_id, otimizacao_estado, otimizacao_distancia_antes,
+  otimizacao_distancia_depois, otimizada_em, otimizada_por
+) ON public.rotas TO authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 3. Dono de notificação podia reescrever o conteúdo dela
@@ -322,8 +346,9 @@ COMMIT;
 --     WHERE u.id = (SELECT auth.uid()) AND (u.papel)::text = 'gestor'::text
 --       AND u.unidade_id = (SELECT r.unidade_id FROM public.rotas r WHERE r.id = incidentes.rota_id)));
 --
--- GRANT UPDATE (papel, admin_role, is_gestor_principal) ON public.usuarios TO authenticated, anon;
--- GRANT UPDATE (unidade_id) ON public.rotas TO authenticated, anon;
+-- -- o rollback tem de devolver o grant de TABELA, nao so as colunas:
+-- GRANT UPDATE ON public.usuarios TO authenticated, anon;
+-- GRANT UPDATE ON public.rotas TO authenticated, anon;
 -- GRANT UPDATE ON public.notificacoes TO anon;
 -- DROP FUNCTION IF EXISTS public.transferir_gestao_principal(uuid, uuid);
 -- COMMIT;
