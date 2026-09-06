@@ -6,6 +6,7 @@
 
 import { useCallback, useState } from 'react';
 
+import { toLocalISODate } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -45,7 +46,7 @@ export function useExpiredRoute(motoristaId?: string): UseExpiredRouteReturn {
         .select('id, data, updated_at')
         .eq('motorista_id', motoristaId)
         .eq('status', 'nao_executada')
-        .gte('data', yesterday.toISOString().split('T')[0])
+        .gte('data', toLocalISODate(yesterday))
         .order('data', { ascending: false })
         .limit(1)
         .maybeSingle();

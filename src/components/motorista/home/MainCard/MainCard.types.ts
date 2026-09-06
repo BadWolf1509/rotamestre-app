@@ -24,6 +24,12 @@ export interface Rota {
   id: string;
   unidade_nome?: string;
   data?: string;
+  /**
+   * Obrigatório: o `ExpirationWarning` precisa dele para não inventar prazo em
+   * rota que não expira às 22:00. Opcional aqui deixaria o aviso sumir calado
+   * quando alguém montasse a rota sem o campo.
+   */
+  status: string;
   distancia_total?: number;
   tempo_total?: number;
   iniciada_em?: string;

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { getTodayISO, toLocalISODate } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -73,7 +74,7 @@ function formatDateToISO(date: Date | null | undefined): string | null {
   if (!date) return null;
   const parsed = new Date(date);
   if (isNaN(parsed.getTime())) return null;
-  return parsed.toISOString().split('T')[0];
+  return toLocalISODate(parsed);
 }
 
 /**
@@ -307,7 +308,7 @@ export function useDashboardData(
           return;
         }
 
-        const hoje = new Date().toISOString().split('T')[0];
+        const hoje = getTodayISO();
 
         // =====================================================================
         // QUERY OTIMIZADA: Busca rotas COM paradas em uma única query (JOIN)
@@ -412,14 +413,14 @@ export function useDashboardData(
               'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
             )
             .eq('unidade_id', unidadeId)
-            .gte('data', inicioSemana.toISOString().split('T')[0]),
+            .gte('data', toLocalISODate(inicioSemana)),
           supabase
             .from('rotas')
             .select(
               'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
             )
             .eq('unidade_id', unidadeId)
-            .gte('data', inicioMes.toISOString().split('T')[0]),
+            .gte('data', toLocalISODate(inicioMes)),
         ]);
 
         // Executar queries em paralelo

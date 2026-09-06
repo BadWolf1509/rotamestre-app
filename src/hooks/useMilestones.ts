@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { toLocalISODate } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -38,7 +39,9 @@ interface UseMilestonesOptions {
   enabled?: boolean;
 }
 
-export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData {
+export function useMilestones(
+  options: UseMilestonesOptions = {},
+): MilestoneData {
   const { motoristaId, enabled = true } = options;
 
   const [data, setData] = useState<MilestoneData>({
@@ -57,12 +60,12 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
 
   const loadMilestoneData = useCallback(async () => {
     if (!motoristaId || !enabled) {
-      setData(prev => ({ ...prev, isLoading: false }));
+      setData((prev) => ({ ...prev, isLoading: false }));
       return;
     }
 
     try {
-      setData(prev => ({ ...prev, isLoading: true, error: null }));
+      setData((prev) => ({ ...prev, isLoading: true, error: null }));
 
       // 1. Buscar total de entregas (paradas concluídas) do motorista
       const { data: rotasConcluidas, error: rotasError } = await supabase
@@ -77,7 +80,7 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
       const totalRotas = rotasConcluidas?.length || 0;
 
       if (rotasConcluidas && rotasConcluidas.length > 0) {
-        const rotaIds = rotasConcluidas.map(r => r.id);
+        const rotaIds = rotasConcluidas.map((r) => r.id);
         // IMPORTANTE: .neq('is_checkpoint', false) não funciona em PostgreSQL
         // porque NULL != false retorna NULL (não true), excluindo entregas reais
         // Usamos .or() para pegar is_checkpoint IS NULL ou is_checkpoint = true
@@ -148,14 +151,14 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
       for (let i = 0; i < 7; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (6 - i));
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = toLocalISODate(date);
         dailyMap.set(dateStr, { entregas: 0, rotas: 0 });
       }
 
       // Contar rotas por dia
       if (rotasRecentes) {
         for (const rota of rotasRecentes) {
-          const dateStr = new Date(rota.concluida_em).toISOString().split('T')[0];
+          const dateStr = toLocalISODate(new Date(rota.concluida_em));
           if (dailyMap.has(dateStr)) {
             const current = dailyMap.get(dateStr)!;
             current.rotas += 1;
@@ -164,7 +167,7 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
 
         // Contar entregas por rota
         if (rotasRecentes.length > 0) {
-          const rotaIds = rotasRecentes.map(r => r.id);
+          const rotaIds = rotasRecentes.map((r) => r.id);
           // Mesma correção: usar .or() ao invés de .neq() para filtrar checkpoints
           const { data: paradasRecentes } = await supabase
             .from('paradas')
@@ -177,12 +180,15 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
             // Mapear paradas por rota
             const paradasPorRota = new Map<string, number>();
             for (const p of paradasRecentes) {
-              paradasPorRota.set(p.rota_id, (paradasPorRota.get(p.rota_id) || 0) + 1);
+              paradasPorRota.set(
+                p.rota_id,
+                (paradasPorRota.get(p.rota_id) || 0) + 1,
+              );
             }
 
             // Atribuir entregas ao dia correto
             for (const rota of rotasRecentes) {
-              const dateStr = new Date(rota.concluida_em).toISOString().split('T')[0];
+              const dateStr = toLocalISODate(new Date(rota.concluida_em));
               if (dailyMap.has(dateStr)) {
                 const current = dailyMap.get(dateStr)!;
                 current.entregas += paradasPorRota.get(rota.id) || 0;
@@ -205,12 +211,16 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
       });
 
       // 5. Calcular médias
-      const totalEntregasSemana = weeklyData.reduce((sum, d) => sum + d.entregas, 0);
-      const diasComAtividade = weeklyData.filter(d => d.entregas > 0).length;
-      const averagePerDay = diasComAtividade > 0
-        ? Math.round(totalEntregasSemana / diasComAtividade)
-        : 0;
-      const bestDay = Math.max(...weeklyData.map(d => d.entregas));
+      const totalEntregasSemana = weeklyData.reduce(
+        (sum, d) => sum + d.entregas,
+        0,
+      );
+      const diasComAtividade = weeklyData.filter((d) => d.entregas > 0).length;
+      const averagePerDay =
+        diasComAtividade > 0
+          ? Math.round(totalEntregasSemana / diasComAtividade)
+          : 0;
+      const bestDay = Math.max(...weeklyData.map((d) => d.entregas));
 
       setData({
         totalEntregas,
@@ -227,7 +237,7 @@ export function useMilestones(options: UseMilestonesOptions = {}): MilestoneData
       });
     } catch (error) {
       logger.error('Error loading milestone data:', error);
-      setData(prev => ({
+      setData((prev) => ({
         ...prev,
         isLoading: false,
         error: 'Erro ao carregar dados',

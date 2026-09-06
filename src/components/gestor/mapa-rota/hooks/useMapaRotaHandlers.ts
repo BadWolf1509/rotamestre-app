@@ -7,6 +7,7 @@ import { FlatList } from 'react-native';
 
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { getTodayISO } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import {
   removerParadaERecalcular,
@@ -160,7 +161,7 @@ export function useMapaRotaHandlers({
     if (!id) return;
 
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getTodayISO();
 
       await supabase
         .from('rotas')

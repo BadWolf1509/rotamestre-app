@@ -80,3 +80,61 @@ describe('coluna date-only nunca passa por new Date()', () => {
     expect(PADRAO_PROIBIDO.test(trechoCorrigido)).toBe(false);
   });
 });
+
+/**
+ * A outra metade da mesma classe, descoberta em 05/09/2026 varrendo o app com o
+ * dev build: recortar o dia de um `toISOString()` devolve a data em **UTC**. Em
+ * UTC-3, a partir das 21:00 isso já é o dia seguinte.
+ *
+ * Foi o que matava o `ExpirationWarning`: ele comparava data em UTC com hora
+ * local (`getHours()`), então o aviso de "rota expira às 22:00" sumia das 21:00
+ * às 22:00 — a única hora em que ele serve para alguma coisa. O mesmo padrão
+ * estava em 11 lugares, 7 arquivos.
+ *
+ * O certo é montar a data com componentes locais: `getTodayISO()` /
+ * `toLocalISODate()` em `src/lib/dateUtils.ts`.
+ */
+/** Montado em pedaços para o próprio arquivo não casar com a regra. */
+const RECORTES_DE_DIA = ["split('T')[0]", 'slice(0,10)'];
+const CHAMADA_ISO = 'toISO' + 'String()';
+
+/** Ignora espaços para não depender da formatação do prettier. */
+function derivaDiaEmUtc(fonte: string): boolean {
+  const compacto = fonte.replace(/\s+/g, '');
+  return RECORTES_DE_DIA.some((recorte) =>
+    compacto.includes(CHAMADA_ISO + '.' + recorte.replace(/\s+/g, '')),
+  );
+}
+
+/**
+ * O módulo que DEFINE a alternativa precisa nomear o padrão errado no
+ * comentário — é onde a explicação pertence. A varredura não separa comentário
+ * de código, então este arquivo é isento, como `maplibre.ts` é na guarda de
+ * tiles.
+ */
+const ARQUIVO_QUE_DEFINE_A_ALTERNATIVA = 'src/lib/dateUtils.ts';
+
+describe('dia do calendário nunca sai de toISOString()', () => {
+  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+
+  it('nenhum arquivo deriva dia do calendário em UTC', () => {
+    const infratores = fontes
+      .filter((caminho) => derivaDiaEmUtc(readFileSync(caminho, 'utf8')))
+      .map((caminho) => relative(RAIZ, caminho).replace(/\\/g, '/'))
+      .filter((caminho) => caminho !== ARQUIVO_QUE_DEFINE_A_ALTERNATIVA);
+
+    expect(infratores).toEqual([]);
+  });
+
+  it('a checagem casa com a forma quebrada e poupa a legítima', () => {
+    expect(
+      derivaDiaEmUtc("const hoje = now.toISOString().split('T')[0];"),
+    ).toBe(true);
+    expect(derivaDiaEmUtc('const d = date.toISOString().slice(0, 10);')).toBe(
+      true,
+    );
+    // Timestamp completo continua legítimo — o problema é recortar o dia dele.
+    expect(derivaDiaEmUtc('payload.quando = date.toISOString();')).toBe(false);
+    expect(derivaDiaEmUtc('const hoje = getTodayISO();')).toBe(false);
+  });
+});
