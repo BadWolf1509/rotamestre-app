@@ -3,7 +3,6 @@
  */
 
 export { useMotoristaLocationMapLibre } from './useMotoristaLocationMapLibre';
-export { useDirectionsMobile } from './useDirectionsMobile';
 export { useMobileMapCamera } from './useMobileMapCamera';
 export { useLocationTracking } from './useLocationTracking';
 export { useNavigationActions } from './useNavigationActions';
