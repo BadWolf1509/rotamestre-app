@@ -300,7 +300,11 @@ describe('RouteTimeline', () => {
     render(<RouteTimeline rotaId="123" realtime={true} />);
 
     await waitFor(() => {
-      expect(supabase.channel).toHaveBeenCalledWith('route-timeline-123');
+      expect(supabase.channel).toHaveBeenCalledWith(
+        // Prefixo E sufixo unico: o sufixo e o que impede a remontagem
+        // rapida de reusar um canal ainda inscrito (ver `@/lib/realtime`).
+        expect.stringMatching(/^route-timeline-123#\d+$/),
+      );
       expect(supabase.channel('').subscribe).toHaveBeenCalled();
     });
   });

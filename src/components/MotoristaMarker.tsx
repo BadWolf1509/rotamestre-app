@@ -5,6 +5,7 @@ import { View, Text } from 'react-native';
 
 import { logger } from '@/lib/logger';
 import { toLngLat } from '@/lib/maplibre';
+import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import type { MotoristaLocation } from '@/types/notifications';
 import { withOpacity } from '@/utils/color';
@@ -64,7 +65,7 @@ function MotoristaMarkerComponent({
 
     // Subscrever atualizações em tempo real
     const channel = supabase
-      .channel(`motorista-location-${rotaId}`)
+      .channel(nomeDeCanalUnico(`motorista-location-${rotaId}`))
       .on(
         'postgres_changes',
         {

@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
 import { notifyRoutePending } from '@/lib/notifications';
+import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import { notifyNewRouteWeb } from '@/utils/browserNotification';
 import { warningHaptic } from '@/utils/haptics';
@@ -59,7 +60,7 @@ export function useRouteRealtimeSubscription({
     };
 
     const channel = supabase
-      .channel(`motorista-routes-${motoristaId}`)
+      .channel(nomeDeCanalUnico(`motorista-routes-${motoristaId}`))
       .on(
         'postgres_changes',
         {

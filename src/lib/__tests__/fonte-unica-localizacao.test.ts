@@ -29,12 +29,13 @@
  * aceitar essa fresta estreita é preferível a voltar a cruzar linhas — ver o
  * comentário de `comStringsNeutralizadas`.
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
-import { sync as glob } from 'glob';
-
-const RAIZ = join(__dirname, '..', '..', '..');
+import {
+  arquivosDeProducao,
+  comStringsNeutralizadas,
+  lerFonte,
+  semComentarios,
+} from './helpers/varreduraDeFontes';
 
 const FONTE_DO_WATCHER = 'src/hooks/useLocationWatcher.ts';
 const FONTE_DAS_PERMISSOES = 'src/lib/permissoes.ts';
@@ -52,21 +53,6 @@ const EXCECOES_DAS_PERMISSOES = [
   // ganho de comportamento; fica de fora com o motivo escrito.
   'src/components/motorista/home/PreRouteChecklist.tsx',
 ];
-
-function arquivosDeProducao(): string[] {
-  return (
-    glob('{src,app}/**/*.{ts,tsx}', { cwd: RAIZ })
-      // No Windows o `glob` devolve `\` como separador. As constantes acima (e
-      // a lista de exceções) são escritas com `/` — sem normalizar aqui, a
-      // comparação de string falha e o PRÓPRIO `useLocationWatcher.ts` (e a
-      // exceção nomeada) aparecem como infratores. Descoberto rodando a guarda
-      // de verdade neste repo, num Windows, não deduzido.
-      .map((caminho) => caminho.split('\\').join('/'))
-      .filter((caminho) => !caminho.includes('__tests__'))
-      .filter((caminho) => !caminho.endsWith('.test.ts'))
-      .filter((caminho) => !caminho.endsWith('.test.tsx'))
-  );
-}
 
 /**
  * Substitui o CONTEÚDO de strings e template literals por `#`, preservando
@@ -107,21 +93,6 @@ function arquivosDeProducao(): string[] {
  * aninhado dentro de template literals nem literais de regex com `/`.
  * Suficiente para o que os call sites deste repo escrevem.
  */
-function comStringsNeutralizadas(fonte: string): string {
-  return fonte.replace(
-    /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\\n]|\\.)*`/g,
-    (literal) =>
-      literal[0] +
-      literal.slice(1, -1).replace(/[^\n]/g, '#') +
-      literal[literal.length - 1],
-  );
-}
-
-function semComentarios(fonte: string): string {
-  return comStringsNeutralizadas(fonte)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
-}
 
 /**
  * Verdadeiro quando um `status` chega DIRETO do retorno de
@@ -215,16 +186,14 @@ describe('fonte única do watcher de localização', () => {
           !EXCECOES_DO_WATCHER.includes(caminho),
       )
       .filter((caminho) =>
-        /\bwatchPositionAsync\b/.test(
-          semComentarios(readFileSync(join(RAIZ, caminho), 'utf8')),
-        ),
+        /\bwatchPositionAsync\b/.test(semComentarios(lerFonte(caminho))),
       );
 
     expect(infratores).toEqual([]);
   });
 
   it('o hook realmente chama, para a guarda não passar por ausência', () => {
-    const fonte = readFileSync(join(RAIZ, FONTE_DO_WATCHER), 'utf8');
+    const fonte = lerFonte(FONTE_DO_WATCHER);
     expect(fonte).toContain('Location.watchPositionAsync');
   });
 });
@@ -235,7 +204,7 @@ describe('fonte única do pedido de permissão', () => {
       .filter((caminho) => !EXCECOES_DAS_PERMISSOES.includes(caminho))
       .filter((caminho) =>
         /\brequest(Foreground|Background|Camera|MediaLibrary)PermissionsAsync\b/.test(
-          semComentarios(readFileSync(join(RAIZ, caminho), 'utf8')),
+          semComentarios(lerFonte(caminho)),
         ),
       )
       // Os call sites legítimos passam a função a `pedirPermissao`, então
@@ -244,16 +213,14 @@ describe('fonte única do pedido de permissão', () => {
       // `request...PermissionsAsync`, não qualquer `status` do arquivo (ver
       // `statusVemDeUmPedidoDireto`).
       .filter((caminho) =>
-        statusVemDeUmPedidoDireto(
-          semComentarios(readFileSync(join(RAIZ, caminho), 'utf8')),
-        ),
+        statusVemDeUmPedidoDireto(semComentarios(lerFonte(caminho))),
       );
 
     expect(infratores).toEqual([]);
   });
 
   it('permissoes.ts expõe a saída para as Configurações', () => {
-    const fonte = readFileSync(join(RAIZ, FONTE_DAS_PERMISSOES), 'utf8');
+    const fonte = lerFonte(FONTE_DAS_PERMISSOES);
     expect(fonte).toContain('export function abrirConfiguracoesDoApp');
     expect(fonte).toContain('canAskAgain');
   });
@@ -326,7 +293,7 @@ describe('fix round 1 — buracos da guarda fechados', () => {
 // que reproduz a consequência (a guarda deixando de ver uma violação real).
 describe('fix round 2 — crase órfã cruzando linha mascarava código real', () => {
   it('comStringsNeutralizadas não apaga código depois da crase órfã de basic.ts:85', () => {
-    const fonte = readFileSync(join(RAIZ, 'src/lib/schemas/basic.ts'), 'utf8');
+    const fonte = lerFonte('src/lib/schemas/basic.ts');
 
     const neutralizado = comStringsNeutralizadas(fonte);
 

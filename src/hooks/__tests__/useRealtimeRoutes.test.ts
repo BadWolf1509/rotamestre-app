@@ -50,7 +50,7 @@ describe('useRealtimeRoutes', () => {
     // Verificar que o canal foi criado (nome inclui unidade)
     const { supabase } = require('@/lib/supabase');
     expect(supabase.channel).toHaveBeenCalledWith(
-      expect.stringMatching(/^rotas-unit-1-\d+$/),
+      expect.stringMatching(/^rotas-unit-1#\d+$/),
     );
 
     // Verificar que on() foi chamado para rotas

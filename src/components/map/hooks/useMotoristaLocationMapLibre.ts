@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 
 import { logger } from '@/lib/logger';
+import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import type { MotoristaLocation } from '@/types/notifications';
 
@@ -74,7 +75,7 @@ export function useMotoristaLocationMapLibre(
     if (!rotaId) return;
 
     const channel = supabase
-      .channel(`motorista-maplibre-${rotaId}`)
+      .channel(nomeDeCanalUnico(`motorista-maplibre-${rotaId}`))
       .on(
         'postgres_changes',
         {

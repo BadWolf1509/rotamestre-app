@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 
 import { useAuth } from './useAuth';
 import { useUnidadeAtiva } from './useUnidadeAtiva';
-
-// Contador module-level p/ gerar um nome de canal único por montagem (ver uso abaixo).
-let channelInstanceCounter = 0;
 
 interface UseRealtimeRoutesOptions {
   enabled?: boolean;
@@ -96,12 +94,11 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     isSubscribed.current = true;
     currentUnidade.current = unidadeAtiva;
 
-    // Nome de canal único por montagem: o removeChannel do cleanup é assíncrono,
-    // então uma remontagem rápida (navegar e voltar) reusaria um canal já inscrito
-    // → "cannot add postgres_changes callbacks after subscribe()" no SDK 56.
-    channelInstanceCounter += 1;
+    // Nome único por montagem — o porquê está em `@/lib/realtime`. Este hook
+    // tinha um contador próprio; virou o compartilhado para não existirem dois
+    // mecanismos fazendo a mesma coisa.
     const channel = supabase
-      .channel(`rotas-${unidadeAtiva}-${channelInstanceCounter}`)
+      .channel(nomeDeCanalUnico(`rotas-${unidadeAtiva}`))
       .on(
         'postgres_changes',
         {
