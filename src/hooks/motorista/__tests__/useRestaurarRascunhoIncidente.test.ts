@@ -23,7 +23,7 @@ const RASCUNHO = {
   categoria: 'blocked',
   descricao: 'portao fechado',
   fotoUri: '',
-  cameraAberta: true,
+  seletorAberto: true,
   em: 1_000,
 };
 

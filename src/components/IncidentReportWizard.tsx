@@ -31,11 +31,16 @@ import { useAlert } from '@/hooks/useAlert';
 import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
 import { logger } from '@/lib/logger';
+import { COPY_CAMERA, COPY_GALERIA } from '@/lib/motorista/copyDePermissao';
 import {
   lerRascunhoIncidente,
   limparRascunhoIncidente,
   salvarRascunhoIncidente,
 } from '@/lib/motorista/rascunhoIncidente';
+import {
+  oferecerSaidaParaConfiguracoes,
+  pedirPermissao,
+} from '@/lib/permissoes';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
@@ -77,7 +82,7 @@ function IncidentReportWizardComponent({
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
   const { width: screenWidth } = useWindowDimensions();
-  const { showWarning, AlertDialog } = useAlert();
+  const { showConfirm, AlertDialog } = useAlert();
 
   // Hook de submissão com retry automático
   const {
@@ -141,7 +146,7 @@ function IncidentReportWizardComponent({
 
       await limparRascunhoIncidente();
 
-      if (!rascunho.cameraAberta) return;
+      if (!rascunho.seletorAberto) return;
 
       try {
         const pendente = await ImagePicker.getPendingResultAsync();
@@ -212,12 +217,11 @@ function IncidentReportWizardComponent({
   }, [currentStep]);
 
   const takePhoto = useCallback(async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      showWarning(
-        'Permissão necessária',
-        'Precisamos da permissão da câmera para tirar fotos',
-      );
+    const permissao = await pedirPermissao(() =>
+      ImagePicker.requestCameraPermissionsAsync(),
+    );
+    if (!permissao.concedida) {
+      await oferecerSaidaParaConfiguracoes(permissao, COPY_CAMERA, showConfirm);
       return;
     }
 
@@ -234,7 +238,7 @@ function IncidentReportWizardComponent({
         categoria: selectedCategory,
         descricao: description,
         fotoUri: photoUri,
-        cameraAberta: true,
+        seletorAberto: true,
         em: Date.now(),
       });
     }
@@ -252,7 +256,7 @@ function IncidentReportWizardComponent({
       setPhotoUri(result.assets[0].uri);
     }
   }, [
-    showWarning,
+    showConfirm,
     paradaId,
     rotaId,
     currentStep,
@@ -262,13 +266,32 @@ function IncidentReportWizardComponent({
   ]);
 
   const pickImage = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showWarning(
-        'Permissão necessária',
-        'Precisamos da permissão para acessar suas fotos',
+    const permissao = await pedirPermissao(() =>
+      ImagePicker.requestMediaLibraryPermissionsAsync(),
+    );
+    if (!permissao.concedida) {
+      await oferecerSaidaParaConfiguracoes(
+        permissao,
+        COPY_GALERIA,
+        showConfirm,
       );
       return;
+    }
+
+    // Mesma razao de `takePhoto`: o Android pode recriar a Activity enquanto o
+    // seletor esta aberto, e sem parada/rota nao ha identidade estavel para
+    // religar o rascunho.
+    if (paradaId && rotaId) {
+      await salvarRascunhoIncidente({
+        paradaId,
+        rotaId,
+        passo: currentStep,
+        categoria: selectedCategory,
+        descricao: description,
+        fotoUri: photoUri,
+        seletorAberto: true,
+        em: Date.now(),
+      });
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -278,10 +301,21 @@ function IncidentReportWizardComponent({
       quality: 0.7,
     });
 
+    // Chegou aqui = a Activity sobreviveu e o resultado veio inline.
+    await limparRascunhoIncidente();
+
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
     }
-  }, [showWarning]);
+  }, [
+    showConfirm,
+    paradaId,
+    rotaId,
+    currentStep,
+    selectedCategory,
+    description,
+    photoUri,
+  ]);
 
   const removePhoto = useCallback(() => {
     setPhotoUri('');

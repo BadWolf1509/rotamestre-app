@@ -11,8 +11,9 @@
  * motorista para o passo 1, com a descrição em branco, seria consertar a menor
  * metade do problema.
  *
- * A foto em si, quando a câmera foi quem provocou a recriação, volta por
- * `ImagePicker.getPendingResultAsync()`; `cameraAberta` marca esse caso.
+ * A foto em si, quando foi a câmera OU a galeria quem provocou a recriação,
+ * volta por `ImagePicker.getPendingResultAsync()` — a API de recuperação é a
+ * mesma para os dois seletores; `seletorAberto` marca esse caso.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -31,8 +32,8 @@ export interface RascunhoIncidente {
   descricao: string;
   /** URI da foto já escolhida. Fica no cache do app e sobrevive à remontagem. */
   fotoUri: string;
-  /** true entre abrir a câmera e receber o resultado. */
-  cameraAberta: boolean;
+  /** true entre abrir a câmera ou a galeria e receber o resultado. */
+  seletorAberto: boolean;
   em: number;
 }
 
