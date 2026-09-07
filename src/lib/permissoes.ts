@@ -41,13 +41,22 @@ type ShowConfirm = (opcoes: {
   cancelText?: string;
 }) => Promise<boolean>;
 
-export function abrirConfiguracoesDoApp(): void {
+/**
+ * @returns `true` quando uma ação real foi disparada; `false` quando não há
+ * nada para abrir (web: uma aba de navegador não tem tela de Configurações de
+ * app). Quem oferece o botão usa o retorno para não prometer, no rótulo, uma
+ * ação que este método já sabe de antemão que não vai fazer nada.
+ */
+export function abrirConfiguracoesDoApp(): boolean {
   if (Platform.OS === 'ios') {
     Linking.openURL('app-settings:');
+    return true;
   } else if (Platform.OS === 'android') {
     Linking.openSettings();
+    return true;
   }
   // Web: não existem configurações de app para abrir.
+  return false;
 }
 
 export async function pedirPermissao(
@@ -70,11 +79,29 @@ export async function oferecerSaidaParaConfiguracoes(
 ): Promise<void> {
   if (resultado.concedida) return;
 
+  const mensagemBase = resultado.podePerguntarDeNovo
+    ? copy.mensagemNegada
+    : copy.mensagemBloqueada;
+
+  // Na web, abrirConfiguracoesDoApp() não faz nada (uma aba de navegador não
+  // tem tela de Configurações de app) - oferecer um botão "Abrir
+  // Configurações" que não abre nada é o botão morto que este módulo existe
+  // para eliminar. O remédio real (o cadeado da barra de endereço) entra na
+  // mensagem, e o botão vira um reconhecimento sincero em vez de uma
+  // promessa vazia.
+  if (Platform.OS === 'web') {
+    await showConfirm({
+      title: copy.titulo,
+      message: `${mensagemBase} No navegador, use o cadeado ao lado do endereço do site para liberar o acesso.`,
+      type: 'warning',
+      confirmText: 'Entendi',
+    });
+    return;
+  }
+
   const abrir = await showConfirm({
     title: copy.titulo,
-    message: resultado.podePerguntarDeNovo
-      ? copy.mensagemNegada
-      : copy.mensagemBloqueada,
+    message: mensagemBase,
     type: 'warning',
     confirmText: 'Abrir Configurações',
     cancelText: 'Agora não',

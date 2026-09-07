@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { RefreshControl, ScrollView } from 'react-native';
+import { Platform, RefreshControl, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Alert as AlertInline } from '@/components/Alert';
@@ -511,9 +511,23 @@ function MotoristaInicioContent() {
           <AlertInline
             type="info"
             title="Localização desativada"
-            message="Ative a localização para ver sua posição no mapa e acompanhar a rota."
-            actionLabel="Abrir Configurações"
-            onAction={abrirConfiguracoesDoApp}
+            message={
+              Platform.OS === 'web'
+                ? 'Ative a localização para ver sua posição no mapa e acompanhar a rota. No navegador, use o cadeado ao lado do endereço do site para liberar o acesso.'
+                : 'Ative a localização para ver sua posição no mapa e acompanhar a rota.'
+            }
+            // Na web não há Configurações de app para abrir -
+            // abrirConfiguracoesDoApp() é no-op lá (src/lib/permissoes.ts). Um
+            // botão "Abrir Configurações" que não faz nada é o botão morto que
+            // este app existe para eliminar; a mensagem acima já nomeia o
+            // remédio real (o cadeado do navegador), então na web o Alert não
+            // ganha ação nenhuma.
+            actionLabel={
+              Platform.OS === 'web' ? undefined : 'Abrir Configurações'
+            }
+            onAction={
+              Platform.OS === 'web' ? undefined : abrirConfiguracoesDoApp
+            }
             onClose={() => {
               // Dispensa é definitiva enquanto a tela viver — ver a ref
               // declarada junto ao estado de localização, acima.

@@ -50,23 +50,26 @@ describe('abrirConfiguracoesDoApp', () => {
     jest.clearAllMocks();
   });
 
-  it('usa openSettings no Android', () => {
+  it('usa openSettings no Android e avisa que agiu', () => {
     (Platform as { OS: string }).OS = 'android';
-    abrirConfiguracoesDoApp();
+    const agiu = abrirConfiguracoesDoApp();
     expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+    expect(agiu).toBe(true);
   });
 
-  it('usa app-settings: no iOS', () => {
+  it('usa app-settings: no iOS e avisa que agiu', () => {
     (Platform as { OS: string }).OS = 'ios';
-    abrirConfiguracoesDoApp();
+    const agiu = abrirConfiguracoesDoApp();
     expect(Linking.openURL).toHaveBeenCalledWith('app-settings:');
+    expect(agiu).toBe(true);
   });
 
-  it('não faz nada na web', () => {
+  it('não faz nada na web e avisa quem chamou, em vez de um retorno indistinguível de sucesso', () => {
     (Platform as { OS: string }).OS = 'web';
-    abrirConfiguracoesDoApp();
+    const agiu = abrirConfiguracoesDoApp();
     expect(Linking.openURL).not.toHaveBeenCalled();
     expect(Linking.openSettings).not.toHaveBeenCalled();
+    expect(agiu).toBe(false);
   });
 });
 
@@ -125,5 +128,40 @@ describe('oferecerSaidaParaConfiguracoes', () => {
       showConfirm,
     );
     expect(showConfirm).not.toHaveBeenCalled();
+  });
+
+  describe('na web', () => {
+    afterEach(() => {
+      (Platform as { OS: string }).OS = 'android';
+      jest.clearAllMocks();
+    });
+
+    // IMPORTANTE 2: na web, abrirConfiguracoesDoApp() não faz nada - prometer
+    // "Abrir Configurações" num botão que não abre nada é o botão morto que
+    // este módulo existe para eliminar. O remédio real (o cadeado do
+    // navegador) precisa aparecer na mensagem, e o botão não pode prometer
+    // uma ação que este módulo sabe de antemão que não vai acontecer.
+    it('não promete "Abrir Configurações" - nomeia o cadeado do navegador na mensagem e não chama Linking mesmo se confirmado', async () => {
+      (Platform as { OS: string }).OS = 'web';
+      const showConfirm = jest.fn().mockResolvedValue(true);
+
+      await oferecerSaidaParaConfiguracoes(
+        { concedida: false, podePerguntarDeNovo: true },
+        COPY,
+        showConfirm,
+      );
+
+      expect(showConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          confirmText: 'Entendi',
+          message: expect.stringContaining('cadeado'),
+        }),
+      );
+      expect(showConfirm).not.toHaveBeenCalledWith(
+        expect.objectContaining({ confirmText: 'Abrir Configurações' }),
+      );
+      expect(Linking.openURL).not.toHaveBeenCalled();
+      expect(Linking.openSettings).not.toHaveBeenCalled();
+    });
   });
 });
