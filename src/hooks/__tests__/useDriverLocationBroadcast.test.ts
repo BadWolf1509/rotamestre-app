@@ -1,6 +1,6 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import * as Location from 'expo-location';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
 
@@ -39,10 +39,20 @@ const mockRequestForegroundPermissionsAsync = jest.fn().mockResolvedValue({
   status: 'granted',
   canAskAgain: true,
 });
+// Sem este mock, useRevalidarPermissaoDeLocalizacao.ts chama a versão real
+// (undefined neste jest.mock) de getForegroundPermissionsAsync, a promise
+// rejeita, o catch de useRevalidarPermissaoDeLocalizacao.ts engole o erro e o
+// callback de revalidação nunca dispara - cegando esta suíte exatamente para
+// o caminho que regrediu (religar o watcher via AppState 'active').
+const mockGetForegroundPermissionsAsync = jest.fn().mockResolvedValue({
+  status: 'granted',
+  canAskAgain: true,
+});
 
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: () =>
     mockRequestForegroundPermissionsAsync(),
+  getForegroundPermissionsAsync: () => mockGetForegroundPermissionsAsync(),
   watchPositionAsync: (...args: unknown[]) => mockWatchPositionAsync(...args),
   Accuracy: {
     Lowest: 1,
@@ -53,6 +63,22 @@ jest.mock('expo-location', () => ({
     BestForNavigation: 6,
   },
 }));
+
+/** Captura o listener do AppState registrado, para dispará-lo à mão. */
+function espiarAppState() {
+  const remove = jest.fn();
+  let ouvinte: ((estado: string) => void) | null = null;
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation((_evento: string, cb: (estado: string) => void) => {
+      ouvinte = cb;
+      return { remove } as never;
+    });
+  return {
+    remove,
+    disparar: (estado: string) => ouvinte?.(estado),
+  };
+}
 
 describe('useDriverLocationBroadcast', () => {
   // Mock do navigator.geolocation para testes web
@@ -78,6 +104,10 @@ describe('useDriverLocationBroadcast', () => {
     });
     mockInsert.mockResolvedValue({ error: null });
     mockRequestForegroundPermissionsAsync.mockResolvedValue({
+      status: 'granted',
+      canAskAgain: true,
+    });
+    mockGetForegroundPermissionsAsync.mockResolvedValue({
       status: 'granted',
       canAskAgain: true,
     });
@@ -1188,6 +1218,50 @@ describe('useDriverLocationBroadcast', () => {
           expect.objectContaining({ rota_id: 'rota-2' }),
         );
       });
+    });
+  });
+
+  describe('Revalidação de permissão ao voltar do foreground', () => {
+    beforeEach(() => {
+      Object.defineProperty(Platform, 'OS', {
+        value: 'android',
+        configurable: true,
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    // CRÍTICO: shouldTrack (enabled && rotaId && rotaStatus === 'em_andamento')
+    // é false aqui - rota concluida. Bloquear/desbloquear a tela dispara
+    // AppState 'active', e useRevalidarPermissaoDeLocalizacao revalida a
+    // permissao do SO, que segue concedida (ninguem a revogou). Sem o
+    // `shouldTrack` no callback de revalidacao, isso bastava para religar o
+    // watcher de uma rota que ja terminou - o defeito que este teste cobre.
+    it('nao reativa o watcher de uma rota que nao esta em andamento quando o app volta ao foreground', async () => {
+      const app = espiarAppState();
+
+      renderHook(() =>
+        useDriverLocationBroadcast({
+          rotaId: 'rota-123',
+          rotaStatus: 'concluida',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockWatchPositionAsync).not.toHaveBeenCalled();
+      });
+
+      await act(async () => {
+        app.disparar('active');
+      });
+
+      await waitFor(() => {
+        expect(mockGetForegroundPermissionsAsync).toHaveBeenCalled();
+      });
+
+      expect(mockWatchPositionAsync).not.toHaveBeenCalled();
     });
   });
 });

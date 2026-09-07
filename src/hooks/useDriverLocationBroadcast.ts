@@ -146,7 +146,12 @@ export function useDriverLocationBroadcast({
 
   useRevalidarPermissaoDeLocalizacao((concedida) => {
     if (Platform.OS === 'web') return;
-    setTemPermissaoDeLocalizacao(concedida);
+    // `concedida` só descreve a permissão do SO - sozinha ela não sabe se
+    // ESTA rota ainda está em andamento. Sem o `shouldTrack` aqui, um
+    // simples bloquear/desbloquear de tela (que dispara este callback via
+    // AppState) religava o watcher para uma rota já encerrada ou pausada, ou
+    // ignorava a escolha do motorista de não transmitir (`enabled: false`).
+    setTemPermissaoDeLocalizacao(concedida && !!shouldTrack);
   });
 
   useLocationWatcher({
