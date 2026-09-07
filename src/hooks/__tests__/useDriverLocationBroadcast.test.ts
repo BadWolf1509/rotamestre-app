@@ -1072,6 +1072,27 @@ describe('useDriverLocationBroadcast', () => {
 
       expect(result.current.isActive).toBe(false);
     });
+
+    // Regressao do Task 4: o unico `isActiveRef.current = true` do ramo
+    // nativo foi removido junto com o bloco antigo de
+    // requestForegroundPermissionsAsync/watchPositionAsync, e nada tomou seu
+    // lugar no retorno do hook. Resultado: em iOS/Android, `isActive` fica
+    // preso em `false` para sempre, mesmo com o watcher nativo realmente
+    // habilitado e transmitindo via useLocationWatcher. Este teste falha
+    // contra o codigo atual porque `isActive` continua lendo so
+    // `isActiveRef.current`, que so o ramo web escreve.
+    it('deve retornar isActive true no nativo quando a permissao e concedida e a rota esta em_andamento', async () => {
+      const { result } = renderHook(() =>
+        useDriverLocationBroadcast({
+          rotaId: 'rota-123',
+          rotaStatus: 'em_andamento',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.isActive).toBe(true);
+      });
+    });
   });
 
   describe('Comportamento com rotaId vazio ou invalido', () => {

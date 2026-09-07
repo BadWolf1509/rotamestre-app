@@ -222,6 +222,14 @@ export function useDriverLocationBroadcast({
   }, [shouldTrack, broadcastLocation]);
 
   return {
-    isActive: isActiveRef.current,
+    // Ramo nativo: `temPermissaoDeLocalizacao` É o `enabled` passado ao
+    // useLocationWatcher acima - reaproveitada aqui em vez de uma segunda
+    // fonte de verdade, porque é exatamente essa flag que diz se o watcher
+    // nativo está habilitado e transmitindo. `isActiveRef` nunca é escrita
+    // pelo ramo nativo (só pelo web, logo abaixo), então lê-la aqui
+    // devolveria sempre `false` em iOS/Android.
+    // Ramo web: `isActiveRef` continua sendo quem manda, como sempre foi.
+    isActive:
+      Platform.OS === 'web' ? isActiveRef.current : temPermissaoDeLocalizacao,
   };
 }
