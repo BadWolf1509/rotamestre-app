@@ -24,13 +24,18 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 1,
 
   // Opt out of parallel tests on CI
-  workers: process.env.CI ? 1 : undefined,
+  // Sem numero fixo: o Playwright escolhe pelo numero de nucleos.
+  //
+  // O CI ficava travado em 1 worker porque o `webServer` era o `expo start
+  // --web`, que compila sob demanda — rodar em paralelo contra ele produzia
+  // falha por CARGA, nao por defeito (medido em 07/09/2026: 8 testes vermelhos
+  // com 3 workers, todos verdes ao rodar isolados). Servindo o `dist/` ja
+  // construido nao ha compilacao a disputar: 19 testes em 42 s com 4 workers,
+  // sem uma falha.
+  workers: undefined,
 
   // Reporter to use
-  reporter: [
-    ['html', { outputFolder: 'e2e-report' }],
-    ['list'],
-  ],
+  reporter: [['html', { outputFolder: 'e2e-report' }], ['list']],
 
   // Warm up the web bundle before tests start
   globalSetup: './e2e/global-setup.ts',
@@ -89,7 +94,21 @@ export default defineConfig({
 
   // Run local dev server before starting the tests
   webServer: {
-    command: 'npm run web -- --port 8082',
+    // Serve o `dist/` ja construido em vez do servidor de desenvolvimento.
+    //
+    // POR QUE. `expo start --web` compila sob demanda: a suite inteira levava
+    // 17,5 min em serie, ~19 s por teste, a maior parte recompilando o mesmo
+    // bundle. Servindo arquivo estatico a mesma amostra caiu de 5,0 para
+    // 2,6 min, e com paralelismo o conjunto cai para a casa dos minutos.
+    //
+    // O GANHO MAIOR NAO E O TEMPO: o teste passa a exercitar o MESMO artefato
+    // que vai para a Vercel, em vez de uma build de desenvolvimento com outro
+    // pipeline de transformacao. Antes, o e2e validava algo que nunca chegava
+    // ao usuario.
+    //
+    // Exige `npm run build:web` antes. O servidor avisa quando o `dist/` esta
+    // mais velho que `src/` ou `app/`.
+    command: 'node tools/scripts/serve-dist.cjs',
     url: 'http://localhost:8082',
     reuseExistingServer: true, // Always reuse existing server
     timeout: 120 * 1000,
@@ -106,7 +125,7 @@ export default defineConfig({
     timeout: process.env.CI ? 15000 : 10000,
     toHaveScreenshot: {
       // More tolerant for cross-platform differences (Windows vs Linux font rendering)
-      maxDiffPixelRatio: 0.10,
+      maxDiffPixelRatio: 0.1,
       // Allow small per-pixel differences
       threshold: 0.3,
     },
@@ -114,5 +133,6 @@ export default defineConfig({
 
   // Snapshot path template - remove platform suffix for cross-platform compatibility
   // {testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}
-  snapshotPathTemplate: '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}',
+  snapshotPathTemplate:
+    '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}',
 });
