@@ -74,3 +74,16 @@ export const COPY_GALERIA_INCIDENTE: CopyDePermissao = {
   mensagemBloqueada:
     'O acesso às fotos está bloqueado. Libere em Configurações para anexar a imagem do ocorrido.',
 };
+
+/**
+ * O SOS tem aposta própria, e ela não é navegar: é o gestor saber onde a
+ * pessoa está numa emergência. Reaproveitar `COPY_LOCALIZACAO` aqui diria
+ * "não é possível navegar até a entrega" para quem está pedindo socorro.
+ */
+export const COPY_LOCALIZACAO_SOS: CopyDePermissao = {
+  titulo: 'Acesso à localização',
+  mensagemNegada:
+    'Sem acesso à sua localização o gestor não vai saber onde você está ao receber o SOS.',
+  mensagemBloqueada:
+    'O acesso à localização está bloqueado. Libere em Configurações para que o gestor saiba onde você está.',
+};

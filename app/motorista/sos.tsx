@@ -15,9 +15,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useAlert } from '@/hooks/useAlert';
+import {
+  useLocationWatcher,
+  type OpcoesDoWatcher,
+} from '@/hooks/useLocationWatcher';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
-import { pedirPermissao } from '@/lib/permissoes';
+import { COPY_LOCALIZACAO_SOS } from '@/lib/motorista/copyDePermissao';
+import {
+  oferecerSaidaParaConfiguracoes,
+  pedirPermissao,
+  type ResultadoPermissao,
+} from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
@@ -55,6 +64,17 @@ const EMERGENCY_CONTACTS = [
   },
 ];
 
+/**
+ * Precisão folgada de propósito: aqui a pergunta é "onde essa pessoa está",
+ * não "em qual faixa da via" — e `Balanced` pega um fix bem mais rápido que
+ * `High` num GPS frio, que é a situação de quem abre esta tela.
+ */
+const OPCOES_SOS: OpcoesDoWatcher = {
+  accuracy: Location.Accuracy.Balanced,
+  timeInterval: 5000,
+  distanceInterval: 10,
+};
+
 export default function SOSScreen() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
@@ -70,6 +90,7 @@ export default function SOSScreen() {
     longitude: number;
   } | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
+  const [permissao, setPermissao] = useState<ResultadoPermissao | null>(null);
   const [gestorTelefone, setGestorTelefone] = useState<string | null>(null);
   const [gestorNome, setGestorNome] = useState<string | null>(null);
 
@@ -77,26 +98,74 @@ export default function SOSScreen() {
   useEffect(() => {
     async function getLocation() {
       try {
-        const { concedida } = await pedirPermissao(() =>
+        const resultado = await pedirPermissao(() =>
           Location.requestForegroundPermissionsAsync(),
         );
-        if (concedida) {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
-          });
-          setLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          });
-        }
+        setPermissao(resultado);
+        if (!resultado.concedida) return;
+
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
       } catch (error) {
-        logger.error('Erro ao obter localização:', error);
+        // Não-crítico: o watcher abaixo continua tentando enquanto a tela
+        // viver. Falhar aqui é o caso COMUM, não a exceção.
+        logger.warn('[SOS] Não foi possível obter a posição inicial', error);
       } finally {
         setLoadingLocation(false);
       }
     }
     getLocation();
   }, []);
+
+  // O one-shot acima falha com GPS frio — e GPS frio é justamente o estado de
+  // quem acabou de abrir esta tela. Sem isto, a coordenada que chega três
+  // segundos depois era descartada e o SOS saía sem localização à toa. O
+  // watcher se desliga sozinho quando `location` deixa de ser null.
+  useLocationWatcher({
+    enabled: !location && permissao?.concedida === true,
+    options: OPCOES_SOS,
+    onLocation: (loc) =>
+      setLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      }),
+  });
+
+  /**
+   * Remédio para os DOIS motivos de não haver coordenada, que são diferentes:
+   * permissão negada se resolve nas Configurações, GPS sem fix se resolve
+   * tentando de novo.
+   */
+  async function tentarLocalizacaoDeNovo() {
+    if (permissao && !permissao.concedida) {
+      await oferecerSaidaParaConfiguracoes(
+        permissao,
+        COPY_LOCALIZACAO_SOS,
+        showConfirm,
+      );
+      return;
+    }
+
+    setLoadingLocation(true);
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+    } catch (error) {
+      logger.warn('[SOS] Nova tentativa de posição falhou', error);
+    } finally {
+      setLoadingLocation(false);
+    }
+  }
 
   // Carregar dados do gestor (aguarda userData estar carregado para evitar 406)
   useEffect(() => {
@@ -166,8 +235,12 @@ export default function SOSScreen() {
 
     const confirmed = await showConfirm({
       title: 'Confirmar SOS',
-      message:
-        'Isso vai notificar seu gestor e registrar sua localização atual. Deseja continuar?',
+      // A mensagem muda com o fato, e não com a intenção: prometer "registrar
+      // sua localização" quando `location` é null era dizer a quem está em
+      // emergência que o gestor saberia onde ela está.
+      message: location
+        ? 'Isso vai notificar seu gestor e registrar sua localização atual. Deseja continuar?'
+        : 'Seu gestor será notificado, mas sem sua localização — ele não vai saber onde você está. Descreva onde você está no campo acima, ou ligue direto pelos botões abaixo. Deseja continuar?',
       confirmText: 'CONFIRMAR SOS',
       cancelText: 'Cancelar',
       type: 'danger',
@@ -218,10 +291,19 @@ export default function SOSScreen() {
 
       if (error) throw error;
 
-      showSuccess(
-        'SOS Enviado',
-        'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.',
-      );
+      if (location) {
+        showSuccess(
+          'SOS Enviado',
+          'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.',
+        );
+      } else {
+        // Omitir isso aqui seria a mesma mentira da confirmação, uma tela
+        // depois: o motorista precisa saber que ninguém sabe onde ele está.
+        showSuccess(
+          'SOS enviado sem localização',
+          'Seu gestor foi notificado, mas não recebeu sua localização. Use os botões de ligação abaixo para dizer onde você está.',
+        );
+      }
 
       setDescricao('');
     } catch (error) {
@@ -311,7 +393,29 @@ export default function SOSScreen() {
               </View>
             </TouchableOpacity>
           ) : (
-            <Text style={styles.locationError}>Localização não disponível</Text>
+            <View style={styles.locationUnavailable}>
+              <Text style={styles.locationError}>
+                {permissao && !permissao.concedida
+                  ? 'Sem permissão de localização. O gestor não vai saber onde você está.'
+                  : 'Localização ainda não disponível. O SOS funciona mesmo assim.'}
+              </Text>
+              <TouchableOpacity
+                style={styles.locationRetry}
+                onPress={tentarLocalizacaoDeNovo}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  permissao && !permissao.concedida
+                    ? 'Liberar acesso à localização'
+                    : 'Tentar obter a localização de novo'
+                }
+              >
+                <Text style={styles.locationRetryText}>
+                  {permissao && !permissao.concedida
+                    ? 'Liberar acesso'
+                    : 'Tentar de novo'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -464,6 +568,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
   locationError: {
     color: theme.colors.gray500,
     fontSize: theme.typography.sm,
+  },
+  locationUnavailable: {
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.gray100,
+    borderRadius: theme.borderRadius.md,
+  },
+  locationRetry: {
+    alignSelf: 'flex-start',
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.blue50,
+    borderRadius: theme.borderRadius.md,
+  },
+  locationRetryText: {
+    color: theme.colors.primary,
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   contactsList: {
     gap: theme.spacing.sm,
