@@ -73,13 +73,16 @@ sem um caminho para as Configurações, não há volta.
 
 Dez call sites pedem permissão. Um único acerta.
 
-**CORRIGIDO EM 07/09/2026: eram quinze, não dez.** A guarda estática da Task 8,
+**CORRIGIDO EM 07/09/2026: eram dezessete, não dez.** A guarda estática da Task 8,
 ao ficar precisa, encontrou cinco call sites que este inventário não tinha —
 `src/services/unifiedLocationTracking.ts`,
 `src/components/map/hooks/useLocationTracking.ts`,
 `src/hooks/useIncidentSubmit.ts`, `app/motorista/sos.tsx` e
 `src/hooks/profile/useProfilePhoto.ts`. Todos descartavam `canAskAgain` do mesmo
-jeito. A varredura que produziu a tabela abaixo procurou por padrão de UI
+jeito. **Dezessete e não quinze** porque a contagem é por CHAMADA, como a tabela
+acima conta (`CameraUpload` aparece nela duas vezes): `unifiedLocationTracking`
+pede foreground e background, e `useProfilePhoto` pede câmera e galeria.
+Medido: 16 `pedirPermissao` mais o pedido direto de `PreRouteChecklist`. A varredura que produziu a tabela abaixo procurou por padrão de UI
 ("aviso sem botão"), e esses cinco não têm UI de aviso nenhuma — por isso
 escaparam. É o argumento a favor da guarda em uma frase: ela não depende de
 alguém ter lembrado de olhar.
