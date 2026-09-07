@@ -124,6 +124,15 @@ module.exports = ({ config }) => {
           faceIDPermission: false
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "O Rota Mestre usa suas fotos para você anexar o comprovante de entrega.",
+          cameraPermission:
+            "O Rota Mestre usa a câmera para fotografar o comprovante de entrega.",
+        },
+      ],
       "expo-sharing"
       // MapLibre usa plugin oficial para ajustes nativos (gradle/podfile)
     ]
