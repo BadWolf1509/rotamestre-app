@@ -17,6 +17,7 @@ import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
@@ -24,10 +25,34 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Contatos de emergência
 const EMERGENCY_CONTACTS = [
-  { id: 'gestor', label: 'Ligar para Gestor', icon: '📞', number: null, description: 'Contato direto com seu gestor' },
-  { id: 'policia', label: 'Polícia (190)', icon: '🚔', number: '190', description: 'Emergências de segurança' },
-  { id: 'samu', label: 'SAMU (192)', icon: '🚑', number: '192', description: 'Emergências médicas' },
-  { id: 'bombeiros', label: 'Bombeiros (193)', icon: '🚒', number: '193', description: 'Incêndio e resgate' },
+  {
+    id: 'gestor',
+    label: 'Ligar para Gestor',
+    icon: '📞',
+    number: null,
+    description: 'Contato direto com seu gestor',
+  },
+  {
+    id: 'policia',
+    label: 'Polícia (190)',
+    icon: '🚔',
+    number: '190',
+    description: 'Emergências de segurança',
+  },
+  {
+    id: 'samu',
+    label: 'SAMU (192)',
+    icon: '🚑',
+    number: '192',
+    description: 'Emergências médicas',
+  },
+  {
+    id: 'bombeiros',
+    label: 'Bombeiros (193)',
+    icon: '🚒',
+    number: '193',
+    description: 'Incêndio e resgate',
+  },
 ];
 
 export default function SOSScreen() {
@@ -35,11 +60,15 @@ export default function SOSScreen() {
   const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
   const routeStatus = useRouteStatus();
-  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } = useAlert();
+  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } =
+    useAlert();
 
   const [descricao, setDescricao] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [gestorTelefone, setGestorTelefone] = useState<string | null>(null);
   const [gestorNome, setGestorNome] = useState<string | null>(null);
@@ -48,8 +77,10 @@ export default function SOSScreen() {
   useEffect(() => {
     async function getLocation() {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
+        const { concedida } = await pedirPermissao(() =>
+          Location.requestForegroundPermissionsAsync(),
+        );
+        if (concedida) {
           const loc = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High,
           });
@@ -100,7 +131,10 @@ export default function SOSScreen() {
 
     if (contactId === 'gestor') {
       if (!gestorTelefone) {
-        showWarning('Telefone não cadastrado', `O gestor ${gestorNome || ''} não possui telefone cadastrado.`);
+        showWarning(
+          'Telefone não cadastrado',
+          `O gestor ${gestorNome || ''} não possui telefone cadastrado.`,
+        );
         return;
       }
 
@@ -132,7 +166,8 @@ export default function SOSScreen() {
 
     const confirmed = await showConfirm({
       title: 'Confirmar SOS',
-      message: 'Isso vai notificar seu gestor e registrar sua localização atual. Deseja continuar?',
+      message:
+        'Isso vai notificar seu gestor e registrar sua localização atual. Deseja continuar?',
       confirmText: 'CONFIRMAR SOS',
       cancelText: 'Cancelar',
       type: 'danger',
@@ -164,8 +199,10 @@ export default function SOSScreen() {
       // Adicionar rota se existir
       if (routeStatus?.route?.id) {
         logData.rota_id = routeStatus.route.id;
-        (logData.detalhes as Record<string, unknown>).rota_id = routeStatus.route.id;
-        (logData.detalhes as Record<string, unknown>).rota_status = routeStatus.route.status;
+        (logData.detalhes as Record<string, unknown>).rota_id =
+          routeStatus.route.id;
+        (logData.detalhes as Record<string, unknown>).rota_status =
+          routeStatus.route.status;
       }
 
       // Adicionar localização se disponível
@@ -183,13 +220,17 @@ export default function SOSScreen() {
 
       showSuccess(
         'SOS Enviado',
-        'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.'
+        'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.',
       );
 
       setDescricao('');
     } catch (error) {
       logger.error('Erro ao enviar SOS:', error);
-      showError({ title: 'Erro', message: 'Não foi possível enviar o SOS. Tente ligar diretamente para os números de emergência.' });
+      showError({
+        title: 'Erro',
+        message:
+          'Não foi possível enviar o SOS. Tente ligar diretamente para os números de emergência.',
+      });
     } finally {
       setEnviando(false);
     }
@@ -197,10 +238,12 @@ export default function SOSScreen() {
 
   return (
     <ErrorBoundary>
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
-    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
+      >
         {/* Botão Grande de Emergência */}
         <View style={styles.emergencySection}>
           <TouchableOpacity
@@ -225,7 +268,9 @@ export default function SOSScreen() {
 
         {/* Campo de Descrição */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Descreva a situação (opcional)</Text>
+          <Text style={styles.sectionTitle}>
+            Descreva a situação (opcional)
+          </Text>
           <TextInput
             style={styles.textInput}
             placeholder="Ex: Pneu furado, acidente, problema mecânico..."
@@ -244,7 +289,9 @@ export default function SOSScreen() {
           {loadingLocation ? (
             <View style={styles.locationLoading}>
               <ActivityIndicator size="small" color={theme.colors.gray500} />
-              <Text style={styles.locationLoadingText}>Obtendo localização...</Text>
+              <Text style={styles.locationLoadingText}>
+                Obtendo localização...
+              </Text>
             </View>
           ) : location ? (
             <TouchableOpacity
@@ -257,7 +304,8 @@ export default function SOSScreen() {
               <Text style={styles.locationIcon}>📍</Text>
               <View style={styles.locationInfo}>
                 <Text style={styles.locationCoords}>
-                  {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                  {location.latitude.toFixed(6)},{' '}
+                  {location.longitude.toFixed(6)}
                 </Text>
                 <Text style={styles.locationHint}>Toque para ver no mapa</Text>
               </View>
@@ -283,7 +331,9 @@ export default function SOSScreen() {
                 <Text style={styles.contactIcon}>{contact.icon}</Text>
                 <View style={styles.contactInfo}>
                   <Text style={styles.contactLabel}>{contact.label}</Text>
-                  <Text style={styles.contactDescription}>{contact.description}</Text>
+                  <Text style={styles.contactDescription}>
+                    {contact.description}
+                  </Text>
                 </View>
                 <Text style={styles.contactArrow}>→</Text>
               </TouchableOpacity>
@@ -295,16 +345,16 @@ export default function SOSScreen() {
         <View style={styles.safetySection}>
           <Text style={styles.safetyTitle}>Dicas de Segurança</Text>
           <Text style={styles.safetyText}>
-            • Em caso de acidente, ligue primeiro para o SAMU (192){'\n'}
-            • Se estiver em perigo, ligue para a Polícia (190){'\n'}
-            • Mantenha a calma e informe sua localização{'\n'}
-            • Não saia do veículo em rodovias movimentadas
+            • Em caso de acidente, ligue primeiro para o SAMU (192){'\n'}• Se
+            estiver em perigo, ligue para a Polícia (190){'\n'}• Mantenha a
+            calma e informe sua localização{'\n'}• Não saia do veículo em
+            rodovias movimentadas
           </Text>
         </View>
 
         <View style={styles.footer} />
-      {AlertDialog}
-    </ScrollView>
+        {AlertDialog}
+      </ScrollView>
     </ErrorBoundary>
   );
 }

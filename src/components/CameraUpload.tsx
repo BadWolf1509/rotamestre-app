@@ -24,6 +24,14 @@ import {
   limparConclusaoEmVoo,
   marcarConclusaoEmVoo,
 } from '@/lib/motorista/conclusaoEmVoo';
+import {
+  COPY_CAMERA_ENTREGA,
+  COPY_GALERIA_ENTREGA,
+} from '@/lib/motorista/copyDePermissao';
+import {
+  oferecerSaidaParaConfiguracoes,
+  pedirPermissao,
+} from '@/lib/permissoes';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
@@ -50,7 +58,8 @@ export default function CameraUpload({
   onUploadError,
 }: CameraUploadProps) {
   const { theme: _theme } = useUnistyles();
-  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
+  const { showWarning, showSuccess, showError, showConfirm, AlertDialog } =
+    useAlert();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -117,22 +126,6 @@ export default function CameraUpload({
   }, [paradaId]);
 
   /**
-   * Solicitar permissões de câmera
-   */
-  const requestCameraPermission = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    return status === 'granted';
-  };
-
-  /**
-   * Solicitar permissões de galeria
-   */
-  const requestGalleryPermission = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    return status === 'granted';
-  };
-
-  /**
    * Comprimir imagem para <500KB
    */
   const compressImage = async (uri: string): Promise<string> => {
@@ -164,12 +157,14 @@ export default function CameraUpload({
    * Abrir câmera
    */
   const openCamera = async () => {
-    const hasPermission = await requestCameraPermission();
-
-    if (!hasPermission) {
-      showWarning(
-        'Permissão negada',
-        'Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.',
+    const permissao = await pedirPermissao(() =>
+      ImagePicker.requestCameraPermissionsAsync(),
+    );
+    if (!permissao.concedida) {
+      await oferecerSaidaParaConfiguracoes(
+        permissao,
+        COPY_CAMERA_ENTREGA,
+        showConfirm,
       );
       return;
     }
@@ -198,21 +193,31 @@ export default function CameraUpload({
    * Abrir galeria
    */
   const openGallery = async () => {
-    const hasPermission = await requestGalleryPermission();
-
-    if (!hasPermission) {
-      showWarning(
-        'Permissão negada',
-        'Precisamos de acesso à galeria para selecionar fotos.',
+    const permissao = await pedirPermissao(() =>
+      ImagePicker.requestMediaLibraryPermissionsAsync(),
+    );
+    if (!permissao.concedida) {
+      await oferecerSaidaParaConfiguracoes(
+        permissao,
+        COPY_GALERIA_ENTREGA,
+        showConfirm,
       );
       return;
     }
+
+    // Antes de sair do app, e não depois: se o Android recriar a Activity
+    // enquanto o seletor está aberto, não existe "depois" neste componente.
+    // Mesma razão de `openCamera` — faltava só neste ramo.
+    await marcarConclusaoEmVoo(paradaId, rotaId);
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
     });
+
+    // Chegou aqui = a Activity sobreviveu e o resultado veio inline.
+    await limparConclusaoEmVoo();
 
     if (!result.canceled && result.assets && result.assets[0]) {
       const compressedUri = await compressImage(result.assets[0].uri);

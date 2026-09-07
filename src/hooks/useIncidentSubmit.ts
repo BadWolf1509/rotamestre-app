@@ -31,6 +31,7 @@ import * as Location from 'expo-location';
 import { useState, useCallback } from 'react';
 
 import { logger } from '@/lib/logger';
+import { pedirPermissao } from '@/lib/permissoes';
 import { photonService } from '@/lib/photon';
 import { createIncidente, logIncidenteAction } from '@/lib/queries';
 import type { IncidenteCategoria } from '@/lib/queries';
@@ -105,13 +106,19 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
           setUploadRetryCount(attempt);
           setUploadProgress(Math.min(30 * attempt, 90)); // Progresso visual
 
-          const uploadedUrl = await storageService.uploadIncidentPhoto(photoUri, fileName);
+          const uploadedUrl = await storageService.uploadIncidentPhoto(
+            photoUri,
+            fileName,
+          );
 
           setUploadProgress(100);
           return uploadedUrl;
         } catch (err) {
           lastError = err instanceof Error ? err : new Error(String(err));
-          logger.warn(`Upload attempt ${attempt}/${UPLOAD_MAX_RETRIES} failed:`, lastError.message);
+          logger.warn(
+            `Upload attempt ${attempt}/${UPLOAD_MAX_RETRIES} failed:`,
+            lastError.message,
+          );
 
           if (attempt < UPLOAD_MAX_RETRIES) {
             // Aguarda antes de tentar novamente (exponential backoff)
@@ -123,7 +130,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
       // Todas as tentativas falharam
       throw lastError || new Error('Falha no upload após múltiplas tentativas');
     },
-    []
+    [],
   );
 
   /**
@@ -131,8 +138,10 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
    */
   const getLocationAddress = useCallback(async (): Promise<string | null> => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const { concedida } = await pedirPermissao(() =>
+        Location.requestForegroundPermissionsAsync(),
+      );
+      if (!concedida) {
         return null;
       }
 
@@ -220,15 +229,20 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
         // 4. Criar log usando query centralizada (fire-and-forget)
         if (data.rotaId && insertedData) {
-          logIncidenteAction(data.motoristaId, insertedData.id, 'incidente_reportado', {
-            categoria: data.category,
-            descricao: data.description,
-            tem_foto: !!data.photoUri,
-            foto_upload_sucesso: !!uploadedPhotoUrl,
-            parada_id: data.paradaId || null,
-            endereco: finalEndereco,
-            rota_id: data.rotaId,
-          });
+          logIncidenteAction(
+            data.motoristaId,
+            insertedData.id,
+            'incidente_reportado',
+            {
+              categoria: data.category,
+              descricao: data.description,
+              tem_foto: !!data.photoUri,
+              foto_upload_sucesso: !!uploadedPhotoUrl,
+              parada_id: data.paradaId || null,
+              endereco: finalEndereco,
+              rota_id: data.rotaId,
+            },
+          );
         }
 
         setUploadProgress(100);
@@ -239,7 +253,9 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         };
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : 'Erro desconhecido ao enviar reporte';
+          err instanceof Error
+            ? err.message
+            : 'Erro desconhecido ao enviar reporte';
 
         setError(errorMessage);
         logger.error('Erro ao reportar incidente:', err);
@@ -252,7 +268,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         setIsSubmitting(false);
       }
     },
-    [getLocationAddress, uploadPhotoWithRetry]
+    [getLocationAddress, uploadPhotoWithRetry],
   );
 
   return {

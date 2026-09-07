@@ -14,10 +14,20 @@ import React, {
 import { Platform, Text, View } from 'react-native';
 
 import { useAlert } from '@/hooks/useAlert';
+import {
+  useLocationWatcher,
+  type OpcoesDoWatcher,
+} from '@/hooks/useLocationWatcher';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { OPENFREEMAP_STYLE_URL, toLineString, toLngLat } from '@/lib/maplibre';
+import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import {
+  oferecerSaidaParaConfiguracoes,
+  pedirPermissao,
+} from '@/lib/permissoes';
 import LocationTrackingService from '@/services/locationTracking';
 import TurnByTurnNavigationService, {
   calculateHaversineDistance,
@@ -39,6 +49,12 @@ const DEFAULT_PROXIMITY_RADIUS = 30; // meters
 const DEFAULT_VOICE_ENABLED = true;
 const DEFAULT_PREVENT_SCREEN_SLEEP = true;
 
+const OPCOES_TURN_BY_TURN: OpcoesDoWatcher = {
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: 1000,
+  distanceInterval: 5,
+};
+
 interface TurnByTurnNavigationProps {
   origin: { latitude: number; longitude: number };
   destination: { latitude: number; longitude: number; address: string };
@@ -55,7 +71,7 @@ export function TurnByTurnNavigation({
   onExit,
 }: TurnByTurnNavigationProps) {
   const { theme } = useUnistyles();
-  const { showError, AlertDialog } = useAlert();
+  const { showError, showConfirm, AlertDialog } = useAlert();
   const cameraRef = useRef<CameraRef>(null);
 
   // Refs for preventing race conditions and multiple triggers
@@ -262,12 +278,29 @@ export function TurnByTurnNavigation({
     [voiceEnabledRef],
   );
 
+  // origin muda de identidade a cada tick de GPS - NavigationMode.tsx passa
+  // origin={userLocation}, reconstruído em updateLocationFromCoords
+  // (useNavigationModeLogic.ts) a cada posição recebida. Colocá-lo nas deps
+  // de initializeNavigation fazia o efeito de inicialização (abaixo) remontar
+  // ~1x/s dirigindo: uma requisição OSRM, um Speech.stop() cortando a
+  // instrução falada, hasArrivedRef resetado e setIsLoading(true) piscando a
+  // tela de "Calculando rota..." por cima da navegação. A rota inicial não
+  // precisa ser recalculada a cada metro - atualizações contínuas já chegam
+  // por updateNavigation dentro de processarLocalizacao. Por isso origin é
+  // lido de uma ref (mesma convenção de useLocationWatcher.ts), nunca da
+  // dependência - e NÃO por coordenadas: o GPS driftaria e o problema
+  // voltaria do mesmo jeito.
+  const originRef = useRef(origin);
+  useEffect(() => {
+    originRef.current = origin;
+  }, [origin]);
+
   // Initialize navigation with directions - defined before useEffect that uses it
   const initializeNavigation = useCallback(async () => {
     setIsLoading(true);
 
     const route = await TurnByTurnNavigationService.getDirections(
-      origin,
+      originRef.current,
       destination,
       waypoints,
     );
@@ -310,7 +343,7 @@ export function TurnByTurnNavigation({
         );
       }, 1000);
     }
-  }, [destination, onExit, origin, voiceEnabledRef, waypoints, showError]);
+  }, [destination, onExit, voiceEnabledRef, waypoints, showError]);
 
   // Initialize navigation
   useEffect(() => {
@@ -322,98 +355,99 @@ export function TurnByTurnNavigation({
     };
   }, [initializeNavigation]);
 
-  // Watch position updates
+  const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
+    useState(false);
+
   useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
+    let cancelado = false;
 
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        showError({
-          title: 'Erro',
-          message: 'Permissão de localização negada',
-        });
-        return;
-      }
+      const resultado = await pedirPermissao(() =>
+        Location.requestForegroundPermissionsAsync(),
+      );
+      if (cancelado) return;
 
-      subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 5,
-        },
-        async (location) => {
-          const coords = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          };
-          const accuracy = location.coords.accuracy || 50;
-
-          // Throttle: only process if moved > 3m (reduces unnecessary processing)
-          const lastLoc = lastProcessedLocation.current;
-          if (lastLoc) {
-            const delta = calculateHaversineDistance(
-              lastLoc.lat,
-              lastLoc.lng,
-              coords.latitude,
-              coords.longitude,
-            );
-            if (delta < 3) {
-              return; // Skip insignificant movement
-            }
-          }
-          lastProcessedLocation.current = {
-            lat: coords.latitude,
-            lng: coords.longitude,
-          };
-
-          setUserLocation(coords);
-          setSpeed(Math.round((location.coords.speed || 0) * 3.6)); // m/s to km/h
-          setHeading(location.coords.heading || 0);
-
-          // Only update navigation if route is ready (prevents race condition)
-          if (isRouteReady) {
-            await updateNavigation(coords, location.coords.speed || 0);
-          }
-
-          // Check if arrived at destination
-          const distToDestination = calculateHaversineDistance(
-            coords.latitude,
-            coords.longitude,
-            destination.latitude,
-            destination.longitude,
-          );
-
-          // Arrival detection with GPS accuracy consideration:
-          // 1. Distance < proximity radius
-          // 2. GPS accuracy is good (< 30m) OR very close (< 10m regardless of accuracy)
-          const isArrived =
-            distToDestination < proximityRadius &&
-            (accuracy < 30 || distToDestination < 10);
-
-          if (isArrived && !hasArrivedRef.current) {
-            handleArrival();
-          }
-        },
+      setTemPermissaoDeLocalizacao(resultado.concedida);
+      await oferecerSaidaParaConfiguracoes(
+        resultado,
+        COPY_LOCALIZACAO,
+        showConfirm,
       );
     })();
 
     return () => {
-      try {
-        subscription?.remove();
-      } catch (error) {
-        // expo-location remove() não funciona corretamente na web
-        logger.warn('[TurnByTurn] Error removing subscription:', error);
-      }
+      cancelado = true;
     };
-  }, [
-    destination,
-    handleArrival,
-    isRouteReady,
-    proximityRadius,
-    updateNavigation,
-    showError,
-  ]);
+  }, [showConfirm]);
+
+  useRevalidarPermissaoDeLocalizacao(setTemPermissaoDeLocalizacao);
+
+  const processarLocalizacao = useCallback(
+    async (location: Location.LocationObject) => {
+      const coords = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      };
+      const accuracy = location.coords.accuracy || 50;
+
+      // Throttle: só processa se moveu > 3m.
+      const lastLoc = lastProcessedLocation.current;
+      if (lastLoc) {
+        const delta = calculateHaversineDistance(
+          lastLoc.lat,
+          lastLoc.lng,
+          coords.latitude,
+          coords.longitude,
+        );
+        if (delta < 3) return;
+      }
+      lastProcessedLocation.current = {
+        lat: coords.latitude,
+        lng: coords.longitude,
+      };
+
+      setUserLocation(coords);
+      setSpeed(Math.round((location.coords.speed || 0) * 3.6)); // m/s → km/h
+      setHeading(location.coords.heading || 0);
+
+      // Só atualiza a navegação com a rota pronta (evita corrida).
+      if (isRouteReady) {
+        await updateNavigation(coords, location.coords.speed || 0);
+      }
+
+      const distToDestination = calculateHaversineDistance(
+        coords.latitude,
+        coords.longitude,
+        destination.latitude,
+        destination.longitude,
+      );
+
+      // Chegada: dentro do raio E com GPS confiável (<30m), ou muito perto
+      // (<10m) independentemente da precisão.
+      const isArrived =
+        distToDestination < proximityRadius &&
+        (accuracy < 30 || distToDestination < 10);
+
+      if (isArrived && !hasArrivedRef.current) {
+        handleArrival();
+      }
+    },
+    [
+      destination,
+      handleArrival,
+      isRouteReady,
+      proximityRadius,
+      updateNavigation,
+    ],
+  );
+
+  useLocationWatcher({
+    enabled: temPermissaoDeLocalizacao,
+    options: OPCOES_TURN_BY_TURN,
+    onLocation: (location) => {
+      void processarLocalizacao(location);
+    },
+  });
 
   // Format distance
   const formatDistance = (meters: number): string => {

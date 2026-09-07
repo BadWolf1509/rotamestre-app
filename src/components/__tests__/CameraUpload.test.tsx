@@ -1,6 +1,6 @@
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
 
@@ -74,8 +74,17 @@ jest.mock('@/lib/storage', () => ({
   uploadELinkFotoParada: (...args: any[]) => mockUploadELinkFotoParada(...args),
 }));
 
-// Spy on Alert.alert for the options menu (still uses Alert.alert on mobile)
-jest.spyOn(Alert, 'alert');
+// Spy on Alert.alert for the options menu (still uses Alert.alert on mobile).
+// mockImplementation vazio, sem call-through: o mock global (jest.setup.js)
+// auto-aciona buttons[0].onPress() a cada chamada — sempre 'Tirar Foto' —
+// duplicando chamadas de openCamera em qualquer teste que meça ordem ou
+// contagem. Todo teste deste arquivo já aciona o botão certo manualmente
+// (acionarOpcao ou o padrão equivalente), então essa auto-invocação nunca
+// era necessária.
+jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+// Spy on Linking.openSettings para o fluxo "Abrir Configurações" de saída de
+// permissão (pedirPermissao/oferecerSaidaParaConfiguracoes).
+jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
 
 describe('CameraUpload Component', () => {
   const mockOnUploadSuccess = jest.fn();
@@ -88,6 +97,22 @@ describe('CameraUpload Component', () => {
     onUploadSuccess: mockOnUploadSuccess,
     onUploadError: mockOnUploadError,
   };
+
+  // Aciona uma das opções do Alert.alert nativo ('Adicionar Foto'). As opções
+  // não vivem no JSX — só dentro do array de botões passado ao Alert.alert
+  // (CameraUpload.tsx). Ver o padrão manual já usado nos testes de permissão
+  // negada abaixo.
+  async function acionarOpcao(
+    getByText: ReturnType<typeof render>['getByText'],
+    rotulo: '📷 Tirar Foto' | '🖼️ Escolher da Galeria',
+  ) {
+    fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    const opcoes = (Alert.alert as jest.Mock).mock.calls.find(
+      (call) => call[0] === 'Adicionar Foto',
+    )?.[2];
+    await opcoes.find((btn: { text: string }) => btn.text === rotulo).onPress();
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -299,13 +324,72 @@ describe('CameraUpload Component', () => {
       // Deve ter solicitado permissão
       expect(mockRequestCameraPermissionsAsync).toHaveBeenCalled();
 
-      // Deve mostrar alert de permissão negada via useAlert hook
+      // Deve oferecer saída para Configurações via useAlert hook, e não mais
+      // um showWarning sem botão: depois da segunda negação o Android para de
+      // exibir o diálogo do sistema, e sem este botão não sobra caminho algum.
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Permissão negada',
-          'Precisamos de acesso à câmera para tirar fotos do comprovante de entrega.',
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+          expect.objectContaining({ confirmText: 'Abrir Configurações' }),
         );
       });
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('abre as Configurações quando a câmera está bloqueada e o motorista aceita', async () => {
+      mockRequestCameraPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        canAskAgain: false,
+      });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      // O mock global já resolve `true` (jest.setup.js:747) — o motorista
+      // aceitou ir para Configurações.
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+      await acionarOpcao(getByText, '📷 Tirar Foto');
+
+      expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('bloqueado'),
+          confirmText: 'Abrir Configurações',
+        }),
+      );
+      expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+
+      Object.defineProperty(Platform, 'OS', {
+        get: () => originalPlatform,
+        configurable: true,
+      });
+    });
+
+    it('usa a mensagem branda quando ainda dá para perguntar de novo', async () => {
+      mockRequestCameraPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        canAskAgain: true,
+      });
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+      await acionarOpcao(getByText, '📷 Tirar Foto');
+
+      expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.not.stringContaining('bloqueado'),
+        }),
+      );
 
       Object.defineProperty(Platform, 'OS', {
         get: () => originalPlatform,
@@ -345,11 +429,11 @@ describe('CameraUpload Component', () => {
 
       expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled();
 
-      // Deve mostrar alert de permissão negada via useAlert hook
+      // Deve oferecer saída para Configurações via useAlert hook, e não mais
+      // um showWarning sem botão.
       await waitFor(() => {
-        expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
-          'Permissão negada',
-          'Precisamos de acesso à galeria para selecionar fotos.',
+        expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
+          expect.objectContaining({ confirmText: 'Abrir Configurações' }),
         );
       });
 
@@ -905,6 +989,30 @@ describe('CameraUpload Component', () => {
         expect(
           mockMarcarConclusaoEmVoo.mock.invocationCallOrder[0],
         ).toBeLessThan(mockLaunchCameraAsync.mock.invocationCallOrder[0]);
+      });
+    });
+
+    it('marca a conclusão em voo ANTES de abrir a galeria', async () => {
+      // Mesmo bug que a câmera já corrigia (teste acima), sobrevivendo no
+      // ramo vizinho do mesmo `if`: o Android pode recriar a Activity
+      // enquanto o seletor está aberto, e só o marcador escrito ANTES do
+      // launch sobrevive para reabrir o fluxo certo depois.
+      await comAndroid(async () => {
+        const ordem: string[] = [];
+        mockMarcarConclusaoEmVoo.mockImplementation(async () => {
+          ordem.push('marcou');
+        });
+        mockLaunchImageLibraryAsync.mockImplementation(async () => {
+          ordem.push('abriu');
+          return { canceled: true };
+        });
+
+        const { getByText } = render(<CameraUpload {...defaultProps} />);
+        await acionarOpcao(getByText, '🖼️ Escolher da Galeria');
+
+        // Ordem, não só chamada: um expect(mockMarcarConclusaoEmVoo).
+        // toHaveBeenCalled() passaria com o marcador no lugar errado.
+        expect(ordem).toEqual(['marcou', 'abriu']);
       });
     });
 

@@ -1,9 +1,10 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { RefreshControl, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, RefreshControl, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Alert as AlertInline } from '@/components/Alert';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { MainCard } from '@/components/motorista/home/MainCard';
@@ -28,13 +29,25 @@ import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclu
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
+import {
+  useLocationWatcher,
+  type OpcoesDoWatcher,
+} from '@/hooks/useLocationWatcher';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
+import { abrirConfiguracoesDoApp, pedirPermissao } from '@/lib/permissoes';
 import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+const OPCOES_INICIO: OpcoesDoWatcher = {
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: 10000,
+  distanceInterval: 50,
+};
 
 function MotoristaInicioContent() {
   const router = useRouter();
@@ -101,65 +114,79 @@ function MotoristaInicioContent() {
     });
   }, []);
 
-  // Load user location
+  // Localização: nível ambiente. Esta tela abre a cada abertura do app, então
+  // a permissão negada vira um aviso dispensável (ver JSX abaixo), nunca um
+  // modal — modal aqui seria ruído diário.
+  const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
+    useState(false);
+  const [avisoDeLocalizacaoVisivel, setAvisoDeLocalizacaoVisivel] =
+    useState(false);
+  // Dispensar o aviso é definitivo enquanto esta tela viver: sem esta ref,
+  // uma revalidação em foreground (bloquear/desbloquear a tela já dispara
+  // uma) reabriria o aviso que o motorista acabou de fechar.
+  const avisoDispensadoRef = useRef(false);
+
   useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
+    let cancelado = false;
 
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          logger.debug('[Location] Permission to access location was denied');
-          return;
-        }
+        const resultado = await pedirPermissao(() =>
+          Location.requestForegroundPermissionsAsync(),
+        );
+        if (cancelado) return;
 
-        // Try to get current position with timeout
+        setTemPermissaoDeLocalizacao(resultado.concedida);
+        // Nível ambiente: aviso dispensável, nunca um modal. Esta tela abre a
+        // cada abertura do app.
+        setAvisoDeLocalizacaoVisivel(!resultado.concedida);
+        if (!resultado.concedida) return;
+
         try {
-          const location = await Location.getCurrentPositionAsync({
+          const posicao = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
           });
+          if (cancelado) return;
           setLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
+            latitude: posicao.coords.latitude,
+            longitude: posicao.coords.longitude,
           });
         } catch (positionError: unknown) {
+          // Não-crítico: o watcher abaixo entrega a posição em seguida.
           logger.warn(
-            '[Location] Could not get current position:',
+            '[Location] Não foi possível obter a posição atual',
             positionError,
           );
-          // Continue anyway - will try to get location from watcher
         }
-
-        // Subscribe to location updates
-        subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.BestForNavigation,
-            timeInterval: 10000,
-            distanceInterval: 50,
-          },
-          (newLocation) => {
-            setLocation({
-              latitude: newLocation.coords.latitude,
-              longitude: newLocation.coords.longitude,
-            });
-          },
-        );
       } catch (error: unknown) {
-        logger.error('[Location] Error setting up location tracking:', error);
+        logger.error('[Location] Erro ao configurar o rastreamento', error);
       }
     })();
 
     return () => {
-      if (subscription) {
-        try {
-          subscription.remove();
-        } catch (error: unknown) {
-          // expo-location remove() não funciona corretamente na web
-          logger.warn('[Location] Error removing subscription:', error);
-        }
-      }
+      cancelado = true;
     };
   }, []);
+
+  useRevalidarPermissaoDeLocalizacao((concedida) => {
+    setTemPermissaoDeLocalizacao(concedida);
+    // Dispensar é definitivo enquanto a tela viver: reabrir o aviso a cada
+    // volta ao foreground — e bloquear/desbloquear a tela já conta — seria
+    // justamente o assédio que este sub-projeto existe para tirar do caminho
+    // do motorista. Uma revogação externa ainda aparece, desde que ele não
+    // tenha dispensado.
+    setAvisoDeLocalizacaoVisivel(!concedida && !avisoDispensadoRef.current);
+  });
+
+  useLocationWatcher({
+    enabled: temPermissaoDeLocalizacao,
+    options: OPCOES_INICIO,
+    onLocation: (novaPosicao) =>
+      setLocation({
+        latitude: novaPosicao.coords.latitude,
+        longitude: novaPosicao.coords.longitude,
+      }),
+  });
 
   // Main action handler
   const handleMainAction = async () => {
@@ -479,6 +506,37 @@ function MotoristaInicioContent() {
           onChecklistChange={handleChecklistChange}
           testID="motorista-main-card"
         />
+
+        {avisoDeLocalizacaoVisivel && (
+          <AlertInline
+            type="info"
+            title="Localização desativada"
+            message={
+              Platform.OS === 'web'
+                ? 'Ative a localização para ver sua posição no mapa e acompanhar a rota. No navegador, use o cadeado ao lado do endereço do site para liberar o acesso.'
+                : 'Ative a localização para ver sua posição no mapa e acompanhar a rota.'
+            }
+            // Na web não há Configurações de app para abrir -
+            // abrirConfiguracoesDoApp() é no-op lá (src/lib/permissoes.ts). Um
+            // botão "Abrir Configurações" que não faz nada é o botão morto que
+            // este app existe para eliminar; a mensagem acima já nomeia o
+            // remédio real (o cadeado do navegador), então na web o Alert não
+            // ganha ação nenhuma.
+            actionLabel={
+              Platform.OS === 'web' ? undefined : 'Abrir Configurações'
+            }
+            onAction={
+              Platform.OS === 'web' ? undefined : abrirConfiguracoesDoApp
+            }
+            onClose={() => {
+              // Dispensa é definitiva enquanto a tela viver — ver a ref
+              // declarada junto ao estado de localização, acima.
+              avisoDispensadoRef.current = true;
+              setAvisoDeLocalizacaoVisivel(false);
+            }}
+            testID="aviso-localizacao-desativada"
+          />
+        )}
 
         {/* Mini Map - Nos estados pending, active e last-stop para visualização da rota */}
         {route &&
