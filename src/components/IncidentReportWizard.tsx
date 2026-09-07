@@ -31,7 +31,10 @@ import { useAlert } from '@/hooks/useAlert';
 import { useIncidentSubmit } from '@/hooks/useIncidentSubmit';
 import { useResponsive } from '@/hooks/useResponsive';
 import { logger } from '@/lib/logger';
-import { COPY_CAMERA, COPY_GALERIA } from '@/lib/motorista/copyDePermissao';
+import {
+  COPY_CAMERA_INCIDENTE,
+  COPY_GALERIA_INCIDENTE,
+} from '@/lib/motorista/copyDePermissao';
 import {
   lerRascunhoIncidente,
   limparRascunhoIncidente,
@@ -221,7 +224,11 @@ function IncidentReportWizardComponent({
       ImagePicker.requestCameraPermissionsAsync(),
     );
     if (!permissao.concedida) {
-      await oferecerSaidaParaConfiguracoes(permissao, COPY_CAMERA, showConfirm);
+      await oferecerSaidaParaConfiguracoes(
+        permissao,
+        COPY_CAMERA_INCIDENTE,
+        showConfirm,
+      );
       return;
     }
 
@@ -272,7 +279,7 @@ function IncidentReportWizardComponent({
     if (!permissao.concedida) {
       await oferecerSaidaParaConfiguracoes(
         permissao,
-        COPY_GALERIA,
+        COPY_GALERIA_INCIDENTE,
         showConfirm,
       );
       return;

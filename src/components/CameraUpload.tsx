@@ -24,7 +24,10 @@ import {
   limparConclusaoEmVoo,
   marcarConclusaoEmVoo,
 } from '@/lib/motorista/conclusaoEmVoo';
-import { COPY_CAMERA, COPY_GALERIA } from '@/lib/motorista/copyDePermissao';
+import {
+  COPY_CAMERA_ENTREGA,
+  COPY_GALERIA_ENTREGA,
+} from '@/lib/motorista/copyDePermissao';
 import {
   oferecerSaidaParaConfiguracoes,
   pedirPermissao,
@@ -158,7 +161,11 @@ export default function CameraUpload({
       ImagePicker.requestCameraPermissionsAsync(),
     );
     if (!permissao.concedida) {
-      await oferecerSaidaParaConfiguracoes(permissao, COPY_CAMERA, showConfirm);
+      await oferecerSaidaParaConfiguracoes(
+        permissao,
+        COPY_CAMERA_ENTREGA,
+        showConfirm,
+      );
       return;
     }
 
@@ -192,7 +199,7 @@ export default function CameraUpload({
     if (!permissao.concedida) {
       await oferecerSaidaParaConfiguracoes(
         permissao,
-        COPY_GALERIA,
+        COPY_GALERIA_ENTREGA,
         showConfirm,
       );
       return;
