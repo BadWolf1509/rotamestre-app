@@ -11,10 +11,12 @@
  */
 
 import * as Location from 'expo-location';
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { useLocationWatcher } from '@/hooks/useLocationWatcher';
 import { logger } from '@/lib/logger';
+import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
 import { getTrackingContext } from '@/services/unifiedLocationTracking';
 
@@ -47,8 +49,16 @@ export function useDriverLocationBroadcast({
   enabled = true,
 }: UseDriverLocationBroadcastOptions) {
   const lastUpdateRef = useRef<number>(0);
-  const watchSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
+  const watchSubscriptionRef = useRef<Location.LocationSubscription | null>(
+    null,
+  );
+  // Ramo web apenas: no ramo nativo quem decide se transmite é o `enabled`
+  // do useLocationWatcher (via `temPermissaoDeLocalizacao`), não esta ref.
   const isActiveRef = useRef(false);
+  const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
+    useState(false);
+
+  const shouldTrack = enabled && rotaId && rotaStatus === 'em_andamento';
 
   // Função para enviar localização para o banco
   const broadcastLocation = useCallback(
@@ -69,7 +79,9 @@ export function useDriverLocationBroadcast({
         // Fallback para auth se não tiver contexto
         let finalMotoristaId = motoristaId;
         if (!finalMotoristaId) {
-          const { data: { user } } = await supabase.auth.getUser();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
           if (!user) return;
           finalMotoristaId = user.id;
         }
@@ -79,14 +91,19 @@ export function useDriverLocationBroadcast({
           rota_id: rotaId,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-          velocidade: location.coords.speed ? location.coords.speed * 3.6 : null, // m/s -> km/h
+          velocidade: location.coords.speed
+            ? location.coords.speed * 3.6
+            : null, // m/s -> km/h
           precisao: location.coords.accuracy,
           heading: location.coords.heading,
           fonte: 'foreground', // Identificar que veio do hook (app aberto)
         });
 
         if (error) {
-          logger.error('[LocationBroadcast] Erro ao enviar localização:', error);
+          logger.error(
+            '[LocationBroadcast] Erro ao enviar localização:',
+            error,
+          );
         } else {
           lastUpdateRef.current = now;
         }
@@ -94,13 +111,51 @@ export function useDriverLocationBroadcast({
         logger.error('[LocationBroadcast] Erro:', err);
       }
     },
-    [rotaId, updateInterval]
+    [rotaId, updateInterval],
   );
 
-  // Iniciar/parar tracking baseado no status da rota
+  // Ramo nativo (iOS/Android): pede a permissão e delega o ciclo de vida do
+  // watcher ao useLocationWatcher (Task 1). É esta troca que corrige o
+  // watcher órfão — antes, o `watchPositionAsync` recriado a cada mudança de
+  // `rotaId`/`rotaStatus` podia perder a corrida de cleanup e continuar
+  // inserindo em `motorista_locations` para uma rota já encerrada.
   useEffect(() => {
-    const shouldTrack = enabled && rotaId && rotaStatus === 'em_andamento';
+    if (Platform.OS === 'web' || !shouldTrack) {
+      setTemPermissaoDeLocalizacao(false);
+      return;
+    }
 
+    let cancelado = false;
+    (async () => {
+      const resultado = await pedirPermissao(() =>
+        Location.requestForegroundPermissionsAsync(),
+      );
+      if (cancelado) return;
+      if (!resultado.concedida) {
+        // Nível ambiente e sem UI própria: este hook não tem tela para avisar.
+        logger.warn('[LocationBroadcast] Permissão de localização negada');
+      }
+      setTemPermissaoDeLocalizacao(resultado.concedida);
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [shouldTrack]);
+
+  useLocationWatcher({
+    enabled: temPermissaoDeLocalizacao,
+    options: {
+      accuracy: Location.Accuracy.High,
+      timeInterval: updateInterval,
+      distanceInterval: 20,
+    },
+    onLocation: (location) => broadcastLocation(location),
+  });
+
+  // Ramo web: navigator.geolocation.watchPosition não é expo-location e não
+  // tem a corrida que o useLocationWatcher resolve — fica como estava.
+  useEffect(() => {
     // Cleanup anterior
     const cleanup = async () => {
       if (watchSubscriptionRef.current) {
@@ -145,7 +200,7 @@ export function useDriverLocationBroadcast({
               enableHighAccuracy: true,
               timeout: 10000,
               maximumAge: 5000,
-            }
+            },
           );
 
           isActiveRef.current = true;
@@ -157,33 +212,6 @@ export function useDriverLocationBroadcast({
         }
         return;
       }
-
-      // Mobile (iOS/Android)
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          logger.warn('[LocationBroadcast] Permissão de localização negada');
-          return;
-        }
-
-        isActiveRef.current = true;
-
-        watchSubscriptionRef.current = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: updateInterval,
-            distanceInterval: 20, // Mínimo 20m entre updates
-          },
-          (location) => {
-            if (isActiveRef.current) {
-              broadcastLocation(location);
-            }
-          }
-        );
-
-      } catch (err) {
-        logger.error('[LocationBroadcast] Erro ao iniciar tracking:', err);
-      }
     };
 
     startTracking();
@@ -191,7 +219,7 @@ export function useDriverLocationBroadcast({
     return () => {
       cleanup();
     };
-  }, [enabled, rotaId, rotaStatus, updateInterval, broadcastLocation]);
+  }, [shouldTrack, broadcastLocation]);
 
   return {
     isActive: isActiveRef.current,

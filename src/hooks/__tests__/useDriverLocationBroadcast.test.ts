@@ -37,10 +37,12 @@ const mockWatchPositionAsync = jest.fn().mockResolvedValue({
 });
 const mockRequestForegroundPermissionsAsync = jest.fn().mockResolvedValue({
   status: 'granted',
+  canAskAgain: true,
 });
 
 jest.mock('expo-location', () => ({
-  requestForegroundPermissionsAsync: () => mockRequestForegroundPermissionsAsync(),
+  requestForegroundPermissionsAsync: () =>
+    mockRequestForegroundPermissionsAsync(),
   watchPositionAsync: (...args: unknown[]) => mockWatchPositionAsync(...args),
   Accuracy: {
     Lowest: 1,
@@ -75,7 +77,10 @@ describe('useDriverLocationBroadcast', () => {
       rotaId: 'rota-123',
     });
     mockInsert.mockResolvedValue({ error: null });
-    mockRequestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    mockRequestForegroundPermissionsAsync.mockResolvedValue({
+      status: 'granted',
+      canAskAgain: true,
+    });
 
     // Mock navigator.geolocation
     Object.defineProperty(global, 'navigator', {
@@ -109,7 +114,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: null,
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -122,7 +127,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: undefined,
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -135,7 +140,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'pendente',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -148,7 +153,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'concluida',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -162,7 +167,7 @@ describe('useDriverLocationBroadcast', () => {
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
           enabled: false,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -185,7 +190,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -198,7 +203,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -208,19 +213,21 @@ describe('useDriverLocationBroadcast', () => {
             timeInterval: 10000,
             distanceInterval: 20,
           }),
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
 
     it('nao deve iniciar tracking quando permissao e negada', async () => {
-      mockRequestForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
+      mockRequestForegroundPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+      });
 
       renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -238,7 +245,7 @@ describe('useDriverLocationBroadcast', () => {
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
           updateInterval: customInterval,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -246,7 +253,7 @@ describe('useDriverLocationBroadcast', () => {
           expect.objectContaining({
             timeInterval: customInterval,
           }),
-          expect.any(Function)
+          expect.any(Function),
         );
       });
     });
@@ -266,7 +273,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -277,7 +284,7 @@ describe('useDriverLocationBroadcast', () => {
             enableHighAccuracy: true,
             timeout: 10000,
             maximumAge: 5000,
-          })
+          }),
         );
       });
 
@@ -297,7 +304,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -306,20 +313,21 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve enviar localizacao via web geolocation quando callback e chamado', async () => {
-      let positionCallback: ((position: GeolocationPosition) => void) | null = null;
+      let positionCallback: ((position: GeolocationPosition) => void) | null =
+        null;
 
       mockWatchPosition.mockImplementation(
         (successCallback: (position: GeolocationPosition) => void) => {
           positionCallback = successCallback;
           return 456;
-        }
+        },
       );
 
       const { unmount } = renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -352,7 +360,7 @@ describe('useDriverLocationBroadcast', () => {
             heading: 180,
             velocidade: 72, // 20 m/s * 3.6 = 72 km/h
             fonte: 'foreground',
-          })
+          }),
         );
       });
 
@@ -361,13 +369,17 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve tratar erro de web geolocation graciosamente', async () => {
-      let errorCallback: ((error: GeolocationPositionError) => void) | null = null;
+      let errorCallback: ((error: GeolocationPositionError) => void) | null =
+        null;
 
       mockWatchPosition.mockImplementation(
-        (_successCallback: (position: GeolocationPosition) => void, errCallback: (error: GeolocationPositionError) => void) => {
+        (
+          _successCallback: (position: GeolocationPosition) => void,
+          errCallback: (error: GeolocationPositionError) => void,
+        ) => {
           errorCallback = errCallback;
           return 789;
-        }
+        },
       );
 
       const loggerSpy = jest.spyOn(logger, 'error');
@@ -376,7 +388,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -397,7 +409,7 @@ describe('useDriverLocationBroadcast', () => {
       await waitFor(() => {
         expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Web geolocation error:',
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
@@ -415,20 +427,24 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve enviar localizacao para o banco de dados', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -463,19 +479,23 @@ describe('useDriverLocationBroadcast', () => {
             heading: 90,
             velocidade: 54, // 15 m/s * 3.6 = 54 km/h
             fonte: 'foreground',
-          })
+          }),
         );
       });
     });
 
     it('deve usar contexto unificado para obter motoristaId', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       mockGetTrackingContext.mockResolvedValue({
@@ -487,7 +507,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -513,19 +533,23 @@ describe('useDriverLocationBroadcast', () => {
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             motorista_id: 'motorista-from-context',
-          })
+          }),
         );
       });
     });
 
     it('deve usar auth como fallback quando contexto nao tem motoristaId', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       // Contexto sem motoristaId
@@ -537,7 +561,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -564,19 +588,23 @@ describe('useDriverLocationBroadcast', () => {
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             motorista_id: 'user-123',
-          })
+          }),
         );
       });
     });
 
     it('nao deve enviar quando nao ha usuario autenticado', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       // Sem contexto e sem usuario
@@ -587,7 +615,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -616,20 +644,24 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve converter velocidade de m/s para km/h', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -655,26 +687,30 @@ describe('useDriverLocationBroadcast', () => {
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             velocidade: 36, // 10 * 3.6
-          })
+          }),
         );
       });
     });
 
     it('deve enviar velocidade null quando speed e null', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -700,7 +736,7 @@ describe('useDriverLocationBroadcast', () => {
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             velocidade: null,
-          })
+          }),
         );
       });
     });
@@ -715,13 +751,17 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve respeitar intervalo minimo entre atualizacoes', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       renderHook(() =>
@@ -729,7 +769,7 @@ describe('useDriverLocationBroadcast', () => {
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
           updateInterval: 10000,
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -793,7 +833,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -814,7 +854,7 @@ describe('useDriverLocationBroadcast', () => {
             rotaId: 'rota-123',
             rotaStatus,
           }),
-        { initialProps: { rotaStatus: 'em_andamento' } }
+        { initialProps: { rotaStatus: 'em_andamento' } },
       );
 
       await waitFor(() => {
@@ -837,7 +877,7 @@ describe('useDriverLocationBroadcast', () => {
             rotaStatus: 'em_andamento',
             enabled,
           }),
-        { initialProps: { enabled: true } }
+        { initialProps: { enabled: true } },
       );
 
       await waitFor(() => {
@@ -864,7 +904,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -888,13 +928,17 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve tratar erro ao inserir no banco', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       mockInsert.mockResolvedValue({ error: { message: 'Database error' } });
@@ -905,7 +949,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -930,7 +974,7 @@ describe('useDriverLocationBroadcast', () => {
       await waitFor(() => {
         expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Erro ao enviar localização:',
-          expect.objectContaining({ message: 'Database error' })
+          expect.objectContaining({ message: 'Database error' }),
         );
       });
 
@@ -940,19 +984,22 @@ describe('useDriverLocationBroadcast', () => {
     it('deve tratar erro ao iniciar tracking', async () => {
       mockWatchPositionAsync.mockRejectedValue(new Error('Location error'));
 
-      const loggerSpy = jest.spyOn(logger, 'error');
+      // O ramo nativo agora delega o watchPositionAsync ao useLocationWatcher
+      // (Task 1), que trata a falha com seu proprio logger.warn - nao mais
+      // com o logger.error que existia aqui antes da migracao.
+      const loggerSpy = jest.spyOn(logger, 'warn');
 
       renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
         expect(loggerSpy).toHaveBeenCalledWith(
-          '[LocationBroadcast] Erro ao iniciar tracking:',
-          expect.any(Error)
+          '[useLocationWatcher] Falha ao iniciar o watcher',
+          expect.any(Error),
         );
       });
 
@@ -960,13 +1007,17 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('deve tratar erro de getTrackingContext graciosamente', async () => {
-      let locationCallback: ((location: Location.LocationObject) => void) | null = null;
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
 
       mockWatchPositionAsync.mockImplementation(
-        (_options: unknown, callback: (location: Location.LocationObject) => void) => {
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
           locationCallback = callback;
           return Promise.resolve({ remove: mockWatchPositionRemove });
-        }
+        },
       );
 
       mockGetTrackingContext.mockRejectedValue(new Error('Context error'));
@@ -977,7 +1028,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       await waitFor(() => {
@@ -1002,7 +1053,7 @@ describe('useDriverLocationBroadcast', () => {
       await waitFor(() => {
         expect(loggerSpy).toHaveBeenCalledWith(
           '[LocationBroadcast] Erro:',
-          expect.any(Error)
+          expect.any(Error),
         );
       });
 
@@ -1016,7 +1067,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: null,
           rotaStatus: null,
-        })
+        }),
       );
 
       expect(result.current.isActive).toBe(false);
@@ -1029,7 +1080,7 @@ describe('useDriverLocationBroadcast', () => {
         useDriverLocationBroadcast({
           rotaId: '',
           rotaStatus: 'em_andamento',
-        })
+        }),
       );
 
       // Nao deve iniciar tracking para rotaId vazio
@@ -1047,18 +1098,40 @@ describe('useDriverLocationBroadcast', () => {
       });
     });
 
-    it('deve reiniciar tracking quando rotaId muda', async () => {
+    // Antes da migracao para useLocationWatcher (Task 1), rotaId entrava nas
+    // deps do efeito e reiniciava o watchPositionAsync a cada mudanca - e era
+    // exatamente essa recriacao, perdendo a corrida de cleanup, que deixava o
+    // watcher orfao inserindo com o rotaId antigo (o bug que este lote
+    // corrige). Agora o watcher nativo NAO reinicia so porque o rotaId muda
+    // (accuracy/intervalo/permissao continuam os mesmos - ver
+    // useLocationWatcher.test.ts, "nao recria o watcher quando so o objeto de
+    // opcoes muda de identidade"); quem garante o dado correto e o callback
+    // sempre ler o rotaId da renderizacao mais recente.
+    it('nao deve recriar o watcher nativo quando so o rotaId muda, e usa o rotaId atual ao transmitir', async () => {
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
+
+      mockWatchPositionAsync.mockImplementation(
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
+          locationCallback = callback;
+          return Promise.resolve({ remove: mockWatchPositionRemove });
+        },
+      );
+
       const { rerender } = renderHook(
         ({ rotaId }: { rotaId: string }) =>
           useDriverLocationBroadcast({
             rotaId,
             rotaStatus: 'em_andamento',
           }),
-        { initialProps: { rotaId: 'rota-1' } }
+        { initialProps: { rotaId: 'rota-1' } },
       );
 
       await waitFor(() => {
-        expect(mockWatchPositionAsync).toHaveBeenCalled();
+        expect(mockWatchPositionAsync).toHaveBeenCalledTimes(1);
       });
 
       mockWatchPositionAsync.mockClear();
@@ -1066,14 +1139,33 @@ describe('useDriverLocationBroadcast', () => {
 
       rerender({ rotaId: 'rota-2' });
 
+      // Nao deve recriar a subscription nativa so por causa do rotaId
       await waitFor(() => {
-        // Deve remover subscription antiga
-        expect(mockWatchPositionRemove).toHaveBeenCalled();
+        expect(mockWatchPositionRemove).not.toHaveBeenCalled();
+      });
+      expect(mockWatchPositionAsync).not.toHaveBeenCalled();
+
+      // Mas o broadcast deve usar o rotaId ATUAL (rota-2), nao o capturado
+      // quando a subscription nativa foi criada
+      await act(async () => {
+        locationCallback!({
+          coords: {
+            latitude: -23.5505,
+            longitude: -46.6333,
+            accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        });
       });
 
       await waitFor(() => {
-        // Deve criar nova subscription
-        expect(mockWatchPositionAsync).toHaveBeenCalled();
+        expect(mockInsert).toHaveBeenCalledWith(
+          expect.objectContaining({ rota_id: 'rota-2' }),
+        );
       });
     });
   });
