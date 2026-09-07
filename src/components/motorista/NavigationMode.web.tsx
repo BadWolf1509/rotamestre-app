@@ -25,19 +25,34 @@ import {
   type NavigationModeProps,
 } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
+import {
+  useLocationWatcher,
+  type OpcoesDoWatcher,
+} from '@/hooks/useLocationWatcher';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
+import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
 } from '@/lib/openFreeMapStyle';
+import {
+  oferecerSaidaParaConfiguracoes,
+  pedirPermissao,
+} from '@/lib/permissoes';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { NavigationInfoPanelWeb } from './NavigationInfoPanelWeb';
 import { NavigationSettings } from './NavigationSettings';
+
+const OPCOES_NAVEGACAO_WEB: OpcoesDoWatcher = {
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: 1000,
+  distanceInterval: 5,
+};
 
 export function NavigationMode({
   currentStop,
@@ -49,7 +64,7 @@ export function NavigationMode({
   onExit,
 }: NavigationModeProps) {
   const { theme } = useUnistyles();
-  const { showWarning, showConfirm, AlertDialog } = useAlert();
+  const { showConfirm, AlertDialog } = useAlert();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
@@ -445,39 +460,32 @@ export function NavigationMode({
     [autoAdvance, handleArrival, proximityRadius],
   );
 
-  const startLocationTracking = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      showWarning('Erro', 'Permissão de localização negada');
-      return;
-    }
+  const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
+    useState(false);
 
-    setIsTracking(true);
+  useEffect(() => {
+    let cancelado = false;
 
-    try {
-      const location = await Location.getCurrentPositionAsync({});
-      updateLocationFromCoords(
-        {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          heading: location.coords.heading,
-        },
-        location.coords.speed,
+    (async () => {
+      const resultado = await pedirPermissao(() =>
+        Location.requestForegroundPermissionsAsync(),
       );
-    } catch (error) {
-      logger.warn(
-        '[NavigationMode.web] Error getting initial location:',
-        error,
-      );
-    }
+      if (cancelado) return;
 
-    const subscription = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000,
-        distanceInterval: 5,
-      },
-      (location) => {
+      setTemPermissaoDeLocalizacao(resultado.concedida);
+      if (!resultado.concedida) {
+        await oferecerSaidaParaConfiguracoes(
+          resultado,
+          COPY_LOCALIZACAO,
+          showConfirm,
+        );
+        return;
+      }
+
+      setIsTracking(true);
+      try {
+        const location = await Location.getCurrentPositionAsync({});
+        if (cancelado) return;
         updateLocationFromCoords(
           {
             latitude: location.coords.latitude,
@@ -486,18 +494,33 @@ export function NavigationMode({
           },
           location.coords.speed,
         );
-      },
-    );
+      } catch (error) {
+        logger.warn(
+          '[NavigationMode.web] Erro ao obter posição inicial',
+          error,
+        );
+      }
+    })();
 
     return () => {
+      cancelado = true;
       setIsTracking(false);
-      try {
-        subscription.remove();
-      } catch (error) {
-        logger.warn('[NavigationMode.web] Error removing subscription:', error);
-      }
     };
-  }, [setIsTracking, updateLocationFromCoords, showWarning]);
+  }, [showConfirm, setIsTracking, updateLocationFromCoords]);
+
+  useLocationWatcher({
+    enabled: temPermissaoDeLocalizacao,
+    options: OPCOES_NAVEGACAO_WEB,
+    onLocation: (location) =>
+      updateLocationFromCoords(
+        {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          heading: location.coords.heading,
+        },
+        location.coords.speed,
+      ),
+  });
 
   useEffect(() => {
     loadPreferences();
@@ -531,20 +554,6 @@ export function NavigationMode({
       if (existingStyle) existingStyle.remove();
     };
   }, []);
-
-  useEffect(() => {
-    let cleanup: (() => void) | undefined;
-
-    const initialize = async () => {
-      cleanup = await startLocationTracking();
-    };
-
-    initialize();
-
-    return () => {
-      cleanup?.();
-    };
-  }, [startLocationTracking]);
 
   const openExternalNavigation = () => {
     abrirNavegacao({

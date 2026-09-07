@@ -1,7 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -20,13 +26,21 @@ import {
   type NavigationModeProps,
 } from '@/hooks/navigation';
 import { useAlert } from '@/hooks/useAlert';
-import { logger } from '@/lib/logger';
+import {
+  useLocationWatcher,
+  type OpcoesDoWatcher,
+} from '@/hooks/useLocationWatcher';
 import {
   OPENFREEMAP_STYLE_URL,
   toLineString,
   toLngLat,
   zoomFromLongitudeDelta,
 } from '@/lib/maplibre';
+import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import {
+  oferecerSaidaParaConfiguracoes,
+  pedirPermissao,
+} from '@/lib/permissoes';
 import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -38,6 +52,12 @@ import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const OPCOES_NAVEGACAO: OpcoesDoWatcher = {
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: 1000,
+  distanceInterval: 5,
+};
 
 export function NavigationMode({
   currentStop,
@@ -129,41 +149,44 @@ export function NavigationMode({
     cleanupSound,
   ]);
 
+  const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
+    useState(false);
+
   useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
+    let cancelado = false;
 
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      const resultado = await pedirPermissao(() =>
+        Location.requestForegroundPermissionsAsync(),
+      );
+      if (cancelado) return;
 
-      subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 5,
-        },
-        (location) => {
-          updateLocationFromCoords(
-            {
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              heading: location.coords.heading,
-            },
-            location.coords.speed,
-          );
-        },
+      setTemPermissaoDeLocalizacao(resultado.concedida);
+      await oferecerSaidaParaConfiguracoes(
+        resultado,
+        COPY_LOCALIZACAO,
+        showConfirm,
       );
     })();
 
     return () => {
-      try {
-        subscription?.remove();
-      } catch (error) {
-        // expo-location remove() não funciona corretamente na web
-        logger.warn('[NavigationMode] Error removing subscription:', error);
-      }
+      cancelado = true;
     };
-  }, [updateLocationFromCoords]);
+  }, [showConfirm]);
+
+  useLocationWatcher({
+    enabled: temPermissaoDeLocalizacao,
+    options: OPCOES_NAVEGACAO,
+    onLocation: (location) =>
+      updateLocationFromCoords(
+        {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          heading: location.coords.heading,
+        },
+        location.coords.speed,
+      ),
+  });
 
   // OSRM route fetching is now handled by useNavigationModeLogic hook
 

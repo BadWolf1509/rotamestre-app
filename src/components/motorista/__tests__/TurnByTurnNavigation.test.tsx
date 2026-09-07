@@ -29,7 +29,7 @@ jest.mock('expo-location', () => ({
   watchPositionAsync: jest.fn().mockResolvedValue({ remove: jest.fn() }),
   requestForegroundPermissionsAsync: jest
     .fn()
-    .mockResolvedValue({ status: 'granted' }),
+    .mockResolvedValue({ status: 'granted', canAskAgain: true }),
   Accuracy: {
     BestForNavigation: 6,
   },
