@@ -30,6 +30,7 @@ import {
   useLocationWatcher,
   type OpcoesDoWatcher,
 } from '@/hooks/useLocationWatcher';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import {
   OPENFREEMAP_STYLE_URL,
   toLineString,
@@ -173,6 +174,8 @@ export function NavigationMode({
       cancelado = true;
     };
   }, [showConfirm]);
+
+  useRevalidarPermissaoDeLocalizacao(setTemPermissaoDeLocalizacao);
 
   useLocationWatcher({
     enabled: temPermissaoDeLocalizacao,

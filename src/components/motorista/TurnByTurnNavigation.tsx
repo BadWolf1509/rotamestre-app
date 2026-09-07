@@ -19,6 +19,7 @@ import {
   type OpcoesDoWatcher,
 } from '@/hooks/useLocationWatcher';
 import { useOffRouteDetection } from '@/hooks/useOffRouteDetection';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { OPENFREEMAP_STYLE_URL, toLineString, toLngLat } from '@/lib/maplibre';
@@ -361,6 +362,8 @@ export function TurnByTurnNavigation({
       cancelado = true;
     };
   }, [showConfirm]);
+
+  useRevalidarPermissaoDeLocalizacao(setTemPermissaoDeLocalizacao);
 
   const processarLocalizacao = useCallback(
     async (location: Location.LocationObject) => {

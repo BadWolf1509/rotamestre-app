@@ -33,6 +33,7 @@ import {
   useLocationWatcher,
   type OpcoesDoWatcher,
 } from '@/hooks/useLocationWatcher';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
@@ -162,6 +163,14 @@ function MotoristaInicioContent() {
       cancelado = true;
     };
   }, []);
+
+  useRevalidarPermissaoDeLocalizacao((concedida) => {
+    setTemPermissaoDeLocalizacao(concedida);
+    // O aviso volta se a permissão for revogada por fora, e some quando o
+    // motorista concede pelo botão do próprio aviso — que é o caso que motivou
+    // esta task.
+    setAvisoDeLocalizacaoVisivel(!concedida);
+  });
 
   useLocationWatcher({
     enabled: temPermissaoDeLocalizacao,

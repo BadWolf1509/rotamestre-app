@@ -31,14 +31,16 @@ export const COPY_LOCALIZACAO: CopyDePermissao = {
 
 export const COPY_CAMERA: CopyDePermissao = {
   titulo: 'Acesso à câmera',
-  mensagemNegada: 'Sem acesso à câmera não é possível tirar fotos.',
+  mensagemNegada:
+    'Sem acesso à câmera não é possível registrar a foto que comprova a entrega.',
   mensagemBloqueada:
     'O acesso à câmera está bloqueado. Libere em Configurações para tirar fotos.',
 };
 
 export const COPY_GALERIA: CopyDePermissao = {
   titulo: 'Acesso à galeria',
-  mensagemNegada: 'Sem acesso à galeria não é possível escolher fotos.',
+  mensagemNegada:
+    'Sem acesso às fotos não é possível anexar a imagem que comprova a entrega.',
   mensagemBloqueada:
     'O acesso à galeria está bloqueado. Libere em Configurações para escolher fotos.',
 };

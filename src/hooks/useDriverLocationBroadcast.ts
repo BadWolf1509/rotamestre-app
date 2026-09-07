@@ -15,6 +15,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { useLocationWatcher } from '@/hooks/useLocationWatcher';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { logger } from '@/lib/logger';
 import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
@@ -142,6 +143,11 @@ export function useDriverLocationBroadcast({
       cancelado = true;
     };
   }, [shouldTrack]);
+
+  useRevalidarPermissaoDeLocalizacao((concedida) => {
+    if (Platform.OS === 'web') return;
+    setTemPermissaoDeLocalizacao(concedida);
+  });
 
   useLocationWatcher({
     enabled: temPermissaoDeLocalizacao,

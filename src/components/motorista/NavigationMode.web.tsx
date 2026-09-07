@@ -29,6 +29,7 @@ import {
   useLocationWatcher,
   type OpcoesDoWatcher,
 } from '@/hooks/useLocationWatcher';
+import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
@@ -507,6 +508,8 @@ export function NavigationMode({
       setIsTracking(false);
     };
   }, [showConfirm, setIsTracking, updateLocationFromCoords]);
+
+  useRevalidarPermissaoDeLocalizacao(setTemPermissaoDeLocalizacao);
 
   useLocationWatcher({
     enabled: temPermissaoDeLocalizacao,
