@@ -88,7 +88,9 @@ describe('useRouteRealtimeSubscription', () => {
       useRouteRealtimeSubscription(defaultProps),
     );
 
-    expect(supabase.channel).toHaveBeenCalledWith('motorista-routes-driver-1');
+    expect(supabase.channel).toHaveBeenCalledWith(
+      expect.stringMatching(/^motorista-routes-driver-1#\d+$/),
+    );
     expect(mockChannel.subscribe).toHaveBeenCalled();
 
     unmount();

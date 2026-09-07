@@ -11,6 +11,7 @@ import { PAGE_SIZE } from '@/components/timeline/types';
 import { useCachedData } from '@/hooks/useCachedData';
 import { CACHE_TTL } from '@/lib/cache';
 import { logger } from '@/lib/logger';
+import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import {
   mapLogToTimelineEvent,
@@ -181,7 +182,7 @@ export function useTimelineData(
   useEffect(() => {
     if (!realtime) return;
     const channel = supabase
-      .channel(`route-timeline-${rotaId}`)
+      .channel(nomeDeCanalUnico(`route-timeline-${rotaId}`))
       .on(
         'postgres_changes',
         {

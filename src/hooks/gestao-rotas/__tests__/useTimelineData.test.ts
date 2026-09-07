@@ -186,7 +186,9 @@ describe('useTimelineData — realtime', () => {
       useTimelineData('123', { realtime: true }),
     );
     await waitFor(() =>
-      expect(supabase.channel).toHaveBeenCalledWith('route-timeline-123'),
+      expect(supabase.channel).toHaveBeenCalledWith(
+        expect.stringMatching(/^route-timeline-123#\d+$/),
+      ),
     );
     expect((supabase.channel('') as any).subscribe).toHaveBeenCalled();
     unmount();

@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 
-import { logger } from "@/lib/logger";
-import { supabase } from "@/lib/supabase";
-import type { Notificacao } from "@/types/notifications";
+import { logger } from '@/lib/logger';
+import { nomeDeCanalUnico } from '@/lib/realtime';
+import { supabase } from '@/lib/supabase';
+import type { Notificacao } from '@/types/notifications';
 
 interface UseNotificationRealtimeOptions {
   userId: string | undefined;
@@ -36,67 +37,67 @@ export function useNotificationRealtime({
 
   useEffect(() => {
     if (!userId || !accessToken) {
-      logger.debug("[Realtime:Notificacoes] Aguardando userData e session...");
+      logger.debug('[Realtime:Notificacoes] Aguardando userData e session...');
       return;
     }
 
     if (isSubscribed.current) {
-      logger.debug("[Realtime:Notificacoes] Já inscrito, ignorando...");
+      logger.debug('[Realtime:Notificacoes] Já inscrito, ignorando...');
       return;
     }
 
-    logger.info("[Realtime:Notificacoes] Criando subscription para:", userId);
+    logger.info('[Realtime:Notificacoes] Criando subscription para:', userId);
 
     supabase.realtime.setAuth(accessToken);
     isSubscribed.current = true;
 
-    const channelName = `notificacoes-${userId}`;
+    const channelName = nomeDeCanalUnico(`notificacoes-${userId}`);
     const channel = supabase
       .channel(channelName)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "INSERT",
-          schema: "public",
-          table: "notificacoes",
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificacoes',
           filter: `usuario_id=eq.${userId}`,
         },
         (payload) => {
-          logger.debug("[Realtime:Notificacoes] INSERT recebido:", payload.new);
+          logger.debug('[Realtime:Notificacoes] INSERT recebido:', payload.new);
           onInsertRef.current(payload.new as Notificacao);
         },
       )
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "UPDATE",
-          schema: "public",
-          table: "notificacoes",
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notificacoes',
           filter: `usuario_id=eq.${userId}`,
         },
         (payload) => {
-          logger.debug("[Realtime:Notificacoes] UPDATE recebido:", payload.new);
+          logger.debug('[Realtime:Notificacoes] UPDATE recebido:', payload.new);
           onUpdateRef.current(payload.new as Notificacao);
         },
       )
       .subscribe((status, err) => {
         logger.debug(
-          "[Realtime:Notificacoes] Status:",
+          '[Realtime:Notificacoes] Status:',
           status,
-          err ? `Erro: ${err.message}` : "",
+          err ? `Erro: ${err.message}` : '',
         );
 
-        if (status === "SUBSCRIBED") {
-          logger.info("[Realtime:Notificacoes] Conectado e ouvindo eventos");
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        if (status === 'SUBSCRIBED') {
+          logger.info('[Realtime:Notificacoes] Conectado e ouvindo eventos');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           logger.warn(
-            "[Realtime:Notificacoes] Conexão falhou:",
+            '[Realtime:Notificacoes] Conexão falhou:',
             status,
-            "(polling ativo como fallback)",
+            '(polling ativo como fallback)',
           );
           isSubscribed.current = false;
-        } else if (status === "CLOSED") {
-          logger.debug("[Realtime:Notificacoes] Canal fechado");
+        } else if (status === 'CLOSED') {
+          logger.debug('[Realtime:Notificacoes] Canal fechado');
           isSubscribed.current = false;
         }
       });
@@ -104,7 +105,7 @@ export function useNotificationRealtime({
     channelRef.current = channel;
 
     return () => {
-      logger.debug("[Realtime:Notificacoes] Limpando subscription...");
+      logger.debug('[Realtime:Notificacoes] Limpando subscription...');
       isSubscribed.current = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
