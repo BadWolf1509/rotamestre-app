@@ -92,10 +92,20 @@ sem comprovante não existe entrega. É um laço fechado dentro do app.
 Duas consequências de loja andam junto:
 
 - **`expo-image-picker` não está na lista de `plugins`** do `app.config.js:97`.
-  O Expo não aplica config plugin por autolinking, então
+  ~~O Expo não aplica config plugin por autolinking, então
   `NSCameraUsageDescription` nunca entra no `Info.plist` — e chamar a câmera sem
-  essa chave é `SIGABRT` imediato no iOS. O Android não é afetado (a permissão
-  vem do manifesto da própria biblioteca).
+  essa chave é `SIGABRT` imediato no iOS.~~ **Corrigido em 07/09/2026: isso é
+  falso.** O Expo auto-aplica o config plugin de pacotes que trazem
+  `app.plugin.js`, e `expo-image-picker` traz — as chaves entram no `Info.plist`
+  de qualquer jeito, então não há crash. O que a entrada explícita muda é o
+  **texto**: sem ela vale o default de
+  `expo-image-picker/plugin/build/withImagePicker.js:7`,
+  `'Allow $(PRODUCT_NAME) to access your camera'` — inglês e genérico num app
+  pt-BR, o que a Guideline 5.1.1 da App Store trata como purpose string
+  inadequada. Risco de reprovação, não de SIGABRT. Medido com
+  `npx expo config --type introspect`, que roda o mesmo pipeline de plugins do
+  prebuild sem gerar projeto nativo. O Android não é afetado (a permissão vem do
+  manifesto da própria biblioteca).
 - **A galeria não tem as duas metades da correção da câmera.**
   `CameraUpload.openCamera:179` chama `marcarConclusaoEmVoo`; `openGallery:200`
   não. `IncidentReportWizard.takePhoto:230` salva o rascunho; `pickImage:264`

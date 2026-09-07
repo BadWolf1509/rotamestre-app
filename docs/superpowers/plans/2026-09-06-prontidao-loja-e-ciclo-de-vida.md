@@ -1472,7 +1472,7 @@ git commit -m "fix(motorista): camera e galeria com saida de permissao e marcado
 - Consumes: nada.
 - Produces: nada.
 
-**Contexto.** O Expo **não** aplica config plugin por autolinking. Sem a entrada nos `plugins`, `NSCameraUsageDescription` nunca entra no `Info.plist` — e chamar a câmera sem essa chave é `SIGABRT` imediato no iOS. É a única razão pela qual o primeiro build iOS nasceria fechando o app ao tocar em "Tirar foto". O Android não é afetado: a permissão vem do manifesto da própria biblioteca.
+**Contexto — CORRIGIDO EM 07/09/2026.** Este parágrafo dizia que sem a entrada nos `plugins` a chave `NSCameraUsageDescription` nunca entraria no `Info.plist`, e que isso seria `SIGABRT` imediato. **Medido, é falso:** o Expo auto-aplica o config plugin de pacotes que trazem `app.plugin.js`, e `expo-image-picker` traz — as chaves entram de qualquer jeito. O que a entrada explícita muda é o **texto**: sem ela vale o default de `withImagePicker.js:7`, `'Allow $(PRODUCT_NAME) to access your camera'`, inglês e genérico num app pt-BR. A Guideline 5.1.1 exige purpose string que explique o uso — risco de reprovação, não de crash. O Android não é afetado.
 
 - [ ] **Step 1: Adicionar o plugin**
 
@@ -1521,7 +1521,7 @@ Expected: só `app.config.js` modificado. O projeto usa fluxo gerenciado — `io
 
 ```bash
 git add app.config.js
-git commit -m "fix(ios): expo-image-picker nos plugins, sem NSCameraUsageDescription era SIGABRT"
+git commit -m "fix(ios): purpose strings da camera e da galeria em pt-BR"
 ```
 
 ---
