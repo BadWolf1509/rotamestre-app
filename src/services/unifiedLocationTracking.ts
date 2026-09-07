@@ -15,6 +15,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { logger } from '@/lib/logger';
+import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
 import { defaultTheme } from '@/utils/styles';
 
@@ -125,11 +126,16 @@ async function saveLocationToDatabase(
  */
 export async function requestLocationPermissions(): Promise<LocationPermissions> {
   const currentForeground = await Location.getForegroundPermissionsAsync();
-  const foregroundStatus =
-    currentForeground.status === 'granted'
-      ? currentForeground.status
-      : (await Location.requestForegroundPermissionsAsync()).status;
-  const foregroundGranted = foregroundStatus === 'granted';
+  let foregroundGranted = currentForeground.status === 'granted';
+  if (!foregroundGranted) {
+    // `pedirPermissao` só entra quando o `get` acima ainda não confirmou —
+    // evita reabrir o diálogo do sistema à toa, e preserva o `canAskAgain`
+    // que a chamada direta descartava.
+    const resultado = await pedirPermissao(() =>
+      Location.requestForegroundPermissionsAsync(),
+    );
+    foregroundGranted = resultado.concedida;
+  }
 
   if (!foregroundGranted) {
     return { foreground: false, background: false };
@@ -147,9 +153,9 @@ export async function requestLocationPermissions(): Promise<LocationPermissions>
     return { foreground: true, background: false };
   }
 
-  const { status: backgroundStatus } =
-    await Location.requestBackgroundPermissionsAsync();
-  const backgroundGranted = backgroundStatus === 'granted';
+  const { concedida: backgroundGranted } = await pedirPermissao(() =>
+    Location.requestBackgroundPermissionsAsync(),
+  );
 
   return { foreground: foregroundGranted, background: backgroundGranted };
 }

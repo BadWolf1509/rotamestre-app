@@ -14,6 +14,7 @@ import { useCallback, useState, type RefObject } from 'react';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
 import { toLngLat, zoomFromLongitudeDelta } from '@/lib/maplibre';
+import { pedirPermissao } from '@/lib/permissoes';
 
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 
@@ -35,8 +36,10 @@ export function useLocationTracking(
   const handleCenterOnUser = useCallback(async () => {
     setIsLocating(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      const { concedida } = await pedirPermissao(() =>
+        Location.requestForegroundPermissionsAsync(),
+      );
+      if (!concedida) {
         showWarning(
           'Permissão negada',
           'Permita o acesso à localização para usar esta função.',
