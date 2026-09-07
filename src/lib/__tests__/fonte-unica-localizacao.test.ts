@@ -21,9 +21,13 @@
  * ainda pode truncar a linha em `semComentarios` (mesma classe do caso da
  * URL, agora só possível dentro de um literal genuinamente multi-linha) e um
  * texto que mencione `watchPositionAsync`/`request...PermissionsAsync`
- * dentro desse literal pode virar falso positivo. Deliberado: sub-mascarar
- * (falso positivo, ruidoso) é preferível a cruzar linhas (falso negativo,
- * silencioso) — ver o comentário de `comStringsNeutralizadas`.
+ * dentro desse literal pode virar falso positivo. Ou seja, sub-mascarar NÃO
+ * elimina o falso negativo do truncamento — encolhe o raio dele para uma
+ * linha só (a de fechamento do literal, com `//` cru e código real depois da
+ * crase de fechamento — combinação que não existe no repo hoje), em vez do
+ * arquivo inteiro que cruzar linhas produzia antes do fix round 2. Deliberado:
+ * aceitar essa fresta estreita é preferível a voltar a cruzar linhas — ver o
+ * comentário de `comStringsNeutralizadas`.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
