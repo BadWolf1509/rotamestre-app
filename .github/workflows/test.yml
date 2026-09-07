@@ -164,6 +164,20 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      - name: Construir o bundle web
+        # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
+        # passou a servir `dist/` em vez de rodar `expo start --web`. Sem este
+        # step o servidor sobe sem bundle e TODOS os testes falham com 404.
+        #
+        # O ganho medido: a suite inteira caiu de 17,5 min (dev server, 1
+        # worker) para a casa dos minutos, e as falhas por contencao sumiram —
+        # elas eram disputa por compilacao, nao defeito. De quebra, o teste
+        # passa a exercitar o MESMO artefato que vai para a Vercel.
+        run: npm run build:web
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+
       - name: Run visual regression tests (public only - no auth required)
         if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: npm run test:visual:public
@@ -197,6 +211,42 @@ jobs:
           echo '### :white_check_mark: Testes de mapa executados' >> "$GITHUB_STEP_SUMMARY"
         env:
           VISUAL_REGRESSION: '1'
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
+          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
+          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
+          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
+
+      - name: Suite e2e completa
+        # LIGADA EM 07/09/2026. Antes o CI rodava UM filtro dentro de um
+        # arquivo (`visual-critical -g "mapa"`) e os outros ~105 testes nunca
+        # executavam. O custo era o argumento: 17,5 min em serie contra os
+        # ~5 min de CI da epoca.
+        #
+        # Servindo `dist/` em vez do dev server, a suite inteira leva 3,0 min
+        # com zero falhas — medido em 07/09. O argumento de custo caiu junto
+        # com o dev server.
+        #
+        # POR QUE ISTO IMPORTA: no mesmo dia, uma regressao mergeada no #490
+        # (um aviso cujo texto contem "mapa", colidindo com o seletor da aba)
+        # atravessou CI verde, revisao de task, revisao final de branch,
+        # re-revisao de onda de correcao e validacao em aparelho. So o e2e
+        # pegou — e ninguem soube, porque ele nao rodava aqui.
+        #
+        # Sem os secrets E2E_*, avisa e sai sem falhar, para nao quebrar quem
+        # nao os tem. Mesmo compromisso do step de mapa acima, com a mesma
+        # ressalva: verde nao prova execucao, so o log distingue.
+        if: ${{ github.event.inputs.update_snapshots != 'true' }}
+        run: |
+          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_GESTOR_EMAIL" ]; then
+            echo "::warning title=e2e nao executada::Secrets E2E_* ausentes."
+            echo '### :warning: Suite e2e nao executada (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx playwright test --project=chromium
+          echo '### :white_check_mark: Suite e2e completa executada' >> "$GITHUB_STEP_SUMMARY"
+        env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
