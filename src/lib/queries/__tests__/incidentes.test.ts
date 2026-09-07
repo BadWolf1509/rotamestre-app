@@ -15,6 +15,8 @@ const setupChain = (finalResult: any) => {
     in: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn(() => chain),
+    // `.returns<T>()` devolve `this` na lib real: so informa o tipo.
+    returns: jest.fn(() => chain),
     single: jest.fn(() => Promise.resolve(finalResult)),
     then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
   };
@@ -33,7 +35,10 @@ jest.mock('../queryClient', () => {
         const data = await fn();
         return { success: true, data };
       } catch (error) {
-        return { success: false, error: { code: 'UNKNOWN', message: String(error) } };
+        return {
+          success: false,
+          error: { code: 'UNKNOWN', message: String(error) },
+        };
       }
     },
     withRetry: async (fn: () => Promise<any>) => fn(),
@@ -100,7 +105,9 @@ describe('incidentes queries', () => {
         },
       ];
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockData, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockData, error: null }),
+      );
 
       const result = await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1', 'motorista-2'],
@@ -155,7 +162,9 @@ describe('incidentes queries', () => {
         },
       ];
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockData, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockData, error: null }),
+      );
 
       const result = await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1'],
@@ -169,7 +178,7 @@ describe('incidentes queries', () => {
 
     it('should handle database error', async () => {
       mockFrom.mockImplementation(() =>
-        setupChain({ data: null, error: { message: 'Database error' } })
+        setupChain({ data: null, error: { message: 'Database error' } }),
       );
 
       // safeQuery will catch the error
@@ -193,7 +202,9 @@ describe('incidentes queries', () => {
         status: 'aberto',
       };
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockIncidente, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockIncidente, error: null }),
+      );
 
       const result = await fetchIncidenteById('inc-1');
 
@@ -209,7 +220,9 @@ describe('incidentes queries', () => {
         { id: 'inc-2', motorista_id: 'motorista-1', status: 'resolvido' },
       ];
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockData, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockData, error: null }),
+      );
 
       const result = await fetchIncidentesByMotorista('motorista-1');
 
@@ -247,7 +260,9 @@ describe('incidentes queries', () => {
         status: 'aberto',
       };
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockIncidente, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockIncidente, error: null }),
+      );
 
       const result = await createIncidente({
         motorista_id: 'motorista-1',
@@ -266,7 +281,9 @@ describe('incidentes queries', () => {
         status: 'em_analise',
       };
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockIncidente, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockIncidente, error: null }),
+      );
 
       const result = await createIncidente({
         motorista_id: 'motorista-1',
@@ -281,8 +298,13 @@ describe('incidentes queries', () => {
 
     it('should handle creation error', async () => {
       mockFrom.mockImplementation(() => {
-        const chain = setupChain({ data: null, error: { message: 'Insert failed' } });
-        chain.single = jest.fn(() => Promise.reject(new Error('Insert failed')));
+        const chain = setupChain({
+          data: null,
+          error: { message: 'Insert failed' },
+        });
+        chain.single = jest.fn(() =>
+          Promise.reject(new Error('Insert failed')),
+        );
         return chain;
       });
 
@@ -304,7 +326,9 @@ describe('incidentes queries', () => {
         status: 'em_analise',
       };
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockIncidente, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockIncidente, error: null }),
+      );
 
       const result = await updateIncidenteStatus('inc-1', 'em_analise');
 
@@ -319,15 +343,23 @@ describe('incidentes queries', () => {
         observacoes_gestao: 'Fixed the issue',
       };
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockIncidente, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockIncidente, error: null }),
+      );
 
-      const result = await updateIncidenteStatus('inc-1', 'resolvido', 'Fixed the issue');
+      const result = await updateIncidenteStatus(
+        'inc-1',
+        'resolvido',
+        'Fixed the issue',
+      );
 
       expect(result.success).toBe(true);
     });
 
     it('should set resolvido_em when status is resolvido', async () => {
-      mockFrom.mockImplementation(() => setupChain({ data: { id: 'inc-1' }, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: { id: 'inc-1' }, error: null }),
+      );
 
       await updateIncidenteStatus('inc-1', 'resolvido');
 
@@ -343,7 +375,9 @@ describe('incidentes queries', () => {
         status: 'fechado',
       };
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockIncidente, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockIncidente, error: null }),
+      );
 
       const result = await updateIncidente('inc-1', { status: 'fechado' });
 
@@ -376,7 +410,9 @@ describe('incidentes queries', () => {
         { id: 'inc-5', status: 'fechado', categoria: 'other' },
       ];
 
-      mockFrom.mockImplementation(() => setupChain({ data: mockData, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: mockData, error: null }),
+      );
 
       const result = await fetchIncidentesStats(['motorista-1']);
 
@@ -405,7 +441,9 @@ describe('incidentes queries', () => {
 
   describe('logIncidenteAction', () => {
     it('should log incidente action', async () => {
-      mockFrom.mockImplementation(() => setupChain({ data: null, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: null, error: null }),
+      );
 
       await logIncidenteAction('user-123', 'inc-1', 'incidente_criado');
 
@@ -413,7 +451,9 @@ describe('incidentes queries', () => {
     });
 
     it('should include detalhes in log', async () => {
-      mockFrom.mockImplementation(() => setupChain({ data: null, error: null }));
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: null, error: null }),
+      );
 
       await logIncidenteAction('user-123', 'inc-1', 'status_alterado', {
         old_status: 'aberto',
@@ -433,7 +473,7 @@ describe('incidentes queries', () => {
 
       expect(logger.warn).toHaveBeenCalledWith(
         'Failed to log incidente action:',
-        expect.any(Error)
+        expect.any(Error),
       );
     });
   });

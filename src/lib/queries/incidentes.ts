@@ -22,12 +22,7 @@ export type IncidenteStatus = 'aberto' | 'em_analise' | 'resolvido' | 'fechado';
  * Incident category types
  */
 export type IncidenteCategoria =
-  | 'accident'
-  | 'absent'
-  | 'wrong_address'
-  | 'blocked'
-  | 'vehicle'
-  | 'other';
+  'accident' | 'absent' | 'wrong_address' | 'blocked' | 'vehicle' | 'other';
 
 /**
  * Base incidente fields from database
@@ -127,7 +122,7 @@ interface IncidenteQueryRow {
  * Fetch incidentes with relations for gestor view
  */
 export async function fetchIncidentesForGestor(
-  options: FetchIncidentesOptions
+  options: FetchIncidentesOptions,
 ): Promise<QueryResult<IncidenteWithRelations[]>> {
   const { motoristasIds, status, categoria, limit = 100 } = options;
 
@@ -152,7 +147,7 @@ export async function fetchIncidentesForGestor(
         motorista:usuarios!motorista_id (nome),
         rota:rotas (id, data),
         parada:paradas (endereco)
-      `
+      `,
       )
       .in('motorista_id', motoristasIds)
       .order('created_at', { ascending: false })
@@ -165,13 +160,11 @@ export async function fetchIncidentesForGestor(
       query = query.eq('categoria', categoria);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.returns<IncidenteQueryRow[]>();
 
     if (error) throw error;
 
-    // Safe cast: select shape matches IncidenteQueryRow (conditional chains prevent .returns<T>())
-    return (data || []).map((inc) => {
-      const row = inc as unknown as IncidenteQueryRow;
+    return (data || []).map((row) => {
       return {
         id: row.id,
         categoria: row.categoria,
@@ -196,7 +189,7 @@ export async function fetchIncidentesForGestor(
  * Fetch single incidente by ID
  */
 export async function fetchIncidenteById(
-  incidenteId: string
+  incidenteId: string,
 ): Promise<QueryResult<IncidenteDB>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
@@ -215,7 +208,7 @@ export async function fetchIncidenteById(
  */
 export async function fetchIncidentesByMotorista(
   motoristaId: string,
-  options?: { status?: IncidenteStatus; limit?: number }
+  options?: { status?: IncidenteStatus; limit?: number },
 ): Promise<QueryResult<IncidenteDB[]>> {
   return safeQuery(async () => {
     let query = supabase
@@ -242,7 +235,7 @@ export async function fetchIncidentesByMotorista(
  * Create a new incidente
  */
 export async function createIncidente(
-  data: IncidenteInsert
+  data: IncidenteInsert,
 ): Promise<QueryResult<IncidenteDB>> {
   return withRetry(async () => {
     const { data: incidente, error } = await supabase
@@ -258,7 +251,7 @@ export async function createIncidente(
     return incidente as IncidenteDB;
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -268,7 +261,7 @@ export async function createIncidente(
 export async function updateIncidenteStatus(
   incidenteId: string,
   status: IncidenteStatus,
-  observacoes?: string | null
+  observacoes?: string | null,
 ): Promise<QueryResult<IncidenteDB>> {
   return withRetry(async () => {
     const updateData: IncidenteUpdate = {
@@ -294,7 +287,7 @@ export async function updateIncidenteStatus(
     return data as IncidenteDB;
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -303,7 +296,7 @@ export async function updateIncidenteStatus(
  */
 export async function updateIncidente(
   incidenteId: string,
-  data: IncidenteUpdate
+  data: IncidenteUpdate,
 ): Promise<QueryResult<IncidenteDB>> {
   return withRetry(async () => {
     const { data: incidente, error } = await supabase
@@ -320,16 +313,14 @@ export async function updateIncidente(
     return incidente as IncidenteDB;
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
 /**
  * Get incidentes statistics for a unit
  */
-export async function fetchIncidentesStats(
-  motoristasIds: string[]
-): Promise<
+export async function fetchIncidentesStats(motoristasIds: string[]): Promise<
   QueryResult<{
     total: number;
     abertos: number;
@@ -400,7 +391,7 @@ export async function logIncidenteAction(
   usuarioId: string,
   incidenteId: string,
   evento: string,
-  detalhes?: Record<string, unknown>
+  detalhes?: Record<string, unknown>,
 ): Promise<void> {
   try {
     await supabase.from('logs').insert({
