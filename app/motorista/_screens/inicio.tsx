@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RefreshControl, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -121,6 +121,10 @@ function MotoristaInicioContent() {
     useState(false);
   const [avisoDeLocalizacaoVisivel, setAvisoDeLocalizacaoVisivel] =
     useState(false);
+  // Dispensar o aviso é definitivo enquanto esta tela viver: sem esta ref,
+  // uma revalidação em foreground (bloquear/desbloquear a tela já dispara
+  // uma) reabriria o aviso que o motorista acabou de fechar.
+  const avisoDispensadoRef = useRef(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -166,10 +170,12 @@ function MotoristaInicioContent() {
 
   useRevalidarPermissaoDeLocalizacao((concedida) => {
     setTemPermissaoDeLocalizacao(concedida);
-    // O aviso volta se a permissão for revogada por fora, e some quando o
-    // motorista concede pelo botão do próprio aviso — que é o caso que motivou
-    // esta task.
-    setAvisoDeLocalizacaoVisivel(!concedida);
+    // Dispensar é definitivo enquanto a tela viver: reabrir o aviso a cada
+    // volta ao foreground — e bloquear/desbloquear a tela já conta — seria
+    // justamente o assédio que este sub-projeto existe para tirar do caminho
+    // do motorista. Uma revogação externa ainda aparece, desde que ele não
+    // tenha dispensado.
+    setAvisoDeLocalizacaoVisivel(!concedida && !avisoDispensadoRef.current);
   });
 
   useLocationWatcher({
@@ -508,7 +514,12 @@ function MotoristaInicioContent() {
             message="Ative a localização para ver sua posição no mapa e acompanhar a rota."
             actionLabel="Abrir Configurações"
             onAction={abrirConfiguracoesDoApp}
-            onClose={() => setAvisoDeLocalizacaoVisivel(false)}
+            onClose={() => {
+              // Dispensa é definitiva enquanto a tela viver — ver a ref
+              // declarada junto ao estado de localização, acima.
+              avisoDispensadoRef.current = true;
+              setAvisoDeLocalizacaoVisivel(false);
+            }}
             testID="aviso-localizacao-desativada"
           />
         )}

@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
+import { useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { useRevalidarPermissaoDeLocalizacao } from '../useRevalidarPermissaoDeLocalizacao';
@@ -109,5 +110,70 @@ describe('useRevalidarPermissaoDeLocalizacao', () => {
 
     await waitFor(() => expect(segundo).toHaveBeenCalled());
     expect(primeiro).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `app/motorista/_screens/inicio.tsx` não tem suíte própria (é uma screen do
+ * Expo Router com muita dependência de contexto — rota, usuário, modais — que
+ * tornaria o teste um mock-fest sem relação com o bug). Por isso o call site
+ * é reproduzido aqui, com o mesmo shape de callback: estado de permissão +
+ * aviso dispensável + ref de dispensa, movido pelo hook real (sem mock do
+ * próprio hook).
+ */
+describe('useRevalidarPermissaoDeLocalizacao — call site de inicio.tsx (aviso de localização dispensável)', () => {
+  /**
+   * Reproduz o call site de `inicio.tsx`: dispensar o aviso é definitivo
+   * enquanto a tela viver, então uma revalidação em foreground (a tela
+   * bloquear/desbloquear já dispara uma) com a permissão ainda negada não
+   * pode reabrir um aviso que o motorista já fechou.
+   */
+  function useAvisoDeLocalizacaoDoInicio() {
+    const [, setTemPermissao] = useState(false);
+    const [avisoVisivel, setAvisoVisivel] = useState(false);
+    const avisoDispensadoRef = useRef(false);
+
+    useRevalidarPermissaoDeLocalizacao((concedida) => {
+      setTemPermissao(concedida);
+      setAvisoVisivel(!concedida && !avisoDispensadoRef.current);
+    });
+
+    const dispensar = () => {
+      avisoDispensadoRef.current = true;
+      setAvisoVisivel(false);
+    };
+
+    return { avisoVisivel, dispensar };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'denied',
+    });
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('aviso dispensado não reabre numa revalidação com a permissão ainda negada', async () => {
+    const app = espiarAppState();
+    const { result } = renderHook(() => useAvisoDeLocalizacaoDoInicio());
+
+    act(() => {
+      result.current.dispensar();
+    });
+    expect(result.current.avisoVisivel).toBe(false);
+
+    // Volta ao foreground (bloquear/desbloquear a tela já dispara isto) com a
+    // permissão ainda negada — não é uma revogação nova, é o mesmo estado que
+    // o motorista já viu e dispensou.
+    await act(async () => {
+      app.disparar('active');
+    });
+    await waitFor(() =>
+      expect(Location.getForegroundPermissionsAsync).toHaveBeenCalled(),
+    );
+
+    expect(result.current.avisoVisivel).toBe(false);
   });
 });
