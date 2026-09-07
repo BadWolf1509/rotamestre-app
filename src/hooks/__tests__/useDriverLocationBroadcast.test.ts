@@ -1263,5 +1263,47 @@ describe('useDriverLocationBroadcast', () => {
 
       expect(mockWatchPositionAsync).not.toHaveBeenCalled();
     });
+
+    // O COMPLEMENTO do teste acima, e a razao de
+    // useRevalidarPermissaoDeLocalizacao existir neste hook. O teste anterior
+    // prova que a revalidacao NAO religa o que nao devia; sozinho, ele e
+    // unidirecional: trocar `concedida && !!shouldTrack` por `false` o deixa
+    // verde e mata o religamento em silencio. Este fixa a outra direcao.
+    //
+    // Cenario: motorista com rota em andamento negou a localizacao, foi as
+    // Configuracoes pelo botao que este trabalho adicionou, concedeu e voltou.
+    // Voltar do foreground NAO remonta a Activity, entao sem a revalidacao o
+    // app ficaria exatamente como ele deixou.
+    it('reativa o watcher quando a rota esta em andamento e o motorista concede a permissao nas Configuracoes', async () => {
+      // No mount a permissao esta negada, e bloqueada: o dialogo do sistema
+      // nao aparece mais, entao so as Configuracoes resolvem.
+      mockRequestForegroundPermissionsAsync.mockResolvedValueOnce({
+        status: 'denied',
+        canAskAgain: false,
+      });
+      const app = espiarAppState();
+
+      renderHook(() =>
+        useDriverLocationBroadcast({
+          rotaId: 'rota-123',
+          rotaStatus: 'em_andamento',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockRequestForegroundPermissionsAsync).toHaveBeenCalled();
+      });
+      expect(mockWatchPositionAsync).not.toHaveBeenCalled();
+
+      // Concedeu nas Configuracoes e voltou: o `get` (sem dialogo) agora
+      // responde granted, que e o default do beforeEach.
+      await act(async () => {
+        app.disparar('active');
+      });
+
+      await waitFor(() => {
+        expect(mockWatchPositionAsync).toHaveBeenCalled();
+      });
+    });
   });
 });
