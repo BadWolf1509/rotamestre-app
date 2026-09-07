@@ -67,8 +67,17 @@ export function useLocationWatcher({
           (location) => onLocationRef.current(location),
         );
         if (cancelado) {
-          // A metade que faltava nos cinco call sites originais.
-          s.remove();
+          // A metade que faltava nos cinco call sites originais. Falha aqui é
+          // falha ao LIMPAR uma assinatura cancelada, não ao iniciar - catch
+          // próprio, com mensagem distinta da do catch externo abaixo.
+          try {
+            s.remove();
+          } catch (error) {
+            logger.warn(
+              '[useLocationWatcher] Falha ao remover a assinatura cancelada',
+              error,
+            );
+          }
           return;
         }
         sub = s;

@@ -1,6 +1,8 @@
 import { act, renderHook } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 
+import { logger } from '@/lib/logger';
+
 import {
   useLocationWatcher,
   type OpcoesDoWatcher,
@@ -45,6 +47,48 @@ describe('useLocationWatcher', () => {
     });
 
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+
+  // MENOR 1: falha ao LIMPAR uma assinatura cancelada é um diagnóstico
+  // diferente de falha ao INICIAR o watcher - cada um precisa da sua própria
+  // mensagem, para não confundir os dois ao ler os logs.
+  it('usa uma mensagem própria quando falha ao remover uma assinatura cancelada, distinta da falha ao iniciar', async () => {
+    const remove = jest.fn(() => {
+      throw new Error('remove indisponível');
+    });
+    let resolver!: (s: { remove: jest.Mock }) => void;
+    (Location.watchPositionAsync as jest.Mock).mockReturnValue(
+      new Promise((res) => {
+        resolver = res;
+      }),
+    );
+    const loggerSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    const { unmount } = renderHook(() =>
+      useLocationWatcher({
+        enabled: true,
+        options: OPCOES,
+        onLocation: jest.fn(),
+      }),
+    );
+
+    // Mesma ordem do teste acima: desmonta ANTES de a promessa resolver, para
+    // cair no ramo `cancelado` que chama `s.remove()`.
+    unmount();
+    await act(async () => {
+      resolver({ remove });
+    });
+
+    expect(loggerSpy).toHaveBeenCalledWith(
+      '[useLocationWatcher] Falha ao remover a assinatura cancelada',
+      expect.any(Error),
+    );
+    expect(loggerSpy).not.toHaveBeenCalledWith(
+      '[useLocationWatcher] Falha ao iniciar o watcher',
+      expect.anything(),
+    );
+
+    loggerSpy.mockRestore();
   });
 
   it('remove a assinatura no unmount normal', async () => {
