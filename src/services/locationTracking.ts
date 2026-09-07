@@ -48,6 +48,39 @@ interface NavigationState {
   };
 }
 
+/**
+ * As preferências com todas as chaves obrigatórias — o que
+ * `getNavigationPreferences` devolve.
+ */
+export type PreferenciasDeNavegacao = NavigationState &
+  Required<
+    Pick<
+      NavigationState,
+      | 'showSpeedometer'
+      | 'preventScreenSleep'
+      | 'voiceNavigation'
+      | 'internalNavigation'
+      | 'preferredNavApp'
+    >
+  >;
+
+/**
+ * Fonte única dos padrões. Antes existiam duas cópias, em componentes
+ * diferentes; elas concordavam por sorte, não por construção.
+ */
+export const PREFERENCIAS_PADRAO: PreferenciasDeNavegacao = {
+  enabled: true,
+  autoAdvance: true,
+  soundAlerts: true,
+  vibrationAlerts: true,
+  proximityRadius: 50,
+  showSpeedometer: true,
+  preventScreenSleep: true,
+  voiceNavigation: false,
+  internalNavigation: false,
+  preferredNavApp: 'default',
+};
+
 class LocationTrackingService {
   private static instance: LocationTrackingService;
   private navigationState: NavigationState | null = null;
@@ -485,21 +518,59 @@ class LocationTrackingService {
     // In a real implementation, would use expo-notifications
   }
 
-  // Get navigation preferences
-  async getNavigationPreferences(): Promise<Partial<NavigationState>> {
+  /**
+   * Preferências de navegação, SEMPRE completas.
+   *
+   * POR QUE O DEFAULT MORA AQUI. Isto devolvia `Partial<NavigationState>` e um
+   * `{}` quando nada estava salvo, deixando cada consumidor preencher o resto.
+   * Dois deles carregavam tabelas de default SEPARADAS
+   * (`DEFAULT_SETTINGS` em `NavigationSettings`, `DEFAULT_PREFERENCES` em
+   * `useNavigationModeLogic`) e outros não aplicavam default nenhum.
+   *
+   * O efeito foi medido em aparelho: a tela de Configurações mostrava "Avanço
+   * Automático" LIGADO — default dela — enquanto `handleNavigateToStop` lia
+   * `prefs.autoAdvance` cru, recebia `undefined` e mandava o motorista para o
+   * app de navegação externo. A navegação interna ficava inalcançável, e a
+   * tela afirmava que estava ligada. Nenhum teste pegava, porque cada lado
+   * estava certo sozinho.
+   *
+   * Com o default na fonte, esquecer deixa de ser possível.
+   */
+  /**
+   * O que está REALMENTE salvo, sem os padrões por cima.
+   *
+   * Existe só para o caminho de escrita. Se `updateNavigationPreferences`
+   * mesclasse sobre o objeto já preenchido, gravaria os padrões de hoje no
+   * storage — e um padrão que mudasse numa versão futura nunca alcançaria
+   * quem tivesse tocado em qualquer ajuste. Guardar só o que a pessoa
+   * escolheu mantém os padrões vivos.
+   */
+  private async lerPreferenciasCruas(): Promise<Partial<NavigationState>> {
     try {
       const prefs = await AsyncStorage.getItem('navigationPreferences');
       return prefs ? JSON.parse(prefs) : {};
     } catch {
-      // Preferências de navegação são opcionais - usar defaults
       return {};
+    }
+  }
+
+  async getNavigationPreferences(): Promise<PreferenciasDeNavegacao> {
+    try {
+      const prefs = await AsyncStorage.getItem('navigationPreferences');
+      const salvas = prefs ? JSON.parse(prefs) : {};
+      return { ...PREFERENCIAS_PADRAO, ...salvas };
+    } catch {
+      // Storage corrompido cai no padrão, e não em `{}`: devolver vazio aqui
+      // seria o mesmo defeito por outro caminho — um consumidor sem default
+      // leria "tudo desligado".
+      return { ...PREFERENCIAS_PADRAO };
     }
   }
 
   // Update navigation preferences
   async updateNavigationPreferences(prefs: Partial<NavigationState>) {
     try {
-      const current = await this.getNavigationPreferences();
+      const current = await this.lerPreferenciasCruas();
       const updated = { ...current, ...prefs };
       await AsyncStorage.setItem(
         'navigationPreferences',

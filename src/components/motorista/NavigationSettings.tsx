@@ -89,26 +89,9 @@ export function NavigationSettings({
 
   const loadSettings = async () => {
     const prefs = await LocationTrackingService.getNavigationPreferences();
-    const newSettings = {
-      ...DEFAULT_SETTINGS,
-      autoAdvance: prefs.autoAdvance ?? DEFAULT_SETTINGS.autoAdvance,
-      soundAlerts: prefs.soundAlerts ?? DEFAULT_SETTINGS.soundAlerts,
-      vibrationAlerts:
-        prefs.vibrationAlerts ?? DEFAULT_SETTINGS.vibrationAlerts,
-      proximityRadius:
-        prefs.proximityRadius ?? DEFAULT_SETTINGS.proximityRadius,
-      showSpeedometer:
-        prefs.showSpeedometer ?? DEFAULT_SETTINGS.showSpeedometer,
-      preventScreenSleep:
-        prefs.preventScreenSleep ?? DEFAULT_SETTINGS.preventScreenSleep,
-      voiceNavigation:
-        prefs.voiceNavigation ?? DEFAULT_SETTINGS.voiceNavigation,
-      internalNavigation:
-        prefs.internalNavigation ?? DEFAULT_SETTINGS.internalNavigation,
-      preferredNavApp:
-        (prefs.preferredNavApp as NavAppPreference) ??
-        DEFAULT_SETTINGS.preferredNavApp,
-    };
+    // O serviço já devolve tudo preenchido — a tabela local ficaria sendo
+    // uma segunda fonte de verdade, que foi exatamente o defeito corrigido.
+    const newSettings = { ...DEFAULT_SETTINGS, ...prefs };
     setSettings(newSettings);
   };
 
