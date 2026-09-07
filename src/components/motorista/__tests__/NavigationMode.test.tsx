@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
@@ -407,5 +410,37 @@ describe('NavigationMode', () => {
         expect(camera.props.center).toEqual([-46.64, -23.56]);
       });
     });
+  });
+});
+
+describe('identidade das props passadas a TurnByTurnNavigation', () => {
+  const fonte = readFileSync(
+    join(__dirname, '..', 'NavigationMode.tsx'),
+    'utf8',
+  );
+
+  // Recorta só o elemento <TurnByTurnNavigation …/>: o resto do arquivo tem
+  // literais legítimos (estilos, regiões de mapa) que não são props dele.
+  const elemento = fonte.slice(
+    fonte.indexOf('<TurnByTurnNavigation'),
+    fonte.indexOf('/>', fonte.indexOf('<TurnByTurnNavigation')),
+  );
+
+  it('recorta o elemento de fato (a guarda não passa por ausência)', () => {
+    expect(elemento).toContain('destination=');
+    expect(elemento).toContain('onExit=');
+  });
+
+  it('nenhuma prop é literal de objeto', () => {
+    // `destination={{…}}` ganha identidade nova a cada render. Como
+    // `destination` está nas deps do efeito do watcher de
+    // TurnByTurnNavigation e `origin={userLocation}` muda a 1 Hz, isso
+    // desmontava e remontava aquele efeito uma vez por segundo, dirigindo.
+    expect(elemento).not.toMatch(/=\{\{/);
+  });
+
+  it('nenhuma prop é arrow function inline', () => {
+    // `onExit={() => …}` tem o mesmo efeito por outro caminho.
+    expect(elemento).not.toMatch(/=\{\s*\(\s*\)\s*=>/);
   });
 });

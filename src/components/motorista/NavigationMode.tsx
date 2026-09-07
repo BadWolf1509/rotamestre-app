@@ -337,6 +337,23 @@ export function NavigationMode({
   // currentStopIndex, nextStopAfterCurrent, remainingWaypoints are now
   // provided by useNavigationModeLogic hook
 
+  // Dependências primitivas, não o objeto `currentStop`: ele também muda de
+  // identidade a cada render, e o memo não valeria nada. Mesmo padrão de
+  // `src/hooks/navigation/pip/usePiPRouteInfo.ts:158`.
+  const destinoDaNavegacao = useMemo(
+    () => ({
+      latitude: currentStop?.latitude,
+      longitude: currentStop?.longitude,
+      address: currentStop?.endereco,
+    }),
+    [currentStop?.latitude, currentStop?.longitude, currentStop?.endereco],
+  );
+
+  const sairDaNavegacao = useCallback(
+    () => setNavigationMode('map'),
+    [setNavigationMode],
+  );
+
   // Loading state
   if (isInitializing) {
     return (
@@ -354,14 +371,10 @@ export function NavigationMode({
     return (
       <TurnByTurnNavigation
         origin={userLocation}
-        destination={{
-          latitude: currentStop.latitude,
-          longitude: currentStop.longitude,
-          address: currentStop.endereco,
-        }}
+        destination={destinoDaNavegacao}
         waypoints={remainingWaypoints}
         onArrive={handleCompleteStop}
-        onExit={() => setNavigationMode('map')}
+        onExit={sairDaNavegacao}
       />
     );
   }
