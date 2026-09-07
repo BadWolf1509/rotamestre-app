@@ -14,6 +14,7 @@ import {
 import { useResponsive } from '@/hooks/useResponsive';
 import { useResumoRota } from '@/hooks/useResumoRota';
 import { parseLocalDate } from '@/lib/dateUtils';
+import { formatarDecimal } from '@/lib/formatNumber';
 import type { Checkpoint } from '@/types/rota';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -24,17 +25,13 @@ export default function ResumoMotorista() {
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ rota_id: string }>();
 
-  const {
-    rota,
-    paradas,
-    loading,
-    error,
-    recargar,
-  } = useResumoRota(params.rota_id);
+  const { rota, paradas, loading, error, recargar } = useResumoRota(
+    params.rota_id,
+  );
 
   const paradasReais = useMemo(
     () => paradas.filter((p) => p.is_checkpoint !== false),
-    [paradas]
+    [paradas],
   );
   const isInitialLoading = loading && paradasReais.length === 0;
 
@@ -43,39 +40,46 @@ export default function ResumoMotorista() {
     const dataCriacao = parseLocalDate(rota.created_at.split('T')[0]);
     const dataLabel = dataCriacao
       ? dataCriacao.toLocaleDateString('pt-BR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-      })
+          weekday: 'long',
+          day: 'numeric',
+          month: 'short',
+        })
       : '';
     return `${rota.unidades?.nome || 'Unidade'}${dataLabel ? ` • ${dataLabel}` : ''}`;
   }, [rota]);
 
-  const formatEnderecoResumo = useCallback((endereco: Checkpoint['endereco']) => {
-    if (!endereco) return { linha1: 'Endereço não informado', linha2: '' };
-    if (typeof endereco === 'string') return { linha1: endereco, linha2: '' };
-    const numero = endereco.numero ? `, ${endereco.numero}` : '';
-    const complemento = endereco.complemento ? ` - ${endereco.complemento}` : '';
-    const linha1 = `${endereco.logradouro || ''}${numero}${complemento}`.trim();
-    if (!linha1 && endereco.endereco_completo) {
-      return { linha1: endereco.endereco_completo, linha2: '' };
-    }
+  const formatEnderecoResumo = useCallback(
+    (endereco: Checkpoint['endereco']) => {
+      if (!endereco) return { linha1: 'Endereço não informado', linha2: '' };
+      if (typeof endereco === 'string') return { linha1: endereco, linha2: '' };
+      const numero = endereco.numero ? `, ${endereco.numero}` : '';
+      const complemento = endereco.complemento
+        ? ` - ${endereco.complemento}`
+        : '';
+      const linha1 =
+        `${endereco.logradouro || ''}${numero}${complemento}`.trim();
+      if (!linha1 && endereco.endereco_completo) {
+        return { linha1: endereco.endereco_completo, linha2: '' };
+      }
 
-    const bairro = endereco.bairro?.trim();
-    const cidade = endereco.cidade?.trim();
-    const estado = endereco.estado?.trim();
-    let linha2 = '';
-    if (bairro && (cidade || estado)) {
-      linha2 = `${bairro} - ${cidade || ''}${estado ? `/${estado}` : ''}`.trim();
-    } else if (cidade || estado) {
-      linha2 = `${cidade || ''}${estado ? `/${estado}` : ''}`.trim();
-    }
+      const bairro = endereco.bairro?.trim();
+      const cidade = endereco.cidade?.trim();
+      const estado = endereco.estado?.trim();
+      let linha2 = '';
+      if (bairro && (cidade || estado)) {
+        linha2 =
+          `${bairro} - ${cidade || ''}${estado ? `/${estado}` : ''}`.trim();
+      } else if (cidade || estado) {
+        linha2 = `${cidade || ''}${estado ? `/${estado}` : ''}`.trim();
+      }
 
-    return {
-      linha1: linha1 || 'Endereço não informado',
-      linha2,
-    };
-  }, []);
+      return {
+        linha1: linha1 || 'Endereço não informado',
+        linha2,
+      };
+    },
+    [],
+  );
 
   const handleNoop = useCallback((_parada: Parada) => {}, []);
 
@@ -84,7 +88,10 @@ export default function ResumoMotorista() {
   const renderParada = useCallback(
     ({ item }: { item: Checkpoint }) => {
       const { linha1, linha2 } = formatEnderecoResumo(item.endereco);
-      const coordenadas = typeof item.endereco === 'object' ? item.endereco.coordenadas : undefined;
+      const coordenadas =
+        typeof item.endereco === 'object'
+          ? item.endereco.coordenadas
+          : undefined;
 
       const parada: Parada = {
         id: item.id,
@@ -114,7 +121,7 @@ export default function ResumoMotorista() {
         />
       );
     },
-    [formatEnderecoResumo, handleNoop]
+    [formatEnderecoResumo, handleNoop],
   );
 
   function calcularTempoTotal() {
@@ -187,130 +194,189 @@ export default function ResumoMotorista() {
   const isConcluidaStatus = (status?: string) => status === 'concluida';
   const isPuladaStatus = (status?: string) => status === 'pulada';
 
-  const paradasConcluidas = paradasReais.filter((p) => isConcluidaStatus(p.status)).length;
-  const paradasPuladas = paradasReais.filter((p) => isPuladaStatus(p.status)).length;
+  const paradasConcluidas = paradasReais.filter((p) =>
+    isConcluidaStatus(p.status),
+  ).length;
+  const paradasPuladas = paradasReais.filter((p) =>
+    isPuladaStatus(p.status),
+  ).length;
   const taxaConclusao =
-    paradasReais.length > 0 ? Math.round((paradasConcluidas / paradasReais.length) * 100) : 0;
+    paradasReais.length > 0
+      ? Math.round((paradasConcluidas / paradasReais.length) * 100)
+      : 0;
   const taxaConclusaoRatio = `${paradasConcluidas}/${paradasReais.length}`;
   const tempoTotal = calcularTempoTotal();
-  const distanciaFormatada = rota.distancia_total !== undefined && rota.distancia_total !== null
-    ? rota.distancia_total.toLocaleString('pt-BR', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1,
-    })
-    : null;
+  const distanciaFormatada =
+    rota.distancia_total !== undefined && rota.distancia_total !== null
+      ? formatarDecimal(rota.distancia_total)
+      : null;
 
   return (
     <ErrorBoundary>
-    <>
-      {renderDesktopHeader(resumoSubtitle)}
+      <>
+        {renderDesktopHeader(resumoSubtitle)}
 
-      {!isDesktop && resumoSubtitle ? (
-        <View style={styles.headerCompact}>
-          <Text style={styles.headerCompactSubtitle} numberOfLines={2} ellipsizeMode="tail">
-            {resumoSubtitle}
-          </Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        data={paradasReais}
-        keyExtractor={keyExtractor}
-        renderItem={renderParada}
-        style={styles.container}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={recargar}
-            colors={[theme.colors.primary]}
-            tintColor={theme.colors.primary}
-          />
-        }
-        ListHeaderComponent={
-          <View>
-            {/* Card de Performance */}
-            <MobileCard title="Desempenho" variant="highlight">
-              <View style={styles.performanceGrid}>
-                <View style={styles.performanceItem}>
-                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.primary }]}>
-                    <Ionicons name="location" size={22} color={theme.colors.white} />
-                  </View>
-                  <Text style={styles.performanceValue}>{paradasReais.length}</Text>
-                  <Text style={styles.performanceLabel}>Total de Paradas</Text>
-                </View>
-
-                <View style={styles.performanceItem}>
-                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.success }]}>
-                    <Ionicons name="checkmark-circle" size={22} color={theme.colors.white} />
-                  </View>
-                  <Text style={styles.performanceValue}>{paradasConcluidas}</Text>
-                  <Text style={styles.performanceLabel}>Concluídas</Text>
-                </View>
-
-                <View style={styles.performanceItem}>
-                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.error }]}>
-                    <Ionicons name="arrow-forward-circle" size={22} color={theme.colors.white} />
-                  </View>
-                  <Text style={styles.performanceValue}>{paradasPuladas}</Text>
-                  <Text style={styles.performanceLabel}>Puladas</Text>
-                </View>
-
-                <View style={styles.performanceItem}>
-                  <View style={[styles.performanceIcon, { backgroundColor: theme.colors.purple600 }]}>
-                    <Ionicons name="analytics" size={22} color={theme.colors.white} />
-                  </View>
-                  <Text style={styles.performanceValue}>{taxaConclusao}%</Text>
-                  <Text style={styles.performanceLabel}>Taxa de Sucesso</Text>
-                  <Text style={styles.performanceMeta}>{taxaConclusaoRatio}</Text>
-                </View>
-              </View>
-            </MobileCard>
-
-            {/* Informações da Rota */}
-            <MobileCard title="Informações da Rota">
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Horário de Início:</Text>
-                <Text style={styles.infoValue}>
-                  {rota.iniciada_em
-                    ? new Date(rota.iniciada_em).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                    : 'N/A'}
-                </Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Horário de Conclusão:</Text>
-                <Text style={styles.infoValue}>
-                  {rota.concluida_em
-                    ? new Date(rota.concluida_em).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                    : 'N/A'}
-                </Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Tempo Total:</Text>
-                <Text style={styles.infoValue}>{tempoTotal || 'N/A'}</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Distância Percorrida:</Text>
-                <Text style={styles.infoValue}>
-                  {distanciaFormatada ? `${distanciaFormatada} km` : 'N/A'}
-                </Text>
-              </View>
-            </MobileCard>
-
-            <Text style={styles.sectionTitle}>Detalhes das Paradas</Text>
+        {!isDesktop && resumoSubtitle ? (
+          <View style={styles.headerCompact}>
+            <Text
+              style={styles.headerCompactSubtitle}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {resumoSubtitle}
+            </Text>
           </View>
-        }
-      />
-    </>
+        ) : null}
+
+        <FlatList
+          data={paradasReais}
+          keyExtractor={keyExtractor}
+          renderItem={renderParada}
+          style={styles.container}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={recargar}
+              colors={[theme.colors.primary]}
+              tintColor={theme.colors.primary}
+            />
+          }
+          ListHeaderComponent={
+            <View>
+              {/* Card de Performance */}
+              <MobileCard title="Desempenho" variant="highlight">
+                <View style={styles.performanceGrid}>
+                  <View style={styles.performanceItem}>
+                    <View
+                      style={[
+                        styles.performanceIcon,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    >
+                      <Ionicons
+                        name="location"
+                        size={22}
+                        color={theme.colors.white}
+                      />
+                    </View>
+                    <Text style={styles.performanceValue}>
+                      {paradasReais.length}
+                    </Text>
+                    <Text style={styles.performanceLabel}>
+                      Total de Paradas
+                    </Text>
+                  </View>
+
+                  <View style={styles.performanceItem}>
+                    <View
+                      style={[
+                        styles.performanceIcon,
+                        { backgroundColor: theme.colors.success },
+                      ]}
+                    >
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={22}
+                        color={theme.colors.white}
+                      />
+                    </View>
+                    <Text style={styles.performanceValue}>
+                      {paradasConcluidas}
+                    </Text>
+                    <Text style={styles.performanceLabel}>Concluídas</Text>
+                  </View>
+
+                  <View style={styles.performanceItem}>
+                    <View
+                      style={[
+                        styles.performanceIcon,
+                        { backgroundColor: theme.colors.error },
+                      ]}
+                    >
+                      <Ionicons
+                        name="arrow-forward-circle"
+                        size={22}
+                        color={theme.colors.white}
+                      />
+                    </View>
+                    <Text style={styles.performanceValue}>
+                      {paradasPuladas}
+                    </Text>
+                    <Text style={styles.performanceLabel}>Puladas</Text>
+                  </View>
+
+                  <View style={styles.performanceItem}>
+                    <View
+                      style={[
+                        styles.performanceIcon,
+                        { backgroundColor: theme.colors.purple600 },
+                      ]}
+                    >
+                      <Ionicons
+                        name="analytics"
+                        size={22}
+                        color={theme.colors.white}
+                      />
+                    </View>
+                    <Text style={styles.performanceValue}>
+                      {taxaConclusao}%
+                    </Text>
+                    <Text style={styles.performanceLabel}>Taxa de Sucesso</Text>
+                    <Text style={styles.performanceMeta}>
+                      {taxaConclusaoRatio}
+                    </Text>
+                  </View>
+                </View>
+              </MobileCard>
+
+              {/* Informações da Rota */}
+              <MobileCard title="Informações da Rota">
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Horário de Início:</Text>
+                  <Text style={styles.infoValue}>
+                    {rota.iniciada_em
+                      ? new Date(rota.iniciada_em).toLocaleTimeString('pt-BR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : 'N/A'}
+                  </Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Horário de Conclusão:</Text>
+                  <Text style={styles.infoValue}>
+                    {rota.concluida_em
+                      ? new Date(rota.concluida_em).toLocaleTimeString(
+                          'pt-BR',
+                          {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          },
+                        )
+                      : 'N/A'}
+                  </Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Tempo Total:</Text>
+                  <Text style={styles.infoValue}>{tempoTotal || 'N/A'}</Text>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Distância Percorrida:</Text>
+                  <Text style={styles.infoValue}>
+                    {distanciaFormatada ? `${distanciaFormatada} km` : 'N/A'}
+                  </Text>
+                </View>
+              </MobileCard>
+
+              <Text style={styles.sectionTitle}>Detalhes das Paradas</Text>
+            </View>
+          }
+        />
+      </>
     </ErrorBoundary>
   );
 }

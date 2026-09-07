@@ -87,25 +87,31 @@ export interface MotoristaListItem {
  * Fetch current user profile with all unidade relations
  */
 export async function fetchCurrentUser(
-  userId: string
+  userId: string,
 ): Promise<QueryResult<UsuarioWithUnidades>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
       .from('usuarios')
-      .select(`
+      .select(
+        `
         *,
         unidades(*),
         usuario_unidades(
           id, usuario_id, unidade_id, papel, is_principal, ativo,
           unidades(id, nome, cidade, ativa)
         )
-      `)
+      `,
+      )
       .eq('id', userId)
+      // `returns<T>()` vem ANTES de `single()`: ele vive no
+      // PostgrestTransformBuilder, e `single()` devolve um PostgrestBuilder,
+      // que não o tem. O comentário anterior dizia que `single()` impedia o
+      // `.returns<T>()` — impede só na ordem inversa.
+      .returns<UsuarioWithUnidades[]>()
       .single();
 
     if (error) throw error;
-    // Safe cast: select shape matches UsuarioWithUnidades (single() can't use .returns<T>())
-    return data as unknown as UsuarioWithUnidades;
+    return data;
   });
 }
 
@@ -114,7 +120,7 @@ export async function fetchCurrentUser(
  */
 export async function fetchCurrentUserWithCache(
   userId: string,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean },
 ): Promise<QueryResult<UsuarioWithUnidades>> {
   const cacheKey = buildCacheKey('user', userId);
 
@@ -145,15 +151,17 @@ export async function fetchCurrentUserWithCache(
  * Fetch motoristas (drivers) for a unidade
  */
 export async function fetchMotoristasByUnidade(
-  unidadeId: string
+  unidadeId: string,
 ): Promise<QueryResult<MotoristaListItem[]>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
       .from('usuarios')
-      .select(`
+      .select(
+        `
         id, nome, email, telefone, avatar_url, ativo, ultimo_acesso,
         usuario_unidades!inner(unidade_id, papel, ativo)
-      `)
+      `,
+      )
       .eq('usuario_unidades.unidade_id', unidadeId)
       .eq('usuario_unidades.papel', 'motorista')
       .eq('usuario_unidades.ativo', true)
@@ -178,7 +186,7 @@ export async function fetchMotoristasByUnidade(
  */
 export async function fetchMotoristasWithCache(
   unidadeId: string,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean },
 ): Promise<QueryResult<MotoristaListItem[]>> {
   const cacheKey = buildCacheKey('motoristas', unidadeId);
 
@@ -209,12 +217,14 @@ export async function fetchMotoristasWithCache(
  * Fetch user by ID
  */
 export async function fetchUsuarioById(
-  userId: string
+  userId: string,
 ): Promise<QueryResult<UsuarioDB>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
       .from('usuarios')
-      .select('id, nome, papel, email, telefone, avatar_url, ativo, ultimo_acesso, criado_em, primeiro_acesso')
+      .select(
+        'id, nome, papel, email, telefone, avatar_url, ativo, ultimo_acesso, criado_em, primeiro_acesso',
+      )
       .eq('id', userId)
       .single();
 
@@ -228,15 +238,17 @@ export async function fetchUsuarioById(
  */
 export async function fetchUsuariosByPapel(
   unidadeId: string,
-  papel: TipoUsuario
+  papel: TipoUsuario,
 ): Promise<QueryResult<UsuarioDB[]>> {
   return safeQuery(async () => {
     const { data, error } = await supabase
       .from('usuarios')
-      .select(`
+      .select(
+        `
         id, nome, papel, email, telefone, avatar_url, ativo, ultimo_acesso, criado_em, primeiro_acesso,
         usuario_unidades!inner(unidade_id, papel, ativo)
-      `)
+      `,
+      )
       .eq('usuario_unidades.unidade_id', unidadeId)
       .eq('usuario_unidades.papel', papel)
       .eq('usuario_unidades.ativo', true)
@@ -253,7 +265,7 @@ export async function fetchUsuariosByPapel(
  */
 export async function updateUsuario(
   userId: string,
-  data: UsuarioUpdate
+  data: UsuarioUpdate,
 ): Promise<QueryResult<UsuarioDB>> {
   return withRetry(async () => {
     const { data: usuario, error } = await supabase
@@ -267,7 +279,7 @@ export async function updateUsuario(
     return usuario as UsuarioDB;
   }).then(
     (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) })
+    (error) => ({ success: false as const, error: classifyError(error) }),
   );
 }
 
@@ -275,7 +287,7 @@ export async function updateUsuario(
  * Update user last access timestamp
  */
 export async function updateUltimoAcesso(
-  userId: string
+  userId: string,
 ): Promise<QueryResult<void>> {
   return safeQuery(async () => {
     const { error } = await supabase
@@ -292,7 +304,7 @@ export async function updateUltimoAcesso(
  */
 export async function updateAvatarUrl(
   userId: string,
-  avatarUrl: string | null
+  avatarUrl: string | null,
 ): Promise<QueryResult<UsuarioDB>> {
   return updateUsuario(userId, { avatar_url: avatarUrl });
 }
@@ -302,7 +314,7 @@ export async function updateAvatarUrl(
  */
 export async function checkEmailExists(
   email: string,
-  excludeUserId?: string
+  excludeUserId?: string,
 ): Promise<QueryResult<boolean>> {
   return safeQuery(async () => {
     let query = supabase
@@ -327,13 +339,15 @@ export async function checkEmailExists(
  */
 export async function fetchMotoristaKPIs(
   motoristaId: string,
-  periodo: { inicio: string; fim: string }
-): Promise<QueryResult<{
-  rotasConcluidas: number;
-  paradasConcluidas: number;
-  tempoMedioMinutos: number;
-  taxaConclusao: number;
-}>> {
+  periodo: { inicio: string; fim: string },
+): Promise<
+  QueryResult<{
+    rotasConcluidas: number;
+    paradasConcluidas: number;
+    tempoMedioMinutos: number;
+    taxaConclusao: number;
+  }>
+> {
   return safeQuery(async () => {
     const { data: rotas, error } = await supabase
       .from('rotas')
@@ -373,12 +387,10 @@ export async function fetchMotoristaKPIs(
     return {
       rotasConcluidas: concluidas.length,
       paradasConcluidas,
-      tempoMedioMinutos: concluidas.length > 0
-        ? Math.round(tempoTotal / concluidas.length)
-        : 0,
-      taxaConclusao: total > 0
-        ? Math.round((concluidas.length / total) * 100)
-        : 0,
+      tempoMedioMinutos:
+        concluidas.length > 0 ? Math.round(tempoTotal / concluidas.length) : 0,
+      taxaConclusao:
+        total > 0 ? Math.round((concluidas.length / total) * 100) : 0,
     };
   });
 }

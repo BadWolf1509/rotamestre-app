@@ -51,9 +51,27 @@ describe('useResumoRota', () => {
   };
 
   const mockParadas = [
-    { id: 'p1', rota_id: 'rota-1', ordem: 1, endereco: 'Rua A', status: 'concluida' },
-    { id: 'p2', rota_id: 'rota-1', ordem: 2, endereco: 'Rua B', status: 'concluido' },
-    { id: 'p3', rota_id: 'rota-1', ordem: 3, endereco: 'Rua C', status: 'pulado' },
+    {
+      id: 'p1',
+      rota_id: 'rota-1',
+      ordem: 1,
+      endereco: 'Rua A',
+      status: 'concluida',
+    },
+    {
+      id: 'p2',
+      rota_id: 'rota-1',
+      ordem: 2,
+      endereco: 'Rua B',
+      status: 'concluido',
+    },
+    {
+      id: 'p3',
+      rota_id: 'rota-1',
+      ordem: 3,
+      endereco: 'Rua C',
+      status: 'pulado',
+    },
   ];
 
   beforeEach(() => {
@@ -83,6 +101,8 @@ describe('useResumoRota', () => {
           eq: mockEq, // for rotaIdParam
           order: mockOrder, // for no rotaIdParam (latest concluida)
           maybeSingle: mockMaybeSingle, // for rotaIdParam direct
+          // `.returns<T>()` e transparente na cadeia: so informa o tipo.
+          returns: () => ({ maybeSingle: mockMaybeSingle }),
         };
       }
       // After second eq (rotaIdParam or status)
@@ -90,11 +110,15 @@ describe('useResumoRota', () => {
         maybeSingle: mockMaybeSingle,
         order: mockOrder,
         limit: mockLimit,
+        returns: () => ({ maybeSingle: mockMaybeSingle }),
       };
     });
 
     mockOrder.mockReturnValue({ limit: mockLimit });
-    mockLimit.mockReturnValue({ maybeSingle: mockMaybeSingle });
+    mockLimit.mockReturnValue({
+      maybeSingle: mockMaybeSingle,
+      returns: () => ({ maybeSingle: mockMaybeSingle }),
+    });
     mockMaybeSingle.mockResolvedValue({ data: mockRota, error: null });
 
     // Paradas chain
@@ -227,7 +251,9 @@ describe('useResumoRota', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.error).toBe('Não foi possível carregar o resumo da rota');
+      expect(result.current.error).toBe(
+        'Não foi possível carregar o resumo da rota',
+      );
       expect(result.current.rota).toBeNull();
       expect(result.current.paradas).toEqual([]);
     });
@@ -244,7 +270,9 @@ describe('useResumoRota', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(result.current.error).toBe('Não foi possível carregar o resumo da rota');
+      expect(result.current.error).toBe(
+        'Não foi possível carregar o resumo da rota',
+      );
     });
 
     it('shows Alert on error', async () => {

@@ -6,7 +6,9 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 
 // --- Supabase mock chain ---
-const mockOrder2 = jest.fn();
+// A query agora encerra em `.returns<T>()`, entao e ali que o dado chega.
+const mockOrder2 = jest.fn(() => ({ returns: mockReturns }));
+const mockReturns = jest.fn();
 const mockOrder1 = jest.fn(() => ({ order: mockOrder2 }));
 const mockEq = jest.fn(() => ({ order: mockOrder1 }));
 const mockSelect = jest.fn(() => ({ eq: mockEq }));
@@ -74,7 +76,7 @@ describe('useHistoricoData', () => {
       }
       return { select: mockParadasSelect };
     });
-    mockOrder2.mockResolvedValue({ data: rotasData, error: null });
+    mockReturns.mockResolvedValue({ data: rotasData, error: null });
     mockIn.mockResolvedValue({ data: paradasData, error: null });
   }
 
@@ -136,7 +138,7 @@ describe('useHistoricoData', () => {
 
   describe('empty results', () => {
     it('sets empty array when no routes found', async () => {
-      mockOrder2.mockResolvedValue({ data: [], error: null });
+      mockReturns.mockResolvedValue({ data: [], error: null });
 
       const { result } = renderHook(() => useHistoricoData());
 
@@ -148,7 +150,7 @@ describe('useHistoricoData', () => {
     });
 
     it('sets empty array when rotasData is null', async () => {
-      mockOrder2.mockResolvedValue({ data: null, error: null });
+      mockReturns.mockResolvedValue({ data: null, error: null });
 
       const { result } = renderHook(() => useHistoricoData());
 
@@ -162,7 +164,10 @@ describe('useHistoricoData', () => {
 
   describe('error handling', () => {
     it('shows error alert on rotas query failure', async () => {
-      mockOrder2.mockResolvedValue({ data: null, error: { message: 'Network error' } });
+      mockReturns.mockResolvedValue({
+        data: null,
+        error: { message: 'Network error' },
+      });
 
       const { result } = renderHook(() => useHistoricoData());
 
@@ -181,7 +186,10 @@ describe('useHistoricoData', () => {
     });
 
     it('logs error but continues when paradas query fails', async () => {
-      mockIn.mockResolvedValue({ data: null, error: { message: 'Paradas error' } });
+      mockIn.mockResolvedValue({
+        data: null,
+        error: { message: 'Paradas error' },
+      });
 
       const { result } = renderHook(() => useHistoricoData());
 
@@ -189,7 +197,10 @@ describe('useHistoricoData', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(logger.error).toHaveBeenCalledWith('Erro ao buscar paradas', expect.anything());
+      expect(logger.error).toHaveBeenCalledWith(
+        'Erro ao buscar paradas',
+        expect.anything(),
+      );
       // Routes still returned with 0 paradas
       expect(result.current.rotas).toHaveLength(2);
       expect(result.current.rotas[0].paradas_count).toBe(0);
@@ -238,10 +249,30 @@ describe('useHistoricoData', () => {
   describe('checkpoint filtering', () => {
     it('counts paradas where is_checkpoint is not false', async () => {
       const customParadas = [
-        { rota_id: 'rota-1', id: 'p1', status: 'concluida', is_checkpoint: true },
-        { rota_id: 'rota-1', id: 'p2', status: 'concluida', is_checkpoint: null },
-        { rota_id: 'rota-1', id: 'p3', status: 'pendente', is_checkpoint: false }, // excluded
-        { rota_id: 'rota-1', id: 'p4', status: 'concluida', is_checkpoint: false }, // excluded
+        {
+          rota_id: 'rota-1',
+          id: 'p1',
+          status: 'concluida',
+          is_checkpoint: true,
+        },
+        {
+          rota_id: 'rota-1',
+          id: 'p2',
+          status: 'concluida',
+          is_checkpoint: null,
+        },
+        {
+          rota_id: 'rota-1',
+          id: 'p3',
+          status: 'pendente',
+          is_checkpoint: false,
+        }, // excluded
+        {
+          rota_id: 'rota-1',
+          id: 'p4',
+          status: 'concluida',
+          is_checkpoint: false,
+        }, // excluded
       ];
       mockIn.mockResolvedValue({ data: customParadas, error: null });
 
