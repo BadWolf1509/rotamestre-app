@@ -14,7 +14,16 @@
  * renomeado (`import * as ExpoLocation from 'expo-location'` escaparia do
  * literal `Location`/`ImagePicker` que os regexes procuram) nem `let` no
  * lugar de `const` na forma com destructuring — `statusVemDeUmPedidoDireto`
- * só reconhece `const {...} =`.
+ * só reconhece `const {...} =`. Desde o fix round 2, nenhuma forma de string
+ * (nem template literal) sobrevive a uma quebra de linha dentro de
+ * `comStringsNeutralizadas` — um template literal MULTI-LINHA de verdade
+ * fica com o conteúdo exposto (não vira `#`), então um `//` dentro dele
+ * ainda pode truncar a linha em `semComentarios` (mesma classe do caso da
+ * URL, agora só possível dentro de um literal genuinamente multi-linha) e um
+ * texto que mencione `watchPositionAsync`/`request...PermissionsAsync`
+ * dentro desse literal pode virar falso positivo. Deliberado: sub-mascarar
+ * (falso positivo, ruidoso) é preferível a cruzar linhas (falso negativo,
+ * silencioso) — ver o comentário de `comStringsNeutralizadas`.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -57,7 +66,7 @@ function arquivosDeProducao(): string[] {
 
 /**
  * Substitui o CONTEÚDO de strings e template literals por `#`, preservando
- * aspas/crases e quebras de linha. Roda ANTES de tirar comentários: um `//`
+ * aspas/crases. Roda ANTES de tirar comentários: um `//`
  * dentro de uma URL (`'https://api.example.com'`) é indistinguível de início
  * de comentário para o replace de linha em `semComentarios`, que apagava tudo
  * que vem depois na mesma linha física — inclusive uma violação real.
@@ -66,13 +75,37 @@ function arquivosDeProducao(): string[] {
  * 'https:` e a segunda metade da linha sumia antes de qualquer regex de
  * detecção rodar.
  *
+ * NENHUMA forma de string cruza `\n` — nem template literal. Os ramos de
+ * aspas simples/duplas já excluíam `\n` da classe de caracteres desde a
+ * escrita original; o ramo de crase não excluía, e uma crase órfã (dentro de
+ * uma classe de caracteres de regex, de um comentário, de prosa JSDoc — não
+ * precisa ser um template literal de verdade) casava com a PRÓXIMA crase do
+ * arquivo inteiro, apagando tudo entre as duas. Caso real (fix round 2): o
+ * regex de senha em `src/lib/schemas/basic.ts:85` termina a classe de
+ * caracteres em `~\``, uma crase sem par na mesma linha, que ia buscar a
+ * crase seguinte do arquivo (linha 100, dezenas de linhas depois) e apagava
+ * código real no meio — inclusive uma assinatura de função inteira.
+ * `semComentarios` tira comentário por LINHA (`.replace(/\/\/.*$/gm, '')`);
+ * a neutralização só precisa da mesma escala — por linha — para não abrir
+ * uma janela maior do que o que ela protege.
+ *
+ * Trade-off aceito: um template literal MULTI-LINHA de verdade não fecha na
+ * mesma linha em que abre, então essa alternativa deixa de casar já na
+ * crase de abertura, e o conteúdo dele sai exposto (não vira `#`). Sub-
+ * mascarar deixa no pior caso um fragmento inerte — inclusive a possibilidade
+ * de um falso positivo, se o texto do literal mencionar literalmente
+ * `watchPositionAsync`/`request...PermissionsAsync` — em vez de esconder uma
+ * violação real dentro de uma janela que na verdade cruzava comentário,
+ * regex ou prosa inteiros (falso negativo — a classe de bug que este fix
+ * elimina).
+ *
  * Heurística por regex, não um parser de verdade: não resolve `${...}`
  * aninhado dentro de template literals nem literais de regex com `/`.
  * Suficiente para o que os call sites deste repo escrevem.
  */
 function comStringsNeutralizadas(fonte: string): string {
   return fonte.replace(
-    /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g,
+    /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\\n]|\\.)*`/g,
     (literal) =>
       literal[0] +
       literal.slice(1, -1).replace(/[^\n]/g, '#') +
@@ -274,5 +307,29 @@ describe('fix round 1 — buracos da guarda fechados', () => {
       // "infrator ou não" também precisa reconhecer o que sobrou.
       expect(statusVemDeUmPedidoDireto(limpo)).toBe(true);
     });
+  });
+});
+
+// FIX ROUND 2 — regressão do PRÓPRIO round 1: o ramo de template literal de
+// `comStringsNeutralizadas` não excluía `\n` da classe de caracteres,
+// diferente dos ramos de aspas simples/duplas (que já excluíam desde a
+// escrita original). Uma crase órfã — dentro de uma classe de caracteres de
+// regex, de um comentário ou de prosa JSDoc — casava com a PRÓXIMA crase do
+// arquivo inteiro, e tudo entre as duas virava `#`, inclusive código real.
+// Caso real usado como prova: `src/lib/schemas/basic.ts:85` termina a classe
+// de caracteres do regex de senha em `~\``, uma crase sem par na mesma
+// linha. Ver task-8-report.md § Fix round 2 para a injeção ponta a ponta
+// que reproduz a consequência (a guarda deixando de ver uma violação real).
+describe('fix round 2 — crase órfã cruzando linha mascarava código real', () => {
+  it('comStringsNeutralizadas não apaga código depois da crase órfã de basic.ts:85', () => {
+    const fonte = readFileSync(join(RAIZ, 'src/lib/schemas/basic.ts'), 'utf8');
+
+    const neutralizado = comStringsNeutralizadas(fonte);
+
+    // A crase órfã da linha 85 só fechava (antes da correção) na crase
+    // seguinte do arquivo, na linha 100 — apagando tudo entre as duas,
+    // inclusive esta assinatura de função da linha 92, dezenas de
+    // caracteres depois de onde a violação de verdade poderia estar.
+    expect(neutralizado).toContain('export function validatePassword');
   });
 });
