@@ -25,12 +25,20 @@ test.describe('Motorista Route Execution E2E Tests', () => {
 
     // Login as motorista
     await loginPage.goto();
-    await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    await loginPage.login(
+      testUsers.motorista.email,
+      testUsers.motorista.password,
+    );
+    await page.waitForURL(/.*motorista.*/, {
+      timeout: 30000,
+      waitUntil: 'domcontentloaded',
+    });
   });
 
   test.describe('Route Display', () => {
-    test('should display route information on home screen', async ({ page }) => {
+    test('should display route information on home screen', async ({
+      page,
+    }) => {
       await motoristaPage.expectOnMotoristaDashboard();
       await page.waitForTimeout(3000);
 
@@ -99,7 +107,9 @@ test.describe('Motorista Route Execution E2E Tests', () => {
         await page.waitForTimeout(2000);
       }
 
-      const emptyState = page.getByText(/Nenhuma rota ativa no momento/i).first();
+      const emptyState = page
+        .getByText(/Nenhuma rota ativa no momento/i)
+        .first();
       const paradaLabel = page.getByLabel(/Parada \d+/i).first();
 
       const hasEmptyState = await emptyState.isVisible().catch(() => false);
@@ -121,46 +131,39 @@ test.describe('Motorista Route Execution E2E Tests', () => {
   test.describe('Map Tab (Navigation)', () => {
     test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
 
-    test('should navigate to Mapa tab', async ({ page }) => {
-      await page.waitForTimeout(2000);
+    /**
+     * REESCRITOS EM 07/09/2026. Os dois anteriores eram frageis E vazios.
+     *
+     * FRAGEIS: procuravam a aba com `getByText(/mapa/i).first()`, que casa com
+     * QUALQUER texto contendo "mapa" na pagina. O #490 acrescentou um aviso de
+     * localizacao dizendo "...para ver sua posicao no mapa...", que fica acima
+     * da barra de abas — o `.first()` passou a escolher o aviso e o clique
+     * morria por timeout. Ou seja: estes testes detectaram uma regressao real,
+     * e ninguem soube, porque a suite nao roda no CI.
+     *
+     * VAZIOS: a assercao de URL casava qualquer rota sob `motorista`, e a
+     * outra terminava em `bodyText.length > 100`, verdadeiro para qualquer
+     * pagina renderizada. Passavam sem verificar ter chegado na aba.
+     *
+     * Agora navegam pelo page object — que usa `getByRole('tab')`, escopado e
+     * imune a colisao de texto — e afirmam a ancora real da tela.
+     */
+    test('abre a aba Mapa e renderiza a tela do mapa', async ({ page }) => {
+      const motorista = new MotoristaPage(page);
+      await motorista.navigateToMapa();
 
-      const mapaTab = page.getByText(/mapa/i).first();
-      if (await mapaTab.isVisible()) {
-        await mapaTab.click();
-        await page.waitForTimeout(2000);
-      }
-
-      // Should show map content
-      await expect(page).toHaveURL(/.*motorista.*/);
-    });
-
-    test('should display map or navigation content', async ({ page }) => {
-      await page.waitForTimeout(2000);
-
-      const mapaTab = page.getByText(/mapa/i).first();
-      if (await mapaTab.isVisible()) {
-        await mapaTab.click();
-        await page.waitForTimeout(2000);
-      }
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Should have map-related content
-      const hasMapContent =
-        bodyText?.includes('mapa') ||
-        bodyText?.includes('Mapa') ||
-        bodyText?.includes('navegação') ||
-        bodyText?.includes('Navegação') ||
-        bodyText?.includes('Google') ||
-        bodyText?.includes('Waze') ||
-        bodyText?.length! > 100;
-
-      expect(hasMapContent).toBeTruthy();
+      // Uma das duas TEM de aparecer: o mapa (`mapa.tsx:235`) ou o vazio
+      // declarado (`:113`). Qualquer outra coisa e a tela nao ter montado.
+      await expect(motorista.mapaView.or(motorista.mapaEmpty)).toBeVisible({
+        timeout: 15000,
+      });
     });
   });
 
   test.describe('Route Actions', () => {
-    test('should display action buttons for route management', async ({ page }) => {
+    test('should display action buttons for route management', async ({
+      page,
+    }) => {
       await motoristaPage.expectOnMotoristaDashboard();
       await page.waitForTimeout(3000);
 
@@ -233,48 +236,38 @@ test.describe('Motorista History Tab Tests', () => {
     loginPage = new LoginPage(page);
     _motoristaPage = new MotoristaPage(page);
 
-
     await loginPage.goto();
-    await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    await loginPage.login(
+      testUsers.motorista.email,
+      testUsers.motorista.password,
+    );
+    await page.waitForURL(/.*motorista.*/, {
+      timeout: 30000,
+      waitUntil: 'domcontentloaded',
+    });
   });
 
   test.describe('Historico Tab', () => {
     test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
 
-    test('should navigate to Historico tab', async ({ page }) => {
-      await page.waitForTimeout(2000);
+    /**
+     * REESCRITOS EM 07/09/2026, mesma razao do bloco do Mapa acima.
+     *
+     * O segundo era o caso mais franco de teste vazio da suite: computava
+     * `_hasHistoryContent` a partir de seis `includes` e JOGAVA FORA — o
+     * underscore denuncia — para no fim afirmar apenas que a pagina tinha mais
+     * de 100 caracteres. Passava com a tela do Historico inteiramente ausente.
+     */
+    test('abre a aba Historico e renderiza a lista ou o vazio', async ({
+      page,
+    }) => {
+      const motorista = new MotoristaPage(page);
+      await motorista.navigateToHistorico();
 
-      const historicoTab = page.getByText(/hist[oó]rico/i).first();
-      if (await historicoTab.isVisible()) {
-        await historicoTab.click();
-        await page.waitForTimeout(1500);
-      }
-
-      await expect(page).toHaveURL(/.*motorista.*/);
-    });
-
-    test('should display route history or empty state', async ({ page }) => {
-      await page.waitForTimeout(2000);
-
-      const historicoTab = page.getByText(/hist[oó]rico/i).first();
-      if (await historicoTab.isVisible()) {
-        await historicoTab.click();
-        await page.waitForTimeout(2000);
-      }
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show history or empty state
-      const _hasHistoryContent =
-        bodyText?.includes('Histórico') ||
-        bodyText?.includes('histórico') ||
-        bodyText?.includes('anterior') ||
-        bodyText?.includes('concluída') ||
-        bodyText?.includes('Nenhum') ||
-        bodyText?.includes('registro');
-
-      expect(bodyText?.length).toBeGreaterThan(100);
+      // A tela declara as duas ancoras (`historico.tsx:134` e `:152`).
+      await expect(
+        motorista.historicoList.or(motorista.historicoEmpty),
+      ).toBeVisible({ timeout: 15000 });
     });
   });
 });
