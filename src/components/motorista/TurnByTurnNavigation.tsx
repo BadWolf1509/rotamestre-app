@@ -278,12 +278,29 @@ export function TurnByTurnNavigation({
     [voiceEnabledRef],
   );
 
+  // origin muda de identidade a cada tick de GPS - NavigationMode.tsx passa
+  // origin={userLocation}, reconstruído em updateLocationFromCoords
+  // (useNavigationModeLogic.ts) a cada posição recebida. Colocá-lo nas deps
+  // de initializeNavigation fazia o efeito de inicialização (abaixo) remontar
+  // ~1x/s dirigindo: uma requisição OSRM, um Speech.stop() cortando a
+  // instrução falada, hasArrivedRef resetado e setIsLoading(true) piscando a
+  // tela de "Calculando rota..." por cima da navegação. A rota inicial não
+  // precisa ser recalculada a cada metro - atualizações contínuas já chegam
+  // por updateNavigation dentro de processarLocalizacao. Por isso origin é
+  // lido de uma ref (mesma convenção de useLocationWatcher.ts), nunca da
+  // dependência - e NÃO por coordenadas: o GPS driftaria e o problema
+  // voltaria do mesmo jeito.
+  const originRef = useRef(origin);
+  useEffect(() => {
+    originRef.current = origin;
+  }, [origin]);
+
   // Initialize navigation with directions - defined before useEffect that uses it
   const initializeNavigation = useCallback(async () => {
     setIsLoading(true);
 
     const route = await TurnByTurnNavigationService.getDirections(
-      origin,
+      originRef.current,
       destination,
       waypoints,
     );
@@ -326,7 +343,7 @@ export function TurnByTurnNavigation({
         );
       }, 1000);
     }
-  }, [destination, onExit, origin, voiceEnabledRef, waypoints, showError]);
+  }, [destination, onExit, voiceEnabledRef, waypoints, showError]);
 
   // Initialize navigation
   useEffect(() => {

@@ -493,4 +493,39 @@ describe('TurnByTurnNavigation', () => {
       });
     });
   });
+
+  describe('Origin churn', () => {
+    it('não reinicializa a navegação quando origin muda de identidade a cada tick de GPS', async () => {
+      const TurnByTurnService =
+        require('@/services/turnByTurnNavigation').default;
+
+      const { rerender, getByTestId } = render(
+        <TurnByTurnNavigation {...defaultProps} />,
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('map-view')).toBeTruthy();
+      });
+
+      expect(TurnByTurnService.getDirections).toHaveBeenCalledTimes(1);
+
+      // NavigationMode.tsx passa origin={userLocation}, reconstruído a cada
+      // updateLocationFromCoords (useNavigationModeLogic.ts) - nova
+      // identidade de objeto a cada tick de GPS, com coordenadas que podem
+      // driftar mesmo com o motorista parado. Todas as outras props seguem
+      // idênticas.
+      rerender(
+        <TurnByTurnNavigation
+          {...defaultProps}
+          origin={{ latitude: -23.5506, longitude: -46.6334 }}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(getByTestId('map-view')).toBeTruthy();
+      });
+
+      expect(TurnByTurnService.getDirections).toHaveBeenCalledTimes(1);
+    });
+  });
 });
