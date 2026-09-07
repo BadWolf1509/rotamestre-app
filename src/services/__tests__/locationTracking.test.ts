@@ -135,18 +135,36 @@ describe('LocationTrackingService', () => {
   // =========================================================================
 
   describe('getNavigationPreferences', () => {
-    it('deve retornar objeto vazio se não existirem preferências salvas', async () => {
+    /**
+     * POR QUE ESTES TESTES MUDARAM. Antes, `getNavigationPreferences` devolvia
+     * `{}` quando nada estava salvo, e cada consumidor aplicava o proprio
+     * default. Dois deles tinham tabelas SEPARADAS (`DEFAULT_SETTINGS` em
+     * NavigationSettings, `DEFAULT_PREFERENCES` em useNavigationModeLogic) e
+     * outros nao aplicavam default nenhum.
+     *
+     * O efeito foi medido em aparelho: a tela de Configuracoes mostrava
+     * "Avanco Automatico" LIGADO (default proprio dela), enquanto
+     * `handleNavigateToStop` lia `prefs.autoAdvance` cru, recebia `undefined`
+     * e mandava o motorista para o app externo. A navegacao interna ficava
+     * inalcancavel, e a tela dizia que estava ligada.
+     */
+    it('aplica os defaults quando nao ha nada salvo', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
       const prefs = await locationTrackingService.getNavigationPreferences();
 
-      expect(prefs).toEqual({});
+      // O caso exato do bug: um consumidor que faz `if (prefs.autoAdvance)`
+      // precisa receber `true`, nao `undefined`.
+      expect(prefs.autoAdvance).toBe(true);
+      expect(prefs.soundAlerts).toBe(true);
+      expect(prefs.vibrationAlerts).toBe(true);
+      expect(prefs.proximityRadius).toBe(50);
       expect(AsyncStorage.getItem).toHaveBeenCalledWith(
         'navigationPreferences',
       );
     });
 
-    it('deve carregar preferências salvas', async () => {
+    it('o que esta salvo vence o default', async () => {
       const savedPrefs = {
         autoAdvance: false,
         soundAlerts: true,
@@ -159,15 +177,55 @@ describe('LocationTrackingService', () => {
 
       const prefs = await locationTrackingService.getNavigationPreferences();
 
-      expect(prefs).toEqual(savedPrefs);
+      expect(prefs).toMatchObject(savedPrefs);
     });
 
-    it('deve retornar objeto vazio em caso de erro no parse JSON', async () => {
+    it('preenche so o que falta quando o salvo e parcial', async () => {
+      // O estado real de quem nunca mexeu numa das chaves — que e como o
+      // aparelho estava quando o defeito apareceu.
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ soundAlerts: false }),
+      );
+
+      const prefs = await locationTrackingService.getNavigationPreferences();
+
+      expect(prefs.soundAlerts).toBe(false);
+      expect(prefs.autoAdvance).toBe(true);
+    });
+
+    it('aplica os defaults quando o JSON salvo esta corrompido', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue('invalid-json{');
 
       const prefs = await locationTrackingService.getNavigationPreferences();
 
-      expect(prefs).toEqual({});
+      // Devolver `{}` aqui era o mesmo defeito por outro caminho: o consumidor
+      // sem default trataria storage corrompido como "tudo desligado".
+      expect(prefs.autoAdvance).toBe(true);
+      expect(prefs.proximityRadius).toBe(50);
+    });
+  });
+
+  describe('ida e volta entre gravar e ler', () => {
+    it('grava só o que foi escolhido, e a leitura completa o resto', async () => {
+      // Esta e a propriedade que separa "default na fonte" de "default
+      // congelado no storage": se o update gravasse o objeto ja preenchido, um
+      // padrao alterado numa versao futura nunca alcancaria quem tivesse
+      // tocado em qualquer ajuste.
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+      await locationTrackingService.updateNavigationPreferences({
+        soundAlerts: false,
+      });
+
+      const gravado = (AsyncStorage.setItem as jest.Mock).mock.calls.find(
+        (c) => c[0] === 'navigationPreferences',
+      )?.[1];
+      expect(JSON.parse(gravado)).toEqual({ soundAlerts: false });
+
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(gravado);
+      const lido = await locationTrackingService.getNavigationPreferences();
+      expect(lido.soundAlerts).toBe(false);
+      expect(lido.autoAdvance).toBe(true);
     });
   });
 

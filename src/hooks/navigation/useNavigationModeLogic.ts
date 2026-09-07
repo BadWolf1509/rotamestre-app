@@ -162,17 +162,11 @@ export function useNavigationModeLogic({
   const loadPreferences = useCallback(async () => {
     try {
       const prefs = await LocationTrackingService.getNavigationPreferences();
+      // O serviço devolve tudo preenchido; a tabela local existia como
+      // segunda fonte de verdade e é o defeito que foi corrigido na fonte.
       const newPrefs: NavigationPreferences = {
-        soundAlerts: prefs.soundAlerts ?? DEFAULT_PREFERENCES.soundAlerts,
-        vibrationAlerts:
-          prefs.vibrationAlerts ?? DEFAULT_PREFERENCES.vibrationAlerts,
-        showSpeedometer:
-          prefs.showSpeedometer ?? DEFAULT_PREFERENCES.showSpeedometer,
-        internalNavigation:
-          prefs.internalNavigation ?? DEFAULT_PREFERENCES.internalNavigation,
-        autoAdvance: prefs.autoAdvance ?? DEFAULT_PREFERENCES.autoAdvance,
-        proximityRadius:
-          prefs.proximityRadius ?? DEFAULT_PREFERENCES.proximityRadius,
+        ...DEFAULT_PREFERENCES,
+        ...prefs,
       };
       setPreferences(newPrefs);
       if (newPrefs.internalNavigation) {
