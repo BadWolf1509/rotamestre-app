@@ -103,3 +103,7 @@ android-export/
 # Capturas intermediarias dos screenshots da loja (regeneraveis pelo script;
 # os assets finais ficam versionados em assets/store/screenshots/phone/final/)
 assets/store/screenshots/phone/raw/
+
+# Sessoes salvas pelo projeto `setup` do Playwright: contem TOKEN DE ACESSO
+# REAL de conta de producao. Ver e2e/fixtures/sessoes.ts.
+e2e/.auth/

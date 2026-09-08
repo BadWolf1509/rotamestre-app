@@ -1,8 +1,16 @@
+import { SEM_SESSAO } from './fixtures/sessoes';
 import { test, expect, testUsers, e2eUrl } from './fixtures/test-fixtures';
 import { LoginPage } from './pages/login.page';
 
 test.describe('Authentication E2E Tests', () => {
   let loginPage: LoginPage;
+
+  // Este é o único arquivo que testa o LOGIN em si, então é o único que ainda
+  // preenche o formulário de verdade — os demais reusam a sessão salva pelo
+  // projeto `setup`. A sessão vazia é declarada explicitamente: se um dia
+  // alguém puser `storageState` no projeto inteiro, estes testes começariam
+  // logados e passariam a afirmar outra coisa sem ninguém perceber.
+  test.use({ storageState: SEM_SESSAO });
 
   test.beforeEach(async ({ page }) => {
     loginPage = new LoginPage(page);
@@ -49,7 +57,8 @@ test.describe('Authentication E2E Tests', () => {
 
       // Should either show error or stay on login page
       const currentUrl = page.url();
-      const hasLoginInUrl = currentUrl.includes('login') || currentUrl.includes('auth');
+      const hasLoginInUrl =
+        currentUrl.includes('login') || currentUrl.includes('auth');
 
       if (hasLoginInUrl) {
         // Still on login page, might have error message
@@ -59,35 +68,53 @@ test.describe('Authentication E2E Tests', () => {
   });
 
   test.describe('Motorista Login Flow', () => {
-    test('should redirect motorista to motorista dashboard after login', async ({ page }) => {
-
-      await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
+    test('should redirect motorista to motorista dashboard after login', async ({
+      page,
+    }) => {
+      await loginPage.login(
+        testUsers.motorista.email,
+        testUsers.motorista.password,
+      );
 
       // Should redirect to motorista area
-      await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+      await page.waitForURL(/.*motorista.*/, {
+        timeout: 30000,
+        waitUntil: 'domcontentloaded',
+      });
       await expect(page).toHaveURL(/.*motorista.*/);
     });
   });
 
   test.describe('Gestor Login Flow', () => {
-    test('should redirect gestor to gestor dashboard after login', async ({ page }) => {
-
+    test('should redirect gestor to gestor dashboard after login', async ({
+      page,
+    }) => {
       await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
 
       // Should redirect to gestor area
-      await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+      await page.waitForURL(/.*gestor.*/, {
+        timeout: 30000,
+        waitUntil: 'domcontentloaded',
+      });
       await expect(page).toHaveURL(/.*gestor.*/);
     });
   });
 
   test.describe('Session Persistence', () => {
-    test('should redirect authenticated user away from login', async ({ page }) => {
-
+    test('should redirect authenticated user away from login', async ({
+      page,
+    }) => {
       // Login from the current login page (beforeEach already navigated here)
-      await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
+      await loginPage.login(
+        testUsers.motorista.email,
+        testUsers.motorista.password,
+      );
 
       // Wait for redirect to motorista
-      await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+      await page.waitForURL(/.*motorista.*/, {
+        timeout: 30000,
+        waitUntil: 'domcontentloaded',
+      });
 
       // Now try to access login page again
       await page.goto(e2eUrl('/auth/login'), { waitUntil: 'domcontentloaded' });

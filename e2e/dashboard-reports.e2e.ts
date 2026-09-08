@@ -1,6 +1,6 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
+import { SESSAO_GESTOR } from './fixtures/sessoes';
+import { test, expect } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
-import { LoginPage } from './pages/login.page';
 
 /**
  * Painel, relatórios e acompanhamento do gestor.
@@ -19,19 +19,12 @@ import { LoginPage } from './pages/login.page';
  * cada testID e cada texto foi lido da tela real antes de virar asserção.
  */
 test.describe('Gestor Dashboard Metrics E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test.describe('Dashboard Overview', () => {
@@ -114,19 +107,12 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
 });
 
 test.describe('Reports and Export E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test.describe('Route Reports', () => {
@@ -199,19 +185,12 @@ test.describe('Reports and Export E2E Tests', () => {
 });
 
 test.describe('Real-time Tracking E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test.describe('Live Route Tracking', () => {
@@ -260,19 +239,12 @@ test.describe('Real-time Tracking E2E Tests', () => {
 });
 
 test.describe('Performance Analytics E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test.describe('Driver Performance', () => {

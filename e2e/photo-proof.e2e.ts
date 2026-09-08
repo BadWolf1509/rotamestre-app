@@ -1,6 +1,6 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
+import { SESSAO_GESTOR, SESSAO_MOTORISTA } from './fixtures/sessoes';
+import { test, expect } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
-import { LoginPage } from './pages/login.page';
 import { MotoristaPage } from './pages/motorista.page';
 
 /**
@@ -14,23 +14,23 @@ import { MotoristaPage } from './pages/motorista.page';
  * 4. Photo viewing by gestor
  */
 test.describe('Motorista Photo Proof E2E Tests', () => {
-  let loginPage: LoginPage;
   let motoristaPage: MotoristaPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    motoristaPage = new MotoristaPage(page);
+  test.use({ storageState: SESSAO_MOTORISTA });
 
-    // Login as motorista
-    await loginPage.goto();
-    await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+  test.beforeEach(async ({ page }) => {
+    motoristaPage = new MotoristaPage(page);
+    // Sem o redirecionamento do login, o teste comeca em about:blank:
+    // a navegacao passa a ser explicita.
+    await motoristaPage.goto();
   });
 
   test.describe('Photo Upload Interface', () => {
     test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
 
-    test('should have photo/camera functionality available', async ({ page }) => {
+    test('should have photo/camera functionality available', async ({
+      page,
+    }) => {
       await motoristaPage.expectOnMotoristaDashboard();
       await page.waitForTimeout(3000);
 
@@ -50,7 +50,9 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
       expect(bodyText?.length).toBeGreaterThan(100);
     });
 
-    test('should display photo capture option when completing stop', async ({ page }) => {
+    test('should display photo capture option when completing stop', async ({
+      page,
+    }) => {
       await page.waitForTimeout(2000);
 
       // Navigate to paradas tab
@@ -118,17 +120,12 @@ test.describe('Motorista Photo Proof E2E Tests', () => {
 });
 
 test.describe('Gestor Photo Viewing E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    // Login as gestor
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test.describe('View Delivery Proofs', () => {
@@ -148,7 +145,9 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
       expect(bodyText?.length).toBeGreaterThan(100);
     });
 
-    test('should have photo/proof viewing option in route details', async ({ page }) => {
+    test('should have photo/proof viewing option in route details', async ({
+      page,
+    }) => {
       await gestorPage.gotoGestaoRotas();
       await page.waitForTimeout(2000);
 
@@ -176,20 +175,17 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
 });
 
 test.describe('Photo Storage Integration', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
+  test.use({ storageState: SESSAO_GESTOR });
+
   test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
-
-
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
   });
 
-  test('should display route with completed stops having photos', async ({ page }) => {
+  test('should display route with completed stops having photos', async ({
+    page,
+  }) => {
     await gestorPage.gotoGestaoRotas();
     await page.waitForTimeout(3000);
 
