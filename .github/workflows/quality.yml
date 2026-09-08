@@ -111,6 +111,46 @@ jobs:
         # rede de segurança parou de servir para alguma coisa.
         run: node scripts/audit-producao.js
 
+      - name: Dependência não declarada
+        # `knip --include unlisted,binaries`: falha quando um arquivo importa
+        # pacote que NÃO está no package.json.
+        #
+        # POR QUE ISTO É BLOQUEANTE, sendo que o resto da varredura de código
+        # morto não é. Import não declarado resolve HOJE, por acaso — porque
+        # alguma outra dependência o arrasta para o node_modules raiz. Não há
+        # sintoma: type-check passa, lint passa, teste passa, build passa. Ele
+        # quebra no dia em que o pacote que o arrastava muda, e aí quebra em
+        # produção, longe do commit que o introduziu.
+        #
+        # Em 08/09/2026 o `expo-file-system` estava assim: nunca declarado,
+        # resolvido só por ser transitivo de expo@56, com CINCO arquivos de
+        # produção dependendo dele — storage.ts (upload de foto), offline.ts
+        # (sync) e os três routeExport*. Nada no CI apontava.
+        #
+        # Esta categoria não tem falso positivo: ou o import resolve pelo
+        # package.json, ou não resolve. É o que a separa das outras do knip —
+        # "arquivo não usado" tem falso positivo (variante de plataforma), e
+        # por isso `npm run scan:morto` fica FORA do CI de propósito: falso
+        # positivo em check obrigatório ensina o time a ignorar o check.
+        #
+        # ORDEM: vem por último pelo mesmo motivo do audit acima — step
+        # bloqueante que falha faz o Actions pular todos os seguintes.
+        #
+        # LIMITE MEDIDO, não suposto. A guarda só enxerga arquivo ALCANÇÁVEL a
+        # partir de um `entry`. Import não declarado dentro de arquivo órfão
+        # passa batido — o knip nem analisa o conteúdo de quem já considera
+        # morto. Descoberto ao verificar esta guarda em vermelho: o primeiro
+        # plantio foi num arquivo novo que ninguém importava, e o check
+        # continuou VERDE. O segundo, dentro de src/lib/logger.ts, quebrou como
+        # devia. Quem cair aqui procurando por que um import escapou: confira
+        # antes se o arquivo aparece em `npm run scan:morto:arquivos`.
+        #
+        # Quando quebrar: declare o pacote (`npx expo install` para os do SDK,
+        # `npm i -D` para ferramenta de teste). Só use `ignoreDependencies` no
+        # knip.jsonc se o consumo NÃO for import — config ou CLI — e deixe o
+        # arquivo consumidor escrito na linha, como as entradas de lá.
+        run: npm run scan:nao-declarado
+
   bundle-size:
     name: Bundle Size Check
     runs-on: ubuntu-latest
