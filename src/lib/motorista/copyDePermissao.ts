@@ -59,6 +59,35 @@ export const COPY_GALERIA_ENTREGA: CopyDePermissao = {
     'O acesso às fotos está bloqueado. Libere em Configurações para anexar o comprovante.',
 };
 
+/**
+ * A foto de perfil não comprova entrega nem documenta incidente: ela só
+ * identifica a pessoa para a equipe. Reaproveitar as constantes de `_ENTREGA`
+ * aqui diria ao motorista que a foto do avatar dele "comprova a entrega", que
+ * é a mentira que a doutrina deste módulo existe para evitar.
+ *
+ * O fluxo de perfil não passa por `oferecerSaidaParaConfiguracoes` porque o
+ * `showConfirm` do `useProfileDialogs` tem outra forma — `(title, message,
+ * onConfirm)`, sem caminho de cancelamento — e adaptá-lo a uma
+ * `Promise<boolean>` deixaria a promessa pendente para sempre quando a pessoa
+ * cancelasse. O `useProfilePhoto` toma a mesma decisão com as ferramentas que
+ * já tem; a copy é que passa a ser compartilhada.
+ */
+export const COPY_CAMERA_PERFIL: CopyDePermissao = {
+  titulo: 'Acesso à câmera',
+  mensagemNegada:
+    'Sem acesso à câmera não é possível tirar a foto do seu perfil.',
+  mensagemBloqueada:
+    'O acesso à câmera está bloqueado. Libere em Configurações para tirar a foto do seu perfil.',
+};
+
+export const COPY_GALERIA_PERFIL: CopyDePermissao = {
+  titulo: 'Acesso à galeria',
+  mensagemNegada:
+    'Sem acesso às fotos não é possível escolher uma imagem para o seu perfil.',
+  mensagemBloqueada:
+    'O acesso às fotos está bloqueado. Libere em Configurações para escolher a foto do seu perfil.',
+};
+
 export const COPY_CAMERA_INCIDENTE: CopyDePermissao = {
   titulo: 'Acesso à câmera',
   mensagemNegada:

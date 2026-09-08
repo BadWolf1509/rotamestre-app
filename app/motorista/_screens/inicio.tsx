@@ -37,7 +37,11 @@ import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissa
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { abrirNavegacao } from '@/lib/navigation';
-import { abrirConfiguracoesDoApp, pedirPermissao } from '@/lib/permissoes';
+import {
+  abrirConfiguracoesDoApp,
+  pedirPermissao,
+  REMEDIO_CADEADO_WEB,
+} from '@/lib/permissoes';
 import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import type { IconName } from '@/types/icons';
@@ -513,7 +517,7 @@ function MotoristaInicioContent() {
             title="Localização desativada"
             message={
               Platform.OS === 'web'
-                ? 'Ative a localização para ver sua posição no mapa e acompanhar a rota. No navegador, use o cadeado ao lado do endereço do site para liberar o acesso.'
+                ? `Ative a localização para ver sua posição no mapa e acompanhar a rota. ${REMEDIO_CADEADO_WEB}`
                 : 'Ative a localização para ver sua posição no mapa e acompanhar a rota.'
             }
             // Na web não há Configurações de app para abrir -

@@ -66,6 +66,22 @@ export function TurnByTurnNavigation({
 
   // Navigation state
   const [userLocation, setUserLocation] = useState(origin);
+
+  // `origin` é a posição VIVA do motorista (`NavigationMode` passa
+  // `origin={userLocation}`), então muda a cada tick do GPS. Enquanto ele
+  // estava na dependência de `initializeNavigation`, cada tick refazia a rota
+  // inteira no OSRM e ainda executava a limpeza do efeito — `reset()` no
+  // serviço e `setIsLoading(true)` piscando "Calculando rota..." por cima da
+  // navegação em curso. A rota inicial não precisa ser recalculada a cada
+  // metro: o avanço já chega pelo watcher de geolocalização mais abaixo.
+  //
+  // Mesma correção que o #490 fez na variante nativa, que ficou de fora
+  // porque o componente parecia inalcançável — e voltou a ser alcançável
+  // quando o #495 consertou o default de `autoAdvance`.
+  const originRef = useRef(origin);
+  useEffect(() => {
+    originRef.current = origin;
+  }, [origin]);
   const [currentInstruction, setCurrentInstruction] =
     useState<NavigationInstruction | null>(null);
   const [nextInstruction, setNextInstruction] =
@@ -112,7 +128,7 @@ export function TurnByTurnNavigation({
     setIsLoading(true);
 
     const route = await TurnByTurnNavigationService.getDirections(
-      origin,
+      originRef.current,
       destination,
       waypoints,
     );
@@ -140,7 +156,7 @@ export function TurnByTurnNavigation({
     setNextInstruction(secondInstruction);
 
     setIsLoading(false);
-  }, [destination, onExit, origin, waypoints]);
+  }, [destination, onExit, waypoints]);
 
   // Initialize on mount
   useEffect(() => {

@@ -243,18 +243,28 @@ describe('timeline', () => {
       });
     });
 
+    /**
+     * INVARIANTE: contar e exibir têm de concordar.
+     *
+     * O widget colapsado conta os logs por `isTimelineLogEvent` (os 15 de
+     * `TIMELINE_LOG_EVENTS`) e exibe por `mapLogToTimelinePreview`. Enquanto
+     * seis deles devolviam `null`, o badge somava eventos que a lista nunca
+     * mostrava — o gestor lia "8 eventos" e via cinco.
+     *
+     * O teste é sobre a LISTA, não sobre os seis nomes: um evento novo em
+     * `TIMELINE_LOG_EVENTS` sem preview quebra isto na hora, que é a graça.
+     */
+    it('todo evento contado por TIMELINE_LOG_EVENTS tem preview', () => {
+      const semPreview = TIMELINE_LOG_EVENTS.filter(
+        (evento) => mapLogToTimelinePreview({ evento, timestamp: ts }) === null,
+      );
+
+      expect(semPreview).toEqual([]);
+    });
+
     it('should return null for unknown events', () => {
       expect(
         mapLogToTimelinePreview({ evento: 'unknown_event', timestamp: ts }),
-      ).toBeNull();
-      expect(
-        mapLogToTimelinePreview({ evento: 'parada_reaberta', timestamp: ts }),
-      ).toBeNull();
-      expect(
-        mapLogToTimelinePreview({
-          evento: 'motorista_alterado',
-          timestamp: ts,
-        }),
       ).toBeNull();
     });
   });

@@ -9,7 +9,11 @@ import { ActionSheetIOS, Alert, Platform } from 'react-native';
 
 import { clearCache, CACHE_KEYS } from '@/lib/cache';
 import { logger } from '@/lib/logger';
-import { pedirPermissao } from '@/lib/permissoes';
+import {
+  COPY_CAMERA_PERFIL,
+  COPY_GALERIA_PERFIL,
+} from '@/lib/motorista/copyDePermissao';
+import { abrirConfiguracoesDoApp, pedirPermissao } from '@/lib/permissoes';
 import { emitProfileUpdate } from '@/lib/profileEvents';
 import { storageService } from '@/lib/storage';
 
@@ -50,30 +54,32 @@ export function useProfilePhoto({
       try {
         // Request appropriate permission (not needed on web)
         if (Platform.OS !== 'web') {
-          if (source === 'camera') {
-            const { concedida } = await pedirPermissao(() =>
-              ImagePicker.requestCameraPermissionsAsync(),
+          const ehCamera = source === 'camera';
+          const permissao = await pedirPermissao(() =>
+            ehCamera
+              ? ImagePicker.requestCameraPermissionsAsync()
+              : ImagePicker.requestMediaLibraryPermissionsAsync(),
+          );
+
+          if (!permissao.concedida) {
+            // BECO SEM SAÍDA, ATÉ 08/09/2026. O alerta dizia só "Precisamos de
+            // permissão para acessar a câmera" e não oferecia nada. Com a
+            // permissão negada de forma permanente
+            // (`podePerguntarDeNovo === false`) o diálogo do sistema nunca mais
+            // aparece, então a pessoa ficava sem caminho para voltar atrás — a
+            // mesma classe que o #490 eliminou na navegação, na entrega e no
+            // incidente, e que passou batido aqui.
+            const copy = ehCamera ? COPY_CAMERA_PERFIL : COPY_GALERIA_PERFIL;
+            showConfirm(
+              copy.titulo,
+              permissao.podePerguntarDeNovo
+                ? copy.mensagemNegada
+                : copy.mensagemBloqueada,
+              () => {
+                abrirConfiguracoesDoApp();
+              },
             );
-            if (!concedida) {
-              showAlert(
-                'Permissão necessária',
-                'Precisamos de permissão para acessar a câmera',
-                'warning',
-              );
-              return;
-            }
-          } else {
-            const { concedida } = await pedirPermissao(() =>
-              ImagePicker.requestMediaLibraryPermissionsAsync(),
-            );
-            if (!concedida) {
-              showAlert(
-                'Permissão necessária',
-                'Precisamos de permissão para acessar suas fotos',
-                'warning',
-              );
-              return;
-            }
+            return;
           }
         }
 

@@ -50,8 +50,91 @@ function walkDir(dir, files = []) {
   return files;
 }
 
+/**
+ * Apaga o conteúdo dos comentários, preservando posições e quebras de linha.
+ *
+ * POR QUE. Este relatório procura COR hardcoded. Referência a PR em comentário
+ * — `#490`, `#495` — casa com `#[0-9a-fA-F]{3}` e era acusada como cor, o que
+ * derrubou o check em 08/09/2026 por dois comentários que citavam PRs. Seis
+ * arquivos do repo já usam essa notação; os outros só não falhavam por estarem
+ * na allowlist de cores, então o falso positivo estava latente para qualquer
+ * arquivo limpo que citasse um PR.
+ *
+ * O caminhar é char a char, com estado de string, porque cortar tudo depois do
+ * primeiro `//` quebraria em `'https://...'` — e cortar demais produziria
+ * falso NEGATIVO, que num check de design system é pior que o falso positivo
+ * que se está consertando.
+ */
+function semComentarios(content) {
+  let saida = '';
+  let aspas = null;
+  let comentarioDeLinha = false;
+  let comentarioDeBloco = false;
+
+  for (let i = 0; i < content.length; i++) {
+    const c = content[i];
+    const prox = content[i + 1];
+
+    if (comentarioDeLinha) {
+      if (c === '\n') {
+        comentarioDeLinha = false;
+        saida += c;
+      } else {
+        saida += ' ';
+      }
+      continue;
+    }
+
+    if (comentarioDeBloco) {
+      if (c === '*' && prox === '/') {
+        comentarioDeBloco = false;
+        saida += '  ';
+        i++;
+      } else {
+        saida += c === '\n' ? c : ' ';
+      }
+      continue;
+    }
+
+    if (aspas) {
+      saida += c;
+      if (c === '\\') {
+        saida += prox ?? '';
+        i++;
+      } else if (c === aspas) {
+        aspas = null;
+      }
+      continue;
+    }
+
+    if (c === '"' || c === "'" || c === '`') {
+      aspas = c;
+      saida += c;
+      continue;
+    }
+
+    if (c === '/' && prox === '/') {
+      comentarioDeLinha = true;
+      saida += '  ';
+      i++;
+      continue;
+    }
+
+    if (c === '/' && prox === '*') {
+      comentarioDeBloco = true;
+      saida += '  ';
+      i++;
+      continue;
+    }
+
+    saida += c;
+  }
+
+  return saida;
+}
+
 function scanFile(filePath) {
-  const content = fs.readFileSync(filePath, 'utf-8');
+  const content = semComentarios(fs.readFileSync(filePath, 'utf-8'));
   const lines = content.split(/\r?\n/);
   const matches = [];
 
