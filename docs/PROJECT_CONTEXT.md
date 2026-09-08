@@ -63,6 +63,28 @@ o autor apareceria na carga inicial e sumiria nos eventos ao vivo. Resolver isso
 exige escolher entre resolver nomes no cliente (cache de usuários da unidade) ou
 aceitar a inconsistência; é decisão de produto, não conserto óbvio.
 
+**Achados na validação em aparelho de 08/09/2026, ainda abertos:**
+
+- **O painel do gestor esconde rota em andamento de dia anterior.**
+  `useDashboardData` filtra por `data >= hoje` quando não há filtro explícito,
+  então uma rota `em_andamento` com `data` passada — estado legítimo, dentro da
+  carência de 7 dias da expiração (Migrations 25/26) — não entra na consulta, e
+  o cartão "Em Andamento" mostra **0 com o motorista na rua**. Reproduzido em
+  08/09 com a rota `31d4b0d2…` (`data` 05/09). A Gestão de Rotas mostra tudo,
+  então o gestor não fica cego — o resumo é que mente. **Não é regressão** e o
+  conserto é decisão de produto: "Início" significa _hoje_ ou _hoje mais o que
+  segue aberto_? Mudar a janela padrão altera a primeira tela de todo gestor.
+- **Rastreamento em segundo plano só é ligado por `startRoute`.**
+  `requestAndStartTracking` (`unifiedLocationTracking.ts`) é chamado num único
+  lugar: `useRouteActions.startRoute`. Não há chamada na montagem nem na
+  retomada do app. Em reinício normal o task do `expo-task-manager` sobrevive,
+  mas numa **reinstalação ou limpeza de dados no meio de uma rota** ele some e
+  nunca volta — o gestor perde a visibilidade em segundo plano em silêncio.
+  Medido em 08/09 após reinstalar o app com a rota em andamento: nenhum serviço
+  de localização rodando. Não foi corrigido junto do lote porque é justamente a
+  área sob escrutínio da Play (pendência 10) e não havia rota `pendente` para
+  verificar a correção em aparelho.
+
 **Fechados em 08/09/2026** (não reabra): `mapLogToTimelinePreview` devolvia
 `null` para 6 dos 15 eventos que `TIMELINE_LOG_EVENTS` conta, então o widget
 colapsado somava eventos que nunca exibia — corrigido com um teste de
