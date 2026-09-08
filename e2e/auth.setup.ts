@@ -18,6 +18,33 @@ import { LoginPage } from './pages/login.page';
  * Ver `fixtures/sessoes.ts` para o porquê e para o aviso sobre os arquivos
  * gerados conterem token real.
  */
+
+/**
+ * SEM SECRETS, PULA — não falha.
+ *
+ * O passo "Run visual regression tests (public only - no auth required)" do CI
+ * roda de propósito SEM os `E2E_*`, para que os cenários públicos continuem
+ * cobertos em contexto sem acesso a secret. Como ele invoca o Playwright, o
+ * projeto `setup` entra junto por ser dependência — e, na primeira versão desta
+ * mudança, derrubou justamente o passo que não precisa de login: `requireEnv`
+ * lançava em 195 ms e levava o job inteiro.
+ *
+ * Pular é correto aqui porque nenhum teste `@public` usa `storageState`. Quem
+ * usa e não encontrar o arquivo falha citando o caminho — e os passos
+ * autenticados do CI têm os secrets.
+ */
+const OBRIGATORIAS = [
+  'E2E_GESTOR_EMAIL',
+  'E2E_GESTOR_PASSWORD',
+  'E2E_MOTORISTA_EMAIL',
+  'E2E_MOTORISTA_PASSWORD',
+];
+const FALTANDO = OBRIGATORIAS.filter((nome) => !process.env[nome]);
+
+setup.skip(
+  FALTANDO.length > 0,
+  `Sem credenciais de E2E (${FALTANDO.join(', ')}) — só os cenários públicos rodam.`,
+);
 async function salvarSessao(
   page: import('@playwright/test').Page,
   email: string,
