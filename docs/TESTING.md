@@ -43,10 +43,25 @@ npm test -- <padrão>      # filtrar por nome/caminho
   passaram e os autenticados pararam no login: a autenticação até resolve, mas o
   app não encontra o perfil. Provisionar o perfil (e senha forte por ambiente) é
   pré-requisito para o próximo E2E completo.
-- A regressão visual pública passou em 24 de 26 cenários no Windows. Os dois
-  snapshots de toast divergiram em 1 px de altura e na rasterização do ícone;
-  não atualize o baseline compartilhado Linux apenas para acomodar essa
-  diferença de plataforma.
+- **Os testes E2E autenticados reusam uma sessão salva, não fazem login.** O
+  projeto `setup` (`e2e/auth.setup.ts`) loga uma vez por papel e grava
+  `e2e/.auth/{gestor,motorista}.json`; cada bloco autenticado declara
+  `test.use({ storageState: SESSAO_GESTOR })`. **Esses arquivos contêm token de
+  acesso real de conta de produção** — estão no `.gitignore`, nunca versione nem
+  anexe a relatório de CI. Medido em 07/09/2026: o login custava **5.979 ms** e
+  cada um dos 121 testes fazia o seu, o que era quase todo o tempo da suíte e a
+  única fonte de instabilidade restante (6,4 min com 2 instáveis → 4,5 min com
+  zero). O `auth.e2e.ts` continua preenchendo o formulário de verdade, porque é
+  ele que testa o login, e declara `SEM_SESSAO` explicitamente.
+- A regressão visual pública diverge no Windows contra o baseline gerado no
+  Linux — o `snapshotPathTemplate` não tem sufixo de plataforma, então o mesmo
+  arquivo serve aos dois. Medido em 07/09/2026 na `main` limpa: **7 cenários de
+  `design-system.e2e.ts`** falham localmente (antes eram os 2 de toast; a
+  diferença cresceu com o tempo) e passam no CI. Um deles oscila entre os
+  projetos `chromium` e `mobile-chrome` conforme a rasterização fica perto do
+  limiar. **Não atualize o baseline para acomodar isso**: antes de acusar um PR,
+  rode o mesmo comando na `main` e compare o conjunto de testes vermelhos, que é
+  como essa divergência foi separada de regressão real.
 
 ---
 

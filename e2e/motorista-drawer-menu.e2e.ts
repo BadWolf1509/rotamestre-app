@@ -1,5 +1,5 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
-import { LoginPage } from './pages/login.page';
+import { SESSAO_MOTORISTA } from './fixtures/sessoes';
+import { test, expect } from './fixtures/test-fixtures';
 import { MotoristaPage } from './pages/motorista.page';
 
 /**
@@ -19,17 +19,15 @@ import { MotoristaPage } from './pages/motorista.page';
  * - Meu Perfil (duplicate in footer - removed)
  */
 test.describe('Motorista Drawer Menu E2E Tests', () => {
-  let loginPage: LoginPage;
-  let _motoristaPage: MotoristaPage;
+  let motoristaPage: MotoristaPage;
+
+  test.use({ storageState: SESSAO_MOTORISTA });
 
   test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    _motoristaPage = new MotoristaPage(page);
-
-    // Login as motorista
-    await loginPage.goto();
-    await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    motoristaPage = new MotoristaPage(page);
+    // Sem o redirecionamento do login, o teste comeca em about:blank:
+    // a navegacao passa a ser explicita.
+    await motoristaPage.goto();
   });
 
   test.describe('Menu Items Display', () => {
@@ -37,7 +35,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       await expect(menuButton).toBeVisible();
       await menuButton.click();
       await page.waitForTimeout(1000);
@@ -56,12 +56,16 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
 
-        const drawerContent = await page.locator('[role="dialog"], .drawer').textContent();
+        const drawerContent = await page
+          .locator('[role="dialog"], .drawer')
+          .textContent();
 
         // Should NOT show Resumo da Rota
         const hasResumo = drawerContent?.includes('Resumo da Rota');
@@ -73,17 +77,23 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
 
-        const _drawerContent = await page.locator('[role="dialog"], .drawer').textContent();
+        const _drawerContent = await page
+          .locator('[role="dialog"], .drawer')
+          .textContent();
 
         // Should NOT show Minha Unidade (as separate menu item)
         // Note: Unit info may still appear in header
-        const menuSection = page.locator('[role="dialog"] >> text=Minha Unidade');
-        const hasMinhauUnidadeMenuItem = await menuSection.count() > 0;
+        const menuSection = page.locator(
+          '[role="dialog"] >> text=Minha Unidade',
+        );
+        const hasMinhauUnidadeMenuItem = (await menuSection.count()) > 0;
 
         // The unit info should be in header, not as a menu item
         expect(hasMinhauUnidadeMenuItem).toBeFalsy();
@@ -94,7 +104,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -112,7 +124,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -131,7 +145,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -157,7 +173,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       }
     });
 
-    test('should display emergency contact options on SOS screen', async ({ page }) => {
+    test('should display emergency contact options on SOS screen', async ({
+      page,
+    }) => {
       // Navigate directly to SOS page
       await page.goto('/motorista/sos');
       await page.waitForTimeout(3000);
@@ -176,13 +194,16 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       expect(hasEmergencyContacts).toBeTruthy();
     });
 
-    test('should have large emergency button on SOS screen', async ({ page }) => {
+    test('should have large emergency button on SOS screen', async ({
+      page,
+    }) => {
       await page.goto('/motorista/sos');
       await page.waitForTimeout(3000);
 
       // Page should contain SOS-related content (header title or body text)
       const bodyText = await page.locator('body').textContent();
-      const hasSosContent = bodyText?.includes('SOS') || bodyText?.includes('Emergência');
+      const hasSosContent =
+        bodyText?.includes('SOS') || bodyText?.includes('Emergência');
       expect(hasSosContent).toBeTruthy();
 
       // Should have the main SOS button
@@ -196,7 +217,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -205,7 +228,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
         await expect(drawer).toBeVisible();
 
         // Click Desempenho item
-        const desempenhoItem = drawer.getByText(/Meu Desempenho|Desempenho/i).first();
+        const desempenhoItem = drawer
+          .getByText(/Meu Desempenho|Desempenho/i)
+          .first();
         if (await desempenhoItem.isVisible().catch(() => false)) {
           await desempenhoItem.click();
           await page.waitForTimeout(2000);
@@ -234,7 +259,8 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       }
 
       const bodyText = await page.locator('body').textContent();
-      const hasEmpty = bodyText?.includes('Sem dados') || bodyText?.includes('Nenhum');
+      const hasEmpty =
+        bodyText?.includes('Sem dados') || bodyText?.includes('Nenhum');
       const hasStats =
         bodyText?.includes('Taxa') ||
         bodyText?.includes('%') ||
@@ -245,7 +271,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       expect(hasEmpty || hasStats).toBeTruthy();
     });
 
-    test('should have period selector on Desempenho screen', async ({ page }) => {
+    test('should have period selector on Desempenho screen', async ({
+      page,
+    }) => {
       await page.goto('/motorista/desempenho');
 
       const loadingState = page.getByText(/Carregando/i).first();
@@ -261,7 +289,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -300,7 +330,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       expect(hasFAQ).toBeTruthy();
     });
 
-    test('should display support contact options on Ajuda screen', async ({ page }) => {
+    test('should display support contact options on Ajuda screen', async ({
+      page,
+    }) => {
       await page.goto('/motorista/ajuda');
       await page.waitForTimeout(3000);
 
@@ -322,7 +354,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -346,7 +380,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       }
     });
 
-    test('should display navigation app options on Configurações screen', async ({ page }) => {
+    test('should display navigation app options on Configurações screen', async ({
+      page,
+    }) => {
       await page.goto('/motorista/perfil/configuracoes');
       await page.waitForTimeout(3000);
 
@@ -362,7 +398,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       expect(hasNavOptions).toBeTruthy();
     });
 
-    test('should display notification settings on Configurações screen', async ({ page }) => {
+    test('should display notification settings on Configurações screen', async ({
+      page,
+    }) => {
       await page.goto('/motorista/perfil/configuracoes');
       await page.waitForTimeout(3000);
 
@@ -383,7 +421,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -401,7 +441,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);
@@ -425,7 +467,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       }
     });
 
-    test('should have Alterar Senha accessible from Perfil', async ({ page }) => {
+    test('should have Alterar Senha accessible from Perfil', async ({
+      page,
+    }) => {
       await page.goto('/motorista/perfil');
 
       const alterarSenha = page.getByText(/Alterar Senha/i).first();
@@ -438,7 +482,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Open drawer menu
-      const menuButton = page.locator('[data-testid="menu-button"], [aria-label*="menu"]').first();
+      const menuButton = page
+        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
+        .first();
       if (await menuButton.isVisible().catch(() => false)) {
         await menuButton.click();
         await page.waitForTimeout(1000);

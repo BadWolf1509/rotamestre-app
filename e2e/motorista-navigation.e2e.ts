@@ -1,19 +1,17 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
-import { LoginPage } from './pages/login.page';
+import { SESSAO_MOTORISTA } from './fixtures/sessoes';
+import { test, expect } from './fixtures/test-fixtures';
 import { MotoristaPage } from './pages/motorista.page';
 
 test.describe('Motorista Navigation E2E Tests', () => {
-  let loginPage: LoginPage;
   let motoristaPage: MotoristaPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    motoristaPage = new MotoristaPage(page);
+  test.use({ storageState: SESSAO_MOTORISTA });
 
-    // Login as motorista
-    await loginPage.goto();
-    await loginPage.login(testUsers.motorista.email, testUsers.motorista.password);
-    await page.waitForURL(/.*motorista.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+  test.beforeEach(async ({ page }) => {
+    motoristaPage = new MotoristaPage(page);
+    // Sem o redirecionamento do login, o teste comeca em about:blank:
+    // a navegacao passa a ser explicita.
+    await motoristaPage.goto();
   });
 
   test.describe('Tab Navigation (Mobile)', () => {
@@ -40,7 +38,9 @@ test.describe('Motorista Navigation E2E Tests', () => {
 
       // Should see paradas content (list) OR empty state (no active route)
       await expect(page).toHaveURL(/.*motorista.*/);
-      const paradasContent = motoristaPage.paradasList.or(motoristaPage.paradasEmpty);
+      const paradasContent = motoristaPage.paradasList.or(
+        motoristaPage.paradasEmpty,
+      );
       await expect(paradasContent).toBeVisible({ timeout: 10000 });
     });
 
@@ -59,7 +59,9 @@ test.describe('Motorista Navigation E2E Tests', () => {
       // Should see historico content (list) OR empty state (no routes)
       // Use .first() because FlatList renders both list and empty component in DOM
       await expect(page).toHaveURL(/.*motorista.*/);
-      const historicoContent = motoristaPage.historicoList.or(motoristaPage.historicoEmpty).first();
+      const historicoContent = motoristaPage.historicoList
+        .or(motoristaPage.historicoEmpty)
+        .first();
       await expect(historicoContent).toBeVisible({ timeout: 10000 });
     });
 
@@ -114,16 +116,24 @@ test.describe('Motorista Navigation E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Look for menu button (hamburger icon)
-      const menuButton = page.locator('[data-testid="menu-button"]')
+      const menuButton = page
+        .locator('[data-testid="menu-button"]')
         .or(page.locator('[aria-label*="menu"]'))
-        .or(page.locator('button').filter({ has: page.locator('svg, [class*="icon"]') }).first());
+        .or(
+          page
+            .locator('button')
+            .filter({ has: page.locator('svg, [class*="icon"]') })
+            .first(),
+        );
 
       if (await menuButton.isVisible()) {
         await menuButton.click();
         await page.waitForTimeout(1000);
 
         // Drawer should be visible
-        const drawer = page.locator('[data-testid="drawer-menu"], [role="dialog"], .drawer-menu');
+        const drawer = page.locator(
+          '[data-testid="drawer-menu"], [role="dialog"], .drawer-menu',
+        );
         await expect(drawer).toBeVisible({ timeout: 5000 });
       }
     });
@@ -131,7 +141,8 @@ test.describe('Motorista Navigation E2E Tests', () => {
     test('should show profile info in drawer', async ({ page }) => {
       await page.waitForTimeout(2000);
 
-      const menuButton = page.locator('[data-testid="menu-button"]')
+      const menuButton = page
+        .locator('[data-testid="menu-button"]')
         .or(page.locator('[aria-label*="menu"]').first());
 
       if (await menuButton.isVisible()) {
@@ -139,7 +150,9 @@ test.describe('Motorista Navigation E2E Tests', () => {
         await page.waitForTimeout(1000);
 
         // Should show user profile information
-        const drawer = page.locator('[data-testid="drawer-menu"], [role="dialog"], .drawer-menu');
+        const drawer = page.locator(
+          '[data-testid="drawer-menu"], [role="dialog"], .drawer-menu',
+        );
         if (await drawer.isVisible()) {
           const drawerText = await drawer.textContent();
           expect(drawerText).toBeTruthy();
@@ -150,7 +163,8 @@ test.describe('Motorista Navigation E2E Tests', () => {
     test('should have logout option in drawer', async ({ page }) => {
       await page.waitForTimeout(2000);
 
-      const menuButton = page.locator('[data-testid="menu-button"]')
+      const menuButton = page
+        .locator('[data-testid="menu-button"]')
         .or(page.locator('[aria-label*="menu"]').first());
 
       if (await menuButton.isVisible()) {
@@ -168,7 +182,8 @@ test.describe('Motorista Navigation E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Try to find and click logout
-      const menuButton = page.locator('[data-testid="menu-button"]')
+      const menuButton = page
+        .locator('[data-testid="menu-button"]')
         .or(page.locator('[aria-label*="menu"]').first());
 
       if (await menuButton.isVisible()) {
@@ -180,8 +195,12 @@ test.describe('Motorista Navigation E2E Tests', () => {
           await logoutButton.click();
 
           // May need to confirm
-          const confirmButton = page.getByRole('button', { name: /confirmar|sair|sim/i });
-          if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+          const confirmButton = page.getByRole('button', {
+            name: /confirmar|sair|sim/i,
+          });
+          if (
+            await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)
+          ) {
             await confirmButton.click();
           }
 

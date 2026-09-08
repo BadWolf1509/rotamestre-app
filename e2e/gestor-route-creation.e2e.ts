@@ -1,6 +1,6 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
+import { SESSAO_GESTOR } from './fixtures/sessoes';
+import { test, expect } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
-import { LoginPage } from './pages/login.page';
 
 /**
  * E2E Tests for Route Creation (Otimização Automática)
@@ -12,20 +12,12 @@ import { LoginPage } from './pages/login.page';
  * 3. Assigning route to a driver
  */
 test.describe('Gestor Route Creation E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    // Login as gestor
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test.describe('Nova Entrega Page Access', () => {
@@ -162,19 +154,12 @@ test.describe('Gestor Route Creation E2E Tests', () => {
 });
 
 test.describe('Gestor Dashboard E2E Tests', () => {
-  let loginPage: LoginPage;
   let gestorPage: GestorPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    gestorPage = new GestorPage(page);
+  test.use({ storageState: SESSAO_GESTOR });
 
-    await loginPage.goto();
-    await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    gestorPage = new GestorPage(page);
   });
 
   test('o painel do gestor renderiza o bloco de métricas', async ({ page }) => {

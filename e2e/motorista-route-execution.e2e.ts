@@ -1,5 +1,5 @@
-import { test, expect, testUsers } from './fixtures/test-fixtures';
-import { LoginPage } from './pages/login.page';
+import { SESSAO_MOTORISTA } from './fixtures/sessoes';
+import { test, expect } from './fixtures/test-fixtures';
 import { MotoristaPage } from './pages/motorista.page';
 
 /**
@@ -16,23 +16,15 @@ import { MotoristaPage } from './pages/motorista.page';
  * 5. Route completion
  */
 test.describe('Motorista Route Execution E2E Tests', () => {
-  let loginPage: LoginPage;
   let motoristaPage: MotoristaPage;
 
-  test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    motoristaPage = new MotoristaPage(page);
+  test.use({ storageState: SESSAO_MOTORISTA });
 
-    // Login as motorista
-    await loginPage.goto();
-    await loginPage.login(
-      testUsers.motorista.email,
-      testUsers.motorista.password,
-    );
-    await page.waitForURL(/.*motorista.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+  test.beforeEach(async ({ page }) => {
+    motoristaPage = new MotoristaPage(page);
+    // Sem o redirecionamento do login, o teste comeca em about:blank:
+    // a navegacao passa a ser explicita.
+    await motoristaPage.goto();
   });
 
   test.describe('Route Display', () => {
@@ -240,22 +232,15 @@ test.describe('Motorista Route Execution E2E Tests', () => {
 });
 
 test.describe('Motorista History Tab Tests', () => {
-  let loginPage: LoginPage;
-  let _motoristaPage: MotoristaPage;
+  let motoristaPage: MotoristaPage;
+
+  test.use({ storageState: SESSAO_MOTORISTA });
 
   test.beforeEach(async ({ page }) => {
-    loginPage = new LoginPage(page);
-    _motoristaPage = new MotoristaPage(page);
-
-    await loginPage.goto();
-    await loginPage.login(
-      testUsers.motorista.email,
-      testUsers.motorista.password,
-    );
-    await page.waitForURL(/.*motorista.*/, {
-      timeout: 30000,
-      waitUntil: 'domcontentloaded',
-    });
+    motoristaPage = new MotoristaPage(page);
+    // Sem o redirecionamento do login, o teste comeca em about:blank:
+    // a navegacao passa a ser explicita.
+    await motoristaPage.goto();
   });
 
   test.describe('Historico Tab', () => {

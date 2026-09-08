@@ -72,10 +72,19 @@ export default defineConfig({
 
   // Configure projects for major browsers
   projects: [
+    // Loga uma vez por papel e guarda a sessao em e2e/.auth/. Os projetos de
+    // teste dependem dele, entao roda antes de tudo e uma unica vez por
+    // execucao. Ver e2e/auth.setup.ts e e2e/fixtures/sessoes.ts.
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+
     // Desktop Chrome
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
 
     // Mobile Chrome (responsive testing)
@@ -89,6 +98,7 @@ export default defineConfig({
       },
       // Extra retry for mobile-chrome due to resource contention with parallel execution
       retries: process.env.CI ? 2 : 2,
+      dependencies: ['setup'],
     },
   ],
 
