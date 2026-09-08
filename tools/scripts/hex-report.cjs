@@ -3,7 +3,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const OUTPUT_PATH = path.join(ROOT, 'docs', 'design-system-hex-report.md');
-const TARGETS = ['app', 'src', 'App.tsx'];
+const TARGETS = ['app', 'src'];
 const INCLUDE_EXT = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const IGNORE_DIRS = new Set([
   '.expo',
@@ -201,7 +201,7 @@ function main() {
     '',
     '## Scope',
     '',
-    '- Paths: `app/`, `src/`, `App.tsx`',
+    '- Paths: `app/`, `src/`',
     '- Pattern: `#RGB`, `#RRGGBB`, `#RRGGBBAA`',
     '- Excludes: `__tests__`, `node_modules/`, `tokens/`, `dist/`, `build/`, `coverage/`',
     '',
