@@ -23,7 +23,10 @@ test.describe('Gestor Team Management E2E Tests', () => {
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    await page.waitForURL(/.*gestor.*/, {
+      timeout: 30000,
+      waitUntil: 'domcontentloaded',
+    });
   });
 
   test.describe('Motoristas Page Access', () => {
@@ -51,7 +54,9 @@ test.describe('Gestor Team Management E2E Tests', () => {
   });
 
   test.describe('Motoristas List Display', () => {
-    test('should display list of motoristas or empty state', async ({ page }) => {
+    test('should display list of motoristas or empty state', async ({
+      page,
+    }) => {
       await gestorPage.gotoMotoristas();
       await page.waitForTimeout(3000);
 
@@ -92,22 +97,30 @@ test.describe('Gestor Team Management E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Look for add button
-      const addButton = page.getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i).first();
+      const addButton = page
+        .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
+        .first();
       const isVisible = await addButton.isVisible().catch(() => false);
 
       // Either has button or page shows add functionality
       const bodyText = await page.locator('body').textContent();
       const hasAddFunctionality =
-        isVisible || bodyText?.includes('Adicionar') || bodyText?.includes('Novo');
+        isVisible ||
+        bodyText?.includes('Adicionar') ||
+        bodyText?.includes('Novo');
 
       expect(hasAddFunctionality).toBeTruthy();
     });
 
-    test('should open add motorista modal when clicking add button', async ({ page }) => {
+    test('should open add motorista modal when clicking add button', async ({
+      page,
+    }) => {
       await gestorPage.gotoMotoristas();
       await page.waitForTimeout(2000);
 
-      const addButton = page.getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i).first();
+      const addButton = page
+        .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
+        .first();
 
       if (await addButton.isVisible()) {
         await addButton.click();
@@ -132,7 +145,9 @@ test.describe('Gestor Team Management E2E Tests', () => {
       await gestorPage.gotoMotoristas();
       await page.waitForTimeout(2000);
 
-      const addButton = page.getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i).first();
+      const addButton = page
+        .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
+        .first();
 
       if (await addButton.isVisible()) {
         await addButton.click();
@@ -152,66 +167,58 @@ test.describe('Gestor Team Management E2E Tests', () => {
       }
     });
 
-    test('should have required field indicators', async ({ page }) => {
+    /**
+     * Chamava-se "should have required field indicators" e procurava "*" ou
+     * "obrigatório" — que NÃO existem neste formulário. Em vez de falhar
+     * apontando a lacuna, a asserção foi trocada por `bodyText.length > 100`.
+     *
+     * O nome passa a dizer o que dá para afirmar: o modal abre com os quatro
+     * campos. A ausência de marcação de campo obrigatório fica registrada aqui
+     * como observação de produto, não como asserção de algo inexistente.
+     */
+    test('o modal de adicionar motorista abre com os quatro campos', async ({
+      page,
+    }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
 
-      const addButton = page.getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i).first();
+      await page.getByText('Adicionar Motorista').first().click();
 
-      if (await addButton.isVisible()) {
-        await addButton.click();
-        await page.waitForTimeout(1000);
-
-        // Look for required indicators (* or required text)
-        const bodyText = await page.locator('body').textContent();
-        const _hasRequiredIndicators =
-          bodyText?.includes('*') ||
-          bodyText?.includes('obrigatório') ||
-          bodyText?.includes('Obrigatório');
-
-        // Page content should exist
-        expect(bodyText?.length).toBeGreaterThan(100);
+      for (const placeholder of [
+        /Digite o nome completo/i,
+        /email@exemplo\.com/i,
+        /\(00\) 00000-0000/,
+        /Mínimo 6 caracteres/i,
+      ]) {
+        await expect(page.getByPlaceholder(placeholder).first()).toBeVisible({
+          timeout: 15000,
+        });
       }
     });
   });
 
-  test.describe('Driver Performance Metrics', () => {
-    test('should display performance indicators for drivers', async ({ page }) => {
-      await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(3000);
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Look for performance-related content
-      const _hasPerformanceContent =
-        bodyText?.includes('Rotas') ||
-        bodyText?.includes('Concluídas') ||
-        bodyText?.includes('Em Andamento') ||
-        bodyText?.includes('Total') ||
-        bodyText?.includes('Performance');
-
-      // Either has performance metrics or shows basic driver info
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-  });
+  // REMOVIDO EM 07/09/2026: "should display performance indicators for drivers"
+  // abria a mesma tela que o teste de status abaixo e terminava em
+  // `bodyText.length > 100`. O nome ainda prometia "performance", que a lista
+  // de motoristas não tem — ela mostra cadastro, não estatística por motorista.
+  // A cobertura real da tela (contagens + colunas) está em
+  // `dashboard-reports.e2e.ts`, no teste da lista de motoristas.
 
   test.describe('Driver Status Management', () => {
-    test('should show driver status (active/inactive)', async ({ page }) => {
+    test('a lista de motoristas mostra o status de cada um', async ({
+      page,
+    }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Look for status indicators
-      const _hasStatusContent =
-        bodyText?.includes('Ativo') ||
-        bodyText?.includes('Inativo') ||
-        bodyText?.includes('Status') ||
-        bodyText?.includes('✅') ||
-        bodyText?.includes('❌');
-
-      // Page should have content
-      expect(bodyText?.length).toBeGreaterThan(100);
+      await expect(page.getByText('Lista de Motoristas').first()).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(
+        page.getByText('Status', { exact: true }).first(),
+      ).toBeVisible();
+      // A conta demo tem 2 cadastrados, 1 ativo — então há de haver ao menos
+      // uma linha rotulada. Antes bastava a palavra "Status" existir no body,
+      // e ela existe no cabeçalho mesmo sem nenhuma linha.
+      await expect(page.getByText(/^(Ativo|Inativo)$/).first()).toBeVisible();
     });
   });
 });
@@ -224,10 +231,12 @@ test.describe('Gestão Rotas E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    await page.waitForURL(/.*gestor.*/, {
+      timeout: 30000,
+      waitUntil: 'domcontentloaded',
+    });
   });
 
   test.describe('Gestão Rotas Page', () => {
@@ -270,17 +279,27 @@ test.describe('Gestão Rotas E2E Tests', () => {
       expect(hasFilters).toBeTruthy();
     });
 
-    test('should have search input', async ({ page }) => {
+    test('a busca de rotas filtra a contagem de resultados', async ({
+      page,
+    }) => {
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
 
-      // Look for search input
-      const searchInput = page.locator('input[placeholder*="Buscar"], input[placeholder*="buscar"]');
-      const _hasSearch = await searchInput.isVisible().catch(() => false);
+      const busca = page
+        .getByPlaceholder(/Buscar por motorista ou data/i)
+        .first();
+      await expect(busca).toBeVisible({ timeout: 15000 });
 
-      // Search functionality should exist or page has filter UI
-      const bodyText = await page.locator('body').textContent();
-      expect(bodyText?.length).toBeGreaterThan(100);
+      const contador = page
+        .getByText(/\d+\s*rota\(s\)\s*encontrada\(s\)/i)
+        .first();
+      await expect(contador).toBeVisible();
+      const antes = await contador.textContent();
+
+      // Termo que nenhum motorista ou data satisfaz: a contagem tem de cair.
+      // A versão anterior só olhava se a variável existia e depois conferia o
+      // tamanho da página — nunca chegou a digitar nada.
+      await busca.fill('zzzzzzzz-nao-existe');
+      await expect(contador).not.toHaveText(antes ?? '', { timeout: 15000 });
     });
   });
 
@@ -293,22 +312,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
     });
   });
 
-  test.describe('Route Statistics', () => {
-    test('should display route summary statistics', async ({ page }) => {
-      await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(3000);
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show statistics
-      const _hasStats =
-        bodyText?.includes('registrada') ||
-        bodyText?.includes('encontrada') ||
-        bodyText?.includes('Concluídas') ||
-        bodyText?.includes('Pendentes') ||
-        /\d+\s*(rota|Rota)/.test(bodyText || '');
-
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-  });
+  // REMOVIDO EM 07/09/2026: "should display route summary statistics" era o
+  // mesmo teste que "resume as rotas em registradas, concluídas e pendentes"
+  // em `dashboard-reports.e2e.ts`, com a mesma não-asserção. Lá ele afirma.
 });
