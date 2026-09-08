@@ -63,19 +63,22 @@ const CONVERTIDOS = [
   'design-system.e2e.ts',
   'gestor-route-creation.e2e.ts',
   'gestor-team-management.e2e.ts',
+  'motorista-drawer-menu.e2e.ts',
+  'motorista-navigation.e2e.ts',
   'motorista-route-execution.e2e.ts',
+  'photo-proof.e2e.ts',
+  'smoke.e2e.ts',
   'visual-critical.e2e.ts',
 ];
 
 // Dívida declarada, com o tamanho de cada uma. Quem converter um arquivo
 // move-o para CONVERTIDOS — a catraca só aperta.
-const AINDA_NAO_CONVERTIDOS: Record<string, string> = {
-  'photo-proof.e2e.ts': '7 asserções de comprimento + 6 variáveis descartadas',
-  'motorista-navigation.e2e.ts': '3 asserções de comprimento',
-  'motorista-drawer-menu.e2e.ts': '1 variável descartada',
-  'smoke.e2e.ts':
-    '1 asserção de comprimento, secundária — o teste já afirma o status HTTP, que é o que importa',
-};
+//
+// ZERADA EM 07/09/2026: todos os arquivos e2e estão em CONVERTIDOS. Manter o
+// mapa (vazio) em vez de apagá-lo é deliberado — é ele que dá para onde apontar
+// quando um arquivo novo entrar sem poder falhar ainda, sem que se precise
+// reinventar o mecanismo.
+const AINDA_NAO_CONVERTIDOS: Record<string, string> = {};
 
 function arquivosE2E(): string[] {
   return readdirSync(join(RAIZ, 'e2e'))

@@ -75,39 +75,23 @@ test.describe('Motorista Navigation E2E Tests', () => {
       await page.waitForTimeout(1000);
 
       await expect(page).toHaveURL(/.*motorista.*/);
-      // Verify we can see content on inicio tab
-      const bodyText = await page.locator('body').textContent();
-      expect(bodyText?.length).toBeGreaterThan(100);
+      // URL não é prova de render: a tela de erro mora na mesma URL. A âncora
+      // da Início é o cartão principal. Antes conferia-se o comprimento da
+      // página, verdadeiro para qualquer coisa que pinte.
+      await expect(page.getByTestId('motorista-main-card')).toBeVisible({
+        timeout: 15000,
+      });
     });
   });
 
-  test.describe('Home Screen Content', () => {
-    test('should display motorista dashboard content', async ({ page }) => {
-      await motoristaPage.expectOnMotoristaDashboard();
-
-      // Should have some content (welcome, route card, or no route message)
-      await page.waitForTimeout(2000);
-
-      const hasContent = await page.locator('body').textContent();
-      expect(hasContent).toBeTruthy();
-      expect(hasContent?.length).toBeGreaterThan(50);
-    });
-
-    test('should show route status or no route message', async ({ page }) => {
-      await page.waitForTimeout(3000);
-
-      // Check for any relevant content on the home screen
-      // Could be: active route, no route message, welcome text, or any dashboard content
-      const bodyContent = await page.locator('body').textContent();
-
-      // The home screen should have meaningful content
-      expect(bodyContent).toBeTruthy();
-      expect(bodyContent!.length).toBeGreaterThan(100);
-
-      // Verify we're still on motorista dashboard
-      await expect(page).toHaveURL(/.*motorista.*/);
-    });
-  });
+  // REMOVIDOS EM 07/09/2026: "should display motorista dashboard content" e
+  // "should show route status or no route message". Os dois abriam a mesma
+  // tela e terminavam em `bodyText.length > 100` — um deles aceitava até 50
+  // caracteres. O conteúdo da Início é afirmado de verdade em
+  // `motorista-route-execution.e2e.ts` › "a home mostra o cartão da parada, a
+  // saudação e o resumo da rota", que exige cartão, saudação e o resumo com
+  // distância. Este arquivo é sobre NAVEGAÇÃO; a âncora da Início já está
+  // coberta no teste de voltar para a aba, acima.
 
   test.describe('Drawer Menu', () => {
     test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
