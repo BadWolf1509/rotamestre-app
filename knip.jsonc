@@ -36,8 +36,27 @@
   // o consome; não acrescente aqui sem essa conferência.
   "ignoreDependencies": [
     "@cspell/dict-pt-br", // cspell.json
-    "lint-staged",        // .lintstagedrc.json + .husky/pre-commit
-    "supabase"            // CLI: .github/workflows/expire-routes.yml
+    "lint-staged", // .lintstagedrc.json + .husky/pre-commit
+    "supabase", // CLI: .github/workflows/expire-routes.yml
+
+    // Heurística do plugin do Expo, a partir do app.config.js — NÃO é um
+    // `import` de ninguém, e o pacote sequer está instalado. Os três
+    // `backgroundColor` do config são de splash, ícone adaptativo e manifesto
+    // PWA, todos servidos por outros plugins. Declarar um pacote por hipótese
+    // é pior do que não declarar: some o sintoma e fica a dependência.
+    "expo-system-ui",
+
+    // Sub-pacote de @supabase/supabase-js, importado só no teste de contrato
+    // de abort do PostgREST. Declará-lo é que seria arriscado: uma faixa
+    // própria pode divergir da versão que o supabase-js resolve, e o teste
+    // passaria a exercitar uma cópia diferente da que roda em produção.
+    "@supabase/postgrest-js"
+  ],
+
+  // Binários que não vêm do npm.
+  "ignoreBinaries": [
+    "gradlew.bat", // nasce do `expo prebuild`; não há android/ versionado
+    "start" // builtin do Windows (exec em tools/scripts/db/show-rls-fix.js)
   ],
 
   "jest": { "config": "jest.config.js" },
