@@ -33,7 +33,6 @@ renumerados** quando uma sai — a 2 foi fechada em 06/09/2026 e o resto do
 documento cita as outras pelo número ("pendência 4"), que passaria a apontar
 para outra coisa.
 
-- **1.** **Rotacionar/desativar contas de teste com senha vazada** — `gestor@`, `motorista@`, `gestor.test@`, `motorista.test@` foram **excluídas em 05/08/2026**; se recriar qualquer conta de teste, use senha forte por variável de ambiente.<br>_Quem:_ gestor (Supabase → Auth → Users) · _Detalhe:_ "Credenciais hardcoded" abaixo
 - **3.** **Fase 2 da auditoria:** chip na tela da rota + indicador/filtro/contador na Gestão de Rotas. Plano próprio ainda não escrito — melhor depois de algumas semanas de dado acumulado.<br>_Quem:_ qualquer sessão · _Detalhe:_ spec `2026-08-04-auditoria-otimizacao-rotas-design.md`
 - **4.** **Play Store: produção continua vazia, e o gargalo é contável.** Teste fechado (`alpha`) e interno publicados e `completed` — confira qual build com `npm run play:status`. Para solicitar produção faltam **12 testadores com opt-in mantidos por 14 dias corridos** no teste fechado (em 31/08 eram **6**; o número vivo está no Painel do app no Console, não aqui). O caminho para os que faltam é divulgar o hub público `/testar`. **O teste aberto não é atalho:** ele fica bloqueado até haver acesso de produção — a dependência corre nesse sentido, e tentar promover para `beta` antes disso devolve `FAILED_PRECONDITION`.<br>_Quem:_ gestor (Play Console) · _Detalhe:_ `GOOGLE_PLAY_DEPLOYMENT.md`
 - **5.** **iOS:** não existe build. Bloqueado na autenticação interativa da Apple (`npx eas-cli build --platform ios --profile production`).<br>_Quem:_ gestor (Apple ID + 2FA) · _Detalhe:_ `APP_STORE_DEPLOYMENT.md`
@@ -316,6 +315,10 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
 - Android: teste fechado **e** interno servem o mesmo build; produção nunca teve
   release (pend. 4). **Não anote o versionCode aqui** — ele muda a cada release e
   já deixou este documento errado. Pergunte com `npm run play:status`.
+- O acompanhamento ao vivo do gestor **funciona desde 08/09/2026** (Migration 28)
+  e foi verificado ponta a ponta: uma linha nova em `motorista_locations`, um
+  movimento do marcador, sem recarregar. Antes disso o marcador congelava depois
+  da carga inicial — ver a armadilha de publicação de realtime.
 - iOS: configuração versionada, sem build (pend. 5).
 
 ## Identidades e serviços
@@ -380,6 +383,11 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 - Nunca exponha `service_role`, chave do Google Places ou credencial do Play no
   cliente ou no Git.
+- **Conta de teste nunca tem senha no repo.** As quatro antigas (`gestor@`,
+  `motorista@`, `gestor.test@`, `motorista.test@`) foram excluídas em
+  05/08/2026; se recriar alguma, a senha vem de variável de ambiente. Era a
+  pendência 1, cuja ação já estava feita — o que sobrava era esta regra,
+  ocupando um slot da lista canônica lida em toda sessão.
 - Toda leitura/escrita de tenant deve respeitar `unidade_id` e RLS.
 - `fotos-entrega` permanece privado; não recrie URLs públicas.
 - Migrations de schema devem ser versionadas em `database/migrations/` e
@@ -446,13 +454,9 @@ app.rotamestre.tec.br ── Expo Web / React Native
   `for f in $(find app -name "*.tsx" -not -path "*__tests__*" -not -name "_layout.tsx" -not -name "+*"); do grep -q ErrorBoundary "$f" || echo "$f"; done`
   — as 4 tabs em `app/motorista/(tabs)/` aparecem nessa busca e são **falso
   positivo**: re-exportam de `_screens/`, que já têm.
-- **Número com decimal na tela passa por `formatarDecimal`**
-  (`src/lib/formatNumber.ts`), nunca `toFixed` cru: o app é pt-BR e vírgula é o
-  separador. **Não troque por `Intl.NumberFormat('pt-BR')`** — o Hermes pode ser
-  compilado sem os dados de locale do ICU, e nesse caso `Intl` aceita o locale e
-  devolve en-US calado: sairia certo na web e errado no aparelho. Chave de
-  cache, coordenada, valor que vai para o banco e célula numérica de planilha
-  continuam com `toFixed` — não são exibição.
+- **Número com decimal na tela passa por `formatarDecimal`** — regra completa,
+  com as exceções, em [`../CLAUDE.md`](../CLAUDE.md). Estava duplicada aqui e
+  lá; duas cópias de uma regra divergem no primeiro ajuste.
 
 ## Próximas ações
 
@@ -466,10 +470,11 @@ app.rotamestre.tec.br ── Expo Web / React Native
 1. Confirmar no Play Console a quantidade e a continuidade dos participantes com
    opt-in; divulgue o hub `/testar` para ampliar a base. Contas cadastradas sem
    opt-in não contam para o requisito.
-2. Solicitar acesso à produção quando o requisito estiver satisfeito e
-   **promover** o build já publicado em teste fechado e interno. Promoção entre
-   trilhas é feita pela API, não por `eas submit`; não gere um AAB novo só para
-   repetir a tentativa.
+2. Solicitar acesso à produção quando o requisito estiver satisfeito. As duas
+   trilhas de teste já servem o mesmo build (alinhadas em 08/09/2026), então não
+   há promoção pendente entre elas. Promoção entre trilhas é feita pela API
+   (`npm run play:promote`), nunca por `eas submit`, que sempre sobe artefato
+   novo; não gere um AAB só para repetir a tentativa.
 3. Revisar "Conteúdo do app", Segurança de dados, classificação, público-alvo,
    acesso do revisor e URLs legais contra `play-store-metadata.md`.
 4. Concluir a autenticação interativa da Apple, gerar o primeiro build iOS e
@@ -481,9 +486,11 @@ app.rotamestre.tec.br ── Expo Web / React Native
 
 1. Monitorar erros da Nova Entrega: recuperação de rascunho após refresh,
    importação em massa, dependências retirada/entrega, retries e duplicidade.
-2. Validar o ciclo completo de um motorista **em rede instável** — o ciclo
-   em rede boa foi percorrido no Android em 05/09/2026 (iniciar, concluir com
-   foto, pular, reportar incidente, finalizar, e a recriação de Activity). O
+2. Validar o ciclo completo de um motorista **em rede instável**. Em rede boa o
+   ciclo foi percorrido no Android em 05/09/2026 (iniciar, concluir com foto,
+   pular, reportar incidente, finalizar, recriação de Activity) e o build de
+   08/09 foi validado em aparelho para mapa nativo, decimais pt-BR, Waze com
+   destino, aviso de localização, permissão de câmera e SOS nos dois ramos. O
    iOS segue sem build (pend. 5).
 3. Confirmar entrega de push nos artefatos instalados pelas lojas.
 4. Planejar o aviso aos usuários do app antigo sem interromper o backend
