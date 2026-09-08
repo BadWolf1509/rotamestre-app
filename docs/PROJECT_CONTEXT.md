@@ -54,20 +54,22 @@ de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
 é pergunta rara. Consulte-as lá antes de reabrir qualquer frente. O que era
 regra durável ficou nas Armadilhas; o que segue **aberto** está abaixo.
 
-Follow-ups menores (nenhum bloqueia): Timeline não narra o autor da otimização
-(o dado existe em `logs.usuario_id`, falta join em `useTimelineData.ts`);
-`mapLogToTimelinePreview` não exibe **6** dos eventos que `TIMELINE_LOG_EVENTS`
-conta — `rota_otimizada`, `paradas_reordenadas`, `rota_reativada`,
-`parada_reaberta`, `parada_retomada` e `motorista_alterado` —, então o widget
-colapsado soma esses eventos e não mostra nenhum deles (o registro anterior
-citava só `rota_otimizada`, era maior que isso); `finalizar_rota` em
-`src/lib/offline.ts:389` faz `.update()` com objeto genérico sem allowlist de
-colunas — sem produtor hoje (nenhum `addToOfflineQueue` enfileira esse tipo),
-mas `setupOfflineSync` drena a fila a cada reconexão, então é código vivo sobre
-dado morto: se uma futura conclusão de rota offline espalhar um `Rota` inteiro
-no payload, o `REVOKE UPDATE (unidade_id)` de `rotas` (Migration 27, RLS)
-derruba o `UPDATE` inteiro — `status` e `concluida_em` junto — e a ação
-reenfileira em silêncio.
+Follow-ups menores (nenhum bloqueia): **Timeline não narra o autor da
+otimização** — o dado existe em `logs.usuario_id` e falta o join em
+`src/hooks/gestao-rotas/useTimelineData.ts`. Deixado aberto de propósito em
+08/09/2026: é melhoria, não defeito, e tem uma dobra de design real — o handler
+de realtime (`:195`) recebe `payload.new`, que **não traz dado de join**, então
+o autor apareceria na carga inicial e sumiria nos eventos ao vivo. Resolver isso
+exige escolher entre resolver nomes no cliente (cache de usuários da unidade) ou
+aceitar a inconsistência; é decisão de produto, não conserto óbvio.
+
+**Fechados em 08/09/2026** (não reabra): `mapLogToTimelinePreview` devolvia
+`null` para 6 dos 15 eventos que `TIMELINE_LOG_EVENTS` conta, então o widget
+colapsado somava eventos que nunca exibia — corrigido com um teste de
+INVARIANTE (todo evento contado tem preview), que quebra sozinho quando alguém
+acrescentar o 16º; e `finalizar_rota`/`update_parada` em `src/lib/offline.ts`
+ganharam allowlist de colunas, derivada do que o caminho online grava, tirando
+a armadilha que o `REVOKE UPDATE (unidade_id)` da Migration 27 tinha criado.
 
 ## Armadilhas que já custaram caro
 
@@ -79,6 +81,22 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
 - **`supabase db push`:** o MCP `apply_migration` registra sob **timestamp
   próprio** (≠ nome do arquivo) e colar no Dashboard não registra nada. Rode
   `npx supabase migration list` antes de qualquer push. Ver `database/MIGRATIONS.md`.
+- **Assinatura de realtime em tabela fora da publicação não recebe nada, e não
+  reclama.** O gestor nunca viu o motorista se mover: os dois componentes
+  assinavam `postgres_changes` em `motorista_locations`, que só entrou na
+  publicação `supabase_realtime` em 08/09/2026 (Migration 28). O canal conecta,
+  entra em `SUBSCRIBED`, e nenhum evento chega — sem erro, sem log. Passou
+  despercebido porque os componentes fazem um `SELECT` inicial: abre-se o mapa,
+  o motorista está lá, e o marcador congela. **Ao criar assinatura, confirme que
+  a tabela está na publicação**, com
+  `SELECT ... FROM pg_publication_tables WHERE pubname='supabase_realtime'`.
+- **O RLS do realtime NÃO cobre DELETE.** Verificado lendo
+  `realtime.apply_rls` implantado: para INSERT/UPDATE ela roda a checagem com o
+  role e as claims do assinante, mas o ramo
+  `if not is_rls_enabled or action = 'DELETE'` entrega a linha a qualquer
+  assinatura cujo filtro de CLIENTE case, sem RLS. Assinar `'DELETE'` ou `'*'`
+  numa tabela multi-tenant vaza entre unidades. Guarda em
+  `src/lib/__tests__/realtime-motorista-locations-somente-insert.test.ts`.
 - **Banco único = produção.** Não há staging. Peça aval antes de aplicar
   migration e **nunca deixe subagente escrever no banco**. Desde 01/09/2026 o
   **CI também escreve**: `e2e/fixtures/garantir-rota-do-mapa.ts` faz um UPDATE
