@@ -47,6 +47,23 @@ type ShowConfirm = (opcoes: {
  * app). Quem oferece o botão usa o retorno para não prometer, no rótulo, uma
  * ação que este método já sabe de antemão que não vai fazer nada.
  */
+/**
+ * O remédio real na web, onde não existe tela de Configurações de app para
+ * abrir.
+ *
+ * Mora aqui, e não solta em cada tela, porque a frase estava LITERALMENTE
+ * duplicada entre este módulo e o aviso de localização da Início do motorista.
+ * Duas cópias de uma instrução divergem no primeiro ajuste de redação, e o
+ * motorista passa a receber orientações diferentes para o mesmo bloqueio,
+ * dependendo de onde esbarrou nele.
+ *
+ * Não é hipótese: essa mesma frase, ao ser introduzida no #490, colidiu com o
+ * seletor `getByText(/mapa/i).first()` e derrubou quatro testes e2e — texto
+ * repetido em telas diferentes tem alcance maior do que parece.
+ */
+export const REMEDIO_CADEADO_WEB =
+  'No navegador, use o cadeado ao lado do endereço do site para liberar o acesso.';
+
 export function abrirConfiguracoesDoApp(): boolean {
   if (Platform.OS === 'ios') {
     Linking.openURL('app-settings:');
@@ -92,7 +109,7 @@ export async function oferecerSaidaParaConfiguracoes(
   if (Platform.OS === 'web') {
     await showConfirm({
       title: copy.titulo,
-      message: `${mensagemBase} No navegador, use o cadeado ao lado do endereço do site para liberar o acesso.`,
+      message: `${mensagemBase} ${REMEDIO_CADEADO_WEB}`,
       type: 'warning',
       confirmText: 'Entendi',
     });

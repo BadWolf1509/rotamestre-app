@@ -138,11 +138,38 @@ export function isTimelineLogEvent(evento: string): boolean {
  * @param log - Object with evento and timestamp
  * @returns TimelinePreviewEvent or null if not mappable
  */
+/**
+ * Eventos com correspondência EXATA, resolvidos antes das heurísticas de
+ * substring abaixo.
+ *
+ * Os seis daqui eram contados por `isTimelineLogEvent` e devolviam `null` na
+ * exibição, então o widget colapsado somava eventos que a lista nunca mostrava
+ * — o gestor lia "8 eventos" e via cinco. Nenhum deles casava com as regras de
+ * substring existentes, então resolvê-los primeiro não muda o resultado de
+ * nenhum outro evento.
+ */
+const PREVIEW_POR_EVENTO_EXATO: Record<
+  string,
+  { title: string; type: TimelinePreviewEventType }
+> = {
+  rota_otimizada: { title: 'Rota otimizada', type: 'outro' },
+  paradas_reordenadas: { title: 'Paradas reordenadas', type: 'parada' },
+  rota_reativada: { title: 'Rota reativada', type: 'outro' },
+  parada_reaberta: { title: 'Parada reaberta', type: 'parada' },
+  parada_retomada: { title: 'Parada retomada', type: 'parada' },
+  motorista_alterado: { title: 'Motorista alterado', type: 'outro' },
+};
+
 export function mapLogToTimelinePreview(log: {
   evento: string;
   timestamp: string;
 }): TimelinePreviewEvent | null {
   const evento = log.evento.toLowerCase();
+
+  const exato = PREVIEW_POR_EVENTO_EXATO[evento];
+  if (exato) {
+    return { timestamp: log.timestamp, ...exato };
+  }
 
   // Route started
   if (

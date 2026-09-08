@@ -1142,3 +1142,58 @@ policy de `storage.objects` — mexer nela é mexer na invariante das fotos, e n
 deve viajar no mesmo lote que seis outras mudanças — e o `ativo` de `usuarios`,
 que permite a alguém desfazer a própria desativação mas não escala privilégio
 (o controle de acesso real usa `usuario_unidades.ativo`).
+
+---
+
+### ⏳ Migration 28: `motorista_locations` entra na publicação de realtime
+
+**Arquivo:** `20260908000000_realtime_motorista_locations.sql`
+
+**O gestor nunca viu o motorista se mover.** `useMotoristaLocationMapLibre` e
+`MotoristaMarker` assinam `postgres_changes` de INSERT em
+`motorista_locations`, mas a tabela nunca esteve na publicação
+`supabase_realtime` — que tinha apenas `notificacoes`, `paradas` e `rotas`.
+Assinatura em tabela fora da publicação é falha silenciosa exemplar: o canal
+conecta, entra em `SUBSCRIBED`, e nenhum evento chega jamais. Sem erro, sem log.
+
+**Por que passou despercebido.** Os dois componentes fazem um `SELECT` inicial
+(`order by timestamp desc limit 1`) ao montar. O gestor abre o mapa, vê o
+motorista lá — e o marcador congela. Só nota quem fica olhando a tela enquanto
+o motorista dirige. Não é problema de segundo plano: vale igual com o app
+aberto. O "Rastreamento em Tempo Real" da landing page entregava, na prática,
+"posição do instante em que você abriu a tela".
+
+**Segurança: nenhuma policy muda, e isso é o ponto.** Verificado lendo o corpo
+de `realtime.apply_rls` implantado neste projeto (`pg_get_functiondef`, não a
+documentação): antes de decidir quem recebe cada linha, ela roda
+`set_config('role', …)` e `set_config('request.jwt.claims', …)` com os valores
+**do assinante** e então executa
+`SELECT EXISTS(SELECT 1 FROM motorista_locations WHERE id = <pk do WAL>)`. Quem
+responde é a policy nativa da tabela — não existe regra de acesso separada para
+o realtime. Cada assinante recebe exatamente as linhas que já podia ler por
+consulta. `anon` falha fechado: sem claim `sub`, `auth.uid()` é NULL e os dois
+ramos da policy morrem.
+
+**⚠️ O que essa proteção NÃO cobre: DELETE.** No mesmo `apply_rls`, o ramo
+`if not is_rls_enabled or action = 'DELETE'` entrega a linha a qualquer
+assinatura cujo filtro de CLIENTE case, sem checar RLS. Hoje é inerte — as duas
+assinaturas são `event: 'INSERT'`. Trocar por `'DELETE'` ou `'*'` desligaria o
+filtro de tenant em silêncio. O invariante é do código do cliente e está
+vigiado em
+`src/lib/__tests__/realtime-motorista-locations-somente-insert.test.ts`.
+
+`replica identity` fica em `default` (PK), igual a `paradas` e `rotas`: só há
+assinatura de INSERT, e INSERT carrega a linha nova inteira de qualquer forma.
+
+**Custo:** desprezível. 17.734 linhas desde 18/12/2025 (~67/dia), 8,4 MB com
+índices; o custo do realtime escala com inserções por segundo e assinaturas por
+inserção, não com o acumulado.
+
+**Achados pré-existentes registrados na revisão, fora do escopo desta
+migration:** não há `pg_cron` no projeto, então nenhuma retenção agendada apaga
+linhas antigas de `motorista_locations`, apesar do `DELETE` que a
+`007_add_notifications_and_location_tracking.sql` documenta; e a policy de
+SELECT permite a qualquer membro ativo da mesma unidade — não só ao `gestor` —
+ver a posição de um colega.
+
+Revisada pelo `rls-policy-reviewer`: **APPROVE**, sem achado crítico.

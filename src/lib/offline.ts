@@ -8,7 +8,6 @@ import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { uploadELinkFotoParada } from './storage';
 import { supabase } from './supabase';
 
-
 const OFFLINE_QUEUE_KEY = '@rotamestre:offline_queue';
 const OFFLINE_DATA_KEY = '@rotamestre:offline_data';
 const OFFLINE_PHOTOS_DIR = `${FileSystem.documentDirectory}offline_photos/`;
@@ -48,7 +47,9 @@ async function ensureOfflinePhotosDir(): Promise<void> {
 
   const dirInfo = await FileSystem.getInfoAsync(OFFLINE_PHOTOS_DIR);
   if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(OFFLINE_PHOTOS_DIR, { intermediates: true });
+    await FileSystem.makeDirectoryAsync(OFFLINE_PHOTOS_DIR, {
+      intermediates: true,
+    });
   }
 }
 
@@ -65,7 +66,7 @@ export async function savePhotoOffline(
   photoUri: string,
   unidadeId: string,
   rotaId: string,
-  paradaId: string
+  paradaId: string,
 ): Promise<OfflinePhotoData> {
   if (Platform.OS === 'web') {
     throw new Error('Fotos offline não suportadas na web');
@@ -126,12 +127,20 @@ export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
  * When localPath is provided, removes only the specific entry (precise removal).
  * When localPath is omitted, removes ALL entries for that paradaId (fallback/backward compat).
  */
-async function removeFromPhotosIndex(paradaId: string, localPath?: string): Promise<void> {
+async function removeFromPhotosIndex(
+  paradaId: string,
+  localPath?: string,
+): Promise<void> {
   const index = await getOfflinePhotosIndex();
   const filtered = localPath
-    ? index.filter(p => !(p.paradaId === paradaId && p.localPath === localPath))
-    : index.filter(p => p.paradaId !== paradaId);
-  await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(filtered));
+    ? index.filter(
+        (p) => !(p.paradaId === paradaId && p.localPath === localPath),
+      )
+    : index.filter((p) => p.paradaId !== paradaId);
+  await AsyncStorage.setItem(
+    OFFLINE_PHOTOS_INDEX_KEY,
+    JSON.stringify(filtered),
+  );
 }
 
 /**
@@ -163,10 +172,15 @@ export async function queuePhotoUpload(
   unidadeId: string,
   rotaId: string,
   paradaId: string,
-  photoUri: string
+  photoUri: string,
 ): Promise<string> {
   // Save photo locally (adds to photos index via savePhotoOffline -> addToPhotosIndex)
-  const photoData = await savePhotoOffline(photoUri, unidadeId, rotaId, paradaId);
+  const photoData = await savePhotoOffline(
+    photoUri,
+    unidadeId,
+    rotaId,
+    paradaId,
+  );
 
   // Photos are tracked exclusively via photos index, processed by processOfflinePhotos()
   // No addToOfflineQueue call - that caused duplicate uploads when setupOfflineSync
@@ -183,7 +197,10 @@ let isProcessingPhotos = false;
 /**
  * Processa uploads de fotos pendentes
  */
-export async function processOfflinePhotos(): Promise<{ success: number; failed: number }> {
+export async function processOfflinePhotos(): Promise<{
+  success: number;
+  failed: number;
+}> {
   if (isProcessingPhotos) {
     return { success: 0, failed: 0 };
   }
@@ -215,7 +232,7 @@ export async function processOfflinePhotos(): Promise<{ success: number; failed:
           photo.unidadeId,
           photo.rotaId,
           photo.paradaId,
-          photo.localPath
+          photo.localPath,
         );
 
         if (uploaded) {
@@ -251,15 +268,17 @@ export async function getPendingPhotosCount(): Promise<number> {
  */
 export async function hasOfflinePhoto(paradaId: string): Promise<boolean> {
   const index = await getOfflinePhotosIndex();
-  return index.some(p => p.paradaId === paradaId);
+  return index.some((p) => p.paradaId === paradaId);
 }
 
 /**
  * Obtém caminho local da foto offline de uma parada
  */
-export async function getOfflinePhotoPath(paradaId: string): Promise<string | null> {
+export async function getOfflinePhotoPath(
+  paradaId: string,
+): Promise<string | null> {
   const index = await getOfflinePhotosIndex();
-  const photo = index.find(p => p.paradaId === paradaId);
+  const photo = index.find((p) => p.paradaId === paradaId);
   return photo?.localPath || null;
 }
 
@@ -278,7 +297,9 @@ export async function isOnline(): Promise<boolean> {
 /**
  * Adiciona uma ação à fila offline para ser executada quando voltar a conexão
  */
-export async function addToOfflineQueue(action: Omit<OfflineAction, 'id' | 'timestamp'>): Promise<void> {
+export async function addToOfflineQueue(
+  action: Omit<OfflineAction, 'id' | 'timestamp'>,
+): Promise<void> {
   const queue = await getOfflineQueue();
   const newAction: OfflineAction = {
     ...action,
@@ -322,7 +343,11 @@ let isProcessingQueue = false;
 /**
  * Processa a fila offline quando a conexão é restaurada
  */
-export async function processOfflineQueue(): Promise<{ success: number; failed: number; errors: any[] }> {
+export async function processOfflineQueue(): Promise<{
+  success: number;
+  failed: number;
+  errors: any[];
+}> {
   if (isProcessingQueue) {
     return { success: 0, failed: 0, errors: [] };
   }
@@ -353,14 +378,62 @@ export async function processOfflineQueue(): Promise<{ success: number; failed: 
 
     // Remove apenas ações bem-sucedidas, mantém as que falharam para retry
     if (successCount > 0) {
-      const remainingQueue = queue.filter(action => !successfulIds.has(action.id));
-      await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingQueue));
+      const remainingQueue = queue.filter(
+        (action) => !successfulIds.has(action.id),
+      );
+      await AsyncStorage.setItem(
+        OFFLINE_QUEUE_KEY,
+        JSON.stringify(remainingQueue),
+      );
     }
 
     return { success: successCount, failed: failedCount, errors };
   } finally {
     isProcessingQueue = false;
   }
+}
+
+/**
+ * Colunas que cada ação da fila offline pode escrever.
+ *
+ * POR QUE UMA ALLOWLIST, E POR QUE AGORA. Estas ações espalhavam o payload
+ * inteiro (`...updateData`) no `.update()`. Como nada enfileira hoje
+ * (`addToOfflineQueue` não tem chamador), é código vivo sobre dado morto — mas
+ * `setupOfflineSync` drena a fila a cada reconexão, então o primeiro produtor
+ * que aparecer roda por aqui.
+ *
+ * A armadilha é específica: a Migration 27 revogou `UPDATE (unidade_id)` de
+ * `rotas`. Se uma futura conclusão offline espalhar um objeto `Rota` inteiro no
+ * payload, o Postgres derruba o UPDATE **todo** — `status` e `concluida_em`
+ * junto —, o `throw` reenfileira a ação, e a entrega fica registrada em lugar
+ * nenhum. O motorista veria a conclusão sumir sem erro visível.
+ *
+ * As listas saem do que o caminho ONLINE equivalente grava, não de suposição:
+ * `locationTracking.ts` (rota e parada) e `useRouteActions.ts` (parada com
+ * foto). Coluna a mais no payload é sinal de produtor errado, então ela é
+ * descartada E registrada — silenciar seria trocar uma falha por outra.
+ */
+const COLUNAS_PARADA = ['status', 'concluida_em', 'foto_url'] as const;
+const COLUNAS_ROTA = ['status', 'concluida_em'] as const;
+
+function apenasColunasPermitidas(
+  payload: Record<string, unknown>,
+  permitidas: readonly string[],
+  acao: string,
+): Record<string, unknown> {
+  const recusadas = Object.keys(payload).filter(
+    (coluna) => !permitidas.includes(coluna),
+  );
+
+  if (recusadas.length > 0) {
+    logger.warn(
+      `[Offline] ${acao}: colunas fora da allowlist descartadas: ${recusadas.join(', ')}`,
+    );
+  }
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([coluna]) => permitidas.includes(coluna)),
+  );
 }
 
 /**
@@ -372,7 +445,9 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
       const { id, ...updateData } = action.data;
       const { error: updateError } = await supabase
         .from('paradas')
-        .update(updateData)
+        .update(
+          apenasColunasPermitidas(updateData, COLUNAS_PARADA, 'update_parada'),
+        )
         .eq('id', id);
       if (updateError) throw updateError;
       break;
@@ -390,7 +465,9 @@ async function executeOfflineAction(action: OfflineAction): Promise<void> {
       const { rotaId, ...rotaData } = action.data;
       const { error: rotaError } = await supabase
         .from('rotas')
-        .update(rotaData)
+        .update(
+          apenasColunasPermitidas(rotaData, COLUNAS_ROTA, 'finalizar_rota'),
+        )
         .eq('id', rotaId);
       if (rotaError) throw rotaError;
       break;
