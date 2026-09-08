@@ -116,9 +116,16 @@ export default defineConfig({
     stderr: 'pipe',
   },
 
-  // Global timeout for each test
-  // CI is slower (~2x), so use 60s on CI, 30s locally (máx local: ~21s)
-  timeout: process.env.CI ? 60000 : 30000,
+  // Global timeout for each test.
+  //
+  // 60s nos dois lados desde 07/09/2026. Antes eram 30s local, e o `beforeEach`
+  // que quase todo arquivo repete pede `waitForURL(..., { timeout: 30000 })`
+  // DEPOIS de `goto` e `login` — ou seja, pedia a janela inteira do teste para
+  // a última etapa dele. Esse timeout era inalcançável por construção: o teste
+  // morria antes, e o login lento aparecia como "Test timeout exceeded while
+  // running beforeEach hook" em vez de dizer que a navegação não veio.
+  // O trabalho é o mesmo local e no CI; a folga também passa a ser.
+  timeout: 60000,
 
   // Expect timeout - CI is slower
   expect: {

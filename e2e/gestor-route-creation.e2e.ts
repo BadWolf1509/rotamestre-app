@@ -22,7 +22,10 @@ test.describe('Gestor Route Creation E2E Tests', () => {
     // Login as gestor
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    await page.waitForURL(/.*gestor.*/, {
+      timeout: 30000,
+      waitUntil: 'domcontentloaded',
+    });
   });
 
   test.describe('Nova Entrega Page Access', () => {
@@ -72,26 +75,25 @@ test.describe('Gestor Route Creation E2E Tests', () => {
       }
     });
 
-    test('should show delivery type options if available', async ({ page }) => {
+    test('a nova parada oferece os tipos entrega e retirada', async ({
+      page,
+    }) => {
       await gestorPage.gotoNovaEntrega();
-      await page.waitForTimeout(2000);
 
-      // Check for delivery type buttons or tabs
-      const entregaButton = page.getByText('Entrega');
-      const retiradaButton = page.getByText('Retirada');
-
-      // At least one of these should exist
-      const _hasEntrega = await entregaButton.isVisible().catch(() => false);
-      const _hasRetirada = await retiradaButton.isVisible().catch(() => false);
-
-      // Page should have form content
-      const bodyContent = await page.locator('body').textContent();
-      expect(bodyContent?.length).toBeGreaterThan(100);
+      // Os dois rádios expõem accessibilityLabel, que na web vira aria-label —
+      // âncora estável, ao contrário de `getByText('Entrega')`, que também casa
+      // o título "Nova Rota de Entrega" no cabeçalho da página.
+      await expect(page.getByLabel('Selecionar tipo entrega')).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(page.getByLabel('Selecionar tipo retirada')).toBeVisible();
     });
   });
 
   test.describe('Address Autocomplete (Google Places)', () => {
-    test('should have address input with autocomplete functionality', async ({ page }) => {
+    test('should have address input with autocomplete functionality', async ({
+      page,
+    }) => {
       await gestorPage.gotoNovaEntrega();
       await page.waitForTimeout(2000);
 
@@ -105,12 +107,10 @@ test.describe('Gestor Route Creation E2E Tests', () => {
         await addressInput.fill('Avenida Paulista');
         await page.waitForTimeout(1500); // Wait for autocomplete suggestions
 
-        // Check if suggestions appeared (implementation-dependent)
-        const suggestions = page.locator('[data-testid="suggestion"], .suggestion, [role="option"]');
-        const _suggestionCount = await suggestions.count();
-
-        // Autocomplete may or may not show results depending on API key
-        // Just verify we can type in the field
+        // NÃO se afirma aqui que sugestões apareceram: elas vêm do Google
+        // Places por Edge Function, e um teste que dependesse dessa resposta
+        // ficaria vermelho por indisponibilidade externa, não por defeito
+        // nosso. A contagem de sugestões era computada e descartada — saiu.
         const inputValue = await addressInput.inputValue();
         expect(inputValue).toContain('Paulista');
       }
@@ -118,7 +118,9 @@ test.describe('Gestor Route Creation E2E Tests', () => {
   });
 
   test.describe('Route Optimization', () => {
-    test('should display optimization button when addresses are added', async ({ page }) => {
+    test('should display optimization button when addresses are added', async ({
+      page,
+    }) => {
       await gestorPage.gotoNovaEntrega();
       await page.waitForTimeout(3000);
 
@@ -142,7 +144,9 @@ test.describe('Gestor Route Creation E2E Tests', () => {
       await page.waitForTimeout(2000);
 
       // Look for link to create new route
-      const novaEntregaLink = page.getByText(/nova.*entrega|criar.*rota|adicionar.*rota/i).first();
+      const novaEntregaLink = page
+        .getByText(/nova.*entrega|criar.*rota|adicionar.*rota/i)
+        .first();
 
       if (await novaEntregaLink.isVisible()) {
         await novaEntregaLink.click();
@@ -165,21 +169,23 @@ test.describe('Gestor Dashboard E2E Tests', () => {
     loginPage = new LoginPage(page);
     gestorPage = new GestorPage(page);
 
-
     await loginPage.goto();
     await loginPage.login(testUsers.gestor.email, testUsers.gestor.password);
-    await page.waitForURL(/.*gestor.*/, { timeout: 30000, waitUntil: 'domcontentloaded' });
+    await page.waitForURL(/.*gestor.*/, {
+      timeout: 30000,
+      waitUntil: 'domcontentloaded',
+    });
   });
 
-  test('should display gestor dashboard', async ({ page }) => {
+  test('o painel do gestor renderiza o bloco de métricas', async ({ page }) => {
     await gestorPage.gotoInicio();
-    await page.waitForTimeout(2000);
 
+    // `expectOnGestorDashboard` só confere a URL, e URL não é prova de render:
+    // a tela de erro mora na mesma URL. A âncora é o bloco de métricas.
     await gestorPage.expectOnGestorDashboard();
-
-    // Dashboard should have meaningful content
-    const bodyText = await page.locator('body').textContent();
-    expect(bodyText?.length).toBeGreaterThan(100);
+    await expect(page.getByTestId('gestor-dashboard-stats')).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test('should show statistics or summary cards', async ({ page }) => {
