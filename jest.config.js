@@ -13,7 +13,6 @@ module.exports = {
     '!src/lib/navigation.web.ts',
     '!src/lib/supabase.ts',
     '!src/lib/supabase.web.ts',
-    '!src/modules/AndroidWidget.ts',
     '!src/services/locationTracking.ts',
     '!src/components/motorista/NavigationMode.web.tsx',
     '!src/components/motorista/home/MiniMap.web.tsx',
