@@ -80,6 +80,7 @@ Installed in `.claude/`:
 - **Current versions of any dep** — `package.json`
 - **Live DB schema / data** — `mcp__rotamestre-db__*` or `mcp__supabase__list_tables` (verify project_ref first)
 - **Design system (colors, typography, tokens)** — `.claude/refs/design-system.md`
+- **Estado vazio: são dois componentes, e o encaixe está no que perdeu** — `MobileEmptyState` (`src/components/mobile/`) tem **7 usos** e recebe só emoji num `<Text>`; `EmptyState` (`src/components/`) tem **2** e expõe uma prop `illustration` que nenhum call site usa. **Antes de acrescentar polimento de estado vazio — ilustração, animação — consolide os dois:** melhorar só um cria inconsistência visível com as telas do outro, e é por isso que as 5 ilustrações desenhadas para esse encaixe foram apagadas em 08/09/2026 (PR #512) em vez de ligadas. Estão no git se a consolidação acontecer.
 - **Test commands, coverage, layout** — `docs/TESTING.md`
 - **Migration conventions + history** — `database/MIGRATIONS.md` (also see `/new-migration` skill)
 - **Fluxo de recuperação de senha** — `docs/PASSWORD_RECOVERY.md`
