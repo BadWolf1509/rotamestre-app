@@ -343,8 +343,21 @@ export default function SOSScreen() {
               </>
             )}
           </TouchableOpacity>
+          {/*
+            Mesma regra do diálogo de confirmação: a promessa muda com o FATO,
+            não com a intenção.
+
+            Este subtítulo era fixo e prometia "enviar sua localização" mesmo na
+            tela que já mostrava, logo abaixo, "o gestor não vai saber onde você
+            está". Duas afirmações opostas no mesmo lugar — e quem está numa
+            emergência lê o botão, não a linha de status. O #492 corrigiu o
+            diálogo e deixou esta para trás; verificado no aparelho em
+            08/09/2026, com a permissão de localização negada.
+          */}
           <Text style={styles.emergencySubtext}>
-            Toque para notificar seu gestor e enviar sua localização
+            {location
+              ? 'Toque para notificar seu gestor e enviar sua localização'
+              : 'Toque para notificar seu gestor. Sem localização, descreva onde você está no campo acima.'}
           </Text>
         </View>
 

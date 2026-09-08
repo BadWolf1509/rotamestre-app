@@ -97,6 +97,25 @@ describe('tela de SOS', () => {
       expect(opcoes.message).toMatch(/sem sua localização/i);
     });
 
+    it('o subtítulo do botão não promete enviar o que não existe', async () => {
+      const { getByText, queryByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      // O subtítulo era FIXO e prometia "enviar sua localização" na mesma tela
+      // que já mostrava "o gestor não vai saber onde você está". O #492 tinha
+      // corrigido o diálogo e deixado esta linha para trás.
+      await waitFor(() =>
+        expect(
+          queryByText(
+            /Toque para notificar seu gestor e enviar sua localização/i,
+          ),
+        ).toBeNull(),
+      );
+      expect(getByText(/descreva onde você está/i)).toBeTruthy();
+    });
+
     it('o sucesso diz que foi enviado sem localização', async () => {
       const { getByText } = render(<SOSScreen />);
       await waitFor(() =>
@@ -140,6 +159,21 @@ describe('tela de SOS', () => {
 
       expect(opcoes.message).toMatch(/localização/i);
       expect(opcoes.message).not.toMatch(/sem sua localização/i);
+    });
+
+    it('o subtítulo do botão promete a localização, porque agora ela existe', async () => {
+      const { getByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      await waitFor(() =>
+        expect(
+          getByText(
+            /Toque para notificar seu gestor e enviar sua localização/i,
+          ),
+        ).toBeTruthy(),
+      );
     });
 
     it('a coordenada vai no payload', async () => {
