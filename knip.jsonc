@@ -1,0 +1,45 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // ENTRY — raízes do grafo. Tudo que não é alcançável a partir daqui vira
+  // "arquivo não usado", então uma raiz faltando produz FALSO POSITIVO.
+  "entry": [
+    // Rotas do Expo Router: são montadas por convenção de arquivo, ninguém as
+    // importa. Sem esta linha, as 72 telas de app/ saem como mortas.
+    "app/**/*.{ts,tsx}",
+
+    // Variantes de plataforma. `import './MapaAdapter'` resolve para
+    // MapaAdapter.tsx sob o TypeScript — quem escolhe o .web.tsx é o METRO,
+    // por extensão, e o tsc não sabe disso. As 13 variantes deste repo sairiam
+    // como não usadas, e são justamente as de deleção mais perigosa: quebram o
+    // mapa web em silêncio (ver Armadilhas no CLAUDE.md).
+    //
+    // Elas entram como ENTRY, não em `ignore`, de propósito: entry preserva a
+    // análise do conteúdo (export morto lá dentro ainda aparece); `ignore` as
+    // tornaria cegas.
+    "src/**/*.web.{ts,tsx}",
+    "src/**/*.native.{ts,tsx}",
+
+    // Raízes do Playwright e helpers de sessão.
+    "e2e/**/*.{e2e,setup}.ts",
+
+    // Chamados por `npm run`, nunca por import.
+    "tools/scripts/**/*.{js,cjs,mjs}",
+    "scripts/**/*.{js,mjs}",
+    "*.config.{js,cjs,ts}"
+  ],
+
+  "project": ["*.{ts,tsx}", "src/**/*.{ts,tsx}", "app/**/*.{ts,tsx}"],
+
+  // Consumidos por CONFIG ou por CLI, nunca por import — mesma classe de falso
+  // positivo das variantes de plataforma. Cada um foi conferido no arquivo que
+  // o consome; não acrescente aqui sem essa conferência.
+  "ignoreDependencies": [
+    "@cspell/dict-pt-br", // cspell.json
+    "lint-staged",        // .lintstagedrc.json + .husky/pre-commit
+    "supabase"            // CLI: .github/workflows/expire-routes.yml
+  ],
+
+  "jest": { "config": "jest.config.js" },
+  "playwright": { "config": "playwright.config.ts" }
+}
