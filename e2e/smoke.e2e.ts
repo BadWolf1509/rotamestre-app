@@ -14,10 +14,13 @@ test.describe('Smoke Tests', () => {
     expect(response).not.toBeNull();
     expect(response?.status()).toBeLessThan(400);
 
-    // Should have some content
-    await page.waitForTimeout(3000);
-    const content = await page.content();
-    expect(content.length).toBeGreaterThan(100);
+    // O status HTTP acima é a asserção que importa neste smoke. O que havia
+    // aqui era `content.length > 100`, satisfeito por qualquer resposta —
+    // inclusive uma página de erro servida com 200. O que prova que o app
+    // MONTOU é a raiz do React ter conteúdo.
+    await expect(page.locator('#root, body > div').first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test('should navigate to login page', async ({ page }) => {

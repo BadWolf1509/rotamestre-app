@@ -84,10 +84,6 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
         await menuButton.click();
         await page.waitForTimeout(1000);
 
-        const _drawerContent = await page
-          .locator('[role="dialog"], .drawer')
-          .textContent();
-
         // Should NOT show Minha Unidade (as separate menu item)
         // Note: Unit info may still appear in header
         const menuSection = page.locator(

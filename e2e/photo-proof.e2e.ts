@@ -1,124 +1,34 @@
-import { SESSAO_GESTOR, SESSAO_MOTORISTA } from './fixtures/sessoes';
+import { SESSAO_GESTOR } from './fixtures/sessoes';
 import { test, expect } from './fixtures/test-fixtures';
 import { GestorPage } from './pages/gestor.page';
-import { MotoristaPage } from './pages/motorista.page';
 
 /**
- * E2E Tests for Photo Proof (Fotos de Comprovação)
- * Landing Page Feature: "Registros georreferenciados"
+ * Comprovação por foto — o que dá para afirmar daqui, e o que não dá.
  *
- * Tests the delivery photo proof functionality:
- * 1. Camera/gallery access option
- * 2. Photo capture interface
- * 3. Photo upload flow
- * 4. Photo viewing by gestor
+ * ESTE ARQUIVO TINHA SETE TESTES E NENHUM AFIRMAVA NADA. Todos terminavam em
+ * `expect(bodyText?.length).toBeGreaterThan(100)`, verdadeiro para qualquer
+ * página que renderize. Quatro deles procuravam a palavra "foto" no texto do
+ * body e descartavam o resultado.
+ *
+ * POR QUE ELES NASCERAM ASSIM — e por que o lado do motorista foi REMOVIDO em
+ * vez de convertido. A UI de foto vive atrás da conclusão de parada e do
+ * "Reportar Problema". Medido em 07/09/2026 na build web servida do `dist/`:
+ * clicar em "Concluir" e em "Reportar Problema" no viewport móvel NÃO abre
+ * modal nenhum, e a página segue com zero `input[type="file"]`. Os controles
+ * ficam num cartão de gestos ("Deslize para ações rápidas") que não responde a
+ * clique simples. Ou seja: a tela de captura de foto **não é alcançável** por
+ * este e2e — foi provavelmente isso que aconteceu com quem escreveu os testes
+ * originais, e a saída foi fingir cobertura em vez de registrar o limite.
+ *
+ * E MESMO QUE FOSSE ALCANÇÁVEL, concluir uma parada GRAVA EM PRODUÇÃO: o único
+ * banco é o de produção, e a rota do motorista de teste é fixture de outros
+ * testes. Um e2e não pode fechar entrega de verdade para conferir se apareceu
+ * um botão de câmera.
+ *
+ * O QUE FICA: o lado do gestor, que é alcançável e real. A leitura da foto em
+ * si (bucket privado + `useSignedUrl`) continua coberta por teste de unidade —
+ * ver `src/hooks/storage/__tests__`.
  */
-test.describe('Motorista Photo Proof E2E Tests', () => {
-  let motoristaPage: MotoristaPage;
-
-  test.use({ storageState: SESSAO_MOTORISTA });
-
-  test.beforeEach(async ({ page }) => {
-    motoristaPage = new MotoristaPage(page);
-    // Sem o redirecionamento do login, o teste comeca em about:blank:
-    // a navegacao passa a ser explicita.
-    await motoristaPage.goto();
-  });
-
-  test.describe('Photo Upload Interface', () => {
-    test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
-
-    test('should have photo/camera functionality available', async ({
-      page,
-    }) => {
-      await motoristaPage.expectOnMotoristaDashboard();
-      await page.waitForTimeout(3000);
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Look for photo/camera related content
-      const _hasPhotoContent =
-        bodyText?.includes('foto') ||
-        bodyText?.includes('Foto') ||
-        bodyText?.includes('câmera') ||
-        bodyText?.includes('Câmera') ||
-        bodyText?.includes('imagem') ||
-        bodyText?.includes('comprovante') ||
-        bodyText?.includes('📷');
-
-      // Page content should exist
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-
-    test('should display photo capture option when completing stop', async ({
-      page,
-    }) => {
-      await page.waitForTimeout(2000);
-
-      // Navigate to paradas tab
-      const paradasTab = page.getByText(/paradas/i).first();
-      if (await paradasTab.isVisible()) {
-        await paradasTab.click();
-        await page.waitForTimeout(2000);
-      }
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Should have completion-related content with photo option
-      const _hasPhotoUploadUI =
-        bodyText?.includes('foto') ||
-        bodyText?.includes('Foto') ||
-        bodyText?.includes('Concluir') ||
-        bodyText?.includes('comprovante');
-
-      // Page should have content
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-  });
-
-  test.describe('Photo Modal/Interface', () => {
-    test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
-
-    test('should have camera permission UI elements', async ({ page }) => {
-      await motoristaPage.expectOnMotoristaDashboard();
-      await page.waitForTimeout(2000);
-
-      // Navigate to paradas
-      const paradasTab = page.getByText(/paradas/i).first();
-      if (await paradasTab.isVisible()) {
-        await paradasTab.click();
-        await page.waitForTimeout(2000);
-      }
-
-      // Look for camera/photo button
-      const _photoButton = page
-        .locator('button, [role="button"]')
-        .filter({ hasText: /foto|câmera|capturar/i })
-        .first();
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Either has photo button or page shows stop management UI
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-  });
-
-  test.describe('Web Fallback for Camera', () => {
-    test('should provide file upload fallback on web', async ({ page }) => {
-      await motoristaPage.expectOnMotoristaDashboard();
-      await page.waitForTimeout(2000);
-
-      // On web, camera access may fall back to file input
-      const _fileInput = page.locator('input[type="file"]');
-
-      // File input may or may not be immediately visible (shown on action)
-      // Just verify the page structure supports the flow
-      const bodyText = await page.locator('body').textContent();
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-  });
-});
-
 test.describe('Gestor Photo Viewing E2E Tests', () => {
   let gestorPage: GestorPage;
 
@@ -129,76 +39,57 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
   });
 
   test.describe('View Delivery Proofs', () => {
-    test('should access route details with photo proofs', async ({ page }) => {
-      await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(3000);
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show routes with potential for viewing details
-      const _hasRouteViewUI =
-        bodyText?.includes('Ver') ||
-        bodyText?.includes('Detalhes') ||
-        bodyText?.includes('rota') ||
-        bodyText?.includes('Rota');
-
-      expect(bodyText?.length).toBeGreaterThan(100);
-    });
-
-    test('should have photo/proof viewing option in route details', async ({
+    /**
+     * "should access route details with photo proofs" saiu: era exatamente o
+     * mesmo caminho de `dashboard-reports.e2e.ts` › "Ver Detalhes leva ao mapa
+     * da rota", com a mesma não-asserção. Lá ele afirma.
+     */
+    test('os detalhes da rota abrem o mapa com o painel do trajeto', async ({
       page,
     }) => {
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
+      await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
+        timeout: 15000,
+      });
 
-      // Look for view details button
-      const viewButton = page.getByText(/ver.*detalhes|detalhes/i).first();
+      await page.getByText('Ver Detalhes').first().click();
 
-      if (await viewButton.isVisible().catch(() => false)) {
-        await viewButton.click();
-        await page.waitForTimeout(2000);
-
-        const bodyText = await page.locator('body').textContent();
-
-        // Should show route details with photo viewing capability
-        const _hasDetailView =
-          bodyText?.includes('foto') ||
-          bodyText?.includes('Foto') ||
-          bodyText?.includes('comprovante') ||
-          bodyText?.includes('parada') ||
-          bodyText?.includes('Parada');
-
-        expect(bodyText?.length).toBeGreaterThan(100);
-      }
+      // É nesta tela que a foto de comprovação aparece para o gestor. Antes
+      // conferia-se o comprimento da página; agora exige-se a tela montada.
+      await expect(page).toHaveURL(/mapa-rota/, { timeout: 15000 });
+      await expect(page.getByTestId('gestor-mapa-view')).toBeVisible({
+        timeout: 20000,
+      });
+      await expect(page.getByText('Mapa da Rota').first()).toBeVisible();
     });
   });
-});
 
-test.describe('Photo Storage Integration', () => {
-  let gestorPage: GestorPage;
+  test.describe('Photo Storage Integration', () => {
+    test('o filtro de concluídas tira as rotas em andamento da tabela', async ({
+      page,
+    }) => {
+      await gestorPage.gotoGestaoRotas();
 
-  test.use({ storageState: SESSAO_GESTOR });
+      const tabela = page.getByTestId('gestao-rotas-table');
+      await expect(tabela).toBeVisible({ timeout: 15000 });
 
-  test.beforeEach(async ({ page }) => {
-    gestorPage = new GestorPage(page);
-  });
+      // A conta demo tem rota em andamento junto das concluídas: é isso que
+      // torna o filtro falsificável. Sem essa linha antes, filtrar não provaria
+      // nada.
+      await expect(tabela.getByText('Em Andamento').first()).toBeVisible();
 
-  test('should display route with completed stops having photos', async ({
-    page,
-  }) => {
-    await gestorPage.gotoGestaoRotas();
-    await page.waitForTimeout(3000);
+      // Rotas concluídas são as que podem ter comprovante. O teste anterior
+      // clicava no filtro e conferia o tamanho da página — passava igual se o
+      // clique não filtrasse coisa nenhuma.
+      await page
+        .getByText(/^Conclu[ií]da/i)
+        .first()
+        .click();
 
-    // Filter by completed routes
-    const concluidaFilter = page.getByText(/conclu[ií]da/i).first();
-    if (await concluidaFilter.isVisible().catch(() => false)) {
-      await concluidaFilter.click();
-      await page.waitForTimeout(1000);
-    }
-
-    const bodyText = await page.locator('body').textContent();
-
-    // Should show completed routes (which may have photos)
-    expect(bodyText?.length).toBeGreaterThan(100);
+      await expect(tabela.getByText('Em Andamento')).toHaveCount(0, {
+        timeout: 15000,
+      });
+      await expect(tabela.getByText('Concluída').first()).toBeVisible();
+    });
   });
 });
