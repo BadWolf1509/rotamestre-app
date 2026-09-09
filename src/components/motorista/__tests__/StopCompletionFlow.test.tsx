@@ -12,6 +12,7 @@ import { StopCompletionFlow } from '../StopCompletionFlow';
 
 // TypeScript declaration for global mock
 declare global {
+   
   var mockUseAlert: {
     showAlert: jest.Mock;
     showSuccess: jest.Mock;
@@ -24,6 +25,7 @@ declare global {
     AlertDialog: null;
   };
 }
+
 
 // Mock dependencies
 jest.mock('@/utils/styles', () => {
@@ -105,8 +107,7 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 jest.mock('@/utils/color', () => ({
-  withOpacity: (color: string, opacity: number) =>
-    `${color}${Math.round(opacity * 255).toString(16)}`,
+  withOpacity: (color: string, opacity: number) => `${color}${Math.round(opacity * 255).toString(16)}`,
 }));
 
 // Mock Ionicons
@@ -119,26 +120,15 @@ jest.mock('@expo/vector-icons', () => ({
 
 // Mock CameraUpload
 const mockOnUploadSuccess = jest.fn();
-const mockCameraUploadProps = jest.fn();
 jest.mock('@/components/CameraUpload', () => {
   const _React = require('react');
   const { View, TouchableOpacity, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({
-      unidadeId,
-      rotaId,
-      paradaId,
-      onUploadSuccess,
-      onUploadError,
-    }: {
-      unidadeId: string;
-      rotaId: string;
-      paradaId: string;
+    default: ({ onUploadSuccess, onUploadError }: {
       onUploadSuccess: (url: string) => void;
       onUploadError: (error: string) => void;
     }) => {
-      mockCameraUploadProps({ unidadeId, rotaId, paradaId });
       mockOnUploadSuccess.mockImplementation(onUploadSuccess);
       return (
         <View testID="camera-upload">
@@ -160,11 +150,12 @@ jest.mock('@/components/CameraUpload', () => {
   };
 });
 
+
 // Mock RouteStatusContext
 const mockCompleteStop = jest.fn();
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
-    route: { id: 'route-1', unidade_id: 'route-unit' },
+    route: { id: 'route-1' },
     completeStop: mockCompleteStop,
   }),
 }));
@@ -205,7 +196,7 @@ describe('StopCompletionFlow', () => {
   describe('Renderização', () => {
     it('não deve renderizar quando parada é null', () => {
       const { queryByText } = render(
-        <StopCompletionFlow {...defaultProps} parada={null} />,
+        <StopCompletionFlow {...defaultProps} parada={null} />
       );
 
       expect(queryByText('Foto de Comprovante')).toBeNull();
@@ -213,7 +204,7 @@ describe('StopCompletionFlow', () => {
 
     it('não deve renderizar quando visible é false', () => {
       const { queryByText } = render(
-        <StopCompletionFlow {...defaultProps} visible={false} />,
+        <StopCompletionFlow {...defaultProps} visible={false} />
       );
 
       expect(queryByText('Foto de Comprovante')).toBeNull();
@@ -221,30 +212,18 @@ describe('StopCompletionFlow', () => {
 
     it('deve renderizar step de foto por padrão', () => {
       const { getByText, getByTestId } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       expect(getByText('Foto de Comprovante')).toBeTruthy();
-      expect(
-        getByText('Rua das Flores, 123, Centro, São Paulo - SP'),
-      ).toBeTruthy();
+      expect(getByText('Rua das Flores, 123, Centro, São Paulo - SP')).toBeTruthy();
       expect(getByText('João Silva')).toBeTruthy();
       expect(getByTestId('camera-upload')).toBeTruthy();
     });
 
-    it('usa a unidade da rota, não a unidade principal legada do motorista', () => {
-      render(<StopCompletionFlow {...defaultProps} />);
-
-      expect(mockCameraUploadProps).toHaveBeenCalledWith({
-        unidadeId: 'route-unit',
-        rotaId: 'route-1',
-        paradaId: 'parada-1',
-      });
-    });
-
     it('deve exibir botão de pular foto quando allowSkipPhoto é true', () => {
       const { getByText } = render(
-        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />,
+        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
       expect(getByText('Continuar sem foto')).toBeTruthy();
@@ -252,7 +231,7 @@ describe('StopCompletionFlow', () => {
 
     it('não deve exibir botão de pular foto quando allowSkipPhoto é false', () => {
       const { queryByText } = render(
-        <StopCompletionFlow {...defaultProps} allowSkipPhoto={false} />,
+        <StopCompletionFlow {...defaultProps} allowSkipPhoto={false} />
       );
 
       expect(queryByText('Continuar sem foto')).toBeNull();
@@ -262,7 +241,7 @@ describe('StopCompletionFlow', () => {
   describe('Fluxo de Foto', () => {
     it('deve ir para step de confirmação após upload de foto bem-sucedido', async () => {
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -277,7 +256,7 @@ describe('StopCompletionFlow', () => {
       Platform.OS = 'web' as typeof Platform.OS;
 
       const { getByText } = render(
-        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />,
+        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
       fireEvent.press(getByText('Continuar sem foto'));
@@ -286,9 +265,8 @@ describe('StopCompletionFlow', () => {
         expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
           expect.objectContaining({
             title: 'Pular foto?',
-            message:
-              'A foto serve como prova de entrega. Deseja continuar sem foto?',
-          }),
+            message: 'A foto serve como prova de entrega. Deseja continuar sem foto?',
+          })
         );
       });
     });
@@ -297,7 +275,7 @@ describe('StopCompletionFlow', () => {
       Platform.OS = 'ios';
 
       const { getByText } = render(
-        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />,
+        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
       fireEvent.press(getByText('Continuar sem foto'));
@@ -306,9 +284,8 @@ describe('StopCompletionFlow', () => {
         expect(global.mockUseAlert.showConfirm).toHaveBeenCalledWith(
           expect.objectContaining({
             title: 'Pular foto?',
-            message:
-              'A foto serve como prova de entrega. Deseja continuar sem foto?',
-          }),
+            message: 'A foto serve como prova de entrega. Deseja continuar sem foto?',
+          })
         );
       });
     });
@@ -317,16 +294,14 @@ describe('StopCompletionFlow', () => {
   describe('Step de Confirmação', () => {
     it('deve exibir informações da parada no step de confirmação', async () => {
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
 
       await waitFor(() => {
         expect(getByText('Confirmar Conclusão')).toBeTruthy();
-        expect(
-          getByText('Rua das Flores, 123, Centro, São Paulo - SP'),
-        ).toBeTruthy();
+        expect(getByText('Rua das Flores, 123, Centro, São Paulo - SP')).toBeTruthy();
         expect(getByText('João Silva')).toBeTruthy();
         expect(getByText('Foto anexada')).toBeTruthy();
       });
@@ -338,7 +313,7 @@ describe('StopCompletionFlow', () => {
       global.mockUseAlert.showConfirm.mockResolvedValueOnce(true);
 
       const { getByText } = render(
-        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />,
+        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
       // Pular foto - showConfirm is async and returns true
@@ -351,7 +326,7 @@ describe('StopCompletionFlow', () => {
 
     it('deve mostrar pergunta de confirmação com tipo da parada', async () => {
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -363,7 +338,7 @@ describe('StopCompletionFlow', () => {
 
     it('deve exibir botão Voltar no step de confirmação', async () => {
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -375,7 +350,7 @@ describe('StopCompletionFlow', () => {
 
     it('deve voltar para step de foto ao clicar em Voltar', async () => {
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -395,7 +370,7 @@ describe('StopCompletionFlow', () => {
   describe('Conclusão da Parada', () => {
     it('deve chamar completeStop ao confirmar', async () => {
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -407,10 +382,7 @@ describe('StopCompletionFlow', () => {
       fireEvent.press(getByText('Concluir'));
 
       await waitFor(() => {
-        expect(mockCompleteStop).toHaveBeenCalledWith(
-          'parada-1',
-          'https://example.com/photo.jpg',
-        );
+        expect(mockCompleteStop).toHaveBeenCalledWith('parada-1', 'https://example.com/photo.jpg');
       });
     });
 
@@ -420,7 +392,7 @@ describe('StopCompletionFlow', () => {
       global.mockUseAlert.showConfirm.mockResolvedValueOnce(true);
 
       const { getByText } = render(
-        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />,
+        <StopCompletionFlow {...defaultProps} allowSkipPhoto={true} />
       );
 
       // Pular foto - showConfirm is async and returns true
@@ -442,7 +414,7 @@ describe('StopCompletionFlow', () => {
       const onSuccess = jest.fn();
 
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} onSuccess={onSuccess} />,
+        <StopCompletionFlow {...defaultProps} onSuccess={onSuccess} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -463,7 +435,7 @@ describe('StopCompletionFlow', () => {
       const onClose = jest.fn();
 
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} onClose={onClose} />,
+        <StopCompletionFlow {...defaultProps} onClose={onClose} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -484,7 +456,7 @@ describe('StopCompletionFlow', () => {
       mockCompleteStop.mockRejectedValueOnce(testError);
 
       const { getByTestId, getByText } = render(
-        <StopCompletionFlow {...defaultProps} />,
+        <StopCompletionFlow {...defaultProps} />
       );
 
       fireEvent.press(getByTestId('simulate-upload-success'));
@@ -505,7 +477,7 @@ describe('StopCompletionFlow', () => {
     it('deve chamar onClose ao clicar no botão fechar', () => {
       const onClose = jest.fn();
       const { getByTestId } = render(
-        <StopCompletionFlow {...defaultProps} onClose={onClose} />,
+        <StopCompletionFlow {...defaultProps} onClose={onClose} />
       );
 
       fireEvent.press(getByTestId('icon-close'));
@@ -517,7 +489,7 @@ describe('StopCompletionFlow', () => {
   describe('Reset de Estado', () => {
     it('deve resetar estado quando modal é fechado', async () => {
       const { rerender, getByTestId, getByText, queryByText } = render(
-        <StopCompletionFlow {...defaultProps} visible={true} />,
+        <StopCompletionFlow {...defaultProps} visible={true} />
       );
 
       // Ir para step de confirmação

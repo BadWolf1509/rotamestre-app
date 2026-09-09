@@ -52,7 +52,6 @@ export function useLoadActiveRoute({
         .select(
           `
           id,
-          unidade_id,
           status,
           distancia_total,
           tempo_total,
@@ -124,7 +123,6 @@ export function useLoadActiveRoute({
         .select(
           `
           id,
-          unidade_id,
           status,
           distancia_total,
           tempo_total,

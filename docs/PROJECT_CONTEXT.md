@@ -141,14 +141,6 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   foi assim que `logs.parada_id`, coluna inexistente, custou **oito meses** de
   auditoria. Em qualquer `.insert()`, confira `error` no retorno. Schema real e
   padrão no phonebook do [`../CLAUDE.md`](../CLAUDE.md).
-- **Foto de entrega multiunidade usa a unidade da ROTA, nunca
-  `usuarios.unidade_id`.** O campo do usuário é legado/principal e pode divergir
-  da unidade de uma rota atribuída ao motorista. Como a policy do bucket privado
-  autoriza pelo 1º segmento do path, gravar
-  `{usuarios.unidade_id}/{rotaId}/...` permite o upload ao motorista vinculado
-  às duas unidades, mas impede o gestor da rota de assinar a URL. A fonte
-  autoritativa é `RouteData.unidade_id`, carregada de `rotas.unidade_id`; vale
-  igualmente para upload direto e para a fila offline.
 
 **Auth, chaves e segredos**
 

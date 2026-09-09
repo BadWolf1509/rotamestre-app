@@ -87,20 +87,10 @@ describe('getRouteStatus', () => {
   it('excludes checkpoints from pending count', () => {
     const route = makeRoute({ status: 'em_andamento' });
     const paradas = [
-      makeParada({
-        id: 'cp1',
-        ordem: 0,
-        status: 'concluida',
-        is_checkpoint: false,
-      }),
+      makeParada({ id: 'cp1', ordem: 0, status: 'concluida', is_checkpoint: false }),
       makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
       makeParada({ id: 'p2', ordem: 2, status: 'concluida' }),
-      makeParada({
-        id: 'cp2',
-        ordem: 3,
-        status: 'pendente',
-        is_checkpoint: false,
-      }),
+      makeParada({ id: 'cp2', ordem: 3, status: 'pendente', is_checkpoint: false }),
     ];
     // Only real stops matter — both real stops are concluida
     expect(getRouteStatus(route, paradas)).toBe('ready-to-complete');
@@ -144,19 +134,13 @@ describe('getRouteStatus', () => {
 
     it('should use custom now param for celebration window', () => {
       const thirtyMinLater = concluidaMs + 30 * 60 * 1000;
-      const route = makeRoute({
-        status: 'concluida',
-        concluida_em: concluidaEm,
-      });
+      const route = makeRoute({ status: 'concluida', concluida_em: concluidaEm });
       expect(getRouteStatus(route, [], thirtyMinLater)).toBe('completed');
     });
 
     it('should expire celebration with custom now param after 1 hour', () => {
       const twoHoursLater = concluidaMs + 2 * 60 * 60 * 1000;
-      const route = makeRoute({
-        status: 'concluida',
-        concluida_em: concluidaEm,
-      });
+      const route = makeRoute({ status: 'concluida', concluida_em: concluidaEm });
       expect(getRouteStatus(route, [], twoHoursLater)).toBe('no-route');
     });
 
@@ -182,11 +166,7 @@ describe('getProgress', () => {
       makeParada({ id: 'p2', status: 'concluida' }),
       makeParada({ id: 'p3', status: 'pendente' }),
     ];
-    expect(getProgress(paradas)).toEqual({
-      completed: 2,
-      total: 3,
-      percentage: 67,
-    });
+    expect(getProgress(paradas)).toEqual({ completed: 2, total: 3, percentage: 67 });
   });
 
   it('excludes checkpoints from progress', () => {
@@ -195,11 +175,7 @@ describe('getProgress', () => {
       makeParada({ id: 'p1', status: 'concluida' }),
       makeParada({ id: 'p2', status: 'pendente' }),
     ];
-    expect(getProgress(paradas)).toEqual({
-      completed: 1,
-      total: 2,
-      percentage: 50,
-    });
+    expect(getProgress(paradas)).toEqual({ completed: 1, total: 2, percentage: 50 });
   });
 
   it('returns 100% when all real stops are done', () => {
@@ -207,11 +183,7 @@ describe('getProgress', () => {
       makeParada({ id: 'p1', status: 'concluida' }),
       makeParada({ id: 'p2', status: 'concluida' }),
     ];
-    expect(getProgress(paradas)).toEqual({
-      completed: 2,
-      total: 2,
-      percentage: 100,
-    });
+    expect(getProgress(paradas)).toEqual({ completed: 2, total: 2, percentage: 100 });
   });
 });
 
@@ -239,12 +211,7 @@ describe('getCurrentStop', () => {
 
   it('excludes checkpoints', () => {
     const paradas = [
-      makeParada({
-        id: 'cp',
-        ordem: 0,
-        status: 'pendente',
-        is_checkpoint: false,
-      }),
+      makeParada({ id: 'cp', ordem: 0, status: 'pendente', is_checkpoint: false }),
       makeParada({ id: 'p1', ordem: 1, status: 'pendente' }),
     ];
     expect(getCurrentStop(paradas)?.id).toBe('p1');
@@ -313,7 +280,6 @@ describe('buildRouteData', () => {
   it('builds from single-object unidades', () => {
     const row: RotaQueryRow = {
       id: 'r1',
-      unidade_id: 'u1',
       status: 'pendente',
       distancia_total: 15.5,
       tempo_total: 60,
@@ -327,7 +293,6 @@ describe('buildRouteData', () => {
     const result = buildRouteData(row);
 
     expect(result.id).toBe('r1');
-    expect(result.unidade_id).toBe('u1');
     expect(result.unidade_nome).toBe('WJX');
     expect(result.distancia_total).toBe(15.5);
     expect(result.concluida_em).toBeUndefined();
@@ -336,7 +301,6 @@ describe('buildRouteData', () => {
   it('builds from array unidades', () => {
     const row: RotaQueryRow = {
       id: 'r2',
-      unidade_id: 'u2',
       status: 'concluida',
       distancia_total: null,
       tempo_total: null,
@@ -357,7 +321,6 @@ describe('buildRouteData', () => {
   it('handles null unidades', () => {
     const row: RotaQueryRow = {
       id: 'r3',
-      unidade_id: 'u3',
       status: 'pendente',
       distancia_total: null,
       tempo_total: null,

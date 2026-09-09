@@ -101,7 +101,6 @@ export function buildRouteData(rota: RotaQueryRow): RouteData {
 
   return {
     id: rota.id,
-    unidade_id: rota.unidade_id,
     status: rota.status,
     distancia_total: rota.distancia_total ?? undefined,
     tempo_total: rota.tempo_total ?? undefined,

@@ -14,8 +14,6 @@ export type RouteStatus =
 
 export interface RouteData {
   id: string;
-  /** Unidade proprietaria da rota; fonte autoritativa para dados tenant-scoped. */
-  unidade_id: string;
   status: string;
   unidade_nome: string;
   distancia_total?: number;
@@ -49,7 +47,6 @@ export interface ParadaData {
 /** Dados retornados pela query de rotas do Supabase */
 export interface RotaQueryRow {
   id: string;
-  unidade_id: string;
   status: string;
   distancia_total: number | null;
   tempo_total: number | null;
