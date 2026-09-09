@@ -26,6 +26,7 @@
     "scan:morto": "knip",
     "scan:morto:arquivos": "knip --include files",
     "scan:nao-declarado": "knip --include unlisted,binaries",
+    "scan:morto:autoteste": "node scripts/autoteste-varredura.js",
     "verify:design-system": "node tools/scripts/verify-design-system.cjs",
     "test": "jest",
     "test:watch": "jest --watch",
