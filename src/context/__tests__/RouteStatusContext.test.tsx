@@ -148,6 +148,7 @@ jest.mock('@/services/unifiedLocationTracking', () => ({
 // Helper to create mock route data
 const createMockRoute = (overrides: Partial<RouteData> = {}): RouteData => ({
     id: 'rota-1',
+    unidade_id: 'unidade-1',
     status: 'pendente',
     unidade_nome: 'Unidade Teste',
     distancia_total: 10000,
