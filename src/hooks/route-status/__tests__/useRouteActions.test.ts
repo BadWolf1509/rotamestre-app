@@ -42,6 +42,7 @@ let freshParadasResponse: { data: Partial<ParadaData>[] | null; error: null } = 
 function makeRoute(overrides: Partial<RouteData> = {}): RouteData {
   return {
     id: 'route-1',
+    unidade_id: 'unit-1',
     status: 'pendente',
     unidade_nome: 'Unidade A',
     ...overrides,

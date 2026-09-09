@@ -120,15 +120,20 @@ jest.mock('@expo/vector-icons', () => ({
 
 // Mock CameraUpload
 const mockOnUploadSuccess = jest.fn();
+const mockCameraUploadProps = jest.fn();
 jest.mock('@/components/CameraUpload', () => {
   const _React = require('react');
   const { View, TouchableOpacity, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({ onUploadSuccess, onUploadError }: {
+    default: ({ unidadeId, rotaId, paradaId, onUploadSuccess, onUploadError }: {
+      unidadeId: string;
+      rotaId: string;
+      paradaId: string;
       onUploadSuccess: (url: string) => void;
       onUploadError: (error: string) => void;
     }) => {
+      mockCameraUploadProps({ unidadeId, rotaId, paradaId });
       mockOnUploadSuccess.mockImplementation(onUploadSuccess);
       return (
         <View testID="camera-upload">
@@ -155,7 +160,7 @@ jest.mock('@/components/CameraUpload', () => {
 const mockCompleteStop = jest.fn();
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
-    route: { id: 'route-1' },
+    route: { id: 'route-1', unidade_id: 'route-unit' },
     completeStop: mockCompleteStop,
   }),
 }));
@@ -219,6 +224,16 @@ describe('StopCompletionFlow', () => {
       expect(getByText('Rua das Flores, 123, Centro, São Paulo - SP')).toBeTruthy();
       expect(getByText('João Silva')).toBeTruthy();
       expect(getByTestId('camera-upload')).toBeTruthy();
+    });
+
+    it('usa a unidade da rota, não a unidade principal legada do motorista', () => {
+      render(<StopCompletionFlow {...defaultProps} />);
+
+      expect(mockCameraUploadProps).toHaveBeenCalledWith({
+        unidadeId: 'route-unit',
+        rotaId: 'route-1',
+        paradaId: 'parada-1',
+      });
     });
 
     it('deve exibir botão de pular foto quando allowSkipPhoto é true', () => {

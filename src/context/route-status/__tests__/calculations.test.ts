@@ -280,6 +280,7 @@ describe('buildRouteData', () => {
   it('builds from single-object unidades', () => {
     const row: RotaQueryRow = {
       id: 'r1',
+      unidade_id: 'u1',
       status: 'pendente',
       distancia_total: 15.5,
       tempo_total: 60,
@@ -293,6 +294,7 @@ describe('buildRouteData', () => {
     const result = buildRouteData(row);
 
     expect(result.id).toBe('r1');
+    expect(result.unidade_id).toBe('u1');
     expect(result.unidade_nome).toBe('WJX');
     expect(result.distancia_total).toBe(15.5);
     expect(result.concluida_em).toBeUndefined();
@@ -301,6 +303,7 @@ describe('buildRouteData', () => {
   it('builds from array unidades', () => {
     const row: RotaQueryRow = {
       id: 'r2',
+      unidade_id: 'u2',
       status: 'concluida',
       distancia_total: null,
       tempo_total: null,
@@ -321,6 +324,7 @@ describe('buildRouteData', () => {
   it('handles null unidades', () => {
     const row: RotaQueryRow = {
       id: 'r3',
+      unidade_id: 'u3',
       status: 'pendente',
       distancia_total: null,
       tempo_total: null,

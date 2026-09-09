@@ -177,7 +177,7 @@ export function StopCompletionFlow({
             )}
 
             <CameraUpload
-              unidadeId={userData.unidade_id!}
+              unidadeId={route.unidade_id}
               rotaId={route.id}
               paradaId={parada.id}
               onUploadSuccess={handlePhotoSuccess}
