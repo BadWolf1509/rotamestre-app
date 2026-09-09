@@ -8,6 +8,29 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Estado confirmado em 09/09/2026
+
+### Fotos de entrega multiunidade
+
+- A causa das fotos anexadas pelo motorista e invisíveis ao gestor era o uso de
+  `usuarios.unidade_id` no prefixo do Storage. Em motorista multiunidade, esse
+  campo legado/principal pode divergir de `rotas.unidade_id`; o upload passava
+  porque o motorista pertencia às duas unidades, mas a policy do bucket privado
+  negava a URL assinada ao gestor da rota.
+- A medição em produção encontrou 80 objetos ainda existentes nesse estado.
+  Todos foram copiados pela API oficial do Storage para o prefixo da unidade da
+  rota, tiveram `paradas.foto_url` atualizado somente após a confirmação da
+  cópia e, ao fim, as origens foram removidas. A auditoria posterior encontrou
+  zero objetos no tenant divergente e zero cópias novas sem referência.
+- Permanecem 81 referências históricas cujo objeto já não existia antes desta
+  correção; não havia conteúdo a recuperar. A mais recente era de 15/07/2026,
+  separada do defeito ativo observado em setembro.
+- O fluxo passou a carregar `rotas.unidade_id` em `RouteData` e usá-lo no
+  upload. A sincronização offline também consulta a unidade da rota no retry,
+  em vez de confiar no valor gravado por uma versão antiga no índice local.
+- O hotfix Android foi distribuído pelo canal EAS Update `production`, runtime
+  `1.12.6`; nenhuma mudança nativa ou novo `versionCode` era necessário.
+
 ## Snapshots datados — histórico, não estado atual
 
 > As três seções a seguir são **fotografias** de 24/07, 04/08 e 05/08/2026.

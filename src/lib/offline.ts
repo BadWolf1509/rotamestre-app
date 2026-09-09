@@ -227,9 +227,23 @@ export async function processOfflinePhotos(): Promise<{
           }
         }
 
+        // O indice pode ter sido criado por uma versao antiga que usava o
+        // `usuarios.unidade_id` legado. Resolva novamente pela rota no retry:
+        // alem de recuperar filas antigas, isto mantem o prefixo do Storage
+        // alinhado com a mesma unidade que autoriza a parada via RLS.
+        const { data: rota, error: rotaError } = await supabase
+          .from('rotas')
+          .select('unidade_id')
+          .eq('id', photo.rotaId)
+          .maybeSingle();
+
+        if (rotaError || !rota?.unidade_id) {
+          throw rotaError ?? new Error('Unidade da rota nao encontrada');
+        }
+
         // Fazer upload
         const uploaded = await uploadELinkFotoParada(
-          photo.unidadeId,
+          rota.unidade_id,
           photo.rotaId,
           photo.paradaId,
           photo.localPath,

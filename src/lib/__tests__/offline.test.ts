@@ -44,6 +44,13 @@ jest.mock('../supabase', () => ({
         eq: jest.fn(() => Promise.resolve({ error: null })),
       })),
       insert: jest.fn(() => Promise.resolve({ error: null })),
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          maybeSingle: jest.fn(() =>
+            Promise.resolve({ data: { unidade_id: 'u1' }, error: null }),
+          ),
+        })),
+      })),
     })),
   },
 }));
@@ -1157,6 +1164,41 @@ describe('offline', () => {
 
       // Should have cleaned up
       expect(FileSystem.deleteAsync).toHaveBeenCalled();
+    });
+
+    it('corrige a unidade legada de uma foto ja enfileirada pelo dado da rota', async () => {
+      mockNetInfo.fetch.mockResolvedValueOnce({
+        isConnected: true,
+        isInternetReachable: true,
+      } as any);
+
+      const photoIndex = [
+        {
+          localPath: '/mock/path/photo.jpg',
+          unidadeId: 'unidade-legada',
+          rotaId: 'r1',
+          paradaId: 'parada-1',
+          originalUri: 'file:///original.jpg',
+          savedAt: '2026-09-09T00:00:00.000Z',
+        },
+      ];
+      mockAsyncStorage.getItem
+        .mockResolvedValueOnce(JSON.stringify(photoIndex))
+        .mockResolvedValueOnce(JSON.stringify(photoIndex));
+      FileSystem.getInfoAsync
+        .mockResolvedValueOnce({ exists: true })
+        .mockResolvedValueOnce({ exists: true });
+      uploadELinkFotoParada.mockResolvedValueOnce(true);
+
+      const result = await processOfflinePhotos();
+
+      expect(result).toEqual({ success: 1, failed: 0 });
+      expect(uploadELinkFotoParada).toHaveBeenCalledWith(
+        'u1',
+        'r1',
+        'parada-1',
+        '/mock/path/photo.jpg',
+      );
     });
 
     it('deve incrementar failed quando upload falha', async () => {
