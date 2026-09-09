@@ -85,7 +85,10 @@ export function StopCompletionFlow({
         setStep('confirm');
       }
     } else {
-      showError({ title: 'Erro', message: `Não foi possível enviar a foto: ${error}` });
+      showError({
+        title: 'Erro',
+        message: `Não foi possível enviar a foto: ${error}`,
+      });
     }
   };
 
@@ -122,8 +125,13 @@ export function StopCompletionFlow({
       } else {
         showSuccess(
           'Sucesso!',
-          photoUrl ? 'Parada concluída com foto de comprovante!' : 'Parada concluída!',
-          () => { onSuccess?.(); onClose(); }
+          photoUrl
+            ? 'Parada concluída com foto de comprovante!'
+            : 'Parada concluída!',
+          () => {
+            onSuccess?.();
+            onClose();
+          },
         );
       }
     } catch (error) {
@@ -140,22 +148,29 @@ export function StopCompletionFlow({
   };
 
   // Título dinâmico baseado no step
-  const modalTitle = step === 'photo' ? 'Foto de Comprovante' : 'Confirmar Conclusão';
+  const modalTitle =
+    step === 'photo' ? 'Foto de Comprovante' : 'Confirmar Conclusão';
 
   // Botões declarativos para o step de confirmação
-  const primaryButton = step === 'confirm' ? {
-    text: 'Concluir',
-    onPress: handleConfirmComplete,
-    loading: isCompleting,
-    disabled: isCompleting,
-    color: theme.colors.success,
-  } : undefined;
+  const primaryButton =
+    step === 'confirm'
+      ? {
+          text: 'Concluir',
+          onPress: handleConfirmComplete,
+          loading: isCompleting,
+          disabled: isCompleting,
+          color: theme.colors.success,
+        }
+      : undefined;
 
-  const secondaryButton = step === 'confirm' ? {
-    text: 'Voltar',
-    onPress: handleBackToPhoto,
-    disabled: isCompleting,
-  } : undefined;
+  const secondaryButton =
+    step === 'confirm'
+      ? {
+          text: 'Voltar',
+          onPress: handleBackToPhoto,
+          disabled: isCompleting,
+        }
+      : undefined;
 
   return (
     <>
@@ -177,7 +192,7 @@ export function StopCompletionFlow({
             )}
 
             <CameraUpload
-              unidadeId={userData.unidade_id!}
+              unidadeId={route.unidade_id}
               rotaId={route.id}
               paradaId={parada.id}
               onUploadSuccess={handlePhotoSuccess}
@@ -191,10 +206,12 @@ export function StopCompletionFlow({
                 accessibilityRole="button"
                 accessibilityLabel="Continuar sem foto"
               >
-                <Text style={styles.skipButtonText}>
-                  Continuar sem foto
-                </Text>
-                <Ionicons name="arrow-forward" size={16} color={theme.colors.gray500} />
+                <Text style={styles.skipButtonText}>Continuar sem foto</Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={16}
+                  color={theme.colors.gray500}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -203,27 +220,41 @@ export function StopCompletionFlow({
           <View>
             <View style={styles.confirmCard}>
               <View style={styles.confirmRow}>
-                <Ionicons name="location" size={20} color={theme.colors.primary} />
+                <Ionicons
+                  name="location"
+                  size={20}
+                  color={theme.colors.primary}
+                />
                 <Text style={styles.confirmText}>{parada.endereco}</Text>
               </View>
 
               {parada.destinatario && (
                 <View style={styles.confirmRow}>
-                  <Ionicons name="person" size={20} color={theme.colors.gray500} />
+                  <Ionicons
+                    name="person"
+                    size={20}
+                    color={theme.colors.gray500}
+                  />
                   <Text style={styles.confirmText}>{parada.destinatario}</Text>
                 </View>
               )}
 
               <View style={styles.confirmRow}>
                 <Ionicons
-                  name={photoUrl ? "camera" : "camera-outline"}
+                  name={photoUrl ? 'camera' : 'camera-outline'}
                   size={20}
                   color={photoUrl ? theme.colors.success : theme.colors.warning}
                 />
-                <Text style={[
-                  styles.confirmText,
-                  { color: photoUrl ? theme.colors.success : theme.colors.warning }
-                ]}>
+                <Text
+                  style={[
+                    styles.confirmText,
+                    {
+                      color: photoUrl
+                        ? theme.colors.success
+                        : theme.colors.warning,
+                    },
+                  ]}
+                >
                   {photoUrl ? 'Foto anexada' : 'Sem foto de comprovante'}
                 </Text>
               </View>
