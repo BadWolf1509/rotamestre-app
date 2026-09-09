@@ -148,7 +148,9 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   `{usuarios.unidade_id}/{rotaId}/...` permite o upload ao motorista vinculado
   às duas unidades, mas impede o gestor da rota de assinar a URL. A fonte
   autoritativa é `RouteData.unidade_id`, carregada de `rotas.unidade_id`; vale
-  igualmente para upload direto e para a fila offline.
+  igualmente para upload direto e para a fila offline. No retry, não confie no
+  `unidadeId` persistido no índice: filas criadas por versões antigas podem
+  carregá-lo errado; resolva `rotas.unidade_id` novamente antes do upload.
 
 **Auth, chaves e segredos**
 
