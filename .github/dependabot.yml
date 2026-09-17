@@ -21,11 +21,26 @@ updates:
       - "npm"
     # Ignorar majors que exigem migração manual coordenada
     ignore:
-      # v11 é uma reescrita da API (74 JSX + 29 props). Bug upstream aberto em release
-      # Android com drawer+map (maplibre/maplibre-react-native#1455). Revisitar quando
-      # houver v11.1+ com fix e janela de QA em device.
+      # Modulo NATIVO: o CI web nao executa uma linha dele, entao QUALQUER bump passa
+      # verde e so se manifestaria no build EAS ou no aparelho. Sobe sob janela de QA
+      # em device, nunca pelo Dependabot — mesma regra ja aplicada aos
+      # @react-native-community/* mais abaixo, e pelo mesmo motivo.
+      #
+      # O MAJOR tem razao adicional: v11 e uma reescrita da API (74 JSX + 29 props), e
+      # ha bug upstream aberto em release Android com drawer+map
+      # (maplibre/maplibre-react-native#1455). Revisitar quando houver v11.1+ com fix.
+      #
+      # O PATCH entrou aqui em 17/09/2026, e a razao importa: o 11.3.8 -> 11.3.10 do
+      # PR #525 foi validado em aparelho real (moto g15, Android 15) — mapa, drawer,
+      # rotacao, background/foreground e gestos, todos identicos a baseline. O bump
+      # estava BOM. O que nao se sustenta e o PROCESSO: aquela validacao custou dois
+      # builds EAS e um aparelho a mao, e nao e o que acontece toda segunda-feira. Sem
+      # ela, o verde do CI nao diz nada sobre a metade nativa.
+      #
+      # Isto NAO silencia vulnerabilidade: `scripts/audit-producao.js` roda
+      # `npm audit --omit=dev` como step BLOQUEANTE e pega advisory novo neste pacote
+      # independentemente do Dependabot.
       - dependency-name: "@maplibre/maplibre-react-native"
-        update-types: ["version-update:semver-major"]
       # TS 6.0 quebra resolução de @types ambient (node, jest, google.maps) com a config
       # atual (expo/tsconfig.base + customConditions:[react-native] + moduleResolution:bundler).
       # 51+ erros de tipo surgem mesmo com baseUrl + ignoreDeprecations:"6.0". Revisitar
