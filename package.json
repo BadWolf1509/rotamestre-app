@@ -63,7 +63,7 @@
     "@expo/vector-icons": "^15.1.1",
     "@hookform/resolvers": "^5.9.1",
     "@mapbox/polyline": "^1.2.1",
-    "@maplibre/maplibre-react-native": "^11.3.8",
+    "@maplibre/maplibre-react-native": "^11.3.10",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/netinfo": "12.0.1",
@@ -110,7 +110,7 @@
     "react-native-reanimated": "~4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-toast-message": "^2.5.0",
+    "react-native-toast-message": "^2.5.2",
     "react-native-ui-datepicker": "^3.3.0",
     "react-native-unistyles": "^3.3.0",
     "react-native-url-polyfill": "^4.0.0",
@@ -118,7 +118,7 @@
     "react-native-worklets": "0.8.3",
     "web-vitals": "^6.2.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zod": "^4.6.2"
+    "zod": "^4.6.5"
   },
   "overrides": {
     "tar": "^7.5.4"
