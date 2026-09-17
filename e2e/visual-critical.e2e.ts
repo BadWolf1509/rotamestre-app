@@ -195,8 +195,10 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
     // Registrar sempre, inclusive no caminho feliz: quando este teste falhar,
     // a primeira pergunta é em que estado o cenário estava.
     console.log(
-      `[fixture] rota ${fixture.rotaId}: ${fixture.acao} ` +
-        `(antes: ${fixture.statusAntes}, ${fixture.dataAntes})`,
+      `[fixture] rota ${fixture.rotaId}: rota=${fixture.acao} ` +
+        `paradas=${fixture.paradas} ` +
+        `(antes: ${fixture.statusAntes}, ${fixture.dataAntes}, ` +
+        `${fixture.pendentesAntes} pendentes)`,
     );
 
     const motoristaPage = new MotoristaPage(page);

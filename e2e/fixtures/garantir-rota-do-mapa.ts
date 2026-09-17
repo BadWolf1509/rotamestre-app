@@ -43,10 +43,14 @@ function exigirEnv(nome: string): string {
 }
 
 export interface ResultadoDoFixture {
+  /** O que foi feito com a ROTA. */
   acao: 'nada-a-fazer' | 'restaurada';
+  /** O que foi feito com as PARADAS — independente da rota. */
+  paradas: 'nada-a-fazer' | 'reabertas';
   rotaId: string;
   statusAntes: string;
   dataAntes: string;
+  pendentesAntes: number;
 }
 
 /**
@@ -128,36 +132,95 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
         'restaura estado, não inventa cenário — crie a rota demo antes.',
     );
   }
+  // Dia LOCAL, nunca `toISOString()`. A coluna `rotas.data` é `date` e as regras
+  // de expiração acima raciocinam em dias do calendário local: em UTC-3, a
+  // partir das 21:00 o `toISOString().slice(0, 10)` já devolve AMANHÃ, e o
+  // fixture datava a rota no futuro — estado que o produto nunca produz. Mesma
+  // conta de `toLocalISODate` (`src/lib/dateUtils.ts`), replicada em vez de
+  // importada porque nenhum arquivo de `e2e/` importa de `src/` (transform
+  // próprio do Playwright). O guard estático `data-local-sem-utc.test.ts` varre
+  // só `src` e `app`, então aqui não havia nada impedindo o erro.
+  const diaLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-` +
+    `${String(d.getDate()).padStart(2, '0')}`;
+
   const hoje = new Date();
-  const hojeStr = hoje.toISOString().slice(0, 10);
-  const limite = new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const hojeStr = diaLocal(hoje);
+  const limite = diaLocal(new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000));
 
-  const jaServe = rota.status === 'em_andamento' && rota.data > limite;
+  // NÃO BASTA A ROTA ESTAR ATIVA — ela precisa ter parada pendente.
+  //
+  // POR QUE. Até 17/09/2026 este fixture olhava só `rotas.status` e `rotas.data`.
+  // Restaurar uma rota CONCLUÍDA a devolve para `em_andamento` sem tocar nas
+  // paradas, que seguem todas `concluida`: uma rota "em andamento" sem nada a
+  // fazer. O mapa monta e o `renders motorista mapa` passa, mas as telas que
+  // dependem de parada pendente ficam vazias — cinco testes de
+  // `motorista-route-execution.e2e.ts` passaram a falhar com "element(s) not
+  // found" em vez de pular pelo `test.skip(!temLista)`.
+  //
+  // Pior: o estado se auto-perpetuava. Com a rota já `em_andamento`, o fixture
+  // respondia `nada-a-fazer` indefinidamente, porque a rota sozinha servia —
+  // então ninguém consertava e o vermelho reaparecia em PR sem relação.
+  const { data: paradas, error: erroParadas } = await supabase
+    .from('paradas')
+    .select('id, status')
+    .eq('rota_id', rota.id);
 
-  if (jaServe) {
-    return {
-      acao: 'nada-a-fazer',
-      rotaId: rota.id,
-      statusAntes: rota.status,
-      dataAntes: rota.data,
-    };
+  if (erroParadas) {
+    throw new Error(`Não foi possível ler as paradas: ${erroParadas.message}`);
+  }
+  if (!paradas?.length) {
+    throw new Error(
+      `A rota ${rota.id} não tem parada nenhuma. O fixture restaura estado, ` +
+        'não inventa cenário — recrie a rota demo.',
+    );
   }
 
-  const { error: erroUpdate } = await supabase
-    .from('rotas')
-    .update({ status: 'em_andamento', data: hojeStr })
-    .eq('id', rota.id);
+  const pendentesAntes = paradas.filter((p) => p.status === 'pendente').length;
+  const rotaServe = rota.status === 'em_andamento' && rota.data > limite;
+  const paradasServem = pendentesAntes > 0;
 
-  if (erroUpdate) {
-    throw new Error(`Não foi possível restaurar a rota: ${erroUpdate.message}`);
+  if (!rotaServe) {
+    const { error: erroUpdate } = await supabase
+      .from('rotas')
+      .update({ status: 'em_andamento', data: hojeStr })
+      .eq('id', rota.id);
+
+    if (erroUpdate) {
+      throw new Error(
+        `Não foi possível restaurar a rota: ${erroUpdate.message}`,
+      );
+    }
+  }
+
+  if (!paradasServem) {
+    // Reabre TODAS, e limpa os vestígios de conclusão junto: parada `pendente`
+    // com `concluida_em` ou foto de comprovante é a mesma classe de incoerência
+    // que esta correção existe para eliminar. O arquivo em storage fica órfão,
+    // e tudo bem — órfão é inerte, e este fixture nunca limpou storage.
+    const { error: erroReabrir } = await supabase
+      .from('paradas')
+      .update({
+        status: 'pendente',
+        concluida_em: null,
+        foto_url: null,
+        motivo_skip: null,
+      })
+      .eq('rota_id', rota.id);
+
+    if (erroReabrir) {
+      throw new Error(
+        `Não foi possível reabrir as paradas: ${erroReabrir.message}`,
+      );
+    }
   }
 
   return {
-    acao: 'restaurada',
+    acao: rotaServe ? 'nada-a-fazer' : 'restaurada',
+    paradas: paradasServem ? 'nada-a-fazer' : 'reabertas',
     rotaId: rota.id,
     statusAntes: rota.status,
     dataAntes: rota.data,
+    pendentesAntes,
   };
 }
