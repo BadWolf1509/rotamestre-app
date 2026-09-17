@@ -71,8 +71,43 @@ updates:
       # ignorar só o major; minors/patches continuam vindo.
       - dependency-name: "@testing-library/react-native"
         update-types: ["version-update:semver-major"]
+      # jest-environment-jsdom major (30.x) nao sobe sozinho. O jsdom 27 que ele
+      # embute define `window` como non-configurable, e o
+      # `@react-native/jest-preset` — fixado pelo SDK, nao por nos — roda
+      # `Object.defineProperties(global, { window: ... })` em TODA suite. As duas
+      # suites com `@jest-environment jsdom` morrem no setup com
+      # "TypeError: Cannot redefine property: window" (PR #517). Alem disso o
+      # `jest` core aqui e 29.x: um environment v30 sob runner v29 nao e
+      # combinacao suportada. Sobe junto com o upgrade de SDK, como o preset.
+      - dependency-name: "jest-environment-jsdom"
+        update-types: ["version-update:semver-major"]
     # Agrupar atualizações menores
+    #
+    # ORDEM IMPORTA: "if a dependency matches more than one rule, it's included
+    # in the first group that it matches". O grupo `sentry` precisa vir ANTES de
+    # `production-dependencies`, senao os patches do Sentry caem naquele e o
+    # agrupamento aqui nunca acontece.
     groups:
+      # Os pacotes do Sentry sobem JUNTOS ou nao sobem.
+      #
+      # POR QUE. `@sentry/react` fixa `@sentry/browser` em versao EXATA. Subir um
+      # sem o outro faz o npm aninhar uma segunda arvore inteira do Sentry sob
+      # `@sentry/react/node_modules/` (browser, browser-utils, feedback, replay,
+      # replay-canvas e tres copias de core) — dois SDKs no bundle. Medido em
+      # 14/09/2026: o PR #521 (so `@sentry/browser`) levou o bundle de 3,37 MB
+      # para 3,88 MB gzipped, estourando o limite de 3,5 MB do `.size-limit.json`,
+      # enquanto o #522 (so `@sentry/react`) passou em 3,37 MB.
+      #
+      # `production-dependencies` cobre so `patch`, entao os minors do Sentry
+      # (10.73 -> 10.74) escapavam do agrupamento e viravam PRs separados — que e
+      # exatamente o que dessincroniza a arvore. Daqui em diante minor tambem
+      # entra, e os dois viajam no mesmo PR.
+      sentry:
+        patterns:
+          - "@sentry/*"
+        update-types:
+          - "minor"
+          - "patch"
       development-dependencies:
         dependency-type: "development"
         update-types:
