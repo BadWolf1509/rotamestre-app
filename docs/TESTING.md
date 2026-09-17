@@ -62,6 +62,20 @@ npm test -- <padrão>      # filtrar por nome/caminho
   limiar. **Não atualize o baseline para acomodar isso**: antes de acusar um PR,
   rode o mesmo comando na `main` e compare o conjunto de testes vermelhos, que é
   como essa divergência foi separada de regressão real.
+- **`VISUAL_REGRESSION=1` liga a comparação de screenshot — e só ela.** Os
+  testes `@visual` de `visual-critical.e2e.ts` e `design-system.e2e.ts` se
+  pulam sem essa variável (o CI a define em `test.yml`), pelo motivo do item
+  acima: baseline de Linux não fecha no Windows. **O teste funcional do mapa
+  não depende dela.** Até 17/09/2026 dependia, porque morava no describe
+  `@visual` e herdava o `test.skip` — e aí o comando que o próprio CI usa para
+  validar um bump do maplibre saía verde sem ter rodado o teste:
+  `npx playwright test e2e/visual-critical.e2e.ts -g "mapa"` devolvia
+  `2 skipped / 2 passed`, sendo que os dois `passed` eram as sessões de auth do
+  projeto `setup`. O `renders motorista mapa` agora vive em
+  `Critical Flows - Mapa @funcional @auth`, fora do gate, e roda sempre que a
+  suíte roda. Ele não fotografa nada: exige que o mapa monte, que
+  `mapa-web-carregando` suma (evento `load` do maplibre, que só dispara com o
+  worker servido) e julga o tráfego de tiles.
 
 ---
 

@@ -186,6 +186,72 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
     });
   });
 
+  test('renders motorista paradas', async ({ page, loginAsMotorista }) => {
+    const motoristaPage = new MotoristaPage(page);
+    await loginAsMotorista();
+    await motoristaPage.navigateToParadas();
+    await page.waitForLoadState('networkidle');
+    const list = page.getByTestId('motorista-checkpoints-list');
+    const mask = (await list.count()) > 0 ? [list] : [];
+    await expect(page).toHaveScreenshot('visual-motorista-paradas.png', {
+      fullPage: true,
+      animations: 'disabled',
+      mask,
+    });
+  });
+
+  test('renders motorista historico', async ({ page, loginAsMotorista }) => {
+    await loginAsMotorista();
+    await page.goto(e2eUrl('/motorista/historico'), {
+      waitUntil: 'domcontentloaded',
+      timeout: 45000,
+    });
+    const list = page.getByTestId('motorista-historico-list');
+    await list.waitFor({ state: 'visible', timeout: 30000 });
+    const mask = (await list.count()) > 0 ? [list] : [];
+    await expect(page).toHaveScreenshot('visual-motorista-historico.png', {
+      fullPage: true,
+      animations: 'disabled',
+      mask,
+    });
+  });
+});
+
+// O teste do mapa fica FORA do gate de `VISUAL_REGRESSION`, e é só por isso
+// que ele vive num describe separado.
+//
+// POR QUE. Os testes do describe acima comparam screenshot, e screenshot só é
+// comparável no mesmo sistema que gerou a baseline — o gate existe para eles.
+// Este aqui não fotografa nada: exige que o mapa monte, que `mapa-web-carregando`
+// suma (ou seja, que o evento `load` do maplibre tenha disparado, o que só
+// acontece com o worker servido) e julga o tráfego de tiles. Nada disso depende
+// de fonte, de sistema operacional ou de baseline commitada.
+//
+// O QUE O GATE CAUSAVA. Herdando o skip do describe visual, o comando de quem
+// quer conferir o mapa à mão — e o mesmo que o CI roda para validar um bump do
+// maplibre — saía verde sem executar o teste:
+//
+//   $ npx playwright test e2e/visual-critical.e2e.ts -g "mapa"
+//   2 skipped / 2 passed        <- os dois `passed` eram as sessões de auth
+//
+// Medido em 17/09/2026 ao validar o PR #519 (maplibre-gl 6.7 -> 6.9). Somava-se
+// aos outros dois silêncios da mesma área: PR do Dependabot não recebe os
+// secrets E2E_* e o step degrada para `::warning::`, e `copy-maplibre-worker.cjs`
+// faz `exit 0` com um aviso quando não acha o worker. Três caminhos distintos,
+// todos terminando em exit 0 sem ter testado o mapa.
+test.describe('Critical Flows - Mapa @funcional @auth', () => {
+  // Mesma injeção do describe visual: sem ela a splash não se dispensa a tempo.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.assign(window, { __PLAYWRIGHT_E2E__: true });
+      try {
+        localStorage.setItem('e2e_mode', 'true');
+      } catch {
+        // localStorage may not be available in all environments
+      }
+    });
+  });
+
   test('renders motorista mapa', async ({ page, loginAsMotorista }) => {
     // O cenário é preparado ANTES do login: sem rota que monte o mapa, o teste
     // falha na guarda mais abaixo sem ter testado nada. Ver o cabeçalho de
@@ -287,35 +353,5 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
     // válido. Nenhuma asserção aqui distingue isso de um tile bom — foi
     // exatamente assim que a Carto degradou. Só análise de imagem ou olho
     // humano pega, e o custo não se justifica num check de PR.
-  });
-
-  test('renders motorista paradas', async ({ page, loginAsMotorista }) => {
-    const motoristaPage = new MotoristaPage(page);
-    await loginAsMotorista();
-    await motoristaPage.navigateToParadas();
-    await page.waitForLoadState('networkidle');
-    const list = page.getByTestId('motorista-checkpoints-list');
-    const mask = (await list.count()) > 0 ? [list] : [];
-    await expect(page).toHaveScreenshot('visual-motorista-paradas.png', {
-      fullPage: true,
-      animations: 'disabled',
-      mask,
-    });
-  });
-
-  test('renders motorista historico', async ({ page, loginAsMotorista }) => {
-    await loginAsMotorista();
-    await page.goto(e2eUrl('/motorista/historico'), {
-      waitUntil: 'domcontentloaded',
-      timeout: 45000,
-    });
-    const list = page.getByTestId('motorista-historico-list');
-    await list.waitFor({ state: 'visible', timeout: 30000 });
-    const mask = (await list.count()) > 0 ? [list] : [];
-    await expect(page).toHaveScreenshot('visual-motorista-historico.png', {
-      fullPage: true,
-      animations: 'disabled',
-      mask,
-    });
   });
 });
