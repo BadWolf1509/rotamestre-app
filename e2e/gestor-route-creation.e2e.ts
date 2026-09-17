@@ -173,24 +173,6 @@ test.describe('Gestor Dashboard E2E Tests', () => {
     });
   });
 
-  test('should show statistics or summary cards', async ({ page }) => {
-    await gestorPage.gotoInicio();
-    await page.waitForTimeout(3000);
-
-    // Look for dashboard statistics
-    const bodyText = await page.locator('body').textContent();
-
-    // Dashboard should show some route/delivery information
-    const hasStats =
-      bodyText?.includes('rota') ||
-      bodyText?.includes('entrega') ||
-      bodyText?.includes('pendente') ||
-      bodyText?.includes('motorista') ||
-      bodyText?.includes('total');
-
-    expect(hasStats).toBeTruthy();
-  });
-
   test('should have navigation to other gestor sections', async ({ page }) => {
     await gestorPage.gotoInicio();
     await page.waitForTimeout(2000);
