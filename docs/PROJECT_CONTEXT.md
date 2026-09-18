@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 31/08/2026.
+> Documento de entrada para novas sessões. Atualizado em 17/09/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -43,7 +43,7 @@ para outra coisa.
 
 - **9.** **Duas decisões de produto levantadas no smoke de 05/09/2026 — nenhuma é defeito.** (a) **"Excluir motorista" é só desativar**, e o vínculo em `usuario_unidades` continua `ativo` — o seletor do app checa os dois, mas código que filtre só pelo vínculo veria um motorista desativado. (b) **Não existe caminho para reabrir parada concluída** em nenhuma das duas contas: o botão "Retomar" só aparece para parada _pulada_, e o painel do gestor não oferece a ação.<br>_Quem:_ gestor (decisão) · _Detalhe:_ [HISTORICO.md](HISTORICO.md), sessão de 05/09
 
-- **10.** **O app coleta localização em background e persiste — a ficha do Play precisa dizer isso.** Medido em 06/09/2026: `motorista_locations` tem **17.725 linhas em 414 rotas** desde 18/12/2025, e o código pede `requestBackgroundPermissionsAsync()` (`src/services/unifiedLocationTracking.ts:151`) e roda `startLocationUpdatesAsync` com foreground service (`:256`). Isso obriga a **Declaração de Permissões Sensíveis** com vídeo demonstrativo e a marcação de coleta **em background** na Segurança de Dados — divergência entre ficha e comportamento é motivo de suspensão. A produção ainda está vazia (pendência 4), então dá para corrigir antes de pedir acesso. A _prominent disclosure_ que o Google exige **já está** implementada e correta (`:157`), antes do diálogo do sistema. **Como o registro anterior errou:** observou-se `ProviderRequest[OFF]` com o app em background e concluiu-se "só primeiro plano" — mas o rastreamento só começa em `startRoute`, então medir fora de uma rota `em_andamento` produz `OFF` tanto no código certo quanto no errado. Evidência que não distingue as hipóteses, a mesma armadilha do banner de expiração.<br>_Quem:_ gestor (Play Console) · _Detalhe:_ `GOOGLE_PLAY_DEPLOYMENT.md`
+- **10.** **O app coleta localização em background e persiste — a ficha do Play precisa dizer isso.** `motorista_locations` acumula desde 18/12/2025 e **cresce rápido**: 17.725 linhas em 414 rotas em 06/09/2026, **32.193 em 466** em 17/09 — quase o dobro em onze dias. O número vivo sai de `select count(*), count(distinct rota_id) from motorista_locations`; **não copie o valor para cá de novo** (a versão anterior deste item trazia o de 06/09 como se fosse atual, e é a mesma regra "um fato, uma fonte" que o cabeçalho cobra). O código pede `requestBackgroundPermissionsAsync()` (`src/services/unifiedLocationTracking.ts:151`) e roda `startLocationUpdatesAsync` com foreground service (`:256`). Isso obriga a **Declaração de Permissões Sensíveis** com vídeo demonstrativo e a marcação de coleta **em background** na Segurança de Dados — divergência entre ficha e comportamento é motivo de suspensão. A produção ainda está vazia (pendência 4), então dá para corrigir antes de pedir acesso. A _prominent disclosure_ que o Google exige **já está** implementada e correta (`:157`), antes do diálogo do sistema. **Como o registro anterior errou:** observou-se `ProviderRequest[OFF]` com o app em background e concluiu-se "só primeiro plano" — mas o rastreamento só começa em `startRoute`, então medir fora de uma rota `em_andamento` produz `OFF` tanto no código certo quanto no errado. Evidência que não distingue as hipóteses, a mesma armadilha do banner de expiração.<br>_Quem:_ gestor (Play Console) · _Detalhe:_ `GOOGLE_PLAY_DEPLOYMENT.md`
 
 - **11.** **Nenhuma das 9 unidades tem gestor principal, e não há caminho no app para estabelecer o primeiro.** Medido em 06/09/2026: 0 de 16 usuários com `is_gestor_principal = true`, porque nenhuma unidade nasceu pelo fluxo self-service — o único que liga o flag. Efeito hoje: a tela de transferência de gestão está **inalcançável para todos os gestores** (ela exige ser o principal), e o mesmo vale para o badge do drawer. A Migration 27 fechou a autopromoção por `.update()` direto, que era o único "caminho" anterior e era o próprio buraco — então o bootstrap do primeiro titular passa a exigir `service_role` ou uma RPC dedicada, **nenhuma das duas existe**. Não é esquecimento: escolher quem é o titular de cada unidade dá poder sobre ela e é decisão de produto, não de quem escreve a migration.<br>_Quem:_ gestor (decidir os titulares) · _Detalhe:_ `database/MIGRATIONS.md`, Migration 27
 
@@ -424,8 +424,14 @@ app.rotamestre.tec.br ── Expo Web / React Native
   a cadeia inteira que não pode ser quebrada (postinstall, `build:web`,
   `configureMaplibreWorker()` e o step explícito no job de visual regression)
   está em [`../CLAUDE.md`](../CLAUDE.md). O e2e `renders motorista mapa` cobre
-  isso funcionalmente desde 25/08/2026, e roda em CI enquanto os secrets `E2E_*`
-  existirem.
+  isso funcionalmente desde 25/08/2026 — mas **não roda em PR do Dependabot**, e
+  esse é o furo que importa. Os secrets `E2E_*` existem no repositório e **PR de
+  bot não os recebe**: o step detecta a ausência, emite `::warning::` e sai com
+  0, então o job `Visual Regression` fica **verde sem ter aberto o mapa**. Medido
+  em 17/09/2026 no PR #519 (`maplibre-gl` 6.7 → 6.9) — exatamente a classe de
+  mudança que esse teste existe para cobrir. Para validar um bump de mapa, rode
+  o e2e localmente (`npx playwright test e2e/visual-critical.e2e.ts -g "mapa"`,
+  com o `.env` preenchido); o verde do PR não serve de evidência.
 - **Step bloqueante de CI vai no fim do job.** Quando um step sem
   `continue-on-error` falha, o Actions **pula todos os seguintes** — eles
   aparecem como `skipped`, não como falha. Em 25/08/2026 o audit de produção
