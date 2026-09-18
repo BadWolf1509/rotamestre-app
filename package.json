@@ -98,7 +98,7 @@
     "expo-status-bar": "~56.0.4",
     "expo-task-manager": "~56.0.26",
     "expo-updates": "~56.0.25",
-    "maplibre-gl": "^6.9.0",
+    "maplibre-gl": "^6.9.1",
     "pdfmake": "^0.3.11",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -116,7 +116,7 @@
     "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.8.3",
-    "web-vitals": "^6.2.1",
+    "web-vitals": "^6.2.2",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.6.5"
   },
