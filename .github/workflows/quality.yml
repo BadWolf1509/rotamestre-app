@@ -151,6 +151,24 @@ jobs:
         # arquivo consumidor escrito na linha, como as entradas de lá.
         run: npm run scan:nao-declarado
 
+      - name: Grupos do Dependabot (Sentry)
+        # NAO BLOQUEANTE de proposito. O script replica a regra de especificidade
+        # do dependabot-core para checar que `@sentry/browser` e `@sentry/react`
+        # caem no MESMO grupo — subir um sem o outro duplica a arvore do Sentry e
+        # estoura o bundle (aconteceu no #521 e de novo no #537).
+        #
+        # Por que informativo e nao bloqueante: ele e um MODELO de logica de
+        # terceiro, transcrita em 21/09/2026. Se o upstream mudar a pontuacao, o
+        # script passa a mentir — e um falso positivo em check obrigatorio ensina
+        # o time a ignorar o check, que e como se perde um check de verdade. A
+        # prova real e o PR que o Dependabot abre: um PR unico do grupo `sentry`.
+        #
+        # Quem cair aqui: leia o cabecalho de scripts/verificar-grupos-dependabot.js,
+        # que traz a tabela de pontuacao e a saida (`exclude-patterns` no grupo
+        # concorrente).
+        run: npm run scan:grupos-dependabot
+        continue-on-error: true
+
   bundle-size:
     name: Bundle Size Check
     runs-on: ubuntu-latest
