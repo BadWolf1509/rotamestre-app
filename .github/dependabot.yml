@@ -96,6 +96,25 @@ updates:
       # combinacao suportada. Sobe junto com o upgrade de SDK, como o preset.
       - dependency-name: "jest-environment-jsdom"
         update-types: ["version-update:semver-major"]
+      # js-yaml existe aqui por UM motivo: `scripts/verificar-grupos-dependabot.js`
+      # le este arquivo. Ele foi declarado como devDependency em 21/09/2026 porque
+      # ja estava instalado como transitiva, e usar transitiva nao declarada
+      # quebraria o `scan:nao-declarado`, que e bloqueante.
+      #
+      # O MAJOR nao sobe sozinho porque o ganho e ZERO e o custo e duplicacao.
+      # `@eslint/eslintrc` pede `^4.3.2` e `@expo/xcpretty` pede `^4.1.0`; o 5.x
+      # nao satisfaz nenhum dos dois, entao subir o topo aninha DUAS copias de
+      # js-yaml (medido no PR #544, fechado). Em devDependency isso nao toca o
+      # bundle — e por isso que e so desperdicio, nao incidente — mas e a mesma
+      # forma do problema do Sentry, e aqui nao compra nada: o script usa
+      # `yaml.load()`, que se comporta igual nas duas versoes (testado com 5.4.2
+      # instalado isolado; as breaking changes do 5.x sao em AST, `sortKeys` e
+      # formatacao de dump, nada que o script toque).
+      #
+      # Quando revisitar: se `@eslint/eslintrc` e `@expo/xcpretty` passarem a
+      # aceitar 5.x, o major deixa de duplicar e pode subir.
+      - dependency-name: "js-yaml"
+        update-types: ["version-update:semver-major"]
     # Agrupar atualizações menores
     #
     # NAO E A ORDEM QUE DECIDE — e a ESPECIFICIDADE, e ela e contraintuitiva.
