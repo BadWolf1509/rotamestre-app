@@ -141,27 +141,52 @@ function main() {
     process.exit(1);
   }
 
-  const falhas = [];
-  // O invariante NAO e "caem no grupo chamado sentry" — e "caem JUNTOS, em
-  // algum grupo". Se alguem renomear o grupo, isto continua valendo; se os dois
-  // se separarem, ou virarem PRs individuais, a arvore duplica.
-  for (const updateType of ['minor', 'patch']) {
-    const browser = destino({ nome: '@sentry/browser', producao: true, updateType }, grupos);
-    const react = destino({ nome: '@sentry/react', producao: true, updateType }, grupos);
+  // Os pacotes vem do package.json, nao de uma lista fixa: em 21/09/2026 o
+  // `@sentry/react` foi removido (o projeto usa cinco APIs, todas em
+  // `@sentry/browser`), e um check que insistisse no nome antigo estaria
+  // verificando um pacote inexistente — verde por vacuidade.
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const declarados = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+    .filter((n) => n.startsWith('@sentry/'))
+    .sort();
 
-    if (browser === 'INDIVIDUAL' || react === 'INDIVIDUAL') {
+  if (declarados.length === 0) {
+    console.log('  ok   nenhum pacote @sentry/* declarado — nada a acoplar.');
+    process.exit(0);
+  }
+  if (declarados.length === 1) {
+    console.log(`  ok   so um pacote @sentry/* declarado (${declarados[0]}).`);
+    console.log('       Com um unico pacote a dessincronizacao e IMPOSSIVEL — e por isso');
+    console.log('       que ele e um so. Se alguem reintroduzir outro, este check volta a');
+    console.log('       exigir que os dois viajem no mesmo PR.');
+    process.exit(0);
+  }
+
+  const falhas = [];
+  // Com dois ou mais, o invariante NAO e "caem no grupo chamado sentry" — e
+  // "caem JUNTOS, em algum grupo". Renomear o grupo nao quebra isto; separar os
+  // pacotes, sim, e ai a arvore duplica.
+  for (const updateType of ['minor', 'patch']) {
+    const destinos = declarados.map((nome) => ({
+      nome,
+      grupo: destino({ nome, producao: true, updateType }, grupos),
+    }));
+    const resumo = destinos.map((d) => `${d.nome} -> ${d.grupo}`).join(', ');
+    const individuais = destinos.filter((d) => d.grupo === 'INDIVIDUAL');
+    const distintos = new Set(destinos.map((d) => d.grupo));
+
+    if (individuais.length > 0) {
       falhas.push(
-        `update ${updateType}: pelo menos um pacote sai em PR INDIVIDUAL ` +
-          `(@sentry/browser -> ${browser}, @sentry/react -> ${react}). ` +
+        `update ${updateType}: pacote(s) saindo em PR INDIVIDUAL (${resumo}). ` +
           'PRs separados duplicam a arvore do Sentry e estouram o bundle.',
       );
-    } else if (browser !== react) {
+    } else if (distintos.size > 1) {
       falhas.push(
-        `update ${updateType}: os dois pacotes caem em grupos DIFERENTES ` +
-          `(@sentry/browser -> ${browser}, @sentry/react -> ${react}). Precisam viajar no mesmo PR.`,
+        `update ${updateType}: os pacotes caem em grupos DIFERENTES (${resumo}). ` +
+          'Precisam viajar no mesmo PR.',
       );
     } else {
-      console.log(`  ok   update ${updateType}: os dois vao para o grupo '${browser}'`);
+      console.log(`  ok   update ${updateType}: os ${declarados.length} vao para '${[...distintos][0]}'`);
     }
   }
 
