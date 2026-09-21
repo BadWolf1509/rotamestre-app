@@ -438,23 +438,14 @@ app.rotamestre.tec.br ── Expo Web / React Native
   a cadeia inteira que não pode ser quebrada (postinstall, `build:web`,
   `configureMaplibreWorker()` e o step explícito no job de visual regression)
   está em [`../CLAUDE.md`](../CLAUDE.md). O e2e `renders motorista mapa` cobre
-  isso funcionalmente desde 25/08/2026 — mas **não roda em PR do Dependabot**, e
-  esse é o furo que importa. Os secrets `E2E_*` existem no repositório e **PR de
-  bot não os recebe**: o step detecta a ausência, emite `::warning::` e sai com
-  0, então o job `Visual Regression` fica **verde sem ter aberto o mapa**. Medido
-  em 17/09/2026 no PR #519 (`maplibre-gl` 6.7 → 6.9) e de novo em 21/09 no #536
-  (6.9 → 6.10) — exatamente a classe de mudança que esse teste existe para
-  cobrir. Para validar um bump de mapa, rode o e2e localmente
-  (`npx playwright test e2e/visual-critical.e2e.ts -g "mapa"`, com o `.env`
-  preenchido); o verde do PR não serve de evidência.
-  **O push na `main` NÃO tem esse furo** — ali os secrets chegam e o e2e roda de
-  verdade (medido em 21/09: `4 passed` nos testes de mapa e `96 passed` na suíte,
-  no merge do #536). Ou seja, a lacuna não é "o mapa nunca é testado", é "o mapa
-  não é testado enquanto ainda dá para barrar o merge": um bump que quebre o
-  worker passa verde no PR, entra na `main` e só então acende — com o deploy do
-  Vercel já disparado. Para ler o resultado no log, procure pelas contagens de
-  teste que passaram; as linhas `echo "::warning ... Secrets E2E ausentes"` são o
-  bash ecoando o script inteiro, **não** prova de que o ramo de warning executou.
+  isso desde 25/08/2026, **mas não em PR do Dependabot**: secrets de bot são um
+  store separado e vazio, o step sai com `exit 0` e o `Visual Regression` fica
+  verde sem ter aberto o mapa (medido no #519 e no #536, os dois bumps de
+  `maplibre-gl`). **O push na `main` roda de verdade** — então um bump quebrado
+  passa verde no PR, entra, e só acende com o deploy já disparado. Para validar
+  antes, rode o e2e local (`npx playwright test e2e/visual-critical.e2e.ts -g
+"mapa"`, com `.env` preenchido). Como distinguir no log um step que rodou de
+  um que degradou: memória `ci-verde-em-pr-do-dependabot-nao-testa-o-mapa`.
 - **Step bloqueante de CI vai no fim do job.** Quando um step sem
   `continue-on-error` falha, o Actions **pula todos os seguintes** — eles
   aparecem como `skipped`, não como falha. Em 25/08/2026 o audit de produção
