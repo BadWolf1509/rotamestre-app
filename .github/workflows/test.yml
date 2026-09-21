@@ -154,15 +154,44 @@ jobs:
 
       - name: Copiar worker do MapLibre
         # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
-        # script — e o job não executa `build:web`, o outro lugar que o chama.
-        # Sem isto, public/maplibre-gl-worker.mjs não existe em CI e o mapa web
-        # trava em "Carregando mapa...", exatamente o modo de falha descrito no
-        # CLAUDE.md. Passou despercebido até 25/08/2026 porque o teste de mapa
-        # era um screenshot que mascarava justamente o mapa.
+        # script. Sem isto, public/maplibre-gl-worker.mjs não existe em CI e o
+        # mapa web trava em "Carregando mapa...", exatamente o modo de falha
+        # descrito no CLAUDE.md. Passou despercebido até 25/08/2026 porque o
+        # teste de mapa era um screenshot que mascarava justamente o mapa.
+        #
+        # REDUNDANTE DESDE 07/09/2026, e fica de propósito: o `build:web` abaixo
+        # começa chamando este mesmo script, então hoje há duas garantias. Custa
+        # ~0,3 s. (Até 21/09 este comentário afirmava que o job "não executa
+        # build:web" — era verdade quando foi escrito e deixou de ser quando o
+        # step de build entrou.)
         run: node tools/scripts/copy-maplibre-worker.cjs
 
+      - name: Versão do Playwright (chave do cache)
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dos navegadores do Playwright
+        # O download dos navegadores é a maior parte do `playwright install`
+        # (centenas de MB de Chromium). A chave é a VERSÃO do @playwright/test,
+        # não o hash do lockfile: assim o cache sobrevive a bump de qualquer
+        # outra dependência, e invalida exatamente quando precisa.
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
+
+      - name: Dependências de sistema do Playwright
+        # Com cache hit os navegadores já estão em ~/.cache/ms-playwright, mas
+        # as libs de sistema (apt) NÃO são cacheadas pelo path — elas vivem fora
+        # dele. Sem este step o Chromium cacheado não sobe, e o modo de falha é
+        # ruim: todos os testes falham no launch, não no download.
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps
 
       - name: Construir o bundle web
         # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
@@ -179,6 +208,26 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Run visual regression tests (public only - no auth required)
+        # OS TRÊS STEPS DE TESTE ABAIXO NÃO SÃO REDUNDANTES, por mais que
+        # pareçam. Já tentei "otimizar" isto em 21/09/2026 e teria apagado a
+        # única execução da regressão visual — em silêncio, com o job verde.
+        #
+        # O que separa os três é a env `VISUAL_REGRESSION`, não o filtro:
+        # `e2e/design-system.e2e.ts` e `e2e/visual-critical.e2e.ts` abrem com
+        # `test.skip(!process.env.VISUAL_REGRESSION, ...)`.
+        #
+        #   este step      VISUAL_REGRESSION=1 (o runner define) -> 26 passed
+        #   Suite completa  SEM a env                             -> 19 SKIPPED
+        #
+        # Ou seja: a suíte completa roda os 96 testes funcionais e **pula** os
+        # visuais. Quem olhar só o `--grep` conclui que a suíte cobre este step.
+        # Não cobre. Os números acima saíram do run 35659691639.
+        #
+        # A única sobreposição real é o step de mapa (4 testes, 23 s), que roda
+        # duas vezes porque o teste do mapa fica FORA do gate de propósito
+        # (`visual-critical.e2e.ts:220`). Fica assim: 23 s é o preço do sinal
+        # explícito "Testes de mapa executados" no log, e esse sinal já foi a
+        # diferença entre ver e não ver um mapa quebrado.
         if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: npm run test:visual:public
         env:
