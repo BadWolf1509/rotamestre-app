@@ -247,17 +247,6 @@ O relato de como cada uma foi descoberta está em [HISTORICO.md](HISTORICO.md).
   sobreviveram porque os testes os _exigiam_ — um esperava `parada_id` no insert,
   outro esperava `'150.5'` citando o `toFixed` no próprio comentário. Ao testar
   escrita em tabela, confira as colunas no banco (`information_schema.columns`) antes de fixar o payload.
-- **Teste que só verifica "foi chamado" não cobre o argumento.** O teste do
-  `fitBounds` do mapa afirmava `toHaveBeenCalledTimes(1)` e nada mais, então o
-  `padding` pôde divergir da largura real dos botões flutuantes sem ninguém ver —
-  marcadores nasciam atrás deles. Quando o defeito mora **no valor**, afirme o
-  valor, e de preferência como relação (`padding.right >= largura do botão`), não
-  como número mágico.
-- **O `mockTheme` do `jest.setup.js` precisa acompanhar o tema real.** Ele tinha
-  só os apelidos (`xs`…`xl`) enquanto o código usa a escala numérica
-  (`theme.spacing['14']`), então qualquer asserção sobre tamanho lia `undefined`
-  e passava por acidente. A escala numérica foi adicionada em 25/08; se o tema
-  ganhar tokens novos, replique lá — mock incompleto não falha, mente.
 - **O terceiro card de estatísticas do dashboard aparece cortado de propósito.**
   É um `ScrollView horizontal` com `accessibilityHint="Deslize para ver mais
 estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
@@ -268,18 +257,13 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
 
 **Infra e distribuição**
 
-- **OSRM no dev web usa outro servidor.** O `Access-Control-Allow-Origin` fixo de
-  `osrm.rotamestre.tec.br` bloqueia chamadas de `localhost`, e o otimizador caía
-  no `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — rota
-  "otimizada" com distância plausível e sem roteamento por vias. Por isso
-  `src/lib/osrm/config.ts` resolve `EXPO_PUBLIC_OSRM_URL` → demo público (**só
-  dev web**) → self-hosted; produção e dev nativo não mudaram. Consequência:
-  distâncias em dev **não conferem** com produção. Correção definitiva é liberar
-  `localhost` no CORS do openresty — **CORS não é controle de acesso**, o
-  endpoint já responde a qualquer um via `curl`.
-- **Worker do maplibre 6** servido de `public/`: se sumir, o mapa trava em
-  "Carregando..." sem erro no console. O que não pode ser removido está em
-  "Regras que não podem regredir".
+- **Distâncias em dev web não conferem com produção.** O CORS do OSRM
+  self-hosted bloqueia `localhost`, então o dev web cai no demo público (cadeia
+  em `../CLAUDE.md`). Antes do fallback, o otimizador caía no
+  `buildHaversineMatrix` (linha reta × 1,3) **sem erro visível** — rota
+  "otimizada" com distância plausível e sem roteamento por vias. Correção
+  definitiva é liberar `localhost` no CORS do openresty; **CORS não é controle
+  de acesso**, o endpoint já responde a qualquer um via `curl`.
 - **Fonte de tiles: serviço externo degrada em silêncio.** Até 31/08/2026 o web
   usava OpenFreeMap e o nativo, Carto — assimetria não escrita em lugar nenhum.
   Quando a Carto passou a exigir chave, o endpoint respondeu **200 com PNG
@@ -406,8 +390,6 @@ app.rotamestre.tec.br ── Expo Web / React Native
   05/08/2026; se recriar alguma, a senha vem de variável de ambiente. Era a
   pendência 1, cuja ação já estava feita — o que sobrava era esta regra,
   ocupando um slot da lista canônica lida em toda sessão.
-- Toda leitura/escrita de tenant deve respeitar `unidade_id` e RLS.
-- `fotos-entrega` permanece privado; não recrie URLs públicas.
 - Migrations de schema devem ser versionadas em `database/migrations/` e
   `supabase/migrations/` com o mesmo timestamp e conteúdo. Exceções históricas
   aplicadas manualmente precisam ser documentadas, nunca executadas novamente
@@ -438,36 +420,14 @@ app.rotamestre.tec.br ── Expo Web / React Native
   a cadeia inteira que não pode ser quebrada (postinstall, `build:web`,
   `configureMaplibreWorker()` e o step explícito no job de visual regression)
   está em [`../CLAUDE.md`](../CLAUDE.md). O e2e `renders motorista mapa` cobre
-  isso funcionalmente desde 25/08/2026 — mas **não roda em PR do Dependabot**, e
-  esse é o furo que importa. Os secrets `E2E_*` existem no repositório e **PR de
-  bot não os recebe**: o step detecta a ausência, emite `::warning::` e sai com
-  0, então o job `Visual Regression` fica **verde sem ter aberto o mapa**. Medido
-  em 17/09/2026 no PR #519 (`maplibre-gl` 6.7 → 6.9) e de novo em 21/09 no #536
-  (6.9 → 6.10) — exatamente a classe de mudança que esse teste existe para
-  cobrir. Para validar um bump de mapa, rode o e2e localmente
-  (`npx playwright test e2e/visual-critical.e2e.ts -g "mapa"`, com o `.env`
-  preenchido); o verde do PR não serve de evidência.
-  **O push na `main` NÃO tem esse furo** — ali os secrets chegam e o e2e roda de
-  verdade (medido em 21/09: `4 passed` nos testes de mapa e `96 passed` na suíte,
-  no merge do #536). Ou seja, a lacuna não é "o mapa nunca é testado", é "o mapa
-  não é testado enquanto ainda dá para barrar o merge": um bump que quebre o
-  worker passa verde no PR, entra na `main` e só então acende — com o deploy do
-  Vercel já disparado. Para ler o resultado no log, procure pelas contagens de
-  teste que passaram; as linhas `echo "::warning ... Secrets E2E ausentes"` são o
-  bash ecoando o script inteiro, **não** prova de que o ramo de warning executou.
-- **Step bloqueante de CI vai no fim do job.** Quando um step sem
-  `continue-on-error` falha, o Actions **pula todos os seguintes** — eles
-  aparecem como `skipped`, não como falha. Em 25/08/2026 o audit de produção
-  estava antes do typecheck e do lint, e um advisory escondia o resultado dos
-  dois: quem abrisse o PR via só o audit vermelho. Vale para qualquer step novo
-  que você torne bloqueante.
-- **Asserção de ausência nunca vem sozinha.** `toHaveCount(0)`,
-  `not.toBeVisible()` e afins são satisfeitas tanto pelo sucesso quanto por "a
-  tela nem chegou lá" — precisam vir **depois** de uma asserção de presença que
-  estabeleça o contexto. Em 25/08/2026 o teste do mapa foi escrito assim e ficou
-  verde com o worker do maplibre destruído de propósito: sem rota atribuída a
-  tela renderiza `motorista-mapa-empty`, nenhum mapa é criado, e o
-  `toHaveCount(0)` sobre o overlay de carregamento era trivialmente verdadeiro.
+  isso desde 25/08/2026, **mas não em PR do Dependabot**: secrets de bot são um
+  store separado e vazio, o step sai com `exit 0` e o `Visual Regression` fica
+  verde sem ter aberto o mapa (medido no #519 e no #536, os dois bumps de
+  `maplibre-gl`). **O push na `main` roda de verdade** — então um bump quebrado
+  passa verde no PR, entra, e só acende com o deploy já disparado. Para validar
+  antes, rode o e2e local (`npx playwright test e2e/visual-critical.e2e.ts -g
+"mapa"`, com `.env` preenchido). Como distinguir no log um step que rodou de
+  um que degradou: memória `ci-verde-em-pr-do-dependabot-nao-testa-o-mapa`.
 - **O bloco `ignore` do `.github/dependabot.yml` não é burocracia.** `expo`,
   `expo-*`, `@expo/*`, `@react-native/*`, `@react-native-community/*`,
   `react-native` e os demais pacotes fixados pelo SDK sobem **só** por
@@ -487,12 +447,6 @@ app.rotamestre.tec.br ── Expo Web / React Native
 - Autoria de ações sensíveis vem de `auth.uid()` **dentro** da função
   `SECURITY DEFINER`, nunca de parâmetro enviado pelo cliente — caso contrário
   qualquer usuário autenticado pode forjá-la.
-- **Toda rota sob `app/` tem `ErrorBoundary`** (desde 15/08, PRs #373 e #374).
-  Auth e `index` são os mais críticos: são a porta de entrada, sem tela anterior
-  para onde voltar. Ao criar rota nova, inclua o boundary. Verificação:
-  `for f in $(find app -name "*.tsx" -not -path "*__tests__*" -not -name "_layout.tsx" -not -name "+*"); do grep -q ErrorBoundary "$f" || echo "$f"; done`
-  — as 4 tabs em `app/motorista/(tabs)/` aparecem nessa busca e são **falso
-  positivo**: re-exportam de `_screens/`, que já têm.
 - **Número com decimal na tela passa por `formatarDecimal`** — regra completa,
   com as exceções, em [`../CLAUDE.md`](../CLAUDE.md). Estava duplicada aqui e
   lá; duas cópias de uma regra divergem no primeiro ajuste.
