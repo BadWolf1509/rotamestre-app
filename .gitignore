@@ -100,6 +100,16 @@ android-export/
 /public/maplibre-gl-worker.mjs
 /public/maplibre-gl-shared.mjs
 
+# Assets de marketing COPIADOS de assets/marketing/ por tools/scripts/copy-assets.js.
+# A fonte versionada e `assets/marketing/`; isto aqui e saida.
+#
+# Versionar a saida custou 27,6 MB ate 21/09/2026: dez variantes de
+# `login-background` viviam SO aqui, nunca na origem — ninguem as copiou para ca,
+# foram commitadas direto no diretorio gerado, e por isso sobreviveram invisiveis
+# a quem olhava a fonte. Enquanto este diretorio for versionado, qualquer arquivo
+# largado aqui se perpetua do mesmo jeito.
+/public/assets/marketing/
+
 # Capturas intermediarias dos screenshots da loja (regeneraveis pelo script;
 # os assets finais ficam versionados em assets/store/screenshots/phone/final/)
 assets/store/screenshots/phone/raw/
