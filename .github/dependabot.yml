@@ -98,10 +98,20 @@ updates:
         update-types: ["version-update:semver-major"]
     # Agrupar atualizações menores
     #
-    # ORDEM IMPORTA: "if a dependency matches more than one rule, it's included
-    # in the first group that it matches". O grupo `sentry` precisa vir ANTES de
-    # `production-dependencies`, senao os patches do Sentry caem naquele e o
-    # agrupamento aqui nunca acontece.
+    # NAO E A ORDEM QUE DECIDE — e a ESPECIFICIDADE, e ela e contraintuitiva.
+    # A doc fala em "the first group that it matches", mas o motor
+    # (updater/lib/dependabot/updater/pattern_specificity_calculator.rb) pontua
+    # cada grupo e escolhe o MAIOR:
+    #
+    #   pattern exato ............. 1000
+    #   pattern sem wildcard ....... 500
+    #   SEM `patterns` ............. 500   <-- generico pontua alto
+    #   pattern com wildcard ....... 100 - 10*n + max(len-5, 0)
+    #   "*" .......................... 1
+    #
+    # `@sentry/*` da 94 e PERDE para `production-dependencies`, que da 500
+    # justamente por NAO ter `patterns`. Por isso o `exclude-patterns` la
+    # embaixo: sem ele, mover este grupo de lugar nao muda nada.
     groups:
       # Os pacotes do Sentry sobem JUNTOS ou nao sobem.
       #
@@ -113,10 +123,14 @@ updates:
       # para 3,88 MB gzipped, estourando o limite de 3,5 MB do `.size-limit.json`,
       # enquanto o #522 (so `@sentry/react`) passou em 3,37 MB.
       #
-      # `production-dependencies` cobre so `patch`, entao os minors do Sentry
-      # (10.73 -> 10.74) escapavam do agrupamento e viravam PRs separados — que e
-      # exatamente o que dessincroniza a arvore. Daqui em diante minor tambem
-      # entra, e os dois viajam no mesmo PR.
+      # ESTE GRUPO NAO FUNCIONOU SOZINHO. Criado em #524 (17/09/2026), ele nunca
+      # recebeu os pacotes: na primeira rodada sob a nova config (21/09) o Sentry
+      # veio de novo em DOIS PRs, #537 e #539, e o #537 repetiu o estouro —
+      # 3,39 MB -> 3,9 MB. Motivo na nota de especificidade acima: as duas
+      # dependencias iam para `production-dependencies` (500 > 94), que so aceita
+      # `patch`; como o update era `minor`, caiam fora dele e viravam PR
+      # individual. O `exclude-patterns` no grupo de producao e o que faz este
+      # grupo aqui receber os pacotes de fato.
       sentry:
         patterns:
           - "@sentry/*"
@@ -132,6 +146,18 @@ updates:
         dependency-type: "production"
         update-types:
           - "patch"
+        # Sem `patterns`, este grupo pontua 500 e VENCE o `sentry` (94) para
+        # qualquer `@sentry/*` — inclusive para `minor`, que ele nem aceita, e o
+        # pacote acaba sem grupo nenhum. Excluir aqui e o que devolve os dois
+        # pacotes ao grupo `sentry`, porque zera o `contains?` deste grupo para
+        # eles (common/lib/dependabot/dependency_group.rb).
+        #
+        # A alternativa — trocar `@sentry/*` por patterns literais, que valem
+        # 500 — foi descartada: dependeria do empate 500x500 ser resolvido pelo
+        # `>` ESTRITO do comparador. Vira bug silencioso se o upstream passar a
+        # usar `>=`.
+        exclude-patterns:
+          - "@sentry/*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
