@@ -160,7 +160,7 @@
     "pg": "^8.23.0",
     "prettier": "^3.9.8",
     "react-test-renderer": "19.2.3",
-    "size-limit": "^13.0.1",
+    "size-limit": "^14.0.0",
     "supabase": "^2.117.0",
     "typescript": "~5.9.2"
   },
