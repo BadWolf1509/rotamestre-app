@@ -154,15 +154,44 @@ jobs:
 
       - name: Copiar worker do MapLibre
         # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
-        # script — e o job não executa `build:web`, o outro lugar que o chama.
-        # Sem isto, public/maplibre-gl-worker.mjs não existe em CI e o mapa web
-        # trava em "Carregando mapa...", exatamente o modo de falha descrito no
-        # CLAUDE.md. Passou despercebido até 25/08/2026 porque o teste de mapa
-        # era um screenshot que mascarava justamente o mapa.
+        # script. Sem isto, public/maplibre-gl-worker.mjs não existe em CI e o
+        # mapa web trava em "Carregando mapa...", exatamente o modo de falha
+        # descrito no CLAUDE.md. Passou despercebido até 25/08/2026 porque o
+        # teste de mapa era um screenshot que mascarava justamente o mapa.
+        #
+        # REDUNDANTE DESDE 07/09/2026, e fica de propósito: o `build:web` abaixo
+        # começa chamando este mesmo script, então hoje há duas garantias. Custa
+        # ~0,3 s. (Até 21/09 este comentário afirmava que o job "não executa
+        # build:web" — era verdade quando foi escrito e deixou de ser quando o
+        # step de build entrou.)
         run: node tools/scripts/copy-maplibre-worker.cjs
 
+      - name: Versão do Playwright (chave do cache)
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dos navegadores do Playwright
+        # O download dos navegadores é a maior parte do `playwright install`
+        # (centenas de MB de Chromium). A chave é a VERSÃO do @playwright/test,
+        # não o hash do lockfile: assim o cache sobrevive a bump de qualquer
+        # outra dependência, e invalida exatamente quando precisa.
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
       - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
+
+      - name: Dependências de sistema do Playwright
+        # Com cache hit os navegadores já estão em ~/.cache/ms-playwright, mas
+        # as libs de sistema (apt) NÃO são cacheadas pelo path — elas vivem fora
+        # dele. Sem este step o Chromium cacheado não sobe, e o modo de falha é
+        # ruim: todos os testes falham no launch, não no download.
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps
 
       - name: Construir o bundle web
         # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
