@@ -208,6 +208,26 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Run visual regression tests (public only - no auth required)
+        # OS TRÊS STEPS DE TESTE ABAIXO NÃO SÃO REDUNDANTES, por mais que
+        # pareçam. Já tentei "otimizar" isto em 21/09/2026 e teria apagado a
+        # única execução da regressão visual — em silêncio, com o job verde.
+        #
+        # O que separa os três é a env `VISUAL_REGRESSION`, não o filtro:
+        # `e2e/design-system.e2e.ts` e `e2e/visual-critical.e2e.ts` abrem com
+        # `test.skip(!process.env.VISUAL_REGRESSION, ...)`.
+        #
+        #   este step      VISUAL_REGRESSION=1 (o runner define) -> 26 passed
+        #   Suite completa  SEM a env                             -> 19 SKIPPED
+        #
+        # Ou seja: a suíte completa roda os 96 testes funcionais e **pula** os
+        # visuais. Quem olhar só o `--grep` conclui que a suíte cobre este step.
+        # Não cobre. Os números acima saíram do run 35659691639.
+        #
+        # A única sobreposição real é o step de mapa (4 testes, 23 s), que roda
+        # duas vezes porque o teste do mapa fica FORA do gate de propósito
+        # (`visual-critical.e2e.ts:220`). Fica assim: 23 s é o preço do sinal
+        # explícito "Testes de mapa executados" no log, e esse sinal já foi a
+        # diferença entre ver e não ver um mapa quebrado.
         if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: npm run test:visual:public
         env:
