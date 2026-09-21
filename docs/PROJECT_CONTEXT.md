@@ -316,9 +316,17 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
 - Web: <https://app.rotamestre.tec.br> publicada e validada. Deploy automático a
   cada push na `main`.
 - **Node 22** é o baseline de dev/CI/EAS/Vercel (`.nvmrc`, `engines.node`,
-  matriz `22.x`). A proteção da `main` exige **três** checks: `Run Tests (22.x)`,
-  `TypeScript & Linting` e `Visual Regression (22.x)` (este entrou em 25/08). O
-  check do Vercel aparece como _pending_ e não bloqueia.
+  matriz `22.x`). A proteção da `main` exige **quatro** checks bloqueantes:
+  TypeScript & Linting, Run Tests, Visual Regression (desde 25/08) e Bundle Size
+  Check (desde 21/09). Não bloqueiam: o Vercel, que aparece como _pending_, e o
+  Design System Drift Check. O Bundle Size foi promovido depois de ser **o único
+  que pegou** a duplicação da árvore do Sentry — 3,39 MB contra 3,9 MB, limite de
+  3,5 MB, no PR #537 — enquanto era informativo e não impedia o merge.
+  **Atenção ao nome exato:** o status carrega o sufixo da matriz do Node, e a
+  proteção compara letra por letra. Os `scripts/setup-branch-protection.*` pediam
+  a versão 20.x até 21/09; rodá-los teria exigido um status que nunca chega, o
+  que **trava todos os PRs**. Hoje os dois abortam se o nome ou a versão não
+  existirem nos workflows.
 - Merge exige **admin override** (`gh pr merge --squash --admin`): a `main` pede
   1 review, o gestor é autor de tudo e não há segundo revisor. Histórico linear
   obrigatório, então squash — merge commit não passa.
@@ -408,8 +416,14 @@ app.rotamestre.tec.br ── Expo Web / React Native
   próximo bump.
 - Não altere `br.tec.rotamestre.app`, o EAS project ID ou o Firebase project sem
   um plano formal de migração.
-- Dependências acopladas exigem validação nativa: versões de Sentry devem ficar
-  alinhadas; Unistyles e Nitro Modules devem ser testados juntos em build EAS.
+- Dependências acopladas exigem validação nativa: Unistyles e Nitro Modules
+  devem ser testados juntos em build EAS. **O Sentry saiu dessa lista em
+  21/09/2026** — o alinhamento deixou de ser disciplina manual: os dois ranges
+  estão em `^10.75.0` (#541), o grupo `sentry` recebe os pacotes de fato (#542) e
+  `npm run scan:grupos-dependabot` guarda o invariante no CI. Ver CLAUDE.md para
+  o mecanismo. **A confirmação end-to-end ainda não veio:** nenhum update do
+  Sentry apareceu desde a correção, então o primeiro PR agrupado do bot é que
+  fecha o caso.
 - **A carência de 7 dias para expirar rota `em_andamento` não é número
   arbitrário.** Expirá-la junto com as pendentes, às 22:00 do próprio dia, teria
   encerrado **67 das 604 rotas concluídas (11%)** com o motorista ainda
@@ -428,10 +442,19 @@ app.rotamestre.tec.br ── Expo Web / React Native
   esse é o furo que importa. Os secrets `E2E_*` existem no repositório e **PR de
   bot não os recebe**: o step detecta a ausência, emite `::warning::` e sai com
   0, então o job `Visual Regression` fica **verde sem ter aberto o mapa**. Medido
-  em 17/09/2026 no PR #519 (`maplibre-gl` 6.7 → 6.9) — exatamente a classe de
-  mudança que esse teste existe para cobrir. Para validar um bump de mapa, rode
-  o e2e localmente (`npx playwright test e2e/visual-critical.e2e.ts -g "mapa"`,
-  com o `.env` preenchido); o verde do PR não serve de evidência.
+  em 17/09/2026 no PR #519 (`maplibre-gl` 6.7 → 6.9) e de novo em 21/09 no #536
+  (6.9 → 6.10) — exatamente a classe de mudança que esse teste existe para
+  cobrir. Para validar um bump de mapa, rode o e2e localmente
+  (`npx playwright test e2e/visual-critical.e2e.ts -g "mapa"`, com o `.env`
+  preenchido); o verde do PR não serve de evidência.
+  **O push na `main` NÃO tem esse furo** — ali os secrets chegam e o e2e roda de
+  verdade (medido em 21/09: `4 passed` nos testes de mapa e `96 passed` na suíte,
+  no merge do #536). Ou seja, a lacuna não é "o mapa nunca é testado", é "o mapa
+  não é testado enquanto ainda dá para barrar o merge": um bump que quebre o
+  worker passa verde no PR, entra na `main` e só então acende — com o deploy do
+  Vercel já disparado. Para ler o resultado no log, procure pelas contagens de
+  teste que passaram; as linhas `echo "::warning ... Secrets E2E ausentes"` são o
+  bash ecoando o script inteiro, **não** prova de que o ramo de warning executou.
 - **Step bloqueante de CI vai no fim do job.** Quando um step sem
   `continue-on-error` falha, o Actions **pula todos os seguintes** — eles
   aparecem como `skipped`, não como falha. Em 25/08/2026 o audit de produção
