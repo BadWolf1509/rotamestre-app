@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "prepare": "husky",
-    "postinstall": "node tools/scripts/copy-maplibre-worker.cjs",
+    "postinstall": "node tools/scripts/copy-maplibre-worker.cjs && node tools/scripts/copy-assets.js",
     "start": "expo start",
     "version:patch": "npm version patch -m \"chore(release): v%s\"",
     "version:minor": "npm version minor -m \"chore(release): v%s\"",
