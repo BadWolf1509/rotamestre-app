@@ -71,7 +71,7 @@
     "@react-native-community/slider": "5.2.0",
     "@sentry/browser": "^10.75.0",
     "@shopify/flash-list": "2.0.2",
-    "@supabase/supabase-js": "^2.116.0",
+    "@supabase/supabase-js": "^2.117.2",
     "expo": "~56.0.20",
     "expo-asset": "~56.0.17",
     "expo-audio": "~56.0.13",
