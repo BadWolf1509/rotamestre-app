@@ -43,9 +43,48 @@ export function initSentry(): void {
     environment: __DEV__ ? 'development' : 'production',
     tracesSampleRate: 0.1, // 10% das transações (performance)
 
+    // COLETA DE DADOS: tudo desligado, de propósito. No v11 o `sendDefaultPii`
+    // virou `dataCollection`, e o default inverteu: sem configurar, o SDK passa a
+    // enviar cookies, headers, query string e corpo de request/response. Aqui isso
+    // significa endereço de cliente e coordenada de motorista (corpo das chamadas
+    // ao PostgREST e às Edge Functions de geocoding), endereço digitado (query
+    // string do Photon/ViaCEP) e o JWT da sessão (header `Authorization`). O
+    // scrubbing do Sentry filtra chave e token por NOME — não pega endereço em
+    // corpo JSON. Os campos que só existem no servidor (DB, filas, GraphQL, IA)
+    // também ficam `false`: não fazem nada no browser hoje, mas uma integration
+    // nova os ligaria em silêncio. O usuário continua identificado por `setUser`,
+    // explícito, com id/email/papel — `userInfo` só controla o preenchimento
+    // AUTOMÁTICO (IP inclusive).
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      // No browser, os headers "coletados" são os que o SDK lê do próprio
+      // navegador (`User-Agent` e `Referer`), não os das chamadas `fetch`.
+      // `false` derrubaria o `User-Agent` e o Sentry perderia navegador/SO de
+      // cada evento, que o v10 enviava. `Referer` fica de fora: carrega URL.
+      httpHeaders: { request: { allow: ['User-Agent'] }, response: false },
+      httpBodies: [],
+      urlQueryParams: false,
+      graphQL: { document: false, variables: false },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    },
+
+    // v11 passou o default para `true`: anexa stack sintética em `captureMessage`
+    // e em exceção que não é `Error`, o que muda o agrupamento das issues e marca
+    // a sessão como errored. Mantém o comportamento do v10.
+    attachStacktrace: false,
+
+    // O default `'always'` REESCREVE a mensagem do erro real ("Failed to fetch" ->
+    // "Failed to fetch (host)"), não só a do evento. `'report-only'` enriquece só
+    // o que vai para o Sentry e deixa o erro que o app enxerga intacto.
+    enhanceFetchErrorMessages: 'report-only',
+
     // NÃO existe replay aqui, e não é por causa de sample rate. `replayIntegration`
-    // não está entre as integrations padrão do `@sentry/browser` 10 (conferido em
-    // 21/09/2026 via `getDefaultIntegrations`), então o Session Replay só entra se
+    // não está entre as integrations padrão do `@sentry/browser` (conferido no 10
+    // em 21/09/2026 e no 11 em 02/10/2026, via `getDefaultIntegrations`), então o Session Replay só entra se
     // alguém o adicionar explicitamente em `integrations`. Até 21/09 havia aqui um
     // par `replaysSessionSampleRate: 0` / `replaysOnErrorSampleRate: 0` comentado
     // como "desabilitado (privacidade)" — eram campos inertes, e davam a impressão
