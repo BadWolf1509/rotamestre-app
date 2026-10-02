@@ -45,6 +45,20 @@ const ACEITOS = {
       'GHSA-w3rx-r6r6-pgpr.',
     revisarEm: '2026-11-01',
   },
+  'GHSA-86w9-cpqp-85rv': {
+    pacote: 'node-forge',
+    motivo:
+      'Verificação de assinatura RSA PKCS#1 v1.5 aceita DigestAlgorithm aninhado ' +
+      'extra. Sem versão corrigida publicada (advisory diz "Patched versions: ' +
+      'None"; a 1.4.0 é a última e está no range vulnerável <=1.4.0). Chega via ' +
+      'expo -> @expo/cli e expo-updates -> @expo/code-signing-certificates, e só ' +
+      'é carregado pelos comandos de CLI de code signing do expo-updates ' +
+      '(`expo-updates/cli/build/{configure,generate}CodeSigningAsync.js`): é ' +
+      'ferramenta de build/dev, não entra no bundle do app. Além disso o ' +
+      '`app.config.js` não configura `codeSigningCertificate`, então o app não ' +
+      'verifica assinatura de update com essa biblioteca em lugar nenhum.',
+    revisarEm: '2026-11-01',
+  },
 };
 
 const GRAVES = new Set(['high', 'critical']);
