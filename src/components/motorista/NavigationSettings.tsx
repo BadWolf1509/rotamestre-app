@@ -207,7 +207,8 @@ export function NavigationSettings({
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Avanço Automático</Text>
             <Text style={styles.settingDescription}>
-              Avança para próxima parada automaticamente ao chegar
+              Navega dentro do app e segue para a próxima parada depois que você
+              conclui a atual
             </Text>
           </View>
           <Switch

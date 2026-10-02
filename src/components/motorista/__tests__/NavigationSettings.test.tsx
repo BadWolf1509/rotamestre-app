@@ -186,7 +186,9 @@ describe('NavigationSettings', () => {
   it('deve mostrar descrição do Avanço Automático', () => {
     const { getByText } = render(<NavigationSettings {...defaultProps} />);
     expect(
-      getByText('Avança para próxima parada automaticamente ao chegar'),
+      getByText(
+        'Navega dentro do app e segue para a próxima parada depois que você conclui a atual',
+      ),
     ).toBeTruthy();
   });
 

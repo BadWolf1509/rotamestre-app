@@ -101,10 +101,7 @@ describe('LocationTrackingService', () => {
 
     // Reset singleton internal state
     (locationTrackingService as any).navigationState = null;
-    if ((locationTrackingService as any).arrivalTimeout) {
-      clearTimeout((locationTrackingService as any).arrivalTimeout);
-    }
-    (locationTrackingService as any).arrivalTimeout = null;
+    (locationTrackingService as any).chegadaAnunciadaPara = null;
     (locationTrackingService as any).lastNotificationTime = 0;
 
     // Default mock state
@@ -392,10 +389,7 @@ describe('LocationTrackingService', () => {
         enabled: true,
         rotaId: 'r1',
       };
-      (locationTrackingService as any).arrivalTimeout = setTimeout(
-        () => {},
-        99999,
-      );
+      (locationTrackingService as any).chegadaAnunciadaPara = 'stop-1';
       (
         Location.hasStartedLocationUpdatesAsync as jest.Mock
       ).mockResolvedValueOnce(true);
@@ -408,7 +402,7 @@ describe('LocationTrackingService', () => {
       );
       expect(AsyncStorage.removeItem).toHaveBeenCalledWith('navigationState');
       expect((locationTrackingService as any).navigationState).toBeNull();
-      expect((locationTrackingService as any).arrivalTimeout).toBeNull();
+      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
     });
 
     it('deve limpar estado sem erro quando nenhuma task rodando', async () => {
@@ -496,7 +490,7 @@ describe('LocationTrackingService', () => {
       expect(mockFrom).toHaveBeenCalledWith('motorista_locations');
     });
 
-    it('deve trigger arrival quando dentro do geofence com accuracy válida', async () => {
+    it('anuncia a chegada quando dentro do geofence com accuracy válida', async () => {
       setUpNavigationState({ autoAdvance: true });
 
       // Same coordinates as stop = 0m distance, accuracy 10 <= 50
@@ -507,14 +501,14 @@ describe('LocationTrackingService', () => {
         accuracy: 10,
       });
 
-      // Arrival should set arrivalTimeout (autoAdvance = true)
-      expect((locationTrackingService as any).arrivalTimeout).not.toBeNull();
+      expect((locationTrackingService as any).chegadaAnunciadaPara).toBe(
+        'stop-1',
+      );
     });
 
-    it('deve NÃO trigger arrival quando accuracy > MIN_ACCURACY (50m)', async () => {
+    it('NÃO considera chegada quando accuracy > MIN_ACCURACY (50m)', async () => {
       setUpNavigationState({ autoAdvance: true });
 
-      // Same coordinates but bad accuracy
       await locationTrackingService.processLocationUpdate({
         ...baseLocation,
         latitude: stopLocation.latitude,
@@ -522,22 +516,23 @@ describe('LocationTrackingService', () => {
         accuracy: 100, // > 50m MIN_ACCURACY
       });
 
-      expect((locationTrackingService as any).arrivalTimeout).toBeNull();
+      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
     });
 
-    it('deve cancelar arrivalTimeout quando motorista se afasta', async () => {
+    it('volta a anunciar depois que o motorista sai do raio', async () => {
       setUpNavigationState({ autoAdvance: true });
 
-      // First: trigger arrival (close location)
       await locationTrackingService.processLocationUpdate({
         ...baseLocation,
         latitude: stopLocation.latitude,
         longitude: stopLocation.longitude,
         accuracy: 10,
       });
-      expect((locationTrackingService as any).arrivalTimeout).not.toBeNull();
+      expect((locationTrackingService as any).chegadaAnunciadaPara).toBe(
+        'stop-1',
+      );
 
-      // Second: move far away (~1100m)
+      // ~1100m de distância
       await locationTrackingService.processLocationUpdate({
         ...baseLocation,
         latitude: -23.56,
@@ -545,68 +540,70 @@ describe('LocationTrackingService', () => {
         accuracy: 10,
       });
 
-      // Timeout should be cancelled
-      expect((locationTrackingService as any).arrivalTimeout).toBeNull();
+      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
     });
   });
 
   // =========================================================================
-  // handleArrival (via processLocationUpdate)
+  // Chegar à parada NUNCA conclui nada
+  //
+  // Incidente de 08/09 a 01/10/2026 (motorista José Inácio, app 1.12.6): com
+  // o modo navegação ativo e "Avanço Automático" ligado, entrar no raio de
+  // 50 m disparava, 5 s depois, um UPDATE `status: 'concluida'` SEM foto — e o
+  // app pulava para a próxima parada, sem nunca abrir o comprovante. 28
+  // entregas ficaram sem foto. Ninguém viu porque o log `auto_concluida` era
+  // descartado pelo trigger `prevent_duplicate_log` (o `log_parada_status` do
+  // banco gravava antes, nos mesmos 5 s).
+  //
+  // Concluir exige comprovante, e comprovante exige o motorista. A chegada
+  // só pode AVISAR — quem conclui é o fluxo com foto, pela tela.
   // =========================================================================
 
-  describe('handleArrival via processLocationUpdate', () => {
-    const stopLocation = { latitude: -23.55, longitude: -46.63 };
-    const arrivalLocation = {
+  describe('chegada à parada', () => {
+    const naParada = {
       latitude: -23.55,
       longitude: -46.63,
       accuracy: 10,
       timestamp: Date.now(),
     };
 
-    function setUpNavigationState(overrides: Record<string, any> = {}) {
+    beforeEach(() => {
+      jest.useFakeTimers();
       (locationTrackingService as any).navigationState = {
         enabled: true,
         autoAdvance: true,
         soundAlerts: false,
         vibrationAlerts: false,
         proximityRadius: 50,
-        currentStopLocation: stopLocation,
+        currentStopLocation: { latitude: -23.55, longitude: -46.63 },
         currentStopId: 'stop-1',
+        nextStopId: 'stop-2',
         rotaId: 'rota-1',
-        ...overrides,
       };
-    }
-
-    it('deve setar timeout quando autoAdvance ativado', async () => {
-      setUpNavigationState({ autoAdvance: true });
-
-      await locationTrackingService.processLocationUpdate(arrivalLocation);
-
-      expect((locationTrackingService as any).arrivalTimeout).not.toBeNull();
     });
 
-    it('deve não setar timeout quando autoAdvance desativado', async () => {
-      setUpNavigationState({ autoAdvance: false });
-
-      await locationTrackingService.processLocationUpdate(arrivalLocation);
-
-      expect((locationTrackingService as any).arrivalTimeout).toBeNull();
+    afterEach(() => {
+      jest.useRealTimers();
     });
 
-    it('deve não re-disparar se arrivalTimeout já ativo', async () => {
-      setUpNavigationState({ autoAdvance: true });
+    it('não grava parada, rota nem log — nem depois de o tempo passar', async () => {
+      const chains: any[] = [];
+      mockFrom.mockImplementation(() => {
+        const chain = createChain();
+        chains.push(chain);
+        return chain;
+      });
 
-      // First arrival
-      await locationTrackingService.processLocationUpdate(arrivalLocation);
-      const firstTimeout = (locationTrackingService as any).arrivalTimeout;
-      expect(firstTimeout).not.toBeNull();
+      await locationTrackingService.processLocationUpdate(naParada);
+      // Bem além dos 5 s do antigo AUTO_ADVANCE_DELAY.
+      await jest.advanceTimersByTimeAsync(60_000);
 
-      // Second arrival (same location)
-      await locationTrackingService.processLocationUpdate(arrivalLocation);
-      const secondTimeout = (locationTrackingService as any).arrivalTimeout;
-
-      // Same timeout reference — handleArrival skipped
-      expect(secondTimeout).toBe(firstTimeout);
+      const tabelas = mockFrom.mock.calls.map(([tabela]) => tabela);
+      // A única escrita legítima aqui é a posição do motorista.
+      expect(tabelas.every((t) => t === 'motorista_locations')).toBe(true);
+      for (const chain of chains) {
+        expect(chain.update).not.toHaveBeenCalled();
+      }
     });
   });
 
@@ -683,153 +680,6 @@ describe('LocationTrackingService', () => {
       expect((locationTrackingService as any).lastNotificationTime).toBe(
         timeBefore,
       );
-    });
-  });
-
-  // =========================================================================
-  // autoAdvanceToNextStop
-  //
-  // Bug encontrado em 06/09/2026: o UPDATE mandava `auto_concluida: true`, e
-  // essa coluna NÃO EXISTE em `paradas` (schema de produção conferido). O
-  // PostgREST recusava o UPDATE inteiro, e o `error` nunca era lido — então a
-  // parada continuava `pendente`. Isso NÃO virava um push errado:
-  // `sendNotification` é um stub vazio, nenhuma notificação saía daqui. O
-  // dano real é que o INSERT em `logs` (evento `parada_concluida`) PASSAVA
-  // normalmente — tabela e escrita diferentes — e a trilha de auditoria
-  // afirmava a conclusão de uma parada que o banco mostrava `pendente`.
-  // =========================================================================
-
-  describe('autoAdvanceToNextStop', () => {
-    function prepararEstado() {
-      (locationTrackingService as any).navigationState = {
-        enabled: true,
-        autoAdvance: true,
-        soundAlerts: false,
-        vibrationAlerts: false,
-        proximityRadius: 50,
-        currentStopLocation: { latitude: -23.55, longitude: -46.63 },
-        currentStopId: 'stop-1',
-        rotaId: 'rota-1',
-      };
-    }
-
-    /**
-     * Chain em que o UPDATE resolve com o resultado que o teste escolher.
-     *
-     * `.update(...).eq(...)` agora encadeia `.select('id')` (revisão do PR
-     * #480, item 4) — por isso o mock resolve DEPOIS desse `.select`, não em
-     * `.eq(...)` direto. Quando o teste não informa `data`, ela é inferida
-     * de `error`: sucesso (sem erro) vira 1 linha afetada, erro vira
-     * nenhuma — o shape mais comum nos dois casos já cobertos abaixo. Um
-     * teste que precise do caso "zero linhas, error: null" (RLS) passa
-     * `data: []` explicitamente.
-     */
-    function chainComUpdate(resultadoDoUpdate: {
-      error: unknown;
-      data?: { id: string }[] | null;
-    }) {
-      const dataDoUpdate =
-        resultadoDoUpdate.data !== undefined
-          ? resultadoDoUpdate.data
-          : resultadoDoUpdate.error
-            ? null
-            : [{ id: 'stop-1' }];
-
-      const chain: any = {};
-      chain.select = jest.fn().mockReturnValue(chain);
-      chain.insert = jest.fn().mockResolvedValue({ error: null });
-      chain.update = jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          select: jest.fn().mockResolvedValue({
-            data: dataDoUpdate,
-            error: resultadoDoUpdate.error,
-          }),
-        }),
-      });
-      chain.eq = jest.fn().mockReturnValue(chain);
-      chain.order = jest.fn().mockReturnValue(chain);
-      chain.limit = jest.fn().mockReturnValue(chain);
-      chain.single = jest.fn().mockResolvedValue({
-        data: {
-          id: 'stop-1',
-          endereco: 'Rua A, 1',
-          tipo: 'entrega',
-          ordem: 1,
-          vinculo_parada_id: null,
-        },
-        error: null,
-      });
-      return chain;
-    }
-
-    it('não manda `auto_concluida` no UPDATE — a coluna não existe em paradas', async () => {
-      prepararEstado();
-      const chain = chainComUpdate({ error: null });
-      mockFrom.mockImplementation(() => chain);
-
-      await (locationTrackingService as any).autoAdvanceToNextStop();
-
-      expect(chain.update).toHaveBeenCalled();
-      const payload = chain.update.mock.calls[0][0];
-      expect(payload).not.toHaveProperty('auto_concluida');
-      // O que o UPDATE precisa continuar fazendo:
-      expect(payload.status).toBe('concluida');
-      expect(payload.concluida_em).toEqual(expect.any(String));
-    });
-
-    it('aborta sem notificar quando o UPDATE da parada falha', async () => {
-      prepararEstado();
-      const chain = chainComUpdate({
-        error: { code: 'PGRST204', message: 'column does not exist' },
-      });
-      mockFrom.mockImplementation(() => chain);
-
-      await (locationTrackingService as any).autoAdvanceToNextStop();
-
-      // Sem log de conclusão e sem busca da próxima parada: o UPDATE falhou,
-      // então não há nada de verdadeiro a anunciar.
-      expect(mockFrom).not.toHaveBeenCalledWith('logs');
-      // `chain.single` é usado 3x no caminho feliz (paradaAtual, nextStop,
-      // followingStop) e só 1x (paradaAtual) no early-return. Checar
-      // `currentStopId` aqui NÃO discriminava: o mock devolve sempre a MESMA
-      // parada como "próxima", então mesmo o código antigo (sem o early
-      // return) chegaria em 'stop-1' de novo — passava nas duas versões. A
-      // contagem de chamadas a `.single()` é o que de fato prova que a busca
-      // da próxima parada nem foi tentada.
-      expect(chain.single).toHaveBeenCalledTimes(1);
-    });
-
-    // Item 4 do fix-report-2.md (PR #480): checar só `erroConclusao` não
-    // bastava. RLS pode barrar o UPDATE devolvendo 204 com ZERO linhas e
-    // `error: null` — o mesmo defeito que `assertUpdateAfetouLinhas`
-    // (useMapaRotaHandlers.ts) já cobre para o gestor. Janela estreita (o
-    // `.single()` de `paradaAtual` costuma falhar antes se a parada já não
-    // pertence mais a este motorista) mas real: se o gestor reatribuir a
-    // rota ENTRE aquele SELECT e este UPDATE, sem esta checagem o log de
-    // `parada_concluida` teria passado mesmo com a parada intocada no banco.
-    it('aborta sem notificar quando RLS barra o UPDATE (zero linhas, error: null)', async () => {
-      prepararEstado();
-      const chain = chainComUpdate({ error: null, data: [] });
-      mockFrom.mockImplementation(() => chain);
-
-      await (locationTrackingService as any).autoAdvanceToNextStop();
-
-      expect(mockFrom).not.toHaveBeenCalledWith('logs');
-      expect(chain.single).toHaveBeenCalledTimes(1);
-    });
-
-    it('registra a auto-conclusão em `detalhes` do log, não como coluna', async () => {
-      prepararEstado();
-      const chain = chainComUpdate({ error: null });
-      mockFrom.mockImplementation(() => chain);
-
-      await (locationTrackingService as any).autoAdvanceToNextStop();
-
-      expect(chain.insert).toHaveBeenCalled();
-      const log = chain.insert.mock.calls[0][0];
-      expect(log.evento).toBe('parada_concluida');
-      expect(log.detalhes.auto_concluida).toBe(true);
-      expect(log.detalhes.metodo).toBe('localizacao_automatica');
     });
   });
 });

@@ -13,7 +13,6 @@ const LOCATION_TASK = 'background-location-tracking';
 
 // Configuration constants
 const GEOFENCE_RADIUS = 50; // meters to consider "arrived" at stop
-const AUTO_ADVANCE_DELAY = 5000; // 5 seconds after arrival
 const MIN_ACCURACY = 50; // minimum accuracy in meters to consider position valid
 
 interface LocationUpdate {
@@ -84,7 +83,8 @@ export const PREFERENCIAS_PADRAO: PreferenciasDeNavegacao = {
 class LocationTrackingService {
   private static instance: LocationTrackingService;
   private navigationState: NavigationState | null = null;
-  private arrivalTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Parada cuja chegada já foi anunciada — evita repetir a cada leitura de GPS. */
+  private chegadaAnunciadaPara: string | null = null;
   private lastNotificationTime: number = 0;
 
   private constructor() {}
@@ -188,12 +188,8 @@ class LocationTrackingService {
       }
 
       this.navigationState = null;
+      this.chegadaAnunciadaPara = null;
       await AsyncStorage.removeItem('navigationState');
-
-      if (this.arrivalTimeout) {
-        clearTimeout(this.arrivalTimeout);
-        this.arrivalTimeout = null;
-      }
 
       return true;
     } catch (error) {
@@ -231,207 +227,45 @@ class LocationTrackingService {
     ) {
       await this.handleArrival(distance);
     } else {
-      // Cancel arrival timeout if moved away
-      if (this.arrivalTimeout) {
-        clearTimeout(this.arrivalTimeout);
-        this.arrivalTimeout = null;
-      }
+      // Saiu do raio: uma nova chegada volta a ser anunciada.
+      this.chegadaAnunciadaPara = null;
 
       // Send proximity notifications
       await this.handleProximityNotifications(distance);
     }
   }
 
-  // Handle arrival at stop
+  /**
+   * Chegada à parada: AVISA, e nada mais.
+   *
+   * Até 02/10/2026 isto agendava, 5 s depois, um `autoAdvanceToNextStop` que
+   * gravava `status: 'concluida'` SEM foto, avançava para a próxima parada e,
+   * na última, concluía a ROTA. Ficou inofensivo por meses só porque o UPDATE
+   * falhava (mandava a coluna inexistente `auto_concluida`); o #480 consertou
+   * o UPDATE e o #495 tornou o modo navegação alcançável, e os dois saíram
+   * juntos na 1.12.6. Resultado medido: 28 entregas de um motorista sem
+   * comprovante entre 08/09 e 01/10, concluídas por geofence — nos dias que a
+   * retenção de logs alcança, a correlação com o `PATCH ...&select=id` deste
+   * caminho foi 7 de 7.
+   *
+   * Concluir exige comprovante, e o comprovante exige o motorista: quem
+   * conclui é o `StopCompletionFlow`, pela tela. O avanço para a próxima
+   * parada continua acontecendo — mas DEPOIS dessa conclusão, quando a tela
+   * troca a parada atual e reinicia o rastreamento para a nova.
+   *
+   * `autoAdvance` segue existindo como preferência: é ela que leva o botão
+   * Navegar para o modo navegação interno em vez do app externo.
+   */
   private async handleArrival(distance: number) {
-    if (!this.navigationState || this.arrivalTimeout) return;
+    const paradaAtual = this.navigationState?.currentStopId ?? null;
+    if (!paradaAtual || this.chegadaAnunciadaPara === paradaAtual) return;
+    this.chegadaAnunciadaPara = paradaAtual;
 
-    // Notify arrival
-    if (this.navigationState.vibrationAlerts) {
-      // Vibration pattern: long-short-short
-      // Note: Expo doesn't have vibration API, would need expo-haptics
-    }
-
-    // Show notification
     await this.sendNotification(
       '📍 Você chegou!',
       `Você está a ${Math.round(distance)}m do destino`,
       true,
     );
-
-    // Auto-advance after delay if enabled
-    if (this.navigationState.autoAdvance) {
-      this.arrivalTimeout = setTimeout(async () => {
-        await this.autoAdvanceToNextStop();
-      }, AUTO_ADVANCE_DELAY);
-    }
-  }
-
-  // Auto advance to next stop
-  private async autoAdvanceToNextStop() {
-    if (!this.navigationState?.currentStopId || !this.navigationState?.rotaId)
-      return;
-
-    try {
-      // Buscar informações completas da parada atual para o log
-      const { data: paradaAtual } = await supabase
-        .from('paradas')
-        .select('id, endereco, tipo, ordem, vinculo_parada_id')
-        .eq('id', this.navigationState.currentStopId)
-        .single();
-
-      // Mark current stop as completed
-      //
-      // O payload mandava `auto_concluida: true`, e essa coluna NÃO EXISTE em
-      // `paradas`. O PostgREST recusava o UPDATE inteiro (PGRST204) e o erro
-      // não era lido — a parada seguia `pendente`. O dano real NÃO era um
-      // push: `sendNotification`, mais abaixo, é um stub vazio (nunca saiu
-      // nenhuma notificação, daqui ou de qualquer outro fluxo deste
-      // serviço). O dano de verdade é que o INSERT em `logs` alguns passos
-      // abaixo (evento `parada_concluida`) PASSAVA normalmente — é outra
-      // tabela, outra escrita — e a trilha de auditoria afirmava a conclusão
-      // de uma parada que o próprio banco mostrava `pendente`: o gestor via
-      // um registro que a rota contradizia.
-      //
-      // O fato de ter sido automática já é registrado onde cabe: dentro de
-      // `detalhes` do log, que é jsonb. Nada se perde ao tirar daqui.
-      const { data: paradaAtualizada, error: erroConclusao } = await supabase
-        .from('paradas')
-        .update({
-          status: 'concluida',
-          concluida_em: new Date().toISOString(),
-        })
-        .eq('id', this.navigationState.currentStopId)
-        .select('id');
-
-      // Abortar é a degradação certa: sem gravação confirmada, qualquer log,
-      // notificação ou avanço daqui para baixo seria mentira. A parada fica
-      // `pendente` e o motorista conclui pela tela, que funciona.
-      // `logger.error` de propósito — `logger.warn` é no-op em produção.
-      //
-      // Checar só `erroConclusao` não basta: RLS pode barrar o UPDATE
-      // devolvendo 204 com ZERO linhas e `error: null` (o `Prefer:
-      // return=minimal` default não distingue "0 linhas" de "N linhas" sem
-      // `.select()` encadeado) — por isso o `.select('id')` acima e a
-      // checagem de `paradaAtualizada` aqui (mesmo padrão de
-      // `assertUpdateAfetouLinhas` em useMapaRotaHandlers.ts). A janela é
-      // estreita — o `.single()` do SELECT de `paradaAtual` acima costuma
-      // falhar antes se a parada já não pertence mais a este motorista —,
-      // mas existe: se o gestor reatribuir a rota ENTRE aquele SELECT e este
-      // UPDATE, `paradaAtual` já está preenchido, e sem esta checagem o log
-      // de `parada_concluida` abaixo passaria mesmo com a parada seguindo
-      // intocada no banco.
-      if (erroConclusao || (paradaAtualizada?.length ?? 0) === 0) {
-        logger.error(
-          '[LocationTracking] Auto-conclusão não gravou; parada segue pendente',
-          erroConclusao ??
-            new Error(
-              'UPDATE não afetou nenhuma linha (RLS ou parada não pertence mais a este motorista)',
-            ),
-        );
-        return;
-      }
-
-      // Criar log para auto-conclusão
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user && paradaAtual) {
-        // `logs` não tem coluna `parada_id` (ver comentário em
-        // queries/logs.ts): a parada vai em `detalhes`, como já fazem
-        // useAddStopForm, useEditStopForm e routeUtils.
-        await supabase.from('logs').insert({
-          usuario_id: user.id,
-          rota_id: this.navigationState.rotaId,
-          evento: 'parada_concluida',
-          detalhes: {
-            parada_id: this.navigationState.currentStopId,
-            endereco: paradaAtual.endereco,
-            tipo: paradaAtual.tipo,
-            ordem: paradaAtual.ordem,
-            vinculo_parada_id: paradaAtual.vinculo_parada_id || null,
-            tem_vinculo: !!paradaAtual.vinculo_parada_id,
-            auto_concluida: true,
-            metodo: 'localizacao_automatica',
-          },
-        });
-      }
-
-      // Get next pending stop
-      const { data: nextStop } = await supabase
-        .from('paradas')
-        .select('id, latitude, longitude, endereco')
-        .eq('rota_id', this.navigationState.rotaId)
-        .eq('status', 'pendente')
-        .order('ordem')
-        .limit(1)
-        .single();
-
-      if (nextStop) {
-        // Update navigation state
-        this.navigationState.currentStopId = nextStop.id;
-        this.navigationState.currentStopLocation = {
-          latitude: nextStop.latitude,
-          longitude: nextStop.longitude,
-        };
-
-        // Get following stop
-        const { data: followingStop } = await supabase
-          .from('paradas')
-          .select('id')
-          .eq('rota_id', this.navigationState.rotaId)
-          .eq('status', 'pendente')
-          .neq('id', nextStop.id)
-          .order('ordem')
-          .limit(1)
-          .single();
-
-        this.navigationState.nextStopId = followingStop?.id;
-
-        // Save updated state
-        await AsyncStorage.setItem(
-          'navigationState',
-          JSON.stringify(this.navigationState),
-        );
-
-        // Notify user
-        await this.sendNotification(
-          '✅ Parada concluída!',
-          `Próxima parada: ${nextStop.endereco}`,
-          true,
-        );
-      } else {
-        // No more stops - route complete
-        await this.handleRouteComplete();
-      }
-    } catch (error) {
-      logger.error('[LocationTracking] Error auto-advancing', error);
-    }
-  }
-
-  // Handle route completion
-  private async handleRouteComplete() {
-    if (!this.navigationState?.rotaId) return;
-
-    try {
-      await supabase
-        .from('rotas')
-        .update({
-          status: 'concluida',
-          concluida_em: new Date().toISOString(),
-        })
-        .eq('id', this.navigationState.rotaId);
-
-      await this.sendNotification(
-        '🎉 Rota Concluída!',
-        'Parabéns! Todas as entregas foram realizadas.',
-        true,
-      );
-
-      await this.stopTracking();
-    } catch (error) {
-      logger.error('[LocationTracking] Error completing route', error);
-    }
   }
 
   // Send proximity notifications
