@@ -104,7 +104,7 @@ function ForgotPasswordContent() {
       ) {
         // Falha no servidor de email (ex.: SMTP fora do ar, certificado TLS
         // vencido). Não é abuso do usuário → não conta no rate limiter.
-        // Logar para o time ver no Sentry (sem isso, a falha fica invisível).
+        // Logar: sem isso, a falha fica invisível.
         logger.error(
           '[ForgotPassword] Falha no envio do email de recuperação (servidor de email)',
           error,

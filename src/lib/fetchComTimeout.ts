@@ -145,10 +145,10 @@ export function criarFetchComTimeout(
   timeoutMs?: number,
   // Lazy de propósito: resolve o `fetch` global na hora da CHAMADA, não na
   // criação do wrapper. `criarFetchComTimeout()` roda uma vez, no boot do
-  // módulo `supabase.ts` — antes de `initSentry()`. Um `fetchBase = fetch`
-  // capturaria o `fetch` de ANTES do Sentry instrumentar o global (ele faz
-  // isso para gerar breadcrumb), e todas as chamadas do Supabase ficariam
-  // fora do breadcrumb para sempre. `(...args) => fetch(...args)` é o mesmo
+  // módulo `supabase.ts`. Um `fetchBase = fetch` congelaria o `fetch` daquele
+  // instante, e qualquer código que troque ou instrumente o global depois
+  // (SDK de monitoramento, polyfill, mock de teste) nunca veria as chamadas
+  // do Supabase. `(...args) => fetch(...args)` é o mesmo
   // padrão que o `resolveFetch` do próprio storage-js usa.
   fetchBase: typeof fetch = (...args) => fetch(...args),
 ): typeof fetch {

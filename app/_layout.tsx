@@ -24,7 +24,6 @@ import { logger } from '@/lib/logger';
 import { setupNotificationResponseHandler } from '@/lib/notificationHandlers';
 import { initializeNotifications } from '@/lib/notifications';
 import { setupOfflineSync } from '@/lib/offline';
-import { initSentry } from '@/lib/sentry';
 import {
   applyThemePreferences,
   getThemePreferences,
@@ -32,7 +31,6 @@ import {
   type ThemeDensityPreference,
   type ThemePreference,
 } from '@/lib/themePreference';
-import { reportWebVitals } from '@/lib/web-vitals';
 import { configureLogBox } from '@/utils/configureLogBox';
 import { migrateNavigationPreferences } from '@/utils/navigationPreferencesMigration';
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
@@ -64,15 +62,13 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const showSidebar =
     userData?.papel === 'gestor' &&
     isDesktop &&
-    gestorRoutes.some(route => pathname.startsWith(route));
+    gestorRoutes.some((route) => pathname.startsWith(route));
 
   if (showSidebar) {
     return (
       <View style={styles.desktopLayout}>
         <Sidebar userData={userData} />
-        <View style={styles.content}>
-          {children}
-        </View>
+        <View style={styles.content}>{children}</View>
       </View>
     );
   }
@@ -138,12 +134,14 @@ export default function RootLayout() {
     'NunitoSans-ExtraBold': NunitoSans_800ExtraBold,
 
     // Viga (display font)
-    'Viga': Viga_400Regular,
+    Viga: Viga_400Regular,
   });
 
   // Font loading timeout for web (prevents app from being stuck in CI)
   // Clear timeout when fonts load successfully
-  const fontTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fontTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     // Skip timeout setup in E2E (render condition handles this)
@@ -156,7 +154,9 @@ export default function RootLayout() {
     if (Platform.OS === 'web' && !fontsLoaded && !fontError) {
       // 3 second timeout - fonts are preloaded in HTML, so should load fast
       fontTimeoutRef.current = setTimeout(() => {
-        logger.warn('Font loading timeout (3000ms) - proceeding without custom fonts');
+        logger.warn(
+          'Font loading timeout (3000ms) - proceeding without custom fonts',
+        );
         setFontTimeout(true);
       }, 3000);
 
@@ -202,14 +202,6 @@ export default function RootLayout() {
   // Migrar preferências de navegação para o sistema unificado
   useEffect(() => {
     migrateNavigationPreferences();
-  }, []);
-
-  // Inicializar Sentry e Web Vitals (web, produção apenas)
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      initSentry();
-      reportWebVitals();
-    }
   }, []);
 
   // Meta tags são injetadas pelo build script (tools/scripts/inject-meta-tags.js)
@@ -276,56 +268,60 @@ export default function RootLayout() {
         <NotificationModalProvider>
           <ConditionalLayout>
             <Stack
-            screenOptions={{
-              headerStyle: {
-                backgroundColor: theme.colors.primary,
-              },
-              headerTintColor: theme.colors.white,
-              headerTitleStyle: {
-                fontFamily: theme.typography.fontDisplay,
-                fontSize: theme.typography.lg,
-              },
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen
-              name="index"
-              options={{
-                title: 'Rota Mestre - Início'
+              screenOptions={{
+                headerStyle: {
+                  backgroundColor: theme.colors.primary,
+                },
+                headerTintColor: theme.colors.white,
+                headerTitleStyle: {
+                  fontFamily: theme.typography.fontDisplay,
+                  fontSize: theme.typography.lg,
+                },
+                headerShown: false,
               }}
-            />
-            <Stack.Screen
-              name="auth"
-              options={{
-                title: 'Rota Mestre - Autenticação'
-              }}
-            />
-            <Stack.Screen
-              name="gestor"
-              options={{
-                title: 'Rota Mestre - Painel do Gestor'
-              }}
-            />
-            <Stack.Screen
-              name="motorista"
-              options={{
-                title: 'Rota Mestre - Motorista'
-              }}
-            />
-            <Stack.Screen
-              name="onboarding"
-              options={{
-                title: 'Rota Mestre - Configuração Inicial'
-              }}
-            />
-          </Stack>
+            >
+              <Stack.Screen
+                name="index"
+                options={{
+                  title: 'Rota Mestre - Início',
+                }}
+              />
+              <Stack.Screen
+                name="auth"
+                options={{
+                  title: 'Rota Mestre - Autenticação',
+                }}
+              />
+              <Stack.Screen
+                name="gestor"
+                options={{
+                  title: 'Rota Mestre - Painel do Gestor',
+                }}
+              />
+              <Stack.Screen
+                name="motorista"
+                options={{
+                  title: 'Rota Mestre - Motorista',
+                }}
+              />
+              <Stack.Screen
+                name="onboarding"
+                options={{
+                  title: 'Rota Mestre - Configuração Inicial',
+                }}
+              />
+            </Stack>
           </ConditionalLayout>
           <Toast
             config={{
-              success: ({ text1, text2 }) => renderToast(theme.colors.success, text1, text2),
-              error: ({ text1, text2 }) => renderToast(theme.colors.error, text1, text2),
-              info: ({ text1, text2 }) => renderToast(theme.colors.primary, text1, text2),
-              warning: ({ text1, text2 }) => renderToast(theme.colors.secondary, text1, text2),
+              success: ({ text1, text2 }) =>
+                renderToast(theme.colors.success, text1, text2),
+              error: ({ text1, text2 }) =>
+                renderToast(theme.colors.error, text1, text2),
+              info: ({ text1, text2 }) =>
+                renderToast(theme.colors.primary, text1, text2),
+              warning: ({ text1, text2 }) =>
+                renderToast(theme.colors.secondary, text1, text2),
             }}
           />
         </NotificationModalProvider>
@@ -334,7 +330,11 @@ export default function RootLayout() {
   );
 }
 
-function renderToast(backgroundColor: string, title?: string, message?: string) {
+function renderToast(
+  backgroundColor: string,
+  title?: string,
+  message?: string,
+) {
   return (
     <View style={[styles.toastContainer, { backgroundColor }]}>
       {title ? <Text style={styles.toastTitle}>{title}</Text> : null}

@@ -28,10 +28,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { Component, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Share, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Share,
+  Platform,
+} from 'react-native';
 
 import { logger } from '@/lib/logger';
-import { captureError } from '@/lib/sentry';
 import { defaultTheme } from '@/utils/styles';
 
 // Component tokens for ErrorBoundary
@@ -58,7 +65,10 @@ interface ErrorBoundaryState {
   errorInfo: React.ErrorInfo | null;
 }
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -76,11 +86,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     logger.action('error_boundary', 'Error caught', {
       errorName: error.name,
       errorMessage: error.message,
-    });
-
-    // Report to Sentry in production
-    captureError(error, {
-      componentStack: errorInfo.componentStack,
     });
 
     // Store errorInfo for potential bug report
@@ -140,9 +145,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       `Message: ${error?.message || 'No message'}`,
       '',
       '--- Recent Actions (Breadcrumbs) ---',
-      ...breadcrumbs.slice(-10).map(
-        (b) => `[${new Date(b.timestamp).toISOString()}] ${b.type}: ${b.message}`
-      ),
+      ...breadcrumbs
+        .slice(-10)
+        .map(
+          (b) =>
+            `[${new Date(b.timestamp).toISOString()}] ${b.type}: ${b.message}`,
+        ),
     ];
 
     if (__DEV__ && errorInfo?.componentStack) {
@@ -174,7 +182,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         >
           <View style={styles.content}>
             <View style={styles.iconContainer}>
-              <Ionicons name="alert-circle-outline" size={tokens.iconSize} color={defaultTheme.colors.error} />
+              <Ionicons
+                name="alert-circle-outline"
+                size={tokens.iconSize}
+                color={defaultTheme.colors.error}
+              />
             </View>
             <Text style={styles.title}>Algo deu errado</Text>
             <Text style={styles.message}>
@@ -197,7 +209,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               accessibilityLabel="Tentar novamente"
               accessibilityRole="button"
             >
-              <Ionicons name="refresh-outline" size={tokens.buttonIconSize} color={defaultTheme.colors.white} />
+              <Ionicons
+                name="refresh-outline"
+                size={tokens.buttonIconSize}
+                color={defaultTheme.colors.white}
+              />
               <Text style={styles.buttonText}>Tentar Novamente</Text>
             </TouchableOpacity>
 
@@ -210,7 +226,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   accessibilityLabel="Voltar ao início"
                   accessibilityRole="button"
                 >
-                  <Ionicons name="home-outline" size={tokens.buttonIconSize} color={defaultTheme.colors.gray600} />
+                  <Ionicons
+                    name="home-outline"
+                    size={tokens.buttonIconSize}
+                    color={defaultTheme.colors.gray600}
+                  />
                   <Text style={styles.secondaryButtonText}>Início</Text>
                 </TouchableOpacity>
               )}
@@ -222,7 +242,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   accessibilityLabel="Reportar problema"
                   accessibilityRole="button"
                 >
-                  <Ionicons name="bug-outline" size={tokens.buttonIconSize} color={defaultTheme.colors.gray600} />
+                  <Ionicons
+                    name="bug-outline"
+                    size={tokens.buttonIconSize}
+                    color={defaultTheme.colors.gray600}
+                  />
                   <Text style={styles.secondaryButtonText}>Reportar</Text>
                 </TouchableOpacity>
               )}

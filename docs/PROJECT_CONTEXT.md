@@ -399,13 +399,7 @@ app.rotamestre.tec.br ── Expo Web / React Native
 - Não altere `br.tec.rotamestre.app`, o EAS project ID ou o Firebase project sem
   um plano formal de migração.
 - Dependências acopladas exigem validação nativa: Unistyles e Nitro Modules
-  devem ser testados juntos em build EAS. **O Sentry saiu dessa lista em
-  21/09/2026** — o alinhamento deixou de ser disciplina manual: os dois ranges
-  estão em `^10.75.0` (#541), o grupo `sentry` recebe os pacotes de fato (#542) e
-  `npm run scan:grupos-dependabot` guarda o invariante no CI. Ver CLAUDE.md para
-  o mecanismo. **A confirmação end-to-end ainda não veio:** nenhum update do
-  Sentry apareceu desde a correção, então o primeiro PR agrupado do bot é que
-  fecha o caso.
+  devem ser testados juntos em build EAS.
 - **A carência de 7 dias para expirar rota `em_andamento` não é número
   arbitrário.** Expirá-la junto com as pendentes, às 22:00 do próprio dia, teria
   encerrado **67 das 604 rotas concluídas (11%)** com o motorista ainda

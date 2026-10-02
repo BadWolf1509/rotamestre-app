@@ -298,7 +298,7 @@ describe('Forgot Password Screen - Integration Tests', () => {
         'teste@rotamestre.com',
         false,
       );
-      // Deve logar para o time ter visibilidade (Sentry)
+      // Deve logar: sem isso, a falha fica invisível
       expect(logger.error).toHaveBeenCalled();
     });
 
