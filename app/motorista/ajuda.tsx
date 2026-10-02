@@ -70,12 +70,21 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: '9',
-    question: 'Como usar a navegação integrada?',
+    question: 'Quais são os modos de navegação?',
     answer:
-      'Ao expandir uma parada, toque em "Como Chegar" para abrir o endereço no app de navegação de sua preferência (Waze, Google Maps ou Apple Maps).',
+      'São três:\n\n' +
+      '• Mapa do app: na tela inicial, toque em "Navegar". Abre um mapa em tela cheia com a distância até a parada e os botões "Pular", "Abrir no Maps" e "Concluir". Quando você chega, o app avisa — mas a parada só é concluída quando você toca em "Concluir" e envia a foto. Depois disso, a navegação segue para a próxima parada.\n\n' +
+      '• App externo (Waze, Google Maps ou Apple Maps): toque em "Abrir no Maps" dentro do mapa do app, ou em "Como Chegar" ao expandir uma parada na aba "Paradas".\n\n' +
+      '• Instruções de direção no app: ligue "Navegação Turn-by-Turn" em Configurações. Com isso, o "Abrir no Maps" passa a mostrar as instruções curva a curva dentro do próprio app, em vez de abrir o app externo. Disponível só no celular.',
   },
   {
     id: '10',
+    question: 'Por que o "Navegar" abriu o mapa do app e não o Waze?',
+    answer:
+      'O que o botão "Navegar" abre depende do ajuste "Avanço Automático", em Configurações (no menu lateral). Ligado (o padrão), ele abre o mapa do app. Desligado, abre direto o seu app de navegação (Waze, Google Maps ou Apple Maps). Nos dois casos, a parada só é concluída quando você toca em "Concluir" e envia a foto.',
+  },
+  {
+    id: '11',
     question: 'O que são os badges na lista de paradas?',
     answer:
       'Os badges indicam o tipo (Entrega/Retirada) e status (Pendente, Concluída, Pulada) de cada parada. Cores verdes indicam conclusão, amarelo pendente e vermelho pulada.',
