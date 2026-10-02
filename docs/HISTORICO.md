@@ -8,6 +8,22 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Sentry removido em 02/10/2026
+
+- Saiu por ser serviço pago. Ao validar a migração para o v11 (#557) em
+  produção, nenhum evento saía do navegador: `EXPO_PUBLIC_SENTRY_DSN` não estava
+  no build da Vercel, e o minificador reduzia `initSentry` a
+  `function(){return}`. Como os deploys antigos ficam atrás da proteção da
+  Vercel, não deu para medir desde quando; o que se sabe é que nada indica que
+  ele tenha capturado erro em produção.
+- Foram junto: `web-vitals` (só existia para mandar métrica ao Sentry), o grupo
+  `sentry` do Dependabot com o `exclude-patterns` que o fazia funcionar,
+  `scripts/verificar-grupos-dependabot.js` + step no CI, e `js-yaml` (declarado
+  só para esse script). O CSP deixou de liberar `*.sentry.io`.
+- A configuração de privacidade do v11 (`dataCollection` restritivo) está no
+  #557, caso o serviço volte. A lição que fica: SDK no bundle e CI verde não
+  provam que ele inicializa — confira o DSN dentro do bundle de produção.
+
 ## Estado confirmado em 09/09/2026
 
 ### Fotos de entrega multiunidade

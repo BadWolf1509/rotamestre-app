@@ -609,8 +609,7 @@ describe('AuthService - Unit Tests', () => {
       // Entre o cadastro e a RPC do onboarding o usuário legitimamente não tem
       // linha em `usuarios` — é assim que o fluxo self-service funciona. Com
       // `.single()` o PostgREST devolve 406 + PGRST116 e isso virava
-      // logger.error: como o Sentry está ligado na web em produção, todo
-      // cadastro que DEU CERTO gerava eventos de erro. `.maybeSingle()` devolve
+      // logger.error em todo cadastro que DEU CERTO. `.maybeSingle()` devolve
       // data:null com error:null, que é o estado real.
       const mockQueryBuilder = {
         select: jest.fn().mockReturnThis(),

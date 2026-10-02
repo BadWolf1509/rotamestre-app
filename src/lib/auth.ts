@@ -242,8 +242,7 @@ export const authService = {
     // a pessoa legitimamente não tem linha em `usuarios` — é assim que o fluxo
     // self-service funciona, e `app/index.tsx` conta com o null para mandar ao
     // onboarding. O `.single()` traduzia esse estado esperado em 406 + PGRST116,
-    // que virava logger.error; com o Sentry ligado na web em produção, todo
-    // cadastro que DEU CERTO registrava erros. Aqui zero linhas devolve
+    // que virava logger.error em todo cadastro que DEU CERTO. Aqui zero linhas devolve
     // data:null com error:null, e só falha de verdade cai no if abaixo.
     const { data, error } = await supabase
       .from('usuarios')

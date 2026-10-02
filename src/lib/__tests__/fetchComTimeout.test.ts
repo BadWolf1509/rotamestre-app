@@ -336,9 +336,8 @@ describe('criarFetchComTimeout', () => {
       // Cria o wrapper SEM fetchBase explícito — usa o default lazy.
       const fetchComTimeout = criarFetchComTimeout(5000);
 
-      // Troca o fetch global DEPOIS de criar o wrapper — é o que aconteceria
-      // se o Sentry instrumentasse `fetch` na inicialização, que roda depois
-      // do boot do módulo `supabase.ts`.
+      // Troca o fetch global DEPOIS de criar o wrapper — é o que acontece
+      // quando algo instrumenta `fetch` depois do boot do módulo `supabase.ts`.
       global.fetch = jest
         .fn()
         .mockResolvedValue({ marca: 'novo' } as unknown as Response);

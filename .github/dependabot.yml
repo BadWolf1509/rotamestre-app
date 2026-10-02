@@ -96,66 +96,8 @@ updates:
       # combinacao suportada. Sobe junto com o upgrade de SDK, como o preset.
       - dependency-name: "jest-environment-jsdom"
         update-types: ["version-update:semver-major"]
-      # js-yaml existe aqui por UM motivo: `scripts/verificar-grupos-dependabot.js`
-      # le este arquivo. Ele foi declarado como devDependency em 21/09/2026 porque
-      # ja estava instalado como transitiva, e usar transitiva nao declarada
-      # quebraria o `scan:nao-declarado`, que e bloqueante.
-      #
-      # O MAJOR nao sobe sozinho porque o ganho e ZERO e o custo e duplicacao.
-      # `@eslint/eslintrc` pede `^4.3.2` e `@expo/xcpretty` pede `^4.1.0`; o 5.x
-      # nao satisfaz nenhum dos dois, entao subir o topo aninha DUAS copias de
-      # js-yaml (medido no PR #544, fechado). Em devDependency isso nao toca o
-      # bundle — e por isso que e so desperdicio, nao incidente — mas e a mesma
-      # forma do problema do Sentry, e aqui nao compra nada: o script usa
-      # `yaml.load()`, que se comporta igual nas duas versoes (testado com 5.4.2
-      # instalado isolado; as breaking changes do 5.x sao em AST, `sortKeys` e
-      # formatacao de dump, nada que o script toque).
-      #
-      # Quando revisitar: se `@eslint/eslintrc` e `@expo/xcpretty` passarem a
-      # aceitar 5.x, o major deixa de duplicar e pode subir.
-      - dependency-name: "js-yaml"
-        update-types: ["version-update:semver-major"]
     # Agrupar atualizações menores
-    #
-    # NAO E A ORDEM QUE DECIDE — e a ESPECIFICIDADE, e ela e contraintuitiva.
-    # A doc fala em "the first group that it matches", mas o motor
-    # (updater/lib/dependabot/updater/pattern_specificity_calculator.rb) pontua
-    # cada grupo e escolhe o MAIOR:
-    #
-    #   pattern exato ............. 1000
-    #   pattern sem wildcard ....... 500
-    #   SEM `patterns` ............. 500   <-- generico pontua alto
-    #   pattern com wildcard ....... 100 - 10*n + max(len-5, 0)
-    #   "*" .......................... 1
-    #
-    # `@sentry/*` da 94 e PERDE para `production-dependencies`, que da 500
-    # justamente por NAO ter `patterns`. Por isso o `exclude-patterns` la
-    # embaixo: sem ele, mover este grupo de lugar nao muda nada.
     groups:
-      # Os pacotes do Sentry sobem JUNTOS ou nao sobem.
-      #
-      # POR QUE. `@sentry/react` fixa `@sentry/browser` em versao EXATA. Subir um
-      # sem o outro faz o npm aninhar uma segunda arvore inteira do Sentry sob
-      # `@sentry/react/node_modules/` (browser, browser-utils, feedback, replay,
-      # replay-canvas e tres copias de core) — dois SDKs no bundle. Medido em
-      # 14/09/2026: o PR #521 (so `@sentry/browser`) levou o bundle de 3,37 MB
-      # para 3,88 MB gzipped, estourando o limite de 3,5 MB do `.size-limit.json`,
-      # enquanto o #522 (so `@sentry/react`) passou em 3,37 MB.
-      #
-      # ESTE GRUPO NAO FUNCIONOU SOZINHO. Criado em #524 (17/09/2026), ele nunca
-      # recebeu os pacotes: na primeira rodada sob a nova config (21/09) o Sentry
-      # veio de novo em DOIS PRs, #537 e #539, e o #537 repetiu o estouro —
-      # 3,39 MB -> 3,9 MB. Motivo na nota de especificidade acima: as duas
-      # dependencias iam para `production-dependencies` (500 > 94), que so aceita
-      # `patch`; como o update era `minor`, caiam fora dele e viravam PR
-      # individual. O `exclude-patterns` no grupo de producao e o que faz este
-      # grupo aqui receber os pacotes de fato.
-      sentry:
-        patterns:
-          - "@sentry/*"
-        update-types:
-          - "minor"
-          - "patch"
       development-dependencies:
         dependency-type: "development"
         update-types:
@@ -165,18 +107,6 @@ updates:
         dependency-type: "production"
         update-types:
           - "patch"
-        # Sem `patterns`, este grupo pontua 500 e VENCE o `sentry` (94) para
-        # qualquer `@sentry/*` — inclusive para `minor`, que ele nem aceita, e o
-        # pacote acaba sem grupo nenhum. Excluir aqui e o que devolve os dois
-        # pacotes ao grupo `sentry`, porque zera o `contains?` deste grupo para
-        # eles (common/lib/dependabot/dependency_group.rb).
-        #
-        # A alternativa — trocar `@sentry/*` por patterns literais, que valem
-        # 500 — foi descartada: dependeria do empate 500x500 ser resolvido pelo
-        # `>` ESTRITO do comparador. Vira bug silencioso se o upstream passar a
-        # usar `>=`.
-        exclude-patterns:
-          - "@sentry/*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

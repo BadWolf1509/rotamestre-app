@@ -133,8 +133,8 @@ describe('useUser', () => {
 
       // Janela do onboarding: a conta existe no Auth mas o perfil ainda não
       // nasceu (ele vem da RPC criar_unidade_para_novo_gestor). Com `.single()`
-      // isso vinha como 406 + PGRST116 e virava logger.error — e o Sentry da web
-      // registrava erro em todo cadastro bem-sucedido.
+      // isso vinha como 406 + PGRST116 e virava logger.error em todo cadastro
+      // bem-sucedido.
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
