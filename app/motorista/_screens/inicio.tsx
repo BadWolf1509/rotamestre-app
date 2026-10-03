@@ -669,7 +669,10 @@ function MotoristaInicioContent() {
           onExpand={() => {
             modals.closePiPMap();
             if (routeStatus !== 'pending') {
-              modals.setNavigationMode(true);
+              // Mesma decisão do "Navegar": o "Avanço Automático" escolhe entre
+              // o modo navegação e o app externo. Ligar o modo direto aqui fazia
+              // o motorista que o desligou cair nele mesmo assim.
+              handleNavigateToStop();
             } else {
               router.push('/motorista/mapa');
             }
