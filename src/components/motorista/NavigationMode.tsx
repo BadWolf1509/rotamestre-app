@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
-  Platform,
   Text,
   TouchableOpacity,
   View,
@@ -514,7 +513,9 @@ export function NavigationMode({
       </MapLibreGL.Map>
 
       {/* Top Bar */}
-      <View style={styles.topBar}>
+      <View
+        style={[styles.topBar, { paddingTop: insets.top + theme.spacing.sm }]}
+      >
         <TouchableOpacity
           style={styles.exitButton}
           onPress={handleExitNavigation}
@@ -623,7 +624,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
     backgroundColor: withOpacity(theme.colors.black, 0.5),

@@ -4,12 +4,13 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColorValue, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationBell } from '@/components/NotificationBell';
 import { useDrawerMenu } from '@/context/DrawerMenuContext';
+import { NavegacaoTelaCheiaContext } from '@/context/NavegacaoTelaCheiaContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { logger } from '@/lib/logger';
 import { useUnistyles } from '@/utils/styles';
@@ -24,6 +25,8 @@ export default function TabLayout() {
   const { openDrawer } = useDrawerMenu();
   const routeStatus = useRouteStatus();
   const { theme } = useUnistyles();
+  const [telaCheia, setTelaCheia] = useState(false);
+  const valorTelaCheia = useMemo(() => ({ setTelaCheia }), []);
 
   // Debug: Log insets para verificar se estão corretos
   useEffect(() => {
@@ -47,116 +50,121 @@ export default function TabLayout() {
   ) => <Ionicons name={focused ? name : nameOutline} size={24} color={color} />;
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.gray400,
-        tabBarStyle: {
-          height: TAB_BAR_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom,
-          paddingTop: 8,
-          backgroundColor: theme.colors.white,
-          borderTopWidth: 1,
-          borderTopColor: theme.colors.gray200,
-          ...Platform.select({
-            ios: {
-              shadowColor: theme.colors.black,
-              shadowOffset: { width: 0, height: -2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            },
-            android: {
-              elevation: 8,
-            },
-          }),
-        },
-        tabBarLabelStyle: {
-          fontSize: theme.typography.xs,
-          fontFamily: theme.typography.fontSansSemiBold,
-          marginTop: 2,
-        },
-        tabBarItemStyle: {
-          paddingVertical: 4,
-        },
-        headerStyle: {
-          backgroundColor: theme.colors.primary,
-        },
-        headerTintColor: theme.colors.white,
-        headerTitleStyle: {
-          fontFamily: theme.typography.fontSansBold,
-          fontSize: theme.typography.lg,
-        },
-        headerLeft: () => (
-          <Pressable
-            onPress={openDrawer}
-            style={{ paddingHorizontal: 16, paddingVertical: 8 }}
-            hitSlop={8}
-            testID="menu-button"
-            accessibilityLabel="menu"
-          >
-            <Ionicons name="menu" size={24} color={theme.colors.white} />
-          </Pressable>
-        ),
-        headerRight: () => (
-          <View style={{ paddingRight: 8, paddingVertical: 4 }}>
-            <NotificationBell variant="mobile" />
-          </View>
-        ),
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Início',
-          headerTitle: 'Início',
-          tabBarAccessibilityLabel: 'tab-inicio',
-          tabBarIcon: ({ color, focused }) =>
-            renderTabIcon('home', 'home-outline', color, focused),
-        }}
-      />
-
-      <Tabs.Screen
-        name="paradas"
-        options={{
-          title: 'Paradas',
-          headerTitle: 'Paradas',
-          tabBarAccessibilityLabel: 'tab-paradas',
-          tabBarIcon: ({ color, focused }) =>
-            renderTabIcon('list', 'list-outline', color, focused),
-          tabBarBadge: paradasPendentes > 0 ? paradasPendentes : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: theme.colors.secondaryDark, // contraste 4.5:1 com texto branco
-            color: theme.colors.white,
+    <NavegacaoTelaCheiaContext.Provider value={valorTelaCheia}>
+      <Tabs
+        screenOptions={{
+          headerShown: !telaCheia,
+          tabBarActiveTintColor: theme.colors.primary,
+          tabBarInactiveTintColor: theme.colors.gray400,
+          tabBarStyle: telaCheia
+            ? { display: 'none' }
+            : {
+                height: TAB_BAR_HEIGHT + insets.bottom,
+                paddingBottom: insets.bottom,
+                paddingTop: 8,
+                backgroundColor: theme.colors.white,
+                borderTopWidth: 1,
+                borderTopColor: theme.colors.gray200,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: theme.colors.black,
+                    shadowOffset: { width: 0, height: -2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                  },
+                  android: {
+                    elevation: 8,
+                  },
+                }),
+              },
+          tabBarLabelStyle: {
             fontSize: theme.typography.xs,
-            fontFamily: theme.typography.fontSansBold,
-            minWidth: 18,
-            height: 18,
-            borderRadius: 9,
+            fontFamily: theme.typography.fontSansSemiBold,
+            marginTop: 2,
           },
+          tabBarItemStyle: {
+            paddingVertical: 4,
+          },
+          headerStyle: {
+            backgroundColor: theme.colors.primary,
+          },
+          headerTintColor: theme.colors.white,
+          headerTitleStyle: {
+            fontFamily: theme.typography.fontSansBold,
+            fontSize: theme.typography.lg,
+          },
+          headerLeft: () => (
+            <Pressable
+              onPress={openDrawer}
+              style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+              hitSlop={8}
+              testID="menu-button"
+              accessibilityLabel="menu"
+            >
+              <Ionicons name="menu" size={24} color={theme.colors.white} />
+            </Pressable>
+          ),
+          headerRight: () => (
+            <View style={{ paddingRight: 8, paddingVertical: 4 }}>
+              <NotificationBell variant="mobile" />
+            </View>
+          ),
         }}
-      />
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Início',
+            headerTitle: 'Início',
+            tabBarAccessibilityLabel: 'tab-inicio',
+            tabBarIcon: ({ color, focused }) =>
+              renderTabIcon('home', 'home-outline', color, focused),
+          }}
+        />
 
-      <Tabs.Screen
-        name="mapa"
-        options={{
-          title: 'Mapa',
-          headerTitle: 'Mapa',
-          tabBarAccessibilityLabel: 'tab-mapa',
-          tabBarIcon: ({ color, focused }) =>
-            renderTabIcon('map', 'map-outline', color, focused),
-        }}
-      />
+        <Tabs.Screen
+          name="paradas"
+          options={{
+            title: 'Paradas',
+            headerTitle: 'Paradas',
+            tabBarAccessibilityLabel: 'tab-paradas',
+            tabBarIcon: ({ color, focused }) =>
+              renderTabIcon('list', 'list-outline', color, focused),
+            tabBarBadge: paradasPendentes > 0 ? paradasPendentes : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: theme.colors.secondaryDark, // contraste 4.5:1 com texto branco
+              color: theme.colors.white,
+              fontSize: theme.typography.xs,
+              fontFamily: theme.typography.fontSansBold,
+              minWidth: 18,
+              height: 18,
+              borderRadius: 9,
+            },
+          }}
+        />
 
-      <Tabs.Screen
-        name="historico"
-        options={{
-          title: 'Histórico',
-          headerTitle: 'Histórico',
-          tabBarAccessibilityLabel: 'tab-historico',
-          tabBarIcon: ({ color, focused }) =>
-            renderTabIcon('time', 'time-outline', color, focused),
-        }}
-      />
-    </Tabs>
+        <Tabs.Screen
+          name="mapa"
+          options={{
+            title: 'Mapa',
+            headerTitle: 'Mapa',
+            tabBarAccessibilityLabel: 'tab-mapa',
+            tabBarIcon: ({ color, focused }) =>
+              renderTabIcon('map', 'map-outline', color, focused),
+          }}
+        />
+
+        <Tabs.Screen
+          name="historico"
+          options={{
+            title: 'Histórico',
+            headerTitle: 'Histórico',
+            tabBarAccessibilityLabel: 'tab-historico',
+            tabBarIcon: ({ color, focused }) =>
+              renderTabIcon('time', 'time-outline', color, focused),
+          }}
+        />
+      </Tabs>
+    </NavegacaoTelaCheiaContext.Provider>
   );
 }
