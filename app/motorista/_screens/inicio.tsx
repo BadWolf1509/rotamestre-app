@@ -442,18 +442,55 @@ function MotoristaInicioContent() {
     // Keep optimization in memory for potential later use
   };
 
+  // Modais que concluem ou pulam a parada atual. Moram numa função (e não num
+  // componente declarado aqui dentro — ver CLAUDE.md) porque os DOIS ramos
+  // abaixo precisam deles: "Concluir" e "Pular" existem tanto no card quanto
+  // dentro do modo navegação. Até 02/10/2026 só o ramo normal os montava, e no
+  // modo navegação os botões abriam um modal que ninguém desenhava — ele só
+  // aparecia quando o motorista saía da navegação, já longe do cliente.
+  const renderModaisDaParada = () => (
+    <>
+      {/* Modal de Conclusão de Parada (com foto) */}
+      {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}
+      {/* quando currentStop muda após a conclusão da parada */}
+      <StopCompletionFlow
+        parada={modals.selectedParadaForCompletion}
+        visible={modals.showCompletionFlow}
+        onClose={modals.closeCompletionFlow}
+        onSuccess={() => refreshRoute()}
+        allowSkipPhoto={true}
+      />
+
+      {/* Skip Reason Modal */}
+      {modals.showSkipModal && modals.selectedParadaForSkip && (
+        <SkipReasonModal
+          visible={modals.showSkipModal}
+          parada={modals.selectedParadaForSkip}
+          onConfirm={handleConfirmSkip}
+          onCancel={modals.closeSkipModal}
+        />
+      )}
+
+      {/* AlertDialog for useAlert hook — "Parada Pulada" e erros vêm daqui */}
+      {AlertDialog}
+    </>
+  );
+
   // If in navigation mode, show full-screen navigation
   if (modals.navigationMode && currentStop) {
     return (
-      <NavigationMode
-        currentStop={currentStop}
-        nextStop={nextStop}
-        paradas={paradas}
-        rotaId={route?.id}
-        onComplete={handleNavigationComplete}
-        onSkip={handleNavigationSkip}
-        onExit={handleNavigationExit}
-      />
+      <>
+        <NavigationMode
+          currentStop={currentStop}
+          nextStop={nextStop}
+          paradas={paradas}
+          rotaId={route?.id}
+          onComplete={handleNavigationComplete}
+          onSkip={handleNavigationSkip}
+          onExit={handleNavigationExit}
+        />
+        {renderModaisDaParada()}
+      </>
     );
   }
 
@@ -649,17 +686,6 @@ function MotoristaInicioContent() {
         onClose={modals.dismissOptimization}
       />
 
-      {/* Modal de Conclusão de Parada (com foto) */}
-      {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}
-      {/* quando currentStop muda após a conclusão da parada */}
-      <StopCompletionFlow
-        parada={modals.selectedParadaForCompletion}
-        visible={modals.showCompletionFlow}
-        onClose={modals.closeCompletionFlow}
-        onSuccess={() => refreshRoute()}
-        allowSkipPhoto={true}
-      />
-
       <SupportModal
         visible={modals.showSupportModal}
         onClose={modals.closeSupport}
@@ -679,23 +705,12 @@ function MotoristaInicioContent() {
         onCancel={modals.closeCompleteRoute}
       />
 
-      {/* Skip Reason Modal */}
-      {modals.showSkipModal && modals.selectedParadaForSkip && (
-        <SkipReasonModal
-          visible={modals.showSkipModal}
-          parada={modals.selectedParadaForSkip}
-          onConfirm={handleConfirmSkip}
-          onCancel={modals.closeSkipModal}
-        />
-      )}
-
       {/* Swipe gesture onboarding (first visit only) */}
       {showSwipeOnboarding && (
         <SwipeOnboarding onDismiss={() => setShowSwipeOnboarding(false)} />
       )}
 
-      {/* AlertDialog for useAlert hook */}
-      {AlertDialog}
+      {renderModaisDaParada()}
     </>
   );
 }

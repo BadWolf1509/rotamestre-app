@@ -5,24 +5,25 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
-import { useRouteStatus } from '@/context/RouteStatusContext';
+import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
-import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 function MapaMotoristaContent() {
   const { theme } = useUnistyles();
-  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
+  const { showWarning, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
-  const { route, paradas, loading, routeStatus, completeStop } =
-    useRouteStatus();
+  const { route, paradas, loading, routeStatus } = useRouteStatus();
 
   // Estados locais de UI apenas
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
+  const [paradaParaConcluir, setParadaParaConcluir] =
+    useState<ParadaData | null>(null);
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'pendente' | 'em_andamento' | 'concluida'
   >('all');
@@ -67,10 +68,12 @@ function MapaMotoristaContent() {
     setBottomSheetVisible(false);
   }, []);
 
-  // Marcar parada como concluída usando o contexto
+  // Concluir pela aba Mapa abre o MESMO fluxo com foto das outras telas.
+  // Até 02/10/2026 isto chamava `completeStop(parada.id)` direto — concluía
+  // sem comprovante e sem nem oferecer a câmera, a única porta do app assim.
   // Nota: Aceita tipo genérico para compatibilidade com ParadaBottomSheet
   const handleMarkComplete = useCallback(
-    async (parada: { id: string; ordem: number }) => {
+    (parada: { id: string }) => {
       // Validar se a rota foi iniciada
       if (route?.status !== 'em_andamento') {
         showWarning(
@@ -80,22 +83,12 @@ function MapaMotoristaContent() {
         return;
       }
 
-      try {
-        // Usar completeStop do contexto (já faz update + log + refresh)
-        await completeStop(parada.id);
-        showSuccess(
-          'Sucesso',
-          `Parada ${parada.ordem} marcada como concluída!`,
-        );
-      } catch (error: unknown) {
-        logger.error('Erro ao marcar parada como concluída', error);
-        showError({
-          title: 'Erro',
-          message: 'Não foi possível atualizar a parada.',
-        });
-      }
+      // A parada vem do contexto (objeto completo), não do bottom sheet: o
+      // fluxo de conclusão precisa do `ParadaData` inteiro.
+      const completa = paradas.find((p) => p.id === parada.id) ?? null;
+      setParadaParaConcluir(completa);
     },
-    [route?.status, completeStop, showWarning, showSuccess, showError],
+    [route?.status, paradas, showWarning],
   );
 
   if (loading) {
@@ -251,6 +244,13 @@ function MapaMotoristaContent() {
         visible={bottomSheetVisible}
         onClose={handleCloseBottomSheet}
         onMarkComplete={handleMarkComplete}
+      />
+
+      <StopCompletionFlow
+        parada={paradaParaConcluir}
+        visible={paradaParaConcluir !== null}
+        onClose={() => setParadaParaConcluir(null)}
+        allowSkipPhoto={true}
       />
       {AlertDialog}
     </View>
