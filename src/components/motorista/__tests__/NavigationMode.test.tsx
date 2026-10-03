@@ -3,6 +3,7 @@ import { join } from 'path';
 
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { NavigationMode } from '../NavigationMode';
 
@@ -547,5 +548,99 @@ describe('Turn-by-Turn', () => {
       expect.objectContaining({ latitude: -23.56 }),
     );
     expect(mockTbtProps.current!.waypoints ?? []).toEqual([]);
+  });
+});
+
+/**
+ * O mapa tinha a altura da tela inteira e a câmera centralizava no meio
+ * dele — atrás do painel de baixo. Motorista, destino e rota só apareciam
+ * arrastando o mapa (análise de 03/10/2026). A câmera precisa saber quanto
+ * do mapa está coberto.
+ */
+describe('Enquadramento do mapa', () => {
+  const Location = jest.requireMock('expo-location');
+
+  const parada = (id: string, ordem: number, latitude: number) => ({
+    id,
+    endereco: `Rua ${ordem}`,
+    latitude,
+    longitude: -46.64,
+    ordem,
+    status: 'pendente',
+    tipo: 'entrega',
+    is_checkpoint: true,
+  });
+  const defaultProps = {
+    currentStop: parada('p2', 2, -23.56),
+    nextStop: parada('p3', 3, -23.57),
+    paradas: [parada('p2', 2, -23.56), parada('p3', 3, -23.57)],
+    rotaId: 'rota-1',
+    onComplete: jest.fn(),
+    onSkip: jest.fn(),
+    onExit: jest.fn(),
+  };
+
+  const layout = (height: number) => ({
+    nativeEvent: { layout: { x: 0, y: 0, width: 400, height } },
+  });
+
+  beforeEach(() => {
+    Location.watchPositionAsync.mockImplementation(
+      (_opcoes: unknown, cb: (l: unknown) => void) => {
+        // ~600 m da parada (-23.56, -46.64): enquadra os dois
+        cb({
+          coords: {
+            latitude: -23.555,
+            longitude: -46.638,
+            heading: 0,
+            speed: 0,
+            accuracy: 5,
+          },
+        });
+        return Promise.resolve({ remove: jest.fn() });
+      },
+    );
+  });
+
+  afterEach(() => {
+    Location.watchPositionAsync.mockResolvedValue({ remove: jest.fn() });
+  });
+
+  it('reserva o painel e a barra superior no padding da câmera', async () => {
+    const { getByTestId } = render(<NavigationMode {...defaultProps} />);
+    await waitFor(() => expect(getByTestId('map-camera')).toBeTruthy());
+
+    fireEvent(getByTestId('nav-barra-superior'), 'layout', layout(90));
+    fireEvent(getByTestId('nav-painel'), 'layout', layout(370));
+
+    await waitFor(() => {
+      const { padding } = getByTestId('map-camera').props;
+      expect(padding.top).toBeGreaterThanOrEqual(90);
+      expect(padding.bottom).toBeGreaterThanOrEqual(370);
+    });
+  });
+
+  it('perto da parada, enquadra motorista e parada juntos', async () => {
+    const { getByTestId } = render(<NavigationMode {...defaultProps} />);
+
+    await waitFor(() => {
+      const { bounds } = getByTestId('map-camera').props;
+      // [oeste, sul, leste, norte]
+      expect(bounds).toEqual([-46.64, -23.56, -46.638, -23.555]);
+    });
+  });
+
+  it('o botão de recentralizar fica acima do painel medido', async () => {
+    const { getByTestId } = render(<NavigationMode {...defaultProps} />);
+    await waitFor(() => expect(getByTestId('nav-recentralizar')).toBeTruthy());
+
+    fireEvent(getByTestId('nav-painel'), 'layout', layout(370));
+
+    await waitFor(() => {
+      const estilo = StyleSheet.flatten(
+        getByTestId('nav-recentralizar').props.style,
+      );
+      expect(estilo.bottom).toBeGreaterThan(370);
+    });
   });
 });

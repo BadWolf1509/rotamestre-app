@@ -11,7 +11,6 @@ import React, {
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Text,
   TouchableOpacity,
   View,
@@ -50,8 +49,6 @@ import { NavigationSettings } from './NavigationSettings';
 import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
 import type { CameraRef } from '@maplibre/maplibre-react-native';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const OPCOES_NAVEGACAO: OpcoesDoWatcher = {
   accuracy: Location.Accuracy.BestForNavigation,
@@ -112,6 +109,12 @@ export function NavigationMode({
   );
 
   const cameraRef = useRef<CameraRef>(null);
+
+  // Altura (dp) do que cobre o mapa: barra superior e painel de baixo.
+  // A câmera desconta isso para centralizar na parte VISÍVEL do mapa.
+  const [alturaBarraSuperior, setAlturaBarraSuperior] = useState(0);
+  const [alturaPainel, setAlturaPainel] = useState(0);
+  const MARGEM_ENQUADRAMENTO = 48;
 
   // Feedback hooks (haptics + sound)
   const { triggerHaptic, playNotificationSound, cleanupSound } =
@@ -220,75 +223,66 @@ export function NavigationMode({
 
   // formatDistance is now provided by useNavigationModeLogic hook
 
-  // Calcular região do mapa com zoom apropriado para navegação
-  const getRegion = useCallback(() => {
-    if (userLocation && currentStop) {
-      // Calcular distância para decidir o zoom
-      const distanceToDestination = calculateHaversineDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        currentStop.latitude,
-        currentStop.longitude,
-      );
+  // Enquadramento da navegação. Perto (< 1 km): motorista e parada juntos,
+  // por `bounds`. Longe: centrado no motorista, zoom pela distância. Em
+  // ambos, o padding desconta barra superior e painel — sem ele o centro
+  // caía atrás do painel e nada da rota aparecia.
+  const cameraSettings = useMemo<MapLibreGL.CameraStop | null>(() => {
+    if (!currentStop) return null;
+    const paddingVisivel = {
+      top: alturaBarraSuperior,
+      bottom: alturaPainel,
+      left: 0,
+      right: 0,
+    };
 
-      // Se está perto (< 1km), mostrar ambos os pontos com padding
-      if (distanceToDestination < 1000) {
-        const minLat = Math.min(userLocation.latitude, currentStop.latitude);
-        const maxLat = Math.max(userLocation.latitude, currentStop.latitude);
-        const minLon = Math.min(userLocation.longitude, currentStop.longitude);
-        const maxLon = Math.max(userLocation.longitude, currentStop.longitude);
-
-        // Adicionar padding de 30% para não ficar muito apertado
-        const latPadding = Math.max(0.003, (maxLat - minLat) * 0.3);
-        const lonPadding = Math.max(0.003, (maxLon - minLon) * 0.3);
-
-        return {
-          latitude: (minLat + maxLat) / 2,
-          longitude: (minLon + maxLon) / 2,
-          latitudeDelta: Math.max(0.008, maxLat - minLat + latPadding * 2),
-          longitudeDelta: Math.max(0.008, maxLon - minLon + lonPadding * 2),
-        };
-      }
-
-      // Se está longe, focar no usuário com zoom mais alto para navegação
-      // Calcular zoom baseado na distância (quanto mais longe, menos zoom)
-      let delta = 0.01; // ~1km view - padrão para navegação
-      if (distanceToDestination > 10000)
-        delta = 0.05; // ~5km view
-      else if (distanceToDestination > 5000)
-        delta = 0.03; // ~3km view
-      else if (distanceToDestination > 2000) delta = 0.02; // ~2km view
-
+    if (!userLocation) {
       return {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: delta,
-        longitudeDelta: delta,
+        center: toLngLat(currentStop),
+        zoom: zoomFromLongitudeDelta(0.01),
+        padding: paddingVisivel,
+        duration: 500,
       };
     }
 
-    return currentStop
-      ? {
-          latitude: currentStop.latitude,
-          longitude: currentStop.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }
-      : null;
-  }, [userLocation, currentStop]);
+    const distanciaAteParada = calculateHaversineDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      currentStop.latitude,
+      currentStop.longitude,
+    );
 
-  const region = getRegion();
-  const cameraSettings = useMemo<MapLibreGL.CameraStop | null>(() => {
-    if (!region) return null;
+    if (distanciaAteParada < 1000 && distanciaAteParada >= 30) {
+      return {
+        bounds: [
+          Math.min(userLocation.longitude, currentStop.longitude),
+          Math.min(userLocation.latitude, currentStop.latitude),
+          Math.max(userLocation.longitude, currentStop.longitude),
+          Math.max(userLocation.latitude, currentStop.latitude),
+        ],
+        padding: {
+          top: alturaBarraSuperior + MARGEM_ENQUADRAMENTO,
+          bottom: alturaPainel + MARGEM_ENQUADRAMENTO,
+          left: MARGEM_ENQUADRAMENTO,
+          right: MARGEM_ENQUADRAMENTO,
+        },
+        duration: 500,
+      };
+    }
+
+    let delta = 0.005; // < 30 m: chegando, zoom de rua
+    if (distanciaAteParada > 10000) delta = 0.05;
+    else if (distanciaAteParada > 5000) delta = 0.03;
+    else if (distanciaAteParada > 2000) delta = 0.02;
+    else if (distanciaAteParada >= 1000) delta = 0.01;
+
     return {
-      center: toLngLat({
-        latitude: region.latitude,
-        longitude: region.longitude,
-      }),
-      zoom: zoomFromLongitudeDelta(region.longitudeDelta),
+      center: toLngLat(userLocation),
+      zoom: zoomFromLongitudeDelta(delta),
+      padding: paddingVisivel,
       duration: 500,
     };
-  }, [region]);
+  }, [userLocation, currentStop, alturaBarraSuperior, alturaPainel]);
 
   // Proximity alert animation (pulse when < 100m)
   useEffect(() => {
@@ -337,10 +331,16 @@ export function NavigationMode({
       cameraRef.current.setStop({
         center: toLngLat(userLocation),
         zoom: zoomFromLongitudeDelta(0.005),
+        padding: {
+          top: alturaBarraSuperior,
+          bottom: alturaPainel,
+          left: 0,
+          right: 0,
+        },
         duration: 500,
       });
     }
-  }, [userLocation, triggerHaptic]);
+  }, [userLocation, triggerHaptic, alturaBarraSuperior, alturaPainel]);
 
   // isEntrega, realParadas, checkpoints, startCheckpoint, endCheckpoint,
   // currentStopIndex, nextStopAfterCurrent are now
@@ -373,7 +373,7 @@ export function NavigationMode({
     );
   }
 
-  if (!currentStop || !region) return null;
+  if (!currentStop) return null;
 
   // Show turn-by-turn navigation if selected
   if (navigationMode === 'turn-by-turn' && userLocation) {
@@ -514,6 +514,8 @@ export function NavigationMode({
 
       {/* Top Bar */}
       <View
+        testID="nav-barra-superior"
+        onLayout={(e) => setAlturaBarraSuperior(e.nativeEvent.layout.height)}
         style={[styles.topBar, { paddingTop: insets.top + theme.spacing.sm }]}
       >
         <TouchableOpacity
@@ -545,7 +547,11 @@ export function NavigationMode({
       {/* Recenter Button */}
       {userLocation && (
         <TouchableOpacity
-          style={styles.recenterButton}
+          testID="nav-recentralizar"
+          style={[
+            styles.recenterButton,
+            { bottom: alturaPainel + theme.spacing.md },
+          ]}
           onPress={recenterMap}
           activeOpacity={0.8}
         >
@@ -556,6 +562,8 @@ export function NavigationMode({
       {/* Navigation Info Panel */}
       {/* Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0) */}
       <View
+        testID="nav-painel"
+        onLayout={(e) => setAlturaPainel(e.nativeEvent.layout.height)}
         style={[
           styles.infoPanel,
           { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) },
@@ -613,8 +621,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSans,
   },
   map: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    flex: 1,
   },
   topBar: {
     position: 'absolute',
@@ -647,7 +654,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   recenterButton: {
     position: 'absolute',
     right: theme.spacing.lg,
-    bottom: 380, // Above info panel
     width: 44,
     height: 44,
     borderRadius: theme.borderRadius.full,
