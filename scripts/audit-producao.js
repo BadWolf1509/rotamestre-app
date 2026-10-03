@@ -59,6 +59,19 @@ const ACEITOS = {
       'verifica assinatura de update com essa biblioteca em lugar nenhum.',
     revisarEm: '2026-11-01',
   },
+  'GHSA-vfj7-8cjw-p6xm': {
+    pacote: 'braces',
+    motivo:
+      'Estouro de pilha (DoS) ao expandir padrões glob muito aninhados. Sem ' +
+      'versão corrigida publicada (range vulnerável <=3.0.3; a 3.0.3 é a ' +
+      'última). Chega só via expo -> @expo/cli -> @expo/metro-file-map -> ' +
+      'micromatch: é o indexador de arquivos do bundler, que roda no build e no ' +
+      'servidor de desenvolvimento. Não entra no bundle do app (conferido no ' +
+      'build web de 03/10/2026: as ocorrências de "braces" são texto do React e ' +
+      'nomes de ícone). Explorar exigiria um padrão glob malicioso na ' +
+      'configuração do build — trava a build, não atinge usuário final.',
+    revisarEm: '2026-11-01',
+  },
 };
 
 const GRAVES = new Set(['high', 'critical']);
