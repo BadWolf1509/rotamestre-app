@@ -216,6 +216,8 @@ export function NavigationMode({
   // Chegada no Turn-by-Turn: vai direto ao fluxo de conclusão da Início
   // (StopCompletionFlow, que pede a foto e já é a confirmação). Passar por
   // `handleCompleteStop` exigiria o `{AlertDialog}`, que este ramo não monta.
+  // Se o motorista cancelar o fluxo, o Turn-by-Turn segue em "chegou" (sem
+  // botão Concluir): a saída é o botão Sair → modo mapa → Concluir.
   const concluirNaChegada = useCallback(async () => {
     await playNotificationSound();
     onComplete();
