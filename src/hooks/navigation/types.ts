@@ -76,7 +76,6 @@ export interface UseNavigationModeLogicReturn {
   currentStopIndex: number;
   nextStopAfterCurrent: ParadaData | null;
   pendingStops: ParadaData[];
-  remainingWaypoints: Coordinate[];
   isEntrega: boolean;
   isNearDestination: boolean;
 
@@ -88,6 +87,6 @@ export interface UseNavigationModeLogicReturn {
   stopNavigation: () => Promise<void>;
   updateLocationFromCoords: (
     coords: { latitude: number; longitude: number; heading?: number | null },
-    speedMs: number | null
+    speedMs: number | null,
   ) => void;
 }

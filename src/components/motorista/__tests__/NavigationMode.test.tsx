@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 
 import { NavigationMode } from '../NavigationMode';
@@ -156,9 +156,19 @@ jest.mock('../NavigationSettings', () => ({
   NavigationSettings: () => null,
 }));
 
-// Mock TurnByTurnNavigation
+// Mock TurnByTurnNavigation — captura as props para os testes de chegada
+const mockTbtProps: {
+  current: null | {
+    onArrive: () => void;
+    waypoints?: unknown[];
+    destination: { latitude: number; longitude: number };
+  };
+} = { current: null };
 jest.mock('../TurnByTurnNavigation', () => ({
-  TurnByTurnNavigation: () => null,
+  TurnByTurnNavigation: (props: never) => {
+    mockTbtProps.current = props;
+    return null;
+  },
 }));
 
 describe('NavigationMode', () => {
@@ -442,5 +452,100 @@ describe('identidade das props passadas a TurnByTurnNavigation', () => {
   it('nenhuma prop é arrow function inline', () => {
     // `onExit={() => …}` tem o mesmo efeito por outro caminho.
     expect(elemento).not.toMatch(/=\{\s*\(\s*\)\s*=>/);
+  });
+});
+
+/**
+ * Até 03/10/2026 a chegada no Turn-by-Turn chamava a confirmação "Confirmar
+ * Entrega", mas este ramo retorna antes do `{AlertDialog}`: a promessa ficava
+ * pendente, nada aparecia e a parada não concluía. A rota também levava as
+ * outras paradas como pontos intermediários — o OSRM monta
+ * origem → intermediários → destino, e a voz guiava primeiro para elas.
+ */
+describe('Turn-by-Turn', () => {
+  const Location = jest.requireMock('expo-location');
+  const LocationTracking = jest.requireMock(
+    '@/services/locationTracking',
+  ).default;
+
+  const paradaReal = (id: string, ordem: number, latitude: number) => ({
+    id,
+    endereco: `Rua ${ordem}`,
+    latitude,
+    longitude: -46.64,
+    ordem,
+    status: 'pendente',
+    tipo: 'entrega',
+    is_checkpoint: true,
+  });
+
+  const propsTbt = {
+    currentStop: paradaReal('p2', 2, -23.56),
+    nextStop: paradaReal('p3', 3, -23.57),
+    paradas: [
+      paradaReal('p2', 2, -23.56),
+      paradaReal('p3', 3, -23.57),
+      paradaReal('p4', 4, -23.58),
+    ],
+    rotaId: 'rota-1',
+    onComplete: jest.fn(),
+    onSkip: jest.fn(),
+    onExit: jest.fn(),
+  };
+
+  beforeEach(() => {
+    mockTbtProps.current = null;
+    propsTbt.onComplete.mockClear();
+    global.mockUseAlert.showConfirm.mockClear();
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      internalNavigation: true,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    Location.watchPositionAsync.mockImplementation(
+      (_opcoes: unknown, cb: (l: unknown) => void) => {
+        cb({
+          coords: {
+            latitude: -23.55,
+            longitude: -46.63,
+            heading: 0,
+            speed: 0,
+            accuracy: 5,
+          },
+        });
+        return Promise.resolve({ remove: jest.fn() });
+      },
+    );
+  });
+
+  afterEach(() => {
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      internalNavigation: false,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    Location.watchPositionAsync.mockResolvedValue({ remove: jest.fn() });
+  });
+
+  it('a chegada conclui pelo fluxo da Início (foto), sem diálogo no meio', async () => {
+    render(<NavigationMode {...propsTbt} />);
+    await waitFor(() => expect(mockTbtProps.current).not.toBeNull());
+
+    await act(async () => {
+      mockTbtProps.current!.onArrive();
+    });
+
+    expect(propsTbt.onComplete).toHaveBeenCalledTimes(1);
+    expect(global.mockUseAlert.showConfirm).not.toHaveBeenCalled();
+  });
+
+  it('a rota vai só até a parada atual, sem as outras como intermediárias', async () => {
+    render(<NavigationMode {...propsTbt} />);
+    await waitFor(() => expect(mockTbtProps.current).not.toBeNull());
+
+    expect(mockTbtProps.current!.destination).toEqual(
+      expect.objectContaining({ latitude: -23.56 }),
+    );
+    expect(mockTbtProps.current!.waypoints ?? []).toEqual([]);
   });
 });

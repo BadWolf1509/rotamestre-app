@@ -117,13 +117,6 @@ export function useNavigationModeLogic({
     );
   }, [realParadas, currentStop]);
 
-  // Remaining waypoints for turn-by-turn navigation
-  const remainingWaypoints = useMemo(() => {
-    return realParadas
-      .filter((p) => p.id !== currentStop?.id && p.status === 'pendente')
-      .map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
-  }, [realParadas, currentStop]);
-
   // Check if stop is delivery or pickup
   const isEntrega = currentStop?.tipo === 'entrega';
 
@@ -347,7 +340,6 @@ export function useNavigationModeLogic({
     currentStopIndex,
     nextStopAfterCurrent,
     pendingStops,
-    remainingWaypoints,
     isEntrega,
     isNearDestination,
 

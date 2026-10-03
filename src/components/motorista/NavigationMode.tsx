@@ -93,7 +93,6 @@ export function NavigationMode({
     endCheckpoint,
     currentStopIndex,
     nextStopAfterCurrent,
-    remainingWaypoints,
     isEntrega,
     formatDistance,
     getSpeedColor,
@@ -211,6 +210,14 @@ export function NavigationMode({
     onSkip,
     onExit,
   });
+
+  // Chegada no Turn-by-Turn: vai direto ao fluxo de conclusão da Início
+  // (StopCompletionFlow, que pede a foto e já é a confirmação). Passar por
+  // `handleCompleteStop` exigiria o `{AlertDialog}`, que este ramo não monta.
+  const concluirNaChegada = useCallback(async () => {
+    await playNotificationSound();
+    onComplete();
+  }, [playNotificationSound, onComplete]);
 
   // formatDistance is now provided by useNavigationModeLogic hook
 
@@ -337,7 +344,7 @@ export function NavigationMode({
   }, [userLocation, triggerHaptic]);
 
   // isEntrega, realParadas, checkpoints, startCheckpoint, endCheckpoint,
-  // currentStopIndex, nextStopAfterCurrent, remainingWaypoints are now
+  // currentStopIndex, nextStopAfterCurrent are now
   // provided by useNavigationModeLogic hook
 
   // Dependências primitivas, não o objeto `currentStop`: ele também muda de
@@ -375,8 +382,7 @@ export function NavigationMode({
       <TurnByTurnNavigation
         origin={userLocation}
         destination={destinoDaNavegacao}
-        waypoints={remainingWaypoints}
-        onArrive={handleCompleteStop}
+        onArrive={concluirNaChegada}
         onExit={sairDaNavegacao}
       />
     );
