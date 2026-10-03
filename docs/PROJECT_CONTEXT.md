@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 17/09/2026.
+> Documento de entrada para novas sessões. Atualizado em 03/10/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -47,6 +47,9 @@ para outra coisa.
 
 - **11.** **Nenhuma das 9 unidades tem gestor principal, e não há caminho no app para estabelecer o primeiro.** Medido em 06/09/2026: 0 de 16 usuários com `is_gestor_principal = true`, porque nenhuma unidade nasceu pelo fluxo self-service — o único que liga o flag. Efeito hoje: a tela de transferência de gestão está **inalcançável para todos os gestores** (ela exige ser o principal), e o mesmo vale para o badge do drawer. A Migration 27 fechou a autopromoção por `.update()` direto, que era o único "caminho" anterior e era o próprio buraco — então o bootstrap do primeiro titular passa a exigir `service_role` ou uma RPC dedicada, **nenhuma das duas existe**. Não é esquecimento: escolher quem é o titular de cada unidade dá poder sobre ela e é decisão de produto, não de quem escreve a migration.<br>_Quem:_ gestor (decidir os titulares) · _Detalhe:_ `database/MIGRATIONS.md`, Migration 27
 
+- **12.** **Entregas concluídas sem comprovante (incidente da 1.12.6) — a correção está na 1.12.7, ainda só em interno + alpha.** Na 1.12.6 o modo navegação concluía a parada por geofence, sem foto (#561; relato completo em [HISTORICO.md](HISTORICO.md), 02–03/10/2026). A 1.12.7 (versionCode 3034) foi validada em aparelho em 03/10, **menos dois cenários**: (a) **chegar a menos de 50 m da parada com o modo navegação ativo e esperar 1 min — ela NÃO pode ser concluída**; ficou para a prática de um motorista na rua. Prova sem deslocamento: `PATCH paradas?…&select=id` nos logs HTTP do Supabase é a assinatura da conclusão automática e não pode aparecer de quem já está na 1.12.7. (b) "Concluir" na **aba Mapa** pedir foto: toque do `adb` não abre o painel do marcador MapLibre nativo; falta tocar com o dedo. **Até os motoristas atualizarem**, a contenção é desligar "Avanço Automático" em Configurações e não usar "Abrir navegação completa" no mapa flutuante (esse botão ignorava o ajuste até o #565, que só entra na versão seguinte). **Ao promover a 3034 para produção:** `npm run play:promote` não envia notas da versão — reaplique o texto publicado nas faixas de teste (ou estenda o script).<br>_Quem:_ gestor (motorista na rua, toque no Mapa) · _Detalhe:_ [HISTORICO.md](HISTORICO.md), 02–03/10/2026
+- **13.** **A auditoria não mostra a origem de uma conclusão, e pode perder conclusões legítimas.** O trigger `prevent_duplicate_log` (BEFORE INSERT em `logs`) descarta qualquer log com mesmo `rota_id` + `evento` + `usuario_id` nos últimos 5 s. Como o trigger `log_parada_status` grava `parada_concluida` primeiro, o log do app — que trazia `metodo`/`auto_concluida` — era jogado fora, e foi isso que escondeu o incidente da pendência 12 por 3 semanas. Pelo mesmo critério, duas paradas concluídas em menos de 5 s (entrega + retirada vinculadas) perdem a segunda linha. A deduplicação precisa considerar a parada (`detalhes->>'parada_id'`). Migration + `rls-policy-reviewer`, aplicada via MCP.<br>_Quem:_ qualquer sessão · _Detalhe:_ `pg_get_functiondef('public.prevent_duplicate_log'::regproc)`
+
 **Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
 de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
 **86 linhas** lidas em toda sessão para responder "isso já foi resolvido?", que
@@ -60,7 +63,12 @@ otimização** — o dado existe em `logs.usuario_id` e falta o join em
 de realtime (`:195`) recebe `payload.new`, que **não traz dado de join**, então
 o autor apareceria na carga inicial e sumiria nos eventos ao vivo. Resolver isso
 exige escolher entre resolver nomes no cliente (cache de usuários da unidade) ou
-aceitar a inconsistência; é decisão de produto, não conserto óbvio.
+aceitar a inconsistência; é decisão de produto, não conserto óbvio. **Cada
+envio de localização chama `supabase.auth.getUser()`** (`updateDriverPosition`
+em `src/services/locationTracking.ts` e `src/hooks/useDriverLocationBroadcast.ts`): medido em
+01/10/2026, ~2.300 requisições por dia de um único motorista, metade delas
+`GET /auth/v1/user`. O id do usuário não muda durante a rota — dá para lê-lo uma
+vez da sessão.
 
 **Achados na validação em aparelho de 08/09/2026, ainda abertos:**
 

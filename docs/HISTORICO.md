@@ -8,6 +8,62 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Entregas concluídas sem comprovante e release 1.12.7 (02–03/10/2026)
+
+**Sintoma relatado:** um motorista "nem sempre consegue anexar a foto".
+**Medido:** 0 de 167 entregas sem foto até 07/09; **28 de 121 (23%)** a partir
+de 08/09, dia em que a 1.12.6 chegou ao aparelho dele. Outro motorista na mesma
+1.12.6 tinha 1 de 137. Nenhuma das 28 tinha objeto no Storage, e nenhuma teve
+tentativa de upload (nem com erro). A foto nunca foi tirada; não há o que
+recuperar.
+
+**Causa:** `LocationTrackingService.autoAdvanceToNextStop()` concluía a parada
+5 s depois de o motorista entrar no raio de 50 m, sem foto, e avançava para a
+próxima; na última, `handleRouteComplete()` concluía a rota. O caminho existia
+desde 2025 e estava neutralizado por dois defeitos, corrigidos na mesma 1.12.6:
+o UPDATE gravava a coluna inexistente `auto_concluida` e sempre falhava (#480),
+e o modo navegação era inalcançável para quem nunca tinha mexido no ajuste
+(#495).
+
+**Como foi achado** (a auditoria `logs` não ajudava — ver pendência 13 do
+`PROJECT_CONTEXT`): pelos logs HTTP do Supabase (`edge_logs`). O usuário vem em
+`request.sb.jwt.authorization.payload.subject` e a versão do app em
+`x_client_info` (`supabase-js/2.115.0` ⇒ build entre 07 e 17/09). A conclusão
+manual é `PATCH paradas?id=eq.X` (204); a automática é
+`GET …select=id,endereco,tipo,ordem,vinculo_parada_id` seguido de
+`PATCH paradas?id=eq.X&select=id` (200). De 25/09 a 02/10 (o que a retenção
+alcançou), as 7 paradas sem foto eram exatamente os 7 PATCHes automáticos.
+Hipóteses descartadas no caminho: fila offline, Storage/RLS, recriação da
+Activity pela câmera (a recuperação do #474 funcionou nos logs), parada
+vinculada concluída junto, posição da parada na rota.
+
+**Correções:** #561 (a chegada só avisa; "Concluir"/"Pular" passam a funcionar
+dentro do modo navegação, cujo ramo da Início não montava os modais; a aba Mapa
+deixa de chamar `completeStop` direto; ajuda do motorista com os modos de
+navegação) e #565 (o "Abrir navegação completa" do mapa flutuante passa a
+respeitar o "Avanço Automático"; entra só na versão seguinte à 1.12.7).
+
+**Release 1.12.7 (versionCode 3034), validada em moto g15 / Android 15 com o
+APK preview do mesmo commit do `.aab`:** Navegar abre o modo navegação; "Pular"
+e "Concluir" abrem os modais na hora; a foto pela câmera é recuperada com
+`always_finish_activities=1`; a conclusão grava `foto_url` e o objeto; a
+navegação segue para a próxima parada. **Não validados em aparelho:** a chegada
+a 50 m sem conclusão (exige deslocamento) e o "Concluir" do Mapa (toque do
+`adb` não abre o marcador). Em compensação, o bundle do APK não contém as marcas
+exclusivas do código removido (`localizacao_automatica`, `auto_concluida`,
+"Error auto-advancing" e, em UTF-16, "Auto-conclusão não gravou" e "Rota
+Concluída!"), com controle positivo para os textos novos. Publicada em interno e
+alpha com notas da versão em pt-BR (aplicadas pela API: `play:promote` não as
+envia).
+
+**No mesmo período:** rodada do Dependabot (#552, #555, #554 com o e2e do mapa
+rodado localmente, #564 substituindo o #559, que o Dependabot fechou ao receber
+`@dependabot rebase`); audit de produção destravado duas vezes por advisories
+publicados entre o CI do PR e o da `main` (#556: `uuid`/`brace-expansion`
+corrigidos, `node-forge` aceito; #562: `braces` aceito — nenhum tem versão
+corrigida e todos são só de build); Sentry 11 com `dataCollection` restritivo
+(#557) e, logo depois, a remoção do Sentry (#558, entrada abaixo).
+
 ## Sentry removido em 02/10/2026
 
 - Saiu por ser serviço pago. Ao validar a migração para o v11 (#557) em
