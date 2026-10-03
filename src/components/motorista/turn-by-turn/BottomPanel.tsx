@@ -1,8 +1,9 @@
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface BottomPanelProps {
   progress: number;
@@ -10,7 +11,7 @@ interface BottomPanelProps {
   formattedRemainingTime: string;
   speed: number;
   voiceEnabled: boolean;
-  mapView?: "north-up" | "heading-up";
+  mapView?: 'north-up' | 'heading-up';
   onToggleVoice: () => void;
   onToggleMapView?: () => void;
   onOpenInMaps?: () => void;
@@ -30,9 +31,17 @@ export const BottomPanel = React.memo(function BottomPanel({
   onExit,
 }: BottomPanelProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.bottomPanel}>
+    <View
+      style={[
+        styles.bottomPanel,
+        // Em tela cheia a barra de navegação do sistema cobre o rodapé; o
+        // mínimo de 34 cobre o Android 15, que pode devolver insets.bottom = 0.
+        { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) },
+      ]}
+    >
       {/* Progress bar */}
       <View style={styles.progressBar}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -70,7 +79,7 @@ export const BottomPanel = React.memo(function BottomPanel({
           onPress={onToggleVoice}
         >
           <Ionicons
-            name={voiceEnabled ? "volume-high" : "volume-mute"}
+            name={voiceEnabled ? 'volume-high' : 'volume-mute'}
             size={24}
             color={voiceEnabled ? theme.colors.primary : theme.colors.gray400}
           />
@@ -97,7 +106,7 @@ export const BottomPanel = React.memo(function BottomPanel({
             onPress={onToggleMapView}
           >
             <Ionicons
-              name={mapView === "heading-up" ? "compass" : "navigate"}
+              name={mapView === 'heading-up' ? 'compass' : 'navigate'}
               size={24}
               color={theme.colors.primary}
             />
@@ -110,14 +119,13 @@ export const BottomPanel = React.memo(function BottomPanel({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   bottomPanel: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: theme.colors.white,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
-    paddingBottom: Platform.select({ ios: 30, default: 20 }) as number,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -130,31 +138,31 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray200,
     borderTopLeftRadius: theme.borderRadius.xl,
     borderTopRightRadius: theme.borderRadius.xl,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   progressFill: {
-    height: "100%",
+    height: '100%',
     backgroundColor: theme.colors.success,
   },
   statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingVertical: theme.spacing["4"],
-    paddingHorizontal: theme.spacing["4"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: theme.spacing['4'],
+    paddingHorizontal: theme.spacing['4'],
   },
   stat: {
-    alignItems: "center",
+    alignItems: 'center',
   },
   statValue: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: "700",
+    fontWeight: '700',
     color: theme.colors.gray900,
   },
   statLabel: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    marginTop: theme.spacing["0.5"],
+    marginTop: theme.spacing['0.5'],
   },
   statSeparator: {
     width: 1,
@@ -162,53 +170,53 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray200,
   },
   controls: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing["4"],
-    paddingTop: theme.spacing["2"],
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing['4'],
+    paddingTop: theme.spacing['2'],
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
-    gap: theme.spacing["3"],
+    gap: theme.spacing['3'],
   },
   controlButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     backgroundColor: theme.colors.gray100,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   controlButtonDisabled: {
     opacity: 0.5,
   },
   openMapsButton: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.info,
-    paddingVertical: theme.spacing["3"],
-    borderRadius: theme.borderRadius["3xl"],
-    gap: theme.spacing["2"],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius['3xl'],
+    gap: theme.spacing['2'],
   },
   openMapsButtonText: {
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.base,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   exitButton: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: theme.colors.error,
-    paddingHorizontal: theme.spacing["6"],
-    paddingVertical: theme.spacing["3"],
-    borderRadius: theme.borderRadius["3xl"],
-    gap: theme.spacing["2"],
+    paddingHorizontal: theme.spacing['6'],
+    paddingVertical: theme.spacing['3'],
+    borderRadius: theme.borderRadius['3xl'],
+    gap: theme.spacing['2'],
   },
   exitButtonText: {
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.base,
-    fontWeight: "600",
+    fontWeight: '600',
   },
 }));

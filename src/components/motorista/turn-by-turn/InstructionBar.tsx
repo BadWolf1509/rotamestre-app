@@ -1,11 +1,12 @@
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { Platform, Text, View } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { NavigationInstruction } from "@/services/turnByTurnNavigation";
-import type { IconName } from "@/types/icons";
-import { withOpacity } from "@/utils/color";
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import type { NavigationInstruction } from '@/services/turnByTurnNavigation';
+import type { IconName } from '@/types/icons';
+import { withOpacity } from '@/utils/color';
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface InstructionBarProps {
   currentInstruction: NavigationInstruction | null;
@@ -21,13 +22,19 @@ export const InstructionBar = React.memo(function InstructionBar({
   getManeuverIcon,
 }: InstructionBarProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.instructionBar}>
+    <View
+      style={[
+        styles.instructionBar,
+        { paddingTop: insets.top + theme.spacing.sm },
+      ]}
+    >
       <View style={styles.instructionContent}>
         <View style={styles.maneuverIcon}>
           <Ionicons
-            name={getManeuverIcon(currentInstruction?.maneuver || "")}
+            name={getManeuverIcon(currentInstruction?.maneuver || '')}
             size={40}
             color={theme.colors.white}
           />
@@ -36,7 +43,7 @@ export const InstructionBar = React.memo(function InstructionBar({
         <View style={styles.instructionText}>
           <Text style={styles.distanceText}>{formattedDistanceToTurn}</Text>
           <Text style={styles.instructionMainText} numberOfLines={2}>
-            {currentInstruction?.instruction || "Calculando..."}
+            {currentInstruction?.instruction || 'Calculando...'}
           </Text>
         </View>
       </View>
@@ -59,12 +66,11 @@ export const InstructionBar = React.memo(function InstructionBar({
 
 const styles = StyleSheet.create((theme: Theme) => ({
   instructionBar: {
-    position: "absolute",
+    position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     backgroundColor: theme.colors.primary,
-    paddingTop: Platform.select({ ios: 50, web: 20, default: 30 }) as number,
     shadowColor: theme.colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -73,28 +79,28 @@ const styles = StyleSheet.create((theme: Theme) => ({
     zIndex: 10,
   },
   instructionContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing["4"],
-    paddingVertical: theme.spacing["4"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['4'],
   },
   maneuverIcon: {
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: withOpacity(theme.colors.white, 0.2),
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: theme.spacing["4"],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: theme.spacing['4'],
   },
   instructionText: {
     flex: 1,
   },
   distanceText: {
-    fontSize: theme.typography.fontSize["2xl"],
-    fontWeight: "700",
+    fontSize: theme.typography.fontSize['2xl'],
+    fontWeight: '700',
     color: theme.colors.white,
-    marginBottom: theme.spacing["1"],
+    marginBottom: theme.spacing['1'],
   },
   instructionMainText: {
     fontSize: theme.typography.fontSize.base,
@@ -102,10 +108,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     opacity: 0.95,
   },
   nextInstructionBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing["4"],
-    paddingVertical: theme.spacing["2"],
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing['4'],
+    paddingVertical: theme.spacing['2'],
     backgroundColor: withOpacity(theme.colors.black, 0.1),
     borderTopWidth: 1,
     borderTopColor: withOpacity(theme.colors.white, 0.1),
@@ -113,6 +119,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   nextInstructionText: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray200,
-    marginLeft: theme.spacing["2"],
+    marginLeft: theme.spacing['2'],
   },
 }));
