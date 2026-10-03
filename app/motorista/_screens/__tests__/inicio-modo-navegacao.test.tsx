@@ -44,13 +44,19 @@ jest.mock('@/context/RouteStatusContext', () => ({
   }),
 }));
 
+let mockAutoAdvance = true;
 jest.mock('@/services/locationTracking', () => ({
   __esModule: true,
   default: {
-    getNavigationPreferences: jest
-      .fn()
-      .mockResolvedValue({ autoAdvance: true }),
+    getNavigationPreferences: jest.fn(() =>
+      Promise.resolve({ autoAdvance: mockAutoAdvance }),
+    ),
   },
+}));
+
+const mockAbrirNavegacao = jest.fn();
+jest.mock('@/lib/navigation', () => ({
+  abrirNavegacao: (...a: unknown[]) => mockAbrirNavegacao(...a),
 }));
 
 jest.mock('@/components/motorista/NavigationMode', () => {
@@ -104,9 +110,16 @@ jest.mock('@/components/motorista/home/MainCard', () => {
 });
 
 // Stubs sem papel no teste.
-jest.mock('@/components/motorista/home/MiniMap', () => ({
-  MiniMap: () => null,
-}));
+jest.mock('@/components/motorista/home/MiniMap', () => {
+  const { Pressable: P, Text: T } = jest.requireActual('react-native');
+  return {
+    MiniMap: (props: { onOpenPiP?: () => void }) => (
+      <P onPress={props.onOpenPiP}>
+        <T>abrir-mapa-flutuante</T>
+      </P>
+    ),
+  };
+});
 jest.mock('@/components/motorista/home/QuickActions', () => ({
   FloatingActionButton: () => null,
 }));
@@ -119,9 +132,17 @@ jest.mock('@/components/motorista/home/StatusSection', () => ({
 jest.mock('@/components/motorista/OptimizationAlert', () => ({
   OptimizationAlert: () => null,
 }));
-jest.mock('@/components/motorista/PictureInPictureMap', () => ({
-  PictureInPictureMap: () => null,
-}));
+jest.mock('@/components/motorista/PictureInPictureMap', () => {
+  const { Pressable: P, Text: T } = jest.requireActual('react-native');
+  return {
+    PictureInPictureMap: (props: { visible: boolean; onExpand: () => void }) =>
+      props.visible ? (
+        <P onPress={props.onExpand}>
+          <T>pip-abrir-navegacao-completa</T>
+        </P>
+      ) : null,
+  };
+});
 jest.mock('@/components/IncidentReportWizard', () => ({
   IncidentReportWizard: () => null,
 }));
@@ -194,5 +215,57 @@ describe('Início do motorista — ações dentro do modo navegação', () => {
     await waitFor(() => {
       expect(getByText('modal-pular:parada-1')).toBeTruthy();
     });
+  });
+});
+
+/**
+ * O "Abrir navegação completa" do mapa flutuante (mini-mapa → "Abrir mapa
+ * flutuante" → expandir) é outra porta para o modo navegação. Até 03/10/2026
+ * ela ligava o modo SEM consultar o "Avanço Automático": o motorista que o
+ * desligou (a contenção pedida na 1.12.6, cuja chegada concluía a parada sem
+ * foto) ainda caía no modo por aqui. A decisão tem de ser a mesma do
+ * "Navegar" — e mora num lugar só.
+ */
+describe('Início do motorista — mapa flutuante respeita o Avanço Automático', () => {
+  beforeEach(() => {
+    mockAbrirNavegacao.mockClear();
+  });
+
+  afterEach(() => {
+    mockAutoAdvance = true;
+  });
+
+  async function abrirNavegacaoCompletaPeloMapaFlutuante(
+    getByText: (t: string) => unknown,
+    findByText: (t: string) => Promise<unknown>,
+  ) {
+    fireEvent.press(getByText('abrir-mapa-flutuante') as never);
+    fireEvent.press(
+      (await findByText('pip-abrir-navegacao-completa')) as never,
+    );
+  }
+
+  it('desligado: abre o app externo e NÃO entra no modo navegação', async () => {
+    mockAutoAdvance = false;
+    const { getByText, findByText, queryByText } = render(<MotoristaInicio />);
+
+    await abrirNavegacaoCompletaPeloMapaFlutuante(getByText, findByText);
+
+    await waitFor(() => {
+      expect(mockAbrirNavegacao).toHaveBeenCalledWith(
+        expect.objectContaining({ endereco: 'Rua A, 1' }),
+      );
+    });
+    expect(queryByText('modo-navegacao')).toBeNull();
+  });
+
+  it('ligado: entra no modo navegação', async () => {
+    mockAutoAdvance = true;
+    const { getByText, findByText } = render(<MotoristaInicio />);
+
+    await abrirNavegacaoCompletaPeloMapaFlutuante(getByText, findByText);
+
+    expect(await findByText('modo-navegacao')).toBeTruthy();
+    expect(mockAbrirNavegacao).not.toHaveBeenCalled();
   });
 });
