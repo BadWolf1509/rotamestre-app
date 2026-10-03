@@ -2,7 +2,7 @@
  * Tests for useNavigationModeLogic hook
  */
 
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 import { useNavigationModeLogic } from '../useNavigationModeLogic';
 
@@ -342,7 +342,15 @@ describe('useNavigationModeLogic', () => {
       expect(result.current.distance).toBe(500); // Mock returns 500m
     });
 
-    it('should estimate ETA based on speed', () => {
+    // Parado num semáforo o GPS marca ~1 km/h: dividir a distância por isso
+    // dava "13 min" para 131 m. O tempo vem da duração da rota OSRM.
+    it('usa a duração da rota OSRM, não a velocidade instantânea', async () => {
+      const { getRoute } = jest.requireMock('@/lib/osrm');
+      getRoute.mockResolvedValueOnce({
+        polyline: 'mock_polyline',
+        distance: 900,
+        duration: 180,
+      });
       const { result } = renderHook(() =>
         useNavigationModeLogic({
           currentStop: mockCurrentStop,
@@ -354,11 +362,30 @@ describe('useNavigationModeLogic', () => {
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          10, // 10 m/s
+          0.3, // ~1 km/h, parado
         );
       });
 
-      // 500m / 10m/s = 50s ~ 1 min
+      await waitFor(() => expect(result.current.eta).toBe('3 min'));
+    });
+
+    it('sem rota, estima pela velocidade média urbana', () => {
+      const { result } = renderHook(() =>
+        useNavigationModeLogic({
+          currentStop: mockCurrentStop,
+          paradas: mockParadas,
+          rotaId: 'rota-123',
+        }),
+      );
+
+      act(() => {
+        result.current.updateLocationFromCoords(
+          { latitude: -23.55, longitude: -46.63 },
+          0.3,
+        );
+      });
+
+      // 500 m (mock) a 30 km/h = 60 s
       expect(result.current.eta).toBe('1 min');
     });
   });

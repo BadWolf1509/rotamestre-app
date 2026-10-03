@@ -63,7 +63,8 @@ export function useNavigationModeLogic({
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [speed, setSpeed] = useState(0);
   const [distance, setDistance] = useState<number | null>(null);
-  const [eta, setEta] = useState<string | null>(null);
+  // Duração (s) da rota OSRM até a parada atual; null sem rota viária.
+  const [duracaoRotaSeg, setDuracaoRotaSeg] = useState<number | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>(
@@ -218,18 +219,6 @@ export function useNavigationModeLogic({
           currentStop.longitude,
         );
         setDistance(dist);
-
-        // Estimate time of arrival
-        if (speedMs && speedMs > 0) {
-          const timeInSeconds = dist / speedMs;
-          const minutes = Math.ceil(timeInSeconds / 60);
-          setEta(`${minutes} min`);
-        } else {
-          // Fallback: use average urban speed
-          const timeInHours = dist / 1000 / AVERAGE_URBAN_SPEED_KMH;
-          const minutes = Math.ceil(timeInHours * 60);
-          setEta(minutes > 0 ? `${minutes} min` : '< 1 min');
-        }
       }
     },
     [currentStop],
@@ -272,12 +261,18 @@ export function useNavigationModeLogic({
           if (routeData?.polyline) {
             const decoded = decodePolyline(routeData.polyline);
             setRoutePath(decoded.length >= 2 ? decoded : []);
+            setDuracaoRotaSeg(
+              typeof routeData.duration === 'number' && !routeData.is_estimated
+                ? routeData.duration
+                : null,
+            );
             prevUserLocationRef.current = {
               lat: userLocation.latitude,
               lon: userLocation.longitude,
             };
           } else {
             setRoutePath([]);
+            setDuracaoRotaSeg(null);
           }
         }
       } catch (error) {
@@ -285,7 +280,10 @@ export function useNavigationModeLogic({
           '[useNavigationModeLogic] Error fetching OSRM route:',
           error,
         );
-        if (!cancelled) setRoutePath([]);
+        if (!cancelled) {
+          setRoutePath([]);
+          setDuracaoRotaSeg(null);
+        }
       }
     };
 
@@ -306,7 +304,20 @@ export function useNavigationModeLogic({
   useEffect(() => {
     prevUserLocationRef.current = null;
     setRoutePath([]);
+    setDuracaoRotaSeg(null);
   }, [currentStop?.id]);
+
+  // Tempo até a parada: duração da rota viária (OSRM, refeita a cada 50 m);
+  // sem ela, distância em linha reta à velocidade média urbana. Nunca a
+  // velocidade instantânea do GPS — parado, ela leva o tempo ao infinito.
+  const eta = useMemo(() => {
+    const segundos =
+      duracaoRotaSeg ??
+      (distance !== null ? distance / (AVERAGE_URBAN_SPEED_KMH / 3.6) : null);
+    if (segundos === null) return null;
+    const minutos = Math.ceil(segundos / 60);
+    return minutos > 0 ? `${minutos} min` : '< 1 min';
+  }, [duracaoRotaSeg, distance]);
 
   return {
     // State
@@ -325,7 +336,6 @@ export function useNavigationModeLogic({
     setUserLocation,
     setSpeed,
     setDistance,
-    setEta,
     setIsTracking,
     setShowSettings,
     setRoutePath,

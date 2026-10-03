@@ -61,7 +61,6 @@ export interface UseNavigationModeLogicReturn {
   setUserLocation: (location: UserLocation | null) => void;
   setSpeed: (speed: number) => void;
   setDistance: (distance: number | null) => void;
-  setEta: (eta: string | null) => void;
   setIsTracking: (tracking: boolean) => void;
   setShowSettings: (show: boolean) => void;
   setRoutePath: (path: Coordinate[]) => void;

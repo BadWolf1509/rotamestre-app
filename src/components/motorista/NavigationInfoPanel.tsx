@@ -32,7 +32,10 @@ interface NavigationInfoPanelProps {
   };
   formatDistance: (meters: number) => string;
   getSpeedColor: (speedKmh: number) => string;
-  onAnimateButtonPress: (button: 'skip' | 'maps' | 'complete', pressed: boolean) => void;
+  onAnimateButtonPress: (
+    button: 'skip' | 'maps' | 'complete',
+    pressed: boolean,
+  ) => void;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
   onOpenInMaps: () => void;
@@ -78,10 +81,18 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
                 ]}
               >
                 {isCurrent && (
-                  <Ionicons name="navigate" size={10} color={theme.colors.white} />
+                  <Ionicons
+                    name="navigate"
+                    size={10}
+                    color={theme.colors.white}
+                  />
                 )}
                 {isCompleted && (
-                  <Ionicons name="checkmark" size={10} color={theme.colors.white} />
+                  <Ionicons
+                    name="checkmark"
+                    size={10}
+                    color={theme.colors.white}
+                  />
                 )}
                 {isPending && (
                   <Text style={styles.progressDotText}>{index + 1}</Text>
@@ -105,9 +116,10 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
         <Animated.View
           style={[
             styles.distanceContainer,
-            distance !== null && distance < 100 && {
-              transform: [{ scale: pulseAnim }],
-            },
+            distance !== null &&
+              distance < 100 && {
+                transform: [{ scale: pulseAnim }],
+              },
           ]}
         >
           <Text
@@ -127,7 +139,7 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
 
         <View style={styles.etaContainer}>
           <Text style={styles.etaValue}>{eta || '--'}</Text>
-          <Text style={styles.etaLabel}>chegada</Text>
+          <Text style={styles.etaLabel}>tempo</Text>
         </View>
 
         {preferences.showSpeedometer && (
@@ -135,7 +147,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             <View style={styles.separator} />
 
             <View style={styles.speedContainer}>
-              <Text style={[styles.speedValue, { color: getSpeedColor(speed) }]}>
+              <Text
+                style={[styles.speedValue, { color: getSpeedColor(speed) }]}
+              >
                 {speed}
               </Text>
               <Text style={styles.speedUnit}>km/h</Text>
@@ -162,7 +176,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
               <Text
                 style={[
                   styles.typeBadgeText,
-                  isEntrega ? styles.typeBadgeTextEntrega : styles.typeBadgeTextRetirada,
+                  isEntrega
+                    ? styles.typeBadgeTextEntrega
+                    : styles.typeBadgeTextRetirada,
                 ]}
               >
                 {isEntrega ? 'Entrega' : 'Retirada'}
@@ -182,21 +198,29 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
 
         {currentStop.destinatario && (
           <View style={styles.recipientInfo}>
-            <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
+            <Ionicons
+              name="person-outline"
+              size={14}
+              color={theme.colors.gray500}
+            />
             <Text style={styles.recipientText}>{currentStop.destinatario}</Text>
           </View>
         )}
 
         {currentStop.observacoes && (
           <View style={styles.observationBox}>
-            <Text style={styles.observationText}>{currentStop.observacoes}</Text>
+            <Text style={styles.observationText}>
+              {currentStop.observacoes}
+            </Text>
           </View>
         )}
       </View>
 
       {/* Action Buttons */}
       <View style={styles.actions}>
-        <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.skip }] }}>
+        <Animated.View
+          style={{ flex: 1, transform: [{ scale: buttonScaleAnims.skip }] }}
+        >
           <TouchableOpacity
             style={[styles.actionButton, styles.skipButton]}
             onPress={onSkip}
@@ -204,12 +228,18 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             onPressOut={() => onAnimateButtonPress('skip', false)}
             activeOpacity={1}
           >
-            <Ionicons name="arrow-forward-circle-outline" size={20} color={theme.colors.warning} />
+            <Ionicons
+              name="arrow-forward-circle-outline"
+              size={20}
+              color={theme.colors.warning}
+            />
             <Text style={styles.skipButtonText}>Pular</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.maps }] }}>
+        <Animated.View
+          style={{ flex: 1, transform: [{ scale: buttonScaleAnims.maps }] }}
+        >
           <TouchableOpacity
             style={[styles.actionButton, styles.mapsButton]}
             onPress={onOpenInMaps}
@@ -224,7 +254,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View style={{ flex: 1, transform: [{ scale: buttonScaleAnims.complete }] }}>
+        <Animated.View
+          style={{ flex: 1, transform: [{ scale: buttonScaleAnims.complete }] }}
+        >
           <TouchableOpacity
             style={[styles.actionButton, styles.completeButton]}
             onPress={onComplete}
@@ -232,7 +264,11 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             onPressOut={() => onAnimateButtonPress('complete', false)}
             activeOpacity={1}
           >
-            <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={theme.colors.white}
+            />
             <Text style={styles.completeButtonText}>Concluir</Text>
           </TouchableOpacity>
         </Animated.View>
