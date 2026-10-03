@@ -369,6 +369,74 @@ describe('useNavigationModeLogic', () => {
       await waitFor(() => expect(result.current.eta).toBe('3 min'));
     });
 
+    // Motorista parado: sem novo tick de GPS, a troca de parada precisa
+    // refazer rota, distância e tempo sozinha.
+    it('troca de parada com o motorista parado refaz rota, distância e tempo', async () => {
+      const { getRoute } = jest.requireMock('@/lib/osrm');
+      const { calculateHaversineDistance } = jest.requireMock(
+        '@/services/turnByTurnNavigation',
+      );
+      // Distância plana (graus -> m) para o teste ser determinístico.
+      calculateHaversineDistance.mockImplementation(
+        (la1: number, lo1: number, la2: number, lo2: number) =>
+          Math.hypot(la1 - la2, lo1 - lo2) * 111000,
+      );
+      getRoute
+        .mockResolvedValueOnce({
+          polyline: 'mock_polyline',
+          distance: 900,
+          duration: 180,
+        })
+        .mockResolvedValueOnce({
+          polyline: 'mock_polyline',
+          distance: 4000,
+          duration: 600,
+        });
+      const paradaB = {
+        ...mockParadaBase,
+        id: 'parada-2',
+        latitude: -23.59,
+        longitude: -46.63,
+      };
+
+      try {
+        const { result, rerender } = renderHook(
+          ({ stop }: { stop: typeof mockCurrentStop }) =>
+            useNavigationModeLogic({
+              currentStop: stop,
+              paradas: mockParadas,
+              rotaId: 'rota-123',
+            }),
+          { initialProps: { stop: mockCurrentStop } },
+        );
+
+        act(() => {
+          result.current.updateLocationFromCoords(
+            { latitude: -23.5495, longitude: -46.63 },
+            0,
+          );
+        });
+        await waitFor(() => expect(result.current.eta).toBe('3 min'));
+        expect(getRoute).toHaveBeenCalledTimes(1);
+
+        // Mesma posição, outra parada.
+        rerender({ stop: paradaB });
+
+        await waitFor(() => expect(getRoute).toHaveBeenCalledTimes(2));
+        expect(getRoute).toHaveBeenLastCalledWith(
+          { latitude: -23.5495, longitude: -46.63 },
+          { latitude: -23.59, longitude: -46.63 },
+        );
+        await waitFor(() => expect(result.current.eta).toBe('10 min'));
+        // ~4,5 km até a nova parada, não os ~55 m da anterior.
+        expect(result.current.distance).toBeGreaterThan(4000);
+        expect(result.current.routePath.length).toBeGreaterThanOrEqual(2);
+      } finally {
+        calculateHaversineDistance.mockReset();
+        calculateHaversineDistance.mockReturnValue(500);
+      }
+    });
+
     it('sem rota, estima pela velocidade média urbana', () => {
       const { result } = renderHook(() =>
         useNavigationModeLogic({

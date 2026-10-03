@@ -224,6 +224,28 @@ export function useNavigationModeLogic({
     [currentStop],
   );
 
+  // Reset ao trocar de parada. Fica ANTES do efeito de busca: os efeitos rodam
+  // na ordem de declaração, e a busca precisa ver `prevUserLocationRef` nulo
+  // (senão, com o motorista parado, ela acha que ele andou < 50 m e não refaz a
+  // rota da nova parada). A distância também é refeita aqui: sem novo tick de
+  // GPS, ela ficaria a da parada anterior.
+  useEffect(() => {
+    prevUserLocationRef.current = null;
+    setRoutePath([]);
+    setDuracaoRotaSeg(null);
+    setDistance(
+      userLocation && currentStop
+        ? calculateHaversineDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            currentStop.latitude,
+            currentStop.longitude,
+          )
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na troca de parada; a posição vem dos ticks de GPS
+  }, [currentStop?.id]);
+
   // Fetch OSRM route when user location or destination changes
   useEffect(() => {
     if (!userLocation || !currentStop) {
@@ -299,13 +321,6 @@ export function useNavigationModeLogic({
     currentStop?.latitude,
     currentStop?.longitude,
   ]);
-
-  // Reset route path when current stop changes
-  useEffect(() => {
-    prevUserLocationRef.current = null;
-    setRoutePath([]);
-    setDuracaoRotaSeg(null);
-  }, [currentStop?.id]);
 
   // Tempo até a parada: duração da rota viária (OSRM, refeita a cada 50 m);
   // sem ela, distância em linha reta à velocidade média urbana. Nunca a
