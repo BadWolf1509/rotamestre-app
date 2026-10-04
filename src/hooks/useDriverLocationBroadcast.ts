@@ -79,12 +79,14 @@ export function useDriverLocationBroadcast({
 
         // Fallback para auth se não tiver contexto
         let finalMotoristaId = motoristaId;
+        // Sessão local, não `getUser()`: este caminho roda a cada posição, e
+        // o getUser faria um GET /auth/v1/user por envio.
         if (!finalMotoristaId) {
           const {
-            data: { user },
-          } = await supabase.auth.getUser();
-          if (!user) return;
-          finalMotoristaId = user.id;
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (!session?.user) return;
+          finalMotoristaId = session.user.id;
         }
 
         const { error } = await supabase.from('motorista_locations').insert({

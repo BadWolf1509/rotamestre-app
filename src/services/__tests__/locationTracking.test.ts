@@ -24,6 +24,9 @@ const mockFrom = jest.fn().mockImplementation(() => createChain());
 const mockGetUser = jest
   .fn()
   .mockResolvedValue({ data: { user: { id: 'user-1' } } });
+const mockGetSession = jest
+  .fn()
+  .mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } });
 
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest
@@ -62,6 +65,7 @@ jest.mock('@/lib/supabase', () => ({
     from: (...args: any[]) => mockFrom(...args),
     auth: {
       getUser: (...args: any[]) => mockGetUser(...args),
+      getSession: (...args: any[]) => mockGetSession(...args),
     },
   },
 }));
@@ -120,6 +124,9 @@ describe('LocationTrackingService', () => {
 
     mockFrom.mockImplementation(() => createChain());
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'user-1' } } },
+    });
   });
 
   afterEach(() => {
@@ -486,8 +493,37 @@ describe('LocationTrackingService', () => {
 
       await locationTrackingService.processLocationUpdate(farLocation);
 
-      expect(mockGetUser).toHaveBeenCalled();
       expect(mockFrom).toHaveBeenCalledWith('motorista_locations');
+    });
+
+    // Cada posição fazia um GET /auth/v1/user (getUser vai ao servidor):
+    // em 03/10/2026 foram 140 envios e 140 consultas ao Auth em 24 h. O id
+    // vem da sessão local; quem valida o token é o RLS do insert.
+    it('não consulta o servidor de Auth a cada posição', async () => {
+      setUpNavigationState();
+
+      await locationTrackingService.processLocationUpdate({
+        ...baseLocation,
+        latitude: -23.56,
+        longitude: -46.64,
+      });
+
+      expect(mockGetUser).not.toHaveBeenCalled();
+      expect(mockGetSession).toHaveBeenCalled();
+      expect(mockFrom).toHaveBeenCalledWith('motorista_locations');
+    });
+
+    it('sem sessão, não envia a posição', async () => {
+      setUpNavigationState();
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      await locationTrackingService.processLocationUpdate({
+        ...baseLocation,
+        latitude: -23.56,
+        longitude: -46.64,
+      });
+
+      expect(mockFrom).not.toHaveBeenCalledWith('motorista_locations');
     });
 
     it('anuncia a chegada quando dentro do geofence com accuracy válida', async () => {

@@ -289,10 +289,12 @@ class LocationTrackingService {
     if (!this.navigationState?.rotaId) return;
 
     try {
-      // Obter usuário atual
+      // Usuário da sessão local. `getUser()` faria um GET /auth/v1/user a
+      // cada posição; o token já é validado pelo RLS do insert.
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
 
       // Inserir em motorista_locations para histórico e rastreamento em tempo real
