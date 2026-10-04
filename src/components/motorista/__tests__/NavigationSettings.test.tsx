@@ -140,9 +140,13 @@ describe('NavigationSettings', () => {
     expect(getByText('Escolha o app preferido para abrir rotas')).toBeTruthy();
   });
 
-  it('deve mostrar seção de Navegação Interna', () => {
-    const { getByText } = render(<NavigationSettings {...defaultProps} />);
-    expect(getByText('Navegação Interna')).toBeTruthy();
+  // O Turn-by-Turn próprio saiu em 03/10/2026: a navegação curva a curva é
+  // a do app externo (Waze/Google Maps).
+  it('não oferece mais a navegação interna (Turn-by-Turn)', () => {
+    const { queryByText } = render(<NavigationSettings {...defaultProps} />);
+    expect(queryByText('Navegação Interna')).toBeNull();
+    expect(queryByText(/Turn-by-Turn/)).toBeNull();
+    expect(queryByText('Navegação por Voz')).toBeNull();
   });
 
   it('deve mostrar seção de Notificações', () => {
@@ -218,17 +222,6 @@ describe('NavigationSettings', () => {
 
     afterEach(() => {
       Object.defineProperty(Platform, 'OS', { value: originalPlatform });
-    });
-
-    it('deve mostrar aviso de somente mobile para Navegação Interna em web', () => {
-      Object.defineProperty(Platform, 'OS', { value: 'web' });
-
-      const { getAllByText } = render(<NavigationSettings {...defaultProps} />);
-
-      // Em web, deve mostrar indicação de somente mobile (pode aparecer múltiplas vezes)
-      expect(getAllByText(/Navegação Interna/).length).toBeGreaterThanOrEqual(
-        1,
-      );
     });
 
     it('deve mostrar dica específica para web', () => {

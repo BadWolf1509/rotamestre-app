@@ -1,6 +1,3 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -33,6 +30,14 @@ jest.mock('expo-location', () => ({
   },
 }));
 
+// Mock expo-keep-awake — "Manter Tela Ligada" vale no modo navegação
+const mockActivateKeepAwake = jest.fn().mockResolvedValue(undefined);
+const mockDeactivateKeepAwake = jest.fn().mockResolvedValue(undefined);
+jest.mock('expo-keep-awake', () => ({
+  activateKeepAwakeAsync: (...a: unknown[]) => mockActivateKeepAwake(...a),
+  deactivateKeepAwake: (...a: unknown[]) => mockDeactivateKeepAwake(...a),
+}));
+
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn().mockResolvedValue(null),
@@ -51,7 +56,6 @@ jest.mock('@/services/locationTracking', () => ({
     startTracking: jest.fn().mockResolvedValue(true),
     stopTracking: jest.fn().mockResolvedValue(undefined),
     getNavigationPreferences: jest.fn().mockResolvedValue({
-      internalNavigation: false,
       autoAdvance: true,
       proximityRadius: 50,
     }),
@@ -160,21 +164,6 @@ const mockSettingsOnClose: { current: null | (() => void) } = {
 jest.mock('../NavigationSettings', () => ({
   NavigationSettings: (props: { onClose: () => void }) => {
     mockSettingsOnClose.current = props.onClose;
-    return null;
-  },
-}));
-
-// Mock TurnByTurnNavigation — captura as props para os testes de chegada
-const mockTbtProps: {
-  current: null | {
-    onArrive: () => void;
-    waypoints?: unknown[];
-    destination: { latitude: number; longitude: number };
-  };
-} = { current: null };
-jest.mock('../TurnByTurnNavigation', () => ({
-  TurnByTurnNavigation: (props: never) => {
-    mockTbtProps.current = props;
     return null;
   },
 }));
@@ -431,133 +420,6 @@ describe('NavigationMode', () => {
   });
 });
 
-describe('identidade das props passadas a TurnByTurnNavigation', () => {
-  const fonte = readFileSync(
-    join(__dirname, '..', 'NavigationMode.tsx'),
-    'utf8',
-  );
-
-  // Recorta só o elemento <TurnByTurnNavigation …/>: o resto do arquivo tem
-  // literais legítimos (estilos, regiões de mapa) que não são props dele.
-  const elemento = fonte.slice(
-    fonte.indexOf('<TurnByTurnNavigation'),
-    fonte.indexOf('/>', fonte.indexOf('<TurnByTurnNavigation')),
-  );
-
-  it('recorta o elemento de fato (a guarda não passa por ausência)', () => {
-    expect(elemento).toContain('destination=');
-    expect(elemento).toContain('onExit=');
-  });
-
-  it('nenhuma prop é literal de objeto', () => {
-    // `destination={{…}}` ganha identidade nova a cada render. Como
-    // `destination` está nas deps do efeito do watcher de
-    // TurnByTurnNavigation e `origin={userLocation}` muda a 1 Hz, isso
-    // desmontava e remontava aquele efeito uma vez por segundo, dirigindo.
-    expect(elemento).not.toMatch(/=\{\{/);
-  });
-
-  it('nenhuma prop é arrow function inline', () => {
-    // `onExit={() => …}` tem o mesmo efeito por outro caminho.
-    expect(elemento).not.toMatch(/=\{\s*\(\s*\)\s*=>/);
-  });
-});
-
-/**
- * Até 03/10/2026 a chegada no Turn-by-Turn chamava a confirmação "Confirmar
- * Entrega", mas este ramo retorna antes do `{AlertDialog}`: a promessa ficava
- * pendente, nada aparecia e a parada não concluía. A rota também levava as
- * outras paradas como pontos intermediários — o OSRM monta
- * origem → intermediários → destino, e a voz guiava primeiro para elas.
- */
-describe('Turn-by-Turn', () => {
-  const Location = jest.requireMock('expo-location');
-  const LocationTracking = jest.requireMock(
-    '@/services/locationTracking',
-  ).default;
-
-  const paradaReal = (id: string, ordem: number, latitude: number) => ({
-    id,
-    endereco: `Rua ${ordem}`,
-    latitude,
-    longitude: -46.64,
-    ordem,
-    status: 'pendente',
-    tipo: 'entrega',
-    is_checkpoint: true,
-  });
-
-  const propsTbt = {
-    currentStop: paradaReal('p2', 2, -23.56),
-    nextStop: paradaReal('p3', 3, -23.57),
-    paradas: [
-      paradaReal('p2', 2, -23.56),
-      paradaReal('p3', 3, -23.57),
-      paradaReal('p4', 4, -23.58),
-    ],
-    rotaId: 'rota-1',
-    onComplete: jest.fn(),
-    onSkip: jest.fn(),
-    onExit: jest.fn(),
-  };
-
-  beforeEach(() => {
-    mockTbtProps.current = null;
-    propsTbt.onComplete.mockClear();
-    global.mockUseAlert.showConfirm.mockClear();
-    LocationTracking.getNavigationPreferences.mockResolvedValue({
-      internalNavigation: true,
-      autoAdvance: true,
-      proximityRadius: 50,
-    });
-    Location.watchPositionAsync.mockImplementation(
-      (_opcoes: unknown, cb: (l: unknown) => void) => {
-        cb({
-          coords: {
-            latitude: -23.55,
-            longitude: -46.63,
-            heading: 0,
-            speed: 0,
-            accuracy: 5,
-          },
-        });
-        return Promise.resolve({ remove: jest.fn() });
-      },
-    );
-  });
-
-  afterEach(() => {
-    LocationTracking.getNavigationPreferences.mockResolvedValue({
-      internalNavigation: false,
-      autoAdvance: true,
-      proximityRadius: 50,
-    });
-    Location.watchPositionAsync.mockResolvedValue({ remove: jest.fn() });
-  });
-
-  it('a chegada conclui pelo fluxo da Início (foto), sem diálogo no meio', async () => {
-    render(<NavigationMode {...propsTbt} />);
-    await waitFor(() => expect(mockTbtProps.current).not.toBeNull());
-
-    await act(async () => {
-      mockTbtProps.current!.onArrive();
-    });
-
-    expect(propsTbt.onComplete).toHaveBeenCalledTimes(1);
-    expect(global.mockUseAlert.showConfirm).not.toHaveBeenCalled();
-  });
-
-  it('a rota vai só até a parada atual, sem as outras como intermediárias', async () => {
-    render(<NavigationMode {...propsTbt} />);
-    await waitFor(() => expect(mockTbtProps.current).not.toBeNull());
-
-    expect(mockTbtProps.current!.destination).toEqual(
-      expect.objectContaining({ latitude: -23.56 }),
-    );
-    expect(mockTbtProps.current!.waypoints ?? []).toEqual([]);
-  });
-});
-
 /**
  * O mapa tinha a altura da tela inteira e a câmera centralizava no meio
  * dele — atrás do painel de baixo. Motorista, destino e rota só apareciam
@@ -653,47 +515,25 @@ describe('Enquadramento do mapa', () => {
 });
 
 /**
- * As preferências eram lidas só ao abrir o modo navegação: ligar o
- * Turn-by-Turn na engrenagem não fazia nada até sair e entrar de novo
- * (visto no aparelho em 03/10/2026).
+ * As preferências eram lidas só ao abrir o modo navegação: o que o motorista
+ * mudava na engrenagem só valia depois de sair e entrar de novo (visto no
+ * aparelho em 03/10/2026).
  */
 describe('Configurações dentro da navegação', () => {
-  const Location = jest.requireMock('expo-location');
   const LocationTracking = jest.requireMock(
     '@/services/locationTracking',
   ).default;
 
-  beforeEach(() => {
-    mockTbtProps.current = null;
-    mockSettingsOnClose.current = null;
-    Location.watchPositionAsync.mockImplementation(
-      (_opcoes: unknown, cb: (l: unknown) => void) => {
-        cb({
-          coords: {
-            latitude: -23.55,
-            longitude: -46.63,
-            heading: 0,
-            speed: 0,
-            accuracy: 5,
-          },
-        });
-        return Promise.resolve({ remove: jest.fn() });
-      },
-    );
-  });
-
   afterEach(() => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
-      internalNavigation: false,
       autoAdvance: true,
       proximityRadius: 50,
     });
-    Location.watchPositionAsync.mockResolvedValue({ remove: jest.fn() });
   });
 
-  it('ao fechar, aplica o Turn-by-Turn ligado nelas', async () => {
+  it('ao fechar, aplica o que mudou nelas', async () => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
-      internalNavigation: false,
+      showSpeedometer: true,
       autoAdvance: true,
       proximityRadius: 50,
     });
@@ -715,15 +555,17 @@ describe('Configurações dentro da navegação', () => {
       onSkip: jest.fn(),
       onExit: jest.fn(),
     };
-    const { findByLabelText } = render(<NavigationMode {...props} />);
+    const { findByLabelText, findByText, queryByText } = render(
+      <NavigationMode {...props} />,
+    );
+    expect(await findByText('km/h')).toBeTruthy();
 
     fireEvent.press(await findByLabelText('Configurações da navegação'));
     await waitFor(() => expect(mockSettingsOnClose.current).not.toBeNull());
-    expect(mockTbtProps.current).toBeNull();
 
-    // Na engrenagem, o motorista liga o Turn-by-Turn e fecha.
+    // Na engrenagem, o motorista desliga o velocímetro e fecha.
     LocationTracking.getNavigationPreferences.mockResolvedValue({
-      internalNavigation: true,
+      showSpeedometer: false,
       autoAdvance: true,
       proximityRadius: 50,
     });
@@ -731,6 +573,76 @@ describe('Configurações dentro da navegação', () => {
       mockSettingsOnClose.current!();
     });
 
-    await waitFor(() => expect(mockTbtProps.current).not.toBeNull());
+    await waitFor(() => expect(queryByText('km/h')).toBeNull());
+  });
+});
+
+/**
+ * "Manter Tela Ligada" (ligado por padrão) só era aplicado pelo Turn-by-Turn,
+ * removido em 03/10/2026; no modo mapa, o que os motoristas usam, a tela
+ * apagava no meio da rota.
+ */
+describe('Manter Tela Ligada', () => {
+  const LocationTracking = jest.requireMock(
+    '@/services/locationTracking',
+  ).default;
+
+  const props = {
+    currentStop: {
+      id: 'p2',
+      endereco: 'Rua 2',
+      latitude: -23.56,
+      longitude: -46.64,
+      ordem: 2,
+      status: 'pendente',
+      tipo: 'entrega',
+      is_checkpoint: true,
+    },
+    nextStop: null,
+    paradas: [],
+    rotaId: 'rota-1',
+    onComplete: jest.fn(),
+    onSkip: jest.fn(),
+    onExit: jest.fn(),
+  };
+
+  beforeEach(() => {
+    mockActivateKeepAwake.mockClear();
+    mockDeactivateKeepAwake.mockClear();
+  });
+
+  afterEach(() => {
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+  });
+
+  it('ligado: mantém a tela acesa e solta ao sair', async () => {
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      preventScreenSleep: true,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    const { findByTestId, unmount } = render(<NavigationMode {...props} />);
+    await findByTestId('map-view');
+
+    await waitFor(() => expect(mockActivateKeepAwake).toHaveBeenCalled());
+    const tag = mockActivateKeepAwake.mock.calls[0][0];
+
+    unmount();
+    expect(mockDeactivateKeepAwake).toHaveBeenCalledWith(tag);
+  });
+
+  it('desligado: não mexe na tela', async () => {
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      preventScreenSleep: false,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    const { findByTestId } = render(<NavigationMode {...props} />);
+    await findByTestId('map-view');
+
+    expect(mockActivateKeepAwake).not.toHaveBeenCalled();
   });
 });

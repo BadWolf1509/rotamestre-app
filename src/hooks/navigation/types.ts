@@ -23,7 +23,7 @@ export interface NavigationPreferences {
   soundAlerts: boolean;
   vibrationAlerts: boolean;
   showSpeedometer: boolean;
-  internalNavigation: boolean;
+  preventScreenSleep?: boolean;
   autoAdvance?: boolean;
   proximityRadius?: number;
 }
@@ -54,7 +54,6 @@ export interface UseNavigationModeLogicReturn {
   showSettings: boolean;
   routePath: Coordinate[];
   preferences: NavigationPreferences;
-  navigationMode: 'map' | 'turn-by-turn';
   isInitializing: boolean;
 
   // State setters
@@ -64,7 +63,6 @@ export interface UseNavigationModeLogicReturn {
   setIsTracking: (tracking: boolean) => void;
   setShowSettings: (show: boolean) => void;
   setRoutePath: (path: Coordinate[]) => void;
-  setNavigationMode: (mode: 'map' | 'turn-by-turn') => void;
   setIsInitializing: (init: boolean) => void;
 
   // Derived values

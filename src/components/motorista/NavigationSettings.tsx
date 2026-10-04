@@ -39,8 +39,6 @@ export interface NavigationSettingsState {
   proximityRadius: number;
   showSpeedometer: boolean;
   preventScreenSleep: boolean;
-  voiceNavigation: boolean;
-  internalNavigation: boolean;
   preferredNavApp: NavAppPreference;
 }
 
@@ -54,8 +52,6 @@ const DEFAULT_SETTINGS: NavigationSettingsState = {
   proximityRadius: 50,
   showSpeedometer: true,
   preventScreenSleep: true,
-  voiceNavigation: false,
-  internalNavigation: false,
   preferredNavApp: 'default',
 };
 
@@ -249,59 +245,6 @@ export function NavigationSettings({
               <Text style={styles.sliderEndLabel}>20m</Text>
               <Text style={styles.sliderEndLabel}>100m</Text>
             </View>
-          </View>
-        )}
-      </View>
-
-      {/* Navigation Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Navegação Interna</Text>
-
-        <View style={[styles.setting, isWeb && styles.settingDisabled]}>
-          <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, isWeb && styles.disabledText]}>
-              Navegação Turn-by-Turn
-              {isWeb && ' (somente mobile)'}
-            </Text>
-            <Text
-              style={[styles.settingDescription, isWeb && styles.disabledText]}
-            >
-              Instruções de direção dentro do app (economia de bateria)
-            </Text>
-          </View>
-          <Switch
-            value={settings.internalNavigation}
-            onValueChange={(value) =>
-              handleSettingChange('internalNavigation', value)
-            }
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
-            disabled={isWeb}
-          />
-        </View>
-
-        {settings.internalNavigation && (
-          <View style={styles.setting}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Navegação por Voz</Text>
-              <Text style={styles.settingDescription}>
-                Instruções de voz turn-by-turn
-              </Text>
-            </View>
-            <Switch
-              value={settings.voiceNavigation}
-              onValueChange={(value) =>
-                handleSettingChange('voiceNavigation', value)
-              }
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary,
-              }}
-              thumbColor={theme.colors.white}
-            />
           </View>
         )}
       </View>

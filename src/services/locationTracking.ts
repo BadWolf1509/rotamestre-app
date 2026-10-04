@@ -33,8 +33,6 @@ interface NavigationState {
   // Extended preferences from NavigationSettings
   showSpeedometer?: boolean;
   preventScreenSleep?: boolean;
-  voiceNavigation?: boolean;
-  internalNavigation?: boolean;
   // Unified preferences (migrated from configuracoes.tsx)
   preferredNavApp?: 'waze' | 'google_maps' | 'apple_maps' | 'default';
   // Navigation session state
@@ -55,11 +53,7 @@ export type PreferenciasDeNavegacao = NavigationState &
   Required<
     Pick<
       NavigationState,
-      | 'showSpeedometer'
-      | 'preventScreenSleep'
-      | 'voiceNavigation'
-      | 'internalNavigation'
-      | 'preferredNavApp'
+      'showSpeedometer' | 'preventScreenSleep' | 'preferredNavApp'
     >
   >;
 
@@ -75,8 +69,6 @@ export const PREFERENCIAS_PADRAO: PreferenciasDeNavegacao = {
   proximityRadius: 50,
   showSpeedometer: true,
   preventScreenSleep: true,
-  voiceNavigation: false,
-  internalNavigation: false,
   preferredNavApp: 'default',
 };
 

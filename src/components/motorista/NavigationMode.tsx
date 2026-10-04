@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import React, {
   useCallback,
@@ -36,17 +37,16 @@ import {
   zoomFromLongitudeDelta,
 } from '@/lib/maplibre';
 import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import { calculateHaversineDistance } from '@/lib/osrm';
 import {
   oferecerSaidaParaConfiguracoes,
   pedirPermissao,
 } from '@/lib/permissoes';
-import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { NavigationInfoPanel } from './NavigationInfoPanel';
 import { NavigationSettings } from './NavigationSettings';
-import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 
@@ -80,8 +80,6 @@ export function NavigationMode({
     setShowSettings,
     routePath,
     preferences,
-    navigationMode,
-    setNavigationMode,
     isInitializing,
     setIsInitializing,
     realParadas,
@@ -151,6 +149,22 @@ export function NavigationMode({
     cleanupSound,
   ]);
 
+  // "Manter Tela Ligada": até 03/10/2026 só o Turn-by-Turn aplicava; no
+  // modo mapa a tela apagava no meio da rota.
+  const manterTelaLigada = preferences.preventScreenSleep !== false;
+  useEffect(() => {
+    if (isInitializing || !manterTelaLigada) return;
+    const tag = 'modo-navegacao';
+    activateKeepAwakeAsync(tag).catch(() => {
+      // Sem keep-awake a navegação segue; só a tela pode apagar.
+    });
+    return () => {
+      deactivateKeepAwake(tag).catch(() => {
+        // Tag não ativa (a ativação falhou): nada a soltar.
+      });
+    };
+  }, [isInitializing, manterTelaLigada]);
+
   const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
     useState(false);
 
@@ -202,26 +216,14 @@ export function NavigationMode({
     handleExitNavigation,
   } = useNavigationActions({
     currentStop,
-    preferences,
     triggerHaptic,
     playNotificationSound,
     showConfirm,
-    setNavigationMode,
     stopNavigation,
     onComplete,
     onSkip,
     onExit,
   });
-
-  // Chegada no Turn-by-Turn: vai direto ao fluxo de conclusão da Início
-  // (StopCompletionFlow, que pede a foto e já é a confirmação). Passar por
-  // `handleCompleteStop` exigiria o `{AlertDialog}`, que este ramo não monta.
-  // Se o motorista cancelar o fluxo, o Turn-by-Turn segue em "chegou" (sem
-  // botão Concluir): a saída é o botão Sair → modo mapa → Concluir.
-  const concluirNaChegada = useCallback(async () => {
-    await playNotificationSound();
-    onComplete();
-  }, [playNotificationSound, onComplete]);
 
   // formatDistance is now provided by useNavigationModeLogic hook
 
@@ -348,26 +350,9 @@ export function NavigationMode({
   // currentStopIndex, nextStopAfterCurrent are now
   // provided by useNavigationModeLogic hook
 
-  // Dependências primitivas, não o objeto `currentStop`: ele também muda de
-  // identidade a cada render, e o memo não valeria nada. Mesmo padrão de
-  // `src/hooks/navigation/pip/usePiPRouteInfo.ts:158`.
-  const destinoDaNavegacao = useMemo(
-    () => ({
-      latitude: currentStop?.latitude,
-      longitude: currentStop?.longitude,
-      address: currentStop?.endereco,
-    }),
-    [currentStop?.latitude, currentStop?.longitude, currentStop?.endereco],
-  );
-
-  const sairDaNavegacao = useCallback(
-    () => setNavigationMode('map'),
-    [setNavigationMode],
-  );
-
   // As preferências são lidas ao abrir a navegação; o que o motorista muda na
   // engrenagem só valia depois de sair e entrar de novo. Recarregar ao fechar
-  // aplica na hora — inclusive ligar o Turn-by-Turn, que troca o modo.
+  // aplica na hora (alertas, velocímetro, raio).
   const fecharConfiguracoes = useCallback(() => {
     setShowSettings(false);
     loadPreferences();
@@ -384,18 +369,6 @@ export function NavigationMode({
   }
 
   if (!currentStop) return null;
-
-  // Show turn-by-turn navigation if selected
-  if (navigationMode === 'turn-by-turn' && userLocation) {
-    return (
-      <TurnByTurnNavigation
-        origin={userLocation}
-        destination={destinoDaNavegacao}
-        onArrive={concluirNaChegada}
-        onExit={sairDaNavegacao}
-      />
-    );
-  }
 
   return (
     <View style={styles.container}>

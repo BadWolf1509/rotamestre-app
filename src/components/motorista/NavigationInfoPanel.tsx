@@ -248,9 +248,7 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             activeOpacity={1}
           >
             <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText}>
-              {preferences.internalNavigation ? 'Navegar' : 'Abrir no Maps'}
-            </Text>
+            <Text style={styles.mapsButtonText}>Abrir no Maps</Text>
           </TouchableOpacity>
         </Animated.View>
 

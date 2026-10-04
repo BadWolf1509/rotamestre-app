@@ -33,8 +33,14 @@ Automático" ligado, seguida de investigação do Turn-by-Turn. Achados:
   intermediárias; o OSRM monta origem → intermediárias → destino, e a voz guiava
   primeiro para elas. Agora a rota vai só até a parada atual.
 
-O Turn-by-Turn segue opcional (desligado por padrão) e sem teste de rua; a
-recomendação registrada é preferir o app externo (Waze/Maps) como navegador.
+**Turn-by-Turn removido (mesmo PR, para a 1.12.8).** Depois de corrigido,
+ficou decidido tirá-lo: rotas do OSRM sem trânsito não competem com o Waze, o
+modo era opcional, sem medição de uso possível (a preferência é local) e sem
+teste de campo, e os dois defeitos acima mostram que ninguém o usava. Saíram ~3
+mil linhas (componente nativo e web, serviço, hooks, detecção de saída de rota,
+`expo-speech`) e a seção "Navegação Interna" das configurações. O "Manter Tela
+Ligada" — que só o Turn-by-Turn aplicava — passou para o modo navegação, onde
+nunca tinha funcionado.
 
 ## Entregas concluídas sem comprovante e release 1.12.7 (02–03/10/2026)
 

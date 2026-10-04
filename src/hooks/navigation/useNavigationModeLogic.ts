@@ -10,9 +10,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
-import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
+import {
+  calculateHaversineDistance,
+  decodePolyline,
+  getRoute,
+  type Coordinate,
+} from '@/lib/osrm';
 import LocationTrackingService from '@/services/locationTracking';
-import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { useUnistyles } from '@/utils/styles';
 
 import type {
@@ -29,7 +33,7 @@ const DEFAULT_PREFERENCES: NavigationPreferences = {
   soundAlerts: true,
   vibrationAlerts: true,
   showSpeedometer: true,
-  internalNavigation: false,
+  preventScreenSleep: true,
   autoAdvance: true,
   proximityRadius: 50,
 };
@@ -67,9 +71,6 @@ export function useNavigationModeLogic({
   const [duracaoRotaSeg, setDuracaoRotaSeg] = useState<number | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>(
-    'map',
-  );
   const [isInitializing, setIsInitializing] = useState(true);
   const [preferences, setPreferences] =
     useState<NavigationPreferences>(DEFAULT_PREFERENCES);
@@ -163,9 +164,6 @@ export function useNavigationModeLogic({
         ...prefs,
       };
       setPreferences(newPrefs);
-      if (newPrefs.internalNavigation) {
-        setNavigationMode('turn-by-turn');
-      }
     } catch {
       // Use defaults on failure
     }
@@ -344,7 +342,6 @@ export function useNavigationModeLogic({
     showSettings,
     routePath,
     preferences,
-    navigationMode,
     isInitializing,
 
     // State setters
@@ -354,7 +351,6 @@ export function useNavigationModeLogic({
     setIsTracking,
     setShowSettings,
     setRoutePath,
-    setNavigationMode,
     setIsInitializing,
 
     // Derived values

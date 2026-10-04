@@ -8,6 +8,7 @@ import { useNavigationModeLogic } from '../useNavigationModeLogic';
 
 // Mock dependencies
 jest.mock('@/lib/osrm', () => ({
+  calculateHaversineDistance: jest.fn().mockReturnValue(500),
   getRoute: jest.fn().mockResolvedValue({ polyline: 'mock_polyline' }),
   decodePolyline: jest.fn().mockReturnValue([
     { latitude: -23.55, longitude: -46.63 },
@@ -24,15 +25,10 @@ jest.mock('@/services/locationTracking', () => ({
       soundAlerts: true,
       vibrationAlerts: true,
       showSpeedometer: true,
-      internalNavigation: false,
       autoAdvance: true,
       proximityRadius: 50,
     }),
   },
-}));
-
-jest.mock('@/services/turnByTurnNavigation', () => ({
-  calculateHaversineDistance: jest.fn().mockReturnValue(500),
 }));
 
 jest.mock('@/utils/styles', () => ({
@@ -91,7 +87,6 @@ describe('useNavigationModeLogic', () => {
       expect(result.current.eta).toBeNull();
       expect(result.current.isTracking).toBe(false);
       expect(result.current.showSettings).toBe(false);
-      expect(result.current.navigationMode).toBe('map');
       expect(result.current.isInitializing).toBe(true);
     });
 
@@ -109,7 +104,7 @@ describe('useNavigationModeLogic', () => {
         soundAlerts: true,
         vibrationAlerts: true,
         showSpeedometer: true,
-        internalNavigation: false,
+        preventScreenSleep: true,
         autoAdvance: true,
         proximityRadius: 50,
       });
@@ -373,9 +368,7 @@ describe('useNavigationModeLogic', () => {
     // refazer rota, distância e tempo sozinha.
     it('troca de parada com o motorista parado refaz rota, distância e tempo', async () => {
       const { getRoute } = jest.requireMock('@/lib/osrm');
-      const { calculateHaversineDistance } = jest.requireMock(
-        '@/services/turnByTurnNavigation',
-      );
+      const { calculateHaversineDistance } = jest.requireMock('@/lib/osrm');
       // Distância plana (graus -> m) para o teste ser determinístico.
       calculateHaversineDistance.mockImplementation(
         (la1: number, lo1: number, la2: number, lo2: number) =>
@@ -474,29 +467,11 @@ describe('useNavigationModeLogic', () => {
 
       expect(result.current.showSettings).toBe(true);
     });
-
-    it('should update navigationMode', () => {
-      const { result } = renderHook(() =>
-        useNavigationModeLogic({
-          currentStop: mockCurrentStop,
-          paradas: mockParadas,
-          rotaId: 'rota-123',
-        }),
-      );
-
-      act(() => {
-        result.current.setNavigationMode('turn-by-turn');
-      });
-
-      expect(result.current.navigationMode).toBe('turn-by-turn');
-    });
   });
 
   describe('isNearDestination', () => {
     it('should be true when distance < 100m', () => {
-      const {
-        calculateHaversineDistance,
-      } = require('@/services/turnByTurnNavigation');
+      const { calculateHaversineDistance } = require('@/lib/osrm');
       calculateHaversineDistance.mockReturnValue(50);
 
       const { result } = renderHook(() =>
@@ -518,9 +493,7 @@ describe('useNavigationModeLogic', () => {
     });
 
     it('should be false when distance >= 100m', () => {
-      const {
-        calculateHaversineDistance,
-      } = require('@/services/turnByTurnNavigation');
+      const { calculateHaversineDistance } = require('@/lib/osrm');
       calculateHaversineDistance.mockReturnValue(500);
 
       const { result } = renderHook(() =>

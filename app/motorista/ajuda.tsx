@@ -72,10 +72,9 @@ const FAQ_ITEMS: FAQItem[] = [
     id: '9',
     question: 'Quais são os modos de navegação?',
     answer:
-      'São três:\n\n' +
+      'São dois:\n\n' +
       '• Mapa do app: na tela inicial, toque em "Navegar". Abre um mapa em tela cheia com a distância até a parada e os botões "Pular", "Abrir no Maps" e "Concluir". Quando você chega, o app avisa — mas a parada só é concluída quando você toca em "Concluir" e envia a foto. Depois disso, a navegação segue para a próxima parada.\n\n' +
-      '• App externo (Waze, Google Maps ou Apple Maps): toque em "Abrir no Maps" dentro do mapa do app, ou em "Como Chegar" ao expandir uma parada na aba "Paradas".\n\n' +
-      '• Instruções de direção no app: ligue "Navegação Turn-by-Turn" em Configurações. Com isso, o "Abrir no Maps" passa a mostrar as instruções curva a curva dentro do próprio app, em vez de abrir o app externo. Disponível só no celular.',
+      '• App externo (Waze, Google Maps ou Apple Maps): toque em "Abrir no Maps" dentro do mapa do app, ou em "Como Chegar" ao expandir uma parada na aba "Paradas". As instruções curva a curva vêm desse app.',
   },
   {
     id: '10',

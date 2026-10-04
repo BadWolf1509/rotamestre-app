@@ -11,7 +11,6 @@ const ALLOWLIST = new Set([
   'src/components/MapaWebMapLibre.tsx', // MapLibre marker colors
   'src/components/motorista/NavigationMode.web.tsx', // Map marker colors
   'src/components/motorista/PictureInPictureMap.web.tsx', // boxShadow helper
-  'src/components/motorista/TurnByTurnNavigation.web.tsx', // boxShadow helper
   'src/components/Slider.web.tsx', // iOS system colors for defaults
   'app/auth/login.tsx', // Static CSS injection for focus ring (must match theme.colors.primary)
   'src/utils/mapMarkerColors.ts', // Hex values only in comments (WCAG contrast ratios)
