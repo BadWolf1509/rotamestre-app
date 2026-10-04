@@ -4,7 +4,14 @@ import { createRef } from 'react';
 
 import { useLocationTracking } from '../useLocationTracking';
 
-// expo-location is mocked globally via jest.setup.js / jest-expo
+// Mock explícito: o automock do jest-expo não expõe
+// getForegroundPermissionsAsync, que o hook consulta antes de pedir (#570).
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn(),
+  getForegroundPermissionsAsync: jest.fn(),
+  getCurrentPositionAsync: jest.fn(),
+  Accuracy: { High: 4 },
+}));
 
 const mockSetStop = jest.fn();
 
@@ -20,6 +27,12 @@ function makeCameraRef() {
 describe('useLocationTracking', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Consulta antes de pedir (#570): 'undetermined' mantém o pedido
+    // exercitado nos cenários abaixo.
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'undetermined',
+      canAskAgain: true,
+    });
   });
 
   it('starts with isLocating=false', () => {

@@ -36,8 +36,9 @@ export function useLocationTracking(
   const handleCenterOnUser = useCallback(async () => {
     setIsLocating(true);
     try {
-      const { concedida } = await pedirPermissao(() =>
-        Location.requestForegroundPermissionsAsync(),
+      const { concedida } = await pedirPermissao(
+        () => Location.requestForegroundPermissionsAsync(),
+        () => Location.getForegroundPermissionsAsync(),
       );
       if (!concedida) {
         showWarning(

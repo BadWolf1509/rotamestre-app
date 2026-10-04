@@ -26,6 +26,9 @@ const mockWatchPositionAsync = jest.fn();
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: (...a: unknown[]) =>
     mockRequestForegroundPermissionsAsync(...a),
+  // Consulta antes de pedir (#570): 'undetermined' mantém o pedido exercitado.
+  getForegroundPermissionsAsync: () =>
+    Promise.resolve({ status: 'undetermined', canAskAgain: true }),
   getCurrentPositionAsync: (...a: unknown[]) =>
     mockGetCurrentPositionAsync(...a),
   watchPositionAsync: (...a: unknown[]) => mockWatchPositionAsync(...a),

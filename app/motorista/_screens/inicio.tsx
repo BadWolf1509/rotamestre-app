@@ -145,8 +145,9 @@ function MotoristaInicioContent() {
 
     (async () => {
       try {
-        const resultado = await pedirPermissao(() =>
-          Location.requestForegroundPermissionsAsync(),
+        const resultado = await pedirPermissao(
+          () => Location.requestForegroundPermissionsAsync(),
+          () => Location.getForegroundPermissionsAsync(),
         );
         if (cancelado) return;
 

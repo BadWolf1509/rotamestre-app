@@ -222,7 +222,28 @@ describe('useDriverLocationBroadcast', () => {
       });
     });
 
-    it('deve solicitar permissao de localizacao ao iniciar', async () => {
+    // No Android o pedido abre a activity de permissao mesmo ja concedida e
+    // tira o app da tela por um instante (#570): so pede quando a consulta
+    // nao deu granted.
+    it('ja concedida: nao abre o pedido do sistema e inicia o watcher', async () => {
+      renderHook(() =>
+        useDriverLocationBroadcast({
+          rotaId: 'rota-123',
+          rotaStatus: 'em_andamento',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockWatchPositionAsync).toHaveBeenCalled();
+      });
+      expect(mockRequestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    });
+
+    it('ainda nao concedida: solicita permissao de localizacao ao iniciar', async () => {
+      mockGetForegroundPermissionsAsync.mockResolvedValue({
+        status: 'undetermined',
+        canAskAgain: true,
+      });
       renderHook(() =>
         useDriverLocationBroadcast({
           rotaId: 'rota-123',
@@ -256,6 +277,10 @@ describe('useDriverLocationBroadcast', () => {
     });
 
     it('nao deve iniciar tracking quando permissao e negada', async () => {
+      mockGetForegroundPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        canAskAgain: true,
+      });
       mockRequestForegroundPermissionsAsync.mockResolvedValue({
         status: 'denied',
       });
@@ -1286,6 +1311,10 @@ describe('useDriverLocationBroadcast', () => {
     it('reativa o watcher quando a rota esta em andamento e o motorista concede a permissao nas Configuracoes', async () => {
       // No mount a permissao esta negada, e bloqueada: o dialogo do sistema
       // nao aparece mais, entao so as Configuracoes resolvem.
+      mockGetForegroundPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        canAskAgain: false,
+      });
       mockRequestForegroundPermissionsAsync.mockResolvedValueOnce({
         status: 'denied',
         canAskAgain: false,
@@ -1305,7 +1334,11 @@ describe('useDriverLocationBroadcast', () => {
       expect(mockWatchPositionAsync).not.toHaveBeenCalled();
 
       // Concedeu nas Configuracoes e voltou: o `get` (sem dialogo) agora
-      // responde granted, que e o default do beforeEach.
+      // responde granted.
+      mockGetForegroundPermissionsAsync.mockResolvedValue({
+        status: 'granted',
+        canAskAgain: true,
+      });
       await act(async () => {
         app.disparar('active');
       });
