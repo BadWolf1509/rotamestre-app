@@ -1,12 +1,30 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { requestLocationPermissions } from '@/services/unifiedLocationTracking';
 import { defaultTheme } from '@/utils/styles';
+
+/** Teto da espera: se o app não voltar, tenta assim mesmo (e falha como antes). */
+const ESPERA_MAXIMA_PRIMEIRO_PLANO_MS = 5000;
+
+function aguardarAppEmPrimeiroPlano(): Promise<void> {
+  if (AppState.currentState === 'active') return Promise.resolve();
+  return new Promise((resolve) => {
+    const assinatura = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') concluir();
+    });
+    const prazo = setTimeout(concluir, ESPERA_MAXIMA_PRIMEIRO_PLANO_MS);
+    function concluir() {
+      clearTimeout(prazo);
+      assinatura.remove();
+      resolve();
+    }
+  });
+}
 
 // Task name for background location
 const LOCATION_TASK = 'background-location-tracking';
@@ -141,6 +159,11 @@ class LocationTrackingService {
         'navigationState',
         JSON.stringify(this.navigationState),
       );
+
+      // O Android 12+ recusa iniciar serviço em primeiro plano com o app fora
+      // da tela — e um pedido de permissão (deste fluxo ou de outra tela) tira
+      // o app da tela por uma fração de segundo.
+      await aguardarAppEmPrimeiroPlano();
 
       // Start background location updates
       await Location.startLocationUpdatesAsync(LOCATION_TASK, {

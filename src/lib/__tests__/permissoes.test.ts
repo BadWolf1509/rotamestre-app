@@ -42,6 +42,30 @@ describe('pedirPermissao', () => {
     const resultado = await pedirPermissao(async () => ({ status: 'denied' }));
     expect(resultado.podePerguntarDeNovo).toBe(true);
   });
+
+  // No Android, todo `request…PermissionsAsync` abre a activity de permissão
+  // do sistema — mesmo já concedida — e o app vai a segundo plano por uma
+  // fração de segundo. Se um serviço em primeiro plano tenta iniciar nessa
+  // hora, o Android 12+ recusa (rastreamento da navegação, 03/10/2026).
+  it('com a consulta já concedida, não abre o pedido do sistema', async () => {
+    const solicitar = jest.fn(async () => ({ status: 'granted' }));
+    const resultado = await pedirPermissao(solicitar, async () => ({
+      status: 'granted',
+      canAskAgain: true,
+    }));
+    expect(resultado.concedida).toBe(true);
+    expect(solicitar).not.toHaveBeenCalled();
+  });
+
+  it('com a consulta negada, pede ao sistema', async () => {
+    const solicitar = jest.fn(async () => ({ status: 'granted' }));
+    const resultado = await pedirPermissao(solicitar, async () => ({
+      status: 'denied',
+      canAskAgain: true,
+    }));
+    expect(solicitar).toHaveBeenCalledTimes(1);
+    expect(resultado.concedida).toBe(true);
+  });
 });
 
 describe('abrirConfiguracoesDoApp', () => {

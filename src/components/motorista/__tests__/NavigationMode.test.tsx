@@ -25,6 +25,9 @@ jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest
     .fn()
     .mockResolvedValue({ status: 'granted', canAskAgain: true }),
+  getForegroundPermissionsAsync: jest
+    .fn()
+    .mockResolvedValue({ status: 'granted', canAskAgain: true }),
   Accuracy: {
     BestForNavigation: 6,
   },
@@ -644,5 +647,69 @@ describe('Manter Tela Ligada', () => {
     await findByTestId('map-view');
 
     expect(mockActivateKeepAwake).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * No Android, o pedido de permissão abre a activity do sistema mesmo já
+ * concedida, e o app sai da tela por uma fração de segundo — bem quando o
+ * rastreamento inicia o serviço em primeiro plano, que o Android 12+ recusa
+ * fora do primeiro plano. A navegação seguia sem "Rastreando" (03/10/2026).
+ */
+describe('Permissão de localização ao abrir a navegação', () => {
+  const Location = jest.requireMock('expo-location');
+
+  const props = {
+    currentStop: {
+      id: 'p2',
+      endereco: 'Rua 2',
+      latitude: -23.56,
+      longitude: -46.64,
+      ordem: 2,
+      status: 'pendente',
+      tipo: 'entrega',
+      is_checkpoint: true,
+    },
+    nextStop: null,
+    paradas: [],
+    rotaId: 'rota-1',
+    onComplete: jest.fn(),
+    onSkip: jest.fn(),
+    onExit: jest.fn(),
+  };
+
+  beforeEach(() => {
+    Location.requestForegroundPermissionsAsync.mockClear();
+    Location.getForegroundPermissionsAsync.mockClear();
+  });
+
+  afterEach(() => {
+    Location.getForegroundPermissionsAsync.mockResolvedValue({
+      status: 'granted',
+      canAskAgain: true,
+    });
+  });
+
+  it('já concedida: não abre o pedido do sistema', async () => {
+    const { findByTestId } = render(<NavigationMode {...props} />);
+    await findByTestId('map-view');
+    await waitFor(() =>
+      expect(Location.getForegroundPermissionsAsync).toHaveBeenCalled(),
+    );
+
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+  });
+
+  it('ainda não concedida: pede ao sistema', async () => {
+    Location.getForegroundPermissionsAsync.mockResolvedValue({
+      status: 'undetermined',
+      canAskAgain: true,
+    });
+    const { findByTestId } = render(<NavigationMode {...props} />);
+    await findByTestId('map-view');
+
+    await waitFor(() =>
+      expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled(),
+    );
   });
 });

@@ -20,6 +20,7 @@ function createChain(singleResult = { data: null, error: null }) {
 }
 
 // Mock dependencies BEFORE imports
+let mockOuvintesAppState: Array<(estado: string) => void> = [];
 const mockFrom = jest.fn().mockImplementation(() => createChain());
 const mockGetUser = jest
   .fn()
@@ -81,6 +82,17 @@ jest.mock('react-native', () => ({
     ),
   },
   Platform: { OS: 'ios' },
+  AppState: {
+    currentState: 'active',
+    addEventListener: (_tipo: string, cb: (estado: string) => void) => {
+      mockOuvintesAppState.push(cb);
+      return {
+        remove: () => {
+          mockOuvintesAppState = mockOuvintesAppState.filter((f) => f !== cb);
+        },
+      };
+    },
+  },
 }));
 
 jest.mock('@/utils/styles', () => ({
@@ -300,6 +312,32 @@ describe('LocationTrackingService', () => {
       longitude: -46.63,
       endereco: 'Rua Test 123',
     };
+
+    // O Android 12+ recusa iniciar serviço em primeiro plano com o app em
+    // segundo plano. Um pedido de permissão concorrente tira o app da tela por
+    // uma fração de segundo; iniciar nessa janela falhava e a navegação
+    // seguia sem rastreamento (moto g15, 03/10/2026).
+    it('espera o app voltar ao primeiro plano para iniciar o serviço', async () => {
+      const { AppState } = jest.requireMock('react-native');
+      AppState.currentState = 'background';
+      mockFrom.mockReturnValue(createChain({ data: stopData, error: null }));
+
+      const inicio = locationTrackingService.startTracking(
+        'rota-1',
+        'stop-1',
+        'stop-2',
+      );
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(Location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+
+      AppState.currentState = 'active';
+      mockOuvintesAppState.forEach((cb) => cb('active'));
+
+      await expect(inicio).resolves.toBe(true);
+      expect(Location.startLocationUpdatesAsync).toHaveBeenCalledTimes(1);
+      expect(mockOuvintesAppState).toHaveLength(0);
+    });
 
     it('deve iniciar tracking com sucesso', async () => {
       const chain = createChain({ data: stopData, error: null });

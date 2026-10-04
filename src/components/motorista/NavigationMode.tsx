@@ -172,8 +172,11 @@ export function NavigationMode({
     let cancelado = false;
 
     (async () => {
-      const resultado = await pedirPermissao(() =>
-        Location.requestForegroundPermissionsAsync(),
+      // Consulta antes de pedir: o pedido tira o app da tela por um instante,
+      // bem quando `startTracking` inicia o serviço de localização.
+      const resultado = await pedirPermissao(
+        () => Location.requestForegroundPermissionsAsync(),
+        () => Location.getForegroundPermissionsAsync(),
       );
       if (cancelado) return;
 
