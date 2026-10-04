@@ -76,10 +76,19 @@ export function abrirConfiguracoesDoApp(): boolean {
   return false;
 }
 
+/**
+ * @param consultar opcional — o `get…PermissionsAsync` correspondente. No
+ * Android, todo `request…` abre a activity de permissão do sistema, mesmo já
+ * concedida, e o app vai a segundo plano por uma fração de segundo; se um
+ * serviço em primeiro plano tenta iniciar nessa janela, o Android 12+ recusa.
+ * Com `consultar`, o pedido só acontece quando a permissão ainda falta.
+ */
 export async function pedirPermissao(
   solicitar: () => Promise<RespostaDePermissao>,
+  consultar?: () => Promise<RespostaDePermissao>,
 ): Promise<ResultadoPermissao> {
-  const resposta = await solicitar();
+  const atual = consultar ? await consultar() : null;
+  const resposta = atual?.status === 'granted' ? atual : await solicitar();
   return {
     concedida: resposta.status === 'granted',
     // Ausente (mocks antigos, versões de lib) conta como "ainda dá para
