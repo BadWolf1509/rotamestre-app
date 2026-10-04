@@ -10,9 +10,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
-import { getRoute, decodePolyline, type Coordinate } from '@/lib/osrm';
+import {
+  calculateHaversineDistance,
+  decodePolyline,
+  getRoute,
+  type Coordinate,
+} from '@/lib/osrm';
 import LocationTrackingService from '@/services/locationTracking';
-import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { useUnistyles } from '@/utils/styles';
 
 import type {
@@ -29,7 +33,7 @@ const DEFAULT_PREFERENCES: NavigationPreferences = {
   soundAlerts: true,
   vibrationAlerts: true,
   showSpeedometer: true,
-  internalNavigation: false,
+  preventScreenSleep: true,
   autoAdvance: true,
   proximityRadius: 50,
 };
@@ -63,12 +67,10 @@ export function useNavigationModeLogic({
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [speed, setSpeed] = useState(0);
   const [distance, setDistance] = useState<number | null>(null);
-  const [eta, setEta] = useState<string | null>(null);
+  // Duração (s) da rota OSRM até a parada atual; null sem rota viária.
+  const [duracaoRotaSeg, setDuracaoRotaSeg] = useState<number | null>(null);
   const [isTracking, setIsTracking] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [navigationMode, setNavigationMode] = useState<'map' | 'turn-by-turn'>(
-    'map',
-  );
   const [isInitializing, setIsInitializing] = useState(true);
   const [preferences, setPreferences] =
     useState<NavigationPreferences>(DEFAULT_PREFERENCES);
@@ -117,13 +119,6 @@ export function useNavigationModeLogic({
     );
   }, [realParadas, currentStop]);
 
-  // Remaining waypoints for turn-by-turn navigation
-  const remainingWaypoints = useMemo(() => {
-    return realParadas
-      .filter((p) => p.id !== currentStop?.id && p.status === 'pendente')
-      .map((p) => ({ latitude: p.latitude, longitude: p.longitude }));
-  }, [realParadas, currentStop]);
-
   // Check if stop is delivery or pickup
   const isEntrega = currentStop?.tipo === 'entrega';
 
@@ -169,9 +164,6 @@ export function useNavigationModeLogic({
         ...prefs,
       };
       setPreferences(newPrefs);
-      if (newPrefs.internalNavigation) {
-        setNavigationMode('turn-by-turn');
-      }
     } catch {
       // Use defaults on failure
     }
@@ -225,22 +217,32 @@ export function useNavigationModeLogic({
           currentStop.longitude,
         );
         setDistance(dist);
-
-        // Estimate time of arrival
-        if (speedMs && speedMs > 0) {
-          const timeInSeconds = dist / speedMs;
-          const minutes = Math.ceil(timeInSeconds / 60);
-          setEta(`${minutes} min`);
-        } else {
-          // Fallback: use average urban speed
-          const timeInHours = dist / 1000 / AVERAGE_URBAN_SPEED_KMH;
-          const minutes = Math.ceil(timeInHours * 60);
-          setEta(minutes > 0 ? `${minutes} min` : '< 1 min');
-        }
       }
     },
     [currentStop],
   );
+
+  // Reset ao trocar de parada. Fica ANTES do efeito de busca: os efeitos rodam
+  // na ordem de declaração, e a busca precisa ver `prevUserLocationRef` nulo
+  // (senão, com o motorista parado, ela acha que ele andou < 50 m e não refaz a
+  // rota da nova parada). A distância também é refeita aqui: sem novo tick de
+  // GPS, ela ficaria a da parada anterior.
+  useEffect(() => {
+    prevUserLocationRef.current = null;
+    setRoutePath([]);
+    setDuracaoRotaSeg(null);
+    setDistance(
+      userLocation && currentStop
+        ? calculateHaversineDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            currentStop.latitude,
+            currentStop.longitude,
+          )
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na troca de parada; a posição vem dos ticks de GPS
+  }, [currentStop?.id]);
 
   // Fetch OSRM route when user location or destination changes
   useEffect(() => {
@@ -279,12 +281,18 @@ export function useNavigationModeLogic({
           if (routeData?.polyline) {
             const decoded = decodePolyline(routeData.polyline);
             setRoutePath(decoded.length >= 2 ? decoded : []);
+            setDuracaoRotaSeg(
+              typeof routeData.duration === 'number' && !routeData.is_estimated
+                ? routeData.duration
+                : null,
+            );
             prevUserLocationRef.current = {
               lat: userLocation.latitude,
               lon: userLocation.longitude,
             };
           } else {
             setRoutePath([]);
+            setDuracaoRotaSeg(null);
           }
         }
       } catch (error) {
@@ -292,7 +300,10 @@ export function useNavigationModeLogic({
           '[useNavigationModeLogic] Error fetching OSRM route:',
           error,
         );
-        if (!cancelled) setRoutePath([]);
+        if (!cancelled) {
+          setRoutePath([]);
+          setDuracaoRotaSeg(null);
+        }
       }
     };
 
@@ -309,11 +320,17 @@ export function useNavigationModeLogic({
     currentStop?.longitude,
   ]);
 
-  // Reset route path when current stop changes
-  useEffect(() => {
-    prevUserLocationRef.current = null;
-    setRoutePath([]);
-  }, [currentStop?.id]);
+  // Tempo até a parada: duração da rota viária (OSRM, refeita a cada 50 m);
+  // sem ela, distância em linha reta à velocidade média urbana. Nunca a
+  // velocidade instantânea do GPS — parado, ela leva o tempo ao infinito.
+  const eta = useMemo(() => {
+    const segundos =
+      duracaoRotaSeg ??
+      (distance !== null ? distance / (AVERAGE_URBAN_SPEED_KMH / 3.6) : null);
+    if (segundos === null) return null;
+    const minutos = Math.ceil(segundos / 60);
+    return minutos > 0 ? `${minutos} min` : '< 1 min';
+  }, [duracaoRotaSeg, distance]);
 
   return {
     // State
@@ -325,18 +342,15 @@ export function useNavigationModeLogic({
     showSettings,
     routePath,
     preferences,
-    navigationMode,
     isInitializing,
 
     // State setters
     setUserLocation,
     setSpeed,
     setDistance,
-    setEta,
     setIsTracking,
     setShowSettings,
     setRoutePath,
-    setNavigationMode,
     setIsInitializing,
 
     // Derived values
@@ -347,7 +361,6 @@ export function useNavigationModeLogic({
     currentStopIndex,
     nextStopAfterCurrent,
     pendingStops,
-    remainingWaypoints,
     isEntrega,
     isNearDestination,
 

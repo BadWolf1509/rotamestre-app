@@ -5,9 +5,9 @@
  * POR QUE EXISTE. `oferecerSaidaParaConfiguracoes` (`@/lib/permissoes`) recebe
  * a copy por parâmetro para não precisar de um dialog próprio — mas isso
  * também significa que cada chamador precisaria inventar a própria redação.
- * As três telas de navegação (`NavigationMode`, `NavigationMode.web` e
- * `TurnByTurnNavigation`) pedem localização pelo mesmo motivo (sem GPS não há
- * como navegar até a entrega) e por isso dividem uma única constante. Uma
+ * As telas de navegação (`NavigationMode` e `NavigationMode.web`) pedem
+ * localização pelo mesmo motivo (sem GPS não há como navegar até a entrega) e
+ * por isso dividem uma única constante. Uma
  * constante por permissão evita textos ligeiramente diferentes para o mesmo
  * bloqueio.
  *

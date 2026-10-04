@@ -38,11 +38,11 @@ import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
 } from '@/lib/openFreeMapStyle';
+import { calculateHaversineDistance } from '@/lib/osrm';
 import {
   oferecerSaidaParaConfiguracoes,
   pedirPermissao,
 } from '@/lib/permissoes';
-import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 

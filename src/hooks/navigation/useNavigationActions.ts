@@ -10,11 +10,8 @@ import { useCallback } from 'react';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { abrirNavegacao } from '@/lib/navigation';
 
-import type { NavigationPreferences } from './types';
-
 interface UseNavigationActionsOptions {
   currentStop: ParadaData;
-  preferences: NavigationPreferences;
   triggerHaptic: (type: 'impact' | 'success' | 'warning') => Promise<void>;
   playNotificationSound: () => Promise<void>;
   showConfirm: (opts: {
@@ -24,7 +21,6 @@ interface UseNavigationActionsOptions {
     cancelText: string;
     type?: 'danger' | 'warning';
   }) => Promise<boolean>;
-  setNavigationMode: (mode: 'map' | 'turn-by-turn') => void;
   stopNavigation: () => Promise<void>;
   onComplete: () => void;
   onSkip: () => void;
@@ -33,11 +29,9 @@ interface UseNavigationActionsOptions {
 
 export function useNavigationActions({
   currentStop,
-  preferences,
   triggerHaptic,
   playNotificationSound,
   showConfirm,
-  setNavigationMode,
   stopNavigation,
   onComplete,
   onSkip,
@@ -46,18 +40,12 @@ export function useNavigationActions({
   const handleOpenInMaps = useCallback(() => {
     if (!currentStop) return;
 
-    // If internal nav is enabled, switch to turn-by-turn mode
-    if (preferences.internalNavigation) {
-      setNavigationMode('turn-by-turn');
-    } else {
-      // Open in external app
-      abrirNavegacao({
-        latitude: currentStop.latitude,
-        longitude: currentStop.longitude,
-        endereco: currentStop.endereco,
-      });
-    }
-  }, [currentStop, preferences.internalNavigation, setNavigationMode]);
+    abrirNavegacao({
+      latitude: currentStop.latitude,
+      longitude: currentStop.longitude,
+      endereco: currentStop.endereco,
+    });
+  }, [currentStop]);
 
   const handleCompleteStop = useCallback(async () => {
     await triggerHaptic('impact');
@@ -72,7 +60,13 @@ export function useNavigationActions({
       await triggerHaptic('success');
       onComplete();
     }
-  }, [currentStop, triggerHaptic, showConfirm, playNotificationSound, onComplete]);
+  }, [
+    currentStop,
+    triggerHaptic,
+    showConfirm,
+    playNotificationSound,
+    onComplete,
+  ]);
 
   const handleSkipStop = useCallback(async () => {
     await triggerHaptic('impact');
@@ -94,5 +88,10 @@ export function useNavigationActions({
     }
   }, [showConfirm, stopNavigation, onExit]);
 
-  return { handleOpenInMaps, handleCompleteStop, handleSkipStop, handleExitNavigation };
+  return {
+    handleOpenInMaps,
+    handleCompleteStop,
+    handleSkipStop,
+    handleExitNavigation,
+  };
 }

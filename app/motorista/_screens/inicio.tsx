@@ -22,6 +22,7 @@ import {
   hasSeenSwipeOnboarding,
 } from '@/components/SwipeOnboarding';
 import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
+import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useInicioModals } from '@/hooks/motorista/useInicioModals';
@@ -84,6 +85,15 @@ function MotoristaInicioContent() {
 
   // Modal/UI state (consolidated via useReducer)
   const modals = useInicioModals();
+
+  // Navegação em tela cheia: o layout de abas esconde cabeçalho e abas.
+  const { setTelaCheia } = useNavegacaoTelaCheia();
+  const emNavegacao = modals.navigationMode && !!currentStop;
+  useEffect(() => {
+    setTelaCheia(emNavegacao);
+  }, [emNavegacao, setTelaCheia]);
+  // Sair da Início no meio da navegação não pode deixar as abas sumidas.
+  useEffect(() => () => setTelaCheia(false), [setTelaCheia]);
 
   // Reabre a conclusão que a recriação da Activity interrompeu. É AQUI que
   // mais importa: quando o Android recria a Activity, a navegação volta para a

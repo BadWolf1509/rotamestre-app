@@ -140,9 +140,13 @@ describe('NavigationSettings', () => {
     expect(getByText('Escolha o app preferido para abrir rotas')).toBeTruthy();
   });
 
-  it('deve mostrar seção de Navegação Interna', () => {
-    const { getByText } = render(<NavigationSettings {...defaultProps} />);
-    expect(getByText('Navegação Interna')).toBeTruthy();
+  // O Turn-by-Turn próprio saiu em 03/10/2026: a navegação curva a curva é
+  // a do app externo (Waze/Google Maps).
+  it('não oferece mais a navegação interna (Turn-by-Turn)', () => {
+    const { queryByText } = render(<NavigationSettings {...defaultProps} />);
+    expect(queryByText('Navegação Interna')).toBeNull();
+    expect(queryByText(/Turn-by-Turn/)).toBeNull();
+    expect(queryByText('Navegação por Voz')).toBeNull();
   });
 
   it('deve mostrar seção de Notificações', () => {
@@ -218,17 +222,6 @@ describe('NavigationSettings', () => {
 
     afterEach(() => {
       Object.defineProperty(Platform, 'OS', { value: originalPlatform });
-    });
-
-    it('deve mostrar aviso de somente mobile para Navegação Interna em web', () => {
-      Object.defineProperty(Platform, 'OS', { value: 'web' });
-
-      const { getAllByText } = render(<NavigationSettings {...defaultProps} />);
-
-      // Em web, deve mostrar indicação de somente mobile (pode aparecer múltiplas vezes)
-      expect(getAllByText(/Navegação Interna/).length).toBeGreaterThanOrEqual(
-        1,
-      );
     });
 
     it('deve mostrar dica específica para web', () => {
@@ -323,5 +316,37 @@ describe('NavigationSettings', () => {
       const { getByText } = render(<NavigationSettings {...defaultProps} />);
       expect(getByText(/Ajuste o raio de proximidade/)).toBeTruthy();
     });
+  });
+});
+
+/**
+ * Com o app em tela cheia (edge-to-edge), o Modal desenha sob a barra de
+ * navegação do Android: o fim da folha ficava atrás dos botões do sistema
+ * (visto no moto g15 em 03/10/2026).
+ */
+describe('NavigationSettings — barra de navegação do sistema', () => {
+  const safeArea = jest.requireMock('react-native-safe-area-context');
+  const original = safeArea.useSafeAreaInsets;
+
+  afterEach(() => {
+    safeArea.useSafeAreaInsets = original;
+  });
+
+  it('a folha reserva insets.bottom', () => {
+    safeArea.useSafeAreaInsets = () => ({
+      top: 0,
+      right: 0,
+      bottom: 48,
+      left: 0,
+    });
+    const { getByTestId } = render(
+      <NavigationSettings visible onClose={jest.fn()} />,
+    );
+
+    const { StyleSheet } = jest.requireActual('react-native');
+    const estilo = StyleSheet.flatten(
+      getByTestId('nav-settings-folha').props.style,
+    );
+    expect(estilo.paddingBottom).toBe(48);
   });
 });
