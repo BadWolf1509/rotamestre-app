@@ -325,3 +325,35 @@ describe('NavigationSettings', () => {
     });
   });
 });
+
+/**
+ * Com o app em tela cheia (edge-to-edge), o Modal desenha sob a barra de
+ * navegação do Android: o fim da folha ficava atrás dos botões do sistema
+ * (visto no moto g15 em 03/10/2026).
+ */
+describe('NavigationSettings — barra de navegação do sistema', () => {
+  const safeArea = jest.requireMock('react-native-safe-area-context');
+  const original = safeArea.useSafeAreaInsets;
+
+  afterEach(() => {
+    safeArea.useSafeAreaInsets = original;
+  });
+
+  it('a folha reserva insets.bottom', () => {
+    safeArea.useSafeAreaInsets = () => ({
+      top: 0,
+      right: 0,
+      bottom: 48,
+      left: 0,
+    });
+    const { getByTestId } = render(
+      <NavigationSettings visible onClose={jest.fn()} />,
+    );
+
+    const { StyleSheet } = jest.requireActual('react-native');
+    const estilo = StyleSheet.flatten(
+      getByTestId('nav-settings-folha').props.style,
+    );
+    expect(estilo.paddingBottom).toBe(48);
+  });
+});

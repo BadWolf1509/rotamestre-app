@@ -78,4 +78,20 @@ describe('Turn-by-Turn sob tela cheia', () => {
     expect(a.top).toBeGreaterThan(40);
     expect((b.top ?? 0) - (a.top ?? 0)).toBe(30);
   });
+
+  it('BottomPanel: o tempo é duração, rótulo "tempo" (não "chegada")', () => {
+    const { getByText, queryByText } = render(
+      <BottomPanel
+        progress={10}
+        formattedRemainingDistance="1 km"
+        formattedRemainingTime="3 min"
+        speed={0}
+        voiceEnabled
+        onToggleVoice={jest.fn()}
+        onExit={jest.fn()}
+      />,
+    );
+    expect(getByText('tempo')).toBeTruthy();
+    expect(queryByText('chegada')).toBeNull();
+  });
 });

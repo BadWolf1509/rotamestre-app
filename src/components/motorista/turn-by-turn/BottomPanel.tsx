@@ -58,7 +58,7 @@ export const BottomPanel = React.memo(function BottomPanel({
 
         <View style={styles.stat}>
           <Text style={styles.statValue}>{formattedRemainingTime}</Text>
-          <Text style={styles.statLabel}>chegada</Text>
+          <Text style={styles.statLabel}>tempo</Text>
         </View>
 
         <View style={styles.statSeparator} />

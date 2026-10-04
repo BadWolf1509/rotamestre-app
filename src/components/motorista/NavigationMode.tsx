@@ -365,6 +365,14 @@ export function NavigationMode({
     [setNavigationMode],
   );
 
+  // As preferências são lidas ao abrir a navegação; o que o motorista muda na
+  // engrenagem só valia depois de sair e entrar de novo. Recarregar ao fechar
+  // aplica na hora — inclusive ligar o Turn-by-Turn, que troca o modo.
+  const fecharConfiguracoes = useCallback(() => {
+    setShowSettings(false);
+    loadPreferences();
+  }, [setShowSettings, loadPreferences]);
+
   // Loading state
   if (isInitializing) {
     return (
@@ -537,6 +545,8 @@ export function NavigationMode({
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => setShowSettings(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Configurações da navegação"
         >
           <Ionicons
             name="settings-outline"
@@ -597,7 +607,7 @@ export function NavigationMode({
         <View style={styles.settingsOverlay}>
           <NavigationSettings
             visible={showSettings}
-            onClose={() => setShowSettings(false)}
+            onClose={fecharConfiguracoes}
           />
         </View>
       )}

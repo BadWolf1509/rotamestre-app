@@ -153,8 +153,15 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 // Mock NavigationSettings
+// Mock NavigationSettings — expõe o onClose para o teste de recarga
+const mockSettingsOnClose: { current: null | (() => void) } = {
+  current: null,
+};
 jest.mock('../NavigationSettings', () => ({
-  NavigationSettings: () => null,
+  NavigationSettings: (props: { onClose: () => void }) => {
+    mockSettingsOnClose.current = props.onClose;
+    return null;
+  },
 }));
 
 // Mock TurnByTurnNavigation — captura as props para os testes de chegada
@@ -642,5 +649,88 @@ describe('Enquadramento do mapa', () => {
       );
       expect(estilo.bottom).toBeGreaterThan(370);
     });
+  });
+});
+
+/**
+ * As preferências eram lidas só ao abrir o modo navegação: ligar o
+ * Turn-by-Turn na engrenagem não fazia nada até sair e entrar de novo
+ * (visto no aparelho em 03/10/2026).
+ */
+describe('Configurações dentro da navegação', () => {
+  const Location = jest.requireMock('expo-location');
+  const LocationTracking = jest.requireMock(
+    '@/services/locationTracking',
+  ).default;
+
+  beforeEach(() => {
+    mockTbtProps.current = null;
+    mockSettingsOnClose.current = null;
+    Location.watchPositionAsync.mockImplementation(
+      (_opcoes: unknown, cb: (l: unknown) => void) => {
+        cb({
+          coords: {
+            latitude: -23.55,
+            longitude: -46.63,
+            heading: 0,
+            speed: 0,
+            accuracy: 5,
+          },
+        });
+        return Promise.resolve({ remove: jest.fn() });
+      },
+    );
+  });
+
+  afterEach(() => {
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      internalNavigation: false,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    Location.watchPositionAsync.mockResolvedValue({ remove: jest.fn() });
+  });
+
+  it('ao fechar, aplica o Turn-by-Turn ligado nelas', async () => {
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      internalNavigation: false,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    const props = {
+      currentStop: {
+        id: 'p2',
+        endereco: 'Rua 2',
+        latitude: -23.56,
+        longitude: -46.64,
+        ordem: 2,
+        status: 'pendente',
+        tipo: 'entrega',
+        is_checkpoint: true,
+      },
+      nextStop: null,
+      paradas: [],
+      rotaId: 'rota-1',
+      onComplete: jest.fn(),
+      onSkip: jest.fn(),
+      onExit: jest.fn(),
+    };
+    const { findByLabelText } = render(<NavigationMode {...props} />);
+
+    fireEvent.press(await findByLabelText('Configurações da navegação'));
+    await waitFor(() => expect(mockSettingsOnClose.current).not.toBeNull());
+    expect(mockTbtProps.current).toBeNull();
+
+    // Na engrenagem, o motorista liga o Turn-by-Turn e fecha.
+    LocationTracking.getNavigationPreferences.mockResolvedValue({
+      internalNavigation: true,
+      autoAdvance: true,
+      proximityRadius: 50,
+    });
+    await act(async () => {
+      mockSettingsOnClose.current!();
+    });
+
+    await waitFor(() => expect(mockTbtProps.current).not.toBeNull());
   });
 });

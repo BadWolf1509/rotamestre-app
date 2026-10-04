@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Slider from '@/components/Slider';
 import { useAlert } from '@/hooks/useAlert';
@@ -77,6 +78,7 @@ export function NavigationSettings({
   onSettingsChange,
 }: NavigationSettingsProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { showSuccess, showConfirm, AlertDialog } = useAlert();
   const isWeb = Platform.OS === 'web';
 
@@ -469,7 +471,12 @@ export function NavigationSettings({
           <Pressable style={styles.backdropPressable} onPress={onClose} />
 
           {/* Container do modal - View para não interferir no scroll */}
-          <View style={styles.container}>
+          {/* Em tela cheia o Modal desenha sob a barra de navegação do
+              sistema: a folha reserva insets.bottom. */}
+          <View
+            testID="nav-settings-folha"
+            style={[styles.container, { paddingBottom: insets.bottom }]}
+          >
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Configurações de Navegação</Text>
