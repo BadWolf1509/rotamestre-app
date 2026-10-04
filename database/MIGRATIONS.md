@@ -1197,3 +1197,34 @@ SELECT permite a qualquer membro ativo da mesma unidade — não só ao `gestor`
 ver a posição de um colega.
 
 Revisada pelo `rls-policy-reviewer`: **APPROVE**, sem achado crítico.
+
+### ✅ Migration 29: deduplicação de `logs` considera a parada
+
+**Arquivo:** `20261004120000_dedup_logs_por_parada.sql` · aplicada via MCP em
+04/10/2026, registrada como `20261004232921` (o MCP grava o próprio horário).
+
+**A auditoria perdia conclusões.** `prevent_duplicate_log` (BEFORE INSERT em
+`logs`) descartava log com mesmo `rota_id` + `evento` + `usuario_id` nos últimos
+5 s — sem olhar a parada. Duas paradas concluídas juntas viravam um registro:
+em 60 dias, **34 de 1.168** paradas concluídas (3%) ficaram sem
+`parada_concluida`; 22 tinham outra conclusão da mesma rota nos 5 s anteriores e
+27 eram partida/chegada, que fecham junto com outra parada. Foi o mesmo filtro
+que, na 1.12.6, escondeu o log do app atrás do `log_parada_status` (pendência 12).
+
+**O que muda:** a comparação inclui `detalhes->>'parada_id'` com
+`IS NOT DISTINCT FROM`. Log sem parada (eventos de rota, gestão) compara NULL com
+NULL e segue deduplicado como antes. `SECURITY DEFINER` e `search_path` mantidos;
+`CREATE OR REPLACE` preserva o vínculo do trigger.
+
+**Provas:** sonda transacional (com `RAISE EXCEPTION`, nada persistido) antes e
+depois de aplicar — função antiga: paradas X e Y nos 5 s → 1 linha (o defeito);
+nova: X, Y, X → 2 linhas, X repetida descartada, dois logs sem parada → 1.
+
+**Não recupera o passado:** as 34 linhas perdidas não foram reconstruídas.
+
+**Nota da revisão (fora do escopo):** a deduplicação é filtro de ruído, não
+controle de segurança — a policy de INSERT de `logs` só exige
+`usuario_id = auth.uid()`, sem checar a unidade da `rota_id`; restringir isso é
+outra migration.
+
+Revisada pelo `rls-policy-reviewer`: **APPROVE**, sem achado crítico.

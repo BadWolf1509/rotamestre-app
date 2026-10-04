@@ -83,7 +83,7 @@ o UPDATE gravava a coluna inexistente `auto_concluida` e sempre falhava (#480),
 e o modo navegação era inalcançável para quem nunca tinha mexido no ajuste
 (#495).
 
-**Como foi achado** (a auditoria `logs` não ajudava — ver pendência 13 do
+**Como foi achado** (a auditoria `logs` não ajudava — ver Migration 29, que corrigiu, e a antiga pendência 13 do
 `PROJECT_CONTEXT`): pelos logs HTTP do Supabase (`edge_logs`). O usuário vem em
 `request.sb.jwt.authorization.payload.subject` e a versão do app em
 `x_client_info` (`supabase-js/2.115.0` ⇒ build entre 07 e 17/09). A conclusão
