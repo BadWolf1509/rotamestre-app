@@ -8,6 +8,40 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Modo navegação: layout, tempo estimado e Turn-by-Turn (03/10/2026)
+
+Análise visual no aparelho (moto g15) do que o "Navegar" abre com o "Avanço
+Automático" ligado, seguida de investigação do Turn-by-Turn. Achados:
+
+- **Mapa centrado atrás do painel.** O mapa tinha a altura da tela inteira e a
+  câmera centralizava no meio dele: motorista, parada e rota só apareciam
+  arrastando. Agora o mapa é `flex: 1` e a câmera recebe `padding` medido por
+  `onLayout` (barra superior e painel); perto da parada, enquadra os dois por
+  `bounds`. O botão de recentralizar sobe com o painel.
+- **Tempo estimado.** Era distância em linha reta ÷ velocidade instantânea do
+  GPS: parado, 131 m davam "13 min". Agora vem da duração da rota OSRM (sem
+  rota, 30 km/h médios); rótulo "tempo". Na troca de parada, o efeito de reset
+  roda antes do de busca, senão o motorista parado ficava sem rota e com a
+  distância da parada anterior.
+- **Tela cheia.** Cabeçalho e abas somem durante a navegação
+  (`NavegacaoTelaCheiaContext`, estado no layout de abas); a barra superior e o
+  Turn-by-Turn usam `insets` em vez de paddings fixos.
+- **Turn-by-Turn, chegada.** Chamava `showConfirm`, mas o ramo do Turn-by-Turn
+  retorna antes de montar o `{AlertDialog}`: nada aparecia e a parada não
+  concluía. Agora a chegada chama `onComplete` direto (fluxo com foto).
+- **Turn-by-Turn, rota.** Recebia as outras paradas pendentes como
+  intermediárias; o OSRM monta origem → intermediárias → destino, e a voz guiava
+  primeiro para elas. Agora a rota vai só até a parada atual.
+
+**Turn-by-Turn removido (mesmo PR, para a 1.12.8).** Depois de corrigido,
+ficou decidido tirá-lo: rotas do OSRM sem trânsito não competem com o Waze, o
+modo era opcional, sem medição de uso possível (a preferência é local) e sem
+teste de campo, e os dois defeitos acima mostram que ninguém o usava. Saíram ~3
+mil linhas (componente nativo e web, serviço, hooks, detecção de saída de rota,
+`expo-speech`) e a seção "Navegação Interna" das configurações. O "Manter Tela
+Ligada" — que só o Turn-by-Turn aplicava — passou para o modo navegação, onde
+nunca tinha funcionado.
+
 ## Entregas concluídas sem comprovante e release 1.12.7 (02–03/10/2026)
 
 **Sintoma relatado:** um motorista "nem sempre consegue anexar a foto".

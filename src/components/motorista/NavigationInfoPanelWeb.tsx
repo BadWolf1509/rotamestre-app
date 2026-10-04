@@ -46,210 +46,248 @@ export interface NavigationInfoPanelWebProps {
   onOpenExternalNavigation: () => void;
 }
 
-export const NavigationInfoPanelWeb = React.memo(function NavigationInfoPanelWeb({
-  realParadas,
-  currentStop,
-  nextStop,
-  currentStopIndex,
-  isEntrega,
-  isNearDestination,
-  distanceToStop,
-  eta,
-  speed,
-  showSpeedometer,
-  formatDistance,
-  getSpeedColor,
-  onSkip,
-  onComplete,
-  onOpenExternalNavigation,
-}: NavigationInfoPanelWebProps) {
-  const { theme } = useUnistyles();
-  const [buttonPressed, setButtonPressed] = React.useState<string | null>(null);
+export const NavigationInfoPanelWeb = React.memo(
+  function NavigationInfoPanelWeb({
+    realParadas,
+    currentStop,
+    nextStop,
+    currentStopIndex,
+    isEntrega,
+    isNearDestination,
+    distanceToStop,
+    eta,
+    speed,
+    showSpeedometer,
+    formatDistance,
+    getSpeedColor,
+    onSkip,
+    onComplete,
+    onOpenExternalNavigation,
+  }: NavigationInfoPanelWebProps) {
+    const { theme } = useUnistyles();
+    const [buttonPressed, setButtonPressed] = React.useState<string | null>(
+      null,
+    );
 
-  return (
-    <View style={styles.infoContainer}>
-      {/* Progress Indicator */}
-      <View style={styles.progressContainer}>
-        {realParadas.map((parada, index) => {
-          const isCompleted = parada.status === 'concluida';
-          const isCurrent = parada.id === currentStop.id;
-          const isPending = parada.status === 'pendente' && !isCurrent;
-          return (
-            <React.Fragment key={parada.id}>
-              <View
-                style={[
-                  styles.progressDot,
-                  isCompleted && styles.progressDotCompleted,
-                  isCurrent && styles.progressDotCurrent,
-                  isPending && styles.progressDotPending,
-                ]}
-              >
-                {isCurrent && (
-                  <Ionicons name="navigate" size={10} color={theme.colors.white} />
-                )}
-                {isCompleted && (
-                  <Ionicons name="checkmark" size={10} color={theme.colors.white} />
-                )}
-                {isPending && (
-                  <Text style={styles.progressDotText}>{index + 1}</Text>
-                )}
-              </View>
-              {index < realParadas.length - 1 && (
+    return (
+      <View style={styles.infoContainer}>
+        {/* Progress Indicator */}
+        <View style={styles.progressContainer}>
+          {realParadas.map((parada, index) => {
+            const isCompleted = parada.status === 'concluida';
+            const isCurrent = parada.id === currentStop.id;
+            const isPending = parada.status === 'pendente' && !isCurrent;
+            return (
+              <React.Fragment key={parada.id}>
                 <View
                   style={[
-                    styles.progressLine,
-                    isCompleted && styles.progressLineCompleted,
+                    styles.progressDot,
+                    isCompleted && styles.progressDotCompleted,
+                    isCurrent && styles.progressDotCurrent,
+                    isPending && styles.progressDotPending,
                   ]}
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </View>
-
-      {/* Distance, ETA and Speed */}
-      <View style={styles.mainInfo}>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            ...(isNearDestination && { animation: 'pip-pulse 1s ease-in-out infinite' }),
-          }}
-        >
-          <Text
-            style={[
-              styles.distanceValue,
-              isNearDestination && styles.distanceValueNear,
-            ]}
-          >
-            {distanceToStop ? formatDistance(distanceToStop) : '--'}
-          </Text>
-          <Text style={styles.distanceLabel}>
-            {isNearDestination ? '🎯 Chegando!' : 'distância'}
-          </Text>
-        </div>
-
-        <View style={styles.separator} />
-
-        <View style={styles.etaContainer}>
-          <Text style={styles.etaValue}>{eta || '--'}</Text>
-          <Text style={styles.etaLabel}>chegada</Text>
+                >
+                  {isCurrent && (
+                    <Ionicons
+                      name="navigate"
+                      size={10}
+                      color={theme.colors.white}
+                    />
+                  )}
+                  {isCompleted && (
+                    <Ionicons
+                      name="checkmark"
+                      size={10}
+                      color={theme.colors.white}
+                    />
+                  )}
+                  {isPending && (
+                    <Text style={styles.progressDotText}>{index + 1}</Text>
+                  )}
+                </View>
+                {index < realParadas.length - 1 && (
+                  <View
+                    style={[
+                      styles.progressLine,
+                      isCompleted && styles.progressLineCompleted,
+                    ]}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
         </View>
 
-        {showSpeedometer && (
-          <>
-            <View style={styles.separator} />
-            <View style={styles.speedContainer}>
-              <Text style={[styles.speedValue, { color: getSpeedColor(speed) }]}>
-                {speed}
-              </Text>
-              <Text style={styles.speedUnit}>km/h</Text>
-            </View>
-          </>
-        )}
-      </View>
-
-      {/* Current Destination */}
-      <View style={styles.destinationInfo}>
-        <View style={styles.destinationHeader}>
-          <View style={styles.destinationHeaderLeft}>
-            <View
+        {/* Distance, ETA and Speed */}
+        <View style={styles.mainInfo}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              ...(isNearDestination && {
+                animation: 'pip-pulse 1s ease-in-out infinite',
+              }),
+            }}
+          >
+            <Text
               style={[
-                styles.typeBadge,
-                isEntrega ? styles.typeBadgeEntrega : styles.typeBadgeRetirada,
+                styles.distanceValue,
+                isNearDestination && styles.distanceValueNear,
               ]}
             >
-              <Ionicons
-                name={isEntrega ? 'cube' : 'arrow-up-circle'}
-                size={12}
-                color={isEntrega ? theme.colors.success : theme.colors.warning}
-              />
-              <Text
-                style={[
-                  styles.typeBadgeText,
-                  isEntrega ? styles.typeBadgeTextEntrega : styles.typeBadgeTextRetirada,
-                ]}
-              >
-                {isEntrega ? 'Entrega' : 'Retirada'}
-              </Text>
-            </View>
-            <Text style={styles.destinationLabel}>
-              • Parada {currentStopIndex}/{realParadas.length}
+              {distanceToStop ? formatDistance(distanceToStop) : '--'}
             </Text>
+            <Text style={styles.distanceLabel}>
+              {isNearDestination ? '🎯 Chegando!' : 'distância'}
+            </Text>
+          </div>
+
+          <View style={styles.separator} />
+
+          <View style={styles.etaContainer}>
+            <Text style={styles.etaValue}>{eta || '--'}</Text>
+            <Text style={styles.etaLabel}>tempo</Text>
           </View>
-          {nextStop && (
-            <Text style={styles.nextStopHint}>
-              Próxima: {nextStop.endereco.split(',')[0]}
-            </Text>
+
+          {showSpeedometer && (
+            <>
+              <View style={styles.separator} />
+              <View style={styles.speedContainer}>
+                <Text
+                  style={[styles.speedValue, { color: getSpeedColor(speed) }]}
+                >
+                  {speed}
+                </Text>
+                <Text style={styles.speedUnit}>km/h</Text>
+              </View>
+            </>
           )}
         </View>
-        <Text style={styles.destinationAddress}>{currentStop.endereco}</Text>
 
-        {currentStop.destinatario && (
-          <View style={styles.recipientInfo}>
-            <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
-            <Text style={styles.recipientText}>{currentStop.destinatario}</Text>
+        {/* Current Destination */}
+        <View style={styles.destinationInfo}>
+          <View style={styles.destinationHeader}>
+            <View style={styles.destinationHeaderLeft}>
+              <View
+                style={[
+                  styles.typeBadge,
+                  isEntrega
+                    ? styles.typeBadgeEntrega
+                    : styles.typeBadgeRetirada,
+                ]}
+              >
+                <Ionicons
+                  name={isEntrega ? 'cube' : 'arrow-up-circle'}
+                  size={12}
+                  color={
+                    isEntrega ? theme.colors.success : theme.colors.warning
+                  }
+                />
+                <Text
+                  style={[
+                    styles.typeBadgeText,
+                    isEntrega
+                      ? styles.typeBadgeTextEntrega
+                      : styles.typeBadgeTextRetirada,
+                  ]}
+                >
+                  {isEntrega ? 'Entrega' : 'Retirada'}
+                </Text>
+              </View>
+              <Text style={styles.destinationLabel}>
+                • Parada {currentStopIndex}/{realParadas.length}
+              </Text>
+            </View>
+            {nextStop && (
+              <Text style={styles.nextStopHint}>
+                Próxima: {nextStop.endereco.split(',')[0]}
+              </Text>
+            )}
           </View>
-        )}
+          <Text style={styles.destinationAddress}>{currentStop.endereco}</Text>
 
-        {currentStop.observacoes && (
-          <View style={styles.observationBox}>
-            <Text style={styles.observationText}>{currentStop.observacoes}</Text>
-          </View>
-        )}
+          {currentStop.destinatario && (
+            <View style={styles.recipientInfo}>
+              <Ionicons
+                name="person-outline"
+                size={14}
+                color={theme.colors.gray500}
+              />
+              <Text style={styles.recipientText}>
+                {currentStop.destinatario}
+              </Text>
+            </View>
+          )}
+
+          {currentStop.observacoes && (
+            <View style={styles.observationBox}>
+              <Text style={styles.observationText}>
+                {currentStop.observacoes}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.skipButton,
+              buttonPressed === 'skip' && styles.buttonPressed,
+            ]}
+            onPress={onSkip}
+            onPressIn={() => setButtonPressed('skip')}
+            onPressOut={() => setButtonPressed(null)}
+            activeOpacity={1}
+          >
+            <Ionicons
+              name="arrow-forward-circle-outline"
+              size={20}
+              color={theme.colors.warning}
+            />
+            <Text style={styles.skipButtonText}>Pular</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.mapsButton,
+              buttonPressed === 'maps' && styles.buttonPressed,
+            ]}
+            onPress={onOpenExternalNavigation}
+            onPressIn={() => setButtonPressed('maps')}
+            onPressOut={() => setButtonPressed(null)}
+            activeOpacity={1}
+          >
+            <Ionicons name="navigate" size={20} color={theme.colors.white} />
+            <Text style={styles.mapsButtonText}>Abrir no Maps</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.completeButton,
+              buttonPressed === 'complete' && styles.buttonPressed,
+            ]}
+            onPress={onComplete}
+            onPressIn={() => setButtonPressed('complete')}
+            onPressOut={() => setButtonPressed(null)}
+            activeOpacity={1}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={20}
+              color={theme.colors.white}
+            />
+            <Text style={styles.completeButtonText}>Concluir</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      {/* Action Buttons */}
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            styles.skipButton,
-            buttonPressed === 'skip' && styles.buttonPressed,
-          ]}
-          onPress={onSkip}
-          onPressIn={() => setButtonPressed('skip')}
-          onPressOut={() => setButtonPressed(null)}
-          activeOpacity={1}
-        >
-          <Ionicons name="arrow-forward-circle-outline" size={20} color={theme.colors.warning} />
-          <Text style={styles.skipButtonText}>Pular</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            styles.mapsButton,
-            buttonPressed === 'maps' && styles.buttonPressed,
-          ]}
-          onPress={onOpenExternalNavigation}
-          onPressIn={() => setButtonPressed('maps')}
-          onPressOut={() => setButtonPressed(null)}
-          activeOpacity={1}
-        >
-          <Ionicons name="navigate" size={20} color={theme.colors.white} />
-          <Text style={styles.mapsButtonText}>Abrir no Maps</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            styles.completeButton,
-            buttonPressed === 'complete' && styles.buttonPressed,
-          ]}
-          onPress={onComplete}
-          onPressIn={() => setButtonPressed('complete')}
-          onPressOut={() => setButtonPressed(null)}
-          activeOpacity={1}
-        >
-          <Ionicons name="checkmark-circle" size={20} color={theme.colors.white} />
-          <Text style={styles.completeButtonText}>Concluir</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-});
+    );
+  },
+);
 
 const styles = StyleSheet.create((theme: Theme) => ({
   infoContainer: {

@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Slider from '@/components/Slider';
 import { useAlert } from '@/hooks/useAlert';
@@ -38,8 +39,6 @@ export interface NavigationSettingsState {
   proximityRadius: number;
   showSpeedometer: boolean;
   preventScreenSleep: boolean;
-  voiceNavigation: boolean;
-  internalNavigation: boolean;
   preferredNavApp: NavAppPreference;
 }
 
@@ -53,8 +52,6 @@ const DEFAULT_SETTINGS: NavigationSettingsState = {
   proximityRadius: 50,
   showSpeedometer: true,
   preventScreenSleep: true,
-  voiceNavigation: false,
-  internalNavigation: false,
   preferredNavApp: 'default',
 };
 
@@ -77,6 +74,7 @@ export function NavigationSettings({
   onSettingsChange,
 }: NavigationSettingsProps) {
   const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { showSuccess, showConfirm, AlertDialog } = useAlert();
   const isWeb = Platform.OS === 'web';
 
@@ -251,59 +249,6 @@ export function NavigationSettings({
         )}
       </View>
 
-      {/* Navigation Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Navegação Interna</Text>
-
-        <View style={[styles.setting, isWeb && styles.settingDisabled]}>
-          <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, isWeb && styles.disabledText]}>
-              Navegação Turn-by-Turn
-              {isWeb && ' (somente mobile)'}
-            </Text>
-            <Text
-              style={[styles.settingDescription, isWeb && styles.disabledText]}
-            >
-              Instruções de direção dentro do app (economia de bateria)
-            </Text>
-          </View>
-          <Switch
-            value={settings.internalNavigation}
-            onValueChange={(value) =>
-              handleSettingChange('internalNavigation', value)
-            }
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
-            disabled={isWeb}
-          />
-        </View>
-
-        {settings.internalNavigation && (
-          <View style={styles.setting}>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingLabel}>Navegação por Voz</Text>
-              <Text style={styles.settingDescription}>
-                Instruções de voz turn-by-turn
-              </Text>
-            </View>
-            <Switch
-              value={settings.voiceNavigation}
-              onValueChange={(value) =>
-                handleSettingChange('voiceNavigation', value)
-              }
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary,
-              }}
-              thumbColor={theme.colors.white}
-            />
-          </View>
-        )}
-      </View>
-
       {/* Notifications Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Notificações</Text>
@@ -469,7 +414,12 @@ export function NavigationSettings({
           <Pressable style={styles.backdropPressable} onPress={onClose} />
 
           {/* Container do modal - View para não interferir no scroll */}
-          <View style={styles.container}>
+          {/* Em tela cheia o Modal desenha sob a barra de navegação do
+              sistema: a folha reserva insets.bottom. */}
+          <View
+            testID="nav-settings-folha"
+            style={[styles.container, { paddingBottom: insets.bottom }]}
+          >
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Configurações de Navegação</Text>

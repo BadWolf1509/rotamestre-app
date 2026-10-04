@@ -9,7 +9,7 @@
  * morrer.
  *
  * E a corrida não era rara: as deps do efeito do watcher em
- * `TurnByTurnNavigation` incluíam `destination`, um literal inline vindo de
+ * `TurnByTurnNavigation` (removido em 03/10/2026) incluíam `destination`, um literal inline vindo de
  * `NavigationMode`, que ganhava identidade nova a cada tick de GPS. O efeito
  * remontava uma vez por segundo, dirigindo.
  *

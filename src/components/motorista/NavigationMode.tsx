@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import React, {
   useCallback,
@@ -11,8 +12,6 @@ import React, {
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
-  Platform,
   Text,
   TouchableOpacity,
   View,
@@ -38,21 +37,18 @@ import {
   zoomFromLongitudeDelta,
 } from '@/lib/maplibre';
 import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import { calculateHaversineDistance } from '@/lib/osrm';
 import {
   oferecerSaidaParaConfiguracoes,
   pedirPermissao,
 } from '@/lib/permissoes';
-import { calculateHaversineDistance } from '@/services/turnByTurnNavigation';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { NavigationInfoPanel } from './NavigationInfoPanel';
 import { NavigationSettings } from './NavigationSettings';
-import { TurnByTurnNavigation } from './TurnByTurnNavigation';
 
 import type { CameraRef } from '@maplibre/maplibre-react-native';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const OPCOES_NAVEGACAO: OpcoesDoWatcher = {
   accuracy: Location.Accuracy.BestForNavigation,
@@ -84,8 +80,6 @@ export function NavigationMode({
     setShowSettings,
     routePath,
     preferences,
-    navigationMode,
-    setNavigationMode,
     isInitializing,
     setIsInitializing,
     realParadas,
@@ -93,7 +87,6 @@ export function NavigationMode({
     endCheckpoint,
     currentStopIndex,
     nextStopAfterCurrent,
-    remainingWaypoints,
     isEntrega,
     formatDistance,
     getSpeedColor,
@@ -114,6 +107,12 @@ export function NavigationMode({
   );
 
   const cameraRef = useRef<CameraRef>(null);
+
+  // Altura (dp) do que cobre o mapa: barra superior e painel de baixo.
+  // A câmera desconta isso para centralizar na parte VISÍVEL do mapa.
+  const [alturaBarraSuperior, setAlturaBarraSuperior] = useState(0);
+  const [alturaPainel, setAlturaPainel] = useState(0);
+  const MARGEM_ENQUADRAMENTO = 48;
 
   // Feedback hooks (haptics + sound)
   const { triggerHaptic, playNotificationSound, cleanupSound } =
@@ -149,6 +148,22 @@ export function NavigationMode({
     stopNavigation,
     cleanupSound,
   ]);
+
+  // "Manter Tela Ligada": até 03/10/2026 só o Turn-by-Turn aplicava; no
+  // modo mapa a tela apagava no meio da rota.
+  const manterTelaLigada = preferences.preventScreenSleep !== false;
+  useEffect(() => {
+    if (isInitializing || !manterTelaLigada) return;
+    const tag = 'modo-navegacao';
+    activateKeepAwakeAsync(tag).catch(() => {
+      // Sem keep-awake a navegação segue; só a tela pode apagar.
+    });
+    return () => {
+      deactivateKeepAwake(tag).catch(() => {
+        // Tag não ativa (a ativação falhou): nada a soltar.
+      });
+    };
+  }, [isInitializing, manterTelaLigada]);
 
   const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
     useState(false);
@@ -201,11 +216,9 @@ export function NavigationMode({
     handleExitNavigation,
   } = useNavigationActions({
     currentStop,
-    preferences,
     triggerHaptic,
     playNotificationSound,
     showConfirm,
-    setNavigationMode,
     stopNavigation,
     onComplete,
     onSkip,
@@ -214,75 +227,66 @@ export function NavigationMode({
 
   // formatDistance is now provided by useNavigationModeLogic hook
 
-  // Calcular região do mapa com zoom apropriado para navegação
-  const getRegion = useCallback(() => {
-    if (userLocation && currentStop) {
-      // Calcular distância para decidir o zoom
-      const distanceToDestination = calculateHaversineDistance(
-        userLocation.latitude,
-        userLocation.longitude,
-        currentStop.latitude,
-        currentStop.longitude,
-      );
+  // Enquadramento da navegação. Perto (< 1 km): motorista e parada juntos,
+  // por `bounds`. Longe: centrado no motorista, zoom pela distância. Em
+  // ambos, o padding desconta barra superior e painel — sem ele o centro
+  // caía atrás do painel e nada da rota aparecia.
+  const cameraSettings = useMemo<MapLibreGL.CameraStop | null>(() => {
+    if (!currentStop) return null;
+    const paddingVisivel = {
+      top: alturaBarraSuperior,
+      bottom: alturaPainel,
+      left: 0,
+      right: 0,
+    };
 
-      // Se está perto (< 1km), mostrar ambos os pontos com padding
-      if (distanceToDestination < 1000) {
-        const minLat = Math.min(userLocation.latitude, currentStop.latitude);
-        const maxLat = Math.max(userLocation.latitude, currentStop.latitude);
-        const minLon = Math.min(userLocation.longitude, currentStop.longitude);
-        const maxLon = Math.max(userLocation.longitude, currentStop.longitude);
-
-        // Adicionar padding de 30% para não ficar muito apertado
-        const latPadding = Math.max(0.003, (maxLat - minLat) * 0.3);
-        const lonPadding = Math.max(0.003, (maxLon - minLon) * 0.3);
-
-        return {
-          latitude: (minLat + maxLat) / 2,
-          longitude: (minLon + maxLon) / 2,
-          latitudeDelta: Math.max(0.008, maxLat - minLat + latPadding * 2),
-          longitudeDelta: Math.max(0.008, maxLon - minLon + lonPadding * 2),
-        };
-      }
-
-      // Se está longe, focar no usuário com zoom mais alto para navegação
-      // Calcular zoom baseado na distância (quanto mais longe, menos zoom)
-      let delta = 0.01; // ~1km view - padrão para navegação
-      if (distanceToDestination > 10000)
-        delta = 0.05; // ~5km view
-      else if (distanceToDestination > 5000)
-        delta = 0.03; // ~3km view
-      else if (distanceToDestination > 2000) delta = 0.02; // ~2km view
-
+    if (!userLocation) {
       return {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: delta,
-        longitudeDelta: delta,
+        center: toLngLat(currentStop),
+        zoom: zoomFromLongitudeDelta(0.01),
+        padding: paddingVisivel,
+        duration: 500,
       };
     }
 
-    return currentStop
-      ? {
-          latitude: currentStop.latitude,
-          longitude: currentStop.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }
-      : null;
-  }, [userLocation, currentStop]);
+    const distanciaAteParada = calculateHaversineDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      currentStop.latitude,
+      currentStop.longitude,
+    );
 
-  const region = getRegion();
-  const cameraSettings = useMemo<MapLibreGL.CameraStop | null>(() => {
-    if (!region) return null;
+    if (distanciaAteParada < 1000 && distanciaAteParada >= 30) {
+      return {
+        bounds: [
+          Math.min(userLocation.longitude, currentStop.longitude),
+          Math.min(userLocation.latitude, currentStop.latitude),
+          Math.max(userLocation.longitude, currentStop.longitude),
+          Math.max(userLocation.latitude, currentStop.latitude),
+        ],
+        padding: {
+          top: alturaBarraSuperior + MARGEM_ENQUADRAMENTO,
+          bottom: alturaPainel + MARGEM_ENQUADRAMENTO,
+          left: MARGEM_ENQUADRAMENTO,
+          right: MARGEM_ENQUADRAMENTO,
+        },
+        duration: 500,
+      };
+    }
+
+    let delta = 0.005; // < 30 m: chegando, zoom de rua
+    if (distanciaAteParada > 10000) delta = 0.05;
+    else if (distanciaAteParada > 5000) delta = 0.03;
+    else if (distanciaAteParada > 2000) delta = 0.02;
+    else if (distanciaAteParada >= 1000) delta = 0.01;
+
     return {
-      center: toLngLat({
-        latitude: region.latitude,
-        longitude: region.longitude,
-      }),
-      zoom: zoomFromLongitudeDelta(region.longitudeDelta),
+      center: toLngLat(userLocation),
+      zoom: zoomFromLongitudeDelta(delta),
+      padding: paddingVisivel,
       duration: 500,
     };
-  }, [region]);
+  }, [userLocation, currentStop, alturaBarraSuperior, alturaPainel]);
 
   // Proximity alert animation (pulse when < 100m)
   useEffect(() => {
@@ -331,31 +335,28 @@ export function NavigationMode({
       cameraRef.current.setStop({
         center: toLngLat(userLocation),
         zoom: zoomFromLongitudeDelta(0.005),
+        padding: {
+          top: alturaBarraSuperior,
+          bottom: alturaPainel,
+          left: 0,
+          right: 0,
+        },
         duration: 500,
       });
     }
-  }, [userLocation, triggerHaptic]);
+  }, [userLocation, triggerHaptic, alturaBarraSuperior, alturaPainel]);
 
   // isEntrega, realParadas, checkpoints, startCheckpoint, endCheckpoint,
-  // currentStopIndex, nextStopAfterCurrent, remainingWaypoints are now
+  // currentStopIndex, nextStopAfterCurrent are now
   // provided by useNavigationModeLogic hook
 
-  // Dependências primitivas, não o objeto `currentStop`: ele também muda de
-  // identidade a cada render, e o memo não valeria nada. Mesmo padrão de
-  // `src/hooks/navigation/pip/usePiPRouteInfo.ts:158`.
-  const destinoDaNavegacao = useMemo(
-    () => ({
-      latitude: currentStop?.latitude,
-      longitude: currentStop?.longitude,
-      address: currentStop?.endereco,
-    }),
-    [currentStop?.latitude, currentStop?.longitude, currentStop?.endereco],
-  );
-
-  const sairDaNavegacao = useCallback(
-    () => setNavigationMode('map'),
-    [setNavigationMode],
-  );
+  // As preferências são lidas ao abrir a navegação; o que o motorista muda na
+  // engrenagem só valia depois de sair e entrar de novo. Recarregar ao fechar
+  // aplica na hora (alertas, velocímetro, raio).
+  const fecharConfiguracoes = useCallback(() => {
+    setShowSettings(false);
+    loadPreferences();
+  }, [setShowSettings, loadPreferences]);
 
   // Loading state
   if (isInitializing) {
@@ -367,20 +368,7 @@ export function NavigationMode({
     );
   }
 
-  if (!currentStop || !region) return null;
-
-  // Show turn-by-turn navigation if selected
-  if (navigationMode === 'turn-by-turn' && userLocation) {
-    return (
-      <TurnByTurnNavigation
-        origin={userLocation}
-        destination={destinoDaNavegacao}
-        waypoints={remainingWaypoints}
-        onArrive={handleCompleteStop}
-        onExit={sairDaNavegacao}
-      />
-    );
-  }
+  if (!currentStop) return null;
 
   return (
     <View style={styles.container}>
@@ -508,7 +496,11 @@ export function NavigationMode({
       </MapLibreGL.Map>
 
       {/* Top Bar */}
-      <View style={styles.topBar}>
+      <View
+        testID="nav-barra-superior"
+        onLayout={(e) => setAlturaBarraSuperior(e.nativeEvent.layout.height)}
+        style={[styles.topBar, { paddingTop: insets.top + theme.spacing.sm }]}
+      >
         <TouchableOpacity
           style={styles.exitButton}
           onPress={handleExitNavigation}
@@ -526,6 +518,8 @@ export function NavigationMode({
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => setShowSettings(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Configurações da navegação"
         >
           <Ionicons
             name="settings-outline"
@@ -538,7 +532,11 @@ export function NavigationMode({
       {/* Recenter Button */}
       {userLocation && (
         <TouchableOpacity
-          style={styles.recenterButton}
+          testID="nav-recentralizar"
+          style={[
+            styles.recenterButton,
+            { bottom: alturaPainel + theme.spacing.md },
+          ]}
           onPress={recenterMap}
           activeOpacity={0.8}
         >
@@ -549,6 +547,8 @@ export function NavigationMode({
       {/* Navigation Info Panel */}
       {/* Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0) */}
       <View
+        testID="nav-painel"
+        onLayout={(e) => setAlturaPainel(e.nativeEvent.layout.height)}
         style={[
           styles.infoPanel,
           { paddingBottom: theme.spacing.xl + Math.max(insets.bottom, 34) },
@@ -580,7 +580,7 @@ export function NavigationMode({
         <View style={styles.settingsOverlay}>
           <NavigationSettings
             visible={showSettings}
-            onClose={() => setShowSettings(false)}
+            onClose={fecharConfiguracoes}
           />
         </View>
       )}
@@ -606,8 +606,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSans,
   },
   map: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    flex: 1,
   },
   topBar: {
     position: 'absolute',
@@ -617,7 +616,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
     backgroundColor: withOpacity(theme.colors.black, 0.5),
@@ -641,7 +639,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   recenterButton: {
     position: 'absolute',
     right: theme.spacing.lg,
-    bottom: 380, // Above info panel
     width: 44,
     height: 44,
     borderRadius: theme.borderRadius.full,

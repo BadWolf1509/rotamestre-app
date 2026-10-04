@@ -706,13 +706,6 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   multiRemove: jest.fn(() => Promise.resolve(null)),
 }));
 
-// Mock expo-speech
-jest.mock('expo-speech', () => ({
-  speak: jest.fn(),
-  stop: jest.fn(),
-  isSpeakingAsync: jest.fn(() => Promise.resolve(false)),
-}));
-
 // Mock @mapbox/polyline
 jest.mock('@mapbox/polyline', () => ({
   decode: jest.fn(() => [[0, 0], [1, 1]]),

@@ -2,12 +2,13 @@
  * Tests for useNavigationModeLogic hook
  */
 
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 import { useNavigationModeLogic } from '../useNavigationModeLogic';
 
 // Mock dependencies
 jest.mock('@/lib/osrm', () => ({
+  calculateHaversineDistance: jest.fn().mockReturnValue(500),
   getRoute: jest.fn().mockResolvedValue({ polyline: 'mock_polyline' }),
   decodePolyline: jest.fn().mockReturnValue([
     { latitude: -23.55, longitude: -46.63 },
@@ -24,15 +25,10 @@ jest.mock('@/services/locationTracking', () => ({
       soundAlerts: true,
       vibrationAlerts: true,
       showSpeedometer: true,
-      internalNavigation: false,
       autoAdvance: true,
       proximityRadius: 50,
     }),
   },
-}));
-
-jest.mock('@/services/turnByTurnNavigation', () => ({
-  calculateHaversineDistance: jest.fn().mockReturnValue(500),
 }));
 
 jest.mock('@/utils/styles', () => ({
@@ -91,7 +87,6 @@ describe('useNavigationModeLogic', () => {
       expect(result.current.eta).toBeNull();
       expect(result.current.isTracking).toBe(false);
       expect(result.current.showSettings).toBe(false);
-      expect(result.current.navigationMode).toBe('map');
       expect(result.current.isInitializing).toBe(true);
     });
 
@@ -109,7 +104,7 @@ describe('useNavigationModeLogic', () => {
         soundAlerts: true,
         vibrationAlerts: true,
         showSpeedometer: true,
-        internalNavigation: false,
+        preventScreenSleep: true,
         autoAdvance: true,
         proximityRadius: 50,
       });
@@ -342,7 +337,15 @@ describe('useNavigationModeLogic', () => {
       expect(result.current.distance).toBe(500); // Mock returns 500m
     });
 
-    it('should estimate ETA based on speed', () => {
+    // Parado num semáforo o GPS marca ~1 km/h: dividir a distância por isso
+    // dava "13 min" para 131 m. O tempo vem da duração da rota OSRM.
+    it('usa a duração da rota OSRM, não a velocidade instantânea', async () => {
+      const { getRoute } = jest.requireMock('@/lib/osrm');
+      getRoute.mockResolvedValueOnce({
+        polyline: 'mock_polyline',
+        distance: 900,
+        duration: 180,
+      });
       const { result } = renderHook(() =>
         useNavigationModeLogic({
           currentStop: mockCurrentStop,
@@ -354,11 +357,96 @@ describe('useNavigationModeLogic', () => {
       act(() => {
         result.current.updateLocationFromCoords(
           { latitude: -23.55, longitude: -46.63 },
-          10, // 10 m/s
+          0.3, // ~1 km/h, parado
         );
       });
 
-      // 500m / 10m/s = 50s ~ 1 min
+      await waitFor(() => expect(result.current.eta).toBe('3 min'));
+    });
+
+    // Motorista parado: sem novo tick de GPS, a troca de parada precisa
+    // refazer rota, distância e tempo sozinha.
+    it('troca de parada com o motorista parado refaz rota, distância e tempo', async () => {
+      const { getRoute } = jest.requireMock('@/lib/osrm');
+      const { calculateHaversineDistance } = jest.requireMock('@/lib/osrm');
+      // Distância plana (graus -> m) para o teste ser determinístico.
+      calculateHaversineDistance.mockImplementation(
+        (la1: number, lo1: number, la2: number, lo2: number) =>
+          Math.hypot(la1 - la2, lo1 - lo2) * 111000,
+      );
+      getRoute
+        .mockResolvedValueOnce({
+          polyline: 'mock_polyline',
+          distance: 900,
+          duration: 180,
+        })
+        .mockResolvedValueOnce({
+          polyline: 'mock_polyline',
+          distance: 4000,
+          duration: 600,
+        });
+      const paradaB = {
+        ...mockParadaBase,
+        id: 'parada-2',
+        latitude: -23.59,
+        longitude: -46.63,
+      };
+
+      try {
+        const { result, rerender } = renderHook(
+          ({ stop }: { stop: typeof mockCurrentStop }) =>
+            useNavigationModeLogic({
+              currentStop: stop,
+              paradas: mockParadas,
+              rotaId: 'rota-123',
+            }),
+          { initialProps: { stop: mockCurrentStop } },
+        );
+
+        act(() => {
+          result.current.updateLocationFromCoords(
+            { latitude: -23.5495, longitude: -46.63 },
+            0,
+          );
+        });
+        await waitFor(() => expect(result.current.eta).toBe('3 min'));
+        expect(getRoute).toHaveBeenCalledTimes(1);
+
+        // Mesma posição, outra parada.
+        rerender({ stop: paradaB });
+
+        await waitFor(() => expect(getRoute).toHaveBeenCalledTimes(2));
+        expect(getRoute).toHaveBeenLastCalledWith(
+          { latitude: -23.5495, longitude: -46.63 },
+          { latitude: -23.59, longitude: -46.63 },
+        );
+        await waitFor(() => expect(result.current.eta).toBe('10 min'));
+        // ~4,5 km até a nova parada, não os ~55 m da anterior.
+        expect(result.current.distance).toBeGreaterThan(4000);
+        expect(result.current.routePath.length).toBeGreaterThanOrEqual(2);
+      } finally {
+        calculateHaversineDistance.mockReset();
+        calculateHaversineDistance.mockReturnValue(500);
+      }
+    });
+
+    it('sem rota, estima pela velocidade média urbana', () => {
+      const { result } = renderHook(() =>
+        useNavigationModeLogic({
+          currentStop: mockCurrentStop,
+          paradas: mockParadas,
+          rotaId: 'rota-123',
+        }),
+      );
+
+      act(() => {
+        result.current.updateLocationFromCoords(
+          { latitude: -23.55, longitude: -46.63 },
+          0.3,
+        );
+      });
+
+      // 500 m (mock) a 30 km/h = 60 s
       expect(result.current.eta).toBe('1 min');
     });
   });
@@ -379,29 +467,11 @@ describe('useNavigationModeLogic', () => {
 
       expect(result.current.showSettings).toBe(true);
     });
-
-    it('should update navigationMode', () => {
-      const { result } = renderHook(() =>
-        useNavigationModeLogic({
-          currentStop: mockCurrentStop,
-          paradas: mockParadas,
-          rotaId: 'rota-123',
-        }),
-      );
-
-      act(() => {
-        result.current.setNavigationMode('turn-by-turn');
-      });
-
-      expect(result.current.navigationMode).toBe('turn-by-turn');
-    });
   });
 
   describe('isNearDestination', () => {
     it('should be true when distance < 100m', () => {
-      const {
-        calculateHaversineDistance,
-      } = require('@/services/turnByTurnNavigation');
+      const { calculateHaversineDistance } = require('@/lib/osrm');
       calculateHaversineDistance.mockReturnValue(50);
 
       const { result } = renderHook(() =>
@@ -423,9 +493,7 @@ describe('useNavigationModeLogic', () => {
     });
 
     it('should be false when distance >= 100m', () => {
-      const {
-        calculateHaversineDistance,
-      } = require('@/services/turnByTurnNavigation');
+      const { calculateHaversineDistance } = require('@/lib/osrm');
       calculateHaversineDistance.mockReturnValue(500);
 
       const { result } = renderHook(() =>

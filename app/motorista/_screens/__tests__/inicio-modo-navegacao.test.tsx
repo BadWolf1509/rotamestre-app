@@ -62,7 +62,11 @@ jest.mock('@/lib/navigation', () => ({
 jest.mock('@/components/motorista/NavigationMode', () => {
   const { Pressable: P, Text: T } = jest.requireActual('react-native');
   return {
-    NavigationMode: (props: { onComplete: () => void; onSkip: () => void }) => (
+    NavigationMode: (props: {
+      onComplete: () => void;
+      onSkip: () => void;
+      onExit: () => void;
+    }) => (
       <>
         <T>modo-navegacao</T>
         <P onPress={props.onComplete}>
@@ -70,6 +74,9 @@ jest.mock('@/components/motorista/NavigationMode', () => {
         </P>
         <P onPress={props.onSkip}>
           <T>nav-pular</T>
+        </P>
+        <P onPress={props.onExit}>
+          <T>nav-sair</T>
         </P>
       </>
     ),
@@ -267,5 +274,44 @@ describe('Início do motorista — mapa flutuante respeita o Avanço Automático
 
     expect(await findByText('modo-navegacao')).toBeTruthy();
     expect(mockAbrirNavegacao).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Com cabeçalho e abas visíveis, o mapa da navegação ficava com ~30% da tela
+ * e o motorista podia trocar de aba no meio da rota (análise de 03/10/2026).
+ */
+describe('Início do motorista — modo navegação em tela cheia', () => {
+  const { NavegacaoTelaCheiaContext } = jest.requireActual(
+    '@/context/NavegacaoTelaCheiaContext',
+  );
+
+  function renderComTelaCheia(setTelaCheia: jest.Mock) {
+    return render(
+      <NavegacaoTelaCheiaContext.Provider value={{ setTelaCheia }}>
+        <MotoristaInicio />
+      </NavegacaoTelaCheiaContext.Provider>,
+    );
+  }
+
+  it('esconde cabeçalho e abas ao entrar e devolve ao sair', async () => {
+    const setTelaCheia = jest.fn();
+    const { getByText, findByText } = renderComTelaCheia(setTelaCheia);
+
+    await entrarNoModoNavegacao(getByText, findByText);
+    await waitFor(() => expect(setTelaCheia).toHaveBeenLastCalledWith(true));
+
+    fireEvent.press(getByText('nav-sair'));
+    await waitFor(() => expect(setTelaCheia).toHaveBeenLastCalledWith(false));
+  });
+
+  it('devolve cabeçalho e abas se a tela desmontar em navegação', async () => {
+    const setTelaCheia = jest.fn();
+    const { getByText, findByText, unmount } = renderComTelaCheia(setTelaCheia);
+
+    await entrarNoModoNavegacao(getByText, findByText);
+    unmount();
+
+    expect(setTelaCheia).toHaveBeenLastCalledWith(false);
   });
 });

@@ -36,7 +36,6 @@ const COMPONENTES_NATIVOS = [
   'src/components/motorista/home/MiniMap.tsx',
   'src/components/motorista/NavigationMode.tsx',
   'src/components/motorista/PictureInPictureMap.tsx',
-  'src/components/motorista/TurnByTurnNavigation.tsx',
 ];
 
 const COMPONENTES_WEB = [

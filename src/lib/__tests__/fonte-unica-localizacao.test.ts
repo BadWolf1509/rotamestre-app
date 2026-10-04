@@ -104,7 +104,7 @@ const EXCECOES_DAS_PERMISSOES = [
  * POR QUE NÃO UM REGEX SÓ. A primeira versão testava duas condições
  * independentes no arquivo inteiro ("tem `request...PermissionsAsync`" E "tem
  * `const { status`") sem exigir que fosse a MESMA atribuição. Isso acusou
- * `TurnByTurnNavigation.tsx`, cujo `const { status: offRouteStatus, … } =
+ * `TurnByTurnNavigation.tsx` (removido em 03/10/2026), cujo `const { status: offRouteStatus, … } =
  * useOffRouteDetection(...)` não tem nenhuma relação com permissão — só
  * coincide o nome do campo. E teria acusado `unifiedLocationTracking.ts` pelo
  * `const { status: foregroundStatus } = await
