@@ -20,12 +20,16 @@ const mockFrom = jest.fn().mockReturnValue({
 const mockGetUser = jest.fn().mockResolvedValue({
   data: { user: { id: 'user-123' } },
 });
+const mockGetSession = jest.fn().mockResolvedValue({
+  data: { session: { user: { id: 'user-123' } } },
+});
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockFrom(table),
     auth: {
       getUser: () => mockGetUser(),
+      getSession: () => mockGetSession(),
     },
   },
 }));
@@ -89,6 +93,9 @@ describe('useDriverLocationBroadcast', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSession.mockResolvedValue({
+      data: { session: { user: { id: 'user-123' } } },
+    });
     jest.useFakeTimers();
 
     // Reset Platform para mobile por padrao
@@ -613,8 +620,10 @@ describe('useDriverLocationBroadcast', () => {
         });
       });
 
+      // O fallback usa a sessão local, não um GET /auth/v1/user por posição.
       await waitFor(() => {
-        expect(mockGetUser).toHaveBeenCalled();
+        expect(mockGetSession).toHaveBeenCalled();
+        expect(mockGetUser).not.toHaveBeenCalled();
         expect(mockInsert).toHaveBeenCalledWith(
           expect.objectContaining({
             motorista_id: 'user-123',
@@ -639,7 +648,7 @@ describe('useDriverLocationBroadcast', () => {
 
       // Sem contexto e sem usuario
       mockGetTrackingContext.mockResolvedValue(null);
-      mockGetUser.mockResolvedValue({ data: { user: null } });
+      mockGetSession.mockResolvedValue({ data: { session: null } });
 
       renderHook(() =>
         useDriverLocationBroadcast({
