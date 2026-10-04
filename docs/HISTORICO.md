@@ -8,6 +8,30 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.12.8 e rastreamento que falhava ao entrar na navegação (03–04/10/2026)
+
+**1.12.8 (versionCode 3035)** publicada em interno + alpha em 04/10, com as notas
+em pt-BR. Contém #565 (mapa flutuante respeita o "Avanço Automático"), #567
+(modo navegação em tela cheia, enquadramento, tempo pela rota, "Manter Tela
+Ligada", remoção do Turn-by-Turn), #568 (localização sem `GET /auth/v1/user`
+por envio — eram 140 de 140 em 24 h) e #570. Validada em aparelho com o build
+preview do mesmo commit.
+
+**#570 — o rastreamento às vezes não iniciava.** Na validação da 1.12.8, a
+primeira entrada na navegação deu `Error starting location tracking`: sem
+"Rastreando", sem serviço de localização e, portanto, sem geofence. O logcat
+mostrou o app em segundo plano por ~0,5 s exatamente quando
+`startLocationUpdatesAsync` rodava; o Android 12+ recusa iniciar serviço em
+primeiro plano assim. A pausa vinha do próprio modo navegação, que ao montar
+chamava `requestForegroundPermissionsAsync` sem consultar antes — no Android
+isso abre a activity de permissão mesmo já concedida. Correção: `pedirPermissao`
+aceita a consulta e só pede quando falta; `startTracking` espera o app ativo
+(teto de 5 s). Validado em 3 de 3 partidas a frio. Defeito anterior à release —
+intermitente, e por isso nunca notado.
+
+**Versões em campo (04/10, pelos logs HTTP):** nenhum dos três motoristas
+ativos recebeu a 1.12.7 nem a 1.12.8 — todos em builds da janela da 1.12.6.
+
 ## Modo navegação: layout, tempo estimado e Turn-by-Turn (03/10/2026)
 
 Análise visual no aparelho (moto g15) do que o "Navegar" abre com o "Avanço
