@@ -24,7 +24,7 @@ jest.mock('@/services/locationTracking', () => ({
   __esModule: true,
   default: {
     getNavigationPreferences: jest.fn().mockResolvedValue({
-      autoAdvance: true,
+      navegarCom: 'mapa',
       soundAlerts: true,
       vibrationAlerts: true,
       proximityRadius: 50,
@@ -128,10 +128,77 @@ describe('NavigationSettings', () => {
     expect(getByText('Configurações de Navegação')).toBeTruthy();
   });
 
-  it('deve mostrar seção de Modo Automático', () => {
-    const { getByText } = render(<NavigationSettings {...defaultProps} />);
-    expect(getByText('Modo Automático')).toBeTruthy();
-    expect(getByText('Avanço Automático')).toBeTruthy();
+  describe('Navegar com', () => {
+    it('mostra as duas opções, com o mapa do app marcado por padrão', async () => {
+      const { getByText, getByTestId } = render(
+        <NavigationSettings {...defaultProps} />,
+      );
+
+      expect(getByText('Navegar com')).toBeTruthy();
+      expect(getByText('Mapa do RotaMestre')).toBeTruthy();
+      expect(getByText('Waze / Google Maps')).toBeTruthy();
+      await waitFor(() => {
+        expect(
+          getByTestId('navegar-com-mapa').props.accessibilityState,
+        ).toEqual(expect.objectContaining({ selected: true }));
+      });
+    });
+
+    it('escolher o app externo grava navegarCom:externo e esconde o raio', async () => {
+      const LocationTrackingService = jest.requireMock(
+        '@/services/locationTracking',
+      ).default;
+      const { getByTestId, queryByText } = render(
+        <NavigationSettings {...defaultProps} />,
+      );
+      await waitFor(() =>
+        expect(queryByText(/Raio de Proximidade/)).toBeTruthy(),
+      );
+
+      fireEvent.press(getByTestId('navegar-com-externo'));
+
+      await waitFor(() => {
+        expect(
+          LocationTrackingService.updateNavigationPreferences,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({ navegarCom: 'externo' }),
+        );
+      });
+      expect(queryByText(/Raio de Proximidade/)).toBeNull();
+    });
+
+    it('escolher o app externo esconde também a dica do raio', async () => {
+      const LocationTrackingService = jest.requireMock(
+        '@/services/locationTracking',
+      ).default;
+      const { getByTestId, queryByText } = render(
+        <NavigationSettings {...defaultProps} />,
+      );
+      await waitFor(() =>
+        expect(queryByText(/Raio de Proximidade/)).toBeTruthy(),
+      );
+      expect(queryByText(/Ajuste o raio de proximidade/)).toBeTruthy();
+
+      fireEvent.press(getByTestId('navegar-com-externo'));
+
+      await waitFor(() => {
+        expect(
+          LocationTrackingService.updateNavigationPreferences,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({ navegarCom: 'externo' }),
+        );
+      });
+      expect(queryByText(/Ajuste o raio de proximidade/)).toBeNull();
+    });
+
+    it('não promete mais avanço automático', () => {
+      const { queryByText } = render(<NavigationSettings {...defaultProps} />);
+
+      // A dica antiga dizia que o modo "economiza tempo ao não precisar
+      // confirmar cada parada" — o comportamento que gerou entregas sem foto.
+      expect(queryByText(/Avanço Automático/)).toBeNull();
+      expect(queryByText(/modo automático/i)).toBeNull();
+    });
   });
 
   it('deve mostrar seção de App de Navegação', () => {
@@ -187,15 +254,6 @@ describe('NavigationSettings', () => {
     });
   });
 
-  it('deve mostrar descrição do Avanço Automático', () => {
-    const { getByText } = render(<NavigationSettings {...defaultProps} />);
-    expect(
-      getByText(
-        'Navega dentro do app e segue para a próxima parada depois que você conclui a atual',
-      ),
-    ).toBeTruthy();
-  });
-
   it('deve mostrar descrição dos Alertas Sonoros', () => {
     const { getByText } = render(<NavigationSettings {...defaultProps} />);
     expect(getByText('Sons ao aproximar ou chegar ao destino')).toBeTruthy();
@@ -244,9 +302,9 @@ describe('NavigationSettings', () => {
     });
 
     it('deve ter Padrão do Sistema selecionado por padrão', () => {
-      const { getByText } = render(<NavigationSettings {...defaultProps} />);
-      // Check mark appears next to selected option
-      expect(getByText('✓')).toBeTruthy();
+      const { getAllByText } = render(<NavigationSettings {...defaultProps} />);
+      // Uma marca por grupo de opções: App de Navegação e Navegar com
+      expect(getAllByText('✓')).toHaveLength(2);
     });
   });
 
@@ -280,11 +338,6 @@ describe('NavigationSettings', () => {
       expect(mockMontagensSlider.total).toBe(montagensIniciais);
     });
 
-    it('deve ter switch para Avanço Automático', () => {
-      const { getByText } = render(<NavigationSettings {...defaultProps} />);
-      expect(getByText('Avanço Automático')).toBeTruthy();
-    });
-
     it('deve ter switch para Alertas Sonoros', () => {
       const { getByText } = render(<NavigationSettings {...defaultProps} />);
       expect(getByText('Alertas Sonoros')).toBeTruthy();
@@ -307,11 +360,6 @@ describe('NavigationSettings', () => {
   });
 
   describe('Tips', () => {
-    it('deve mostrar dica sobre modo automático', () => {
-      const { getByText } = render(<NavigationSettings {...defaultProps} />);
-      expect(getByText(/modo automático economiza tempo/)).toBeTruthy();
-    });
-
     it('deve mostrar dica sobre raio de proximidade', () => {
       const { getByText } = render(<NavigationSettings {...defaultProps} />);
       expect(getByText(/Ajuste o raio de proximidade/)).toBeTruthy();

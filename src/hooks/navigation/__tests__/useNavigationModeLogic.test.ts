@@ -25,7 +25,7 @@ jest.mock('@/services/locationTracking', () => ({
       soundAlerts: true,
       vibrationAlerts: true,
       showSpeedometer: true,
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     }),
   },
@@ -105,7 +105,8 @@ describe('useNavigationModeLogic', () => {
         vibrationAlerts: true,
         showSpeedometer: true,
         preventScreenSleep: true,
-        autoAdvance: true,
+        navegarCom: 'mapa',
+        preferredNavApp: 'default',
         proximityRadius: 50,
       });
     });

@@ -73,14 +73,14 @@ const FAQ_ITEMS: FAQItem[] = [
     question: 'Quais são os modos de navegação?',
     answer:
       'São dois:\n\n' +
-      '• Mapa do app: na tela inicial, toque em "Navegar". Abre um mapa em tela cheia com a distância até a parada e os botões "Pular", "Abrir no Maps" e "Concluir". Quando você chega, o app avisa — mas a parada só é concluída quando você toca em "Concluir" e envia a foto. Depois disso, a navegação segue para a próxima parada.\n\n' +
-      '• App externo (Waze, Google Maps ou Apple Maps): toque em "Abrir no Maps" dentro do mapa do app, ou em "Como Chegar" ao expandir uma parada na aba "Paradas". As instruções curva a curva vêm desse app.',
+      '• Mapa do app: na tela inicial, toque em "Navegar". Abre um mapa em tela cheia com a distância até a parada e os botões "Pular", "Abrir no GPS" (ou o nome do seu app) e "Concluir". Quando você chega, o app avisa — mas a parada só é concluída quando você toca em "Concluir" e envia a foto. Depois disso, a navegação segue para a próxima parada.\n\n' +
+      '• App externo (Waze, Google Maps ou Apple Maps): toque no botão do seu app (por exemplo, "Abrir no Waze") dentro do mapa do app, ou em "Como Chegar" ao expandir uma parada na aba "Paradas". As instruções curva a curva vêm desse app.',
   },
   {
     id: '10',
     question: 'Por que o "Navegar" abriu o mapa do app e não o Waze?',
     answer:
-      'O que o botão "Navegar" abre depende do ajuste "Avanço Automático", em Configurações (no menu lateral). Ligado (o padrão), ele abre o mapa do app. Desligado, abre direto o seu app de navegação (Waze, Google Maps ou Apple Maps). Nos dois casos, a parada só é concluída quando você toca em "Concluir" e envia a foto.',
+      'O que o botão "Navegar" abre depende do ajuste "Navegar com", em Configurações (no menu lateral). "Mapa do RotaMestre" (o padrão) abre o mapa do app, que avisa quando você chega e mantém a tela acesa. "Waze / Google Maps" abre direto o seu app de navegação, com instruções por voz. Nos dois casos, a parada só é concluída quando você toca em "Concluir" e envia a foto.',
   },
   {
     id: '11',

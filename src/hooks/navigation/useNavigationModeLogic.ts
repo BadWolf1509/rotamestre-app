@@ -34,7 +34,8 @@ const DEFAULT_PREFERENCES: NavigationPreferences = {
   vibrationAlerts: true,
   showSpeedometer: true,
   preventScreenSleep: true,
-  autoAdvance: true,
+  navegarCom: 'mapa',
+  preferredNavApp: 'default',
   proximityRadius: 50,
 };
 

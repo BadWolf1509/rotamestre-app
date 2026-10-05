@@ -8,6 +8,24 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## "Navegar com" substitui o "Avanço Automático" (05/10/2026, para a 1.12.9)
+
+- A chave `autoAdvance` não avançava nada desde 02/10 (o avanço automático saiu
+  com o incidente das entregas sem foto), mas o nome seguia prometendo o
+  comportamento antigo, e uma dica nas configurações ainda dizia que o modo
+  automático "economiza tempo ao não precisar confirmar cada parada". A
+  preferência agora é `navegarCom` (`'mapa'` | `'externo'`), exibida como "Mapa
+  do RotaMestre" / "Waze / Google Maps", e o botão "Navegar" decide por ela.
+- **Padrão: mapa do app.** Medido em 05/10 em `motorista_locations` (30 dias),
+  pela cadência de gravação (modo navegação a cada 5 s, mapa da Início a cada
+  10 s no mínimo): 2 dos 3 motoristas reais usam o mapa do app todos os dias
+  (55–64% dos intervalos entre 2 e 8 s); 1 praticamente nunca (47 de 2.057).
+- **Conversão:** `autoAdvance: false` salvo vira `navegarCom: 'externo'`
+  (quem desligou escolheu o app externo); `true` ou ausente vira `'mapa'`.
+- O botão do app externo no painel de navegação deixou de dizer "Abrir no
+  Maps" e passa a dizer o app: "Abrir no Waze", "Abrir no Google Maps", "Abrir
+  no Apple Maps" ou "Abrir no GPS" (sem preferência).
+
 ## Auditoria por parada, permissões e react-hook-form (04/10/2026, para a 1.12.9)
 
 - **Migration 29 (#572), aplicada em produção.** `prevent_duplicate_log`

@@ -160,8 +160,8 @@ describe('LocationTrackingService', () => {
      *
      * O efeito foi medido em aparelho: a tela de Configuracoes mostrava
      * "Avanco Automatico" LIGADO (default proprio dela), enquanto
-     * `handleNavigateToStop` lia `prefs.autoAdvance` cru, recebia `undefined`
-     * e mandava o motorista para o app externo. A navegacao interna ficava
+     * `handleNavigateToStop` lia `prefs.autoAdvance` (hoje `navegarCom`) cru,
+     * recebia `undefined` e mandava o motorista para o app externo. A navegacao interna ficava
      * inalcancavel, e a tela dizia que estava ligada.
      */
     it('aplica os defaults quando nao ha nada salvo', async () => {
@@ -169,9 +169,9 @@ describe('LocationTrackingService', () => {
 
       const prefs = await locationTrackingService.getNavigationPreferences();
 
-      // O caso exato do bug: um consumidor que faz `if (prefs.autoAdvance)`
-      // precisa receber `true`, nao `undefined`.
-      expect(prefs.autoAdvance).toBe(true);
+      // O caso exato do bug de 2026-09: um consumidor que decide o destino do
+      // "Navegar" precisa receber um valor, nao `undefined`.
+      expect(prefs.navegarCom).toBe('mapa');
       expect(prefs.soundAlerts).toBe(true);
       expect(prefs.vibrationAlerts).toBe(true);
       expect(prefs.proximityRadius).toBe(50);
@@ -182,7 +182,7 @@ describe('LocationTrackingService', () => {
 
     it('o que esta salvo vence o default', async () => {
       const savedPrefs = {
-        autoAdvance: false,
+        navegarCom: 'externo',
         soundAlerts: true,
         vibrationAlerts: false,
         proximityRadius: 100,
@@ -206,7 +206,7 @@ describe('LocationTrackingService', () => {
       const prefs = await locationTrackingService.getNavigationPreferences();
 
       expect(prefs.soundAlerts).toBe(false);
-      expect(prefs.autoAdvance).toBe(true);
+      expect(prefs.navegarCom).toBe('mapa');
     });
 
     it('aplica os defaults quando o JSON salvo esta corrompido', async () => {
@@ -216,8 +216,84 @@ describe('LocationTrackingService', () => {
 
       // Devolver `{}` aqui era o mesmo defeito por outro caminho: o consumidor
       // sem default trataria storage corrompido como "tudo desligado".
-      expect(prefs.autoAdvance).toBe(true);
+      expect(prefs.navegarCom).toBe('mapa');
       expect(prefs.proximityRadius).toBe(50);
+    });
+
+    describe('conversão da chave antiga "Avanço Automático"', () => {
+      /**
+       * Até a 1.12.8 a escolha do destino do "Navegar" era gravada como
+       * `autoAdvance`. Quem a desligou escolheu o app externo; perder isso
+       * na atualização mandaria essa pessoa de volta ao mapa do app.
+       */
+      it('autoAdvance:false salvo vira navegarCom:externo', async () => {
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          JSON.stringify({ autoAdvance: false }),
+        );
+
+        const prefs = await locationTrackingService.getNavigationPreferences();
+
+        expect(prefs.navegarCom).toBe('externo');
+        expect(prefs).not.toHaveProperty('autoAdvance');
+      });
+
+      it('autoAdvance:true salvo vira navegarCom:mapa', async () => {
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          JSON.stringify({ autoAdvance: true }),
+        );
+
+        const prefs = await locationTrackingService.getNavigationPreferences();
+
+        expect(prefs.navegarCom).toBe('mapa');
+        expect(prefs).not.toHaveProperty('autoAdvance');
+      });
+
+      it('navegarCom salvo vence a chave antiga', async () => {
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          JSON.stringify({ autoAdvance: false, navegarCom: 'mapa' }),
+        );
+
+        const prefs = await locationTrackingService.getNavigationPreferences();
+
+        expect(prefs.navegarCom).toBe('mapa');
+      });
+
+      it('gravar qualquer ajuste converte e apaga a chave antiga', async () => {
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          JSON.stringify({ autoAdvance: false, soundAlerts: false }),
+        );
+
+        await locationTrackingService.updateNavigationPreferences({
+          vibrationAlerts: false,
+        });
+
+        const gravado = (AsyncStorage.setItem as jest.Mock).mock.calls.find(
+          (c) => c[0] === 'navigationPreferences',
+        )?.[1];
+        expect(JSON.parse(gravado)).toEqual({
+          navegarCom: 'externo',
+          soundAlerts: false,
+          vibrationAlerts: false,
+        });
+      });
+
+      it('gravar com autoAdvance:true salvo não congela o padrão', async () => {
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          JSON.stringify({ autoAdvance: true, soundAlerts: false }),
+        );
+
+        await locationTrackingService.updateNavigationPreferences({
+          vibrationAlerts: false,
+        });
+
+        const gravado = (AsyncStorage.setItem as jest.Mock).mock.calls.find(
+          (c) => c[0] === 'navigationPreferences',
+        )?.[1];
+        expect(JSON.parse(gravado)).toEqual({
+          soundAlerts: false,
+          vibrationAlerts: false,
+        });
+      });
     });
   });
 
@@ -241,7 +317,7 @@ describe('LocationTrackingService', () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(gravado);
       const lido = await locationTrackingService.getNavigationPreferences();
       expect(lido.soundAlerts).toBe(false);
-      expect(lido.autoAdvance).toBe(true);
+      expect(lido.navegarCom).toBe('mapa');
     });
   });
 
@@ -251,7 +327,7 @@ describe('LocationTrackingService', () => {
 
   describe('updateNavigationPreferences', () => {
     it('deve atualizar preferências existentes (merge)', async () => {
-      const currentPrefs = { autoAdvance: true, soundAlerts: false };
+      const currentPrefs = { navegarCom: 'mapa', soundAlerts: false };
       const newPrefs = { vibrationAlerts: true, proximityRadius: 75 };
 
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
@@ -263,7 +339,7 @@ describe('LocationTrackingService', () => {
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
         'navigationPreferences',
         JSON.stringify({
-          autoAdvance: true,
+          navegarCom: 'mapa',
           soundAlerts: false,
           vibrationAlerts: true,
           proximityRadius: 75,
@@ -273,7 +349,7 @@ describe('LocationTrackingService', () => {
 
     it('deve criar preferências se não existirem', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
-      const newPrefs = { autoAdvance: false };
+      const newPrefs = { navegarCom: 'externo' as const };
 
       await locationTrackingService.updateNavigationPreferences(newPrefs);
 
@@ -290,7 +366,7 @@ describe('LocationTrackingService', () => {
       );
 
       await locationTrackingService.updateNavigationPreferences({
-        autoAdvance: true,
+        navegarCom: 'mapa',
       });
 
       // Logger outputs: [ERROR], message with prefix, error object
@@ -501,7 +577,6 @@ describe('LocationTrackingService', () => {
     function setUpNavigationState(overrides: Record<string, any> = {}) {
       (locationTrackingService as any).navigationState = {
         enabled: true,
-        autoAdvance: false,
         soundAlerts: false,
         vibrationAlerts: false,
         proximityRadius: 50,
@@ -565,7 +640,7 @@ describe('LocationTrackingService', () => {
     });
 
     it('anuncia a chegada quando dentro do geofence com accuracy válida', async () => {
-      setUpNavigationState({ autoAdvance: true });
+      setUpNavigationState();
 
       // Same coordinates as stop = 0m distance, accuracy 10 <= 50
       await locationTrackingService.processLocationUpdate({
@@ -581,7 +656,7 @@ describe('LocationTrackingService', () => {
     });
 
     it('NÃO considera chegada quando accuracy > MIN_ACCURACY (50m)', async () => {
-      setUpNavigationState({ autoAdvance: true });
+      setUpNavigationState();
 
       await locationTrackingService.processLocationUpdate({
         ...baseLocation,
@@ -594,7 +669,7 @@ describe('LocationTrackingService', () => {
     });
 
     it('volta a anunciar depois que o motorista sai do raio', async () => {
-      setUpNavigationState({ autoAdvance: true });
+      setUpNavigationState();
 
       await locationTrackingService.processLocationUpdate({
         ...baseLocation,
@@ -645,7 +720,6 @@ describe('LocationTrackingService', () => {
       jest.useFakeTimers();
       (locationTrackingService as any).navigationState = {
         enabled: true,
-        autoAdvance: true,
         soundAlerts: false,
         vibrationAlerts: false,
         proximityRadius: 50,
@@ -691,7 +765,6 @@ describe('LocationTrackingService', () => {
     function setUpNavigationState() {
       (locationTrackingService as any).navigationState = {
         enabled: true,
-        autoAdvance: false,
         soundAlerts: false,
         vibrationAlerts: false,
         proximityRadius: 50,

@@ -33,6 +33,7 @@ import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissa
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import { rotuloAppExterno } from '@/lib/motorista/rotuloAppExterno';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   getOpenFreeMapStyle,
@@ -103,8 +104,7 @@ export function NavigationMode({
     rotaId,
   });
 
-  const { autoAdvance, proximityRadius, showSpeedometer } = {
-    autoAdvance: preferences.autoAdvance ?? true,
+  const { proximityRadius, showSpeedometer } = {
     proximityRadius: preferences.proximityRadius ?? 50,
     showSpeedometer: preferences.showSpeedometer ?? true,
   };
@@ -454,11 +454,13 @@ export function NavigationMode({
 
   const checkProximityAndAutoAdvance = useCallback(
     (distance: number) => {
-      if (distance < proximityRadius && autoAdvance) {
+      // Só se chega aqui com "Navegar com: Mapa do RotaMestre" — o aviso de
+      // chegada é parte do modo, não de uma chave à parte.
+      if (distance < proximityRadius) {
         handleArrival();
       }
     },
-    [autoAdvance, handleArrival, proximityRadius],
+    [handleArrival, proximityRadius],
   );
 
   const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =
@@ -637,6 +639,7 @@ export function NavigationMode({
         onSkip={onSkip}
         onComplete={onComplete}
         onOpenExternalNavigation={openExternalNavigation}
+        rotuloAppExterno={rotuloAppExterno(preferences.preferredNavApp)}
       />
 
       {/* Settings Modal */}

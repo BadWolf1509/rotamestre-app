@@ -24,7 +24,8 @@ export interface NavigationPreferences {
   vibrationAlerts: boolean;
   showSpeedometer: boolean;
   preventScreenSleep?: boolean;
-  autoAdvance?: boolean;
+  navegarCom?: 'mapa' | 'externo';
+  preferredNavApp?: 'waze' | 'google_maps' | 'apple_maps' | 'default';
   proximityRadius?: number;
 }
 

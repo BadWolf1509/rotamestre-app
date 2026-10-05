@@ -275,14 +275,12 @@ function MotoristaInicioContent() {
   const handleNavigateToStop = async () => {
     if (!currentStop) return;
 
-    // Check if user wants multi-stop navigation
+    // "Navegar com" (Configurações): o mapa do app ou o app externo.
     const prefs = await LocationTrackingService.getNavigationPreferences();
 
-    if (prefs.autoAdvance) {
-      // Open navigation mode with auto-advance
+    if (prefs.navegarCom === 'mapa') {
       modals.setNavigationMode(true);
     } else {
-      // Open regular navigation
       abrirNavegacao({
         latitude: currentStop.latitude,
         longitude: currentStop.longitude,
@@ -680,7 +678,7 @@ function MotoristaInicioContent() {
           onExpand={() => {
             modals.closePiPMap();
             if (routeStatus !== 'pending') {
-              // Mesma decisão do "Navegar": o "Avanço Automático" escolhe entre
+              // Mesma decisão do "Navegar": o "Navegar com" escolhe entre
               // o modo navegação e o app externo. Ligar o modo direto aqui fazia
               // o motorista que o desligou cair nele mesmo assim.
               handleNavigateToStop();
