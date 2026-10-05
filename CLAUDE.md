@@ -4,7 +4,7 @@
 > stable architecture and implementation patterns; versions, rollout state and
 > future actions live in the project context to avoid stale duplicated status.
 
-Mobile + web app for last-mile route optimization. Two user roles: **gestor** (manager — creates and assigns routes) and **motorista** (driver — executes routes with turn-by-turn nav and photo proof of delivery).
+Mobile + web app for last-mile route optimization. Two user roles: **gestor** (manager — creates and assigns routes) and **motorista** (driver — executes routes with an in-app navigation map, Waze/Google Maps handoff for turn-by-turn directions, and photo proof of delivery).
 
 ## Stack
 

@@ -8,6 +8,25 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Auditoria por parada, permissões e react-hook-form (04/10/2026, para a 1.12.9)
+
+- **Migration 29 (#572), aplicada em produção.** `prevent_duplicate_log`
+  descartava log com mesma rota + evento + usuário em 5 s sem olhar a parada:
+  em 60 dias, 34 de 1.168 paradas concluídas (3%) ficaram sem `parada_concluida`
+  na auditoria (27 delas partida/chegada, que fecham junto com outra parada). A
+  comparação passa a incluir `detalhes->>'parada_id'`. Provada por sonda
+  transacional antes e depois de aplicar; detalhe em `database/MIGRATIONS.md`.
+  As 34 linhas antigas não foram reconstruídas. Fechou a pendência 13.
+- **Permissões (#573).** As sete telas que pediam localização sem consultar
+  antes passaram a usar `pedirPermissao(request, get)` — a armadilha do #570 —,
+  com guarda estática (`permissao-consulta-antes-de-pedir.test.ts`). Fechou a
+  pendência 14.
+- **react-hook-form 7.88 → 7.89 (#560, Dependabot).** Só correções de validação.
+  Os testes dos dois formulários com erro cruzado (parada e criar unidade —
+  `clearErrors` do endereço) passaram com a 7.89 instalada localmente, além do
+  CI. Sem conferência no navegador: a web local fala com o Supabase de produção,
+  e a senha da conta de teste não é digitada por agente.
+
 ## Release 1.12.8 e rastreamento que falhava ao entrar na navegação (03–04/10/2026)
 
 **1.12.8 (versionCode 3035)** publicada em interno + alpha em 04/10, com as notas
