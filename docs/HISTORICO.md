@@ -8,6 +8,24 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.12.9 (05/10/2026)
+
+- **Em interno + alpha** (3036) com notas pt-BR pedindo que o motorista confira
+  "Navegar com" depois de atualizar. Contém #572, #573, #575 e #579, além de
+  react-hook-form 7.89.0 (#560).
+- **Validada num moto g15** instalando por cima de uma 1.12.8 com o "Avanço
+  Automático" desligado: a escolha virou "Waze / Google Maps"; "Navegar" abriu
+  o app externo ou o mapa do app, conforme a escolha; "Rastreando" já na
+  primeira entrada, com o serviço em primeiro plano e a tela acesa.
+- **O build preview achou o que o CI não acha:** "Abrir no Google Maps" quebrou
+  em duas linhas e empurrou o ícone para fora do botão. A revisão geral antes do
+  segundo build mostrou que `numberOfLines={1}` sozinho não bastava — sem
+  `flexShrink: 1` o texto transborda ao lado do ícone (#579). Conferido com a
+  fonte do sistema em 2.0: "Google…" com reticências, ícone dentro.
+- **Fila do EAS:** os builds ficaram mais de 1 h em `IN_QUEUE` antes de
+  compilar; a produção saiu do squash (`fa55e3b`), com árvore idêntica à do
+  preview validado (`git diff --quiet`).
+
 ## "Navegar com" substitui o "Avanço Automático" (05/10/2026, para a 1.12.9)
 
 - A chave `autoAdvance` não avançava nada desde 02/10 (o avanço automático saiu
