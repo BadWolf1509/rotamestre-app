@@ -37,6 +37,7 @@ import {
   zoomFromLongitudeDelta,
 } from '@/lib/maplibre';
 import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import { rotuloAppExterno } from '@/lib/motorista/rotuloAppExterno';
 import { calculateHaversineDistance } from '@/lib/osrm';
 import {
   oferecerSaidaParaConfiguracoes,
@@ -575,6 +576,7 @@ export function NavigationMode({
           onComplete={handleCompleteStop}
           onSkip={handleSkipStop}
           onOpenInMaps={handleOpenInMaps}
+          rotuloAppExterno={rotuloAppExterno(preferences.preferredNavApp)}
         />
       </View>
 

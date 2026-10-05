@@ -60,6 +60,7 @@ jest.mock('@/services/locationTracking', () => ({
     stopTracking: jest.fn().mockResolvedValue(undefined),
     getNavigationPreferences: jest.fn().mockResolvedValue({
       navegarCom: 'mapa',
+      preferredNavApp: 'waze',
       proximityRadius: 50,
     }),
   },
@@ -309,16 +310,25 @@ describe('NavigationMode', () => {
   });
 
   describe('Open in maps', () => {
+    it('o botão de app externo diz qual app abre', async () => {
+      const { findByText, queryByText } = render(
+        <NavigationMode {...defaultProps} />,
+      );
+
+      expect(await findByText('Abrir no Waze')).toBeTruthy();
+      expect(queryByText('Abrir no Maps')).toBeNull();
+    });
+
     it('deve abrir navegação externa quando botão pressionado', async () => {
       const { abrirNavegacao } = require('@/lib/navigation');
 
       const { getByText } = render(<NavigationMode {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Abrir no Maps')).toBeTruthy();
+        expect(getByText('Abrir no Waze')).toBeTruthy();
       });
 
-      const mapsButton = getByText('Abrir no Maps');
+      const mapsButton = getByText('Abrir no Waze');
       fireEvent.press(mapsButton);
 
       expect(abrirNavegacao).toHaveBeenCalledWith({

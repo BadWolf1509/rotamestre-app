@@ -33,6 +33,7 @@ import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissa
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import { COPY_LOCALIZACAO } from '@/lib/motorista/copyDePermissao';
+import { rotuloAppExterno } from '@/lib/motorista/rotuloAppExterno';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   getOpenFreeMapStyle,
@@ -638,6 +639,7 @@ export function NavigationMode({
         onSkip={onSkip}
         onComplete={onComplete}
         onOpenExternalNavigation={openExternalNavigation}
+        rotuloAppExterno={rotuloAppExterno(preferences.preferredNavApp)}
       />
 
       {/* Settings Modal */}

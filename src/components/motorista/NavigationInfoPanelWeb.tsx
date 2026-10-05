@@ -44,6 +44,8 @@ export interface NavigationInfoPanelWebProps {
   onComplete: () => void;
   /** Called when driver wants to open external navigation */
   onOpenExternalNavigation: () => void;
+  /** Texto do botão que abre o app externo (ver rotuloAppExterno). */
+  rotuloAppExterno: string;
 }
 
 export const NavigationInfoPanelWeb = React.memo(
@@ -63,6 +65,7 @@ export const NavigationInfoPanelWeb = React.memo(
     onSkip,
     onComplete,
     onOpenExternalNavigation,
+    rotuloAppExterno,
   }: NavigationInfoPanelWebProps) {
     const { theme } = useUnistyles();
     const [buttonPressed, setButtonPressed] = React.useState<string | null>(
@@ -262,7 +265,7 @@ export const NavigationInfoPanelWeb = React.memo(
             activeOpacity={1}
           >
             <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText}>Abrir no Maps</Text>
+            <Text style={styles.mapsButtonText}>{rotuloAppExterno}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

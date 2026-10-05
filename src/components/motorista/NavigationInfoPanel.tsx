@@ -39,6 +39,8 @@ interface NavigationInfoPanelProps {
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
   onOpenInMaps: () => void;
+  /** Texto do botão que abre o app externo (ver rotuloAppExterno). */
+  rotuloAppExterno: string;
 }
 
 export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
@@ -59,6 +61,7 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
   onComplete,
   onSkip,
   onOpenInMaps,
+  rotuloAppExterno,
 }: NavigationInfoPanelProps) {
   const { theme } = useUnistyles();
 
@@ -248,7 +251,7 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             activeOpacity={1}
           >
             <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText}>Abrir no Maps</Text>
+            <Text style={styles.mapsButtonText}>{rotuloAppExterno}</Text>
           </TouchableOpacity>
         </Animated.View>
 
