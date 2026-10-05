@@ -42,9 +42,17 @@ interface LocationUpdate {
   heading?: number;
 }
 
+/** Para onde o botão "Navegar" leva: o mapa do app ou o app externo. */
+export type ModoNavegar = 'mapa' | 'externo';
+
 interface NavigationState {
   enabled: boolean;
-  autoAdvance: boolean;
+  /**
+   * Destino do botão "Navegar". Substituiu `autoAdvance` ("Avanço
+   * Automático") em 05/10/2026: desde 02/10 nada avança sozinho, e o nome
+   * prometia exatamente o comportamento que gerou entregas sem foto.
+   */
+  navegarCom: ModoNavegar;
   soundAlerts: boolean;
   vibrationAlerts: boolean;
   proximityRadius: number;
@@ -81,7 +89,7 @@ export type PreferenciasDeNavegacao = NavigationState &
  */
 export const PREFERENCIAS_PADRAO: PreferenciasDeNavegacao = {
   enabled: true,
-  autoAdvance: true,
+  navegarCom: 'mapa',
   soundAlerts: true,
   vibrationAlerts: true,
   proximityRadius: 50,
@@ -141,7 +149,7 @@ class LocationTrackingService {
       // Update navigation state
       this.navigationState = {
         enabled: true,
-        autoAdvance: prefs.autoAdvance ?? true,
+        navegarCom: prefs.navegarCom,
         soundAlerts: prefs.soundAlerts ?? true,
         vibrationAlerts: prefs.vibrationAlerts ?? true,
         proximityRadius: prefs.proximityRadius ?? GEOFENCE_RADIUS,
@@ -268,8 +276,9 @@ class LocationTrackingService {
    * parada continua acontecendo — mas DEPOIS dessa conclusão, quando a tela
    * troca a parada atual e reinicia o rastreamento para a nova.
    *
-   * `autoAdvance` segue existindo como preferência: é ela que leva o botão
-   * Navegar para o modo navegação interno em vez do app externo.
+   * `navegarCom` (antes `autoAdvance`, "Avanço Automático") é a preferência
+   * que leva o botão Navegar para o modo navegação interno ou para o app
+   * externo.
    */
   private async handleArrival(distance: number) {
     const paradaAtual = this.navigationState?.currentStopId ?? null;
@@ -380,7 +389,7 @@ class LocationTrackingService {
    *
    * O efeito foi medido em aparelho: a tela de Configurações mostrava "Avanço
    * Automático" LIGADO — default dela — enquanto `handleNavigateToStop` lia
-   * `prefs.autoAdvance` cru, recebia `undefined` e mandava o motorista para o
+   * `prefs.autoAdvance` (hoje `navegarCom`) cru, recebia `undefined` e mandava o motorista para o
    * app de navegação externo. A navegação interna ficava inalcançável, e a
    * tela afirmava que estava ligada. Nenhum teste pegava, porque cada lado
    * estava certo sozinho.
@@ -396,10 +405,26 @@ class LocationTrackingService {
    * quem tivesse tocado em qualquer ajuste. Guardar só o que a pessoa
    * escolheu mantém os padrões vivos.
    */
+  /**
+   * Converte a chave antiga `autoAdvance` (até a 1.12.8) em `navegarCom`.
+   * Desligada significava "abrir o app externo"; qualquer outro valor, o
+   * mapa do app. `navegarCom` já salvo vence. A chave antiga nunca sai daqui.
+   */
+  private converterChaveAntiga(
+    salvas: Partial<NavigationState> & { autoAdvance?: unknown },
+  ): Partial<NavigationState> {
+    const { autoAdvance, ...resto } = salvas;
+    if (resto.navegarCom || autoAdvance === undefined) return resto;
+    return {
+      ...resto,
+      navegarCom: autoAdvance === false ? 'externo' : 'mapa',
+    };
+  }
+
   private async lerPreferenciasCruas(): Promise<Partial<NavigationState>> {
     try {
       const prefs = await AsyncStorage.getItem('navigationPreferences');
-      return prefs ? JSON.parse(prefs) : {};
+      return prefs ? this.converterChaveAntiga(JSON.parse(prefs)) : {};
     } catch {
       return {};
     }
@@ -408,7 +433,7 @@ class LocationTrackingService {
   async getNavigationPreferences(): Promise<PreferenciasDeNavegacao> {
     try {
       const prefs = await AsyncStorage.getItem('navigationPreferences');
-      const salvas = prefs ? JSON.parse(prefs) : {};
+      const salvas = prefs ? this.converterChaveAntiga(JSON.parse(prefs)) : {};
       return { ...PREFERENCIAS_PADRAO, ...salvas };
     } catch {
       // Storage corrompido cai no padrão, e não em `{}`: devolver vazio aqui
