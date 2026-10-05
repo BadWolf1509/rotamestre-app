@@ -251,7 +251,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             activeOpacity={1}
           >
             <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText}>{rotuloAppExterno}</Text>
+            <Text style={styles.mapsButtonText} numberOfLines={1}>
+              {rotuloAppExterno}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
 

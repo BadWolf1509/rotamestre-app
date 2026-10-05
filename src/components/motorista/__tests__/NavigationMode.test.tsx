@@ -315,8 +315,15 @@ describe('NavigationMode', () => {
         <NavigationMode {...defaultProps} />,
       );
 
-      expect(await findByText('Abrir no Waze')).toBeTruthy();
+      expect(await findByText('Waze')).toBeTruthy();
       expect(queryByText('Abrir no Maps')).toBeNull();
+    });
+
+    it('o rótulo do app externo fica numa linha só', async () => {
+      const { findByText } = render(<NavigationMode {...defaultProps} />);
+
+      // Quebrar em duas linhas empurrava o ícone para fora do botão.
+      expect((await findByText('Waze')).props.numberOfLines).toBe(1);
     });
 
     it('deve abrir navegação externa quando botão pressionado', async () => {
@@ -325,10 +332,10 @@ describe('NavigationMode', () => {
       const { getByText } = render(<NavigationMode {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Abrir no Waze')).toBeTruthy();
+        expect(getByText('Waze')).toBeTruthy();
       });
 
-      const mapsButton = getByText('Abrir no Waze');
+      const mapsButton = getByText('Waze');
       fireEvent.press(mapsButton);
 
       expect(abrirNavegacao).toHaveBeenCalledWith({

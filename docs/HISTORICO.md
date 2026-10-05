@@ -21,10 +21,13 @@
   10 s no mínimo): 2 dos 3 motoristas reais usam o mapa do app todos os dias
   (55–64% dos intervalos entre 2 e 8 s); 1 praticamente nunca (47 de 2.057).
 - **Conversão:** `autoAdvance: false` salvo vira `navegarCom: 'externo'`
-  (quem desligou escolheu o app externo); `true` ou ausente vira `'mapa'`.
+  (quem desligou escolheu o app externo); `true` só sai do storage, e o
+  padrão (`'mapa'`) continua valendo.
 - O botão do app externo no painel de navegação deixou de dizer "Abrir no
-  Maps" e passa a dizer o app: "Abrir no Waze", "Abrir no Google Maps", "Abrir
-  no Apple Maps" ou "Abrir no GPS" (sem preferência).
+  Maps" e passa a dizer o app: "Waze", "Google Maps", "Apple Maps" ou "Abrir no
+  GPS" (sem preferência). Começou como "Abrir no Google Maps", mas no aparelho
+  (moto g15) o texto quebrou em duas linhas e empurrou o ícone para fora do
+  botão — achado só no teste do build preview; o rótulo agora fica numa linha.
 
 ## Auditoria por parada, permissões e react-hook-form (04/10/2026, para a 1.12.9)
 
