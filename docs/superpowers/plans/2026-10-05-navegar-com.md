@@ -12,7 +12,7 @@
 
 ## Decisões (a "spec")
 
-1. **Medido em 05/10/2026** (`motorista_locations`, últimos 30 dias, cadência entre posições — o modo navegação grava a cada 5 s, o mapa da Início no máximo a cada 10 s): dos 3 motoristas reais, **2 usam o modo navegação todo dia** (~55–60% dos intervalos entre 2 e 8 s) e **1 praticamente nunca** (47 de 2.057). O padrão continua **`'mapa'`**: é o que a maioria usa, e só o mapa do app tem aviso de chegada e tela acesa.
+1. **Medido em 05/10/2026** (`motorista_locations`, últimos 30 dias, cadência entre posições — o modo navegação grava a cada 5 s, o mapa da Início no máximo a cada 10 s): dos 3 motoristas reais, **2 usam o modo navegação todo dia** (~55–64% dos intervalos entre 2 e 8 s) e **1 praticamente nunca** (47 de 2.057). O padrão continua **`'mapa'`**: é o que a maioria usa, e só o mapa do app tem aviso de chegada e tela acesa.
 2. A navegação por voz (Turn-by-Turn) vinha **desligada por padrão** (`internalNavigation: false`) até sair na 1.12.8 — trocar o nome da chave não tira nada de quem não mexeu.
 3. O painel do modo navegação **já tem** o botão de app externo (`handleOpenInMaps` → `abrirNavegacao`, que respeita `preferredNavApp`). Não criar botão novo; só trocar o rótulo genérico "Abrir no Maps" pelo app real.
 4. Concluir parada continua só pelo `StopCompletionFlow`; nada aqui toca conclusão.
@@ -619,5 +619,5 @@ git commit -m "docs: Navegar com no lugar do Avanço Automático"
 
 ## Validação fora do CI (depois do merge, antes da 1.12.9)
 
-1. **Navegador** (`validar-no-navegador-antes-de-fechar`): Configurações → "Navegar com" alterna, o raio some com "Waze / Google Maps", e o "Navegar" da Início obedece. Sem digitar credencial de teste — a web local fala com produção.
-2. **Aparelho** (build preview): instalar **por cima** de uma 1.12.8 com a chave antiga desligada e conferir que a escolha virou "Waze / Google Maps" — a conversão é o único ponto que nenhum teste de unidade prova no AsyncStorage real.
+1. **Navegador** (`validar-no-navegador-antes-de-fechar`): Configurações → "Navegar com" alterna, o raio some com "Waze / Google Maps", e o "Navegar" da Início obedece, e o rótulo do botão de app externo no painel web (ex.: "Abrir no Waze") — essa fiação não tem teste. Sem digitar credencial de teste — a web local fala com produção.
+2. **Aparelho** (build preview): instalar **por cima** de uma 1.12.8 com a chave antiga desligada e conferir que a escolha virou "Waze / Google Maps" — a conversão é o único ponto que nenhum teste de unidade prova no AsyncStorage real — e o rótulo mais longo ("Abrir no Google Maps") cabe no painel num aparelho de ~360 dp, sem cortar nem quebrar feio.
