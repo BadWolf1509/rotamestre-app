@@ -16,7 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Slider from '@/components/Slider';
 import { useAlert } from '@/hooks/useAlert';
-import LocationTrackingService from '@/services/locationTracking';
+import LocationTrackingService, {
+  type ModoNavegar,
+} from '@/services/locationTracking';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type NavAppPreference = 'waze' | 'google_maps' | 'apple_maps' | 'default';
@@ -33,7 +35,7 @@ interface NavigationSettingsProps {
 }
 
 export interface NavigationSettingsState {
-  autoAdvance: boolean;
+  navegarCom: ModoNavegar;
   soundAlerts: boolean;
   vibrationAlerts: boolean;
   proximityRadius: number;
@@ -46,7 +48,7 @@ type SettingKey = keyof NavigationSettingsState;
 type SettingValue<K extends SettingKey> = NavigationSettingsState[K];
 
 const DEFAULT_SETTINGS: NavigationSettingsState = {
-  autoAdvance: true,
+  navegarCom: 'mapa',
   soundAlerts: true,
   vibrationAlerts: true,
   proximityRadius: 50,
@@ -54,6 +56,24 @@ const DEFAULT_SETTINGS: NavigationSettingsState = {
   preventScreenSleep: true,
   preferredNavApp: 'default',
 };
+
+const OPCOES_NAVEGAR_COM: {
+  value: ModoNavegar;
+  label: string;
+  descricao: string;
+}[] = [
+  {
+    value: 'mapa',
+    label: 'Mapa do RotaMestre',
+    descricao:
+      'Avisa quando você chega e mantém a tela acesa. Sem instruções por voz.',
+  },
+  {
+    value: 'externo',
+    label: 'Waze / Google Maps',
+    descricao: 'Instruções por voz e trânsito, no app escolhido acima.',
+  },
+];
 
 const NAV_APP_OPTIONS: {
   value: NavAppPreference;
@@ -197,30 +217,44 @@ export function NavigationSettings({
         </View>
       </View>
 
-      {/* Auto-advance Section */}
+      {/* Destino do botão "Navegar" */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Modo Automático</Text>
-
-        <View style={styles.setting}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Avanço Automático</Text>
-            <Text style={styles.settingDescription}>
-              Navega dentro do app e segue para a próxima parada depois que você
-              conclui a atual
-            </Text>
-          </View>
-          <Switch
-            value={settings.autoAdvance}
-            onValueChange={(value) => handleSettingChange('autoAdvance', value)}
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
-          />
+        <Text style={styles.sectionTitle}>Navegar com</Text>
+        <Text style={styles.settingDescription}>
+          O que abre quando você toca em &quot;Navegar&quot;
+        </Text>
+        <View style={styles.navOptions}>
+          {OPCOES_NAVEGAR_COM.map((opcao) => {
+            const marcada = settings.navegarCom === opcao.value;
+            return (
+              <TouchableOpacity
+                key={opcao.value}
+                testID={`navegar-com-${opcao.value}`}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: marcada }}
+                style={[styles.navOption, marcada && styles.navOptionActive]}
+                onPress={() => handleSettingChange('navegarCom', opcao.value)}
+              >
+                <View style={styles.settingInfo}>
+                  <Text
+                    style={[
+                      styles.navOptionLabel,
+                      marcada && styles.navOptionLabelActive,
+                    ]}
+                  >
+                    {opcao.label}
+                  </Text>
+                  <Text style={styles.settingDescription}>
+                    {opcao.descricao}
+                  </Text>
+                </View>
+                {marcada && <Text style={styles.navOptionCheck}>✓</Text>}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {settings.autoAdvance && (
+        {settings.navegarCom === 'mapa' && (
           <View style={styles.sliderSetting}>
             <Text style={styles.sliderLabel}>
               Raio de Proximidade: {settings.proximityRadius}m
@@ -359,10 +393,6 @@ export function NavigationSettings({
           />
           <Text style={styles.tipTitle}>Dicas</Text>
         </View>
-        <Text style={styles.tipText}>
-          • O modo automático economiza tempo ao não precisar confirmar cada
-          parada manualmente
-        </Text>
         <Text style={styles.tipText}>
           • Ajuste o raio de proximidade baseado na precisão do GPS em sua
           região
