@@ -103,8 +103,7 @@ export function NavigationMode({
     rotaId,
   });
 
-  const { autoAdvance, proximityRadius, showSpeedometer } = {
-    autoAdvance: preferences.autoAdvance ?? true,
+  const { proximityRadius, showSpeedometer } = {
     proximityRadius: preferences.proximityRadius ?? 50,
     showSpeedometer: preferences.showSpeedometer ?? true,
   };
@@ -454,11 +453,13 @@ export function NavigationMode({
 
   const checkProximityAndAutoAdvance = useCallback(
     (distance: number) => {
-      if (distance < proximityRadius && autoAdvance) {
+      // Só se chega aqui com "Navegar com: Mapa do RotaMestre" — o aviso de
+      // chegada é parte do modo, não de uma chave à parte.
+      if (distance < proximityRadius) {
         handleArrival();
       }
     },
-    [autoAdvance, handleArrival, proximityRadius],
+    [handleArrival, proximityRadius],
   );
 
   const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =

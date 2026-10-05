@@ -59,7 +59,7 @@ jest.mock('@/services/locationTracking', () => ({
     startTracking: jest.fn().mockResolvedValue(true),
     stopTracking: jest.fn().mockResolvedValue(undefined),
     getNavigationPreferences: jest.fn().mockResolvedValue({
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     }),
   },
@@ -529,7 +529,7 @@ describe('Configurações dentro da navegação', () => {
 
   afterEach(() => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     });
   });
@@ -537,7 +537,7 @@ describe('Configurações dentro da navegação', () => {
   it('ao fechar, aplica o que mudou nelas', async () => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
       showSpeedometer: true,
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     });
     const props = {
@@ -569,7 +569,7 @@ describe('Configurações dentro da navegação', () => {
     // Na engrenagem, o motorista desliga o velocímetro e fecha.
     LocationTracking.getNavigationPreferences.mockResolvedValue({
       showSpeedometer: false,
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     });
     await act(async () => {
@@ -616,7 +616,7 @@ describe('Manter Tela Ligada', () => {
 
   afterEach(() => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     });
   });
@@ -624,7 +624,7 @@ describe('Manter Tela Ligada', () => {
   it('ligado: mantém a tela acesa e solta ao sair', async () => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
       preventScreenSleep: true,
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     });
     const { findByTestId, unmount } = render(<NavigationMode {...props} />);
@@ -640,7 +640,7 @@ describe('Manter Tela Ligada', () => {
   it('desligado: não mexe na tela', async () => {
     LocationTracking.getNavigationPreferences.mockResolvedValue({
       preventScreenSleep: false,
-      autoAdvance: true,
+      navegarCom: 'mapa',
       proximityRadius: 50,
     });
     const { findByTestId } = render(<NavigationMode {...props} />);
