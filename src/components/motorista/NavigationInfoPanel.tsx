@@ -251,7 +251,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             activeOpacity={1}
           >
             <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText}>{rotuloAppExterno}</Text>
+            <Text style={styles.mapsButtonText} numberOfLines={1}>
+              {rotuloAppExterno}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -477,6 +479,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.primary,
   },
   mapsButtonText: {
+    // Encolhe dentro da linha do botão, ao lado do ícone; sem isso o
+    // numberOfLines não corta e o rótulo empurra o ícone para fora.
+    flexShrink: 1,
     color: theme.colors.white,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
