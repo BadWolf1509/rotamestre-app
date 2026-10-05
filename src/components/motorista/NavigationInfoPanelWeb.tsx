@@ -506,6 +506,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.primary,
   },
   mapsButtonText: {
+    // Encolhe dentro da linha do botão, ao lado do ícone; sem isso o
+    // numberOfLines não corta e o rótulo empurra o ícone para fora.
+    flexShrink: 1,
     color: theme.colors.white,
     fontWeight: '600',
     fontSize: theme.typography.fontSize.sm,
