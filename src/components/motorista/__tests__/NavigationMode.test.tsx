@@ -315,8 +315,22 @@ describe('NavigationMode', () => {
         <NavigationMode {...defaultProps} />,
       );
 
-      expect(await findByText('Abrir no Waze')).toBeTruthy();
+      expect(await findByText('Waze')).toBeTruthy();
       expect(queryByText('Abrir no Maps')).toBeNull();
+    });
+
+    it('o rótulo do app externo fica numa linha só', async () => {
+      const { findByText } = render(<NavigationMode {...defaultProps} />);
+
+      // Quebrar em duas linhas empurrava o ícone para fora do botão. Linha
+      // única só corta com reticências se o texto puder encolher na linha do
+      // botão (o padrão do Yoga é flexShrink 0); sem isso o rótulo transborda
+      // e o ícone sai do mesmo jeito, com fonte grande do sistema.
+      const rotulo = await findByText('Waze');
+      expect(rotulo.props.numberOfLines).toBe(1);
+      expect(StyleSheet.flatten(rotulo.props.style)).toEqual(
+        expect.objectContaining({ flexShrink: 1 }),
+      );
     });
 
     it('deve abrir navegação externa quando botão pressionado', async () => {
@@ -325,10 +339,10 @@ describe('NavigationMode', () => {
       const { getByText } = render(<NavigationMode {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Abrir no Waze')).toBeTruthy();
+        expect(getByText('Waze')).toBeTruthy();
       });
 
-      const mapsButton = getByText('Abrir no Waze');
+      const mapsButton = getByText('Waze');
       fireEvent.press(mapsButton);
 
       expect(abrirNavegacao).toHaveBeenCalledWith({
