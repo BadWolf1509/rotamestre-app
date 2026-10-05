@@ -393,10 +393,12 @@ export function NavigationSettings({
           />
           <Text style={styles.tipTitle}>Dicas</Text>
         </View>
-        <Text style={styles.tipText}>
-          • Ajuste o raio de proximidade baseado na precisão do GPS em sua
-          região
-        </Text>
+        {settings.navegarCom === 'mapa' && (
+          <Text style={styles.tipText}>
+            • Ajuste o raio de proximidade baseado na precisão do GPS em sua
+            região
+          </Text>
+        )}
         {!isWeb && (
           <Text style={styles.tipText}>
             • Mantenha a tela ligada para visualização contínua do mapa

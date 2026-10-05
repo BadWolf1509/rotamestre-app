@@ -167,6 +167,30 @@ describe('NavigationSettings', () => {
       expect(queryByText(/Raio de Proximidade/)).toBeNull();
     });
 
+    it('escolher o app externo esconde também a dica do raio', async () => {
+      const LocationTrackingService = jest.requireMock(
+        '@/services/locationTracking',
+      ).default;
+      const { getByTestId, queryByText } = render(
+        <NavigationSettings {...defaultProps} />,
+      );
+      await waitFor(() =>
+        expect(queryByText(/Raio de Proximidade/)).toBeTruthy(),
+      );
+      expect(queryByText(/Ajuste o raio de proximidade/)).toBeTruthy();
+
+      fireEvent.press(getByTestId('navegar-com-externo'));
+
+      await waitFor(() => {
+        expect(
+          LocationTrackingService.updateNavigationPreferences,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({ navegarCom: 'externo' }),
+        );
+      });
+      expect(queryByText(/Ajuste o raio de proximidade/)).toBeNull();
+    });
+
     it('não promete mais avanço automático', () => {
       const { queryByText } = render(<NavigationSettings {...defaultProps} />);
 

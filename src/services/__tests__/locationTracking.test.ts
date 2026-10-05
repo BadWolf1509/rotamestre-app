@@ -160,8 +160,8 @@ describe('LocationTrackingService', () => {
      *
      * O efeito foi medido em aparelho: a tela de Configuracoes mostrava
      * "Avanco Automatico" LIGADO (default proprio dela), enquanto
-     * `handleNavigateToStop` lia `prefs.autoAdvance` (hoje `navegarCom`) cru, recebia `undefined`
-     * e mandava o motorista para o app externo. A navegacao interna ficava
+     * `handleNavigateToStop` lia `prefs.autoAdvance` (hoje `navegarCom`) cru,
+     * recebia `undefined` e mandava o motorista para o app externo. A navegacao interna ficava
      * inalcancavel, e a tela dizia que estava ligada.
      */
     it('aplica os defaults quando nao ha nada salvo', async () => {
@@ -272,6 +272,24 @@ describe('LocationTrackingService', () => {
         )?.[1];
         expect(JSON.parse(gravado)).toEqual({
           navegarCom: 'externo',
+          soundAlerts: false,
+          vibrationAlerts: false,
+        });
+      });
+
+      it('gravar com autoAdvance:true salvo não congela o padrão', async () => {
+        (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+          JSON.stringify({ autoAdvance: true, soundAlerts: false }),
+        );
+
+        await locationTrackingService.updateNavigationPreferences({
+          vibrationAlerts: false,
+        });
+
+        const gravado = (AsyncStorage.setItem as jest.Mock).mock.calls.find(
+          (c) => c[0] === 'navigationPreferences',
+        )?.[1];
+        expect(JSON.parse(gravado)).toEqual({
           soundAlerts: false,
           vibrationAlerts: false,
         });

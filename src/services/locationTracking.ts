@@ -379,6 +379,38 @@ class LocationTrackingService {
   }
 
   /**
+   * Converte a chave antiga `autoAdvance` (até a 1.12.8) em `navegarCom`.
+   * Desligada significava "abrir o app externo" e vira "externo"; ligada era
+   * o padrão e só sai do storage, para o padrão continuar vivo. `navegarCom`
+   * já salvo vence. A chave antiga nunca sai daqui.
+   */
+  private converterChaveAntiga(
+    salvas: Partial<NavigationState> & { autoAdvance?: unknown },
+  ): Partial<NavigationState> {
+    const { autoAdvance, ...resto } = salvas;
+    if (resto.navegarCom || autoAdvance !== false) return resto;
+    return { ...resto, navegarCom: 'externo' };
+  }
+
+  /**
+   * O que está REALMENTE salvo, sem os padrões por cima.
+   *
+   * Existe só para o caminho de escrita. Se `updateNavigationPreferences`
+   * mesclasse sobre o objeto já preenchido, gravaria os padrões de hoje no
+   * storage — e um padrão que mudasse numa versão futura nunca alcançaria
+   * quem tivesse tocado em qualquer ajuste. Guardar só o que a pessoa
+   * escolheu mantém os padrões vivos.
+   */
+  private async lerPreferenciasCruas(): Promise<Partial<NavigationState>> {
+    try {
+      const prefs = await AsyncStorage.getItem('navigationPreferences');
+      return prefs ? this.converterChaveAntiga(JSON.parse(prefs)) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
    * Preferências de navegação, SEMPRE completas.
    *
    * POR QUE O DEFAULT MORA AQUI. Isto devolvia `Partial<NavigationState>` e um
@@ -389,47 +421,13 @@ class LocationTrackingService {
    *
    * O efeito foi medido em aparelho: a tela de Configurações mostrava "Avanço
    * Automático" LIGADO — default dela — enquanto `handleNavigateToStop` lia
-   * `prefs.autoAdvance` (hoje `navegarCom`) cru, recebia `undefined` e mandava o motorista para o
-   * app de navegação externo. A navegação interna ficava inalcançável, e a
-   * tela afirmava que estava ligada. Nenhum teste pegava, porque cada lado
-   * estava certo sozinho.
+   * `prefs.autoAdvance` (hoje `navegarCom`) cru, recebia `undefined` e
+   * mandava o motorista para o app de navegação externo. A navegação interna
+   * ficava inalcançável, e a tela afirmava que estava ligada. Nenhum teste
+   * pegava, porque cada lado estava certo sozinho.
    *
    * Com o default na fonte, esquecer deixa de ser possível.
    */
-  /**
-   * O que está REALMENTE salvo, sem os padrões por cima.
-   *
-   * Existe só para o caminho de escrita. Se `updateNavigationPreferences`
-   * mesclasse sobre o objeto já preenchido, gravaria os padrões de hoje no
-   * storage — e um padrão que mudasse numa versão futura nunca alcançaria
-   * quem tivesse tocado em qualquer ajuste. Guardar só o que a pessoa
-   * escolheu mantém os padrões vivos.
-   */
-  /**
-   * Converte a chave antiga `autoAdvance` (até a 1.12.8) em `navegarCom`.
-   * Desligada significava "abrir o app externo"; qualquer outro valor, o
-   * mapa do app. `navegarCom` já salvo vence. A chave antiga nunca sai daqui.
-   */
-  private converterChaveAntiga(
-    salvas: Partial<NavigationState> & { autoAdvance?: unknown },
-  ): Partial<NavigationState> {
-    const { autoAdvance, ...resto } = salvas;
-    if (resto.navegarCom || autoAdvance === undefined) return resto;
-    return {
-      ...resto,
-      navegarCom: autoAdvance === false ? 'externo' : 'mapa',
-    };
-  }
-
-  private async lerPreferenciasCruas(): Promise<Partial<NavigationState>> {
-    try {
-      const prefs = await AsyncStorage.getItem('navigationPreferences');
-      return prefs ? this.converterChaveAntiga(JSON.parse(prefs)) : {};
-    } catch {
-      return {};
-    }
-  }
-
   async getNavigationPreferences(): Promise<PreferenciasDeNavegacao> {
     try {
       const prefs = await AsyncStorage.getItem('navigationPreferences');
