@@ -130,8 +130,9 @@ export function useDriverLocationBroadcast({
 
     let cancelado = false;
     (async () => {
-      const resultado = await pedirPermissao(() =>
-        Location.requestForegroundPermissionsAsync(),
+      const resultado = await pedirPermissao(
+        () => Location.requestForegroundPermissionsAsync(),
+        () => Location.getForegroundPermissionsAsync(),
       );
       if (cancelado) return;
       if (!resultado.concedida) {

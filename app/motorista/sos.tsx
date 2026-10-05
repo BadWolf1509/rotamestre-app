@@ -98,8 +98,9 @@ export default function SOSScreen() {
   useEffect(() => {
     async function getLocation() {
       try {
-        const resultado = await pedirPermissao(() =>
-          Location.requestForegroundPermissionsAsync(),
+        const resultado = await pedirPermissao(
+          () => Location.requestForegroundPermissionsAsync(),
+          () => Location.getForegroundPermissionsAsync(),
         );
         setPermissao(resultado);
         if (!resultado.concedida) return;

@@ -138,8 +138,9 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
    */
   const getLocationAddress = useCallback(async (): Promise<string | null> => {
     try {
-      const { concedida } = await pedirPermissao(() =>
-        Location.requestForegroundPermissionsAsync(),
+      const { concedida } = await pedirPermissao(
+        () => Location.requestForegroundPermissionsAsync(),
+        () => Location.getForegroundPermissionsAsync(),
       );
       if (!concedida) {
         return null;

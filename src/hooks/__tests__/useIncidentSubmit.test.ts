@@ -10,7 +10,8 @@ import { useIncidentSubmit } from '../useIncidentSubmit';
 const mockUploadIncidentPhoto = jest.fn();
 jest.mock('@/lib/storage', () => ({
   storageService: {
-    uploadIncidentPhoto: (...args: unknown[]) => mockUploadIncidentPhoto(...args),
+    uploadIncidentPhoto: (...args: unknown[]) =>
+      mockUploadIncidentPhoto(...args),
   },
 }));
 
@@ -34,12 +35,16 @@ jest.mock('@/lib/supabase', () => ({
 // Mock expo-location
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: 'granted' })
+    Promise.resolve({ status: 'granted' }),
+  ),
+  // Consulta antes de pedir (#570): 'undetermined' mantém o pedido exercitado.
+  getForegroundPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ status: 'undetermined', canAskAgain: true }),
   ),
   getCurrentPositionAsync: jest.fn(() =>
     Promise.resolve({
       coords: { latitude: -23.5505, longitude: -46.6333 },
-    })
+    }),
   ),
   Accuracy: { Balanced: 3 },
 }));
@@ -102,7 +107,7 @@ describe('useIncidentSubmit', () => {
 
       expect(mockUploadIncidentPhoto).toHaveBeenCalledWith(
         'file://photo.jpg',
-        expect.stringContaining('incident_')
+        expect.stringContaining('incident_'),
       );
     });
 
@@ -242,7 +247,7 @@ describe('useIncidentSubmit', () => {
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           endereco: 'Rua Teste, 123',
-        })
+        }),
       );
     });
 
@@ -261,7 +266,7 @@ describe('useIncidentSubmit', () => {
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           endereco: 'Endereço manual',
-        })
+        }),
       );
     });
   });
