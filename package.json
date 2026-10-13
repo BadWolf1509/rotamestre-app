@@ -69,7 +69,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-community/slider": "5.2.0",
     "@shopify/flash-list": "2.0.2",
-    "@supabase/supabase-js": "^2.117.2",
+    "@supabase/supabase-js": "^2.117.3",
     "expo": "~56.0.20",
     "expo-asset": "~56.0.17",
     "expo-audio": "~56.0.13",
