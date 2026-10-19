@@ -285,7 +285,11 @@ describe('useParadasManagement', () => {
       ]);
     });
 
-    expect(importResult).toMatchObject({ adicionadas: 1, ignoradas: 1 });
+    expect(importResult).toMatchObject({
+      adicionadas: 1,
+      ignoradas: 1,
+      erros: ['Linha 1: entrega duplicada (mesmo endereço ou telefone).'],
+    });
     expect(result.current.paradas).toHaveLength(2);
   });
 

@@ -300,6 +300,13 @@ export function encontrarParadaDuplicada(
   );
 }
 
+/** Aviso do cadastro manual; cita o tipo porque é ele que define a duplicata. */
+export function mensagemParadaDuplicada(
+  duplicada: Pick<Parada, 'tipo' | 'destinatario'>,
+): string {
+  return `Já existe uma ${duplicada.tipo} para ${duplicada.destinatario} no mesmo endereço ou telefone. Deseja manter as duas?`;
+}
+
 export function distanceInMeters(
   parada: { latitude?: number; longitude?: number },
   coords?: { latitude: number; longitude: number },

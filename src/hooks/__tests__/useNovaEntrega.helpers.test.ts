@@ -29,6 +29,7 @@ import type { Parada } from '@/components/gestor/nova-entrega/types';
 import {
   avaliarSanidadeGeografica,
   encontrarParadaDuplicada,
+  mensagemParadaDuplicada,
   generateUniqueId,
   criarParadaCheckpoint,
   prepararParadasParaInserir,
@@ -369,6 +370,19 @@ describe('useNovaEntrega.helpers', () => {
           tipo: 'retirada',
         }),
       ).toBeNull();
+    });
+
+    // A regra agora é "mesmo TIPO + endereço ou telefone". A mensagem precisa
+    // dizer o tipo, senão, num endereço com entrega + retirada, o gestor lê
+    // "já existe uma parada aqui" e conclui que a regra está errada.
+    it('names the type of the existing stop in the duplicate warning', () => {
+      expect(
+        mensagemParadaDuplicada(
+          createStop({ tipo: 'retirada', destinatario: 'Maria' }),
+        ),
+      ).toBe(
+        'Já existe uma retirada para Maria no mesmo endereço ou telefone. Deseja manter as duas?',
+      );
     });
 
     it('still flags a second stop of the same type inside a combined visit', () => {

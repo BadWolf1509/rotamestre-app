@@ -27,6 +27,7 @@ import {
 import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useNovaEntrega } from '@/hooks/useNovaEntrega';
+import { mensagemParadaDuplicada } from '@/hooks/useNovaEntrega.helpers';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
@@ -117,7 +118,7 @@ export default function NovaEntrega() {
       if (duplicate) {
         allowDuplicate = await showConfirm({
           title: 'Possível parada duplicada',
-          message: `Já existe uma parada para ${duplicate.destinatario} no mesmo endereço ou telefone. Deseja manter as duas?`,
+          message: mensagemParadaDuplicada(duplicate),
           type: 'warning',
           confirmText: 'Adicionar mesmo assim',
         });

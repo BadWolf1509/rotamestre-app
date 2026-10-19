@@ -232,7 +232,9 @@ export function useParadasManagement({
 
           if (encontrarParadaDuplicada([...paradas, ...novas], item)) {
             ignoradas += 1;
-            erros.push(`Linha ${index + 1}: endereço ou telefone duplicado.`);
+            erros.push(
+              `Linha ${index + 1}: ${item.tipo} duplicada (mesmo endereço ou telefone).`,
+            );
             continue;
           }
 
