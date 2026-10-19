@@ -50,6 +50,7 @@ export interface ResultadoDoFixture {
   rotaId: string;
   statusAntes: string;
   dataAntes: string;
+  iniciadaAntes: string | null;
   pendentesAntes: number;
 }
 
@@ -103,12 +104,18 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   }
 
   let motorista: (typeof motoristas)[number] | null = null;
-  let rota: { id: string; status: string; data: string } | null = null;
+  let rota: {
+    id: string;
+    status: string;
+    data: string;
+    iniciada_em: string | null;
+    concluida_em: string | null;
+  } | null = null;
 
   for (const candidato of motoristas) {
     const { data: rotas, error: erroRota } = await supabase
       .from('rotas')
-      .select('id, status, data')
+      .select('id, status, data, iniciada_em, concluida_em')
       .eq('motorista_id', candidato.id)
       .order('data', { ascending: false })
       .limit(1);
@@ -177,13 +184,39 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   }
 
   const pendentesAntes = paradas.filter((p) => p.status === 'pendente').length;
-  const rotaServe = rota.status === 'em_andamento' && rota.data > limite;
+
+  // A ROTA TAMBÉM PRECISA SER COERENTE, não só ativa. Até 19/10/2026 a
+  // restauração tocava `status` e `data` e deixava `iniciada_em`/`concluida_em`
+  // da execução original — a rota demo, concluída em 11/09, voltou como
+  // "em andamento desde 11/09", e a Início do motorista mostrava "916h" de
+  // tempo em rota (`getElapsedTime` em `app/motorista/_screens/inicio.tsx`).
+  // Mesma armadilha das paradas acima: com status e data servindo, o fixture
+  // respondia `nada-a-fazer` e o vestígio nunca saía. O produto não produz
+  // esse estado — `startRoute` sempre grava `iniciada_em`, e a reativação do
+  // gestor zera os dois — então a coerência entra no critério. A janela de
+  // `iniciada_em` é a mesma de `data`; a expiração não lê nenhum dos dois
+  // timestamps (só `status` e `data`), então gravá-los não muda quando a rota
+  // expira.
+  const limiteInicio = hoje.getTime() - 7 * 24 * 60 * 60 * 1000;
+  const inicioCoerente =
+    rota.iniciada_em !== null &&
+    new Date(rota.iniciada_em).getTime() > limiteInicio;
+  const rotaServe =
+    rota.status === 'em_andamento' &&
+    rota.data > limite &&
+    rota.concluida_em === null &&
+    inicioCoerente;
   const paradasServem = pendentesAntes > 0;
 
   if (!rotaServe) {
     const { error: erroUpdate } = await supabase
       .from('rotas')
-      .update({ status: 'em_andamento', data: hojeStr })
+      .update({
+        status: 'em_andamento',
+        data: hojeStr,
+        iniciada_em: hoje.toISOString(),
+        concluida_em: null,
+      })
       .eq('id', rota.id);
 
     if (erroUpdate) {
@@ -221,6 +254,7 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
     rotaId: rota.id,
     statusAntes: rota.status,
     dataAntes: rota.data,
+    iniciadaAntes: rota.iniciada_em,
     pendentesAntes,
   };
 }
