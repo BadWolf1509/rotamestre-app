@@ -9,6 +9,8 @@ import type {
   EnderecoUnidade,
 } from '@/components/gestor/nova-entrega/types';
 import { googleMapsService } from '@/lib/google';
+import { calculateHaversineDistance } from '@/lib/osrm/fallback';
+import { solveTSP } from '@/lib/osrm/tsp';
 
 jest.mock('@/lib/google', () => ({
   googleMapsService: {
@@ -402,6 +404,142 @@ describe('useRouteOptimization', () => {
 
       // After completion, should be false again
       expect(result.current.isOptimizing).toBe(false);
+    });
+  });
+
+  describe('paradas no mesmo ponto, sem vínculo', () => {
+    const PONTO = { latitude: -7.115, longitude: -34.863 };
+
+    function paradaEm(
+      id: string,
+      tipo: 'entrega' | 'retirada',
+      coords: { latitude: number; longitude: number },
+    ): Parada {
+      return {
+        id,
+        tipo,
+        endereco: `Rua ${id}`,
+        destinatario: id,
+        telefone: '',
+        observacoes: '',
+        ordem: 0,
+        ...coords,
+      };
+    }
+
+    /** Ponto distinto por índice, espalhado por alguns km. */
+    function pontoDistinto(i: number) {
+      return {
+        latitude: PONTO.latitude + 0.004 * (((i * 7) % 11) + 1),
+        longitude: PONTO.longitude - 0.005 * (((i * 5) % 9) + 1),
+      };
+    }
+
+    /** getDirections com o TSP de verdade sobre a matriz Haversine. */
+    function getDirectionsComTSPReal(
+      origem: { latitude: number; longitude: number },
+      _destino: unknown,
+      waypoints: { latitude: number; longitude: number }[],
+    ) {
+      const pontos = [origem, ...waypoints];
+      const matriz = pontos.map((a) =>
+        pontos.map((b) =>
+          calculateHaversineDistance(
+            a.latitude,
+            a.longitude,
+            b.latitude,
+            b.longitude,
+          ),
+        ),
+      );
+      const { order } = solveTSP(matriz, 0);
+      return Promise.resolve({
+        distancia_total_metros: 10000,
+        duracao_total_segundos: 600,
+        legs: [],
+        polyline: 'tsp-real',
+        ordem_otimizada: order.map((i) => i - 1),
+      });
+    }
+
+    it('entrega e retirada no mesmo ponto saem juntas, entrega antes, com a retirada cadastrada antes', async () => {
+      const paradas = [
+        paradaEm('r1', 'retirada', PONTO),
+        paradaEm('a', 'entrega', pontoDistinto(0)),
+        paradaEm('e1', 'entrega', PONTO),
+      ];
+      mockGetDirections.mockImplementationOnce(getDirectionsComTSPReal);
+
+      const { result } = renderHook(() =>
+        useRouteOptimization({ ...defaultOptions, paradas }),
+      );
+
+      let ordenadas: Parada[] | null = null;
+      await act(async () => {
+        ordenadas = await result.current.otimizarRota();
+      });
+
+      // O ponto repetido vai uma vez só para o TSP.
+      expect(mockGetDirections.mock.calls[0][2]).toHaveLength(2);
+      const idsOrdenados = ordenadas!.map((p) => p.id);
+      expect(idsOrdenados.indexOf('r1')).toBe(idsOrdenados.indexOf('e1') + 1);
+      expect(ordenadas!.map((p) => p.ordem)).toEqual([1, 2, 3]);
+    });
+
+    it('vale também acima de 10 pontos (caminho do 2-opt)', async () => {
+      const paradas = [
+        paradaEm('r1', 'retirada', PONTO),
+        ...Array.from({ length: 6 }, (_, i) =>
+          paradaEm(`a${i}`, 'entrega', pontoDistinto(i)),
+        ),
+        paradaEm('e1', 'entrega', PONTO),
+        ...Array.from({ length: 6 }, (_, i) =>
+          paradaEm(`b${i}`, 'retirada', pontoDistinto(i + 6)),
+        ),
+      ];
+      mockGetDirections.mockImplementationOnce(getDirectionsComTSPReal);
+
+      const { result } = renderHook(() =>
+        useRouteOptimization({ ...defaultOptions, paradas }),
+      );
+
+      let ordenadas: Parada[] | null = null;
+      await act(async () => {
+        ordenadas = await result.current.otimizarRota();
+      });
+
+      expect(mockGetDirections.mock.calls[0][2]).toHaveLength(13);
+      const idsOrdenados = ordenadas!.map((p) => p.id);
+      expect(idsOrdenados).toHaveLength(14);
+      expect(new Set(idsOrdenados).size).toBe(14);
+      expect(idsOrdenados.indexOf('r1')).toBe(idsOrdenados.indexOf('e1') + 1);
+    });
+
+    it('sem ponto repetido, chama o TSP exatamente como antes', async () => {
+      mockGetDirections.mockResolvedValueOnce({
+        distancia_total_metros: 10000,
+        duracao_total_segundos: 600,
+        legs: [],
+        polyline: 'encoded',
+        ordem_otimizada: [1, 0],
+      });
+
+      const { result } = renderHook(() => useRouteOptimization(defaultOptions));
+
+      let ordenadas: Parada[] | null = null;
+      await act(async () => {
+        ordenadas = await result.current.otimizarRota();
+      });
+
+      expect(mockGetDirections).toHaveBeenCalledWith(
+        { latitude: -23.5, longitude: -46.6 },
+        { latitude: -23.5, longitude: -46.6 },
+        [
+          { latitude: -23.55, longitude: -46.65 },
+          { latitude: -23.56, longitude: -46.66 },
+        ],
+      );
+      expect(ordenadas!.map((p) => p.id)).toEqual(['parada-2', 'parada-1']);
     });
   });
 

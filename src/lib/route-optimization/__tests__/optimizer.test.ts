@@ -30,9 +30,12 @@ jest.mock('../validation', () => ({
 
 // Mock googleMapsService
 const mockGetDirections = jest.fn();
+const mockGetDirectionsSequential = jest.fn();
 jest.mock('../../google', () => ({
   googleMapsService: {
     getDirections: (...args: any[]) => mockGetDirections(...args),
+    getDirectionsSequential: (...args: any[]) =>
+      mockGetDirectionsSequential(...args),
   },
 }));
 
@@ -211,7 +214,11 @@ describe('otimizarRotaComDependencias', () => {
     });
 
     it('sets correct ordem (1-based) on optimized stops', async () => {
-      const paradas = [makeParada({ id: '1' }), makeParada({ id: '2' })];
+      // Pontos distintos: no mesmo ponto as duas viram uma visita só.
+      const paradas = [
+        makeParada({ id: '1' }),
+        makeParada({ id: '2', latitude: -23.56, longitude: -46.64 }),
+      ];
       mockGetDirections.mockResolvedValue(mockDirectionsResponse([1, 0]));
 
       const result = await otimizarRotaComDependencias(mockOrigem, paradas);
@@ -261,8 +268,19 @@ describe('otimizarRotaComDependencias', () => {
       const paradas = [
         makeParada({ id: 'r1', tipo: 'retirada' }),
         makeParada({ id: 'e1', tipo: 'entrega', vinculo_parada_id: 'r1' }),
-        makeParada({ id: 'ind1', tipo: 'entrega' }),
-        makeParada({ id: 'ind2', tipo: 'entrega' }),
+        // Pontos distintos de r1/e1: no mesmo ponto entrariam na mesma visita.
+        makeParada({
+          id: 'ind1',
+          tipo: 'entrega',
+          latitude: -23.56,
+          longitude: -46.64,
+        }),
+        makeParada({
+          id: 'ind2',
+          tipo: 'entrega',
+          latitude: -23.57,
+          longitude: -46.65,
+        }),
       ];
       // grupo [r1,e1]=idx0, ind1=idx1, ind2=idx2
       mockGetDirections.mockResolvedValue(mockDirectionsResponse([1, 0, 2]));
@@ -275,6 +293,120 @@ describe('otimizarRotaComDependencias', () => {
       expect(result!.paradasOrdenadas[1].id).toBe('r1');
       expect(result!.paradasOrdenadas[2].id).toBe('e1');
       expect(result!.paradasOrdenadas[3].id).toBe('ind2');
+    });
+  });
+
+  describe('paradas no mesmo ponto', () => {
+    const PONTO = { latitude: -23.55, longitude: -46.63 };
+    const OUTRO = { latitude: -23.6, longitude: -46.7 };
+
+    it('manda o ponto repetido ao TSP uma vez só e expande entrega → retirada', async () => {
+      const paradas = [
+        makeParada({ id: 'r1', tipo: 'retirada', ...PONTO }),
+        makeParada({ id: 'a', tipo: 'entrega', ...OUTRO }),
+        makeParada({ id: 'e1', tipo: 'entrega', ...PONTO }),
+      ];
+      // visitas = [[e1, r1], [a]]; o TSP põe a visita 1 primeiro.
+      mockGetDirections.mockResolvedValue(mockDirectionsResponse([1, 0]));
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(mockGetDirections.mock.calls[0][2]).toHaveLength(2);
+      expect(result!.paradasOrdenadas.map((p) => p.id)).toEqual([
+        'a',
+        'e1',
+        'r1',
+      ]);
+      expect(result!.ordemIndices).toEqual([1, 2, 0]);
+      // Visita num ponto só: a distância do TSP já é a real.
+      expect(mockGetDirectionsSequential).not.toHaveBeenCalled();
+    });
+
+    it('vínculo sobreposto a um local sai Y … entrega → X', async () => {
+      const paradas = [
+        makeParada({ id: 'x', tipo: 'retirada', ...PONTO }),
+        makeParada({
+          id: 'e',
+          tipo: 'entrega',
+          vinculo_parada_id: 'y',
+          ...PONTO,
+        }),
+        makeParada({ id: 'y', tipo: 'retirada', ...OUTRO }),
+      ];
+      mockGetDirections.mockResolvedValue(mockDirectionsResponse([0]));
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 9000,
+        duracao_total_segundos: 1500,
+        polyline: 'sequencial',
+        ordem_otimizada: [],
+        legs: [],
+      });
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(result!.paradasOrdenadas.map((p) => p.id)).toEqual([
+        'y',
+        'e',
+        'x',
+      ]);
+      expect(result!.paradasOrdenadas.map((p) => p.ordem)).toEqual([1, 2, 3]);
+    });
+
+    it('mede distância e traçado com todas as paradas quando a visita cruza endereços', async () => {
+      // A visita [y, e, x] começa em OUTRO e termina em PONTO; o TSP só viu
+      // OUTRO. A distância tem de vir da rota com as três paradas.
+      const paradas = [
+        makeParada({ id: 'x', tipo: 'retirada', ...PONTO }),
+        makeParada({
+          id: 'e',
+          tipo: 'entrega',
+          vinculo_parada_id: 'y',
+          ...PONTO,
+        }),
+        makeParada({ id: 'y', tipo: 'retirada', ...OUTRO }),
+      ];
+      mockGetDirections.mockResolvedValue(mockDirectionsResponse([0]));
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 9000,
+        duracao_total_segundos: 1500,
+        polyline: 'sequencial',
+        ordem_otimizada: [],
+        legs: [],
+      });
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(mockGetDirectionsSequential).toHaveBeenCalledWith(
+        mockOrigem,
+        mockOrigem,
+        [OUTRO, PONTO, PONTO].map((c) => expect.objectContaining(c)),
+      );
+      expect(result!.distanciaTotalMetros).toBe(9000);
+      expect(result!.duracaoTotalSegundos).toBe(1500);
+      expect(result!.polyline).toBe('sequencial');
+    });
+
+    it('fica com a distância do TSP se a rota completa falhar', async () => {
+      const paradas = [
+        makeParada({ id: 'r1', tipo: 'retirada', ...OUTRO }),
+        makeParada({
+          id: 'e1',
+          tipo: 'entrega',
+          vinculo_parada_id: 'r1',
+          ...PONTO,
+        }),
+      ];
+      mockGetDirections.mockResolvedValue(mockDirectionsResponse([0]));
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(result!.paradasOrdenadas.map((p) => p.id)).toEqual(['r1', 'e1']);
+      expect(result!.distanciaTotalMetros).toBe(5000);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('[RouteOptimization]'),
+        expect.anything(),
+      );
     });
   });
 

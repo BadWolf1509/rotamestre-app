@@ -14,6 +14,10 @@ import { formatarDecimal } from '@/lib/formatNumber';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import {
+  agruparParadasEmVisitas,
+  expandirOrdemDasVisitas,
+} from '@/lib/route-optimization/agrupamento';
+import {
   otimizarRotaComDependencias,
   ParadaParaOtimizar,
   validarRotaParaOtimizacao,
@@ -196,9 +200,16 @@ export function useRouteOptimization({
 
         return paradasAtualizadas;
       } else {
-        const waypoints = paradasComCoordenadas.map((p) => ({
-          latitude: p.latitude as number,
-          longitude: p.longitude as number,
+        // Paradas no mesmo ponto (entrega + retirada do mesmo cliente) viram
+        // uma visita: só a primeira vai para o TSP, e a visita sai inteira,
+        // entrega antes da retirada. Sem ponto repetido, cada visita é uma
+        // parada e a chamada é a mesma de antes.
+        const visitas = agruparParadasEmVisitas(paradasParaValidar);
+        const haAgrupamento = visitas.length < paradasParaValidar.length;
+
+        const waypoints = visitas.map(([representante]) => ({
+          latitude: representante.latitude,
+          longitude: representante.longitude,
         }));
 
         const resultado = await googleMapsService.getDirections(
@@ -212,7 +223,16 @@ export function useRouteOptimization({
           return null;
         }
 
-        const ordemOtimizada = resultado.ordem_otimizada || [];
+        // Com agrupamento, `ordem_otimizada` indexa visitas, não paradas, e os
+        // `legs` são um por visita — nenhum consumidor lê `rotaOtimizada.legs`
+        // hoje. A distância vale: dentro da visita o trajeto é de dezenas de metros.
+        const ordemOtimizada = haAgrupamento
+          ? expandirOrdemDasVisitas(
+              visitas,
+              paradasParaValidar,
+              resultado.ordem_otimizada,
+            )
+          : resultado.ordem_otimizada || [];
         const paradasReordenadas = ordenarParadasPorRota(
           paradas,
           ordemOtimizada,

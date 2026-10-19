@@ -8,7 +8,12 @@ import { Coordenadas } from '@/types/endereco';
 
 import { logger } from '../logger';
 
-import type { CacheEntry, ParadaParaOtimizar, PersistedCache, ResultadoOtimizacao } from './types';
+import type {
+  CacheEntry,
+  ParadaParaOtimizar,
+  PersistedCache,
+  ResultadoOtimizacao,
+} from './types';
 
 /** Chave para persistencia no AsyncStorage */
 const CACHE_STORAGE_KEY = '@rotamestre/route-optimization-cache';
@@ -64,7 +69,9 @@ async function carregarCacheDoStorage(): Promise<void> {
           }
         }
 
-        logger.info(`[RouteCache] Carregado do storage: ${optimizationCache.size} entradas validas`);
+        logger.info(
+          `[RouteCache] Carregado do storage: ${optimizationCache.size} entradas validas`,
+        );
       }
     } catch (error) {
       logger.warn('[RouteCache] Erro ao carregar cache', error);
@@ -103,15 +110,21 @@ async function persistirCacheNoStorage(): Promise<void> {
 export function gerarHashRota(
   origem: Coordenadas,
   paradas: ParadaParaOtimizar[],
-  destino?: Coordenadas
+  destino?: Coordenadas,
 ): string {
   const origemStr = `${origem.latitude.toFixed(6)},${origem.longitude.toFixed(6)}`;
   const destinoStr = destino
     ? `${destino.latitude.toFixed(6)},${destino.longitude.toFixed(6)}`
     : origemStr;
 
+  // `tipo` entra porque decide a ordem dentro da visita no mesmo ponto
+  // (entrega antes da retirada). Também invalida as entradas gravadas antes do
+  // agrupamento por local, que podiam separar paradas do mesmo endereço.
   const paradasStr = paradas
-    .map(p => `${p.id}:${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}:${p.vinculo_parada_id || ''}`)
+    .map(
+      (p) =>
+        `${p.id}:${p.tipo}:${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}:${p.vinculo_parada_id || ''}`,
+    )
     .sort()
     .join('|');
 
@@ -121,7 +134,9 @@ export function gerarHashRota(
 /**
  * Obtem resultado do cache se ainda valido.
  */
-export async function obterDoCache(hash: string): Promise<ResultadoOtimizacao | null> {
+export async function obterDoCache(
+  hash: string,
+): Promise<ResultadoOtimizacao | null> {
   await carregarCacheDoStorage();
 
   const entry = optimizationCache.get(hash);
@@ -140,7 +155,10 @@ export async function obterDoCache(hash: string): Promise<ResultadoOtimizacao | 
 /**
  * Salva resultado no cache.
  */
-export async function salvarNoCache(hash: string, resultado: ResultadoOtimizacao): Promise<void> {
+export async function salvarNoCache(
+  hash: string,
+  resultado: ResultadoOtimizacao,
+): Promise<void> {
   await carregarCacheDoStorage();
 
   // Limpar entradas expiradas
@@ -187,7 +205,10 @@ export async function limparCacheOtimizacao(): Promise<void> {
 /**
  * Retorna estatisticas do cache.
  */
-export async function estatisticasCache(): Promise<{ tamanho: number; entradas: string[] }> {
+export async function estatisticasCache(): Promise<{
+  tamanho: number;
+  entradas: string[];
+}> {
   await carregarCacheDoStorage();
   return {
     tamanho: optimizationCache.size,
