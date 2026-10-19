@@ -43,6 +43,11 @@ export interface Parada extends ParadaFormData {
 export interface RotaOtimizadaState {
   distancia_total_metros: number;
   duracao_total_segundos: number;
+  /**
+   * NÃO é um trecho por parada: com paradas no mesmo ponto, é um por visita
+   * (`agruparParadasEmVisitas`), e na otimização com vínculo vem vazio.
+   * Nenhuma tela lê hoje; quem passar a ler precisa casar pelos pontos.
+   */
   legs: GoogleDirectionsLeg[];
   polyline?: string;
   isEstimated?: boolean;
