@@ -29,6 +29,7 @@ import type { Parada } from '@/components/gestor/nova-entrega/types';
 import {
   avaliarSanidadeGeografica,
   encontrarParadaDuplicada,
+  mensagemParadaDuplicada,
   generateUniqueId,
   criarParadaCheckpoint,
   prepararParadasParaInserir,
@@ -344,14 +345,57 @@ describe('useNovaEntrega.helpers', () => {
         encontrarParadaDuplicada([existing], {
           endereco: '  RUA DAS FLORES 100 ',
           telefone: '(85) 98888-1111',
+          tipo: 'entrega',
         }),
       ).toBe(existing);
       expect(
         encontrarParadaDuplicada([existing], {
           endereco: 'Outro endereço',
           telefone: '85999990000',
+          tipo: 'entrega',
         }),
       ).toBe(existing);
+    });
+
+    // Entrega e retirada para o mesmo cliente, no mesmo endereço, é uma visita
+    // combinada (troca de equipamento), não um cadastro repetido. Antes, a
+    // importação em lote descartava a segunda linha sem perguntar.
+    it('does not flag a pickup at the same address and phone as a delivery', () => {
+      const delivery = createStop();
+
+      expect(
+        encontrarParadaDuplicada([delivery], {
+          endereco: delivery.endereco,
+          telefone: delivery.telefone,
+          tipo: 'retirada',
+        }),
+      ).toBeNull();
+    });
+
+    // A regra agora é "mesmo TIPO + endereço ou telefone". A mensagem precisa
+    // dizer o tipo, senão, num endereço com entrega + retirada, o gestor lê
+    // "já existe uma parada aqui" e conclui que a regra está errada.
+    it('names the type of the existing stop in the duplicate warning', () => {
+      expect(
+        mensagemParadaDuplicada(
+          createStop({ tipo: 'retirada', destinatario: 'Maria' }),
+        ),
+      ).toBe(
+        'Já existe uma retirada para Maria no mesmo endereço ou telefone. Deseja manter as duas?',
+      );
+    });
+
+    it('still flags a second stop of the same type inside a combined visit', () => {
+      const delivery = createStop({ id: 'delivery' });
+      const pickup = createStop({ id: 'pickup', tipo: 'retirada' });
+
+      expect(
+        encontrarParadaDuplicada([delivery, pickup], {
+          endereco: delivery.endereco,
+          telefone: '85911112222',
+          tipo: 'retirada',
+        }),
+      ).toBe(pickup);
     });
 
     it('rejects a delivery ordered before its linked pickup', () => {

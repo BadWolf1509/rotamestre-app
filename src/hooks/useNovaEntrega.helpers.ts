@@ -270,9 +270,18 @@ export function normalizeComparable(value: string): string {
     .toLowerCase();
 }
 
+/**
+ * Só é duplicata a parada do MESMO tipo que repete endereço ou telefone.
+ *
+ * Entrega e retirada no mesmo endereço, para o mesmo cliente, é uma visita
+ * combinada (troca de equipamento), não cadastro repetido: em produção, 34
+ * pares assim até 19/10/2026. Sem o tipo na comparação, o cadastro manual
+ * exigia confirmar "Possível parada duplicada" e a importação em lote
+ * descartava a segunda linha sem perguntar.
+ */
 export function encontrarParadaDuplicada(
   paradas: Parada[],
-  candidata: { endereco: string; telefone: string },
+  candidata: Pick<Parada, 'endereco' | 'telefone' | 'tipo'>,
   ignorarId?: string,
 ): Parada | null {
   const endereco = normalizeComparable(candidata.endereco);
@@ -281,6 +290,7 @@ export function encontrarParadaDuplicada(
   return (
     paradas.find((parada) => {
       if (parada.id === ignorarId) return false;
+      if (parada.tipo !== candidata.tipo) return false;
       const mesmoEndereco = normalizeComparable(parada.endereco) === endereco;
       const mesmoTelefone =
         telefone.length >= 10 &&
@@ -288,6 +298,13 @@ export function encontrarParadaDuplicada(
       return mesmoEndereco || mesmoTelefone;
     }) ?? null
   );
+}
+
+/** Aviso do cadastro manual; cita o tipo porque é ele que define a duplicata. */
+export function mensagemParadaDuplicada(
+  duplicada: Pick<Parada, 'tipo' | 'destinatario'>,
+): string {
+  return `Já existe uma ${duplicada.tipo} para ${duplicada.destinatario} no mesmo endereço ou telefone. Deseja manter as duas?`;
 }
 
 export function distanceInMeters(
