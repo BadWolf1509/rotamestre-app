@@ -288,4 +288,38 @@ describe('useParadasManagement', () => {
     expect(importResult).toMatchObject({ adicionadas: 1, ignoradas: 1 });
     expect(result.current.paradas).toHaveLength(2);
   });
+
+  it('imports a delivery and a pickup for the same customer and address', async () => {
+    const existing = createStop(0);
+    const { result } = renderHook(() => useSubject([existing]));
+
+    let importResult;
+    await act(async () => {
+      importResult = await result.current.importParadas([
+        // Retirada no endereço de uma entrega que já está na lista…
+        {
+          ...baseStop,
+          tipo: 'retirada',
+          endereco: existing.endereco,
+          telefone: existing.telefone,
+        },
+        // …e um par novo dentro do mesmo lote.
+        { ...baseStop, endereco: 'Rua nova, 500', telefone: '11666666666' },
+        {
+          ...baseStop,
+          tipo: 'retirada',
+          endereco: 'Rua nova, 500',
+          telefone: '11666666666',
+        },
+      ]);
+    });
+
+    expect(importResult).toMatchObject({ adicionadas: 3, ignoradas: 0 });
+    expect(result.current.paradas.map((p) => p.tipo)).toEqual([
+      'entrega',
+      'retirada',
+      'entrega',
+      'retirada',
+    ]);
+  });
 });

@@ -344,14 +344,44 @@ describe('useNovaEntrega.helpers', () => {
         encontrarParadaDuplicada([existing], {
           endereco: '  RUA DAS FLORES 100 ',
           telefone: '(85) 98888-1111',
+          tipo: 'entrega',
         }),
       ).toBe(existing);
       expect(
         encontrarParadaDuplicada([existing], {
           endereco: 'Outro endereço',
           telefone: '85999990000',
+          tipo: 'entrega',
         }),
       ).toBe(existing);
+    });
+
+    // Entrega e retirada para o mesmo cliente, no mesmo endereço, é uma visita
+    // combinada (troca de equipamento), não um cadastro repetido. Antes, a
+    // importação em lote descartava a segunda linha sem perguntar.
+    it('does not flag a pickup at the same address and phone as a delivery', () => {
+      const delivery = createStop();
+
+      expect(
+        encontrarParadaDuplicada([delivery], {
+          endereco: delivery.endereco,
+          telefone: delivery.telefone,
+          tipo: 'retirada',
+        }),
+      ).toBeNull();
+    });
+
+    it('still flags a second stop of the same type inside a combined visit', () => {
+      const delivery = createStop({ id: 'delivery' });
+      const pickup = createStop({ id: 'pickup', tipo: 'retirada' });
+
+      expect(
+        encontrarParadaDuplicada([delivery, pickup], {
+          endereco: delivery.endereco,
+          telefone: '85911112222',
+          tipo: 'retirada',
+        }),
+      ).toBe(pickup);
     });
 
     it('rejects a delivery ordered before its linked pickup', () => {
