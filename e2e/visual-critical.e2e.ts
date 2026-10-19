@@ -264,6 +264,7 @@ test.describe('Critical Flows - Mapa @funcional @auth', () => {
       `[fixture] rota ${fixture.rotaId}: rota=${fixture.acao} ` +
         `paradas=${fixture.paradas} ` +
         `(antes: ${fixture.statusAntes}, ${fixture.dataAntes}, ` +
+        `iniciada ${fixture.iniciadaAntes ?? 'nunca'}, ` +
         `${fixture.pendentesAntes} pendentes)`,
     );
 
