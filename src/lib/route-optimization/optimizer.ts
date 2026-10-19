@@ -32,7 +32,10 @@ import type { ParadaParaOtimizar, ResultadoOtimizacao } from './types';
 
 /**
  * Rota na ordem já decidida, com todas as paradas. Falha aqui não desfaz a
- * otimização: fica a medida do TSP, que subestima o trecho entre endereços.
+ * otimização. Na prática o OSRM sem otimizar quase nunca devolve null: a falha
+ * vira estimativa em linha reta (`is_estimated`), que a revisão da rota
+ * bloqueia até recalcular. Só no null raro fica a medida do TSP, que subestima
+ * o trecho entre endereços.
  */
 async function medirRotaCompleta(
   origem: Coordenadas,
@@ -51,6 +54,11 @@ async function medirRotaCompleta(
     if (!rota) {
       logger.warn(
         '[RouteOptimization] Rota completa indisponivel; distancia do TSP mantida',
+        { paradas: paradasOrdenadas.length },
+      );
+    } else if (rota.is_estimated === true) {
+      logger.warn(
+        '[RouteOptimization] Rota completa saiu como estimativa em linha reta',
         { paradas: paradasOrdenadas.length },
       );
     }
@@ -165,7 +173,10 @@ export async function otimizarRotaComDependencias(
     duracaoTotalSegundos: medida.duracao_total_segundos,
     polyline: medida.polyline,
     ordemIndices,
-    isEstimated: medida.is_estimated === true,
+    // Estimada se a ordem OU a medida veio do fallback: medir de verdade uma
+    // ordem decidida sobre distâncias em linha reta não a torna confirmável.
+    isEstimated:
+      resultado.is_estimated === true || medida.is_estimated === true,
   };
 
   salvarNoCache(hashRota, resultadoFinal).then(() => {

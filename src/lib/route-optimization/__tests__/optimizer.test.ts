@@ -386,6 +386,64 @@ describe('otimizarRotaComDependencias', () => {
       expect(result!.polyline).toBe('sequencial');
     });
 
+    it('marca estimativa quando a rota completa cai no fallback em linha reta', async () => {
+      // Com optimize=false o OSRM quase nunca devolve null: falha vira
+      // estimativa Haversine, que bloqueia o "Confirmar" da revisão.
+      const paradas = [
+        makeParada({ id: 'r1', tipo: 'retirada', ...OUTRO }),
+        makeParada({
+          id: 'e1',
+          tipo: 'entrega',
+          vinculo_parada_id: 'r1',
+          ...PONTO,
+        }),
+      ];
+      mockGetDirections.mockResolvedValue(mockDirectionsResponse([0]));
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 7000,
+        duracao_total_segundos: 900,
+        polyline: 'estimado',
+        ordem_otimizada: [],
+        legs: [],
+        is_estimated: true,
+      });
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(result!.isEstimated).toBe(true);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('estimativa'),
+        expect.anything(),
+      );
+    });
+
+    it('continua estimada se a ORDEM veio de estimativa, mesmo com a rota completa medida', async () => {
+      const paradas = [
+        makeParada({ id: 'r1', tipo: 'retirada', ...OUTRO }),
+        makeParada({
+          id: 'e1',
+          tipo: 'entrega',
+          vinculo_parada_id: 'r1',
+          ...PONTO,
+        }),
+      ];
+      mockGetDirections.mockResolvedValue({
+        ...mockDirectionsResponse([0]),
+        is_estimated: true,
+      });
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 9000,
+        duracao_total_segundos: 1500,
+        polyline: 'sequencial',
+        ordem_otimizada: [],
+        legs: [],
+      });
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(result!.isEstimated).toBe(true);
+    });
+
     it('fica com a distância do TSP se a rota completa falhar', async () => {
       const paradas = [
         makeParada({ id: 'r1', tipo: 'retirada', ...OUTRO }),
