@@ -38,15 +38,18 @@ export interface UseMotoristasOperationsReturn {
 
   // Actions
   loadMotoristas: () => Promise<void>;
-  adicionarMotorista: (formData: FormData, onSuccess: () => void) => Promise<void>;
+  adicionarMotorista: (
+    formData: FormData,
+    onSuccess: () => void,
+  ) => Promise<void>;
   editarMotorista: (
     formData: FormData,
     motoristaId: string,
-    onSuccess: () => void
+    onSuccess: () => void,
   ) => Promise<void>;
   confirmarToggleAtivo: (
     motorista: MotoristaDetalhado,
-    onSuccess: () => void
+    onSuccess: () => void,
   ) => Promise<void>;
 
   // Toast
@@ -87,7 +90,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           usuarios (
             id, nome, email, telefone, foto_url, ativo, created_at
           )
-        `
+        `,
         )
         .eq('unidade_id', unidadeAtiva)
         .eq('papel', 'motorista')
@@ -154,7 +157,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Erro ao obter sessão', sessionError);
           showToast(
             `Erro ao obter sessão: ${sessionError.message}. Faça logout e login novamente.`,
-            'error'
+            'error',
           );
           return;
         }
@@ -163,12 +166,14 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Sessão não encontrada');
           showToast(
             'Sua sessão expirou. Por favor, faça login novamente.',
-            'error'
+            'error',
           );
           return;
         }
 
-        logger.debug('[Motoristas] Sessão obtida', { email: session.user.email });
+        logger.debug('[Motoristas] Sessão obtida', {
+          email: session.user.email,
+        });
 
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
         const functionUrl = `${supabaseUrl}/functions/v1/criar-motorista`;
@@ -194,12 +199,14 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Erro de rede', fetchError);
           showToast(
             `Erro de conexão: ${fetchError.message}. Verifique se a função foi deployada.`,
-            'error'
+            'error',
           );
           return;
         }
 
-        logger.debug('[Motoristas] Response status', { status: response.status });
+        logger.debug('[Motoristas] Response status', {
+          status: response.status,
+        });
 
         let result;
         try {
@@ -210,7 +217,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Erro ao parsear resposta', parseError);
           showToast(
             'A Edge Function retornou uma resposta inválida. Função não deployada corretamente.',
-            'error'
+            'error',
           );
           return;
         }
@@ -237,7 +244,10 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
-        logger.error('[Motoristas] Erro inesperado ao adicionar motorista', error);
+        logger.error(
+          '[Motoristas] Erro inesperado ao adicionar motorista',
+          error,
+        );
         let message = 'Não foi possível adicionar o motorista';
         if (error instanceof Error) {
           message = error.message;
@@ -249,7 +259,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         setSalvando(false);
       }
     },
-    [loadMotoristas, showToast, userData]
+    [loadMotoristas, showToast, userData],
   );
 
   // ============================================================================
@@ -311,7 +321,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         setSalvando(false);
       }
     },
-    [loadMotoristas, showToast, userData]
+    [loadMotoristas, showToast, userData],
   );
 
   // ============================================================================
@@ -326,22 +336,28 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         await withToast(
           async () => {
             // Use centralized query for update
-            const result = await updateUsuario(motorista.id, { ativo: novoStatus });
+            const result = await updateUsuario(motorista.id, {
+              ativo: novoStatus,
+            });
             if (!result.success) throw new Error(result.error.message);
 
             // Log action using centralized logging
             if (userData) {
-              logUserAction(userData.id, novoStatus ? 'motorista_ativado' : 'motorista_desativado', {
-                motorista_id: motorista.id,
-                motorista_nome: motorista.nome,
-              });
+              logUserAction(
+                userData.id,
+                novoStatus ? 'motorista_ativado' : 'motorista_desativado',
+                {
+                  motorista_id: motorista.id,
+                  motorista_nome: motorista.nome,
+                },
+              );
             }
           },
           {
             loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
             success: `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`,
             error: 'Não foi possível alterar o status do motorista',
-          }
+          },
         );
         onSuccess();
         loadMotoristas();
@@ -349,7 +365,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         logger.error('[Motoristas] Erro ao alterar status', error);
       }
     },
-    [loadMotoristas, userData, withToast]
+    [loadMotoristas, userData, withToast],
   );
 
   return {
