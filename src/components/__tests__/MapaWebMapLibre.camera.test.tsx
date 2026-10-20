@@ -233,6 +233,47 @@ describe('MapaWebMapLibre – câmera estável entre renders', () => {
     expect(mockMapa.flyTo).toHaveBeenCalledTimes(voos + 1);
   });
 
+  // Entrega e retirada no mesmo local dividem um pino: trocar a seleção entre
+  // elas (pela lista) tem de recentralizar e reabrir o popup.
+  it('selecionar outro serviço do mesmo pino volta a centralizar e abrir o popup', async () => {
+    const comRetirada = [
+      ...paradasDaRota(),
+      {
+        id: 'p3',
+        ordem: 3,
+        endereco: 'Rua B, 2',
+        latitude: -23.6,
+        longitude: -46.7,
+        status: 'pendente' as const,
+        tipo: 'retirada' as const,
+        is_checkpoint: true,
+      },
+    ];
+    const { rerender } = await renderizarCarregado({
+      paradas: comRetirada,
+      selectedParadaId: 'p2',
+    });
+    const popups = mockPopup.mock.calls.length;
+    const voos = mockMapa.flyTo.mock.calls.length;
+
+    rerender(elemento({ paradas: comRetirada, selectedParadaId: 'p3' }));
+
+    expect(mockPopup).toHaveBeenCalledTimes(popups + 1);
+    expect(mockMapa.flyTo).toHaveBeenCalledTimes(voos + 1);
+  });
+
+  it('reordenar com a parada selecionada atualiza o popup', async () => {
+    const { rerender } = await renderizarCarregado({ selectedParadaId: 'p1' });
+    const popups = mockPopup.mock.calls.length;
+
+    const reordenadas = paradasDaRota();
+    reordenadas[1] = { ...reordenadas[1], ordem: 2 };
+    reordenadas[2] = { ...reordenadas[2], ordem: 1 };
+    rerender(elemento({ selectedParadaId: 'p1', paradas: reordenadas }));
+
+    expect(mockPopup).toHaveBeenCalledTimes(popups + 1);
+  });
+
   it('paradas que mudam de verdade re-enquadram', async () => {
     const { rerender } = await renderizarCarregado();
 

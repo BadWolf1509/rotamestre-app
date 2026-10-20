@@ -761,23 +761,28 @@ export default function MapaWebMapLibre({
     return { alvo, isCheckpoint, isPartida, membros };
   }, [selectedParadaId, paradasComCoord, checkpoints, pinoPorParadaId]);
   const selecaoRef = useRef(selecao);
-  selecaoRef.current = selecao;
-  // Popup reabre se o conteúdo mostrado mudar (ex.: status pelo realtime).
+  useEffect(() => {
+    selecaoRef.current = selecao;
+  }, [selecao]);
+  // Popup reabre se a seleção ou o conteúdo mostrado mudar (ex.: status pelo
+  // realtime, ordem ao reordenar). O id selecionado entra porque serviços do
+  // mesmo local dividem o pino (e o alvo).
   const chaveDoPopup = selecao
     ? [
+        selectedParadaId,
         selecao.alvo.id,
         selecao.alvo.latitude,
         selecao.alvo.longitude,
         selecao.isPartida,
         ...selecao.membros.map(
           (m) =>
-            `${m.id}:${m.status}:${m.destinatario ?? ''}:${m.telefone ?? ''}:${m.endereco}`,
+            `${m.id}:${m.ordem}:${m.tipo}:${m.status}:${m.destinatario ?? ''}:${m.telefone ?? ''}:${m.endereco}`,
         ),
       ].join('|')
     : null;
   // A câmera só voa quando a seleção ou a posição dela muda.
   const chaveDoVoo = selecao
-    ? `${selecao.alvo.id}:${selecao.alvo.latitude},${selecao.alvo.longitude}`
+    ? `${selectedParadaId}:${selecao.alvo.latitude},${selecao.alvo.longitude}`
     : null;
 
   // Handle selected parada: popup
