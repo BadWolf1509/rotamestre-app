@@ -1,31 +1,36 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 
+import { CheckpointCallout } from '../CheckpointCallout';
 import { CheckpointMarker } from '../CheckpointMarker';
 
 describe('CheckpointMarker', () => {
+  it('é só o pino: o balão não fica dentro dele', () => {
+    const { queryByText, getByLabelText } = render(
+      <CheckpointMarker index={0} endereco="Rua A, 100" />,
+    );
+    expect(getByLabelText('PARTIDA, Rua A, 100')).toBeTruthy();
+    expect(queryByText('Copiar endereço')).toBeNull();
+  });
+
+  it('rotula CHEGADA para index 1+', () => {
+    const { getByLabelText } = render(
+      <CheckpointMarker index={1} endereco="Rua B, 200" />,
+    );
+    expect(getByLabelText('CHEGADA, Rua B, 200')).toBeTruthy();
+  });
+});
+
+describe('CheckpointCallout', () => {
   const onCopyAddress = jest.fn();
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('does not show callout when not selected', () => {
-    const { queryByText } = render(
-      <CheckpointMarker
-        index={0}
-        endereco="Rua A, 100"
-        isSelected={false}
-        onCopyAddress={onCopyAddress}
-      />,
-    );
-    expect(queryByText('PARTIDA')).toBeNull();
-  });
-
-  it('shows callout with PARTIDA label and address when selected (index 0)', () => {
+  it('mostra PARTIDA e o endereço (index 0)', () => {
     const { getByText } = render(
-      <CheckpointMarker
+      <CheckpointCallout
         index={0}
         endereco="Rua A, 100"
-        isSelected={true}
         onCopyAddress={onCopyAddress}
       />,
     );
@@ -33,28 +38,38 @@ describe('CheckpointMarker', () => {
     expect(getByText('Rua A, 100')).toBeTruthy();
   });
 
-  it('shows callout with CHEGADA label for index 1+', () => {
+  it('mostra CHEGADA para index 1+', () => {
     const { getByText } = render(
-      <CheckpointMarker
+      <CheckpointCallout
         index={1}
         endereco="Rua B, 200"
-        isSelected={true}
         onCopyAddress={onCopyAddress}
       />,
     );
     expect(getByText('CHEGADA')).toBeTruthy();
   });
 
-  it('shows unidade name in callout when selected and unidadeNome provided', () => {
+  it('mostra o nome da unidade quando informado', () => {
     const { getByText } = render(
-      <CheckpointMarker
+      <CheckpointCallout
         index={0}
         endereco="Rua A"
-        isSelected={true}
         unidadeNome="WJX Locações"
         onCopyAddress={onCopyAddress}
       />,
     );
     expect(getByText('WJX Locações')).toBeTruthy();
+  });
+
+  it('"Copiar endereço" entrega o endereço', () => {
+    const { getByText } = render(
+      <CheckpointCallout
+        index={0}
+        endereco="Rua A, 100"
+        onCopyAddress={onCopyAddress}
+      />,
+    );
+    fireEvent.press(getByText('Copiar endereço'));
+    expect(onCopyAddress).toHaveBeenCalledWith('Rua A, 100');
   });
 });

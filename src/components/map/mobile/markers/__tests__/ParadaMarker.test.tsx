@@ -1,6 +1,8 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { Linking } from 'react-native';
 
+import { ParadaCallout } from '../ParadaCallout';
 import { ParadaMarker } from '../ParadaMarker';
 
 const baseParada = {
@@ -13,106 +15,103 @@ const baseParada = {
   is_checkpoint: false,
 };
 
+const servicos = [
+  { ordem: 3, tipo: 'entrega', status: 'pendente' },
+  { ordem: 4, tipo: 'retirada', status: 'pendente' },
+];
+const principal = { ...baseParada, ordem: 3, tipo: 'entrega' };
+
 describe('ParadaMarker', () => {
-  it('renders the stop number', () => {
+  it('mostra o número da parada', () => {
     const { getByText } = render(
       <ParadaMarker parada={baseParada as any} isSelected={false} />,
     );
     expect(getByText('1')).toBeTruthy();
   });
 
-  it('does not show callout when not selected', () => {
+  it('é só o pino: o balão não fica dentro dele, nem selecionado', () => {
     const { queryByText } = render(
-      <ParadaMarker parada={baseParada as any} isSelected={false} />,
-    );
-    expect(queryByText('Parada 1')).toBeNull();
-  });
-
-  it('shows callout with address when selected', () => {
-    const { getByText } = render(
       <ParadaMarker parada={baseParada as any} isSelected={true} />,
     );
+    expect(queryByText('Parada 1')).toBeNull();
+    expect(queryByText('Rua Teste, 100')).toBeNull();
+  });
+
+  it('mostra o rótulo do grupo no pino', () => {
+    const { getByText } = render(
+      <ParadaMarker
+        parada={principal as any}
+        rotulo="3+4"
+        servicos={servicos}
+        isSelected={false}
+      />,
+    );
+    expect(getByText('3+4')).toBeTruthy();
+  });
+
+  it('descreve as paradas do grupo no accessibilityLabel', () => {
+    const { getByLabelText } = render(
+      <ParadaMarker
+        parada={principal as any}
+        rotulo="3+4"
+        servicos={servicos}
+        isSelected={false}
+      />,
+    );
+    expect(getByLabelText(/^Paradas 3 e 4/)).toBeTruthy();
+  });
+});
+
+describe('ParadaCallout', () => {
+  it('mostra título e endereço', () => {
+    const { getByText } = render(<ParadaCallout parada={baseParada as any} />);
     expect(getByText('Parada 1')).toBeTruthy();
     expect(getByText('Rua Teste, 100')).toBeTruthy();
   });
 
-  it('shows recipient in callout when selected', () => {
-    const parada = { ...baseParada, destinatario: 'João Silva' };
+  it('mostra o destinatário', () => {
     const { getByText } = render(
-      <ParadaMarker parada={parada as any} isSelected={true} />,
+      <ParadaCallout
+        parada={{ ...baseParada, destinatario: 'João Silva' } as any}
+      />,
     );
     expect(getByText('João Silva')).toBeTruthy();
   });
 
-  // Botão dentro do Marker não recebe toque no Android (ver MapaMobile);
-  // o "Ligar" fica no ParadaBottomSheet.
-  it('mostra o telefone no balão, mas sem botão de ligar', () => {
-    const parada = { ...baseParada, telefone: '83999990000' };
-    const { getByText, queryByLabelText } = render(
-      <ParadaMarker parada={parada as any} isSelected={true} />,
-    );
-    expect(getByText('83999990000')).toBeTruthy();
-    expect(queryByLabelText(/Ligar/)).toBeNull();
-  });
-
-  it('mostra a dica de ações só com comDicaDeAcoes', () => {
-    const { queryByText, rerender } = render(
-      <ParadaMarker parada={baseParada as any} isSelected={true} />,
-    );
-    expect(queryByText(/Toque para ver ações/)).toBeNull();
-
-    rerender(
-      <ParadaMarker
-        parada={baseParada as any}
-        isSelected={true}
-        comDicaDeAcoes
+  it('o telefone é um botão de ligar', () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    const { getByLabelText } = render(
+      <ParadaCallout
+        parada={{ ...baseParada, telefone: '83999990000' } as any}
       />,
     );
-    expect(queryByText(/Toque para ver ações/)).toBeTruthy();
+    fireEvent.press(getByLabelText('Ligar para 83999990000'));
+    expect(openURL).toHaveBeenCalledWith('tel:83999990000');
   });
 
-  describe('pino de um local com vários serviços', () => {
-    const servicos = [
-      { ordem: 3, tipo: 'entrega', status: 'pendente' },
-      { ordem: 4, tipo: 'retirada', status: 'pendente' },
-    ];
-    const principal = { ...baseParada, ordem: 3, tipo: 'entrega' };
+  it('com onAbrirAcoes: mostra a dica e o toque no balão abre as ações', () => {
+    const onAbrirAcoes = jest.fn();
+    const { getByText } = render(
+      <ParadaCallout parada={baseParada as any} onAbrirAcoes={onAbrirAcoes} />,
+    );
+    fireEvent.press(getByText('Rua Teste, 100'));
+    expect(onAbrirAcoes).toHaveBeenCalled();
+    expect(getByText(/Toque para ver ações/)).toBeTruthy();
+  });
 
-    it('mostra o rótulo do grupo no pino', () => {
-      const { getByText } = render(
-        <ParadaMarker
-          parada={principal as any}
-          rotulo="3+4"
-          servicos={servicos}
-          isSelected={false}
-        />,
-      );
-      expect(getByText('3+4')).toBeTruthy();
-    });
+  it('sem onAbrirAcoes (gestor): sem a dica', () => {
+    const { queryByText } = render(
+      <ParadaCallout parada={baseParada as any} />,
+    );
+    expect(queryByText(/Toque para ver ações/)).toBeNull();
+  });
 
-    it('lista cada serviço no balão', () => {
-      const { getByText } = render(
-        <ParadaMarker
-          parada={principal as any}
-          rotulo="3+4"
-          servicos={servicos}
-          isSelected={true}
-        />,
-      );
-      expect(getByText('3 · Entrega')).toBeTruthy();
-      expect(getByText('4 · Retirada')).toBeTruthy();
-    });
-
-    it('descreve as paradas do grupo no accessibilityLabel', () => {
-      const { getByLabelText } = render(
-        <ParadaMarker
-          parada={principal as any}
-          rotulo="3+4"
-          servicos={servicos}
-          isSelected={false}
-        />,
-      );
-      expect(getByLabelText(/^Paradas 3 e 4/)).toBeTruthy();
-    });
+  it('pino agrupado: lista cada serviço', () => {
+    const { getByText } = render(
+      <ParadaCallout parada={principal as any} servicos={servicos} />,
+    );
+    expect(getByText('Paradas 3 e 4')).toBeTruthy();
+    expect(getByText('3 · Entrega')).toBeTruthy();
+    expect(getByText('4 · Retirada')).toBeTruthy();
   });
 });

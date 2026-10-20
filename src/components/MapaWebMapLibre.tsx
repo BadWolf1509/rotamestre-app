@@ -164,6 +164,17 @@ export function createGrupoPopupContent(
   `;
 }
 
+/**
+ * Câmera da seleção. O popup abre ACIMA do pino; com o pino no centro do mapa,
+ * ele era cortado no topo em telas baixas. O offset (px, positivo = para
+ * baixo) põe o pino abaixo do centro, como o padding do balão no nativo.
+ */
+export function opcoesDoFlyToDaSelecao(
+  center: [number, number],
+): maplibregl.FlyToOptions {
+  return { center, zoom: 15, duration: 500, offset: [0, 120] };
+}
+
 /** Features do GeoJSON: checkpoints à parte, um pino por local nas paradas. */
 export function montarFeaturesDosMarcadores(
   checkpoints: Parada[],
@@ -738,11 +749,9 @@ export default function MapaWebMapLibre({
 
     // Pan to marker
     if (alvo.latitude != null && alvo.longitude != null) {
-      mapRef.current.flyTo({
-        center: [alvo.longitude, alvo.latitude],
-        zoom: 15,
-        duration: 500,
-      });
+      mapRef.current.flyTo(
+        opcoesDoFlyToDaSelecao([alvo.longitude, alvo.latitude]),
+      );
     }
   }, [
     selectedParadaId,

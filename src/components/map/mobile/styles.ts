@@ -47,11 +47,16 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     shadowRadius: 4,
     elevation: 5,
   },
-  markerWrapper: {
-    alignItems: 'center',
+  // Camada do balão sobre o mapa: não captura toque fora do próprio balão.
+  balaoCamada: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  calloutWrapper: {
-    marginBottom: theme.spacing['2'],
+  balaoSobreposto: {
+    position: 'absolute',
   },
   // Checkpoint compact blue marker - distinct icons for PARTIDA/CHEGADA
   checkpointMarkerCompact: {
@@ -175,6 +180,11 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm, // 14px
     color: theme.colors.textSecondary,
     flex: 1,
+  },
+  calloutPhoneText: {
+    fontSize: theme.typography.sm, // 14px
+    color: theme.colors.primary,
+    fontWeight: '500',
   },
   calloutDicaAcoes: {
     fontSize: theme.typography.sm, // 14px

@@ -107,6 +107,7 @@ import MapaWebMapLibre, {
   createGrupoPopupContent,
   htmlBotaoVerAcoes,
   montarFeaturesDosMarcadores,
+  opcoesDoFlyToDaSelecao,
 } from '../MapaWebMapLibre';
 
 // ---------------------------------------------------------------------------
@@ -318,5 +319,14 @@ describe('MapaWebMapLibre – um pino por local', () => {
     expect(
       createGrupoPopupContent([entrega, retirada], '#666', '#284093'),
     ).toContain('data-acao="ver-acoes"');
+  });
+
+  // O popup abre ACIMA do pino: centralizar o pino no meio do mapa cortava o
+  // popup no topo em telas baixas. O offset põe o pino abaixo do centro.
+  it('a seleção centraliza com o pino abaixo do centro, para o popup caber', () => {
+    const opcoes = opcoesDoFlyToDaSelecao([-46.63, -23.55]);
+    expect(opcoes.center).toEqual([-46.63, -23.55]);
+    expect(opcoes.offset?.[0]).toBe(0);
+    expect(opcoes.offset?.[1]).toBeGreaterThan(0);
   });
 });

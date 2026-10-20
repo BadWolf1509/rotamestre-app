@@ -121,16 +121,17 @@ describe('MapaMobile – toque no pino', () => {
     expect(onMarkerPress).toHaveBeenCalledWith('p2');
   });
 
-  it('toque no Marker do checkpoint abre o balão dele', () => {
-    const { getAllByTestId, queryByText } = render(
-      <MapaMobile paradas={[partida, parada]} />,
+  // O balão do checkpoint (sobre o mapa) está em MapaMobile.balaoSobreposto.
+  it('toque no Marker do checkpoint não chega ao mapa', () => {
+    const onMapPress = jest.fn();
+    const { getAllByTestId } = render(
+      <MapaMobile paradas={[partida, parada]} onMapPress={onMapPress} />,
     );
-    expect(queryByText('Copiar endereço')).toBeNull();
 
     const stopPropagation = tocarMarcador(getAllByTestId('marker')[0]);
 
-    expect(queryByText('Copiar endereço')).toBeTruthy();
     expect(stopPropagation).toHaveBeenCalled();
+    expect(onMapPress).not.toHaveBeenCalled();
   });
 });
 
@@ -197,21 +198,5 @@ describe('MapaMobile – toque no pino já selecionado', () => {
 
     expect(onSelectedMarkerPress).toHaveBeenCalledWith('p2');
     expect(onMarkerPress).not.toHaveBeenCalled();
-  });
-
-  it('o balão mostra a dica de ações só quando há onSelectedMarkerPress', () => {
-    const { queryByText, rerender } = render(
-      <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
-    );
-    expect(queryByText(/Toque para ver ações/)).toBeNull();
-
-    rerender(
-      <MapaMobile
-        paradas={[partida, parada]}
-        selectedParadaId="p1"
-        onSelectedMarkerPress={jest.fn()}
-      />,
-    );
-    expect(queryByText(/Toque para ver ações/)).toBeTruthy();
   });
 });

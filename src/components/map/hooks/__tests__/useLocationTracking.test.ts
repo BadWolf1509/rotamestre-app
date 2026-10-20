@@ -41,6 +41,30 @@ describe('useLocationTracking', () => {
     expect(result.current.isLocating).toBe(false);
   });
 
+  // A seleção de um pino deixa padding no topo da câmera (espaço do balão,
+  // useBalaoSobreposto) e o padding do MapLibre persiste: sem zerar, "minha
+  // localização" centralizaria o usuário abaixo do meio da tela.
+  it('centraliza no usuário zerando o padding deixado pela seleção', async () => {
+    (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
+      { status: 'granted' },
+    );
+    (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue({
+      coords: { latitude: -23.55, longitude: -46.63 },
+    });
+    const cameraRef = makeCameraRef();
+    const { result } = renderHook(() => useLocationTracking(cameraRef as any));
+
+    await act(async () => {
+      await result.current.handleCenterOnUser();
+    });
+
+    expect(mockSetStop).toHaveBeenCalledWith(
+      expect.objectContaining({
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
+      }),
+    );
+  });
+
   it('sets isLocating=true while requesting, then false after', async () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
       { status: 'granted' },
