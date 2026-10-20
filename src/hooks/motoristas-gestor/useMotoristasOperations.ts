@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { validatePhone } from '@/lib/phone';
 import { updateUsuario, logUserAction } from '@/lib/queries';
@@ -20,6 +21,24 @@ type VinculacaoComUsuario = {
   usuario_id: string;
   usuarios: MotoristaDetalhado | null;
 };
+
+const INDICE_TELEFONE_MOTORISTA = 'usuarios_motorista_telefone_unico';
+
+/**
+ * Se o erro é a colisão do índice único de telefone entre motoristas ativos,
+ * devolve a mensagem amigável do errorMapping; senão, null (quem chama mantém
+ * o comportamento de sempre). Aceita o Error relançado e o erro do Postgres.
+ */
+function mensagemTelefoneDuplicado(error: unknown): string | null {
+  const texto =
+    error instanceof Error
+      ? error.message
+      : error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : '';
+  if (!texto.includes(INDICE_TELEFONE_MOTORISTA)) return null;
+  return getErrorMessage(error).message;
+}
 
 interface FormData {
   nome: string;
@@ -240,7 +259,12 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         }
 
         logger.info('[Motoristas] Processo concluído com sucesso!');
-        showToast('Motorista adicionado com sucesso!', 'success');
+        showToast(
+          result.vinculado
+            ? 'Motorista vinculado à sua loja. Ele já vê as rotas daqui com a mesma conta.'
+            : 'Motorista adicionado com sucesso!',
+          'success',
+        );
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
@@ -311,7 +335,10 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
       } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao editar motorista', error);
         let message = 'Não foi possível editar o motorista';
-        if (error instanceof Error) {
+        const telefoneDuplicado = mensagemTelefoneDuplicado(error);
+        if (telefoneDuplicado) {
+          message = telefoneDuplicado;
+        } else if (error instanceof Error) {
           message = error.message;
         } else if (error && typeof error === 'object' && 'message' in error) {
           message = String(error.message);
@@ -363,9 +390,13 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         loadMotoristas();
       } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao alterar status', error);
+        // withToast mostra o texto fixo; no caso do telefone, o motivo é a
+        // informação útil (reativar esbarra em outro motorista ativo).
+        const telefoneDuplicado = mensagemTelefoneDuplicado(error);
+        if (telefoneDuplicado) showToast(telefoneDuplicado, 'error', 5000);
       }
     },
-    [loadMotoristas, userData, withToast],
+    [loadMotoristas, showToast, userData, withToast],
   );
 
   return {

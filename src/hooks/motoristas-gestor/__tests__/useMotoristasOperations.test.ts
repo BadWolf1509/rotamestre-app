@@ -514,6 +514,61 @@ describe('useMotoristasOperations', () => {
       );
     });
 
+    it('shows the link message when the edge function reports vinculado', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ success: true, vinculado: true }),
+          ),
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.adicionarMotorista(validFormData, onSuccess);
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Motorista vinculado à sua loja. Ele já vê as rotas daqui com a mesma conta.',
+        'success',
+      );
+      expect(mockShowToast).not.toHaveBeenCalledWith(
+        'Motorista adicionado com sucesso!',
+        'success',
+      );
+      expect(onSuccess).toHaveBeenCalled();
+    });
+
+    it('shows the edge function error text on duplicate phone (409)', async () => {
+      const texto =
+        'Este motorista já usa o RotaMestre em outra loja. Cadastre-o com o e-mail da conta dele para vinculá-lo à sua loja.';
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 409,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ error: texto, codigo: 'telefone_ja_cadastrado' }),
+          ),
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.adicionarMotorista(validFormData, onSuccess);
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(texto, 'error');
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
     it('handles non-ok response from edge function', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
@@ -715,6 +770,41 @@ describe('useMotoristasOperations', () => {
       );
     });
 
+    it('maps the unique-phone index violation to a friendly toast', async () => {
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: {
+          type: 'validation',
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+          originalError: {
+            code: '23505',
+            message:
+              'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+          },
+        },
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.editarMotorista(
+          validEditData,
+          'motorista-1',
+          onSuccess,
+        );
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+        'error',
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
     it('handles updateUsuario failure', async () => {
       mockUpdateUsuario.mockResolvedValue({
         success: false,
@@ -886,6 +976,42 @@ describe('useMotoristasOperations', () => {
         'motorista_desativado',
         { motorista_id: 'motorista-1', motorista_nome: 'João' },
       );
+    });
+
+    it('shows the mapped unique-phone message when reactivation fails', async () => {
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: {
+          type: 'validation',
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+          originalError: {
+            code: '23505',
+            message:
+              'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+          },
+        },
+      });
+      mockWithToast.mockImplementation(async (fn: () => Promise<void>) => {
+        await fn();
+      });
+
+      const motorista = criarMotoristaMock({ ativo: false });
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.confirmarToggleAtivo(motorista, onSuccess);
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+        'error',
+        5000,
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
     });
 
     it('handles updateUsuario failure in toggle', async () => {
