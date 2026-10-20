@@ -41,9 +41,9 @@ describe('useLocationTracking', () => {
     expect(result.current.isLocating).toBe(false);
   });
 
-  // A seleção de um pino deixa padding no topo da câmera (espaço do balão,
-  // useBalaoSobreposto) e o padding do MapLibre persiste: sem zerar, "minha
-  // localização" centralizaria o usuário abaixo do meio da tela.
+  // A seleção de um pino põe padding no topo da câmera (espaço do balão,
+  // useBalaoSobreposto). "Minha localização" o zera de forma explícita, sem
+  // depender do default da lib (setStop com center zera o que falta).
   it('centraliza no usuário zerando o padding deixado pela seleção', async () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
       { status: 'granted' },

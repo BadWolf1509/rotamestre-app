@@ -142,6 +142,11 @@ async function cameraParou() {
   });
 }
 
+afterEach(() => {
+  jest.restoreAllMocks();
+  jest.useRealTimers();
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockProject.mockResolvedValue([200, 500]);
@@ -285,5 +290,137 @@ describe('MapaMobile – balão sobreposto', () => {
     await act(async () => {});
 
     expect(mockSetString).toHaveBeenCalledWith('Base, 1');
+  });
+
+  // Câmera que já está no lugar não emite onRegionDidChange: o balão tem de
+  // aparecer pelo fim nominal da animação.
+  it('sem nenhum evento de região, o balão aparece ao fim da animação', async () => {
+    jest.useFakeTimers();
+    const utils = render(
+      <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
+    );
+    await medirMapa(utils);
+    expect(utils.queryByTestId('mapa-balao')).toBeNull();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    await medirBalao(utils);
+
+    expect(utils.getByTestId('mapa-balao')).toBeTruthy();
+  });
+
+  it('se a câmera começou a se mover, o fim nominal não traz o balão no meio do movimento', async () => {
+    jest.useFakeTimers();
+    const utils = render(
+      <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
+    );
+    await medirMapa(utils);
+    await act(async () => {
+      mapProps.onRegionWillChange?.({ nativeEvent: {} });
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(utils.queryByTestId('mapa-balao')).toBeNull();
+    await cameraParou();
+    await medirBalao(utils);
+    expect(utils.getByTestId('mapa-balao')).toBeTruthy();
+  });
+
+  it('resposta atrasada do project() de uma seleção antiga é descartada', async () => {
+    let resolverAntiga: (p: [number, number]) => void = () => {};
+    mockProject.mockImplementationOnce(
+      () => new Promise((r) => (resolverAntiga = r)),
+    );
+    const outra = {
+      ...parada,
+      id: 'p2',
+      ordem: 2,
+      endereco: 'Rua Outra, 2',
+      latitude: -25.5,
+      longitude: -49.3,
+    };
+    const utils = render(
+      <MapaMobile paradas={[partida, parada, outra]} selectedParadaId="p1" />,
+    );
+    await medirMapa(utils);
+    await cameraParou(); // project(p1) fica pendente
+
+    mockProject.mockResolvedValue([120, 450]);
+    utils.rerender(
+      <MapaMobile paradas={[partida, parada, outra]} selectedParadaId="p2" />,
+    );
+    await cameraParou();
+    await act(async () => {
+      resolverAntiga([380, 600]); // chega depois: não pode mover o balão
+    });
+    await medirBalao(utils);
+
+    const estilo = Object.assign(
+      {},
+      ...[utils.getByTestId('mapa-balao').props.style].flat(3),
+    );
+    expect(estilo.left).toBe(120 - 100);
+  });
+
+  it('balão que sairia pelo topo do mapa fica escondido', async () => {
+    mockProject.mockResolvedValue([200, 100]); // pino perto do topo
+    const utils = render(
+      <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
+    );
+    await medirMapa(utils);
+    await cameraParou();
+    await medirBalao(utils); // 120 de altura + pino: não cabe acima de y=100
+
+    const balao = utils.queryByTestId('mapa-balao');
+    const estilo = balao
+      ? Object.assign({}, ...[balao.props.style].flat(3))
+      : null;
+    expect(estilo?.opacity).toBe(0);
+  });
+
+  it('tocar no pino da parada selecionada fecha o balão da PARTIDA', async () => {
+    const onSelectedMarkerPress = jest.fn();
+    const utils = render(
+      <MapaMobile
+        paradas={[partida, parada]}
+        selectedParadaId="p1"
+        onSelectedMarkerPress={onSelectedMarkerPress}
+      />,
+    );
+    await medirMapa(utils);
+    await act(async () => {
+      fireEvent(utils.getAllByTestId('marker')[0], 'press', {
+        stopPropagation: jest.fn(),
+      });
+    });
+    await cameraParou();
+    await medirBalao(utils);
+    expect(utils.getByText('Copiar endereço')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent(utils.getAllByTestId('marker')[1], 'press', {
+        stopPropagation: jest.fn(),
+      });
+    });
+
+    expect(onSelectedMarkerPress).toHaveBeenCalledWith('p1');
+    expect(utils.queryByText('Copiar endereço')).toBeNull();
+  });
+
+  it('o espaço reservado para o balão cabe em mapa baixo (gestor no celular)', async () => {
+    const utils = render(<MapaMobile paradas={[partida, parada]} />);
+    await medirMapa(utils, 360, 400);
+    utils.rerender(
+      <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
+    );
+    await act(async () => {});
+
+    const topo = mockEaseTo.mock.calls.at(-1)?.[0].padding.top;
+    expect(topo).toBeGreaterThan(0);
+    expect(topo).toBeLessThanOrEqual(400 * 0.45);
   });
 });

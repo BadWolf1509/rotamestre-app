@@ -60,6 +60,9 @@ interface MapaMobileProps {
   storedRouteInfo?: RouteInfo | null;
 }
 
+/** Altura do pino de PARTIDA/CHEGADA (styles.checkpointMarkerCompact). */
+const ALTURA_PINO_CHECKPOINT = 36;
+
 /**
  * Toque no pino. No Android o filho do <Marker> é reposicionado fora do
  * Fabric, e um Pressable dentro dele nunca dispara onPress (o measure() vê a
@@ -67,9 +70,6 @@ interface MapaMobileProps {
  * onPress do próprio Marker. O evento sobe por bubbling até o onPress do Map,
  * que desfaria a seleção na mesma renderização (maplibre-react-native#1618).
  */
-/** Altura do pino de PARTIDA/CHEGADA (styles.checkpointMarkerCompact). */
-const ALTURA_PINO_CHECKPOINT = 36;
-
 function aoTocarPino(acao: () => void) {
   return (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
@@ -135,6 +135,13 @@ export function MapaMobile({
   const { proximaParadaPendente, handleNavigate, handleFitAll } =
     useNavigationActions(paradasReais, paradasComCoord as Parada[], cameraRef);
 
+  // Toque no pino já selecionado: abre as ações e fecha o balão do
+  // checkpoint, como o 1º toque (handleMarkerPress) já faz.
+  const abrirAcoes = (paradaId: string) => {
+    setSelectedCheckpointId(null);
+    onSelectedMarkerPress?.(paradaId);
+  };
+
   // Um pino por local: serviços no mesmo ponto saem juntos ("3+4").
   const pinos = montarPinosPorLocal(paradasFiltradas);
 
@@ -156,6 +163,7 @@ export function MapaMobile({
   const { ponto, onRegionWillChange, onRegionDidChange } = useBalaoSobreposto({
     mapRef,
     cameraRef,
+    alturaDoMapa: areaDoMapa?.altura ?? null,
     alvo: selecionado
       ? toLngLat({
           latitude: selecionado.latitude!,
@@ -234,7 +242,7 @@ export function MapaMobile({
                 selectedParadaId,
                 onSelectedMarkerPress != null,
               ) === 'abrir-acoes'
-                ? onSelectedMarkerPress?.(principal.id)
+                ? abrirAcoes(principal.id)
                 : handleMarkerPress(principal.id),
             )}
           >

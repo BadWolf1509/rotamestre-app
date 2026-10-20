@@ -45,21 +45,25 @@ export function BalaoSobreposto({
   const [x, y] = ponto;
   if (x < 0 || x > area.largura || y < 0 || y > area.altura) return null;
 
-  // Antes de medir, desenha invisível para obter o tamanho.
-  const posicao = tamanho
-    ? {
+  const top = tamanho ? y - alturaDoPino - VAO - tamanho.h : 0;
+  // Invisível antes de medir (precisa do tamanho) e quando não cabe acima do
+  // pino (sairia cortado pelo topo do mapa). Segue montado para medir.
+  const invisivel = !tamanho || top < 0;
+  const posicao = invisivel
+    ? { left: 0, top: 0, opacity: 0 }
+    : {
         left: Math.max(
           MARGEM,
           Math.min(x - tamanho.w / 2, area.largura - tamanho.w - MARGEM),
         ),
-        top: y - alturaDoPino - VAO - tamanho.h,
-      }
-    : { left: 0, top: 0, opacity: 0 };
+        top,
+      };
 
   return (
     <View
       testID="mapa-balao"
       style={[styles.balaoSobreposto, posicao]}
+      pointerEvents={invisivel ? 'none' : 'auto'}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (tamanho?.w !== width || tamanho?.h !== height) {
