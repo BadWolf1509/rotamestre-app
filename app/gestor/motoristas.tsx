@@ -137,9 +137,8 @@ export default function MotoristasGestor() {
         />
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
         <Text style={styles.hintText}>
-          Motorista que já usa o RotaMestre em outra loja? Cadastre com o mesmo
-          e-mail da conta dele: ele passa a ver as rotas das duas lojas com uma
-          conta só.
+          Motorista que já usa o RotaMestre em outra loja? Fale com o suporte
+          para usar a mesma conta nas duas lojas.
         </Text>
       </View>
 

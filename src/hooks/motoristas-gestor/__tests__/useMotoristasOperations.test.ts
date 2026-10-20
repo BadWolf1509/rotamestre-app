@@ -71,6 +71,7 @@ jest.mock('@/lib/phone', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
+    rpc: jest.fn(),
     auth: {
       getSession: jest.fn(),
       signInWithPassword: jest.fn(),
@@ -82,6 +83,10 @@ jest.mock('@/lib/supabase', () => ({
     },
   },
 }));
+
+// RPCs da tela Motoristas: a lista e o toggle
+const mockListar = jest.fn();
+const mockAlternar = jest.fn();
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -147,6 +152,15 @@ describe('useMotoristasOperations', () => {
     mockQueryBuilder = criarMockQueryBuilder();
     (supabase.from as jest.Mock).mockImplementation(() => mockQueryBuilder);
 
+    mockListar.mockResolvedValue({ data: [], error: null });
+    mockAlternar.mockResolvedValue({ data: 'pessoa', error: null });
+    (supabase.rpc as jest.Mock).mockImplementation(
+      (fn: string, args: Record<string, unknown>) =>
+        fn === 'listar_motoristas_unidade'
+          ? mockListar(args)
+          : mockAlternar(fn, args),
+    );
+
     mockUpdateUsuario.mockResolvedValue({ success: true, data: {} });
     mockLogUserAction.mockResolvedValue(undefined);
 
@@ -206,10 +220,7 @@ describe('useMotoristasOperations', () => {
         criarMotoristaMock({ id: 'mot-2', nome: 'Carlos' }),
       ];
 
-      mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
-        error: null,
-      });
+      mockListar.mockResolvedValue({ data: motoristas, error: null });
 
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -230,10 +241,7 @@ describe('useMotoristasOperations', () => {
         criarMotoristaMock({ id: 'mot-3', ativo: true }),
       ];
 
-      mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
-        error: null,
-      });
+      mockListar.mockResolvedValue({ data: motoristas, error: null });
 
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -250,14 +258,14 @@ describe('useMotoristasOperations', () => {
 
       renderHook(() => useMotoristasOperations());
 
-      // Wait a tick to confirm from was not called
+      // Wait a tick to confirm the list was not requested
       await new Promise((r) => setTimeout(r, 50));
 
-      expect(supabase.from).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it('shows error toast on load failure', async () => {
-      mockQueryBuilder.returns.mockResolvedValue({
+      mockListar.mockResolvedValue({
         data: null,
         error: { message: 'DB error' },
       });
@@ -274,15 +282,9 @@ describe('useMotoristasOperations', () => {
       );
     });
 
-    it('filters out null usuarios from vinculacoes', async () => {
-      mockQueryBuilder.returns.mockResolvedValue({
-        data: [
-          {
-            usuario_id: 'mot-1',
-            usuarios: criarMotoristaMock({ id: 'mot-1' }),
-          },
-          { usuario_id: 'mot-2', usuarios: null },
-        ],
+    it('loads from the RPC of the active unit (includes inactive links)', async () => {
+      mockListar.mockResolvedValue({
+        data: [criarMotoristaMock({ id: 'mot-1', ativo: false })],
         error: null,
       });
 
@@ -292,7 +294,12 @@ describe('useMotoristasOperations', () => {
         expect(result.current.loading).toBe(false);
       });
 
+      expect(supabase.rpc).toHaveBeenCalledWith('listar_motoristas_unidade', {
+        p_unidade_id: 'unidade-123',
+      });
+      expect(supabase.from).not.toHaveBeenCalledWith('usuario_unidades');
       expect(result.current.motoristas).toHaveLength(1);
+      expect(result.current.ativosMotoristas).toBe(0);
     });
   });
 
@@ -514,14 +521,16 @@ describe('useMotoristasOperations', () => {
       );
     });
 
-    it('shows the link message when the edge function reports vinculado', async () => {
+    it('shows the edge function text when the email already has an account (409)', async () => {
+      const msg =
+        'Este e-mail já tem uma conta no RotaMestre. Para usar o mesmo motorista em mais de uma loja, fale com o suporte.';
       mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
+        ok: false,
+        status: 409,
         text: jest
           .fn()
           .mockResolvedValue(
-            JSON.stringify({ success: true, vinculado: true }),
+            JSON.stringify({ error: msg, codigo: 'email_ja_cadastrado' }),
           ),
       });
 
@@ -533,15 +542,8 @@ describe('useMotoristasOperations', () => {
         await result.current.adicionarMotorista(validFormData, onSuccess);
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Motorista vinculado à sua loja. Ele já vê as rotas daqui com a mesma conta.',
-        'success',
-      );
-      expect(mockShowToast).not.toHaveBeenCalledWith(
-        'Motorista adicionado com sucesso!',
-        'success',
-      );
-      expect(onSuccess).toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith(msg, 'error');
+      expect(onSuccess).not.toHaveBeenCalled();
     });
 
     it('shows the edge function error text on duplicate phone (409)', async () => {
@@ -895,9 +897,15 @@ describe('useMotoristasOperations', () => {
         await result.current.confirmarToggleAtivo(motorista, onSuccess);
       });
 
-      expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-1', {
-        ativo: false,
-      });
+      expect(mockAlternar).toHaveBeenCalledWith(
+        'alternar_motorista_na_unidade',
+        {
+          p_motorista_id: 'motorista-1',
+          p_unidade_id: 'unidade-123',
+          p_ativo: false,
+        },
+      );
+      expect(mockUpdateUsuario).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalled();
     });
 
@@ -913,9 +921,14 @@ describe('useMotoristasOperations', () => {
         await result.current.confirmarToggleAtivo(motorista, onSuccess);
       });
 
-      expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-1', {
-        ativo: true,
-      });
+      expect(mockAlternar).toHaveBeenCalledWith(
+        'alternar_motorista_na_unidade',
+        {
+          p_motorista_id: 'motorista-1',
+          p_unidade_id: 'unidade-123',
+          p_ativo: true,
+        },
+      );
       expect(onSuccess).toHaveBeenCalled();
     });
 
@@ -984,15 +997,7 @@ describe('useMotoristasOperations', () => {
         message:
           'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
       };
-      mockUpdateUsuario.mockResolvedValue({
-        success: false,
-        error: {
-          type: 'validation',
-          code: '23505',
-          message: erroTelefone.message,
-          originalError: erroTelefone,
-        },
-      });
+      mockAlternar.mockResolvedValue({ data: null, error: erroTelefone });
       mockWithToast.mockImplementation(async (fn: () => Promise<void>) => {
         await fn();
       });
@@ -1016,14 +1021,24 @@ describe('useMotoristasOperations', () => {
       expect(opcoes.error(new Error('outro'))).toBe(
         'Não foi possível alterar o status do motorista',
       );
+      // regra de negócio do banco (P0001) chega ao gestor como foi escrita
+      expect(
+        opcoes.error({
+          code: 'P0001',
+          message:
+            'Este motorista também atende outra loja e está desativado. Para reativá-lo, fale com o suporte.',
+        }),
+      ).toBe(
+        'Este motorista também atende outra loja e está desativado. Para reativá-lo, fale com o suporte.',
+      );
       // o catch não mostra um segundo toast
       expect(mockShowToast).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it('handles updateUsuario failure in toggle', async () => {
-      mockUpdateUsuario.mockResolvedValue({
-        success: false,
+    it('handles RPC failure in toggle', async () => {
+      mockAlternar.mockResolvedValue({
+        data: null,
         error: { message: 'Update failed' },
       });
 
@@ -1049,7 +1064,7 @@ describe('useMotoristasOperations', () => {
         }
       });
 
-      // onSuccess should not be called since updateUsuario failed
+      // onSuccess should not be called since the RPC failed
       expect(onSuccess).not.toHaveBeenCalled();
     });
   });
@@ -1089,20 +1104,19 @@ describe('useMotoristasOperations', () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       // Reset call count after initial load
-      (supabase.from as jest.Mock).mockClear();
-      mockQueryBuilder = criarMockQueryBuilder([
-        {
-          usuario_id: 'mot-new',
-          usuarios: criarMotoristaMock({ id: 'mot-new', nome: 'Novo' }),
-        },
-      ]);
-      (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
+      (supabase.rpc as jest.Mock).mockClear();
+      mockListar.mockResolvedValue({
+        data: [criarMotoristaMock({ id: 'mot-new', nome: 'Novo' })],
+        error: null,
+      });
 
       await act(async () => {
         await result.current.loadMotoristas();
       });
 
-      expect(supabase.from).toHaveBeenCalledWith('usuario_unidades');
+      expect(supabase.rpc).toHaveBeenCalledWith('listar_motoristas_unidade', {
+        p_unidade_id: 'unidade-123',
+      });
       expect(result.current.motoristas).toHaveLength(1);
     });
   });
