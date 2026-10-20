@@ -350,7 +350,10 @@ function MotoristaInicioContent() {
       for (const alvo of alvos) {
         await skipStop(alvo.id, motivo, observacoes);
       }
-      showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
+      showSuccess(
+        alvos.length > 1 ? 'Paradas Puladas' : 'Parada Pulada',
+        SKIP_REASON_LABELS[motivo],
+      );
     } catch (error: unknown) {
       showError(error);
     }

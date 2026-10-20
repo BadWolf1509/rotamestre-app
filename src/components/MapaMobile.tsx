@@ -169,7 +169,7 @@ export function MapaMobile({
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
         {pinos.map(({ principal, membros, rotulo }) => (
           <MapLibreGL.Marker
-            key={principal.id}
+            key={membros[0].id}
             lngLat={toLngLat({
               latitude: principal.latitude!,
               longitude: principal.longitude!,

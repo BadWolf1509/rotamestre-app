@@ -12,8 +12,10 @@
  * Os componentes visuais viram stubs; o `useInicioModals` é o REAL, porque é
  * o estado dele — aberto, mas sem quem o desenhe — que está em jogo.
  */
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
+
+import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 
 import MotoristaInicio from '../inicio';
 
@@ -31,6 +33,15 @@ const PARADA = {
 let mockParadas: Array<typeof PARADA> = [PARADA];
 let mockCurrentStop: typeof PARADA = PARADA;
 const mockSkipStop = jest.fn();
+const mockShowSuccess = jest.fn();
+jest.mock('@/hooks/useAlert', () => ({
+  useAlert: () => ({
+    showWarning: jest.fn(),
+    showSuccess: (...a: unknown[]) => mockShowSuccess(...a),
+    showError: jest.fn(),
+    AlertDialog: () => null,
+  }),
+}));
 
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
@@ -94,9 +105,13 @@ jest.mock('@/components/motorista/StopCompletionFlow', () => {
     StopCompletionFlow: (props: {
       visible: boolean;
       parada: { id: string } | null;
+      contexto?: string | null;
     }) =>
       props.visible && props.parada ? (
-        <T>{`fluxo-conclusao:${props.parada.id}`}</T>
+        <>
+          <T>{`fluxo-conclusao:${props.parada.id}`}</T>
+          <T>{`contexto:${props.contexto ?? ''}`}</T>
+        </>
       ) : null,
   };
 });
@@ -417,6 +432,46 @@ describe('Início do motorista — visita no mesmo local', () => {
   });
 });
 
+describe('Início do motorista — restauração após a câmera', () => {
+  const entrega = {
+    ...PARADA,
+    id: 'entrega',
+    ordem: 3,
+    status: 'em_andamento',
+    tipo: 'entrega',
+  };
+  const retirada = {
+    ...PARADA,
+    id: 'retirada',
+    ordem: 4,
+    status: 'pendente',
+    tipo: 'retirada',
+  };
+
+  afterEach(() => {
+    mockParadas = [PARADA];
+    mockCurrentStop = PARADA;
+  });
+
+  it('reabre a conclusão pela sequência do local, com o aviso dos demais serviços', async () => {
+    mockParadas = [entrega, retirada];
+    mockCurrentStop = entrega;
+    const restaurar = useRestaurarConclusaoEmVoo as jest.Mock;
+    restaurar.mockClear();
+    const { findByText } = render(<MotoristaInicio />);
+
+    const aoRestaurar = restaurar.mock.calls.at(-1)?.[2] as (
+      p: typeof entrega,
+    ) => void;
+    act(() => aoRestaurar(entrega));
+
+    expect(await findByText('fluxo-conclusao:entrega')).toBeTruthy();
+    expect(
+      await findByText('contexto:Mais 1 serviço neste local: Retirada'),
+    ).toBeTruthy();
+  });
+});
+
 /**
  * Cliente ausente vale para o local, não para o serviço: quem pula a entrega
  * porque ninguém atendeu não tem o que retirar ali. O modal oferece pular os
@@ -484,6 +539,36 @@ describe('Início do motorista — pular os serviços do local juntos', () => {
       'retirada',
       'cliente_ausente',
       undefined,
+    );
+  });
+
+  it('avisa no plural quando pula mais de uma parada', async () => {
+    mockShowSuccess.mockClear();
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-com-outros'));
+
+    await waitFor(() =>
+      expect(mockShowSuccess).toHaveBeenCalledWith(
+        'Paradas Puladas',
+        expect.any(String),
+      ),
+    );
+  });
+
+  it('avisa no singular quando pula só uma parada', async () => {
+    mockShowSuccess.mockClear();
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-sem-outros'));
+
+    await waitFor(() =>
+      expect(mockShowSuccess).toHaveBeenCalledWith(
+        'Parada Pulada',
+        expect.any(String),
+      ),
     );
   });
 
