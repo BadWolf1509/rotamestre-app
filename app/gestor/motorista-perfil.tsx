@@ -21,7 +21,11 @@ import {
   RotasRecentes,
   styles,
 } from '@/components/gestor/motorista-perfil';
-import type { Motorista, MotoristaPerformance, RotaRecente } from '@/components/gestor/motorista-perfil';
+import type {
+  Motorista,
+  MotoristaPerformance,
+  RotaRecente,
+} from '@/components/gestor/motorista-perfil';
 import {
   DesktopCard,
   DesktopModal,
@@ -55,7 +59,9 @@ export default function MotoristaPerfil() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [motorista, setMotorista] = useState<Motorista | null>(null);
-  const [performance, setPerformance] = useState<MotoristaPerformance | null>(null);
+  const [performance, setPerformance] = useState<MotoristaPerformance | null>(
+    null,
+  );
   const [rotasRecentes, setRotasRecentes] = useState<RotaRecente[]>([]);
   const [showToggleModal, setShowToggleModal] = useState(false);
 
@@ -134,7 +140,6 @@ export default function MotoristaPerfil() {
 
       if (rotasError) throw rotasError;
       setRotasRecentes(rotasData || []);
-
     } catch (error) {
       logger.error('Erro ao carregar dados:', error);
       showToast('Não foi possível carregar os dados do motorista', 'error');
@@ -174,7 +179,7 @@ export default function MotoristaPerfil() {
       setMotorista({ ...motorista, ativo: newStatus });
       showToast(
         `Motorista ${newStatus ? 'ativado' : 'desativado'} com sucesso`,
-        'success'
+        'success',
       );
       setShowToggleModal(false);
     } catch (error) {
@@ -215,7 +220,9 @@ export default function MotoristaPerfil() {
     }
 
     if (formTelefone && !validatePhone(formTelefone)) {
-      setTelefoneError(getPhoneErrorMessage(formTelefone) || 'Telefone inválido');
+      setTelefoneError(
+        getPhoneErrorMessage(formTelefone) || 'Telefone inválido',
+      );
       return;
     }
 
@@ -279,7 +286,11 @@ export default function MotoristaPerfil() {
       <View style={editStyles.inputGroup}>
         <Text style={editStyles.label}>Email</Text>
         <TextInput
-          style={[editStyles.input, isDesktop && editStyles.inputCompact, editStyles.inputDisabled]}
+          style={[
+            editStyles.input,
+            isDesktop && editStyles.inputCompact,
+            editStyles.inputDisabled,
+          ]}
           value={formEmail}
           editable={false}
           placeholderTextColor={theme.colors.gray400}
@@ -291,7 +302,11 @@ export default function MotoristaPerfil() {
       <View style={editStyles.inputGroup}>
         <Text style={editStyles.label}>Telefone</Text>
         <TextInput
-          style={[editStyles.input, isDesktop && editStyles.inputCompact, telefoneError ? editStyles.inputError : null]}
+          style={[
+            editStyles.input,
+            isDesktop && editStyles.inputCompact,
+            telefoneError ? editStyles.inputError : null,
+          ]}
           value={formTelefone}
           onChangeText={handleTelefoneChange}
           placeholder="(00) 00000-0000"
@@ -353,45 +368,131 @@ export default function MotoristaPerfil() {
   if (isDesktop) {
     return (
       <ErrorBoundary>
-      <DesktopPageLayout
-        title={pageMeta.title}
-        subtitle={pageMeta.subtitle}
-        breadcrumbs={pageMeta.breadcrumbs}
-        userMenuTrigger={userMenuTrigger}
-        userMenuItems={userMenuItems}
-      >
-        <View style={styles.contentDesktop}>
-          <SplitView
-            left={
-              <DesktopCard title="Informações" icon="person" noPadding={false}>
-                <PerfilHeader
-                  motorista={motorista}
-                  onEdit={handleEdit}
-                  onToggleStatus={() => setShowToggleModal(true)}
-                />
-              </DesktopCard>
-            }
-            right={
-              <View style={styles.rightColumn}>
-                <DesktopCard title="Performance" icon="stats-chart" noPadding={false}>
-                  {performance && <PerformanceKPIs performance={performance} />}
-                </DesktopCard>
-
-                <DesktopCard title="Rotas Recentes" icon="navigate" noPadding={false}>
-                  <RotasRecentes
-                    rotas={rotasRecentes}
-                    onVerTodas={handleVerTodasRotas}
+        <DesktopPageLayout
+          title={pageMeta.title}
+          subtitle={pageMeta.subtitle}
+          breadcrumbs={pageMeta.breadcrumbs}
+          userMenuTrigger={userMenuTrigger}
+          userMenuItems={userMenuItems}
+        >
+          <View style={styles.contentDesktop}>
+            <SplitView
+              left={
+                <DesktopCard
+                  title="Informações"
+                  icon="person"
+                  noPadding={false}
+                >
+                  <PerfilHeader
+                    motorista={motorista}
+                    onEdit={handleEdit}
+                    onToggleStatus={() => setShowToggleModal(true)}
                   />
                 </DesktopCard>
-              </View>
-            }
-            leftFlex={0.8}
-            rightFlex={1.2}
-            gap={24}
-          />
-        </View>
+              }
+              right={
+                <View style={styles.rightColumn}>
+                  <DesktopCard
+                    title="Performance"
+                    icon="stats-chart"
+                    noPadding={false}
+                  >
+                    {performance && (
+                      <PerformanceKPIs performance={performance} />
+                    )}
+                  </DesktopCard>
 
-        {/* Edit Modal (Desktop) */}
+                  <DesktopCard
+                    title="Rotas Recentes"
+                    icon="navigate"
+                    noPadding={false}
+                  >
+                    <RotasRecentes
+                      rotas={rotasRecentes}
+                      onVerTodas={handleVerTodasRotas}
+                    />
+                  </DesktopCard>
+                </View>
+              }
+              leftFlex={0.8}
+              rightFlex={1.2}
+              gap={24}
+            />
+          </View>
+
+          {/* Edit Modal (Desktop) */}
+          <DesktopModal
+            visible={showEditModal}
+            onClose={closeEditModal}
+            title="Editar Motorista"
+            maxWidth={480}
+            primaryButton={{
+              text: 'Salvar',
+              onPress: handleSaveEdit,
+              loading: salvando,
+            }}
+            secondaryButton={{
+              text: 'Cancelar',
+              onPress: closeEditModal,
+              disabled: salvando,
+            }}
+          >
+            {renderEditFormContent()}
+          </DesktopModal>
+
+          {/* Toggle Status Modal */}
+          <Dialog
+            visible={showToggleModal}
+            variant="confirm"
+            title={motorista.ativo ? 'Desativar Motorista' : 'Ativar Motorista'}
+            message={`Tem certeza que deseja ${motorista.ativo ? 'desativar' : 'ativar'} ${motorista.nome}?`}
+            confirmText={motorista.ativo ? 'Desativar' : 'Ativar'}
+            cancelText="Cancelar"
+            onConfirm={handleToggleStatus}
+            onCancel={() => setShowToggleModal(false)}
+            type={motorista.ativo ? 'danger' : 'success'}
+          />
+
+          {/* Logout Modal */}
+          {logoutModal}
+
+          {/* Toast */}
+          <Toast {...toast} onDismiss={hideToast} />
+        </DesktopPageLayout>
+      </ErrorBoundary>
+    );
+  }
+
+  // ===== Mobile Layout =====
+  return (
+    <ErrorBoundary>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.content}>
+            {/* Header Card */}
+            <PerfilHeader
+              motorista={motorista}
+              onEdit={handleEdit}
+              onToggleStatus={() => setShowToggleModal(true)}
+            />
+
+            {/* Performance KPIs */}
+            {performance && <PerformanceKPIs performance={performance} />}
+
+            {/* Recent Routes */}
+            <RotasRecentes
+              rotas={rotasRecentes}
+              onVerTodas={handleVerTodasRotas}
+            />
+          </View>
+        </ScrollView>
+
+        {/* Edit Modal (Mobile) */}
         <DesktopModal
           visible={showEditModal}
           onClose={closeEditModal}
@@ -424,82 +525,10 @@ export default function MotoristaPerfil() {
           type={motorista.ativo ? 'danger' : 'success'}
         />
 
-        {/* Logout Modal */}
-        {logoutModal}
-
         {/* Toast */}
         <Toast {...toast} onDismiss={hideToast} />
-      </DesktopPageLayout>
-      </ErrorBoundary>
-    );
-  }
-
-  // ===== Mobile Layout =====
-  return (
-    <ErrorBoundary>
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.content}>
-          {/* Header Card */}
-          <PerfilHeader
-            motorista={motorista}
-            onEdit={handleEdit}
-            onToggleStatus={() => setShowToggleModal(true)}
-          />
-
-          {/* Performance KPIs */}
-          {performance && <PerformanceKPIs performance={performance} />}
-
-          {/* Recent Routes */}
-          <RotasRecentes
-            rotas={rotasRecentes}
-            onVerTodas={handleVerTodasRotas}
-          />
-        </View>
-      </ScrollView>
-
-      {/* Edit Modal (Mobile) */}
-      <DesktopModal
-        visible={showEditModal}
-        onClose={closeEditModal}
-        title="Editar Motorista"
-        maxWidth={480}
-        primaryButton={{
-          text: 'Salvar',
-          onPress: handleSaveEdit,
-          loading: salvando,
-        }}
-        secondaryButton={{
-          text: 'Cancelar',
-          onPress: closeEditModal,
-          disabled: salvando,
-        }}
-      >
-        {renderEditFormContent()}
-      </DesktopModal>
-
-      {/* Toggle Status Modal */}
-      <Dialog
-        visible={showToggleModal}
-        variant="confirm"
-        title={motorista.ativo ? 'Desativar Motorista' : 'Ativar Motorista'}
-        message={`Tem certeza que deseja ${motorista.ativo ? 'desativar' : 'ativar'} ${motorista.nome}?`}
-        confirmText={motorista.ativo ? 'Desativar' : 'Ativar'}
-        cancelText="Cancelar"
-        onConfirm={handleToggleStatus}
-        onCancel={() => setShowToggleModal(false)}
-        type={motorista.ativo ? 'danger' : 'success'}
-      />
-
-      {/* Toast */}
-      <Toast {...toast} onDismiss={hideToast} />
-      {logoutModal}
-    </View>
+        {logoutModal}
+      </View>
     </ErrorBoundary>
   );
 }

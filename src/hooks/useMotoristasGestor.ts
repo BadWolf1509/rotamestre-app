@@ -109,7 +109,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     (motorista: MotoristaDetalhado) => {
       modals.openEditModal(motorista);
     },
-    [modals]
+    [modals],
   );
 
   const adicionarMotorista = useCallback(async () => {
@@ -123,7 +123,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
       () => {
         modals.setShowAddModal(false);
         form.resetFormulario();
-      }
+      },
     );
   }, [form, modals, operations]);
 
@@ -142,7 +142,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
         modals.setShowEditModal(false);
         modals.setMotoristaEditando(null);
         form.resetFormulario();
-      }
+      },
     );
   }, [form, modals, operations]);
 
@@ -150,7 +150,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     (motorista: MotoristaDetalhado) => {
       modals.openConfirmModal(motorista);
     },
-    [modals]
+    [modals],
   );
 
   const confirmarToggleAtivo = useCallback(async () => {
