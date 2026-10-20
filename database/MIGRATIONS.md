@@ -1251,12 +1251,14 @@ já houver duplicata ativa. Sem tabela nova e sem policy.
 **Cliente:** `errorMapping` traduz o índice para "Telefone já cadastrado"
 (`UNIQUE_TELEFONE_MOTORISTA`), em vez do "Registro duplicado" genérico.
 
-### ⏳ Migration 31: vínculo de motorista só pelo servidor
+### ✅ Migration 31: vínculo de motorista só pelo servidor
 
-**Arquivo:** `20261020220000_vinculo_motorista_seguro.sql` · **pendente de aplicação**
-(via MCP `apply_migration`, junto com a publicação da Edge Function
-`criar-motorista` da mesma PR). Antes, duas sondas transacionais (desfeitas)
-reproduziram os ataques no estado atual e mostraram o bloqueio no novo.
+**Arquivo:** `20261020220000_vinculo_motorista_seguro.sql` · **✅ aplicada em
+20/10/2026 pelo SQL Editor, sem registro em `schema_migrations`** (o `migration
+list` vai mostrá-la como pendente). O MCP `apply_migration` recusou por causa do
+`DROP POLICY`/`REVOKE`. Edge Function `criar-motorista` v15 publicada a partir da
+mesma PR. Antes, duas sondas transacionais (desfeitas) reproduziram os ataques no
+estado atual e mostraram o bloqueio no novo.
 
 **Vínculo sem consentimento.** A policy de INSERT de `usuario_unidades` só
 conferia a unidade de destino, nunca o `usuario_id`: qualquer gestor vinculava
