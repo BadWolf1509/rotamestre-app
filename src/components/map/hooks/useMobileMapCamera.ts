@@ -86,18 +86,34 @@ export function useMobileMapCamera(
   const cameraRef = useRef<CameraRef>(null);
   const fitPadding = useMapFitPadding();
 
-  // Fit all paradas into view once loaded
+  // Identidade das paradas pelo conteúdo: realtime e refetch entregam um
+  // array NOVO com as mesmas paradas, e re-enquadrar nisso devolvia o mapa à
+  // visão geral no meio do uso (pino selecionado e balão perdidos, PR #594).
+  const chave = paradasComCoord
+    .map((p) => `${p.id}:${p.latitude},${p.longitude}`)
+    .join('|');
+  const paradasRef = useRef(paradasComCoord);
+  paradasRef.current = paradasComCoord;
+  const chaveEnquadradaRef = useRef<string | null>(null);
+
+  // Fit all paradas into view once loaded (e de novo só se elas mudarem)
   useEffect(() => {
-    if (paradasComCoord.length > 1 && cameraRef.current) {
+    const paradas = paradasRef.current;
+    if (chaveEnquadradaRef.current === chave) return undefined;
+    // A câmera é conferida quando o timer dispara, não agora: este efeito só
+    // roda de novo se as paradas mudarem.
+    if (paradas.length > 1) {
       const bounds = getBounds(
-        paradasComCoord.map((parada) => ({
+        paradas.map((parada) => ({
           latitude: parada.latitude!,
           longitude: parada.longitude!,
         })),
       );
       if (!bounds) return undefined;
       const timer = setTimeout(() => {
-        cameraRef.current?.fitBounds(
+        if (!cameraRef.current) return;
+        chaveEnquadradaRef.current = chave;
+        cameraRef.current.fitBounds(
           [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]],
           {
             padding: fitPadding,
@@ -109,7 +125,7 @@ export function useMobileMapCamera(
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [paradasComCoord, fitPadding]);
+  }, [chave, fitPadding]);
 
   const initialRegion = useMemo(
     () => computeInitialRegion(paradasComCoord),

@@ -105,7 +105,9 @@ import { montarPinosPorLocal } from '@/lib/motorista/pinosPorLocal';
 
 import MapaWebMapLibre, {
   createGrupoPopupContent,
+  htmlBotaoVerAcoes,
   montarFeaturesDosMarcadores,
+  opcoesDoFlyToDaSelecao,
 } from '../MapaWebMapLibre';
 
 // ---------------------------------------------------------------------------
@@ -301,5 +303,30 @@ describe('MapaWebMapLibre – um pino por local', () => {
     expect(html).toContain('Entrega');
     expect(html).toContain('Retirada');
     expect(html).toContain('Paradas 3 e 4');
+  });
+
+  // Paridade com o balão nativo: as ações da parada saem do popup, não do
+  // 1º clique no pino.
+  it('o botão "Ver ações" do popup leva o marcador que o handler procura', () => {
+    expect(htmlBotaoVerAcoes('#284093')).toContain('data-acao="ver-acoes"');
+    expect(htmlBotaoVerAcoes('#284093')).toContain('Ver ações');
+  });
+
+  it('o popup do grupo inclui "Ver ações" só quando pedido', () => {
+    expect(createGrupoPopupContent([entrega, retirada], '#666')).not.toContain(
+      'ver-acoes',
+    );
+    expect(
+      createGrupoPopupContent([entrega, retirada], '#666', '#284093'),
+    ).toContain('data-acao="ver-acoes"');
+  });
+
+  // O popup abre ACIMA do pino: centralizar o pino no meio do mapa cortava o
+  // popup no topo em telas baixas. O offset põe o pino abaixo do centro.
+  it('a seleção centraliza com o pino abaixo do centro, para o popup caber', () => {
+    const opcoes = opcoesDoFlyToDaSelecao([-46.63, -23.55]);
+    expect(opcoes.center).toEqual([-46.63, -23.55]);
+    expect(opcoes.offset?.[0]).toBe(0);
+    expect(opcoes.offset?.[1]).toBeGreaterThan(0);
   });
 });

@@ -27,6 +27,7 @@ import React, {
 import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
+import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
@@ -52,6 +53,8 @@ interface MapaWebMapLibreProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** Clique no pino já selecionado, ou no "Ver ações" do popup. */
+  onSelectedMarkerPress?: (paradaId: string) => void;
   onMapPress?: () => void;
   statusFilter?: StatusFilter;
   rotaId?: string;
@@ -73,6 +76,15 @@ function toNumber(value: number | null): number | null {
 }
 
 /**
+ * Botão do popup que abre as ações da parada (paridade com a dica "Toque
+ * para ver ações" do balão nativo). O clique é ligado em `openPopup` pelo
+ * `data-acao`.
+ */
+export function htmlBotaoVerAcoes(cor: string): string {
+  return `<button type="button" data-acao="ver-acoes" style="margin-top: 6px; padding: 0; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: ${cor};">Ver ações ›</button>`;
+}
+
+/**
  * Create popup HTML content
  */
 function createPopupContent(
@@ -81,6 +93,7 @@ function createPopupContent(
   isPartida: boolean,
   unidadeNome: string | undefined,
   theme: Theme,
+  comAcoes: boolean,
 ): string {
   if (isCheckpoint) {
     const title = isPartida ? '🚀 Ponto de Partida' : '🏁 Ponto de Chegada';
@@ -105,6 +118,7 @@ function createPopupContent(
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ''}
       ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ''}
+      ${comAcoes ? htmlBotaoVerAcoes(theme.colors.primary) : ''}
     </div>
   `;
 }
@@ -123,6 +137,8 @@ const STATUS_LABEL: Record<string, string> = {
 export function createGrupoPopupContent(
   membros: Parada[],
   textSecondary: string,
+  /** Cor do "Ver ações"; sem ela, o popup não oferece as ações. */
+  corAcoes?: string,
 ): string {
   const ordens = membros.map((m) => m.ordem);
   const titulo = `Paradas ${ordens.slice(0, -1).join(', ')} e ${ordens[ordens.length - 1]}`;
@@ -143,8 +159,20 @@ export function createGrupoPopupContent(
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(membros[0].endereco)}</p>
       ${linhas}
       ${destinatarios.length ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${destinatarios.map((d) => escapeHtml(d)).join(', ')}</p>` : ''}
+      ${corAcoes ? htmlBotaoVerAcoes(corAcoes) : ''}
     </div>
   `;
+}
+
+/**
+ * Câmera da seleção. O popup abre ACIMA do pino; com o pino no centro do mapa,
+ * ele era cortado no topo em telas baixas. O offset (px, positivo = para
+ * baixo) põe o pino abaixo do centro, como o padding do balão no nativo.
+ */
+export function opcoesDoFlyToDaSelecao(
+  center: [number, number],
+): maplibregl.FlyToOptions {
+  return { center, zoom: 15, duration: 500, offset: [0, 120] };
 }
 
 /** Features do GeoJSON: checkpoints à parte, um pino por local nas paradas. */
@@ -204,6 +232,7 @@ export default function MapaWebMapLibre({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onSelectedMarkerPress,
   onMapPress,
   statusFilter = 'all',
   rotaId,
@@ -220,6 +249,18 @@ export default function MapaWebMapLibre({
   const motoristaMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Lidos dentro de handlers do maplibre registrados em efeitos. O clique no
+  // pino dispara antes o 'click' do mapa (onMapPress limpa a seleção); a ref
+  // ainda guarda a seleção de ANTES desse clique, que é o que a decisão do
+  // toque precisa. O listener do "Ver ações" lê a callback atual pela ref.
+  const selectedParadaIdRef = useRef(selectedParadaId);
+  const onSelectedMarkerPressRef = useRef(onSelectedMarkerPress);
+  useEffect(() => {
+    selectedParadaIdRef.current = selectedParadaId;
+    onSelectedMarkerPressRef.current = onSelectedMarkerPress;
+  }, [selectedParadaId, onSelectedMarkerPress]);
+  const temAcoes = onSelectedMarkerPress != null;
 
   // Live driver location — hook called unconditionally (rules of hooks).
   // Pass rotaId only when showMotorista=true to gate Supabase subscription.
@@ -348,18 +389,30 @@ export default function MapaWebMapLibre({
         .setLngLat([parada.longitude, parada.latitude])
         .setHTML(
           membros.length > 1
-            ? createGrupoPopupContent(membros, theme.colors.textSecondary)
+            ? createGrupoPopupContent(
+                membros,
+                theme.colors.textSecondary,
+                temAcoes ? theme.colors.primary : undefined,
+              )
             : createPopupContent(
                 parada,
                 isCheckpoint,
                 isPartida,
                 unidadeNome,
                 theme,
+                temAcoes && !isCheckpoint,
               ),
         )
         .addTo(mapRef.current);
+
+      popupRef.current
+        .getElement()
+        ?.querySelector('[data-acao="ver-acoes"]')
+        ?.addEventListener('click', () =>
+          onSelectedMarkerPressRef.current?.(parada.id),
+        );
     },
-    [unidadeNome, theme],
+    [unidadeNome, theme, temAcoes],
   );
 
   // Initialize map
@@ -621,7 +674,16 @@ export default function MapaWebMapLibre({
       const isPartida = rawPartida === true || rawPartida === 'true';
 
       if (!isCheckpoint) {
-        onMarkerPress?.(parada.id);
+        const acao = acaoDoToqueNoPino(
+          pino?.membros ?? [parada],
+          selectedParadaIdRef.current,
+          onSelectedMarkerPressRef.current != null,
+        );
+        if (acao === 'abrir-acoes') {
+          onSelectedMarkerPressRef.current?.(parada.id);
+        } else {
+          onMarkerPress?.(parada.id);
+        }
       }
       openPopup(parada, isCheckpoint, isPartida, pino?.membros);
     };
@@ -687,11 +749,9 @@ export default function MapaWebMapLibre({
 
     // Pan to marker
     if (alvo.latitude != null && alvo.longitude != null) {
-      mapRef.current.flyTo({
-        center: [alvo.longitude, alvo.latitude],
-        zoom: 15,
-        duration: 500,
-      });
+      mapRef.current.flyTo(
+        opcoesDoFlyToDaSelecao([alvo.longitude, alvo.latitude]),
+      );
     }
   }, [
     selectedParadaId,

@@ -28,7 +28,14 @@ jest.mock('@maplibre/maplibre-react-native', () => {
     return React.createElement(View, { testID: testID ?? 'map-camera', ...props }, children);
   });
 
-  const Map = createView('map-view');
+  // MapRef: project/unproject resolvem em dp, como o nativo.
+  const Map = React.forwardRef(({ children, testID, ...props }, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      project: jest.fn(async () => [0, 0]),
+      unproject: jest.fn(async () => [0, 0]),
+    }));
+    return React.createElement(View, { testID: testID ?? 'map-view', ...props }, children);
+  });
   const Marker = createView('marker');
   const GeoJSONSource = createView('shape-source');
   const Layer = createView('line-layer');
