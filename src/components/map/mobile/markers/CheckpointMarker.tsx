@@ -7,7 +7,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import { useUnistyles } from '@/utils/styles';
@@ -18,7 +18,6 @@ interface CheckpointMarkerProps {
   endereco: string;
   isSelected: boolean;
   unidadeNome?: string;
-  onPress: () => void;
   onCopyAddress: (endereco: string) => void;
 }
 
@@ -31,7 +30,6 @@ export function CheckpointMarker({
   endereco,
   isSelected,
   unidadeNome,
-  onPress,
   onCopyAddress,
 }: CheckpointMarkerProps) {
   const { theme } = useUnistyles();
@@ -79,15 +77,14 @@ export function CheckpointMarker({
         </View>
       )}
 
-      <Pressable
-        onPress={onPress}
+      {/* Sem toque aqui: quem trata é o onPress do <Marker> (ver ParadaMarker). */}
+      <View
         style={styles.checkpointMarkerCompact}
+        accessible
         accessibilityLabel={`${checkpointLabel}, ${endereco}`}
-        accessibilityHint="Toque para ver informações"
-        accessibilityRole="button"
       >
         <Ionicons name={iconName} size={16} color={theme.colors.white} />
-      </Pressable>
+      </View>
     </View>
   );
 }

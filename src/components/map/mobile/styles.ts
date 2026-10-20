@@ -141,10 +141,6 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.primary,
     transform: [{ scale: 1.1 }],
   },
-  markerPressed: {
-    transform: [{ scale: 0.9 }],
-    opacity: 0.8,
-  },
   calloutContainer: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,

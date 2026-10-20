@@ -1,10 +1,9 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import React from 'react';
 
 import { CheckpointMarker } from '../CheckpointMarker';
 
 describe('CheckpointMarker', () => {
-  const onPress = jest.fn();
   const onCopyAddress = jest.fn();
 
   beforeEach(() => jest.clearAllMocks());
@@ -15,7 +14,6 @@ describe('CheckpointMarker', () => {
         index={0}
         endereco="Rua A, 100"
         isSelected={false}
-        onPress={onPress}
         onCopyAddress={onCopyAddress}
       />,
     );
@@ -28,7 +26,6 @@ describe('CheckpointMarker', () => {
         index={0}
         endereco="Rua A, 100"
         isSelected={true}
-        onPress={onPress}
         onCopyAddress={onCopyAddress}
       />,
     );
@@ -42,7 +39,6 @@ describe('CheckpointMarker', () => {
         index={1}
         endereco="Rua B, 200"
         isSelected={true}
-        onPress={onPress}
         onCopyAddress={onCopyAddress}
       />,
     );
@@ -56,25 +52,9 @@ describe('CheckpointMarker', () => {
         endereco="Rua A"
         isSelected={true}
         unidadeNome="WJX Locações"
-        onPress={onPress}
         onCopyAddress={onCopyAddress}
       />,
     );
     expect(getByText('WJX Locações')).toBeTruthy();
-  });
-
-  it('calls onPress when marker pressable is pressed', () => {
-    const { getAllByRole } = render(
-      <CheckpointMarker
-        index={0}
-        endereco="Rua A, 100"
-        isSelected={false}
-        onPress={onPress}
-        onCopyAddress={onCopyAddress}
-      />,
-    );
-    const buttons = getAllByRole('button');
-    fireEvent.press(buttons[0]);
-    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,7 +7,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity, Pressable, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
 
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
@@ -20,8 +20,6 @@ import { useUnistyles } from '@/utils/styles';
 interface ParadaMarkerProps {
   parada: Parada;
   isSelected: boolean;
-  onPress: (paradaId: string) => void;
-  onLongPress: (paradaId: string) => void;
   /** Texto do pino quando ele reúne serviços do mesmo local ("3+4"). */
   rotulo?: string;
   /** Serviços do local, para o balão listar um a um. */
@@ -37,12 +35,13 @@ function listarOrdens(ordens: number[]): string {
 /**
  * Circular marker for a delivery/pickup stop.
  * Color reflects status; shows expandable callout with stop details when selected.
+ *
+ * O pino não trata toque: quem trata é o onPress do <Marker> em MapaMobile
+ * (no Android, um Pressable aqui dentro nunca dispara onPress).
  */
 export function ParadaMarker({
   parada,
   isSelected,
-  onPress,
-  onLongPress,
   rotulo,
   servicos,
 }: ParadaMarkerProps) {
@@ -138,22 +137,17 @@ export function ParadaMarker({
         </View>
       )}
 
-      <Pressable
-        onPress={() => onPress(parada.id)}
-        onLongPress={() => onLongPress(parada.id)}
-        delayLongPress={400}
-        style={({ pressed }) => [
+      <View
+        style={[
           styles.markerContainer,
           { backgroundColor: markerColor },
           isSelected && styles.markerSelected,
-          pressed && styles.markerPressed,
         ]}
+        accessible
         accessibilityLabel={`${titulo}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
-        accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
-        accessibilityRole="button"
       >
         <Text style={styles.markerText}>{rotulo ?? parada.ordem}</Text>
-      </Pressable>
+      </View>
     </View>
   );
 }

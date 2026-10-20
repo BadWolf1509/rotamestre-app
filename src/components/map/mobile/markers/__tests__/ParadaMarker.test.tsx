@@ -1,4 +1,4 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import React from 'react';
 
 import { ParadaMarker } from '../ParadaMarker';
@@ -14,70 +14,32 @@ const baseParada = {
 };
 
 describe('ParadaMarker', () => {
-  const onPress = jest.fn();
-  const onLongPress = jest.fn();
-
-  beforeEach(() => jest.clearAllMocks());
-
   it('renders the stop number', () => {
     const { getByText } = render(
-      <ParadaMarker
-        parada={baseParada as any}
-        isSelected={false}
-        onPress={onPress}
-        onLongPress={onLongPress}
-      />,
+      <ParadaMarker parada={baseParada as any} isSelected={false} />,
     );
     expect(getByText('1')).toBeTruthy();
   });
 
   it('does not show callout when not selected', () => {
     const { queryByText } = render(
-      <ParadaMarker
-        parada={baseParada as any}
-        isSelected={false}
-        onPress={onPress}
-        onLongPress={onLongPress}
-      />,
+      <ParadaMarker parada={baseParada as any} isSelected={false} />,
     );
     expect(queryByText('Parada 1')).toBeNull();
   });
 
   it('shows callout with address when selected', () => {
     const { getByText } = render(
-      <ParadaMarker
-        parada={baseParada as any}
-        isSelected={true}
-        onPress={onPress}
-        onLongPress={onLongPress}
-      />,
+      <ParadaMarker parada={baseParada as any} isSelected={true} />,
     );
     expect(getByText('Parada 1')).toBeTruthy();
     expect(getByText('Rua Teste, 100')).toBeTruthy();
   });
 
-  it('calls onPress with parada.id when pressed', () => {
-    const { getAllByRole } = render(
-      <ParadaMarker
-        parada={baseParada as any}
-        isSelected={false}
-        onPress={onPress}
-        onLongPress={onLongPress}
-      />,
-    );
-    fireEvent.press(getAllByRole('button')[0]);
-    expect(onPress).toHaveBeenCalledWith('p1');
-  });
-
   it('shows recipient in callout when selected', () => {
     const parada = { ...baseParada, destinatario: 'João Silva' };
     const { getByText } = render(
-      <ParadaMarker
-        parada={parada as any}
-        isSelected={true}
-        onPress={onPress}
-        onLongPress={onLongPress}
-      />,
+      <ParadaMarker parada={parada as any} isSelected={true} />,
     );
     expect(getByText('João Silva')).toBeTruthy();
   });
@@ -96,8 +58,6 @@ describe('ParadaMarker', () => {
           rotulo="3+4"
           servicos={servicos}
           isSelected={false}
-          onPress={onPress}
-          onLongPress={onLongPress}
         />,
       );
       expect(getByText('3+4')).toBeTruthy();
@@ -110,8 +70,6 @@ describe('ParadaMarker', () => {
           rotulo="3+4"
           servicos={servicos}
           isSelected={true}
-          onPress={onPress}
-          onLongPress={onLongPress}
         />,
       );
       expect(getByText('3 · Entrega')).toBeTruthy();
@@ -119,34 +77,15 @@ describe('ParadaMarker', () => {
     });
 
     it('descreve as paradas do grupo no accessibilityLabel', () => {
-      const { getAllByRole } = render(
+      const { getByLabelText } = render(
         <ParadaMarker
           parada={principal as any}
           rotulo="3+4"
           servicos={servicos}
           isSelected={false}
-          onPress={onPress}
-          onLongPress={onLongPress}
         />,
       );
-      expect(getAllByRole('button')[0].props.accessibilityLabel).toMatch(
-        /^Paradas 3 e 4/,
-      );
-    });
-
-    it('seleciona pelo id da principal', () => {
-      const { getAllByRole } = render(
-        <ParadaMarker
-          parada={principal as any}
-          rotulo="3+4"
-          servicos={servicos}
-          isSelected={false}
-          onPress={onPress}
-          onLongPress={onLongPress}
-        />,
-      );
-      fireEvent.press(getAllByRole('button')[0]);
-      expect(onPress).toHaveBeenCalledWith('p1');
+      expect(getByLabelText(/^Paradas 3 e 4/)).toBeTruthy();
     });
   });
 });

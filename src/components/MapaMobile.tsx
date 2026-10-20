@@ -27,7 +27,10 @@ interface MapaMobileProps {
   onMarkerPress?: (paradaId: string) => void;
   /** Callback quando toca fora dos marcadores (deselecionar) */
   onMapPress?: () => void;
-  /** Callback para long-press no marcador (ações rápidas) */
+  /**
+   * Long-press no marcador. Não dispara no nativo: o Marker do Android não
+   * expõe long press (maplibre-react-native#1729) e nenhuma tela o usa.
+   */
   onMarkerLongPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
   /** ID da rota para rastreamento em tempo real do motorista */
@@ -42,6 +45,20 @@ interface MapaMobileProps {
   polyline?: string | null;
   /** Totais persistidos da rota, em metros e segundos. */
   storedRouteInfo?: RouteInfo | null;
+}
+
+/**
+ * Toque no pino. No Android o filho do <Marker> é reposicionado fora do
+ * Fabric, e um Pressable dentro dele nunca dispara onPress (o measure() vê a
+ * posição errada): quem recebe o toque é o mapa nativo, que o entrega ao
+ * onPress do próprio Marker. O evento sobe por bubbling até o onPress do Map,
+ * que desfaria a seleção na mesma renderização (maplibre-react-native#1618).
+ */
+function aoTocarPino(acao: () => void) {
+  return (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    acao();
+  };
 }
 
 export function MapaMobile({
@@ -89,17 +106,13 @@ export function MapaMobile({
   const { isLocating, handleCenterOnUser } = useLocationTracking(cameraRef);
 
   // Marker/map gestures + clipboard
-  const {
-    handleMarkerPress,
-    handleMarkerLongPress,
-    handleMapPress,
-    handleCopyAddress,
-  } = useMarkerGestures({
-    onMarkerPress,
-    onMarkerLongPress,
-    onMapPress,
-    setSelectedCheckpointId,
-  });
+  const { handleMarkerPress, handleMapPress, handleCopyAddress } =
+    useMarkerGestures({
+      onMarkerPress,
+      onMarkerLongPress,
+      onMapPress,
+      setSelectedCheckpointId,
+    });
 
   // Navigation: next stop + fit-all + open external nav app
   const { proximaParadaPendente, handleNavigate, handleFitAll } =
@@ -150,17 +163,17 @@ export function MapaMobile({
               longitude: parada.longitude!,
             })}
             anchor="bottom"
+            onPress={aoTocarPino(() =>
+              setSelectedCheckpointId((prev) =>
+                prev === parada.id ? null : parada.id,
+              ),
+            )}
           >
             <CheckpointMarker
               index={index}
               endereco={parada.endereco}
               isSelected={selectedCheckpointId === parada.id}
               unidadeNome={unidadeNome}
-              onPress={() =>
-                setSelectedCheckpointId((prev) =>
-                  prev === parada.id ? null : parada.id,
-                )
-              }
               onCopyAddress={handleCopyAddress}
             />
           </MapLibreGL.Marker>
@@ -175,14 +188,13 @@ export function MapaMobile({
               longitude: principal.longitude!,
             })}
             anchor="bottom"
+            onPress={aoTocarPino(() => handleMarkerPress(principal.id))}
           >
             <ParadaMarker
               parada={principal}
               rotulo={rotulo}
               servicos={membros}
               isSelected={membros.some((m) => m.id === selectedParadaId)}
-              onPress={handleMarkerPress}
-              onLongPress={handleMarkerLongPress}
             />
           </MapLibreGL.Marker>
         ))}
