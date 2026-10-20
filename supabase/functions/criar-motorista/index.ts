@@ -8,7 +8,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import {
   ehEmailDuplicadoNoAuth,
-  escaparLike,
   normalizarEmail,
   respostaEmailJaCadastrado,
 } from './emailExistente.ts';
@@ -71,22 +70,50 @@ serve(async (req) => {
     // Buscar dados do gestor
     const { data: gestorData, error: gestorError } = await supabaseClient
       .from('usuarios')
-      .select('papel, unidade_id')
+      .select('papel, unidade_id, ativo')
       .eq('id', user.id)
       .single();
 
-    if (gestorError || !gestorData || gestorData.papel !== 'gestor') {
-      return new Response(
+    const proibido = () =>
+      new Response(
         JSON.stringify({ error: 'Apenas gestores podem criar motoristas' }),
         {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
+
+    if (
+      gestorError ||
+      !gestorData ||
+      gestorData.papel !== 'gestor' ||
+      !gestorData.ativo
+    ) {
+      return proibido();
     }
 
     // Obter dados do novo motorista do body
-    const { nome, email, senha, telefone } = await req.json();
+    const { nome, email, senha, telefone, unidade_id } = await req.json();
+
+    // A loja é a que o gestor tem aberta na tela (`unidade_id`); app antigo não
+    // manda e cai na principal. Nos dois casos, só com vínculo de gestor ATIVO
+    // nela: esta função é a única porta de escrita em usuario_unidades, e o
+    // papel/unidade_id de `usuarios` sobrevivem ao gestor sair da loja.
+    const unidadeId: string | null = unidade_id ?? gestorData.unidade_id;
+    const { data: vinculoGestor } = unidadeId
+      ? await supabaseAdmin
+          .from('usuario_unidades')
+          .select('id')
+          .eq('usuario_id', user.id)
+          .eq('unidade_id', unidadeId)
+          .eq('papel', 'gestor')
+          .eq('ativo', true)
+          .maybeSingle()
+      : { data: null };
+
+    if (!unidadeId || !vinculoGestor) {
+      return proibido();
+    }
 
     if (!nome || !email || !senha) {
       return new Response(
@@ -101,12 +128,13 @@ serve(async (req) => {
     const emailNormalizado = normalizarEmail(email);
 
     // E-mail que já tem conta: recusa, nunca vincula (ver emailExistente.ts).
-    // Sem diferenciar maiúscula: o Auth guarda minúsculas, e linhas antigas de
-    // `usuarios` podem ter sido gravadas como o gestor digitou.
+    // Igualdade, não ILIKE (no PostgREST `*` também é curinga): linha antiga
+    // gravada com maiúscula escapa daqui, mas não do createUser, porque o Auth
+    // guarda o e-mail em minúsculas e recusa a duplicata com a mesma 409.
     const { data: contasComEmail, error: emailError } = await supabaseAdmin
       .from('usuarios')
       .select('id')
-      .ilike('email', escaparLike(emailNormalizado))
+      .eq('email', emailNormalizado)
       .limit(1);
 
     if (emailError) {
@@ -167,7 +195,7 @@ serve(async (req) => {
 
         const duplicado = respostaTelefoneDuplicado(
           encontrados,
-          gestorData.unidade_id,
+          unidadeId,
           unidadesVinculadas,
         );
         if (duplicado) {
@@ -200,7 +228,7 @@ serve(async (req) => {
       });
 
     if (createAuthError) {
-      if (ehEmailDuplicadoNoAuth(createAuthError.message)) {
+      if (ehEmailDuplicadoNoAuth(createAuthError)) {
         const recusa = respostaEmailJaCadastrado();
         return new Response(
           JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
@@ -238,7 +266,7 @@ serve(async (req) => {
         email: emailNormalizado,
         telefone: telefone?.trim() || null,
         papel: 'motorista',
-        unidade_id: gestorData.unidade_id,
+        unidade_id: unidadeId,
         ativo: true,
       })
       .select()
@@ -277,7 +305,7 @@ serve(async (req) => {
       .from('usuario_unidades')
       .insert({
         usuario_id: authData.user.id,
-        unidade_id: gestorData.unidade_id,
+        unidade_id: unidadeId,
         papel: 'motorista',
         ativo: true,
       });
@@ -287,8 +315,19 @@ serve(async (req) => {
         'Erro ao criar vínculo em usuario_unidades:',
         vinculoError.message,
       );
-      // Não falhar - o registro principal foi criado
-      // A migration já migra dados de usuarios.unidade_id
+      // Sem vínculo o motorista não aparece na lista (que vem de
+      // usuario_unidades) e o gestor não consegue criá-lo depois. Desfaz tudo:
+      // apagar a conta leva junto a linha de `usuarios` (ON DELETE CASCADE).
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return new Response(
+        JSON.stringify({
+          error: 'Não foi possível vincular o motorista à loja. Tente de novo.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     return new Response(

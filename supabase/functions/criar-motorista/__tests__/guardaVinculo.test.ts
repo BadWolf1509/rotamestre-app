@@ -31,6 +31,28 @@ describe('criar-motorista: guarda do vínculo', () => {
     expect(inserts).toHaveLength(1);
   });
 
+  it('só cria motorista em loja da qual o chamador é gestor ativo', () => {
+    // A função é a única porta de escrita em usuario_unidades: papel e
+    // unidade_id antigos em `usuarios` não bastam (gestor removido da loja).
+    expect(fonte).toMatch(
+      /from\('usuario_unidades'\)\s*\.select\([^)]*\)\s*\.eq\('usuario_id', user\.id\)\s*\.eq\('unidade_id', unidadeId\)\s*\.eq\('papel', 'gestor'\)\s*\.eq\('ativo', true\)/,
+    );
+    expect(fonte).not.toMatch(/unidade_id: gestorData\.unidade_id/);
+  });
+
+  it('desfaz a conta criada quando o vínculo falha', () => {
+    // Sem vínculo o motorista some da lista (que vem de usuario_unidades) e
+    // o gestor não tem como criá-lo: a tela diria "adicionado" em vão.
+    const chamadas = fonte.match(/deleteUser\(authData\.user\.id\)/g) ?? [];
+    expect(chamadas).toHaveLength(2);
+    expect(fonte).not.toMatch(/Não falhar - o registro principal foi criado/);
+  });
+
+  it('busca o e-mail por igualdade, sem curinga', () => {
+    expect(fonte).toMatch(/\.eq\('email', emailNormalizado\)/);
+    expect(fonte).not.toMatch(/ilike/);
+  });
+
   it('o aviso de telefone não manda mais cadastrar pelo e-mail', () => {
     expect(MSG_TELEFONE_OUTRA_LOJA).not.toMatch(/e-mail/);
     expect(MSG_TELEFONE_OUTRA_LOJA).toMatch(/fale com o suporte/);

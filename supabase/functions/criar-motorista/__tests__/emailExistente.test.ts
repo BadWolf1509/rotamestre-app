@@ -2,7 +2,6 @@ import {
   CODIGO_EMAIL_JA_CADASTRADO,
   MSG_EMAIL_JA_CADASTRADO,
   ehEmailDuplicadoNoAuth,
-  escaparLike,
   normalizarEmail,
   respostaEmailJaCadastrado,
 } from '../emailExistente';
@@ -15,28 +14,27 @@ describe('normalizarEmail', () => {
   });
 });
 
-describe('escaparLike', () => {
-  it('escapa os curingas do ILIKE e a própria barra', () => {
-    expect(escaparLike('a_b%c\\d')).toBe('a\\_b\\%c\\\\d');
-  });
-
-  it('deixa e-mail comum como está', () => {
-    expect(escaparLike('joao@x.com')).toBe('joao@x.com');
-  });
-});
-
 describe('ehEmailDuplicadoNoAuth', () => {
   it.each([
     'A user with this email address has already been registered',
     'User already registered',
     'duplicate key value violates unique constraint "users_email_partial_key"',
   ])('reconhece "%s"', (msg) => {
-    expect(ehEmailDuplicadoNoAuth(msg)).toBe(true);
+    expect(ehEmailDuplicadoNoAuth({ message: msg })).toBe(true);
+  });
+
+  it('prefere o código do GoTrue, que não muda com a tradução da mensagem', () => {
+    expect(
+      ehEmailDuplicadoNoAuth({ code: 'email_exists', message: 'qualquer' }),
+    ).toBe(true);
   });
 
   it('não confunde outro erro com duplicata', () => {
     expect(
-      ehEmailDuplicadoNoAuth('Password should be at least 6 characters'),
+      ehEmailDuplicadoNoAuth({
+        code: 'weak_password',
+        message: 'Password should be at least 6 characters',
+      }),
     ).toBe(false);
   });
 });

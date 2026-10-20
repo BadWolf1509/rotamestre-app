@@ -21,13 +21,14 @@ export function normalizarEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-// Para `.ilike`: `_` é comum em e-mail e casaria com qualquer caractere.
-export function escaparLike(valor: string): string {
-  return valor.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
-export function ehEmailDuplicadoNoAuth(mensagem: string): boolean {
-  const m = mensagem.toLowerCase();
+// O código do GoTrue (`email_exists`) não depende do texto; a mensagem fica
+// como reserva para versão que não mande `code`.
+export function ehEmailDuplicadoNoAuth(err: {
+  code?: string;
+  message: string;
+}): boolean {
+  if (err.code === 'email_exists') return true;
+  const m = err.message.toLowerCase();
   return (
     m.includes('already been registered') ||
     m.includes('already registered') ||
