@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Migration: vínculo de motorista só pelo servidor + trava do motorista que
 --   atende outra loja
--- Date: 2026-10-21
+-- Date: 2026-10-20
 -- Author: Wellinton Ribeiro
 -- Purpose: qualquer gestor vinculava QUALQUER usuário à própria loja — pela
 --   Edge Function criar-motorista (bastava saber o e-mail) e também direto pelo
@@ -20,7 +20,8 @@
 --     que atende outra loja, o gestor só muda nome e telefone.
 --   - listar_motoristas_unidade: a lista da tela Motoristas, incluindo o
 --     vínculo INATIVO da própria loja (para dar para reativar), que a RLS de
---     usuarios esconde.
+--     usuarios esconde. `vinculo_ativo` diz à tela que perfil e edição não
+--     abrem nesse caso (a mesma RLS os bloqueia).
 --   - alternar_motorista_na_unidade: o toggle da tela. Quem atende outra loja
 --     é desativado só nesta loja (o vínculo); quem atende uma só, a pessoa,
 --     como antes.
@@ -128,7 +129,8 @@ RETURNS TABLE (
   telefone text,
   foto_url text,
   ativo boolean,
-  created_at timestamptz
+  created_at timestamptz,
+  vinculo_ativo boolean
 )
 LANGUAGE plpgsql
 STABLE
@@ -145,7 +147,8 @@ BEGIN
   -- a lista só trazia vínculo ativo). Só um dos dois inativo = aparece inativo.
   RETURN QUERY
   SELECT u.id, u.nome::text, u.email::text, u.telefone::text, u.foto_url,
-         (coalesce(uu.ativo, false) AND coalesce(u.ativo, false)), u.created_at
+         (coalesce(uu.ativo, false) AND coalesce(u.ativo, false)), u.created_at,
+         coalesce(uu.ativo, false)
   FROM public.usuario_unidades uu
   JOIN public.usuarios u ON u.id = uu.usuario_id
   WHERE uu.unidade_id = p_unidade_id

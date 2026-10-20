@@ -33,7 +33,7 @@
 
 ### Task 1: migration (RLS, trigger, RPCs)
 
-**Files:** `database/migrations/20261021120000_vinculo_motorista_seguro.sql` (+ cópia idêntica em `supabase/migrations/`), `database/MIGRATIONS.md`.
+**Files:** `database/migrations/20261020220000_vinculo_motorista_seguro.sql` (+ cópia idêntica em `supabase/migrations/`), `database/MIGRATIONS.md`.
 
 - [ ] Sonda transacional VERMELHA contra o estado atual: um gestor insere vínculo de um uuid alheio (passa hoje) e muda `ativo` de motorista multi-loja (passa hoje).
 - [ ] Escrever a migration:

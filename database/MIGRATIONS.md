@@ -1253,7 +1253,7 @@ já houver duplicata ativa. Sem tabela nova e sem policy.
 
 ### ⏳ Migration 31: vínculo de motorista só pelo servidor
 
-**Arquivo:** `20261021120000_vinculo_motorista_seguro.sql` · **pendente de aplicação**
+**Arquivo:** `20261020220000_vinculo_motorista_seguro.sql` · **pendente de aplicação**
 (via MCP `apply_migration`, junto com a publicação da Edge Function
 `criar-motorista` da mesma PR). Antes, duas sondas transacionais (desfeitas)
 reproduziram os ataques no estado atual e mostraram o bloqueio no novo.
@@ -1280,10 +1280,18 @@ de motorista de outra empresa.
   preenchimento de `unidade_id` nulo pelo `sync_usuario_unidade_ativa`.
 - `listar_motoristas_unidade(uuid)`: a lista da tela Motoristas, com o vínculo
   inativo da própria loja (a RLS de `usuarios` o esconde). Vínculo e pessoa
-  inativos ao mesmo tempo ficam fora, como antes.
+  inativos ao mesmo tempo ficam fora, como antes. `vinculo_ativo` avisa a tela
+  de que perfil e edição não abrem nesse estado (a mesma RLS os bloqueia).
 - `alternar_motorista_na_unidade(uuid, uuid, boolean)`: o toggle. Quem atende
   outra loja é desativado só nesta loja (o vínculo); quem atende uma só, a
   pessoa, como antes. Reativar pessoa inativa que atende outra loja → suporte.
+
+**Junto, na Edge Function `criar-motorista`:** e-mail que já tem conta vira 409
+(não vincula mais), sai o `listUsers` + `deleteUser` de "órfão", e a loja do
+cadastro é a `unidade_id` do body, exigindo vínculo de gestor ativo nela (app
+antigo, sem o campo, cai na `usuarios.unidade_id`). Vínculo que falha desfaz a
+conta criada. **Ordem de deploy:** migration primeiro, função em seguida — a
+função nova não depende da migration, mas o app novo depende das duas RPCs.
 
 **Fica de fora:** o ramo "próprio usuário" de `usuarios_update_optimized` ainda
 aceita `ativo`/`unidade_id`, e o do gestor aceita `unidade_id` arbitrário para
