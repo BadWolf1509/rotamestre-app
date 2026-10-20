@@ -545,6 +545,58 @@ describe('MainCard', () => {
     expect(getByText('paradas')).toBeTruthy();
   });
 
+  describe('visita no mesmo local', () => {
+    const entrega = {
+      id: 'e',
+      endereco: 'Rua X, 1',
+      ordem: 1,
+      tipo: 'entrega',
+      status: 'pendente',
+      latitude: -7.1,
+      longitude: -34.8,
+    };
+    const retirada = {
+      ...entrega,
+      id: 'r',
+      ordem: 2,
+      tipo: 'retirada',
+    };
+
+    const propsAtivo = (paradas: object[], currentStop: object) => ({
+      ...defaultProps,
+      state: 'active' as const,
+      route: { id: 'rota-1', status: 'em_andamento' },
+      paradas,
+      currentStop,
+    });
+
+    it('lista os serviços da visita quando há mais de um no ponto', () => {
+      const { getByTestId, getByText } = render(
+        <MainCard {...propsAtivo([entrega, retirada], entrega)} />,
+      );
+
+      expect(getByTestId('visita-no-local')).toBeTruthy();
+      expect(getByText('Neste local: Entrega + Retirada')).toBeTruthy();
+    });
+
+    it('parada avulsa não mostra o aviso', () => {
+      const longe = { ...retirada, latitude: -7.2 };
+      const { queryByTestId } = render(
+        <MainCard {...propsAtivo([entrega, longe], entrega)} />,
+      );
+
+      expect(queryByTestId('visita-no-local')).toBeNull();
+    });
+
+    it('mostra o tipo da parada atual', () => {
+      const { getByText } = render(
+        <MainCard {...propsAtivo([entrega, retirada], retirada)} />,
+      );
+
+      expect(getByText('Retirada')).toBeTruthy();
+    });
+  });
+
   it('deve retornar null em active sem currentStop', () => {
     const props = {
       ...defaultProps,

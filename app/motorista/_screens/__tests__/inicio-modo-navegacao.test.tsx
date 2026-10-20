@@ -27,12 +27,16 @@ const PARADA = {
   is_checkpoint: true,
 };
 
+// Cenário da rota por teste (prefixo `mock` libera o uso dentro do jest.mock).
+let mockParadas: Array<typeof PARADA> = [PARADA];
+let mockCurrentStop: typeof PARADA = PARADA;
+
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
     routeStatus: 'active',
     route: { id: 'rota-1', status: 'em_andamento', unidade_id: 'u-1' },
-    paradas: [PARADA],
-    currentStop: PARADA,
+    paradas: mockParadas,
+    currentStop: mockCurrentStop,
     nextStop: null,
     progress: { completed: 0, total: 1 },
     pendingRoutesCount: 0,
@@ -327,5 +331,74 @@ describe('Início do motorista — modo navegação em tela cheia', () => {
     unmount();
 
     expect(setTelaCheia).toHaveBeenLastCalledWith(false);
+  });
+});
+
+/**
+ * Entrega e retirada no mesmo ponto são UMA visita: quem acabou de resolver a
+ * entrega já está no local, então "Navegar" para a retirada mandaria o
+ * motorista navegar até 0 m. O toque abre o comprovante da retirada.
+ */
+describe('Início do motorista — visita no mesmo local', () => {
+  const entrega = {
+    ...PARADA,
+    id: 'entrega',
+    ordem: 3,
+    status: 'concluida',
+    tipo: 'entrega',
+  };
+  const retirada = {
+    ...PARADA,
+    id: 'retirada',
+    ordem: 4,
+    status: 'pendente',
+    tipo: 'retirada',
+  };
+
+  beforeEach(() => {
+    mockAbrirNavegacao.mockClear();
+  });
+
+  afterEach(() => {
+    mockNavegarCom = 'mapa';
+    mockParadas = [PARADA];
+    mockCurrentStop = PARADA;
+  });
+
+  it('abre o comprovante da retirada, sem navegar nem entrar no modo', async () => {
+    mockNavegarCom = 'externo';
+    mockParadas = [entrega, retirada];
+    mockCurrentStop = retirada;
+    const { getByText, findByText, queryByText } = render(<MotoristaInicio />);
+
+    fireEvent.press(getByText('navegar'));
+
+    expect(await findByText('fluxo-conclusao:retirada')).toBeTruthy();
+    expect(mockAbrirNavegacao).not.toHaveBeenCalled();
+    expect(queryByText('modo-navegacao')).toBeNull();
+  });
+
+  it('o atalho vale também com "Navegar com" = mapa', async () => {
+    mockNavegarCom = 'mapa';
+    mockParadas = [entrega, retirada];
+    mockCurrentStop = retirada;
+    const { getByText, findByText, queryByText } = render(<MotoristaInicio />);
+
+    fireEvent.press(getByText('navegar'));
+
+    expect(await findByText('fluxo-conclusao:retirada')).toBeTruthy();
+    expect(queryByText('modo-navegacao')).toBeNull();
+  });
+
+  it('anterior a 40 m: segue o caminho normal ("Navegar com" decide)', async () => {
+    mockNavegarCom = 'externo';
+    mockParadas = [{ ...entrega, latitude: -7.1 + 0.00036 }, retirada];
+    mockCurrentStop = retirada;
+    const { getByText, queryByText } = render(<MotoristaInicio />);
+
+    fireEvent.press(getByText('navegar'));
+
+    await waitFor(() => expect(mockAbrirNavegacao).toHaveBeenCalledTimes(1));
+    expect(queryByText('fluxo-conclusao:retirada')).toBeNull();
   });
 });

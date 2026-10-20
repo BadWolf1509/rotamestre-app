@@ -37,6 +37,7 @@ import {
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { chegouPelaParadaAnterior } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   abrirConfiguracoesDoApp,
@@ -274,6 +275,14 @@ function MotoristaInicioContent() {
   // Navigate to current stop
   const handleNavigateToStop = async () => {
     if (!currentStop) return;
+
+    // Acabou de resolver a parada anterior no mesmo ponto: já está no local.
+    // Navegar daria 0 m; o próximo passo é o comprovante deste serviço.
+    // Vem antes das preferências porque vale para qualquer "Navegar com".
+    if (chegouPelaParadaAnterior(paradas, currentStop)) {
+      modals.openCompletionFlow(currentStop);
+      return;
+    }
 
     // "Navegar com" (Configurações): o mapa do app ou o app externo.
     const prefs = await LocationTrackingService.getNavigationPreferences();
