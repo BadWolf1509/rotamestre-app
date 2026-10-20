@@ -275,7 +275,8 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
           </View>
           <Text style={styles.emptyTitle}>Nenhuma parada adicionada</Text>
           <Text style={styles.emptyText}>
-            Use o formulário de parada para começar a montar a rota.
+            Use o formulário de parada ou importe em lote para começar a montar
+            a rota.
           </Text>
         </View>
       )}
