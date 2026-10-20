@@ -173,11 +173,19 @@ serve(async (req) => {
         );
       } else if (encontrados && encontrados.length > 0) {
         const ids = encontrados.map((m: { id: string }) => m.id);
-        const { data: vinculos } = await supabaseAdmin
+        const { data: vinculos, error: vinculosError } = await supabaseAdmin
           .from('usuario_unidades')
           .select('usuario_id, unidade_id')
           .in('usuario_id', ids)
           .eq('ativo', true);
+
+        if (vinculosError) {
+          // Segue sem os vínculos: a decisão cai nas unidades de `encontrados`
+          console.error(
+            'Erro ao buscar vínculos do motorista duplicado:',
+            vinculosError.message,
+          );
+        }
 
         const unidadesVinculadas: Record<string, string[]> = {};
         for (const v of vinculos ?? []) {

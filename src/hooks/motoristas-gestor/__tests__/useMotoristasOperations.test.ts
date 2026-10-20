@@ -935,7 +935,7 @@ describe('useMotoristasOperations', () => {
         expect.objectContaining({
           loading: 'Desativando motorista...',
           success: 'Motorista desativado com sucesso!',
-          error: 'Não foi possível alterar o status do motorista',
+          error: expect.any(Function),
         }),
       );
     });
@@ -978,24 +978,25 @@ describe('useMotoristasOperations', () => {
       );
     });
 
-    it('shows the mapped unique-phone message when reactivation fails', async () => {
+    it('maps the unique-phone error through withToast (single toast)', async () => {
+      const erroTelefone = {
+        code: '23505',
+        message:
+          'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+      };
       mockUpdateUsuario.mockResolvedValue({
         success: false,
         error: {
           type: 'validation',
           code: '23505',
-          message:
-            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
-          originalError: {
-            code: '23505',
-            message:
-              'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
-          },
+          message: erroTelefone.message,
+          originalError: erroTelefone,
         },
       });
       mockWithToast.mockImplementation(async (fn: () => Promise<void>) => {
         await fn();
       });
+      mockShowToast.mockClear();
 
       const motorista = criarMotoristaMock({ ativo: false });
       const { result } = renderHook(() => useMotoristasOperations());
@@ -1006,11 +1007,17 @@ describe('useMotoristasOperations', () => {
         await result.current.confirmarToggleAtivo(motorista, onSuccess);
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith(
+      const opcoes = mockWithToast.mock.calls.at(-1)?.[1] as {
+        error: (e: unknown) => string;
+      };
+      expect(opcoes.error(erroTelefone)).toBe(
         'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
-        'error',
-        5000,
       );
+      expect(opcoes.error(new Error('outro'))).toBe(
+        'Não foi possível alterar o status do motorista',
+      );
+      // o catch não mostra um segundo toast
+      expect(mockShowToast).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
     });
 

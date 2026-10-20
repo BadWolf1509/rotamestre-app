@@ -383,20 +383,21 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           {
             loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
             success: `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`,
-            error: 'Não foi possível alterar o status do motorista',
+            // No caso do telefone, o motivo é a informação útil (reativar
+            // esbarra em outro motorista ativo); um toast só, sem piscar.
+            error: (e) =>
+              mensagemTelefoneDuplicado(e) ??
+              'Não foi possível alterar o status do motorista',
           },
         );
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao alterar status', error);
-        // withToast mostra o texto fixo; no caso do telefone, o motivo é a
-        // informação útil (reativar esbarra em outro motorista ativo).
-        const telefoneDuplicado = mensagemTelefoneDuplicado(error);
-        if (telefoneDuplicado) showToast(telefoneDuplicado, 'error', 5000);
+        // withToast já mostrou o toast de erro.
       }
     },
-    [loadMotoristas, showToast, userData, withToast],
+    [loadMotoristas, userData, withToast],
   );
 
   return {

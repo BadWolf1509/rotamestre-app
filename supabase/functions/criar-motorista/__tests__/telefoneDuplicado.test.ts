@@ -44,6 +44,18 @@ describe('respostaTelefoneDuplicado', () => {
     expect(r?.error).toBe(MESMA_LOJA);
   });
 
+  it('avisa "mesma loja" quando qualquer um de vários encontrados é da unidade do gestor', () => {
+    const r = respostaTelefoneDuplicado(
+      [
+        { id: 'm1', unidade_id: 'u2' },
+        { id: 'm2', unidade_id: 'u1' },
+      ],
+      'u1',
+      {},
+    );
+    expect(r?.error).toBe(MESMA_LOJA);
+  });
+
   it('tolera unidade_id nulo', () => {
     const r = respostaTelefoneDuplicado(
       [{ id: 'm1', unidade_id: null }],
