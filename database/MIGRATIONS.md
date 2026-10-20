@@ -1229,10 +1229,12 @@ outra migration.
 
 Revisada pelo `rls-policy-reviewer`: **APPROVE**, sem achado crítico.
 
-### ⏳ Migration 30: telefone único entre motoristas ativos
+### ✅ Migration 30: telefone único entre motoristas ativos
 
-**Arquivo:** `20261020200000_motorista_telefone_unico.sql` · **ainda não aplicada**
-(o controlador aplica via MCP `apply_migration` após a revisão).
+**Arquivo:** `20261020200000_motorista_telefone_unico.sql` · **aplicada em 20/10/2026**
+via MCP `apply_migration`, versão no banco `20261020184140`. Antes, uma sonda
+transacional (desfeita) provou a normalização dos três formatos, a busca e o
+bloqueio pelo índice.
 
 **Conta duplicada entre lojas.** O mesmo motorista cadastrado por duas lojas com
 e-mails diferentes virava duas contas, cada uma com as rotas de uma loja só. O
