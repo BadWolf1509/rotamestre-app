@@ -8,6 +8,41 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Pino do mapa nativo e motorista com conta duplicada (20/10/2026)
+
+- **Pino do mapa nativo (#594, fecha a pendência 18):** no Android o
+  `@maplibre/maplibre-react-native` tira o filho do `<Marker>` do Fabric, e um
+  `Pressable` lá dentro nunca recebe `onPress` (o upstream #1289 fechou sem
+  merge). O toque passou ao `onPress` do próprio `<Marker>`. O teste com o dedo
+  mostrou o resto:
+  - o balão e o bottom sheet abriam juntos: agora o 1º toque abre o balão e o
+    2º toque, ou "Toque para ver ações", abre o sheet;
+  - o mapa não centralizava;
+  - o balão ficava por baixo do pino vizinho: a ordem de desenho e a de toque
+    dos marcadores nativos são opostas, então o balão saiu do `<Marker>` e virou
+    uma camada sobre o mapa.
+
+  No aparelho apareceu um defeito anterior: o mapa voltava à visão geral a
+  cada render, porque o `theme` do Unistyles muda de identidade
+  (`eedb68a2`/`fe6ed3f5`). O mesmo no mapa web é o #596. O roteiro foi rodado
+  por adb num dev client + Metro (toques com `motionevent`), sem um build EAS
+  por ajuste; o build local esbarrou no limite de caminho do Windows.
+
+- **Modo navegação web sem mapa (#597).**
+- **Motorista com duas contas (#598):** um motorista que atende João Pessoa e
+  Cabedelo perdeu a rota da tarde. Em 26/02 Cabedelo o cadastrou com o e-mail
+  da loja, e nasceu uma 2ª conta com o mesmo telefone, que nunca fez login. Cinco
+  rotas foram para ela desde fevereiro. O vínculo pelo mesmo e-mail já existia e
+  funcionava (outro motorista fez 71 rotas da outra loja com uma conta só).
+  - **Dados:** a conta ativa foi vinculada às duas lojas e a órfã, desativada.
+  - **Banco:** a Migration 30 cria o telefone único entre motoristas ativos.
+  - **`criar-motorista` v14:** recusa com 409 o telefone já cadastrado e nunca
+    vincula pelo telefone.
+  - **Tela de Motoristas:** dica do vínculo pelo e-mail e toast de "vinculado".
+  - **Seleção de motorista:** selo e confirmação "Nunca entrou no app".
+  - **Processo:** feito por subagentes, com uma revisão por tarefa e a do branch
+    inteiro. O consentimento do vínculo ficou para a pendência 21.
+
 ## Visita combinada, dependências e conta demo (19–20/10/2026)
 
 - **Dependências:** os 4 PRs do Dependabot estavam vermelhos só no audit, com 3
