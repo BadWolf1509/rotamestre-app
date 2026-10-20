@@ -1250,3 +1250,45 @@ já houver duplicata ativa. Sem tabela nova e sem policy.
 
 **Cliente:** `errorMapping` traduz o índice para "Telefone já cadastrado"
 (`UNIQUE_TELEFONE_MOTORISTA`), em vez do "Registro duplicado" genérico.
+
+### ⏳ Migration 31: vínculo de motorista só pelo servidor
+
+**Arquivo:** `20261021120000_vinculo_motorista_seguro.sql` · **pendente de aplicação**
+(via MCP `apply_migration`, junto com a publicação da Edge Function
+`criar-motorista` da mesma PR). Antes, duas sondas transacionais (desfeitas)
+reproduziram os ataques no estado atual e mostraram o bloqueio no novo.
+
+**Vínculo sem consentimento.** A policy de INSERT de `usuario_unidades` só
+conferia a unidade de destino, nunca o `usuario_id`: qualquer gestor vinculava
+qualquer usuário à própria loja direto pelo PostgREST (medido: gestor de B
+inseriu vínculo de motorista de C). Depois do vínculo, `usuarios_update_optimized`
+deixava esse gestor desativar a pessoa, trocar o e-mail ou a unidade principal
+de motorista de outra empresa.
+
+**O que muda:**
+
+- `usuario_unidades`: as policies de INSERT/UPDATE/DELETE saem e o
+  `anon`/`authenticated` perdem INSERT/UPDATE/DELETE/TRUNCATE. Escrevem só a
+  Edge Function (service_role) e RPCs `SECURITY DEFINER`. O app não escrevia lá.
+- `motorista_atende_outra_loja(uuid)` (uso interno): vínculo, **ativo ou não**,
+  numa unidade em que `auth.uid()` não é gestor ativo. O inativo conta de
+  propósito: sem isso, a última loja a desativar caía no ramo "pessoa" e
+  desativava o motorista para todas.
+- Trigger `trava_motorista_outra_loja` (BEFORE UPDATE em `usuarios`): para quem
+  atende outra loja, o gestor só muda `nome` e `telefone`. Isentos: sem
+  `auth.uid()` (service role), o próprio usuário, quem tem `admin_role`, e o
+  preenchimento de `unidade_id` nulo pelo `sync_usuario_unidade_ativa`.
+- `listar_motoristas_unidade(uuid)`: a lista da tela Motoristas, com o vínculo
+  inativo da própria loja (a RLS de `usuarios` o esconde). Vínculo e pessoa
+  inativos ao mesmo tempo ficam fora, como antes.
+- `alternar_motorista_na_unidade(uuid, uuid, boolean)`: o toggle. Quem atende
+  outra loja é desativado só nesta loja (o vínculo); quem atende uma só, a
+  pessoa, como antes. Reativar pessoa inativa que atende outra loja → suporte.
+
+**Fica de fora:** o ramo "próprio usuário" de `usuarios_update_optimized` ainda
+aceita `ativo`/`unidade_id`, e o do gestor aceita `unidade_id` arbitrário para
+motorista de uma loja só (nenhuma policy lê `get_user_unidade()` hoje).
+
+Revisada pelo `rls-policy-reviewer`: **APPROVE**; os warnings da trava com o
+`sync_usuario_unidade_ativa` e da corrida do toggle (`FOR UPDATE`) foram
+incorporados.

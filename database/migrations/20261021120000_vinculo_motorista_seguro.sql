@@ -93,9 +93,14 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF (to_jsonb(NEW) - 'nome' - 'telefone' - 'updated_at')
+  -- unidade_id NULL -> valor é o sync_usuario_unidade_ativa preenchendo o
+  -- cache ao reativar um vínculo (roda com o auth.uid() do gestor); só
+  -- preencher o vazio não tira o motorista de loja nenhuma.
+  IF (to_jsonb(NEW) - 'nome' - 'telefone' - 'updated_at'
+        - CASE WHEN OLD.unidade_id IS NULL THEN 'unidade_id' ELSE '' END)
      IS DISTINCT FROM
-     (to_jsonb(OLD) - 'nome' - 'telefone' - 'updated_at') THEN
+     (to_jsonb(OLD) - 'nome' - 'telefone' - 'updated_at'
+        - CASE WHEN OLD.unidade_id IS NULL THEN 'unidade_id' ELSE '' END) THEN
     RAISE EXCEPTION
       'Este motorista também atende outra loja: aqui só dá para mudar nome e telefone.'
       USING ERRCODE = 'P0001';
@@ -183,7 +188,9 @@ BEGIN
    AND uu.unidade_id = p_unidade_id
    AND uu.papel = 'motorista'
   WHERE u.id = p_motorista_id
-    AND u.papel = 'motorista';
+    AND u.papel = 'motorista'
+  -- Serializa dois toggles do mesmo motorista (duas lojas ao mesmo tempo).
+  FOR UPDATE OF u;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Motorista não encontrado nesta loja.'
