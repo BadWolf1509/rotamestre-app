@@ -7,6 +7,12 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import {
+  ehEmailDuplicadoNoAuth,
+  escaparLike,
+  normalizarEmail,
+  respostaEmailJaCadastrado,
+} from './emailExistente.ts';
+import {
   ehViolacaoTelefoneUnico,
   MSG_TELEFONE_OUTRA_LOJA,
   CODIGO_TELEFONE_JA_CADASTRADO,
@@ -92,67 +98,34 @@ serve(async (req) => {
       );
     }
 
-    // Verificar se email já existe na tabela usuarios
-    const { data: existingUser } = await supabaseAdmin
+    const emailNormalizado = normalizarEmail(email);
+
+    // E-mail que já tem conta: recusa, nunca vincula (ver emailExistente.ts).
+    // Sem diferenciar maiúscula: o Auth guarda minúsculas, e linhas antigas de
+    // `usuarios` podem ter sido gravadas como o gestor digitou.
+    const { data: contasComEmail, error: emailError } = await supabaseAdmin
       .from('usuarios')
-      .select('id, email, nome, telefone, papel')
-      .eq('email', email.trim())
-      .single();
+      .select('id')
+      .ilike('email', escaparLike(emailNormalizado))
+      .limit(1);
 
-    if (existingUser) {
-      // ✅ MULTI-UNIDADE: Usuário existe, verificar se já está vinculado a esta unidade
-      const { data: existingVinculo } = await supabaseAdmin
-        .from('usuario_unidades')
-        .select('id')
-        .eq('usuario_id', existingUser.id)
-        .eq('unidade_id', gestorData.unidade_id)
-        .single();
-
-      if (existingVinculo) {
-        // Já tem vínculo com esta unidade
-        return new Response(
-          JSON.stringify({
-            error: 'Este motorista já está vinculado a esta unidade.',
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
-      // Criar apenas o vínculo (usuário já existe em outra unidade)
-      const { error: vinculoError } = await supabaseAdmin
-        .from('usuario_unidades')
-        .insert({
-          usuario_id: existingUser.id,
-          unidade_id: gestorData.unidade_id,
-          papel: 'motorista',
-          ativo: true,
-        });
-
-      if (vinculoError) {
-        return new Response(
-          JSON.stringify({
-            error: `Erro ao vincular motorista: ${vinculoError.message}`,
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
-      // Retornar sucesso com flag indicando que foi vinculação (não criação)
+    if (emailError) {
+      // Sem a checagem não dá para saber se a conta já existe; não arrisca.
       return new Response(
-        JSON.stringify({
-          success: true,
-          motorista: existingUser,
-          vinculado: true, // Flag para o frontend saber que foi vinculação
-          message: 'Motorista vinculado com sucesso a esta unidade.',
-        }),
+        JSON.stringify({ error: 'Não foi possível verificar o e-mail.' }),
         {
-          status: 200,
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (contasComEmail && contasComEmail.length > 0) {
+      const recusa = respostaEmailJaCadastrado();
+      return new Response(
+        JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
+        {
+          status: recusa.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
@@ -212,22 +185,13 @@ serve(async (req) => {
       }
     }
 
-    // Verificar se o email existe no Auth mas não na tabela usuarios (possível inconsistência)
-    const {
-      data: { users: authUsers },
-    } = await supabaseAdmin.auth.admin.listUsers();
-    const existingAuthUser = authUsers?.find((u) => u.email === email.trim());
-
-    if (existingAuthUser) {
-      // Email existe no Auth mas não na tabela usuarios - limpar inconsistência
-      console.log(`Limpando usuário órfão do Auth: ${email.trim()}`);
-      await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id);
-    }
-
-    // Criar usuário no Auth usando Admin API
+    // Conta só no Auth (sem linha em `usuarios`) é, por exemplo, um gestor no
+    // meio do onboarding: o createUser abaixo recusa o e-mail e a resposta é a
+    // mesma 409. Nunca apagar essa conta — apagar e recriar com a senha do
+    // gestor chamador entregava o login de outra pessoa.
     const { data: authData, error: createAuthError } =
       await supabaseAdmin.auth.admin.createUser({
-        email: email.trim(),
+        email: emailNormalizado,
         password: senha.trim(),
         email_confirm: true, // Confirmar email automaticamente
         user_metadata: {
@@ -236,22 +200,26 @@ serve(async (req) => {
       });
 
     if (createAuthError) {
-      // Verificar se é erro de email duplicado
-      const errorMsg = createAuthError.message.toLowerCase();
-      const isDuplicateEmail =
-        errorMsg.includes('already been registered') ||
-        errorMsg.includes('already registered') ||
-        errorMsg.includes('duplicate') ||
-        errorMsg.includes('unique constraint');
+      if (ehEmailDuplicadoNoAuth(createAuthError.message)) {
+        const recusa = respostaEmailJaCadastrado();
+        return new Response(
+          JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
+          {
+            status: recusa.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
 
-      const errorMessage = isDuplicateEmail
-        ? 'Este email já está cadastrado no sistema. Use outro email.'
-        : `Erro ao criar usuário: ${createAuthError.message}`;
-
-      return new Response(JSON.stringify({ error: errorMessage }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          error: `Erro ao criar usuário: ${createAuthError.message}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     if (!authData.user) {
@@ -267,7 +235,7 @@ serve(async (req) => {
       .insert({
         id: authData.user.id,
         nome: nome.trim(),
-        email: email.trim(),
+        email: emailNormalizado,
         telefone: telefone?.trim() || null,
         papel: 'motorista',
         unidade_id: gestorData.unidade_id,

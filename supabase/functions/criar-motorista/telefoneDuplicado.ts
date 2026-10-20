@@ -3,7 +3,7 @@
 export const CODIGO_TELEFONE_JA_CADASTRADO = 'telefone_ja_cadastrado';
 
 export const MSG_TELEFONE_OUTRA_LOJA =
-  'Este motorista já usa o RotaMestre em outra loja. Cadastre-o com o e-mail da conta dele para vinculá-lo à sua loja.';
+  'Este motorista já usa o RotaMestre em outra loja. Para usar o mesmo motorista em mais de uma loja, fale com o suporte.';
 export const MSG_TELEFONE_MESMA_LOJA =
   'Já existe um motorista com este telefone na sua loja.';
 

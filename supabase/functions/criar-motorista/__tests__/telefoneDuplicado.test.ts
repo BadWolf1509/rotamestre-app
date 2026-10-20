@@ -5,7 +5,7 @@ import {
 } from '../telefoneDuplicado';
 
 const OUTRA_LOJA =
-  'Este motorista já usa o RotaMestre em outra loja. Cadastre-o com o e-mail da conta dele para vinculá-lo à sua loja.';
+  'Este motorista já usa o RotaMestre em outra loja. Para usar o mesmo motorista em mais de uma loja, fale com o suporte.';
 const MESMA_LOJA = 'Já existe um motorista com este telefone na sua loja.';
 
 describe('respostaTelefoneDuplicado', () => {
