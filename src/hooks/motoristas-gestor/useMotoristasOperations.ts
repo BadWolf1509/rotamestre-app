@@ -11,6 +11,7 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
+import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { validatePhone } from '@/lib/phone';
 import { updateUsuario, logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
@@ -33,16 +34,6 @@ function mensagemTelefoneDuplicado(error: unknown): string | null {
         : '';
   if (!texto.includes(INDICE_TELEFONE_MOTORISTA)) return null;
   return getErrorMessage(error).message;
-}
-
-/**
- * Regra de negócio levantada pelas RPCs da tela (P0001), já em português para
- * o gestor ler — ex.: reativar motorista de outra loja que está desativado.
- */
-function mensagemDoBanco(error: unknown): string | null {
-  if (!error || typeof error !== 'object') return null;
-  const { code, message } = error as { code?: string; message?: string };
-  return code === 'P0001' && message ? message : null;
 }
 
 interface FormData {
@@ -211,6 +202,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
               email: email.trim(),
               senha: senha.trim(),
               telefone: telefone.trim() || null,
+              unidade_id: unidadeAtiva,
             }),
           });
         } catch (fetchError: any) {
@@ -277,7 +269,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         setSalvando(false);
       }
     },
-    [loadMotoristas, showToast, userData],
+    [loadMotoristas, showToast, unidadeAtiva, userData],
   );
 
   // ============================================================================
@@ -351,6 +343,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
   const confirmarToggleAtivo = useCallback(
     async (motorista: MotoristaDetalhado, onSuccess: () => void) => {
+      if (!unidadeAtiva) return;
       const novoStatus = !motorista.ativo;
 
       try {
@@ -387,7 +380,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
             // esbarra em outro motorista ativo); um toast só, sem piscar.
             error: (e) =>
               mensagemTelefoneDuplicado(e) ??
-              mensagemDoBanco(e) ??
+              mensagemRegraDoBanco(e) ??
               'Não foi possível alterar o status do motorista',
           },
         );

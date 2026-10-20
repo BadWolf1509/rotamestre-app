@@ -79,6 +79,7 @@ export default function MotoristasGestor() {
     // Actions
     abrirModalAdicionar,
     abrirModalEditar,
+    avisarSeVinculoInativo,
     adicionarMotorista,
     editarMotorista,
     toggleAtivo,
@@ -321,8 +322,10 @@ export default function MotoristasGestor() {
       label: 'Ver Perfil',
       icon: 'person-outline',
       type: 'secondary',
-      onPress: (motorista) =>
-        router.push(`/gestor/motorista-perfil?id=${motorista.id}`),
+      onPress: (motorista) => {
+        if (avisarSeVinculoInativo(motorista)) return;
+        router.push(`/gestor/motorista-perfil?id=${motorista.id}`);
+      },
     },
     {
       label: 'Editar',

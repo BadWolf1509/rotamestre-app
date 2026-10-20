@@ -434,6 +434,8 @@ describe('useMotoristasOperations', () => {
             email: 'novo@test.com',
             senha: 'senha123',
             telefone: null,
+            // a loja aberta na tela, não a principal do gestor
+            unidade_id: 'unidade-123',
           }),
         }),
       );
@@ -1033,6 +1035,22 @@ describe('useMotoristasOperations', () => {
       );
       // o catch não mostra um segundo toast
       expect(mockShowToast).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('does nothing without an active unit', async () => {
+      (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: null });
+      const { result } = renderHook(() => useMotoristasOperations());
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.confirmarToggleAtivo(
+          criarMotoristaMock(),
+          onSuccess,
+        );
+      });
+
+      expect(mockAlternar).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
     });
 

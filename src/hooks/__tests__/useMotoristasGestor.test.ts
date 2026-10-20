@@ -281,6 +281,46 @@ describe('useMotoristasGestor Hook', () => {
   // ============================================================================
 
   describe('Controle de Modais', () => {
+    // Vínculo inativo nesta loja (motorista que atende outra): a RLS de
+    // usuarios o esconde, então perfil e edição falhariam com erro genérico.
+    const MSG_VINCULO_INATIVO =
+      'Este motorista está desativado nesta loja. Ative-o para ver o perfil ou editar.';
+
+    it('nao abre a edicao de motorista com vinculo inativo nesta loja', () => {
+      const { result } = renderHook(() => useMotoristasGestor());
+
+      act(() => {
+        result.current.abrirModalEditar(
+          criarMotoristaMock({ ativo: false, vinculo_ativo: false }),
+        );
+      });
+
+      expect(result.current.showEditModal).toBe(false);
+      expect(mockShowToast).toHaveBeenCalledWith(MSG_VINCULO_INATIVO, 'info');
+    });
+
+    it('avisarSeVinculoInativo bloqueia so o vinculo inativo', () => {
+      const { result } = renderHook(() => useMotoristasGestor());
+
+      let bloqueado = false;
+      act(() => {
+        bloqueado = result.current.avisarSeVinculoInativo(
+          criarMotoristaMock({ vinculo_ativo: false }),
+        );
+      });
+      expect(bloqueado).toBe(true);
+      expect(mockShowToast).toHaveBeenCalledWith(MSG_VINCULO_INATIVO, 'info');
+
+      mockShowToast.mockClear();
+      act(() => {
+        bloqueado = result.current.avisarSeVinculoInativo(
+          criarMotoristaMock({ ativo: false, vinculo_ativo: true }),
+        );
+      });
+      expect(bloqueado).toBe(false);
+      expect(mockShowToast).not.toHaveBeenCalled();
+    });
+
     it('deve abrir modal de adicionar e resetar formulario', async () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
@@ -673,6 +713,7 @@ describe('useMotoristasGestor Hook', () => {
             email: 'motorista@teste.com',
             senha: 'senha123',
             telefone: '(11) 99999-9999',
+            unidade_id: 'unidade-123',
           }),
         }),
       );

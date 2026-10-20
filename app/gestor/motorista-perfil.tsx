@@ -37,8 +37,10 @@ import {
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
@@ -50,6 +52,7 @@ export default function MotoristaPerfil() {
   const { toast, showToast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
   const { userData } = useUser();
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -169,24 +172,36 @@ export default function MotoristaPerfil() {
 
     try {
       const newStatus = !motorista.ativo;
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ ativo: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', motorista.id);
+      // Mesma porta da lista: quem atende outra loja sai só desta (o vínculo).
+      const { data, error } = await supabase.rpc(
+        'alternar_motorista_na_unidade',
+        {
+          p_motorista_id: motorista.id,
+          p_unidade_id: unidadeAtiva,
+          p_ativo: newStatus,
+        },
+      );
 
       if (error) throw error;
 
       setMotorista({ ...motorista, ativo: newStatus });
       showToast(
-        `Motorista ${newStatus ? 'ativado' : 'desativado'} com sucesso`,
+        data === 'vinculo'
+          ? `Motorista ${newStatus ? 'ativado' : 'desativado'} só nesta loja`
+          : `Motorista ${newStatus ? 'ativado' : 'desativado'} com sucesso`,
         'success',
       );
       setShowToggleModal(false);
+      // Desativado só aqui, a RLS deixa de mostrá-lo: volta para a lista.
+      if (data === 'vinculo' && !newStatus) router.back();
     } catch (error) {
       logger.error('Erro ao alterar status:', error);
-      showToast('Não foi possível alterar o status', 'error');
+      showToast(
+        mensagemRegraDoBanco(error) ?? 'Não foi possível alterar o status',
+        'error',
+      );
     }
-  }, [motorista, showToast]);
+  }, [motorista, router, showToast, unidadeAtiva]);
 
   // Open edit modal
   const handleEdit = useCallback(() => {
