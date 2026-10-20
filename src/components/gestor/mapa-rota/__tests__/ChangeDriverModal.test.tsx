@@ -6,7 +6,10 @@
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { ChangeDriverModal, ChangeDriverModalProps } from '../ChangeDriverModal';
+import {
+  ChangeDriverModal,
+  ChangeDriverModalProps,
+} from '../ChangeDriverModal';
 
 // Mock Supabase
 const mockFrom = jest.fn();
@@ -29,12 +32,24 @@ jest.mock('@/hooks/useResponsive', () => ({
 // Mock theme
 // Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
+  DesktopModal: ({
+    visible,
+    onClose,
+    title,
+    children,
+    primaryButton,
+    secondaryButton,
+  }: {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
+    primaryButton?: {
+      text: string;
+      onPress: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+    };
     secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
     const { View, Text, TouchableOpacity } = require('react-native');
@@ -81,9 +96,24 @@ jest.mock('@expo/vector-icons', () => ({
 
 describe('ChangeDriverModal', () => {
   const mockMotoristas = [
-    { id: 'motorista-1', nome: 'João Silva', email: 'joao@email.com', ativo: true },
-    { id: 'motorista-2', nome: 'Maria Santos', email: 'maria@email.com', ativo: true },
-    { id: 'motorista-3', nome: 'Carlos Ferreira', email: 'carlos@email.com', ativo: true },
+    {
+      id: 'motorista-1',
+      nome: 'João Silva',
+      email: 'joao@email.com',
+      ativo: true,
+    },
+    {
+      id: 'motorista-2',
+      nome: 'Maria Santos',
+      email: 'maria@email.com',
+      ativo: true,
+    },
+    {
+      id: 'motorista-3',
+      nome: 'Carlos Ferreira',
+      email: 'carlos@email.com',
+      ativo: true,
+    },
   ];
 
   const defaultProps: ChangeDriverModalProps = {
@@ -119,7 +149,9 @@ describe('ChangeDriverModal', () => {
 
   describe('Renderização', () => {
     it('deve renderizar o modal quando visible=true', async () => {
-      const { getByTestId, getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
 
       expect(getByTestId('desktop-modal')).toBeTruthy();
       expect(getByText('Trocar Motorista')).toBeTruthy();
@@ -130,7 +162,9 @@ describe('ChangeDriverModal', () => {
     });
 
     it('não deve renderizar quando visible=false', () => {
-      const { queryByTestId } = render(<ChangeDriverModal {...defaultProps} visible={false} />);
+      const { queryByTestId } = render(
+        <ChangeDriverModal {...defaultProps} visible={false} />,
+      );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
     });
@@ -149,7 +183,9 @@ describe('ChangeDriverModal', () => {
         currentMotoristaNome: undefined,
       };
 
-      const { getByText } = render(<ChangeDriverModal {...propsWithoutMotorista} />);
+      const { getByText } = render(
+        <ChangeDriverModal {...propsWithoutMotorista} />,
+      );
 
       expect(getByText('Sem motorista')).toBeTruthy();
     });
@@ -210,7 +246,9 @@ describe('ChangeDriverModal', () => {
       const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Nenhum motorista cadastrado na unidade')).toBeTruthy();
+        expect(
+          getByText('Nenhum motorista cadastrado na unidade'),
+        ).toBeTruthy();
       });
     });
   });
@@ -229,7 +267,9 @@ describe('ChangeDriverModal', () => {
     });
 
     it('deve selecionar motorista quando item é pressionado', async () => {
-      const { getByText, getByTestId } = render(<ChangeDriverModal {...defaultProps} />);
+      const { getByText, getByTestId } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
 
       await waitFor(() => {
         expect(getByText('Maria Santos')).toBeTruthy();
@@ -268,7 +308,10 @@ describe('ChangeDriverModal', () => {
       // Confirmar
       fireEvent.press(getByText('Confirmar'));
 
-      expect(defaultProps.onConfirm).toHaveBeenCalledWith('motorista-2', 'Maria Santos');
+      expect(defaultProps.onConfirm).toHaveBeenCalledWith(
+        'motorista-2',
+        'Maria Santos',
+      );
     });
   });
 
@@ -305,7 +348,9 @@ describe('ChangeDriverModal', () => {
       const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Nenhum motorista cadastrado na unidade')).toBeTruthy();
+        expect(
+          getByText('Nenhum motorista cadastrado na unidade'),
+        ).toBeTruthy();
       });
 
       expect(console.error).toHaveBeenCalled();
@@ -317,7 +362,15 @@ describe('ChangeDriverModal', () => {
         eq: jest.fn().mockReturnThis(),
         returns: jest.fn().mockResolvedValue({
           data: [
-            { usuario_id: 'motorista-1', usuarios: { id: 'motorista-1', nome: 'Motorista Inativo', email: 'inativo@email.com', ativo: false } },
+            {
+              usuario_id: 'motorista-1',
+              usuarios: {
+                id: 'motorista-1',
+                nome: 'Motorista Inativo',
+                email: 'inativo@email.com',
+                ativo: false,
+              },
+            },
             { usuario_id: 'motorista-2', usuarios: mockMotoristas[1] }, // ativo
           ],
           error: null,
@@ -325,7 +378,11 @@ describe('ChangeDriverModal', () => {
       });
 
       const { getByText, queryByText } = render(
-        <ChangeDriverModal {...defaultProps} currentMotoristaId="" currentMotoristaNome="" />
+        <ChangeDriverModal
+          {...defaultProps}
+          currentMotoristaId=""
+          currentMotoristaNome=""
+        />,
       );
 
       await waitFor(() => {
@@ -337,7 +394,9 @@ describe('ChangeDriverModal', () => {
     });
 
     it('deve recarregar motoristas quando modal abre novamente', async () => {
-      const { rerender } = render(<ChangeDriverModal {...defaultProps} visible={false} />);
+      const { rerender } = render(
+        <ChangeDriverModal {...defaultProps} visible={false} />,
+      );
 
       expect(mockFrom).not.toHaveBeenCalled();
 

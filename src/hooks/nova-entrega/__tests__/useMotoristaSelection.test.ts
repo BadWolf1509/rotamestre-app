@@ -93,8 +93,24 @@ describe('useMotoristaSelection', () => {
   describe('loading motoristas', () => {
     it('should load motoristas from unidade', async () => {
       const mockMotoristas = [
-        { usuario_id: 'user-1', usuarios: { id: 'user-1', nome: 'Carlos', email: 'carlos@test.com', ativo: true } },
-        { usuario_id: 'user-2', usuarios: { id: 'user-2', nome: 'Ana', email: 'ana@test.com', ativo: true } },
+        {
+          usuario_id: 'user-1',
+          usuarios: {
+            id: 'user-1',
+            nome: 'Carlos',
+            email: 'carlos@test.com',
+            ativo: true,
+          },
+        },
+        {
+          usuario_id: 'user-2',
+          usuarios: {
+            id: 'user-2',
+            nome: 'Ana',
+            email: 'ana@test.com',
+            ativo: true,
+          },
+        },
       ];
 
       setupSupabaseChain({ data: mockMotoristas, error: null });
@@ -113,8 +129,24 @@ describe('useMotoristaSelection', () => {
 
     it('should filter out inactive motoristas', async () => {
       const mockMotoristas = [
-        { usuario_id: 'user-1', usuarios: { id: 'user-1', nome: 'Carlos', email: 'carlos@test.com', ativo: true } },
-        { usuario_id: 'user-2', usuarios: { id: 'user-2', nome: 'Ana', email: 'ana@test.com', ativo: false } },
+        {
+          usuario_id: 'user-1',
+          usuarios: {
+            id: 'user-1',
+            nome: 'Carlos',
+            email: 'carlos@test.com',
+            ativo: true,
+          },
+        },
+        {
+          usuario_id: 'user-2',
+          usuarios: {
+            id: 'user-2',
+            nome: 'Ana',
+            email: 'ana@test.com',
+            ativo: false,
+          },
+        },
       ];
 
       setupSupabaseChain({ data: mockMotoristas, error: null });
@@ -131,7 +163,15 @@ describe('useMotoristaSelection', () => {
 
     it('should filter out null usuarios', async () => {
       const mockMotoristas = [
-        { usuario_id: 'user-1', usuarios: { id: 'user-1', nome: 'Carlos', email: 'carlos@test.com', ativo: true } },
+        {
+          usuario_id: 'user-1',
+          usuarios: {
+            id: 'user-1',
+            nome: 'Carlos',
+            email: 'carlos@test.com',
+            ativo: true,
+          },
+        },
         { usuario_id: 'user-2', usuarios: null },
       ];
 
@@ -169,7 +209,9 @@ describe('useMotoristaSelection', () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(mockOnError).toHaveBeenCalledWith('Não foi possível carregar os motoristas');
+      expect(mockOnError).toHaveBeenCalledWith(
+        'Não foi possível carregar os motoristas',
+      );
     });
 
     it('should set isLoading to true while loading', async () => {
@@ -235,7 +277,15 @@ describe('useMotoristaSelection', () => {
 
       // Setup new data
       const newMotoristas = [
-        { usuario_id: 'user-1', usuarios: { id: 'user-1', nome: 'Novo', email: 'novo@test.com', ativo: true } },
+        {
+          usuario_id: 'user-1',
+          usuarios: {
+            id: 'user-1',
+            nome: 'Novo',
+            email: 'novo@test.com',
+            ativo: true,
+          },
+        },
       ];
       setupSupabaseChain({ data: newMotoristas, error: null });
 
