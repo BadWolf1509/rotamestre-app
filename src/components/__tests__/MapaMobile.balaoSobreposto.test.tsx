@@ -126,10 +126,13 @@ async function medirMapa(
   });
 }
 
+const OCULTOS = { includeHiddenElements: true };
+
 /** O balão mede o próprio tamanho antes de se posicionar. */
 async function medirBalao(utils: ReturnType<typeof render>) {
   await act(async () => {
-    fireEvent(utils.getByTestId('mapa-balao'), 'layout', {
+    // Antes de medido o balão está oculto (inclusive para acessibilidade).
+    fireEvent(utils.getByTestId('mapa-balao', OCULTOS), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 200, height: 120 } },
     });
   });
@@ -375,11 +378,14 @@ describe('MapaMobile – balão sobreposto', () => {
     await cameraParou();
     await medirBalao(utils); // 120 de altura + pino: não cabe acima de y=100
 
-    const balao = utils.queryByTestId('mapa-balao');
+    const balao = utils.queryByTestId('mapa-balao', OCULTOS);
     const estilo = balao
       ? Object.assign({}, ...[balao.props.style].flat(3))
       : null;
     expect(estilo?.opacity).toBe(0);
+    // Invisível também para toque e leitor de tela.
+    expect(balao?.props.pointerEvents).toBe('none');
+    expect(balao?.props.importantForAccessibility).toBe('no-hide-descendants');
   });
 
   it('tocar no pino da parada selecionada fecha o balão da PARTIDA', async () => {

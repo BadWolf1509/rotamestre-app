@@ -64,6 +64,8 @@ export function BalaoSobreposto({
       testID="mapa-balao"
       style={[styles.balaoSobreposto, posicao]}
       pointerEvents={invisivel ? 'none' : 'auto'}
+      importantForAccessibility={invisivel ? 'no-hide-descendants' : 'auto'}
+      accessibilityElementsHidden={invisivel}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         if (tamanho?.w !== width || tamanho?.h !== height) {
