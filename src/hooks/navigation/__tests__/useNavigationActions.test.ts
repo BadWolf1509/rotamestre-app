@@ -87,6 +87,22 @@ describe('useNavigationActions', () => {
       expect(options.onComplete).toHaveBeenCalled();
     });
 
+    it('usa o tipo da parada nos textos da confirmação (retirada)', async () => {
+      const base = createMockOptions();
+      const options = createMockOptions({
+        currentStop: { ...base.currentStop, tipo: 'retirada' as const },
+      });
+      const { result } = renderHook(() => useNavigationActions(options));
+
+      await act(async () => {
+        await result.current.handleCompleteStop();
+      });
+
+      const arg = (options.showConfirm as jest.Mock).mock.calls[0][0];
+      expect(arg.title).toBe('Confirmar Retirada');
+      expect(arg.message.startsWith('Confirma a retirada em:')).toBe(true);
+    });
+
     it('deve NÃO chamar onComplete quando usuário cancela', async () => {
       const options = createMockOptions({
         showConfirm: jest.fn().mockResolvedValue(false),

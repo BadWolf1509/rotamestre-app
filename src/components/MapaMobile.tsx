@@ -17,6 +17,7 @@ import { useAlert } from '@/hooks/useAlert';
 import type { RouteInfo } from '@/hooks/useRouteDirections';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { OPENFREEMAP_STYLE_URL, toLngLat } from '@/lib/maplibre';
+import { montarPinosPorLocal } from '@/lib/motorista/pinosPorLocal';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
 
@@ -104,6 +105,9 @@ export function MapaMobile({
   const { proximaParadaPendente, handleNavigate, handleFitAll } =
     useNavigationActions(paradasReais, paradasComCoord as Parada[], cameraRef);
 
+  // Um pino por local: serviços no mesmo ponto saem juntos ("3+4").
+  const pinos = montarPinosPorLocal(paradasFiltradas);
+
   if (!hasParadasComCoordenadas) {
     return (
       <View style={styles.emptyContainer}>
@@ -163,18 +167,20 @@ export function MapaMobile({
         ))}
 
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
-        {paradasFiltradas.map((parada) => (
+        {pinos.map(({ principal, membros, rotulo }) => (
           <MapLibreGL.Marker
-            key={parada.id}
+            key={membros[0].id}
             lngLat={toLngLat({
-              latitude: parada.latitude!,
-              longitude: parada.longitude!,
+              latitude: principal.latitude!,
+              longitude: principal.longitude!,
             })}
             anchor="bottom"
           >
             <ParadaMarker
-              parada={parada}
-              isSelected={selectedParadaId === parada.id}
+              parada={principal}
+              rotulo={rotulo}
+              servicos={membros}
+              isSelected={membros.some((m) => m.id === selectedParadaId)}
               onPress={handleMarkerPress}
               onLongPress={handleMarkerLongPress}
             />

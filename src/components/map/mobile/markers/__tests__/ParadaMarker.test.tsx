@@ -81,4 +81,72 @@ describe('ParadaMarker', () => {
     );
     expect(getByText('João Silva')).toBeTruthy();
   });
+
+  describe('pino de um local com vários serviços', () => {
+    const servicos = [
+      { ordem: 3, tipo: 'entrega', status: 'pendente' },
+      { ordem: 4, tipo: 'retirada', status: 'pendente' },
+    ];
+    const principal = { ...baseParada, ordem: 3, tipo: 'entrega' };
+
+    it('mostra o rótulo do grupo no pino', () => {
+      const { getByText } = render(
+        <ParadaMarker
+          parada={principal as any}
+          rotulo="3+4"
+          servicos={servicos}
+          isSelected={false}
+          onPress={onPress}
+          onLongPress={onLongPress}
+        />,
+      );
+      expect(getByText('3+4')).toBeTruthy();
+    });
+
+    it('lista cada serviço no balão', () => {
+      const { getByText } = render(
+        <ParadaMarker
+          parada={principal as any}
+          rotulo="3+4"
+          servicos={servicos}
+          isSelected={true}
+          onPress={onPress}
+          onLongPress={onLongPress}
+        />,
+      );
+      expect(getByText('3 · Entrega')).toBeTruthy();
+      expect(getByText('4 · Retirada')).toBeTruthy();
+    });
+
+    it('descreve as paradas do grupo no accessibilityLabel', () => {
+      const { getAllByRole } = render(
+        <ParadaMarker
+          parada={principal as any}
+          rotulo="3+4"
+          servicos={servicos}
+          isSelected={false}
+          onPress={onPress}
+          onLongPress={onLongPress}
+        />,
+      );
+      expect(getAllByRole('button')[0].props.accessibilityLabel).toMatch(
+        /^Paradas 3 e 4/,
+      );
+    });
+
+    it('seleciona pelo id da principal', () => {
+      const { getAllByRole } = render(
+        <ParadaMarker
+          parada={principal as any}
+          rotulo="3+4"
+          servicos={servicos}
+          isSelected={false}
+          onPress={onPress}
+          onLongPress={onLongPress}
+        />,
+      );
+      fireEvent.press(getAllByRole('button')[0]);
+      expect(onPress).toHaveBeenCalledWith('p1');
+    });
+  });
 });

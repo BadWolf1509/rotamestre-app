@@ -11,6 +11,7 @@ import { View, Text, TouchableOpacity, Pressable, Linking } from 'react-native';
 
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import type { ParadaMapItem as Parada } from '@/types/parada-map';
 import { withOpacity } from '@/utils/color';
 import { getMarkerFillColor } from '@/utils/mapMarkerColors';
@@ -21,6 +22,16 @@ interface ParadaMarkerProps {
   isSelected: boolean;
   onPress: (paradaId: string) => void;
   onLongPress: (paradaId: string) => void;
+  /** Texto do pino quando ele reúne serviços do mesmo local ("3+4"). */
+  rotulo?: string;
+  /** Serviços do local, para o balão listar um a um. */
+  servicos?: Array<{ ordem: number; tipo?: string | null; status: string }>;
+}
+
+/** "3 e 4", "3, 4 e 5". */
+function listarOrdens(ordens: number[]): string {
+  if (ordens.length < 2) return ordens.join('');
+  return `${ordens.slice(0, -1).join(', ')} e ${ordens[ordens.length - 1]}`;
 }
 
 /**
@@ -32,16 +43,22 @@ export function ParadaMarker({
   isSelected,
   onPress,
   onLongPress,
+  rotulo,
+  servicos,
 }: ParadaMarkerProps) {
   const { theme } = useUnistyles();
   const markerColor = getMarkerFillColor(parada.status, theme.colors);
+  const agrupado = servicos != null && servicos.length > 1;
+  const titulo = agrupado
+    ? `Paradas ${listarOrdens(servicos.map((s) => s.ordem))}`
+    : `Parada ${parada.ordem}`;
 
   return (
     <View style={styles.markerWrapper}>
       {isSelected && (
         <View style={styles.calloutWrapper}>
           <View style={styles.calloutContainer}>
-            <Text style={styles.calloutTitle}>Parada {parada.ordem}</Text>
+            <Text style={styles.calloutTitle}>{titulo}</Text>
             <Text style={styles.calloutAddress} numberOfLines={2}>
               {parada.endereco}
             </Text>
@@ -93,7 +110,7 @@ export function ParadaMarker({
                   {getStatusLabel(parada.status)}
                 </Text>
               </View>
-              {parada.tipo && (
+              {!agrupado && parada.tipo && (
                 <View style={styles.calloutTypeBadge}>
                   <Ionicons
                     name={
@@ -110,6 +127,13 @@ export function ParadaMarker({
                 </View>
               )}
             </View>
+
+            {agrupado &&
+              servicos.map((servico) => (
+                <Text key={servico.ordem} style={styles.calloutDetailText}>
+                  {`${servico.ordem} · ${rotuloTipoParada(servico.tipo ?? '').titulo}`}
+                </Text>
+              ))}
           </View>
         </View>
       )}
@@ -124,11 +148,11 @@ export function ParadaMarker({
           isSelected && styles.markerSelected,
           pressed && styles.markerPressed,
         ]}
-        accessibilityLabel={`Parada ${parada.ordem}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
+        accessibilityLabel={`${titulo}, ${parada.endereco}, ${getStatusLabel(parada.status)}`}
         accessibilityHint="Toque para ver detalhes. Mantenha pressionado para ações rápidas"
         accessibilityRole="button"
       >
-        <Text style={styles.markerText}>{parada.ordem}</Text>
+        <Text style={styles.markerText}>{rotulo ?? parada.ordem}</Text>
       </Pressable>
     </View>
   );
