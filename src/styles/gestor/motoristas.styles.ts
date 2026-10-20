@@ -254,6 +254,11 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.error,
     marginTop: theme.spacing.xs,
   },
+  hintText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray500,
+    marginTop: theme.spacing.xs,
+  },
   modalActions: {
     flexDirection: 'row',
     gap: theme.spacing.md,

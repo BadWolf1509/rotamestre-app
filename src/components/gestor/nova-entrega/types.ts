@@ -12,11 +12,8 @@ export type MotoristaResumo = {
   rotaEmAndamento?: boolean;
   rotasPendentes?: number;
   paradasPendentes?: number;
-};
-
-export type VinculacaoMotorista = {
-  usuario_id: string;
-  usuarios: MotoristaResumo | null;
+  /** `true` só quando `usuarios.ultimo_login` é null (nunca fez login). */
+  nuncaEntrou?: boolean;
 };
 
 export interface ParadaFormData {

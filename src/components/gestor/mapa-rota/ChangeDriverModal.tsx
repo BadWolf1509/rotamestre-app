@@ -24,8 +24,13 @@ import {
 // Note: Platform is still used for web cursor styles in motoristaItem
 
 import { DesktopModal } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { logger } from '@/lib/logger';
+import {
+  confirmarMotoristaNuncaEntrou,
+  ROTULO_NUNCA_ENTROU,
+} from '@/lib/motorista/confirmarMotoristaNuncaEntrou';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -34,6 +39,7 @@ type MotoristaResumo = {
   nome: string;
   email: string;
   ativo: boolean;
+  ultimo_login: string | null;
 };
 
 type VinculacaoMotorista = {
@@ -60,8 +66,11 @@ export function ChangeDriverModal({
 }: ChangeDriverModalProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
+  const { showConfirm, AlertDialog } = useAlert();
   const [motoristas, setMotoristas] = useState<MotoristaResumo[]>([]);
-  const [selectedMotoristaId, setSelectedMotoristaId] = useState<string | null>(null);
+  const [selectedMotoristaId, setSelectedMotoristaId] = useState<string | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
 
@@ -74,10 +83,12 @@ export function ChangeDriverModal({
 
       const { data: vinculacoesData, error: vinculacoesError } = await supabase
         .from('usuario_unidades')
-        .select(`
+        .select(
+          `
           usuario_id,
-          usuarios (id, nome, email, ativo)
-        `)
+          usuarios (id, nome, email, ativo, ultimo_login)
+        `,
+        )
         .eq('unidade_id', unidadeId)
         .eq('papel', 'motorista')
         .eq('ativo', true)
@@ -107,11 +118,22 @@ export function ChangeDriverModal({
     }
   }, [visible, loadMotoristas]);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!selectedMotoristaId) return;
 
-    const selectedMotorista = motoristas.find((m) => m.id === selectedMotoristaId);
+    const selectedMotorista = motoristas.find(
+      (m) => m.id === selectedMotoristaId,
+    );
     if (!selectedMotorista) return;
+
+    if (selectedMotorista.ultimo_login === null) {
+      const seguir = await confirmarMotoristaNuncaEntrou(
+        showConfirm,
+        { nome: selectedMotorista.nome, nuncaEntrou: true },
+        'trocar',
+      );
+      if (!seguir) return;
+    }
 
     setIsLoading(true);
     onConfirm(selectedMotoristaId, selectedMotorista.nome);
@@ -120,100 +142,167 @@ export function ChangeDriverModal({
   const otherMotoristas = motoristas.filter((m) => m.id !== currentMotoristaId);
 
   return (
-    <DesktopModal
-      visible={visible}
-      onClose={onCancel}
-      title="Trocar Motorista"
-      maxWidth={450}
-      primaryButton={{
-        text: 'Confirmar',
-        onPress: handleConfirm,
-        loading: isLoading,
-        disabled: !selectedMotoristaId,
-      }}
-      secondaryButton={{
-        text: 'Cancelar',
-        onPress: onCancel,
-        disabled: isLoading,
-      }}
-    >
-      {/* Body */}
-      <View style={[styles.body, isDesktop && styles.bodyCompact]}>
-        {/* Motorista Atual */}
-        <View style={[styles.currentDriverSection, isDesktop && styles.currentDriverSectionCompact]}>
-          <Text style={[styles.sectionLabel, isDesktop && styles.sectionLabelCompact]}>Motorista atual</Text>
-          <View style={[styles.currentDriverCard, isDesktop && styles.currentDriverCardCompact]}>
-            <Ionicons name="person-circle" size={isDesktop ? 24 : 32} color={theme.colors.gray400} />
-            <Text style={[styles.currentDriverName, isDesktop && styles.currentDriverNameCompact]}>
-              {currentMotoristaNome || 'Sem motorista'}
+    <>
+      <DesktopModal
+        visible={visible}
+        onClose={onCancel}
+        title="Trocar Motorista"
+        maxWidth={450}
+        primaryButton={{
+          text: 'Confirmar',
+          onPress: handleConfirm,
+          loading: isLoading,
+          disabled: !selectedMotoristaId,
+        }}
+        secondaryButton={{
+          text: 'Cancelar',
+          onPress: onCancel,
+          disabled: isLoading,
+        }}
+      >
+        {/* Body */}
+        <View style={[styles.body, isDesktop && styles.bodyCompact]}>
+          {/* Motorista Atual */}
+          <View
+            style={[
+              styles.currentDriverSection,
+              isDesktop && styles.currentDriverSectionCompact,
+            ]}
+          >
+            <Text
+              style={[
+                styles.sectionLabel,
+                isDesktop && styles.sectionLabelCompact,
+              ]}
+            >
+              Motorista atual
             </Text>
-          </View>
-        </View>
-
-        {/* Divider com seta */}
-        <View style={[styles.dividerContainer, isDesktop && styles.dividerContainerCompact]}>
-          <View style={styles.dividerLine} />
-          <Ionicons name="arrow-down" size={isDesktop ? 16 : 20} color={theme.colors.gray400} />
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Lista de motoristas */}
-        <View style={styles.newDriverSection}>
-          <Text style={[styles.sectionLabel, isDesktop && styles.sectionLabelCompact]}>Selecione o novo motorista</Text>
-
-          {isLoadingMotoristas ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={theme.colors.primary} />
-              <Text style={styles.loadingText}>Carregando motoristas...</Text>
-            </View>
-          ) : otherMotoristas.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="alert-circle-outline" size={32} color={theme.colors.gray400} />
-              <Text style={styles.emptyText}>
-                {motoristas.length === 0
-                  ? 'Nenhum motorista cadastrado na unidade'
-                  : 'Não há outros motoristas disponíveis'}
+            <View
+              style={[
+                styles.currentDriverCard,
+                isDesktop && styles.currentDriverCardCompact,
+              ]}
+            >
+              <Ionicons
+                name="person-circle"
+                size={isDesktop ? 24 : 32}
+                color={theme.colors.gray400}
+              />
+              <Text
+                style={[
+                  styles.currentDriverName,
+                  isDesktop && styles.currentDriverNameCompact,
+                ]}
+              >
+                {currentMotoristaNome || 'Sem motorista'}
               </Text>
             </View>
-          ) : (
-            <ScrollView style={styles.motoristasList} showsVerticalScrollIndicator={false}>
-              {otherMotoristas.map((motorista) => (
-                <TouchableOpacity
-                  key={motorista.id}
-                  style={[
-                    styles.motoristaItem,
-                    isDesktop && styles.motoristaItemCompact,
-                    selectedMotoristaId === motorista.id && styles.motoristaItemSelected,
-                  ]}
-                  onPress={() => setSelectedMotoristaId(motorista.id)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={
-                      selectedMotoristaId === motorista.id
-                        ? 'checkmark-circle'
-                        : 'ellipse-outline'
-                    }
-                    size={isDesktop ? 18 : 22}
-                    color={
-                      selectedMotoristaId === motorista.id
-                        ? theme.colors.primary
-                        : theme.colors.gray400
-                    }
-                  />
-                  <View style={styles.motoristaInfo}>
-                    <Text style={[styles.motoristaNome, isDesktop && styles.motoristaNomeCompact]}>
-                      {motorista.nome}
-                    </Text>
-                    <Text style={styles.motoristaEmail}>{motorista.email}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
+          </View>
+
+          {/* Divider com seta */}
+          <View
+            style={[
+              styles.dividerContainer,
+              isDesktop && styles.dividerContainerCompact,
+            ]}
+          >
+            <View style={styles.dividerLine} />
+            <Ionicons
+              name="arrow-down"
+              size={isDesktop ? 16 : 20}
+              color={theme.colors.gray400}
+            />
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Lista de motoristas */}
+          <View style={styles.newDriverSection}>
+            <Text
+              style={[
+                styles.sectionLabel,
+                isDesktop && styles.sectionLabelCompact,
+              ]}
+            >
+              Selecione o novo motorista
+            </Text>
+
+            {isLoadingMotoristas ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={styles.loadingText}>Carregando motoristas...</Text>
+              </View>
+            ) : otherMotoristas.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={32}
+                  color={theme.colors.gray400}
+                />
+                <Text style={styles.emptyText}>
+                  {motoristas.length === 0
+                    ? 'Nenhum motorista cadastrado na unidade'
+                    : 'Não há outros motoristas disponíveis'}
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.motoristasList}
+                showsVerticalScrollIndicator={false}
+              >
+                {otherMotoristas.map((motorista) => (
+                  <TouchableOpacity
+                    key={motorista.id}
+                    style={[
+                      styles.motoristaItem,
+                      isDesktop && styles.motoristaItemCompact,
+                      selectedMotoristaId === motorista.id &&
+                        styles.motoristaItemSelected,
+                    ]}
+                    onPress={() => setSelectedMotoristaId(motorista.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={
+                        selectedMotoristaId === motorista.id
+                          ? 'checkmark-circle'
+                          : 'ellipse-outline'
+                      }
+                      size={isDesktop ? 18 : 22}
+                      color={
+                        selectedMotoristaId === motorista.id
+                          ? theme.colors.primary
+                          : theme.colors.gray400
+                      }
+                    />
+                    <View style={styles.motoristaInfo}>
+                      <Text
+                        style={[
+                          styles.motoristaNome,
+                          isDesktop && styles.motoristaNomeCompact,
+                        ]}
+                      >
+                        {motorista.nome}
+                      </Text>
+                      <Text style={styles.motoristaEmail}>
+                        {motorista.email}
+                      </Text>
+                      {motorista.ultimo_login === null && (
+                        <View style={styles.nuncaEntrouBadge}>
+                          <Text style={styles.nuncaEntrouText}>
+                            {ROTULO_NUNCA_ENTROU}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
         </View>
-      </View>
-    </DesktopModal>
+      </DesktopModal>
+      {AlertDialog}
+    </>
   );
 }
 
@@ -350,5 +439,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray500,
+  },
+  nuncaEntrouBadge: {
+    alignSelf: 'flex-start',
+    marginTop: theme.spacing.xs,
+    backgroundColor: theme.colors.warning + '20',
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 3,
+  },
+  nuncaEntrouText: {
+    color: theme.colors.warning,
+    fontSize: 11,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

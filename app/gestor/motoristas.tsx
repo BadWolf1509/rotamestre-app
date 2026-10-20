@@ -136,6 +136,11 @@ export default function MotoristasGestor() {
           accessibilityLabel="Campo de email do motorista"
         />
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+        <Text style={styles.hintText}>
+          Motorista que já usa o RotaMestre em outra loja? Cadastre com o mesmo
+          e-mail da conta dele: ele passa a ver as rotas das duas lojas com uma
+          conta só.
+        </Text>
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>

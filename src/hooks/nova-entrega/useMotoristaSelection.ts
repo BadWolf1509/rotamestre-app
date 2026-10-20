@@ -5,13 +5,19 @@
 
 import { useState, useCallback, useEffect } from 'react';
 
-import type {
-  MotoristaResumo,
-  VinculacaoMotorista,
-} from '@/components/gestor/nova-entrega/types';
+import type { MotoristaResumo } from '@/components/gestor/nova-entrega/types';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+
+type UsuarioComLogin = Omit<MotoristaResumo, 'nuncaEntrou'> & {
+  ultimo_login: string | null;
+};
+
+type VinculacaoComLogin = {
+  usuario_id: string;
+  usuarios: UsuarioComLogin | null;
+};
 
 export interface UseMotoristaSelectionReturn {
   motoristas: MotoristaResumo[];
@@ -45,13 +51,13 @@ export function useMotoristaSelection(
         .select(
           `
           usuario_id,
-          usuarios (id, nome, email, ativo)
+          usuarios (id, nome, email, ativo, ultimo_login)
         `,
         )
         .eq('unidade_id', unidadeAtiva)
         .eq('papel', 'motorista')
         .eq('ativo', true)) as {
-        data: VinculacaoMotorista[] | null;
+        data: VinculacaoComLogin[] | null;
         error: Error | null;
       };
 
@@ -59,7 +65,11 @@ export function useMotoristaSelection(
 
       const motoristasData = vinculacoesData
         ?.map((v) => v.usuarios)
-        .filter((u): u is MotoristaResumo => u !== null && u.ativo)
+        .filter((u): u is UsuarioComLogin => u !== null && u.ativo)
+        .map(({ ultimo_login, ...u }) => ({
+          ...u,
+          nuncaEntrou: ultimo_login === null,
+        }))
         .sort((a, b) => a.nome.localeCompare(b.nome));
 
       const activeDrivers = motoristasData || [];
