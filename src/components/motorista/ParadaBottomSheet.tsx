@@ -12,6 +12,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Linking } from 'react-native';
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
+import { logger } from '@/lib/logger';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -214,7 +215,12 @@ export function ParadaBottomSheet({
         {parada.telefone && (
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
+            onPress={() =>
+              // Sem discador (tablet, web sem handler de tel:) a promessa rejeita.
+              Linking.openURL(`tel:${parada.telefone}`).catch((e) =>
+                logger.warn('Não foi possível abrir o discador', e),
+              )
+            }
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel={`Ligar para ${parada.telefone}`}

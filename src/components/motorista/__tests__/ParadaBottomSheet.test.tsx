@@ -3,9 +3,11 @@
  * Bottom sheet com detalhes e ações para uma parada
  */
 
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Linking } from 'react-native';
+
+import { logger } from '@/lib/logger';
 
 import { ParadaBottomSheet } from '../ParadaBottomSheet';
 
@@ -429,6 +431,28 @@ describe('ParadaBottomSheet', () => {
       fireEvent.press(getByLabelText('Ligar para 83999990000'));
 
       expect(openURL).toHaveBeenCalledWith('tel:83999990000');
+    });
+
+    it('sem discador, registra o erro em vez de rejeitar solto', async () => {
+      const falha = new Error('sem discador');
+      jest.spyOn(Linking, 'openURL').mockRejectedValue(falha);
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const { getByLabelText } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, telefone: '83999990000' }}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Ligar para 83999990000'));
+
+      await waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(
+          'Não foi possível abrir o discador',
+          falha,
+        ),
+      );
     });
 
     it('não aparece sem telefone', () => {

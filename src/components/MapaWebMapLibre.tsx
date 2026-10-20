@@ -239,10 +239,10 @@ export default function MapaWebMapLibre({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Lidos dentro de handlers do maplibre registrados em efeitos: por ref,
-  // para o efeito dos marcadores (que faz o fitBounds) não re-rodar a cada
-  // seleção. No clique, a ref ainda tem a seleção de ANTES do onMapPress
-  // que o mesmo clique dispara — é o que a decisão do toque precisa.
+  // Lidos dentro de handlers do maplibre registrados em efeitos. O clique no
+  // pino dispara antes o 'click' do mapa (onMapPress limpa a seleção); a ref
+  // ainda guarda a seleção de ANTES desse clique, que é o que a decisão do
+  // toque precisa. O listener do "Ver ações" lê a callback atual pela ref.
   const selectedParadaIdRef = useRef(selectedParadaId);
   const onSelectedMarkerPressRef = useRef(onSelectedMarkerPress);
   useEffect(() => {

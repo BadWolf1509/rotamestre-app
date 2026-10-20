@@ -169,6 +169,36 @@ describe('MapaMobile – toque no pino já selecionado', () => {
     expect(onMarkerPress).toHaveBeenCalledWith('p1');
   });
 
+  it('pino agrupado selecionado por um membro não principal abre as ações da principal', () => {
+    const onMarkerPress = jest.fn();
+    const onSelectedMarkerPress = jest.fn();
+    const concluida = {
+      ...parada,
+      id: 'p0',
+      ordem: 1,
+      status: 'concluida' as const,
+    };
+    const pendente = {
+      ...parada,
+      id: 'p2',
+      ordem: 2,
+      tipo: 'retirada' as const,
+    };
+    const { getAllByTestId } = render(
+      <MapaMobile
+        paradas={[partida, concluida, pendente]}
+        selectedParadaId="p0"
+        onMarkerPress={onMarkerPress}
+        onSelectedMarkerPress={onSelectedMarkerPress}
+      />,
+    );
+
+    tocarMarcador(getAllByTestId('marker')[1]);
+
+    expect(onSelectedMarkerPress).toHaveBeenCalledWith('p2');
+    expect(onMarkerPress).not.toHaveBeenCalled();
+  });
+
   it('o balão mostra a dica de ações só quando há onSelectedMarkerPress', () => {
     const { queryByText, rerender } = render(
       <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
