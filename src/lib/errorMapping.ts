@@ -287,6 +287,16 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    pattern: /usuarios_motorista_telefone_unico/i,
+    result: {
+      title: 'Telefone já cadastrado',
+      message:
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+      type: 'warning',
+      code: 'UNIQUE_TELEFONE_MOTORISTA',
+    },
+  },
+  {
     pattern: /unique.*constraint|duplicate.*key/i,
     result: {
       title: 'Registro duplicado',

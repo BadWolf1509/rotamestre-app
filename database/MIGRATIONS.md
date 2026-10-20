@@ -1228,3 +1228,23 @@ controle de segurança — a policy de INSERT de `logs` só exige
 outra migration.
 
 Revisada pelo `rls-policy-reviewer`: **APPROVE**, sem achado crítico.
+
+### ⏳ Migration 30: telefone único entre motoristas ativos
+
+**Arquivo:** `20261020200000_motorista_telefone_unico.sql` · **ainda não aplicada**
+(o controlador aplica via MCP `apply_migration` após a revisão).
+
+**Conta duplicada entre lojas.** O mesmo motorista cadastrado por duas lojas com
+e-mails diferentes virava duas contas, cada uma com as rotas de uma loja só. O
+telefone passa a ser a identidade entre motoristas **ativos**.
+
+**O que muda:** `normalizar_telefone(text)` (`IMMUTABLE`: só dígitos, tira o `55`
+com 12/13 dígitos, menos de 10 dígitos = `NULL`);
+`motorista_ativo_por_telefone(text)` (`STABLE`, `SECURITY INVOKER`, só
+`service_role`, para a Edge Function); índice único parcial
+`usuarios_motorista_telefone_unico` (`papel='motorista' AND ativo` e telefone
+normalizado não nulo). Um `DO $$` antes do índice aborta, listando os números, se
+já houver duplicata ativa. Sem tabela nova e sem policy.
+
+**Cliente:** `errorMapping` traduz o índice para "Telefone já cadastrado"
+(`UNIQUE_TELEFONE_MOTORISTA`), em vez do "Registro duplicado" genérico.
