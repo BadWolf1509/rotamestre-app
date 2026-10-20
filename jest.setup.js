@@ -520,8 +520,10 @@ jest.mock('react-native-unistyles', () => ({
     },
     configure: jest.fn(),
   },
+  // O real devolve um proxy NOVO de theme a cada render (useProxifiedUnistyles),
+  // com theme.colors estável. Theme em deps de memo/efeito muda todo render.
   useUnistyles: () => ({
-    theme: mockTheme,
+    theme: { ...mockTheme },
     rt: mockMiniRuntime,
   }),
   UnistylesRegistry: {
@@ -555,7 +557,7 @@ jest.mock('@/utils/styles', () => {
   return {
     defaultTheme: mockTheme,
     useUnistyles: () => ({
-      theme: mockTheme,
+      theme: { ...mockTheme }, // novo a cada render, como o real
     }),
     StyleSheet: {
       create: (stylesOrFunction) =>
