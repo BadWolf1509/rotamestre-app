@@ -3,7 +3,7 @@
  * Modal para trocar motorista de uma rota
  */
 
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import {
@@ -325,6 +325,8 @@ describe('ChangeDriverModal', () => {
 
   describe('Motorista que nunca entrou no app', () => {
     beforeEach(() => {
+      // clearAllMocks mantém implementações: o teste de cancelar não pode vazar.
+      mockShowConfirm.mockResolvedValue(true);
       mockFrom.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
@@ -392,6 +394,8 @@ describe('ChangeDriverModal', () => {
       fireEvent.press(getByText('Confirmar'));
 
       await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+      // deixa a promessa resolvida (false) ser processada antes de afirmar.
+      await act(async () => {});
       expect(defaultProps.onConfirm).not.toHaveBeenCalled();
     });
 

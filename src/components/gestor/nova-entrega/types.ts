@@ -16,11 +16,6 @@ export type MotoristaResumo = {
   nuncaEntrou?: boolean;
 };
 
-export type VinculacaoMotorista = {
-  usuario_id: string;
-  usuarios: MotoristaResumo | null;
-};
-
 export interface ParadaFormData {
   endereco: string;
   tipo: 'entrega' | 'retirada';
