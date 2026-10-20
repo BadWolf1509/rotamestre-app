@@ -101,7 +101,12 @@ jest.mock('@/lib/utils', () => ({
 // Import component AFTER mocks are in place
 // ---------------------------------------------------------------------------
 
-import MapaWebMapLibre from '../MapaWebMapLibre';
+import { montarPinosPorLocal } from '@/lib/motorista/pinosPorLocal';
+
+import MapaWebMapLibre, {
+  createGrupoPopupContent,
+  montarFeaturesDosMarcadores,
+} from '../MapaWebMapLibre';
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -247,5 +252,54 @@ describe('MapaWebMapLibre – motorista marker', () => {
     // MockMarkerConstructor represents maplibregl.Marker in this module;
     // its use in the effect is guarded on mapLoaded (requires real DOM to trigger)
     expect(MockMarkerConstructor).toBeDefined();
+  });
+});
+
+describe('MapaWebMapLibre – um pino por local', () => {
+  const base = {
+    endereco: 'Rua Teste, 1',
+    latitude: -23.55,
+    longitude: -46.63,
+    status: 'pendente',
+    is_checkpoint: false,
+  };
+  const entrega = { ...base, id: 'e3', ordem: 3, tipo: 'entrega' };
+  const retirada = { ...base, id: 'r4', ordem: 4, tipo: 'retirada' };
+
+  it('entrega e retirada no mesmo ponto viram UMA feature "3+4"', () => {
+    const features = montarFeaturesDosMarcadores(
+      [],
+      montarPinosPorLocal([entrega, retirada]),
+      null,
+    );
+    expect(features).toHaveLength(1);
+    expect(features[0].properties.label).toBe('3+4');
+    expect(features[0].properties.id).toBe('e3');
+  });
+
+  it('paradas em pontos diferentes seguem uma feature por parada', () => {
+    const longe = { ...retirada, latitude: -23.7, longitude: -46.8 };
+    const features = montarFeaturesDosMarcadores(
+      [],
+      montarPinosPorLocal([entrega, longe]),
+      null,
+    );
+    expect(features.map((f) => f.properties.label)).toEqual(['3', '4']);
+  });
+
+  it('selecionar qualquer parada do grupo acende o pino', () => {
+    const features = montarFeaturesDosMarcadores(
+      [],
+      montarPinosPorLocal([entrega, retirada]),
+      'r4',
+    );
+    expect(features[0].properties.is_selected).toBe(true);
+  });
+
+  it('o popup do grupo lista Entrega e Retirada', () => {
+    const html = createGrupoPopupContent([entrega, retirada], '#666');
+    expect(html).toContain('Entrega');
+    expect(html).toContain('Retirada');
+    expect(html).toContain('Paradas 3 e 4');
   });
 });

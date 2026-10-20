@@ -31,6 +31,11 @@ import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
+  montarPinosPorLocal,
+  type PinoPorLocal,
+} from '@/lib/motorista/pinosPorLocal';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
+import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
 } from '@/lib/openFreeMapStyle';
@@ -90,25 +95,109 @@ function createPopupContent(
     `;
   }
 
-  const statusLabel: Record<string, string> = {
-    pendente: '🟡 Pendente',
-    em_andamento: '🔵 Em andamento',
-    concluida: '✅ Concluída',
-    pulada: '⏭️ Pulada',
-  };
-
   const tipoLabel = parada.tipo === 'entrega' ? '📦 Entrega' : '📤 Retirada';
 
   return `
     <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
       <strong style="font-size: 14px;">Parada ${escapeHtml(String(parada.ordem))}</strong>
       <span style="margin-left: 8px; font-size: 12px; color: ${theme.colors.textSecondary};">${tipoLabel}</span>
-      <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${statusLabel[parada.status] || escapeHtml(parada.status)}</p>
+      <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${STATUS_LABEL[parada.status] || escapeHtml(parada.status)}</p>
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ''}
       ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ''}
     </div>
   `;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  pendente: '🟡 Pendente',
+  em_andamento: '🔵 Em andamento',
+  concluida: '✅ Concluída',
+  pulada: '⏭️ Pulada',
+};
+
+/**
+ * Popup do pino que reúne vários serviços do mesmo local: um endereço,
+ * uma linha por serviço.
+ */
+export function createGrupoPopupContent(
+  membros: Parada[],
+  textSecondary: string,
+): string {
+  const ordens = membros.map((m) => m.ordem);
+  const titulo = `Paradas ${ordens.slice(0, -1).join(', ')} e ${ordens[ordens.length - 1]}`;
+  const linhas = membros
+    .map((m) => {
+      const tipo = rotuloTipoParada(m.tipo ?? '').titulo;
+      const status = STATUS_LABEL[m.status] || escapeHtml(m.status);
+      return `<p style="margin: 4px 0; font-size: 12px;"><strong>${escapeHtml(String(m.ordem))} · ${escapeHtml(tipo)}</strong> <span style="color: ${textSecondary};">${status}</span></p>`;
+    })
+    .join('');
+  const destinatarios = [
+    ...new Set(membros.map((m) => m.destinatario).filter(Boolean)),
+  ] as string[];
+
+  return `
+    <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
+      <strong style="font-size: 14px;">${escapeHtml(titulo)}</strong>
+      <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(membros[0].endereco)}</p>
+      ${linhas}
+      ${destinatarios.length ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${destinatarios.map((d) => escapeHtml(d)).join(', ')}</p>` : ''}
+    </div>
+  `;
+}
+
+/** Features do GeoJSON: checkpoints à parte, um pino por local nas paradas. */
+export function montarFeaturesDosMarcadores(
+  checkpoints: Parada[],
+  pinos: Array<PinoPorLocal<Parada>>,
+  selectedParadaId: string | null | undefined,
+) {
+  const partidaId = checkpoints[0]?.id;
+
+  const doCheckpoint = checkpoints.map((parada) => {
+    const isPartida = parada.id === partidaId;
+    return {
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [parada.longitude as number, parada.latitude as number],
+      },
+      properties: {
+        id: parada.id,
+        status: parada.status,
+        ordem: parada.ordem,
+        // Emoji para casar com os ícones dos checkpoints no mobile.
+        // Se o servidor de fontes do GL não tiver o glifo, volte para 'I'/'F'.
+        label: isPartida ? '\u{1F6A9}' : '\u{1F3E0}',
+        is_checkpoint: true,
+        is_partida: isPartida,
+        is_selected: parada.id === selectedParadaId,
+      },
+    };
+  });
+
+  const dasParadas = pinos.map(({ principal, membros, rotulo }) => ({
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Point' as const,
+      coordinates: [
+        principal.longitude as number,
+        principal.latitude as number,
+      ],
+    },
+    properties: {
+      id: principal.id,
+      status: principal.status,
+      ordem: principal.ordem,
+      label: rotulo,
+      is_checkpoint: false,
+      is_partida: false,
+      is_selected: membros.some((m) => m.id === selectedParadaId),
+    },
+  }));
+
+  return [...doCheckpoint, ...dasParadas];
 }
 
 export default function MapaWebMapLibre({
@@ -204,9 +293,9 @@ export default function MapaWebMapLibre({
       .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
   }, [routeCoordinates]);
 
-  const paradasParaExibir = useMemo(
-    () => [...checkpoints, ...paradasFiltradas],
-    [checkpoints, paradasFiltradas],
+  const pinos = useMemo(
+    () => montarPinosPorLocal(paradasFiltradas),
+    [paradasFiltradas],
   );
 
   const paradaLookup = useMemo(() => {
@@ -217,48 +306,28 @@ export default function MapaWebMapLibre({
     return map;
   }, [paradasComCoord]);
 
-  const markerFeatures = useMemo(() => {
-    const checkpointIds = checkpoints.map((c) => c.id);
-    const partidaId = checkpointIds[0];
+  // Qualquer serviço do local (não só a principal) leva ao mesmo pino.
+  const pinoPorParadaId = useMemo(() => {
+    const map = new Map<string, PinoPorLocal<Parada>>();
+    pinos.forEach((pino) => {
+      pino.membros.forEach((m) => map.set(m.id, pino));
+    });
+    return map;
+  }, [pinos]);
 
-    return paradasParaExibir
-      .filter((parada) => parada.latitude != null && parada.longitude != null)
-      .map((parada) => {
-        const isCheckpoint = parada.is_checkpoint === false;
-        const isPartida = isCheckpoint && parada.id === partidaId;
-        // Use emoji to match mobile checkpoint icons (🚩 start, 🏠 end).
-        // If GL font server lacks emoji glyphs, revert to 'I'/'F'.
-        const label = isCheckpoint
-          ? isPartida
-            ? '\u{1F6A9}'
-            : '\u{1F3E0}'
-          : String(parada.ordem);
-
-        return {
-          type: 'Feature' as const,
-          geometry: {
-            type: 'Point' as const,
-            coordinates: [
-              parada.longitude as number,
-              parada.latitude as number,
-            ],
-          },
-          properties: {
-            id: parada.id,
-            status: parada.status,
-            ordem: parada.ordem,
-            label,
-            is_checkpoint: isCheckpoint,
-            is_partida: isPartida,
-            is_selected: parada.id === selectedParadaId,
-          },
-        };
-      });
-  }, [paradasParaExibir, checkpoints, selectedParadaId]);
+  const markerFeatures = useMemo(
+    () => montarFeaturesDosMarcadores(checkpoints, pinos, selectedParadaId),
+    [checkpoints, pinos, selectedParadaId],
+  );
 
   // Open popup for a parada
   const openPopup = useCallback(
-    (parada: Parada, isCheckpoint: boolean, isPartida: boolean) => {
+    (
+      parada: Parada,
+      isCheckpoint: boolean,
+      isPartida: boolean,
+      membros: Parada[] = [parada],
+    ) => {
       if (
         !mapRef.current ||
         parada.latitude == null ||
@@ -278,13 +347,15 @@ export default function MapaWebMapLibre({
       })
         .setLngLat([parada.longitude, parada.latitude])
         .setHTML(
-          createPopupContent(
-            parada,
-            isCheckpoint,
-            isPartida,
-            unidadeNome,
-            theme,
-          ),
+          membros.length > 1
+            ? createGrupoPopupContent(membros, theme.colors.textSecondary)
+            : createPopupContent(
+                parada,
+                isCheckpoint,
+                isPartida,
+                unidadeNome,
+                theme,
+              ),
         )
         .addTo(mapRef.current);
     },
@@ -540,7 +611,8 @@ export default function MapaWebMapLibre({
       const id = feature?.properties?.id as string | undefined;
       if (!id) return;
 
-      const parada = paradaLookup.get(id);
+      const pino = pinoPorParadaId.get(id);
+      const parada = pino?.principal ?? paradaLookup.get(id);
       if (!parada) return;
 
       const rawCheckpoint = feature?.properties?.is_checkpoint;
@@ -551,7 +623,7 @@ export default function MapaWebMapLibre({
       if (!isCheckpoint) {
         onMarkerPress?.(parada.id);
       }
-      openPopup(parada, isCheckpoint, isPartida);
+      openPopup(parada, isCheckpoint, isPartida, pino?.membros);
     };
 
     const handleMouseEnter = () => {
@@ -594,6 +666,7 @@ export default function MapaWebMapLibre({
     onMarkerPress,
     openPopup,
     paradaLookup,
+    pinoPorParadaId,
   ]);
 
   // Handle selected parada
@@ -608,17 +681,26 @@ export default function MapaWebMapLibre({
     const partidaId = checkpointIds[0];
     const isPartida = isCheckpoint && parada.id === partidaId;
 
-    openPopup(parada, isCheckpoint, isPartida);
+    const pino = pinoPorParadaId.get(parada.id);
+    const alvo = pino?.principal ?? parada;
+    openPopup(alvo, isCheckpoint, isPartida, pino?.membros);
 
     // Pan to marker
-    if (parada.latitude != null && parada.longitude != null) {
+    if (alvo.latitude != null && alvo.longitude != null) {
       mapRef.current.flyTo({
-        center: [parada.longitude, parada.latitude],
+        center: [alvo.longitude, alvo.latitude],
         zoom: 15,
         duration: 500,
       });
     }
-  }, [selectedParadaId, paradasComCoord, checkpoints, mapLoaded, openPopup]);
+  }, [
+    selectedParadaId,
+    paradasComCoord,
+    checkpoints,
+    pinoPorParadaId,
+    mapLoaded,
+    openPopup,
+  ]);
 
   // Render live motorista marker as a DOM Marker.
   // On first render: creates the element and marker, stores it in motoristaMarkerRef.
