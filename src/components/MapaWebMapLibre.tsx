@@ -92,7 +92,7 @@ function createPopupContent(
   isCheckpoint: boolean,
   isPartida: boolean,
   unidadeNome: string | undefined,
-  theme: Theme,
+  colors: Theme['colors'],
   comAcoes: boolean,
 ): string {
   if (isCheckpoint) {
@@ -101,7 +101,7 @@ function createPopupContent(
     return `
       <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
         <strong style="font-size: 14px;">${title}</strong>
-        <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${subtitle}</p>
+        <p style="margin: 4px 0; font-size: 12px; color: ${colors.textSecondary};">${subtitle}</p>
         ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ''}
         <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       </div>
@@ -113,12 +113,12 @@ function createPopupContent(
   return `
     <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
       <strong style="font-size: 14px;">Parada ${escapeHtml(String(parada.ordem))}</strong>
-      <span style="margin-left: 8px; font-size: 12px; color: ${theme.colors.textSecondary};">${tipoLabel}</span>
-      <p style="margin: 4px 0; font-size: 12px; color: ${theme.colors.textSecondary};">${STATUS_LABEL[parada.status] || escapeHtml(parada.status)}</p>
+      <span style="margin-left: 8px; font-size: 12px; color: ${colors.textSecondary};">${tipoLabel}</span>
+      <p style="margin: 4px 0; font-size: 12px; color: ${colors.textSecondary};">${STATUS_LABEL[parada.status] || escapeHtml(parada.status)}</p>
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ''}
       ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ''}
-      ${comAcoes ? htmlBotaoVerAcoes(theme.colors.primary) : ''}
+      ${comAcoes ? htmlBotaoVerAcoes(colors.primary) : ''}
     </div>
   `;
 }
@@ -243,6 +243,9 @@ export default function MapaWebMapLibre({
   storedRouteInfo,
 }: MapaWebMapLibreProps) {
   const { theme } = useUnistyles();
+  // O proxy de `theme` é NOVO a cada render (useProxifiedUnistyles); nas deps,
+  // ele refazia marcadores e popup em todo re-render. `theme.colors` é estável.
+  const colors = theme.colors;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -297,8 +300,10 @@ export default function MapaWebMapLibre({
     return paradasReais.filter((p) => p.status === statusFilter);
   }, [paradasReais, statusFilter]);
 
-  // Calculate bounds
-  const bounds = useMemo(() => {
+  // Área das paradas como texto: realtime e refetch entregam um array NOVO
+  // com as mesmas paradas, e re-enquadrar nisso devolvia o mapa à visão geral,
+  // perdendo o pan/zoom do usuário (a mesma classe do PR #594 no nativo).
+  const chaveDosLimites = useMemo(() => {
     if (paradasComCoord.length === 0) return null;
 
     const lngs = paradasComCoord
@@ -316,8 +321,17 @@ export default function MapaWebMapLibre({
 
     if (![minLng, minLat, maxLng, maxLat].every(Number.isFinite)) return null;
 
-    return new maplibregl.LngLatBounds([minLng, minLat], [maxLng, maxLat]);
+    return [minLng, minLat, maxLng, maxLat].join(',');
   }, [paradasComCoord]);
+
+  // Só muda de identidade quando a área muda de fato.
+  const bounds = useMemo(() => {
+    if (chaveDosLimites == null) return null;
+    const [minLng, minLat, maxLng, maxLat] = chaveDosLimites
+      .split(',')
+      .map(Number);
+    return new maplibregl.LngLatBounds([minLng, minLat], [maxLng, maxLat]);
+  }, [chaveDosLimites]);
 
   const {
     routeCoordinates,
@@ -391,15 +405,15 @@ export default function MapaWebMapLibre({
           membros.length > 1
             ? createGrupoPopupContent(
                 membros,
-                theme.colors.textSecondary,
-                temAcoes ? theme.colors.primary : undefined,
+                colors.textSecondary,
+                temAcoes ? colors.primary : undefined,
               )
             : createPopupContent(
                 parada,
                 isCheckpoint,
                 isPartida,
                 unidadeNome,
-                theme,
+                colors,
                 temAcoes && !isCheckpoint,
               ),
         )
@@ -412,7 +426,7 @@ export default function MapaWebMapLibre({
           onSelectedMarkerPressRef.current?.(parada.id),
         );
     },
-    [unidadeNome, theme, temAcoes],
+    [unidadeNome, colors, temAcoes],
   );
 
   // Initialize map
@@ -561,7 +575,7 @@ export default function MapaWebMapLibre({
 
     // Centralized marker colors from statusConfig (WCAG-compliant dark variants)
     const circleColorExpression = getMarkerColorExpression(
-      theme.colors,
+      colors,
     ) as maplibregl.ExpressionSpecification;
 
     // Radius: checkpoints 18, regular 16, selected +4
@@ -613,7 +627,7 @@ export default function MapaWebMapLibre({
         paint: {
           'circle-color': circleColorExpression,
           'circle-radius': circleRadiusExpression,
-          'circle-stroke-color': theme.colors.white,
+          'circle-stroke-color': colors.white,
           'circle-stroke-width': circleStrokeWidthExpression,
           'circle-blur': circleBlurExpression,
         },
@@ -652,8 +666,8 @@ export default function MapaWebMapLibre({
           'text-ignore-placement': true,
         },
         paint: {
-          'text-color': theme.colors.white,
-          'text-halo-color': withOpacity(theme.colors.black, 0.3),
+          'text-color': colors.white,
+          'text-halo-color': withOpacity(colors.black, 0.3),
           'text-halo-width': 0.8,
         },
       });
@@ -703,15 +717,6 @@ export default function MapaWebMapLibre({
     map.on('mouseenter', labelLayerId, handleMouseEnter);
     map.on('mouseleave', labelLayerId, handleMouseLeave);
 
-    // Fit bounds
-    if (bounds && mapRef.current) {
-      mapRef.current.fitBounds(bounds, {
-        padding: 50,
-        maxZoom: 15,
-        duration: 500,
-      });
-    }
-
     return () => {
       map.off('click', circleLayerId, handleMarkerClick);
       map.off('click', labelLayerId, handleMarkerClick);
@@ -723,44 +728,80 @@ export default function MapaWebMapLibre({
   }, [
     mapLoaded,
     markerFeatures,
-    bounds,
-    theme,
+    colors,
     onMarkerPress,
     openPopup,
     paradaLookup,
     pinoPorParadaId,
   ]);
 
-  // Handle selected parada
+  // Enquadra as paradas quando o mapa carrega e de novo só se a área mudar
+  // (selecionar, re-render e refetch não devolvem o mapa à visão geral).
   useEffect(() => {
-    if (!selectedParadaId || !mapRef.current || !mapLoaded) return;
+    if (!bounds || !mapRef.current || !mapLoaded) return;
+    mapRef.current.fitBounds(bounds, {
+      padding: 50,
+      maxZoom: 15,
+      duration: 500,
+    });
+  }, [mapLoaded, bounds]);
 
+  // Seleção resolvida a cada render; o efeito abaixo só age quando o
+  // CONTEÚDO dela muda, não quando um refetch entrega objetos novos.
+  const selecao = useMemo(() => {
+    if (!selectedParadaId) return null;
     const parada = paradasComCoord.find((p) => p.id === selectedParadaId);
-    if (!parada) return;
+    if (!parada) return null;
 
     const isCheckpoint = parada.is_checkpoint === false;
-    const checkpointIds = checkpoints.map((c) => c.id);
-    const partidaId = checkpointIds[0];
-    const isPartida = isCheckpoint && parada.id === partidaId;
-
+    const isPartida = isCheckpoint && parada.id === checkpoints[0]?.id;
     const pino = pinoPorParadaId.get(parada.id);
     const alvo = pino?.principal ?? parada;
-    openPopup(alvo, isCheckpoint, isPartida, pino?.membros);
+    const membros = pino?.membros ?? [alvo];
+    return { alvo, isCheckpoint, isPartida, membros };
+  }, [selectedParadaId, paradasComCoord, checkpoints, pinoPorParadaId]);
+  const selecaoRef = useRef(selecao);
+  useEffect(() => {
+    selecaoRef.current = selecao;
+  }, [selecao]);
+  // Popup reabre se a seleção ou o conteúdo mostrado mudar (ex.: status pelo
+  // realtime, ordem ao reordenar). O id selecionado entra porque serviços do
+  // mesmo local dividem o pino (e o alvo).
+  const chaveDoPopup = selecao
+    ? [
+        selectedParadaId,
+        selecao.alvo.id,
+        selecao.alvo.latitude,
+        selecao.alvo.longitude,
+        selecao.isPartida,
+        ...selecao.membros.map(
+          (m) =>
+            `${m.id}:${m.ordem}:${m.tipo}:${m.status}:${m.destinatario ?? ''}:${m.telefone ?? ''}:${m.endereco}`,
+        ),
+      ].join('|')
+    : null;
+  // A câmera só voa quando a seleção ou a posição dela muda.
+  const chaveDoVoo = selecao
+    ? `${selectedParadaId}:${selecao.alvo.latitude},${selecao.alvo.longitude}`
+    : null;
 
-    // Pan to marker
+  // Handle selected parada: popup
+  useEffect(() => {
+    const atual = selecaoRef.current;
+    if (!chaveDoPopup || !atual || !mapRef.current || !mapLoaded) return;
+    openPopup(atual.alvo, atual.isCheckpoint, atual.isPartida, atual.membros);
+  }, [chaveDoPopup, mapLoaded, openPopup]);
+
+  // Handle selected parada: pan to marker
+  useEffect(() => {
+    const alvo = selecaoRef.current?.alvo;
+    if (!chaveDoVoo || !alvo || !mapRef.current || !mapLoaded) return;
     if (alvo.latitude != null && alvo.longitude != null) {
       mapRef.current.flyTo(
         opcoesDoFlyToDaSelecao([alvo.longitude, alvo.latitude]),
       );
     }
-  }, [
-    selectedParadaId,
-    paradasComCoord,
-    checkpoints,
-    pinoPorParadaId,
-    mapLoaded,
-    openPopup,
-  ]);
+  }, [chaveDoVoo, mapLoaded]);
 
   // Render live motorista marker as a DOM Marker.
   // On first render: creates the element and marker, stores it in motoristaMarkerRef.
