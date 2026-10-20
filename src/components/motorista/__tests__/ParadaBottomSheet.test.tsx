@@ -131,7 +131,7 @@ describe('ParadaBottomSheet', () => {
           parada={null}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(toJSON()).toBeNull();
@@ -143,7 +143,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Parada 1')).toBeTruthy();
@@ -156,7 +156,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Av. Paulista, 1000')).toBeTruthy();
@@ -168,7 +168,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Entrega')).toBeTruthy();
@@ -181,7 +181,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaRetirada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Retirada')).toBeTruthy();
@@ -195,7 +195,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Pendente')).toBeTruthy();
@@ -208,7 +208,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaConcluida}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Concluída')).toBeTruthy();
@@ -221,7 +221,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaEmAndamento}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Em andamento')).toBeTruthy();
@@ -235,7 +235,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       // O overlay é o primeiro TouchableOpacity
@@ -251,20 +251,24 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Navegar')).toBeTruthy();
     });
 
     it('não deve mostrar botão navegar sem coordenadas', () => {
-      const paradaSemCoords = { ...mockParada, latitude: null, longitude: null };
+      const paradaSemCoords = {
+        ...mockParada,
+        latitude: null,
+        longitude: null,
+      };
       const { queryByText } = render(
         <ParadaBottomSheet
           parada={paradaSemCoords}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(queryByText('Navegar')).toBeNull();
@@ -277,7 +281,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onNavigate={mockOnNavigate}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Navegar'));
@@ -292,7 +296,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Navegar'));
@@ -313,7 +317,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       expect(getByText('Concluir')).toBeTruthy();
@@ -327,7 +331,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       expect(getByText('Concluir')).toBeTruthy();
@@ -341,7 +345,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       expect(queryByText('Concluir')).toBeNull();
@@ -354,7 +358,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Concluir'));
@@ -372,7 +376,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onViewDetails={mockOnViewDetails}
-        />
+        />,
       );
 
       expect(getByText('Detalhes')).toBeTruthy();
@@ -384,7 +388,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(queryByText('Detalhes')).toBeNull();
@@ -397,7 +401,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onViewDetails={mockOnViewDetails}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Detalhes'));
@@ -414,7 +418,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-location-outline')).toBeTruthy();
@@ -426,7 +430,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-navigate')).toBeTruthy();
@@ -438,7 +442,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-cube-outline')).toBeTruthy();
@@ -451,7 +455,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaRetirada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-arrow-up-circle-outline')).toBeTruthy();

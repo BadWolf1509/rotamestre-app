@@ -101,13 +101,28 @@ export function ParadaBottomSheet({
     >
       {/* Header com badge e status */}
       <View style={styles.headerInfo}>
-        <View style={[styles.orderBadge, { backgroundColor: getStatusColor(parada.status) }]}>
+        <View
+          style={[
+            styles.orderBadge,
+            { backgroundColor: getStatusColor(parada.status) },
+          ]}
+        >
           <Text style={styles.orderText}>{parada.ordem}</Text>
         </View>
         <View style={styles.headerDetails}>
           <View style={styles.statusContainer}>
-            <View style={[styles.statusDot, { backgroundColor: getStatusColor(parada.status) }]} />
-            <Text style={[styles.statusText, { color: getStatusColor(parada.status) }]}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: getStatusColor(parada.status) },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                { color: getStatusColor(parada.status) },
+              ]}
+            >
               {getStatusLabel(parada.status)}
             </Text>
           </View>
@@ -116,7 +131,11 @@ export function ParadaBottomSheet({
 
       {/* Endereço */}
       <View style={styles.addressContainer}>
-        <Ionicons name="location-outline" size={20} color={theme.colors.gray500} />
+        <Ionicons
+          name="location-outline"
+          size={20}
+          color={theme.colors.gray500}
+        />
         <Text style={styles.addressText}>{parada.endereco}</Text>
       </View>
 
@@ -124,7 +143,11 @@ export function ParadaBottomSheet({
       {parada.tipo && (
         <View style={styles.tipoContainer}>
           <Ionicons
-            name={parada.tipo === 'entrega' ? 'cube-outline' : 'arrow-up-circle-outline'}
+            name={
+              parada.tipo === 'entrega'
+                ? 'cube-outline'
+                : 'arrow-up-circle-outline'
+            }
             size={18}
             color={theme.colors.gray500}
           />
@@ -145,7 +168,12 @@ export function ParadaBottomSheet({
             accessibilityRole="button"
             accessibilityLabel={`Navegar para parada ${parada.ordem}`}
           >
-            <View style={[styles.actionIcon, { backgroundColor: theme.colors.primary }]}>
+            <View
+              style={[
+                styles.actionIcon,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
               <Ionicons name="navigate" size={20} color={theme.colors.white} />
             </View>
             <Text style={styles.actionText}>Navegar</Text>
@@ -153,23 +181,33 @@ export function ParadaBottomSheet({
         )}
 
         {/* Botão de marcar como concluída - só mostra se pendente ou em andamento */}
-        {(parada.status === 'pendente' || parada.status === 'em_andamento') && onMarkComplete && (
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              onMarkComplete(parada);
-              onClose();
-            }}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={`Concluir parada ${parada.ordem}`}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: theme.colors.success }]}>
-              <Ionicons name="checkmark" size={20} color={theme.colors.white} />
-            </View>
-            <Text style={styles.actionText}>Concluir</Text>
-          </TouchableOpacity>
-        )}
+        {(parada.status === 'pendente' || parada.status === 'em_andamento') &&
+          onMarkComplete && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                onMarkComplete(parada);
+                onClose();
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Concluir parada ${parada.ordem}`}
+            >
+              <View
+                style={[
+                  styles.actionIcon,
+                  { backgroundColor: theme.colors.success },
+                ]}
+              >
+                <Ionicons
+                  name="checkmark"
+                  size={20}
+                  color={theme.colors.white}
+                />
+              </View>
+              <Text style={styles.actionText}>Concluir</Text>
+            </TouchableOpacity>
+          )}
 
         {/* Botão de ver detalhes */}
         {onViewDetails && (
@@ -183,8 +221,17 @@ export function ParadaBottomSheet({
             accessibilityRole="button"
             accessibilityLabel={`Ver detalhes da parada ${parada.ordem}`}
           >
-            <View style={[styles.actionIcon, { backgroundColor: theme.colors.gray500 }]}>
-              <Ionicons name="information-circle-outline" size={20} color={theme.colors.white} />
+            <View
+              style={[
+                styles.actionIcon,
+                { backgroundColor: theme.colors.gray500 },
+              ]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={theme.colors.white}
+              />
             </View>
             <Text style={styles.actionText}>Detalhes</Text>
           </TouchableOpacity>
