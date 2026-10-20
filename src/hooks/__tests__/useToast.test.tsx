@@ -174,5 +174,28 @@ describe('useToast Hook', () => {
       expect(result.current.toast.message).toBe('Erro interno');
       expect(result.current.toast.type).toBe('error');
     });
+
+    it('aceita error como função e mostra o texto devolvido, uma única vez', async () => {
+      const { result } = renderHook(() => useToast());
+
+      const mockError = new Error('Falha original');
+      const mockAsyncFn = jest.fn().mockRejectedValue(mockError);
+      const erroFn = jest.fn(() => 'Mensagem mapeada');
+
+      await act(async () => {
+        await expect(
+          result.current.withToast(mockAsyncFn, {
+            loading: 'Carregando...',
+            success: 'Sucesso!',
+            error: erroFn,
+          }),
+        ).rejects.toBe(mockError);
+      });
+
+      expect(erroFn).toHaveBeenCalledWith(mockError);
+      expect(result.current.toast.message).toBe('Mensagem mapeada');
+      expect(result.current.toast.type).toBe('error');
+      expect(result.current.toast.duration).toBe(5000);
+    });
   });
 });

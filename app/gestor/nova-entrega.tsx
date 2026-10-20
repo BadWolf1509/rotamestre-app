@@ -29,6 +29,7 @@ import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useNovaEntrega } from '@/hooks/useNovaEntrega';
 import { mensagemParadaDuplicada } from '@/hooks/useNovaEntrega.helpers';
 import { useResponsive } from '@/hooks/useResponsive';
+import { confirmarMotoristaNuncaEntrou } from '@/lib/motorista/confirmarMotoristaNuncaEntrou';
 import { useUnistyles } from '@/utils/styles';
 
 export default function NovaEntrega() {
@@ -182,7 +183,7 @@ export default function NovaEntrega() {
     }
   }, [limparFormulario, showConfirm]);
 
-  const openReview = useCallback(() => {
+  const openReview = useCallback(async () => {
     if (!canGenerateRoute) {
       showToast(
         routeValidation.erros[0] || 'Revise os dados da rota.',
@@ -191,8 +192,21 @@ export default function NovaEntrega() {
       );
       return;
     }
+    // Antes da revisão, para o gestor poder trocar de motorista sem passar por ela.
+    const seguir = await confirmarMotoristaNuncaEntrou(
+      showConfirm,
+      selectedDriver,
+      'lancar',
+    );
+    if (!seguir) return;
     setReviewVisible(true);
-  }, [canGenerateRoute, routeValidation.erros, showToast]);
+  }, [
+    canGenerateRoute,
+    routeValidation.erros,
+    selectedDriver,
+    showConfirm,
+    showToast,
+  ]);
 
   const confirmRoute = useCallback(async () => {
     const success = await gerarRota();

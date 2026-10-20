@@ -339,6 +339,21 @@ describe('errorMapping', () => {
         expect(result.type).toBe('warning');
       });
 
+      it('should map the motorista phone unique index to a specific message', () => {
+        const error = {
+          message:
+            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+        };
+        const result = getErrorMessage(error);
+
+        expect(result.code).toBe('UNIQUE_TELEFONE_MOTORISTA');
+        expect(result.title).toBe('Telefone já cadastrado');
+        expect(result.message).toBe(
+          'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+        );
+        expect(result.type).toBe('warning');
+      });
+
       it('should handle duplicate key', () => {
         const error = new Error(
           'duplicate key value violates unique constraint',

@@ -8,6 +8,7 @@ import React, { memo, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
+import { ROTULO_NUNCA_ENTROU } from '@/lib/motorista/confirmarMotoristaNuncaEntrou';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { MotoristaResumo } from './types';
@@ -110,6 +111,13 @@ export const MotoristaSeletor = memo(function MotoristaSeletor({
                 {motorista.email}
               </Text>
               <View style={styles.workloadRow}>
+                {motorista.nuncaEntrou && (
+                  <View style={[styles.workloadBadge, styles.inProgressBadge]}>
+                    <Text style={[styles.workloadText, styles.inProgressText]}>
+                      {ROTULO_NUNCA_ENTROU}
+                    </Text>
+                  </View>
+                )}
                 {motorista.rotaEmAndamento && (
                   <View style={[styles.workloadBadge, styles.inProgressBadge]}>
                     <Text style={[styles.workloadText, styles.inProgressText]}>

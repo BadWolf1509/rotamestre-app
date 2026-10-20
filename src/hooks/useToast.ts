@@ -88,7 +88,7 @@ export function useToast() {
       messages: {
         loading: string;
         success: string;
-        error?: string;
+        error?: string | ((error: unknown) => string);
       },
     ): Promise<T> => {
       try {
@@ -98,7 +98,9 @@ export function useToast() {
         return result;
       } catch (error: unknown) {
         const errorMessage =
-          messages.error ||
+          (typeof messages.error === 'function'
+            ? messages.error(error)
+            : messages.error) ||
           (error instanceof Error ? error.message : 'Ocorreu um erro');
         showToast(errorMessage, 'error', 5000);
         throw error;
