@@ -1,5 +1,8 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import React, { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
+
+import type { BulkParadaInput } from '@/hooks/nova-entrega/useParadasManagement';
 
 import { ParadasListAndActions } from '../ParadasListAndActions';
 
@@ -214,5 +217,53 @@ describe('ParadasListAndActions', () => {
     const generate = getByLabelText(/Criando rota/i);
     expect(generate.props.accessibilityState.disabled).toBe(true);
     expect(getByText('Criando rota...')).toBeTruthy();
+  });
+
+  it('mantém o motivo por linha visível quando a primeira importação preenche a lista vazia', async () => {
+    // Com a lista vazia, o importador mora no estado vazio. Assim que a
+    // primeira linha entra, a lista deixa de estar vazia: se o importador
+    // desmontar nessa troca, o modal fecha levando os erros, e o gestor só vê
+    // "N ignorada(s)" no toast, sem saber qual linha nem por quê.
+    const erroDuplicada =
+      'Linha 3: entrega duplicada (mesmo endereço ou telefone).';
+
+    function TelaComImportacao() {
+      const [paradas, setParadas] = useState<typeof baseParadas>([]);
+      const onImport = async (items: BulkParadaInput[]) => {
+        const aceitas = items.slice(0, 2).map((item, index) => ({
+          ...baseParadas[index]!,
+          ...item,
+          vinculo_parada_id: undefined,
+        }));
+        setParadas(aceitas);
+        return { adicionadas: 2, ignoradas: 1, erros: [erroDuplicada] };
+      };
+      return (
+        <ParadasListAndActions
+          {...baseProps}
+          paradas={paradas}
+          paradasStatus={{ texto: 'ok', cor: 'default', icone: null }}
+          onImport={onImport}
+        />
+      );
+    }
+
+    const { getByText, getByLabelText } = render(<TelaComImportacao />);
+
+    fireEvent.press(getByText('Importar em lote'));
+    fireEvent.changeText(
+      getByLabelText('Linhas de paradas para importação'),
+      [
+        'entrega;Rua A, 123;Cliente A;(83) 99999-0001',
+        'retirada;Rua A, 123;Cliente A;(83) 99999-0001',
+        'entrega;Rua A, 123;Cliente A;(83) 99999-0001',
+      ].join('\n'),
+    );
+    await act(async () => {
+      fireEvent.press(getByText('Importar 3 parada(s)'));
+    });
+
+    await waitFor(() => expect(getByText(/Paradas Adicionadas/)).toBeTruthy());
+    expect(getByText(`• ${erroDuplicada}`)).toBeTruthy();
   });
 });
