@@ -61,7 +61,9 @@ export function ChangeDriverModal({
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
   const [motoristas, setMotoristas] = useState<MotoristaResumo[]>([]);
-  const [selectedMotoristaId, setSelectedMotoristaId] = useState<string | null>(null);
+  const [selectedMotoristaId, setSelectedMotoristaId] = useState<string | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
 
@@ -74,10 +76,12 @@ export function ChangeDriverModal({
 
       const { data: vinculacoesData, error: vinculacoesError } = await supabase
         .from('usuario_unidades')
-        .select(`
+        .select(
+          `
           usuario_id,
           usuarios (id, nome, email, ativo)
-        `)
+        `,
+        )
         .eq('unidade_id', unidadeId)
         .eq('papel', 'motorista')
         .eq('ativo', true)
@@ -110,7 +114,9 @@ export function ChangeDriverModal({
   const handleConfirm = () => {
     if (!selectedMotoristaId) return;
 
-    const selectedMotorista = motoristas.find((m) => m.id === selectedMotoristaId);
+    const selectedMotorista = motoristas.find(
+      (m) => m.id === selectedMotoristaId,
+    );
     if (!selectedMotorista) return;
 
     setIsLoading(true);
@@ -140,26 +146,68 @@ export function ChangeDriverModal({
       {/* Body */}
       <View style={[styles.body, isDesktop && styles.bodyCompact]}>
         {/* Motorista Atual */}
-        <View style={[styles.currentDriverSection, isDesktop && styles.currentDriverSectionCompact]}>
-          <Text style={[styles.sectionLabel, isDesktop && styles.sectionLabelCompact]}>Motorista atual</Text>
-          <View style={[styles.currentDriverCard, isDesktop && styles.currentDriverCardCompact]}>
-            <Ionicons name="person-circle" size={isDesktop ? 24 : 32} color={theme.colors.gray400} />
-            <Text style={[styles.currentDriverName, isDesktop && styles.currentDriverNameCompact]}>
+        <View
+          style={[
+            styles.currentDriverSection,
+            isDesktop && styles.currentDriverSectionCompact,
+          ]}
+        >
+          <Text
+            style={[
+              styles.sectionLabel,
+              isDesktop && styles.sectionLabelCompact,
+            ]}
+          >
+            Motorista atual
+          </Text>
+          <View
+            style={[
+              styles.currentDriverCard,
+              isDesktop && styles.currentDriverCardCompact,
+            ]}
+          >
+            <Ionicons
+              name="person-circle"
+              size={isDesktop ? 24 : 32}
+              color={theme.colors.gray400}
+            />
+            <Text
+              style={[
+                styles.currentDriverName,
+                isDesktop && styles.currentDriverNameCompact,
+              ]}
+            >
               {currentMotoristaNome || 'Sem motorista'}
             </Text>
           </View>
         </View>
 
         {/* Divider com seta */}
-        <View style={[styles.dividerContainer, isDesktop && styles.dividerContainerCompact]}>
+        <View
+          style={[
+            styles.dividerContainer,
+            isDesktop && styles.dividerContainerCompact,
+          ]}
+        >
           <View style={styles.dividerLine} />
-          <Ionicons name="arrow-down" size={isDesktop ? 16 : 20} color={theme.colors.gray400} />
+          <Ionicons
+            name="arrow-down"
+            size={isDesktop ? 16 : 20}
+            color={theme.colors.gray400}
+          />
           <View style={styles.dividerLine} />
         </View>
 
         {/* Lista de motoristas */}
         <View style={styles.newDriverSection}>
-          <Text style={[styles.sectionLabel, isDesktop && styles.sectionLabelCompact]}>Selecione o novo motorista</Text>
+          <Text
+            style={[
+              styles.sectionLabel,
+              isDesktop && styles.sectionLabelCompact,
+            ]}
+          >
+            Selecione o novo motorista
+          </Text>
 
           {isLoadingMotoristas ? (
             <View style={styles.loadingContainer}>
@@ -168,7 +216,11 @@ export function ChangeDriverModal({
             </View>
           ) : otherMotoristas.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="alert-circle-outline" size={32} color={theme.colors.gray400} />
+              <Ionicons
+                name="alert-circle-outline"
+                size={32}
+                color={theme.colors.gray400}
+              />
               <Text style={styles.emptyText}>
                 {motoristas.length === 0
                   ? 'Nenhum motorista cadastrado na unidade'
@@ -176,14 +228,18 @@ export function ChangeDriverModal({
               </Text>
             </View>
           ) : (
-            <ScrollView style={styles.motoristasList} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.motoristasList}
+              showsVerticalScrollIndicator={false}
+            >
               {otherMotoristas.map((motorista) => (
                 <TouchableOpacity
                   key={motorista.id}
                   style={[
                     styles.motoristaItem,
                     isDesktop && styles.motoristaItemCompact,
-                    selectedMotoristaId === motorista.id && styles.motoristaItemSelected,
+                    selectedMotoristaId === motorista.id &&
+                      styles.motoristaItemSelected,
                   ]}
                   onPress={() => setSelectedMotoristaId(motorista.id)}
                   activeOpacity={0.7}
@@ -202,7 +258,12 @@ export function ChangeDriverModal({
                     }
                   />
                   <View style={styles.motoristaInfo}>
-                    <Text style={[styles.motoristaNome, isDesktop && styles.motoristaNomeCompact]}>
+                    <Text
+                      style={[
+                        styles.motoristaNome,
+                        isDesktop && styles.motoristaNomeCompact,
+                      ]}
+                    >
                       {motorista.nome}
                     </Text>
                     <Text style={styles.motoristaEmail}>{motorista.email}</Text>
