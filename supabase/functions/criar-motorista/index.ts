@@ -6,6 +6,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import {
+  ehViolacaoTelefoneUnico,
+  MSG_TELEFONE_OUTRA_LOJA,
+  CODIGO_TELEFONE_JA_CADASTRADO,
+  respostaTelefoneDuplicado,
+} from './telefoneDuplicado.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
@@ -151,6 +158,52 @@ serve(async (req) => {
       );
     }
 
+    // Telefone já usado por motorista ativo (nunca vincula pelo telefone: só recusa)
+    if (telefone?.trim()) {
+      const { data: encontrados, error: telefoneError } =
+        await supabaseAdmin.rpc('motorista_ativo_por_telefone', {
+          p_telefone: telefone.trim(),
+        });
+
+      if (telefoneError) {
+        // Não bloqueia o cadastro por falha de checagem; o índice único é a rede
+        console.error(
+          'Erro ao checar telefone duplicado:',
+          telefoneError.message,
+        );
+      } else if (encontrados && encontrados.length > 0) {
+        const ids = encontrados.map((m: { id: string }) => m.id);
+        const { data: vinculos } = await supabaseAdmin
+          .from('usuario_unidades')
+          .select('usuario_id, unidade_id')
+          .in('usuario_id', ids)
+          .eq('ativo', true);
+
+        const unidadesVinculadas: Record<string, string[]> = {};
+        for (const v of vinculos ?? []) {
+          (unidadesVinculadas[v.usuario_id] ??= []).push(v.unidade_id);
+        }
+
+        const duplicado = respostaTelefoneDuplicado(
+          encontrados,
+          gestorData.unidade_id,
+          unidadesVinculadas,
+        );
+        if (duplicado) {
+          return new Response(
+            JSON.stringify({
+              error: duplicado.error,
+              codigo: duplicado.codigo,
+            }),
+            {
+              status: duplicado.status,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            },
+          );
+        }
+      }
+    }
+
     // Verificar se o email existe no Auth mas não na tabela usuarios (possível inconsistência)
     const {
       data: { users: authUsers },
@@ -218,6 +271,19 @@ serve(async (req) => {
     if (insertError) {
       // Se falhar ao criar registro, deletar usuário do Auth
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+
+      if (ehViolacaoTelefoneUnico(insertError)) {
+        return new Response(
+          JSON.stringify({
+            error: MSG_TELEFONE_OUTRA_LOJA,
+            codigo: CODIGO_TELEFONE_JA_CADASTRADO,
+          }),
+          {
+            status: 409,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
 
       return new Response(
         JSON.stringify({
