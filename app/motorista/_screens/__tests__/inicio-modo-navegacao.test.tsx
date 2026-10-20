@@ -30,6 +30,7 @@ const PARADA = {
 // Cenário da rota por teste (prefixo `mock` libera o uso dentro do jest.mock).
 let mockParadas: Array<typeof PARADA> = [PARADA];
 let mockCurrentStop: typeof PARADA = PARADA;
+const mockSkipStop = jest.fn();
 
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
@@ -43,7 +44,7 @@ jest.mock('@/context/RouteStatusContext', () => ({
     refreshRoute: jest.fn(),
     startRoute: jest.fn(),
     completeStop: jest.fn(),
-    skipStop: jest.fn(),
+    skipStop: (...a: unknown[]) => mockSkipStop(...a),
     completeRoute: jest.fn(),
   }),
 }));
@@ -101,10 +102,23 @@ jest.mock('@/components/motorista/StopCompletionFlow', () => {
 });
 
 jest.mock('@/components/motorista/SkipReasonModal', () => {
-  const { Text: T } = jest.requireActual('react-native');
+  const { Pressable: P, Text: T } = jest.requireActual('react-native');
   return {
-    SkipReasonModal: (props: { parada: { id: string } }) => (
-      <T>{`modal-pular:${props.parada.id}`}</T>
+    SkipReasonModal: (props: {
+      parada: { id: string };
+      outrosServicosNoLocal?: Array<{ id: string }>;
+      onConfirm: (m: string, o?: string, incluir?: boolean) => void;
+    }) => (
+      <>
+        <T>{`modal-pular:${props.parada.id}`}</T>
+        <T>{`outros:${(props.outrosServicosNoLocal ?? []).map((p) => p.id).join(',')}`}</T>
+        <P onPress={() => props.onConfirm('cliente_ausente', undefined, true)}>
+          <T>confirmar-com-outros</T>
+        </P>
+        <P onPress={() => props.onConfirm('cliente_ausente', undefined, false)}>
+          <T>confirmar-sem-outros</T>
+        </P>
+      </>
     ),
   };
 });
@@ -400,5 +414,102 @@ describe('Início do motorista — visita no mesmo local', () => {
 
     await waitFor(() => expect(mockAbrirNavegacao).toHaveBeenCalledTimes(1));
     expect(queryByText('fluxo-conclusao:retirada')).toBeNull();
+  });
+});
+
+/**
+ * Cliente ausente vale para o local, não para o serviço: quem pula a entrega
+ * porque ninguém atendeu não tem o que retirar ali. O modal oferece pular os
+ * outros serviços da visita de uma vez; cada um segue uma linha em `paradas`.
+ */
+describe('Início do motorista — pular os serviços do local juntos', () => {
+  const entrega = {
+    ...PARADA,
+    id: 'entrega',
+    ordem: 3,
+    status: 'em_andamento',
+    tipo: 'entrega',
+  };
+  const retirada = {
+    ...PARADA,
+    id: 'retirada',
+    ordem: 4,
+    status: 'pendente',
+    tipo: 'retirada',
+  };
+
+  beforeEach(() => {
+    mockSkipStop.mockReset();
+    mockSkipStop.mockResolvedValue(undefined);
+    mockParadas = [entrega, retirada];
+    mockCurrentStop = entrega;
+  });
+
+  afterEach(() => {
+    mockParadas = [PARADA];
+    mockCurrentStop = PARADA;
+  });
+
+  async function abrirModalDePular(
+    getByText: (t: string) => unknown,
+    findByText: (t: string) => Promise<unknown>,
+  ) {
+    await entrarNoModoNavegacao(getByText, findByText);
+    fireEvent.press(getByText('nav-pular') as never);
+    await findByText('modal-pular:entrega');
+  }
+
+  it('entrega ao modal os outros serviços do mesmo local', async () => {
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    expect(getByText('outros:retirada')).toBeTruthy();
+  });
+
+  it('com incluirOutros, pula a parada e depois os outros, com o mesmo motivo', async () => {
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-com-outros'));
+
+    await waitFor(() => expect(mockSkipStop).toHaveBeenCalledTimes(2));
+    expect(mockSkipStop).toHaveBeenNthCalledWith(
+      1,
+      'entrega',
+      'cliente_ausente',
+      undefined,
+    );
+    expect(mockSkipStop).toHaveBeenNthCalledWith(
+      2,
+      'retirada',
+      'cliente_ausente',
+      undefined,
+    );
+  });
+
+  it('sem incluirOutros, pula só a parada', async () => {
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-sem-outros'));
+
+    await waitFor(() => expect(mockSkipStop).toHaveBeenCalledTimes(1));
+    expect(mockSkipStop).toHaveBeenCalledWith(
+      'entrega',
+      'cliente_ausente',
+      undefined,
+    );
+  });
+
+  it('se o primeiro pulo falha, não tenta os outros', async () => {
+    mockSkipStop.mockRejectedValueOnce(new Error('falhou'));
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-com-outros'));
+
+    await waitFor(() => expect(mockSkipStop).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockSkipStop).toHaveBeenCalledTimes(1);
   });
 });

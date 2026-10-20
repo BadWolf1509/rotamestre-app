@@ -38,7 +38,10 @@ import {
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
-import { chegouPelaParadaAnterior } from '@/lib/motorista/visitaNoLocal';
+import {
+  chegouPelaParadaAnterior,
+  paradasDaVisita,
+} from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   abrirConfiguracoesDoApp,
@@ -335,12 +338,18 @@ function MotoristaInicioContent() {
   const handleConfirmSkip = async (
     motivo: MotivoSkip,
     observacoes?: string,
+    incluirOutros?: boolean,
   ) => {
     const parada = modals.selectedParadaForSkip;
     if (!parada) return;
     modals.closeSkipModal();
     try {
-      await skipStop(parada.id, motivo, observacoes);
+      // Em sequência, a parada primeiro: se um pulo falhar, os seguintes não
+      // rodam e o sucesso não é anunciado.
+      const alvos = incluirOutros ? paradasDaVisita(paradas, parada) : [parada];
+      for (const alvo of alvos) {
+        await skipStop(alvo.id, motivo, observacoes);
+      }
       showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
     } catch (error: unknown) {
       showError(error);
@@ -502,6 +511,10 @@ function MotoristaInicioContent() {
         <SkipReasonModal
           visible={modals.showSkipModal}
           parada={modals.selectedParadaForSkip}
+          outrosServicosNoLocal={paradasDaVisita(
+            paradas,
+            modals.selectedParadaForSkip,
+          ).slice(1)}
           onConfirm={handleConfirmSkip}
           onCancel={modals.closeSkipModal}
         />

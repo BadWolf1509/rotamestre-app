@@ -7,17 +7,24 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Switch } from 'react-native';
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { SKIP_REASONS, type MotivoSkip } from '@/constants/skipReasons';
 import type { ParadaData } from '@/context/RouteStatusContext';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SkipReasonModalProps {
   visible: boolean;
   parada: ParadaData;
-  onConfirm: (motivo: MotivoSkip, observacoes?: string) => void;
+  /** Demais serviços da mesma visita; com eles, oferece pular tudo junto. */
+  outrosServicosNoLocal?: ParadaData[];
+  onConfirm: (
+    motivo: MotivoSkip,
+    observacoes?: string,
+    incluirOutros?: boolean,
+  ) => void;
   onCancel: () => void;
 }
 
@@ -26,12 +33,21 @@ const MIN_OUTRO_LENGTH = 10;
 function SkipReasonModalComponent({
   visible,
   parada,
+  outrosServicosNoLocal,
   onConfirm,
   onCancel,
 }: SkipReasonModalProps) {
   const { theme } = useUnistyles();
   const [selectedReason, setSelectedReason] = useState<MotivoSkip | null>(null);
   const [outroText, setOutroText] = useState('');
+  const [incluirOutros, setIncluirOutros] = useState(true);
+
+  const temOutros = !!outrosServicosNoLocal && outrosServicosNoLocal.length > 0;
+  const rotuloOutros = temOutros
+    ? `Pular também: ${outrosServicosNoLocal
+        .map((p) => rotuloTipoParada(p.tipo).titulo)
+        .join(' + ')}`
+    : '';
 
   const isOutro = selectedReason === 'outro';
   const canConfirm =
@@ -40,12 +56,25 @@ function SkipReasonModalComponent({
 
   const handleConfirm = useCallback(() => {
     if (!selectedReason || !canConfirm) return;
-    onConfirm(selectedReason, isOutro ? outroText.trim() : undefined);
-  }, [selectedReason, canConfirm, isOutro, outroText, onConfirm]);
+    onConfirm(
+      selectedReason,
+      isOutro ? outroText.trim() : undefined,
+      temOutros ? incluirOutros : undefined,
+    );
+  }, [
+    selectedReason,
+    canConfirm,
+    isOutro,
+    outroText,
+    temOutros,
+    incluirOutros,
+    onConfirm,
+  ]);
 
   const handleClose = useCallback(() => {
     setSelectedReason(null);
     setOutroText('');
+    setIncluirOutros(true);
     onCancel();
   }, [onCancel]);
 
@@ -115,6 +144,17 @@ function SkipReasonModalComponent({
           ))}
         </View>
 
+        {temOutros && (
+          <View style={styles.outrosRow}>
+            <Text style={styles.outrosLabel}>{rotuloOutros}</Text>
+            <Switch
+              value={incluirOutros}
+              onValueChange={setIncluirOutros}
+              accessibilityLabel={rotuloOutros}
+            />
+          </View>
+        )}
+
         {isOutro && (
           <View style={styles.outroContainer}>
             <TextInput
@@ -183,6 +223,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
   reasonLabelSelected: {
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
+  },
+  outrosRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.md,
+  },
+  outrosLabel: {
+    flex: 1,
+    fontSize: theme.typography.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray900,
+    marginRight: theme.spacing.sm,
   },
   outroContainer: {
     marginTop: theme.spacing.md,
