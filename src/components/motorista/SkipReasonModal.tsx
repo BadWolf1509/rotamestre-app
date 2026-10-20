@@ -34,7 +34,9 @@ function SkipReasonModalComponent({
   const [outroText, setOutroText] = useState('');
 
   const isOutro = selectedReason === 'outro';
-  const canConfirm = selectedReason !== null && (!isOutro || outroText.trim().length >= MIN_OUTRO_LENGTH);
+  const canConfirm =
+    selectedReason !== null &&
+    (!isOutro || outroText.trim().length >= MIN_OUTRO_LENGTH);
 
   const handleConfirm = useCallback(() => {
     if (!selectedReason || !canConfirm) return;
@@ -82,7 +84,12 @@ function SkipReasonModalComponent({
               accessibilityState={{ checked: selectedReason === reason.value }}
               accessibilityLabel={reason.label}
             >
-              <View style={[styles.reasonIcon, { backgroundColor: theme.colors.warning + '20' }]}>
+              <View
+                style={[
+                  styles.reasonIcon,
+                  { backgroundColor: theme.colors.warning + '20' },
+                ]}
+              >
                 <Ionicons
                   name={reason.icon as keyof typeof Ionicons.glyphMap}
                   size={22}
@@ -98,7 +105,11 @@ function SkipReasonModalComponent({
                 {reason.label}
               </Text>
               {selectedReason === reason.value && (
-                <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color={theme.colors.primary}
+                />
               )}
             </TouchableOpacity>
           ))}

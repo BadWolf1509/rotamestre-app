@@ -13,7 +13,14 @@ import { SkipReasonModal } from '../SkipReasonModal';
 
 // Mock DesktopModal with button support
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
+  DesktopModal: ({
+    visible,
+    onClose,
+    title,
+    children,
+    primaryButton,
+    secondaryButton,
+  }: {
     visible: boolean;
     onClose: () => void;
     title: string;
@@ -84,7 +91,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     const radioButtons = getAllByRole('radio');
@@ -98,7 +105,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     expect(queryByTestId('desktop-modal')).toBeNull();
@@ -111,7 +118,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     expect(getByText('Rua Teste, 123 - Centro')).toBeTruthy();
@@ -124,7 +131,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByTestId('primary-button'));
@@ -139,7 +146,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByLabelText('Cliente ausente'));
@@ -155,12 +162,14 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByLabelText('Outro motivo'));
 
-    expect(getByPlaceholderText('Descreva o motivo (mínimo 10 caracteres)')).toBeTruthy();
+    expect(
+      getByPlaceholderText('Descreva o motivo (mínimo 10 caracteres)'),
+    ).toBeTruthy();
   });
 
   it('deve NÃO chamar onConfirm com "outro" e texto curto', () => {
@@ -170,11 +179,14 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByLabelText('Outro motivo'));
-    fireEvent.changeText(getByPlaceholderText('Descreva o motivo (mínimo 10 caracteres)'), 'curto');
+    fireEvent.changeText(
+      getByPlaceholderText('Descreva o motivo (mínimo 10 caracteres)'),
+      'curto',
+    );
     fireEvent.press(getByTestId('primary-button'));
 
     expect(mockOnConfirm).not.toHaveBeenCalled();
@@ -187,7 +199,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByTestId('secondary-button'));
@@ -202,7 +214,7 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByLabelText('Acesso bloqueado'));
@@ -218,19 +230,19 @@ describe('SkipReasonModal', () => {
         parada={mockParada}
         onConfirm={mockOnConfirm}
         onCancel={mockOnCancel}
-      />
+      />,
     );
 
     fireEvent.press(getByLabelText('Outro motivo'));
     fireEvent.changeText(
       getByPlaceholderText('Descreva o motivo (mínimo 10 caracteres)'),
-      'O portão estava trancado e ninguém atendeu'
+      'O portão estava trancado e ninguém atendeu',
     );
     fireEvent.press(getByTestId('primary-button'));
 
     expect(mockOnConfirm).toHaveBeenCalledWith(
       'outro',
-      'O portão estava trancado e ninguém atendeu'
+      'O portão estava trancado e ninguém atendeu',
     );
   });
 });
