@@ -44,3 +44,22 @@ export function montarPinosPorLocal<T extends ParadaDoPino>(
     rotulo: rotuloDoPino(membros),
   }));
 }
+
+export interface PinoDoMiniMap<T extends ParadaDoPino> extends PinoPorLocal<T> {
+  /** Id do 1º membro: estável quando a principal muda de uma para outra. */
+  chave: string;
+  /** Grupo que contém a primeira parada restante. */
+  isNext: boolean;
+}
+
+/** Pinos numerados do mini-mapa: só as paradas restantes, já em ordem. */
+export function montarPinosDoMiniMap<T extends ParadaDoPino>(
+  restantes: T[],
+): Array<PinoDoMiniMap<T>> {
+  const primeiraId = restantes[0]?.id;
+  return montarPinosPorLocal(restantes).map((pino) => ({
+    ...pino,
+    chave: pino.membros[0].id,
+    isNext: pino.membros.some((m) => m.id === primeiraId),
+  }));
+}

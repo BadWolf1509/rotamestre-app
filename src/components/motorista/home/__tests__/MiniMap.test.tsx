@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { MiniMap } from '../MiniMap';
 
@@ -154,6 +155,61 @@ describe('MiniMap', () => {
       );
 
       expect(getByTestId('custom-mini-map')).toBeTruthy();
+    });
+  });
+
+  describe('Pinos por local', () => {
+    const noLocal = { latitude: -23.55, longitude: -46.63, endereco: 'Rua A' };
+    const paradasJuntas = [
+      { id: 'e2', ordem: 2, status: 'em_andamento', ...noLocal },
+      { id: 'r3', ordem: 3, status: 'pendente', ...noLocal },
+      {
+        id: 'p4',
+        ordem: 4,
+        status: 'pendente',
+        latitude: -23.6,
+        longitude: -46.7,
+        endereco: 'Rua B',
+      },
+    ];
+
+    it('agrupa entrega e retirada do mesmo ponto num pino "2+3"', () => {
+      const { getByText, queryByText } = render(
+        <MiniMap paradas={paradasJuntas} />,
+      );
+
+      expect(getByText('2+3')).toBeTruthy();
+      expect(getByText('4')).toBeTruthy();
+      expect(queryByText('2')).toBeNull();
+      expect(queryByText('3')).toBeNull();
+    });
+
+    it('destaca como próxima o grupo da primeira parada restante', () => {
+      const { getByText } = render(<MiniMap paradas={paradasJuntas} />);
+
+      const estilo = (texto: string) => {
+        let no = getByText(texto).parent;
+        while (no && no.props.testID !== 'marker') no = no.parent;
+        return StyleSheet.flatten(no?.props.style);
+      };
+      expect(estilo('2+3').backgroundColor).toBe('#f59e0b');
+      expect(estilo('4').backgroundColor).toBe('#6b7280');
+    });
+
+    it('mantém um pino por parada quando os pontos são diferentes', () => {
+      const { getByText } = render(
+        <MiniMap
+          paradas={[
+            paradasJuntas[0],
+            { ...paradasJuntas[1], latitude: -23.58 },
+            paradasJuntas[2],
+          ]}
+        />,
+      );
+
+      expect(getByText('2')).toBeTruthy();
+      expect(getByText('3')).toBeTruthy();
+      expect(getByText('4')).toBeTruthy();
     });
   });
 
