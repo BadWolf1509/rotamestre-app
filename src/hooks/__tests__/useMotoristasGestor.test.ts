@@ -6,7 +6,10 @@ import { useUser } from '@/hooks/useUser';
 import { validatePhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 
-import { useMotoristasGestor, MotoristaDetalhado } from '../useMotoristasGestor';
+import {
+  useMotoristasGestor,
+  MotoristaDetalhado,
+} from '../useMotoristasGestor';
 
 // Mock dependencies
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
@@ -54,11 +57,15 @@ jest.mock('@/lib/queries', () => ({
 jest.mock('@/lib/phone', () => ({
   maskPhone: jest.fn((text: string) => text),
   validatePhone: jest.fn((phone: string) => phone.length >= 10),
-  getPhoneErrorMessage: jest.fn((phone: string) => (phone.length < 10 ? 'Telefone incompleto' : null)),
+  getPhoneErrorMessage: jest.fn((phone: string) =>
+    phone.length < 10 ? 'Telefone incompleto' : null,
+  ),
 }));
 
 // Helper para criar motorista mock
-const criarMotoristaMock = (overrides: Partial<MotoristaDetalhado> = {}): MotoristaDetalhado => ({
+const criarMotoristaMock = (
+  overrides: Partial<MotoristaDetalhado> = {},
+): MotoristaDetalhado => ({
   id: 'motorista-1',
   nome: 'João Silva',
   email: 'joao@example.com',
@@ -173,7 +180,7 @@ describe('useMotoristasGestor Hook', () => {
       ];
 
       mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map(m => ({ usuario_id: m.id, usuarios: m })),
+        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
         error: null,
       });
 
@@ -195,7 +202,7 @@ describe('useMotoristasGestor Hook', () => {
       ];
 
       mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map(m => ({ usuario_id: m.id, usuarios: m })),
+        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
         error: null,
       });
 
@@ -218,7 +225,7 @@ describe('useMotoristasGestor Hook', () => {
       ];
 
       mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map(m => ({ usuario_id: m.id, usuarios: m })),
+        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
         error: null,
       });
 
@@ -246,7 +253,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         'Não foi possível carregar os motoristas',
-        'error'
+        'error',
       );
     });
 
@@ -257,7 +264,7 @@ describe('useMotoristasGestor Hook', () => {
 
       // Aguardar um tick para garantir que o useEffect foi executado
       await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
       expect(supabase.from).not.toHaveBeenCalled();
@@ -266,14 +273,22 @@ describe('useMotoristasGestor Hook', () => {
     it('deve filtrar usuarios nulos da resposta', async () => {
       // Reset mocks antes de configurar
       jest.clearAllMocks();
-      (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: 'unidade-123' });
+      (useUnidadeAtiva as jest.Mock).mockReturnValue({
+        unidadeAtiva: 'unidade-123',
+      });
 
       const localBuilder = criarMockQueryBuilder();
       localBuilder.returns.mockResolvedValue({
         data: [
-          { usuario_id: '1', usuarios: criarMotoristaMock({ id: '1', nome: 'Ana' }) },
+          {
+            usuario_id: '1',
+            usuarios: criarMotoristaMock({ id: '1', nome: 'Ana' }),
+          },
           { usuario_id: '2', usuarios: null },
-          { usuario_id: '3', usuarios: criarMotoristaMock({ id: '3', nome: 'Carlos' }) },
+          {
+            usuario_id: '3',
+            usuarios: criarMotoristaMock({ id: '3', nome: 'Carlos' }),
+          },
         ],
         error: null,
       });
@@ -533,7 +548,9 @@ describe('useMotoristasGestor Hook', () => {
   describe('Adicionar Motorista', () => {
     beforeEach(() => {
       // Reset do mock de unidade ativa
-      (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: 'unidade-123' });
+      (useUnidadeAtiva as jest.Mock).mockReturnValue({
+        unidadeAtiva: 'unidade-123',
+      });
       (useUser as jest.Mock).mockReturnValue({
         userData: { id: 'user-123', nome: 'Gestor Teste' },
       });
@@ -548,7 +565,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         'Preencha todos os campos obrigatórios',
-        'error'
+        'error',
       );
     });
 
@@ -565,7 +582,10 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.adicionarMotorista();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Digite um email válido', 'error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Digite um email válido',
+        'error',
+      );
     });
 
     it('deve exibir erro quando telefone e invalido', async () => {
@@ -608,7 +628,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         'Sua sessão expirou. Por favor, faça login novamente.',
-        'error'
+        'error',
       );
     });
 
@@ -633,7 +653,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         expect.stringContaining('Erro ao obter sessão'),
-        'error'
+        'error',
       );
     });
 
@@ -682,7 +702,7 @@ describe('useMotoristasGestor Hook', () => {
             senha: 'senha123',
             telefone: '(11) 99999-9999',
           }),
-        })
+        }),
       );
     });
 
@@ -716,7 +736,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         'Motorista adicionado com sucesso!',
-        'success'
+        'success',
       );
       expect(result.current.showAddModal).toBe(false);
     });
@@ -746,7 +766,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         expect.stringContaining('Erro de conexão'),
-        'error'
+        'error',
       );
     });
 
@@ -762,7 +782,9 @@ describe('useMotoristasGestor Hook', () => {
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
         status: 400,
-        text: jest.fn().mockResolvedValue(JSON.stringify({ error: 'Email ja existe' })),
+        text: jest
+          .fn()
+          .mockResolvedValue(JSON.stringify({ error: 'Email ja existe' })),
       });
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -785,9 +807,9 @@ describe('useMotoristasGestor Hook', () => {
 
       let resolveSession: any;
       (supabase.auth.getSession as jest.Mock).mockReturnValue(
-        new Promise(resolve => {
+        new Promise((resolve) => {
           resolveSession = resolve;
-        })
+        }),
       );
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -823,7 +845,9 @@ describe('useMotoristasGestor Hook', () => {
 
   describe('Editar Motorista', () => {
     beforeEach(() => {
-      (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: 'unidade-123' });
+      (useUnidadeAtiva as jest.Mock).mockReturnValue({
+        unidadeAtiva: 'unidade-123',
+      });
       (useUser as jest.Mock).mockReturnValue({
         userData: { id: 'user-123', nome: 'Gestor Teste' },
       });
@@ -844,7 +868,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         'Preencha todos os campos obrigatórios',
-        'error'
+        'error',
       );
     });
 
@@ -860,7 +884,10 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.editarMotorista();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Digite um email válido', 'error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Digite um email válido',
+        'error',
+      );
     });
 
     it('deve exibir erro quando telefone e invalido', async () => {
@@ -920,11 +947,11 @@ describe('useMotoristasGestor Hook', () => {
         expect.objectContaining({
           motorista_id: 'motorista-edit',
           motorista_nome: 'Nome Atualizado',
-        })
+        }),
       );
       expect(mockShowToast).toHaveBeenCalledWith(
         'Motorista atualizado com sucesso!',
-        'success'
+        'success',
       );
       expect(result.current.showEditModal).toBe(false);
       expect(result.current.motoristaEditando).toBeNull();
@@ -968,9 +995,9 @@ describe('useMotoristasGestor Hook', () => {
       // Configure centralized update to return pending promise
       let resolveUpdate: (value: any) => void;
       mockUpdateUsuario.mockReturnValue(
-        new Promise(resolve => {
+        new Promise((resolve) => {
           resolveUpdate = resolve;
-        })
+        }),
       );
 
       // Primeiro deixar carregar motoristas inicialmente
@@ -1010,7 +1037,9 @@ describe('useMotoristasGestor Hook', () => {
 
   describe('Toggle Ativo', () => {
     beforeEach(() => {
-      (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: 'unidade-123' });
+      (useUnidadeAtiva as jest.Mock).mockReturnValue({
+        unidadeAtiva: 'unidade-123',
+      });
       (useUser as jest.Mock).mockReturnValue({
         userData: { id: 'user-123', nome: 'Gestor Teste' },
       });
@@ -1062,7 +1091,9 @@ describe('useMotoristasGestor Hook', () => {
       });
 
       // Now uses centralized updateUsuario
-      expect(mockUpdateUsuario).toHaveBeenCalledWith(motorista.id, { ativo: false });
+      expect(mockUpdateUsuario).toHaveBeenCalledWith(motorista.id, {
+        ativo: false,
+      });
       expect(result.current.showConfirmModal).toBe(false);
       expect(result.current.motoristaParaToggle).toBeNull();
     });
@@ -1101,7 +1132,9 @@ describe('useMotoristasGestor Hook', () => {
       });
 
       // Now uses centralized updateUsuario
-      expect(mockUpdateUsuario).toHaveBeenCalledWith(motorista.id, { ativo: true });
+      expect(mockUpdateUsuario).toHaveBeenCalledWith(motorista.id, {
+        ativo: true,
+      });
     });
 
     it('nao deve fazer nada se nao houver motoristaParaToggle', async () => {
@@ -1155,7 +1188,7 @@ describe('useMotoristasGestor Hook', () => {
         expect.objectContaining({
           motorista_id: motorista.id,
           motorista_nome: 'Joao',
-        })
+        }),
       );
     });
   });
@@ -1268,7 +1301,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         'Motorista adicionado com sucesso!',
-        'success'
+        'success',
       );
     });
 
@@ -1301,7 +1334,7 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(mockShowToast).toHaveBeenCalledWith(
         expect.stringContaining('Edge Function retornou uma resposta inválida'),
-        'error'
+        'error',
       );
     });
 
