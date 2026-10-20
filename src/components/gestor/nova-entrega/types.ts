@@ -12,6 +12,8 @@ export type MotoristaResumo = {
   rotaEmAndamento?: boolean;
   rotasPendentes?: number;
   paradasPendentes?: number;
+  /** `true` só quando `usuarios.ultimo_login` é null (nunca fez login). */
+  nuncaEntrou?: boolean;
 };
 
 export type VinculacaoMotorista = {

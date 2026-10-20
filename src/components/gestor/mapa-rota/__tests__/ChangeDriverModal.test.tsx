@@ -116,6 +116,14 @@ describe('ChangeDriverModal', () => {
     },
   ];
 
+  const comLogin = (m: (typeof mockMotoristas)[number]) => ({
+    ...m,
+    ultimo_login: '2026-10-01T10:00:00Z',
+  });
+  const mockShowConfirm = (
+    global as unknown as { mockUseAlert: { showConfirm: jest.Mock } }
+  ).mockUseAlert.showConfirm;
+
   const defaultProps: ChangeDriverModalProps = {
     visible: true,
     currentMotoristaId: 'motorista-1',
@@ -311,6 +319,93 @@ describe('ChangeDriverModal', () => {
       expect(defaultProps.onConfirm).toHaveBeenCalledWith(
         'motorista-2',
         'Maria Santos',
+      );
+    });
+  });
+
+  describe('Motorista que nunca entrou no app', () => {
+    beforeEach(() => {
+      mockFrom.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        returns: jest.fn().mockResolvedValue({
+          data: [
+            {
+              usuario_id: 'motorista-1',
+              usuarios: comLogin(mockMotoristas[0]),
+            },
+            {
+              usuario_id: 'motorista-2',
+              usuarios: { ...mockMotoristas[1], ultimo_login: null },
+            },
+            {
+              usuario_id: 'motorista-3',
+              usuarios: comLogin(mockMotoristas[2]),
+            },
+          ],
+          error: null,
+        }),
+      });
+    });
+
+    it('mostra o selo só para quem nunca entrou', async () => {
+      const { getAllByText, getByText } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
+
+      await waitFor(() => expect(getByText('Maria Santos')).toBeTruthy());
+
+      expect(getAllByText('Nunca entrou no app')).toHaveLength(1);
+    });
+
+    it('pede confirmação e só chama onConfirm depois de aceitar', async () => {
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      await waitFor(() => expect(getByText('Maria Santos')).toBeTruthy());
+
+      fireEvent.press(getByText('Maria Santos'));
+      fireEvent.press(getByText('Confirmar'));
+
+      expect(mockShowConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Motorista nunca entrou no app',
+          message: expect.stringContaining(
+            'Maria Santos ainda não entrou no RotaMestre',
+          ),
+          type: 'warning',
+          confirmText: 'Trocar mesmo assim',
+        }),
+      );
+      await waitFor(() =>
+        expect(defaultProps.onConfirm).toHaveBeenCalledWith(
+          'motorista-2',
+          'Maria Santos',
+        ),
+      );
+    });
+
+    it('não chama onConfirm quando o gestor cancela', async () => {
+      mockShowConfirm.mockResolvedValue(false);
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      await waitFor(() => expect(getByText('Maria Santos')).toBeTruthy());
+
+      fireEvent.press(getByText('Maria Santos'));
+      fireEvent.press(getByText('Confirmar'));
+
+      await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+      expect(defaultProps.onConfirm).not.toHaveBeenCalled();
+    });
+
+    it('confirma direto quando o motorista já entrou', async () => {
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      await waitFor(() => expect(getByText('Carlos Ferreira')).toBeTruthy());
+
+      fireEvent.press(getByText('Carlos Ferreira'));
+      fireEvent.press(getByText('Confirmar'));
+
+      expect(mockShowConfirm).not.toHaveBeenCalled();
+      expect(defaultProps.onConfirm).toHaveBeenCalledWith(
+        'motorista-3',
+        'Carlos Ferreira',
       );
     });
   });

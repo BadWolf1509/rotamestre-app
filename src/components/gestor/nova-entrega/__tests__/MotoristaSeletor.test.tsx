@@ -88,4 +88,32 @@ describe('MotoristaSeletor', () => {
     fireEvent.press(itemJoao);
     expect(onSelectMotorista).toHaveBeenCalledWith('m1');
   });
+
+  it('mostra o selo "Nunca entrou no app" só para quem nunca entrou', () => {
+    const { getAllByText } = render(
+      <MotoristaSeletor
+        motoristas={[
+          {
+            id: 'm1',
+            nome: 'Joao',
+            email: 'joao@teste.com',
+            ativo: true,
+            nuncaEntrou: true,
+          },
+          {
+            id: 'm2',
+            nome: 'Maria',
+            email: 'maria@teste.com',
+            ativo: true,
+            nuncaEntrou: false,
+          },
+          { id: 'm3', nome: 'Ze', email: 'ze@teste.com', ativo: true },
+        ]}
+        motoristaSelecionado=""
+        onSelectMotorista={jest.fn()}
+      />,
+    );
+
+    expect(getAllByText('Nunca entrou no app')).toHaveLength(1);
+  });
 });
