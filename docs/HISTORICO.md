@@ -8,6 +8,35 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Visita combinada, dependências e conta demo (19–20/10/2026)
+
+- **Dependências:** os 4 PRs do Dependabot estavam vermelhos só no audit, com 3
+  advisories novos (compression, shell-quote, source-map-js), que a `main` também
+  reprovava. Corrigido por `npm update` dentro dos ranges (#587). Entraram #586
+  (dev-deps), #585 (zod), #584 (maplibre-gl 6.14, com o e2e do mapa rodado antes
+  por `gh workflow run test.yml --ref <branch>`) e #583 (unistyles 3.5.3,
+  validado em build EAS e moto g15). Patches dos `expo-*` do SDK 56 em #592.
+- **"916h" na Início:** era dado de teste. O fixture do e2e restaurava a rota
+  demo sem limpar `iniciada_em`/`concluida_em` (#588). Motorista real não chega
+  a esse estado.
+- **Visita combinada (entrega + retirada no mesmo local):** havia 34 pares em
+  produção, e o motorista fazia tudo em dobro (mediana de ~45 s entre as duas
+  conclusões). A importação em lote descartava a 2ª linha. Entraram #590
+  (duplicata considera o tipo), #589 (otimizador mantém o grupo, entrega →
+  retirada) e #591 (motorista: card "Neste local", conclusão em sequência com
+  uma foto por serviço, pulo conjunto, pino "3+4", mini-mapa). O #591 foi feito
+  por subagentes (superpowers), com revisão por tarefa e do branch inteiro.
+  Validado no moto g15 com uma retirada de teste inserida e depois removida.
+- **Achados da validação em aparelho:** o mini-mapa tinha marcadores próprios
+  (corrigido no #591), e o toque em qualquer pino do mapa nativo não faz nada,
+  defeito anterior (#594). Também apareceu o erro da importação em lote sumindo
+  na primeira importação (#593).
+- **Conta demo:** o motorista demo estava desativado desde 05/10, o que quebrou
+  o e2e do mapa no #587. A causa provada é o robô de pré-lançamento da Play, que
+  usa a mesma conta do e2e (pendência 17).
+- **`expo doctor`:** a regressão de memória do Hermes V1 no SDK 56 levou a um
+  plano de upgrade para o SDK 57 (pendência 19).
+
 ## Release 1.12.9 (05/10/2026)
 
 - **Em interno + alpha** (3036) com notas pt-BR pedindo que o motorista confira

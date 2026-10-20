@@ -165,6 +165,15 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
         </View>
       )}
 
+      {/* Uma instância só, fora do condicional abaixo: a primeira importação
+          tira a lista do estado vazio, e um importador montado dentro de cada
+          ramo desmontava nessa troca, levando o modal e o motivo de cada linha
+          ignorada — o gestor ficava só com o "N ignorada(s)" do toast. */}
+      <BulkStopImporter
+        onImport={onImport}
+        disabled={isLoading || paradas.length >= MAX_ROUTE_STOPS}
+      />
+
       {paradas.length > 0 ? (
         <View style={styles.listSection}>
           <View style={styles.headerRow}>
@@ -209,11 +218,6 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
               </View>
             )}
           </View>
-
-          <BulkStopImporter
-            onImport={onImport}
-            disabled={isLoading || paradas.length >= MAX_ROUTE_STOPS}
-          />
 
           <DraggableFlatList
             data={paradas}
@@ -271,9 +275,9 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
           </View>
           <Text style={styles.emptyTitle}>Nenhuma parada adicionada</Text>
           <Text style={styles.emptyText}>
-            Use o formulário de parada para começar a montar a rota.
+            Use o formulário de parada ou importe em lote para começar a montar
+            a rota.
           </Text>
-          <BulkStopImporter onImport={onImport} disabled={isLoading} />
         </View>
       )}
 
