@@ -5,6 +5,7 @@
 
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { Linking } from 'react-native';
 
 import { ParadaBottomSheet } from '../ParadaBottomSheet';
 
@@ -408,6 +409,38 @@ describe('ParadaBottomSheet', () => {
 
       expect(mockOnViewDetails).toHaveBeenCalledWith(mockParada);
       expect(mockOnClose).toHaveBeenCalled();
+    });
+  });
+
+  // Saiu do balão do pino, onde não recebia toque no Android.
+  describe('Botão Ligar', () => {
+    it('liga para o telefone da parada', () => {
+      const openURL = jest
+        .spyOn(Linking, 'openURL')
+        .mockResolvedValue(undefined);
+      const { getByLabelText } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, telefone: '83999990000' }}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Ligar para 83999990000'));
+
+      expect(openURL).toHaveBeenCalledWith('tel:83999990000');
+    });
+
+    it('não aparece sem telefone', () => {
+      const { queryByText } = render(
+        <ParadaBottomSheet
+          parada={mockParada}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      expect(queryByText('Ligar')).toBeNull();
     });
   });
 

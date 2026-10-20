@@ -12,6 +12,7 @@ import { FloatingActionButtons } from '@/components/map/mobile/FloatingActionBut
 import { CheckpointMarker } from '@/components/map/mobile/markers/CheckpointMarker';
 import { ParadaMarker } from '@/components/map/mobile/markers/ParadaMarker';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
 import type { RouteInfo } from '@/hooks/useRouteDirections';
@@ -25,6 +26,12 @@ interface MapaMobileProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /**
+   * Toque no pino que já está selecionado (ou no balão dele): abre as ações
+   * da parada. Sem ela, o toque repetido só seleciona de novo, e o balão não
+   * mostra a dica "Toque para ver ações".
+   */
+  onSelectedMarkerPress?: (paradaId: string) => void;
   /** Callback quando toca fora dos marcadores (deselecionar) */
   onMapPress?: () => void;
   /**
@@ -65,6 +72,7 @@ export function MapaMobile({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onSelectedMarkerPress,
   onMapPress,
   onMarkerLongPress,
   statusFilter = 'all',
@@ -188,13 +196,22 @@ export function MapaMobile({
               longitude: principal.longitude!,
             })}
             anchor="bottom"
-            onPress={aoTocarPino(() => handleMarkerPress(principal.id))}
+            onPress={aoTocarPino(() =>
+              acaoDoToqueNoPino(
+                membros,
+                selectedParadaId,
+                onSelectedMarkerPress != null,
+              ) === 'abrir-acoes'
+                ? onSelectedMarkerPress?.(principal.id)
+                : handleMarkerPress(principal.id),
+            )}
           >
             <ParadaMarker
               parada={principal}
               rotulo={rotulo}
               servicos={membros}
               isSelected={membros.some((m) => m.id === selectedParadaId)}
+              comDicaDeAcoes={onSelectedMarkerPress != null}
             />
           </MapLibreGL.Marker>
         ))}

@@ -16,6 +16,8 @@ interface MapaAdapterProps {
   paradas: ParadaMapItem[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /** Toque no pino já selecionado: abre as ações da parada. */
+  onSelectedMarkerPress?: (paradaId: string) => void;
   onMapPress?: () => void;
   onMarkerLongPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
@@ -34,6 +36,7 @@ export function MapaAdapter({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onSelectedMarkerPress,
   onMapPress,
   statusFilter,
   rotaId,
@@ -48,6 +51,7 @@ export function MapaAdapter({
       paradas={paradas}
       selectedParadaId={selectedParadaId}
       onMarkerPress={onMarkerPress}
+      onSelectedMarkerPress={onSelectedMarkerPress}
       onMapPress={onMapPress}
       statusFilter={statusFilter}
       rotaId={rotaId}

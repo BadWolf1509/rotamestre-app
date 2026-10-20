@@ -3,11 +3,13 @@
  *
  * Renders a delivery/pickup stop marker with an expandable callout.
  * The callout shows address, recipient, phone, status badge, and type badge.
+ * Nada dentro dele recebe toque (ver MapaMobile): o telefone é só texto, e o
+ * "Ligar" fica no ParadaBottomSheet.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity, Linking } from 'react-native';
+import { View, Text } from 'react-native';
 
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
@@ -24,6 +26,8 @@ interface ParadaMarkerProps {
   rotulo?: string;
   /** Serviços do local, para o balão listar um a um. */
   servicos?: Array<{ ordem: number; tipo?: string | null; status: string }>;
+  /** Balão avisa que tocar nele (ou no pino) abre as ações da parada. */
+  comDicaDeAcoes?: boolean;
 }
 
 /** "3 e 4", "3, 4 e 5". */
@@ -44,6 +48,7 @@ export function ParadaMarker({
   isSelected,
   rotulo,
   servicos,
+  comDicaDeAcoes = false,
 }: ParadaMarkerProps) {
   const { theme } = useUnistyles();
   const markerColor = getMarkerFillColor(parada.status, theme.colors);
@@ -76,21 +81,18 @@ export function ParadaMarker({
               </View>
             )}
 
-            {/* Clickable phone */}
+            {/* Phone (texto: o "Ligar" fica no ParadaBottomSheet) */}
             {parada.telefone && (
-              <TouchableOpacity
-                style={styles.calloutDetailRow}
-                onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
-                accessibilityLabel={`Ligar para ${parada.telefone}`}
-                accessibilityRole="button"
-              >
+              <View style={styles.calloutDetailRow}>
                 <Ionicons
                   name="call-outline"
                   size={14}
-                  color={theme.colors.primary}
+                  color={theme.colors.textSecondary}
                 />
-                <Text style={styles.calloutPhoneText}>{parada.telefone}</Text>
-              </TouchableOpacity>
+                <Text style={styles.calloutDetailText} numberOfLines={1}>
+                  {parada.telefone}
+                </Text>
+              </View>
             )}
 
             {/* Status + type badges */}
@@ -133,6 +135,12 @@ export function ParadaMarker({
                   {`${servico.ordem} · ${rotuloTipoParada(servico.tipo ?? '').titulo}`}
                 </Text>
               ))}
+
+            {comDicaDeAcoes && (
+              <Text style={styles.calloutDicaAcoes}>
+                Toque para ver ações ›
+              </Text>
+            )}
           </View>
         </View>
       )}

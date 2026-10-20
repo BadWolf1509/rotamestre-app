@@ -44,6 +44,33 @@ describe('ParadaMarker', () => {
     expect(getByText('João Silva')).toBeTruthy();
   });
 
+  // Botão dentro do Marker não recebe toque no Android (ver MapaMobile);
+  // o "Ligar" fica no ParadaBottomSheet.
+  it('mostra o telefone no balão, mas sem botão de ligar', () => {
+    const parada = { ...baseParada, telefone: '83999990000' };
+    const { getByText, queryByLabelText } = render(
+      <ParadaMarker parada={parada as any} isSelected={true} />,
+    );
+    expect(getByText('83999990000')).toBeTruthy();
+    expect(queryByLabelText(/Ligar/)).toBeNull();
+  });
+
+  it('mostra a dica de ações só com comDicaDeAcoes', () => {
+    const { queryByText, rerender } = render(
+      <ParadaMarker parada={baseParada as any} isSelected={true} />,
+    );
+    expect(queryByText(/Toque para ver ações/)).toBeNull();
+
+    rerender(
+      <ParadaMarker
+        parada={baseParada as any}
+        isSelected={true}
+        comDicaDeAcoes
+      />,
+    );
+    expect(queryByText(/Toque para ver ações/)).toBeTruthy();
+  });
+
   describe('pino de um local com vários serviços', () => {
     const servicos = [
       { ordem: 3, tipo: 'entrega', status: 'pendente' },

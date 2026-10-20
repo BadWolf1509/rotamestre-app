@@ -105,6 +105,7 @@ import { montarPinosPorLocal } from '@/lib/motorista/pinosPorLocal';
 
 import MapaWebMapLibre, {
   createGrupoPopupContent,
+  htmlBotaoVerAcoes,
   montarFeaturesDosMarcadores,
 } from '../MapaWebMapLibre';
 
@@ -301,5 +302,21 @@ describe('MapaWebMapLibre – um pino por local', () => {
     expect(html).toContain('Entrega');
     expect(html).toContain('Retirada');
     expect(html).toContain('Paradas 3 e 4');
+  });
+
+  // Paridade com o balão nativo: as ações da parada saem do popup, não do
+  // 1º clique no pino.
+  it('o botão "Ver ações" do popup leva o marcador que o handler procura', () => {
+    expect(htmlBotaoVerAcoes('#284093')).toContain('data-acao="ver-acoes"');
+    expect(htmlBotaoVerAcoes('#284093')).toContain('Ver ações');
+  });
+
+  it('o popup do grupo inclui "Ver ações" só quando pedido', () => {
+    expect(createGrupoPopupContent([entrega, retirada], '#666')).not.toContain(
+      'ver-acoes',
+    );
+    expect(
+      createGrupoPopupContent([entrega, retirada], '#666', '#284093'),
+    ).toContain('data-acao="ver-acoes"');
   });
 });

@@ -37,8 +37,9 @@ jest.mock('@/context/RouteStatusContext', () => ({
 jest.mock('@/components/MapaAdapter', () => {
   const { Pressable: P, Text: T } = jest.requireActual('react-native');
   return {
-    MapaAdapter: (props: { onMarkerPress: (id: string) => void }) => (
-      <P onPress={() => props.onMarkerPress('parada-1')}>
+    // As ações da parada abrem no toque do pino já selecionado.
+    MapaAdapter: (props: { onSelectedMarkerPress?: (id: string) => void }) => (
+      <P onPress={() => props.onSelectedMarkerPress?.('parada-1')}>
         <T>marcador</T>
       </P>
     ),

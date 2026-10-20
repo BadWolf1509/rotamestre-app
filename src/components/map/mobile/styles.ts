@@ -176,10 +176,11 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.textSecondary,
     flex: 1,
   },
-  calloutPhoneText: {
+  calloutDicaAcoes: {
     fontSize: theme.typography.sm, // 14px
     color: theme.colors.primary,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginTop: theme.spacing['2'],
   },
   calloutBadges: {
     flexDirection: 'row',

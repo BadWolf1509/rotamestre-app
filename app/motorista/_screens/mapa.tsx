@@ -34,8 +34,14 @@ function MapaMotoristaContent() {
     rotaStatus: route?.status,
   });
 
-  // Handler para quando um marcador é pressionado
+  // 1º toque no pino: só seleciona (balão). Abrir o sheet junto punha o
+  // fundo escuro do modal por cima do mapa e do próprio balão.
   const handleMarkerPress = useCallback((paradaId: string) => {
+    setSelectedParadaId(paradaId);
+  }, []);
+
+  // Toque no pino já selecionado (ou no balão dele): abre as ações.
+  const handleSelectedMarkerPress = useCallback((paradaId: string) => {
     setSelectedParadaId(paradaId);
     setBottomSheetVisible(true);
   }, []);
@@ -63,7 +69,7 @@ function MapaMotoristaContent() {
     [route?.distancia_total, route?.tempo_total],
   );
 
-  // Fechar bottom sheet
+  // Fechar bottom sheet (a seleção e o balão continuam)
   const handleCloseBottomSheet = useCallback(() => {
     setBottomSheetVisible(false);
   }, []);
@@ -230,6 +236,7 @@ function MapaMotoristaContent() {
           paradas={paradas}
           selectedParadaId={selectedParadaId}
           onMarkerPress={handleMarkerPress}
+          onSelectedMarkerPress={handleSelectedMarkerPress}
           onMapPress={handleMapPress}
           statusFilter={statusFilter}
           unidadeNome={route?.unidade_nome}

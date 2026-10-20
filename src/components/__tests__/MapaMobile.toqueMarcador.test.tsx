@@ -133,3 +133,55 @@ describe('MapaMobile – toque no pino', () => {
     expect(stopPropagation).toHaveBeenCalled();
   });
 });
+
+describe('MapaMobile – toque no pino já selecionado', () => {
+  it('com onSelectedMarkerPress, o 2º toque abre as ações em vez de selecionar', () => {
+    const onMarkerPress = jest.fn();
+    const onSelectedMarkerPress = jest.fn();
+    const { getAllByTestId } = render(
+      <MapaMobile
+        paradas={[partida, parada]}
+        selectedParadaId="p1"
+        onMarkerPress={onMarkerPress}
+        onSelectedMarkerPress={onSelectedMarkerPress}
+      />,
+    );
+
+    const stopPropagation = tocarMarcador(getAllByTestId('marker')[1]);
+
+    expect(onSelectedMarkerPress).toHaveBeenCalledWith('p1');
+    expect(onMarkerPress).not.toHaveBeenCalled();
+    expect(stopPropagation).toHaveBeenCalled();
+  });
+
+  it('sem onSelectedMarkerPress (gestor), o 2º toque segue selecionando', () => {
+    const onMarkerPress = jest.fn();
+    const { getAllByTestId } = render(
+      <MapaMobile
+        paradas={[partida, parada]}
+        selectedParadaId="p1"
+        onMarkerPress={onMarkerPress}
+      />,
+    );
+
+    tocarMarcador(getAllByTestId('marker')[1]);
+
+    expect(onMarkerPress).toHaveBeenCalledWith('p1');
+  });
+
+  it('o balão mostra a dica de ações só quando há onSelectedMarkerPress', () => {
+    const { queryByText, rerender } = render(
+      <MapaMobile paradas={[partida, parada]} selectedParadaId="p1" />,
+    );
+    expect(queryByText(/Toque para ver ações/)).toBeNull();
+
+    rerender(
+      <MapaMobile
+        paradas={[partida, parada]}
+        selectedParadaId="p1"
+        onSelectedMarkerPress={jest.fn()}
+      />,
+    );
+    expect(queryByText(/Toque para ver ações/)).toBeTruthy();
+  });
+});

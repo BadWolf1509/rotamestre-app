@@ -9,7 +9,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Linking } from 'react-native';
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { showNavigationOptions } from '@/utils/navigation';
@@ -23,6 +23,7 @@ interface Parada {
   longitude: number | null;
   status: string;
   tipo?: string | null;
+  telefone?: string | null;
   is_checkpoint?: boolean;
 }
 
@@ -208,6 +209,27 @@ export function ParadaBottomSheet({
               <Text style={styles.actionText}>Concluir</Text>
             </TouchableOpacity>
           )}
+
+        {/* Ligar: veio do balão do pino, onde não recebia toque no Android */}
+        {parada.telefone && (
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => Linking.openURL(`tel:${parada.telefone}`)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`Ligar para ${parada.telefone}`}
+          >
+            <View
+              style={[
+                styles.actionIcon,
+                { backgroundColor: theme.colors.info },
+              ]}
+            >
+              <Ionicons name="call" size={20} color={theme.colors.white} />
+            </View>
+            <Text style={styles.actionText}>Ligar</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Botão de ver detalhes */}
         {onViewDetails && (
