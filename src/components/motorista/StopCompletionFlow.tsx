@@ -37,6 +37,8 @@ interface StopCompletionFlowProps {
   onSuccess?: () => void;
   /** Se true, permite concluir sem foto */
   allowSkipPhoto?: boolean;
+  /** Subtítulo: avisa de outros serviços a concluir neste mesmo local */
+  contexto?: string | null;
 }
 
 export function StopCompletionFlow({
@@ -45,6 +47,7 @@ export function StopCompletionFlow({
   onClose,
   onSuccess,
   allowSkipPhoto = true,
+  contexto,
 }: StopCompletionFlowProps) {
   const { theme } = useUnistyles();
   const { userData } = useUser();
@@ -183,6 +186,7 @@ export function StopCompletionFlow({
         primaryButton={primaryButton}
         secondaryButton={secondaryButton}
       >
+        {contexto ? <Text style={styles.contexto}>{contexto}</Text> : null}
         {step === 'photo' ? (
           // Step 1: Captura de foto
           <View>
@@ -274,6 +278,12 @@ export function StopCompletionFlow({
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
+  contexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansMedium,
+    color: theme.colors.primary,
+    marginBottom: theme.spacing.sm,
+  },
   address: {
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansMedium,

@@ -232,6 +232,23 @@ describe('StopCompletionFlow', () => {
       expect(getByTestId('camera-upload')).toBeTruthy();
     });
 
+    it('mostra o contexto da visita quando informado', () => {
+      const { getByText } = render(
+        <StopCompletionFlow
+          {...defaultProps}
+          contexto="Mais 1 serviço neste local: Retirada"
+        />,
+      );
+
+      expect(getByText('Mais 1 serviço neste local: Retirada')).toBeTruthy();
+    });
+
+    it('não mostra contexto quando não informado', () => {
+      const { queryByText } = render(<StopCompletionFlow {...defaultProps} />);
+
+      expect(queryByText(/neste local/)).toBeNull();
+    });
+
     it('usa a unidade da rota, não a unidade principal legada do motorista', () => {
       render(<StopCompletionFlow {...defaultProps} />);
 

@@ -25,6 +25,7 @@ import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
+import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
 import { useInicioModals } from '@/hooks/motorista/useInicioModals';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
@@ -87,6 +88,13 @@ function MotoristaInicioContent() {
   // Modal/UI state (consolidated via useReducer)
   const modals = useInicioModals();
 
+  // Entrega e retirada no mesmo local: cada serviço tem o seu comprovante, e
+  // o fluxo do próximo abre quando o anterior conclui.
+  const sequencia = useConclusaoEmSequencia({
+    paradas,
+    abrirConclusao: modals.openCompletionFlow,
+  });
+
   // Navegação em tela cheia: o layout de abas esconde cabeçalho e abas.
   const { setTelaCheia } = useNavegacaoTelaCheia();
   const emNavegacao = modals.navigationMode && !!currentStop;
@@ -101,7 +109,7 @@ function MotoristaInicioContent() {
   // rota inicial, então é nesta tela que o motorista reaparece.
   // Ver `src/hooks/motorista/useRestaurarConclusaoEmVoo.ts`.
   useRestaurarConclusaoEmVoo(route, paradas, (parada) => {
-    modals.openCompletionFlow(parada);
+    sequencia.iniciar(parada);
   });
 
   // Reabre o wizard de incidente interrompido. Sem isto o rascunho fica salvo
@@ -272,6 +280,15 @@ function MotoristaInicioContent() {
     }
   };
 
+  // O StopCompletionFlow chama onSuccess e logo depois onClose. O próximo
+  // serviço só abre depois do refresh, com o modal atual já fechado: abrir no
+  // mesmo instante deixaria o onClose fechar o recém-aberto.
+  const handleConclusaoSucesso = async () => {
+    const concluidaId = modals.selectedParadaForCompletion?.id;
+    await refreshRoute();
+    if (concluidaId) sequencia.aoConcluir(concluidaId);
+  };
+
   // Navigate to current stop
   const handleNavigateToStop = async () => {
     if (!currentStop) return;
@@ -280,7 +297,7 @@ function MotoristaInicioContent() {
     // Navegar daria 0 m; o próximo passo é o comprovante deste serviço.
     // Vem antes das preferências porque vale para qualquer "Navegar com".
     if (chegouPelaParadaAnterior(paradas, currentStop)) {
-      modals.openCompletionFlow(currentStop);
+      sequencia.iniciar(currentStop);
       return;
     }
 
@@ -303,7 +320,7 @@ function MotoristaInicioContent() {
   // quando currentStop muda após a conclusão
   const handleCompleteStop = async () => {
     if (!currentStop) return;
-    modals.openCompletionFlow(currentStop);
+    sequencia.iniciar(currentStop);
   };
 
   // Skip current stop - opens SkipReasonModal
@@ -475,8 +492,9 @@ function MotoristaInicioContent() {
         parada={modals.selectedParadaForCompletion}
         visible={modals.showCompletionFlow}
         onClose={modals.closeCompletionFlow}
-        onSuccess={() => refreshRoute()}
+        onSuccess={handleConclusaoSucesso}
         allowSkipPhoto={true}
+        contexto={sequencia.contexto}
       />
 
       {/* Skip Reason Modal */}
