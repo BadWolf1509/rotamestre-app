@@ -79,9 +79,9 @@ describe('chegouPelaParadaAnterior', () => {
     expect(chegouPelaParadaAnterior(ps, ps[1])).toBe(true);
   });
 
-  it('true quando a anterior foi pulada', () => {
+  it('false quando a anterior foi pulada (pulo pode ser remoto)', () => {
     const ps = [parada(3, { status: 'pulada' }), parada(4)];
-    expect(chegouPelaParadaAnterior(ps, ps[1])).toBe(true);
+    expect(chegouPelaParadaAnterior(ps, ps[1])).toBe(false);
   });
 
   it('false quando a anterior está pendente', () => {

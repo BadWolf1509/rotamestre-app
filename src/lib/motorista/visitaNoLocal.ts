@@ -66,8 +66,11 @@ export function paradasDaVisita(
 }
 
 /**
- * O motorista já está no local porque acabou de resolver a parada real
- * imediatamente anterior, que fica no mesmo ponto de `atual`.
+ * O motorista já está no local porque acabou de CONCLUIR a parada real
+ * imediatamente anterior, que fica no mesmo ponto de `atual`. Só a conclusão
+ * prova presença: o pulo pode ser feito à distância (gestor por telefone,
+ * "Pular também" desligado), e aí o atalho dos 0 m abriria a conclusão em vez
+ * de navegar até o local.
  */
 export function chegouPelaParadaAnterior(
   paradas: ParadaData[],
@@ -77,9 +80,7 @@ export function chegouPelaParadaAnterior(
     .filter((p) => p.ordem < atual.ordem)
     .pop();
   if (!anterior) return false;
-  const resolvida =
-    anterior.status === 'concluida' || anterior.status === 'pulada';
-  return resolvida && noMesmoLocal(anterior, atual);
+  return anterior.status === 'concluida' && noMesmoLocal(anterior, atual);
 }
 
 /**
