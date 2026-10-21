@@ -14,14 +14,17 @@
 set -euo pipefail
 export MSYS_NO_PATHCONV=1 # Git Bash: não reescrever caminhos do aparelho
 
-PACOTE=br.tec.rotamestre.app
+PACOTE=${PACOTE:-br.tec.rotamestre.app}
 ROTULO=${1:?uso: medir-memoria-android.sh <rotulo> [duracao_s] [intervalo_s]}
 DURACAO=${2:-1800}
 INTERVALO=${3:-60}
 ADB=${ADB:-adb}
 SAIDA="${TMPDIR:-/tmp}/memoria-${ROTULO}-$(date +%Y%m%d-%H%M%S).csv"
 
-pid_atual() { "$ADB" shell pidof "$PACOTE" | tr -d '\r'; }
+# `pidof` sai com 1 quando o processo não existe; sem o `|| true`, o `set -e`
+# abortaria aqui, calado, antes das mensagens de "não está rodando" e de
+# "pid mudou". PACOTE pode ser trocado por ambiente para testar esse caminho.
+pid_atual() { "$ADB" shell pidof "$PACOTE" | tr -d '\r' || true; }
 
 # Lê o App Summary e imprime: pss rss java native graphics code swap
 amostra() {

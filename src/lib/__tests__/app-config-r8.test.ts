@@ -50,7 +50,7 @@ describe('app.config.js — R8 no release Android', () => {
   // Class.forName a partir de um meta-data do manifest, e o R8 removia a classe:
   // job de localização em segundo plano → NPE em TaskService.executeTask, crash
   // em loop (moto g15, 21/10/2026).
-  it('mantém o carregador headless que o expo-task-manager acha por reflexão', () => {
+  it('mantém o carregador headless que o expo-modules-core acha por reflexão', () => {
     const regras = opcoesBuildProperties()?.android?.extraProguardRules ?? '';
     expect(regras).toContain(
       '-keep class * implements expo.modules.apploader.HeadlessAppLoader { <init>(); }',
