@@ -160,9 +160,8 @@ export function NavigationSettings({
     if (confirmed) {
       await triggerHapticFeedback();
       setSettings(DEFAULT_SETTINGS);
-      await LocationTrackingService.updateNavigationPreferences(
-        DEFAULT_SETTINGS,
-      );
+      // Limpa em vez de gravar os padrões, que ficariam congelados no storage.
+      await LocationTrackingService.restaurarPreferenciasPadrao();
       onSettingsChange?.(DEFAULT_SETTINGS);
       showSuccess('Sucesso', 'Configurações restauradas');
     }
