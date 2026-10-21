@@ -152,6 +152,7 @@ jest.mock('@/services/unifiedLocationTracking', () => ({
   startBackgroundTracking: jest.fn(),
   stopBackgroundTracking: jest.fn(),
   requestAndStartTracking: jest.fn(),
+  garantirRastreamentoDaRota: jest.fn().mockResolvedValue('ativo'),
 }));
 
 // Helper to create mock route data
@@ -407,6 +408,26 @@ describe('RouteStatusContext', () => {
       });
 
       expect(getByTestId('status').props.children).toBe('ready-to-complete');
+    });
+
+    it('religa o rastreamento em segundo plano ao montar com rota em andamento', async () => {
+      const { garantirRastreamentoDaRota } = jest.requireMock(
+        '@/services/unifiedLocationTracking',
+      );
+      mockRotasData = [createMockRoute({ status: 'em_andamento' })];
+      mockParadasData = [];
+
+      render(
+        <RouteStatusProvider>
+          <TestComponent />
+        </RouteStatusProvider>,
+      );
+
+      await waitFor(() => {
+        expect(garantirRastreamentoDaRota).toHaveBeenCalledWith(
+          expect.objectContaining({ rotaId: 'rota-1' }),
+        );
+      });
     });
 
     it('deve retornar "last-stop" quando em_andamento com 1 parada pendente', async () => {

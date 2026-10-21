@@ -15,6 +15,7 @@ import React, {
 } from 'react';
 
 import {
+  useGarantirRastreamentoDaRota,
   useLoadActiveRoute,
   useRouteActions,
   useRouteRealtimeSubscription,
@@ -64,6 +65,12 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     },
   );
 
+  // Religa o rastreamento em segundo plano que uma reinstalação apagou
+  const rastreamentoSegundoPlano = useGarantirRastreamentoDaRota({
+    route,
+    motorista: userData ? { id: userData.id, nome: userData.nome } : null,
+  });
+
   // Realtime subscription
   useRouteRealtimeSubscription({
     motoristaId,
@@ -91,6 +98,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       completeStop,
       skipStop,
       completeRoute,
+      rastreamentoSegundoPlano,
     }),
     [
       route,
@@ -102,6 +110,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       completeStop,
       skipStop,
       completeRoute,
+      rastreamentoSegundoPlano,
     ],
   );
 

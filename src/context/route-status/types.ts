@@ -3,6 +3,7 @@
  */
 
 import type { MotivoSkip } from '@/constants/skipReasons';
+import type { RastreamentoSegundoPlano } from '@/hooks/route-status/useGarantirRastreamentoDaRota';
 
 export type RouteStatus =
   | 'no-route'
@@ -92,4 +93,10 @@ export interface RouteStatusContextData {
     observacoes?: string,
   ) => Promise<void>;
   completeRoute: () => Promise<void>;
+  /**
+   * Rastreamento em segundo plano da rota em andamento, religado na abertura e
+   * na volta ao primeiro plano. Opcional para os mocks de teste que montam o
+   * contexto à mão.
+   */
+  rastreamentoSegundoPlano?: RastreamentoSegundoPlano;
 }
