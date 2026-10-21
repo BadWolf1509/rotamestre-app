@@ -31,7 +31,10 @@ import { useDistanceToStop } from '@/hooks/useDistanceToStop';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Habilitar LayoutAnimation no Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -62,30 +65,33 @@ export function NextStopPreview({
   const [expanded, setExpanded] = useState(false);
 
   // Memoize destination para evitar recriação de objeto a cada render
-  const destination = useMemo(() => ({
-    latitude: nextStop.latitude,
-    longitude: nextStop.longitude,
-  }), [nextStop.latitude, nextStop.longitude]);
+  const destination = useMemo(
+    () => ({
+      latitude: nextStop.latitude,
+      longitude: nextStop.longitude,
+    }),
+    [nextStop.latitude, nextStop.longitude],
+  );
 
   // Calcular distância até a próxima parada
-  const distanceInfo = useDistanceToStop(
-    currentLocation,
-    destination,
-    { enabled: !!currentLocation }
-  );
+  const distanceInfo = useDistanceToStop(currentLocation, destination, {
+    enabled: !!currentLocation,
+  });
 
   // Memoize toggle para evitar recriação a cada render
   const toggleExpand = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(prev => !prev);
+    setExpanded((prev) => !prev);
   }, []);
 
   // Memoize truncatedAddress para evitar recálculo de string
-  const truncatedAddress = useMemo(() => (
-    nextStop.endereco.length > 40 && !expanded
-      ? nextStop.endereco.substring(0, 40) + '...'
-      : nextStop.endereco
-  ), [nextStop.endereco, expanded]);
+  const truncatedAddress = useMemo(
+    () =>
+      nextStop.endereco.length > 40 && !expanded
+        ? nextStop.endereco.substring(0, 40) + '...'
+        : nextStop.endereco,
+    [nextStop.endereco, expanded],
+  );
 
   return (
     <TouchableOpacity
@@ -100,7 +106,9 @@ export function NextStopPreview({
           <Text style={styles.label}>PRÓXIMA</Text>
         </View>
         <View style={styles.orderBadge}>
-          <Text style={styles.orderText}>{nextStop.ordem}/{totalStops}</Text>
+          <Text style={styles.orderText}>
+            {nextStop.ordem}/{totalStops}
+          </Text>
         </View>
       </View>
 
@@ -113,7 +121,11 @@ export function NextStopPreview({
           <Text style={styles.distanceText}>Calculando...</Text>
         ) : (
           <>
-            <Ionicons name="navigate-outline" size={14} color={theme.colors.info} />
+            <Ionicons
+              name="navigate-outline"
+              size={14}
+              color={theme.colors.info}
+            />
             <Text style={[styles.distanceText, { color: theme.colors.info }]}>
               {distanceInfo.distanceKm} • {distanceInfo.durationText}
             </Text>
@@ -132,26 +144,42 @@ export function NextStopPreview({
         <View style={styles.expandedContent}>
           {nextStop.destinatario && (
             <View style={styles.detailRow}>
-              <Ionicons name="person-outline" size={14} color={theme.colors.gray500} />
+              <Ionicons
+                name="person-outline"
+                size={14}
+                color={theme.colors.gray500}
+              />
               <Text style={styles.detailText}>{nextStop.destinatario}</Text>
             </View>
           )}
           {nextStop.telefone && (
             <View style={styles.detailRow}>
-              <Ionicons name="call-outline" size={14} color={theme.colors.gray500} />
+              <Ionicons
+                name="call-outline"
+                size={14}
+                color={theme.colors.gray500}
+              />
               <Text style={styles.detailText}>{nextStop.telefone}</Text>
             </View>
           )}
           {nextStop.observacoes && (
             <View style={[styles.detailRow, styles.observationRow]}>
-              <Ionicons name="alert-circle-outline" size={14} color={theme.colors.warning} />
+              <Ionicons
+                name="alert-circle-outline"
+                size={14}
+                color={theme.colors.warning}
+              />
               <Text style={styles.observationText}>{nextStop.observacoes}</Text>
             </View>
           )}
           {nextStop.tipo && (
             <View style={styles.detailRow}>
               <Ionicons
-                name={nextStop.tipo === 'entrega' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
+                name={
+                  nextStop.tipo === 'entrega'
+                    ? 'arrow-down-circle-outline'
+                    : 'arrow-up-circle-outline'
+                }
                 size={14}
                 color={theme.colors.gray500}
               />

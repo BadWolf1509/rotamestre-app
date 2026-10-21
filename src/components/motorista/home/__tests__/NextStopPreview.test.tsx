@@ -11,11 +11,8 @@ import { NextStopPreview } from '../NextStopPreview';
 // Mock useDistanceToStop hook
 const mockUseDistanceToStop = jest.fn();
 jest.mock('@/hooks/useDistanceToStop', () => ({
-  useDistanceToStop: (
-    currentLocation: any,
-    stopLocation: any,
-    options: any
-  ) => mockUseDistanceToStop(currentLocation, stopLocation, options),
+  useDistanceToStop: (currentLocation: any, stopLocation: any, options: any) =>
+    mockUseDistanceToStop(currentLocation, stopLocation, options),
 }));
 
 // Mock styles
@@ -91,7 +88,7 @@ describe('NextStopPreview', () => {
   describe('Renderização Básica', () => {
     it('deve renderizar label "PRÓXIMA"', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       expect(getByText('PRÓXIMA')).toBeTruthy();
@@ -99,7 +96,7 @@ describe('NextStopPreview', () => {
 
     it('deve renderizar ordem da parada', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       expect(getByText('2/5')).toBeTruthy();
@@ -107,7 +104,7 @@ describe('NextStopPreview', () => {
 
     it('deve renderizar endereço', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       expect(getByText('Rua das Flores, 123 - Centro')).toBeTruthy();
@@ -121,7 +118,7 @@ describe('NextStopPreview', () => {
           nextStop={defaultNextStop}
           totalStops={5}
           currentLocation={{ latitude: -23.5, longitude: -46.6 }}
-        />
+        />,
       );
 
       expect(getByText('2.5 km • 8 min')).toBeTruthy();
@@ -139,7 +136,7 @@ describe('NextStopPreview', () => {
           nextStop={defaultNextStop}
           totalStops={5}
           currentLocation={{ latitude: -23.5, longitude: -46.6 }}
-        />
+        />,
       );
 
       expect(getByText('Calculando...')).toBeTruthy();
@@ -151,7 +148,7 @@ describe('NextStopPreview', () => {
           nextStop={defaultNextStop}
           totalStops={5}
           currentLocation={{ latitude: -23.5, longitude: -46.6 }}
-        />
+        />,
       );
 
       expect(getByText('navigate-outline')).toBeTruthy();
@@ -161,7 +158,7 @@ describe('NextStopPreview', () => {
   describe('Expansão/Colapso', () => {
     it('deve mostrar ícone chevron-down quando colapsado', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       expect(getByText('chevron-down')).toBeTruthy();
@@ -169,7 +166,7 @@ describe('NextStopPreview', () => {
 
     it('deve expandir ao pressionar', () => {
       const { getByText, queryByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       // Inicialmente não mostra detalhes (destinatário está em expandedContent)
@@ -184,7 +181,7 @@ describe('NextStopPreview', () => {
 
     it('deve mostrar chevron-up quando expandido', () => {
       const { getByText, queryByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -197,7 +194,7 @@ describe('NextStopPreview', () => {
   describe('Detalhes Expandidos', () => {
     it('deve mostrar destinatário quando expandido', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -208,7 +205,7 @@ describe('NextStopPreview', () => {
 
     it('deve mostrar telefone quando expandido', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -219,7 +216,7 @@ describe('NextStopPreview', () => {
 
     it('deve mostrar observações quando expandido', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -230,7 +227,7 @@ describe('NextStopPreview', () => {
 
     it('deve mostrar tipo de parada quando expandido', () => {
       const { getByText } = render(
-        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />
+        <NextStopPreview nextStop={defaultNextStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -243,7 +240,7 @@ describe('NextStopPreview', () => {
       const retiradaStop = { ...defaultNextStop, tipo: 'retirada' as const };
 
       const { getByText } = render(
-        <NextStopPreview nextStop={retiradaStop} totalStops={5} />
+        <NextStopPreview nextStop={retiradaStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -265,7 +262,7 @@ describe('NextStopPreview', () => {
 
     it('não deve mostrar destinatário quando não existe', () => {
       const { getByText, queryByText } = render(
-        <NextStopPreview nextStop={minimalStop} totalStops={3} />
+        <NextStopPreview nextStop={minimalStop} totalStops={3} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -275,7 +272,7 @@ describe('NextStopPreview', () => {
 
     it('não deve mostrar telefone quando não existe', () => {
       const { getByText, queryByText } = render(
-        <NextStopPreview nextStop={minimalStop} totalStops={3} />
+        <NextStopPreview nextStop={minimalStop} totalStops={3} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -285,7 +282,7 @@ describe('NextStopPreview', () => {
 
     it('não deve mostrar observações quando não existe', () => {
       const { getByText, queryByText } = render(
-        <NextStopPreview nextStop={minimalStop} totalStops={3} />
+        <NextStopPreview nextStop={minimalStop} totalStops={3} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
@@ -298,11 +295,12 @@ describe('NextStopPreview', () => {
     it('deve truncar endereço longo quando colapsado', () => {
       const longAddressStop = {
         ...defaultNextStop,
-        endereco: 'Rua Muito Longa Com Muitos Caracteres Que Deveria Ser Truncada Para Melhor Visualização',
+        endereco:
+          'Rua Muito Longa Com Muitos Caracteres Que Deveria Ser Truncada Para Melhor Visualização',
       };
 
       const { getByText, queryByText } = render(
-        <NextStopPreview nextStop={longAddressStop} totalStops={5} />
+        <NextStopPreview nextStop={longAddressStop} totalStops={5} />,
       );
 
       // Endereço truncado
@@ -313,11 +311,12 @@ describe('NextStopPreview', () => {
     it('deve mostrar endereço completo quando expandido', () => {
       const longAddressStop = {
         ...defaultNextStop,
-        endereco: 'Rua Muito Longa Com Muitos Caracteres Que Deveria Ser Truncada Para Melhor Visualização',
+        endereco:
+          'Rua Muito Longa Com Muitos Caracteres Que Deveria Ser Truncada Para Melhor Visualização',
       };
 
       const { getByText } = render(
-        <NextStopPreview nextStop={longAddressStop} totalStops={5} />
+        <NextStopPreview nextStop={longAddressStop} totalStops={5} />,
       );
 
       fireEvent.press(getByText('PRÓXIMA'));
