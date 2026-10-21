@@ -133,7 +133,19 @@ module.exports = ({ config }) => {
             "O Rota Mestre usa a câmera para fotografar o comprovante de entrega.",
         },
       ],
-      "expo-sharing"
+      "expo-sharing",
+      // R8 (minificação + ofuscação) e shrinkResources no release Android —
+      // tira o aviso de ofuscação da Play. Nenhuma regra ProGuard extra: as
+      // libs nativas trazem as suas (docs/superpowers/plans/2026-10-20-ativar-r8-android.md).
+      [
+        "expo-build-properties",
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
+        },
+      ]
       // MapLibre usa plugin oficial para ajustes nativos (gradle/podfile)
     ]
   };
