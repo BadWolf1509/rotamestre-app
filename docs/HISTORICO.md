@@ -8,6 +8,15 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.14.0: SDK 57 + R8 (21/10/2026)
+
+- **#608 — Expo SDK 57 / RN 0.86.3 + R8** (fecha a antiga pendência 19, regressão de memória do Hermes V1). Memória no moto g15, 3 corridas por build: heap nativo na Início 78 → 66 MB (ruído de 2–3 MB); PSS total e após 30 min de navegação empatados (277 → 268 e 263 → 260 MB). O R8 removia o `RNHeadlessAppLoader`, carregado por `Class.forName` a partir do manifest do expo-modules-core, e o job de localização em segundo plano derrubava o app em loop — corrigido com regra de keep (memória "R8 e reflexão por manifest"). Um commit da sessão saiu com `--no-verify` e `[skip ci]`; o CI completo rodou no head antes do merge.
+- **#609 — "Sair" só neste aparelho:** os cinco `auth.signOut()` passam `scope: 'local'`. Sem argumento, o Supabase revoga todas as sessões da conta: o e2e derrubava o aparelho de teste no meio da medição de memória, e o gestor que saía no celular caía também na web. Guarda estática `signout-so-neste-aparelho.test.ts`.
+- **#607** — aviso de chegada na web uma vez por parada, "Restaurar Padrões" apaga em vez de gravar, rótulos com fonte 2.0, versão do app no `X-Client-Info`.
+- **#610** — 1.14.0 (versionCode 3038). Build pelo Actions (cota do EAS esgotada até 01/11), `eas submit` para a interna. O primeiro submit falhou com "submit command failed": o `node_modules` local ainda era do SDK 56 e o `expo config` não achava o `expo-build-properties` — `npm ci` resolveu.
+- **Notas da versão (pt-BR, 196 caracteres):** "App mais leve e atualizado para a versão mais recente do Android. Sair da conta agora desconecta só este aparelho. Botões da navegação não quebram mais com fonte grande. Correções de estabilidade."
+- **Robô da Play, 21/10 03:32–04:07 UTC:** depois do upload da 1.13.0 ele ainda entrou com o gestor da conta DEMO, renomeou-o e desativou o motorista demo, quebrando o e2e do #605; o Console já tinha as credenciais de avaliação (provável credencial guardada no momento do upload). Motorista reativado e nome restaurado no banco.
+
 ## Release 1.13.0, vínculo seguro e conta de avaliação da Play (20–21/10/2026)
 
 - **Vínculo multi-loja (#600, Migration 31):**
