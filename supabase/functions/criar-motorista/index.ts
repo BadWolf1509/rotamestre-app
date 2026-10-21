@@ -7,6 +7,11 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import {
+  ehEmailDuplicadoNoAuth,
+  normalizarEmail,
+  respostaEmailJaCadastrado,
+} from './emailExistente.ts';
+import {
   ehViolacaoTelefoneUnico,
   MSG_TELEFONE_OUTRA_LOJA,
   CODIGO_TELEFONE_JA_CADASTRADO,
@@ -65,22 +70,50 @@ serve(async (req) => {
     // Buscar dados do gestor
     const { data: gestorData, error: gestorError } = await supabaseClient
       .from('usuarios')
-      .select('papel, unidade_id')
+      .select('papel, unidade_id, ativo')
       .eq('id', user.id)
       .single();
 
-    if (gestorError || !gestorData || gestorData.papel !== 'gestor') {
-      return new Response(
+    const proibido = () =>
+      new Response(
         JSON.stringify({ error: 'Apenas gestores podem criar motoristas' }),
         {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
+
+    if (
+      gestorError ||
+      !gestorData ||
+      gestorData.papel !== 'gestor' ||
+      !gestorData.ativo
+    ) {
+      return proibido();
     }
 
     // Obter dados do novo motorista do body
-    const { nome, email, senha, telefone } = await req.json();
+    const { nome, email, senha, telefone, unidade_id } = await req.json();
+
+    // A loja é a que o gestor tem aberta na tela (`unidade_id`); app antigo não
+    // manda e cai na principal. Nos dois casos, só com vínculo de gestor ATIVO
+    // nela: esta função é a única porta de escrita em usuario_unidades, e o
+    // papel/unidade_id de `usuarios` sobrevivem ao gestor sair da loja.
+    const unidadeId: string | null = unidade_id ?? gestorData.unidade_id;
+    const { data: vinculoGestor } = unidadeId
+      ? await supabaseAdmin
+          .from('usuario_unidades')
+          .select('id')
+          .eq('usuario_id', user.id)
+          .eq('unidade_id', unidadeId)
+          .eq('papel', 'gestor')
+          .eq('ativo', true)
+          .maybeSingle()
+      : { data: null };
+
+    if (!unidadeId || !vinculoGestor) {
+      return proibido();
+    }
 
     if (!nome || !email || !senha) {
       return new Response(
@@ -92,67 +125,35 @@ serve(async (req) => {
       );
     }
 
-    // Verificar se email já existe na tabela usuarios
-    const { data: existingUser } = await supabaseAdmin
+    const emailNormalizado = normalizarEmail(email);
+
+    // E-mail que já tem conta: recusa, nunca vincula (ver emailExistente.ts).
+    // Igualdade, não ILIKE (no PostgREST `*` também é curinga): linha antiga
+    // gravada com maiúscula escapa daqui, mas não do createUser, porque o Auth
+    // guarda o e-mail em minúsculas e recusa a duplicata com a mesma 409.
+    const { data: contasComEmail, error: emailError } = await supabaseAdmin
       .from('usuarios')
-      .select('id, email, nome, telefone, papel')
-      .eq('email', email.trim())
-      .single();
+      .select('id')
+      .eq('email', emailNormalizado)
+      .limit(1);
 
-    if (existingUser) {
-      // ✅ MULTI-UNIDADE: Usuário existe, verificar se já está vinculado a esta unidade
-      const { data: existingVinculo } = await supabaseAdmin
-        .from('usuario_unidades')
-        .select('id')
-        .eq('usuario_id', existingUser.id)
-        .eq('unidade_id', gestorData.unidade_id)
-        .single();
-
-      if (existingVinculo) {
-        // Já tem vínculo com esta unidade
-        return new Response(
-          JSON.stringify({
-            error: 'Este motorista já está vinculado a esta unidade.',
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
-      // Criar apenas o vínculo (usuário já existe em outra unidade)
-      const { error: vinculoError } = await supabaseAdmin
-        .from('usuario_unidades')
-        .insert({
-          usuario_id: existingUser.id,
-          unidade_id: gestorData.unidade_id,
-          papel: 'motorista',
-          ativo: true,
-        });
-
-      if (vinculoError) {
-        return new Response(
-          JSON.stringify({
-            error: `Erro ao vincular motorista: ${vinculoError.message}`,
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
-      // Retornar sucesso com flag indicando que foi vinculação (não criação)
+    if (emailError) {
+      // Sem a checagem não dá para saber se a conta já existe; não arrisca.
       return new Response(
-        JSON.stringify({
-          success: true,
-          motorista: existingUser,
-          vinculado: true, // Flag para o frontend saber que foi vinculação
-          message: 'Motorista vinculado com sucesso a esta unidade.',
-        }),
+        JSON.stringify({ error: 'Não foi possível verificar o e-mail.' }),
         {
-          status: 200,
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (contasComEmail && contasComEmail.length > 0) {
+      const recusa = respostaEmailJaCadastrado();
+      return new Response(
+        JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
+        {
+          status: recusa.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       );
@@ -194,7 +195,7 @@ serve(async (req) => {
 
         const duplicado = respostaTelefoneDuplicado(
           encontrados,
-          gestorData.unidade_id,
+          unidadeId,
           unidadesVinculadas,
         );
         if (duplicado) {
@@ -212,22 +213,13 @@ serve(async (req) => {
       }
     }
 
-    // Verificar se o email existe no Auth mas não na tabela usuarios (possível inconsistência)
-    const {
-      data: { users: authUsers },
-    } = await supabaseAdmin.auth.admin.listUsers();
-    const existingAuthUser = authUsers?.find((u) => u.email === email.trim());
-
-    if (existingAuthUser) {
-      // Email existe no Auth mas não na tabela usuarios - limpar inconsistência
-      console.log(`Limpando usuário órfão do Auth: ${email.trim()}`);
-      await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id);
-    }
-
-    // Criar usuário no Auth usando Admin API
+    // Conta só no Auth (sem linha em `usuarios`) é, por exemplo, um gestor no
+    // meio do onboarding: o createUser abaixo recusa o e-mail e a resposta é a
+    // mesma 409. Nunca apagar essa conta — apagar e recriar com a senha do
+    // gestor chamador entregava o login de outra pessoa.
     const { data: authData, error: createAuthError } =
       await supabaseAdmin.auth.admin.createUser({
-        email: email.trim(),
+        email: emailNormalizado,
         password: senha.trim(),
         email_confirm: true, // Confirmar email automaticamente
         user_metadata: {
@@ -236,22 +228,26 @@ serve(async (req) => {
       });
 
     if (createAuthError) {
-      // Verificar se é erro de email duplicado
-      const errorMsg = createAuthError.message.toLowerCase();
-      const isDuplicateEmail =
-        errorMsg.includes('already been registered') ||
-        errorMsg.includes('already registered') ||
-        errorMsg.includes('duplicate') ||
-        errorMsg.includes('unique constraint');
+      if (ehEmailDuplicadoNoAuth(createAuthError)) {
+        const recusa = respostaEmailJaCadastrado();
+        return new Response(
+          JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
+          {
+            status: recusa.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
 
-      const errorMessage = isDuplicateEmail
-        ? 'Este email já está cadastrado no sistema. Use outro email.'
-        : `Erro ao criar usuário: ${createAuthError.message}`;
-
-      return new Response(JSON.stringify({ error: errorMessage }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          error: `Erro ao criar usuário: ${createAuthError.message}`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     if (!authData.user) {
@@ -267,10 +263,10 @@ serve(async (req) => {
       .insert({
         id: authData.user.id,
         nome: nome.trim(),
-        email: email.trim(),
+        email: emailNormalizado,
         telefone: telefone?.trim() || null,
         papel: 'motorista',
-        unidade_id: gestorData.unidade_id,
+        unidade_id: unidadeId,
         ativo: true,
       })
       .select()
@@ -309,7 +305,7 @@ serve(async (req) => {
       .from('usuario_unidades')
       .insert({
         usuario_id: authData.user.id,
-        unidade_id: gestorData.unidade_id,
+        unidade_id: unidadeId,
         papel: 'motorista',
         ativo: true,
       });
@@ -319,8 +315,19 @@ serve(async (req) => {
         'Erro ao criar vínculo em usuario_unidades:',
         vinculoError.message,
       );
-      // Não falhar - o registro principal foi criado
-      // A migration já migra dados de usuarios.unidade_id
+      // Sem vínculo o motorista não aparece na lista (que vem de
+      // usuario_unidades) e o gestor não consegue criá-lo depois. Desfaz tudo:
+      // apagar a conta leva junto a linha de `usuarios` (ON DELETE CASCADE).
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return new Response(
+        JSON.stringify({
+          error: 'Não foi possível vincular o motorista à loja. Tente de novo.',
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
     }
 
     return new Response(

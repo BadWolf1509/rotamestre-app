@@ -11,16 +11,12 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
+import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { validatePhone } from '@/lib/phone';
 import { updateUsuario, logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
 import type { MotoristaDetalhado } from '../useMotoristasGestor';
-
-type VinculacaoComUsuario = {
-  usuario_id: string;
-  usuarios: MotoristaDetalhado | null;
-};
 
 const INDICE_TELEFONE_MOTORISTA = 'usuarios_motorista_telefone_unico';
 
@@ -101,27 +97,21 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
     try {
       setLoading(true);
 
-      const { data: vinculacoesData, error: vinculacoesError } = await supabase
-        .from('usuario_unidades')
-        .select(
-          `
-          usuario_id,
-          usuarios (
-            id, nome, email, telefone, foto_url, ativo, created_at
-          )
-        `,
-        )
-        .eq('unidade_id', unidadeAtiva)
-        .eq('papel', 'motorista')
-        .eq('ativo', true)
-        .returns<VinculacaoComUsuario[]>();
+      // RPC e não select em usuario_unidades: o vínculo INATIVO desta loja
+      // (motorista que atende outra loja e foi desativado só aqui) precisa
+      // aparecer para ser reativado, e a RLS de usuarios o esconde.
+      const { data, error: listaError } = await supabase.rpc(
+        'listar_motoristas_unidade',
+        { p_unidade_id: unidadeAtiva },
+      );
 
-      if (vinculacoesError) throw vinculacoesError;
+      if (listaError) throw listaError;
 
-      const motoristasData = vinculacoesData
-        ?.map((v) => v.usuarios)
-        .filter((u): u is MotoristaDetalhado => u !== null)
-        .sort((a, b) => a.nome.localeCompare(b.nome));
+      // Sem tipos gerados: a RPC devolve exatamente as colunas de MotoristaDetalhado
+      const lista: MotoristaDetalhado[] = data ?? [];
+      const motoristasData = [...lista].sort((a, b) =>
+        a.nome.localeCompare(b.nome),
+      );
 
       setMotoristas(motoristasData || []);
     } catch (error) {
@@ -212,6 +202,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
               email: email.trim(),
               senha: senha.trim(),
               telefone: telefone.trim() || null,
+              unidade_id: unidadeAtiva,
             }),
           });
         } catch (fetchError: any) {
@@ -259,12 +250,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         }
 
         logger.info('[Motoristas] Processo concluído com sucesso!');
-        showToast(
-          result.vinculado
-            ? 'Motorista vinculado à sua loja. Ele já vê as rotas daqui com a mesma conta.'
-            : 'Motorista adicionado com sucesso!',
-          'success',
-        );
+        showToast('Motorista adicionado com sucesso!', 'success');
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
@@ -283,7 +269,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         setSalvando(false);
       }
     },
-    [loadMotoristas, showToast, userData],
+    [loadMotoristas, showToast, unidadeAtiva, userData],
   );
 
   // ============================================================================
@@ -357,16 +343,23 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
   const confirmarToggleAtivo = useCallback(
     async (motorista: MotoristaDetalhado, onSuccess: () => void) => {
+      if (!unidadeAtiva) return;
       const novoStatus = !motorista.ativo;
 
       try {
         await withToast(
           async () => {
-            // Use centralized query for update
-            const result = await updateUsuario(motorista.id, {
-              ativo: novoStatus,
-            });
-            if (!result.success) throw new Error(result.error.message);
+            // Quem atende outra loja é desativado só nesta (o vínculo); quem
+            // atende uma só, a pessoa. A decisão é do banco.
+            const { error } = await supabase.rpc(
+              'alternar_motorista_na_unidade',
+              {
+                p_motorista_id: motorista.id,
+                p_unidade_id: unidadeAtiva,
+                p_ativo: novoStatus,
+              },
+            );
+            if (error) throw error;
 
             // Log action using centralized logging
             if (userData) {
@@ -387,6 +380,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
             // esbarra em outro motorista ativo); um toast só, sem piscar.
             error: (e) =>
               mensagemTelefoneDuplicado(e) ??
+              mensagemRegraDoBanco(e) ??
               'Não foi possível alterar o status do motorista',
           },
         );
@@ -397,7 +391,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         // withToast já mostrou o toast de erro.
       }
     },
-    [loadMotoristas, userData, withToast],
+    [loadMotoristas, unidadeAtiva, userData, withToast],
   );
 
   return {
