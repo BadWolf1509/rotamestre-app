@@ -1254,9 +1254,11 @@ já houver duplicata ativa. Sem tabela nova e sem policy.
 ### ✅ Migration 31: vínculo de motorista só pelo servidor
 
 **Arquivo:** `20261020220000_vinculo_motorista_seguro.sql` · **✅ aplicada em
-20/10/2026 pelo SQL Editor, sem registro em `schema_migrations`** (o `migration
-list` vai mostrá-la como pendente). O MCP `apply_migration` recusou por causa do
-`DROP POLICY`/`REVOKE`. Edge Function `criar-motorista` v15 publicada a partir da
+20/10/2026 pelo SQL Editor.** O SQL Editor não registra em `schema_migrations`;
+a linha foi inserida depois à mão, com a versão igual ao prefixo do arquivo
+(`20261020220000`, `created_by` = `sql-editor`), para o `migration list` casá-la.
+O MCP `apply_migration` recusou ("declined") por causa do `DROP POLICY`/`REVOKE`:
+migration com isso vai para o SQL Editor, rodada pelo gestor. Edge Function `criar-motorista` v15 publicada a partir da
 mesma PR. Antes, duas sondas transacionais (desfeitas) reproduziram os ataques no
 estado atual e mostraram o bloqueio no novo.
 
