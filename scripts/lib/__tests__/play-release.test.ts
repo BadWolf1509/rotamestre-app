@@ -10,7 +10,12 @@
  * Se alguma falhar, confira a documentação da Play antes de ajustar o teste —
  * mudar a expectativa para o código passar reintroduz uma requisição recusada.
  */
-import { montarRelease } from '../play-release.js';
+import {
+  LIMITE_NOTAS,
+  lerTrilhas,
+  montarRelease,
+  validarNotas,
+} from '../play-release.js';
 
 describe('montarRelease', () => {
   const versionCode = '3030';
@@ -80,5 +85,99 @@ describe('montarRelease', () => {
       versionCodes: ['3030'],
       status: 'completed',
     });
+  });
+});
+
+describe('montarRelease com notas da versão', () => {
+  const versionCode = '3037';
+
+  it('inclui releaseNotes em pt-BR quando há notas', () => {
+    expect(
+      montarRelease({
+        versionCode,
+        releaseName: '1.13.0',
+        notas: 'Correções.',
+      }),
+    ).toEqual({
+      name: '1.13.0',
+      versionCodes: ['3037'],
+      status: 'completed',
+      releaseNotes: [{ language: 'pt-BR', text: 'Correções.' }],
+    });
+  });
+
+  it('omite releaseNotes sem notas — a Play apagaria as atuais com lista vazia', () => {
+    expect(montarRelease({ versionCode })).not.toHaveProperty('releaseNotes');
+    expect(montarRelease({ versionCode, notas: undefined })).not.toHaveProperty(
+      'releaseNotes',
+    );
+  });
+
+  it('combina notas com rollout gradual', () => {
+    expect(
+      montarRelease({ versionCode, percentual: 10, notas: 'Novidades.' }),
+    ).toEqual({
+      versionCodes: ['3037'],
+      status: 'inProgress',
+      userFraction: 0.1,
+      releaseNotes: [{ language: 'pt-BR', text: 'Novidades.' }],
+    });
+  });
+});
+
+describe('validarNotas', () => {
+  it('aceita até o limite da Play e devolve o texto sem espaço nas pontas', () => {
+    expect(LIMITE_NOTAS).toBe(500);
+    expect(validarNotas('  Correções.\n')).toBe('Correções.');
+    const noLimite = 'a'.repeat(500);
+    expect(validarNotas(noLimite)).toBe(noLimite);
+  });
+
+  it('recusa acima de 500 caracteres, dizendo quantos tem', () => {
+    expect(() => validarNotas('a'.repeat(501))).toThrow(/501.*500/);
+  });
+
+  it('conta caracteres, não unidades UTF-16 — emoji conta como 1', () => {
+    // '🚚'.length === 2; a Play conta caracteres. 500 emojis passam.
+    expect(() => validarNotas('🚚'.repeat(500))).not.toThrow();
+    expect(() => validarNotas('🚚'.repeat(501))).toThrow();
+  });
+
+  it('normaliza CRLF do Windows antes de contar', () => {
+    // Cada quebra CRLF contaria 2; a Play guarda e exibe LF.
+    const texto = 'a\r\n'.repeat(200) + 'a'.repeat(99);
+    expect(validarNotas(texto)).toBe('a\n'.repeat(200) + 'a'.repeat(99));
+  });
+
+  it('remove o BOM que o Out-File do PowerShell grava no arquivo', () => {
+    expect(validarNotas('﻿Correções.')).toBe('Correções.');
+  });
+
+  it('recusa notas vazias — arquivo vazio é engano, não intenção', () => {
+    expect(() => validarNotas('')).toThrow(/vazi/);
+    expect(() => validarNotas('  \n ')).toThrow(/vazi/);
+  });
+});
+
+describe('lerTrilhas', () => {
+  it('aceita uma trilha', () => {
+    expect(lerTrilhas('alpha')).toEqual(['alpha']);
+  });
+
+  it('aceita várias separadas por vírgula, na ordem dada', () => {
+    expect(lerTrilhas('internal,alpha')).toEqual(['internal', 'alpha']);
+    expect(lerTrilhas('internal, alpha')).toEqual(['internal', 'alpha']);
+  });
+
+  it('recusa trilha desconhecida', () => {
+    expect(() => lerTrilhas('internal,producao')).toThrow(/producao/);
+  });
+
+  it('recusa trilha repetida — dois PUT na mesma edição, o segundo vence', () => {
+    expect(() => lerTrilhas('alpha,alpha')).toThrow(/repetida/);
+  });
+
+  it('recusa item vazio (vírgula sobrando)', () => {
+    expect(() => lerTrilhas('internal,')).toThrow();
   });
 });
