@@ -16,15 +16,18 @@ import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
 import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
-import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
+import { type MotivoSkip } from '@/constants/skipReasons';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
+import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
+import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { paradasDaVisita } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -76,6 +79,24 @@ export default function CheckpointsMotorista() {
     rotaStatus: route?.status,
   });
 
+  // Entrega e retirada no mesmo local: cada serviço tem o seu comprovante, e
+  // o fluxo do próximo abre quando o anterior conclui (como na Início). A
+  // visita é calculada sobre o contexto, que tem a rota inteira.
+  const abrirConclusao = useCallback((parada: ParadaData) => {
+    setSelectedParadaForCompletion(parada);
+    setShowCompletionFlow(true);
+  }, []);
+  const sequencia = useConclusaoEmSequencia({
+    paradas: paradasContext,
+    abrirConclusao,
+  });
+  const pularVisita = usePuloDaVisita({
+    paradas: paradasContext,
+    skipStop,
+    showSuccess,
+    showError,
+  });
+
   // Abre o modal de conclusão com foto
   const concluirParada = useCallback(
     (parada: Parada) => {
@@ -88,23 +109,23 @@ export default function CheckpointsMotorista() {
         return;
       }
 
-      setSelectedParadaForCompletion(toParadaData(parada));
-      setShowCompletionFlow(true);
+      sequencia.iniciar(toParadaData(parada));
     },
-    [route?.status, showWarning],
+    [route?.status, showWarning, sequencia],
   );
 
-  // Handler quando conclusão é bem-sucedida
-  function handleCompletionSuccess() {
-    // Contexto atualiza automaticamente via realtime
-    refreshRoute();
+  // O StopCompletionFlow chama onSuccess e onClose no mesmo tique; esperar o
+  // refresh deixa o modal fechar antes de o próximo serviço abrir zerado.
+  async function handleCompletionSuccess() {
+    const concluidaId = selectedParadaForCompletion?.id;
+    await refreshRoute();
+    if (concluidaId) sequencia.aoConcluir(concluidaId);
   }
 
   // Reabre o fluxo de conclusão que a recriação da Activity interrompeu.
   // Ver `src/hooks/motorista/useRestaurarConclusaoEmVoo.ts`.
   useRestaurarConclusaoEmVoo(route, paradas, (parada) => {
-    setSelectedParadaForCompletion(toParadaData(parada));
-    setShowCompletionFlow(true);
+    sequencia.iniciar(toParadaData(parada));
   });
 
   // Reabre o wizard de incidente interrompido. Mesma razão do de cima: o
@@ -121,23 +142,29 @@ export default function CheckpointsMotorista() {
 
   // Confirma o skip com motivo estruturado (usa contexto para promover próxima parada)
   const confirmarSkip = useCallback(
-    async (motivo: MotivoSkip, observacoes?: string) => {
+    async (
+      motivo: MotivoSkip,
+      observacoes?: string,
+      incluirOutros?: boolean,
+    ) => {
       const parada = skipModalParada;
       if (!parada) return;
       setSkipModalParada(null);
 
       setPulandoParada(parada.id);
       try {
-        await skipStop(parada.id, motivo, observacoes);
-        showSuccess('Parada Pulada', SKIP_REASON_LABELS[motivo]);
-      } catch (error: unknown) {
-        logger.error('Erro ao pular parada:', error);
-        showError(error);
+        const { falha } = await pularVisita(
+          toParadaData(parada),
+          motivo,
+          observacoes,
+          incluirOutros,
+        );
+        if (falha) logger.error('Erro ao pular parada:', falha.erro);
       } finally {
         setPulandoParada(null);
       }
     },
-    [skipModalParada, skipStop, showSuccess, showError],
+    [skipModalParada, pularVisita],
   );
 
   const retomarParada = useCallback(
@@ -492,6 +519,7 @@ export default function CheckpointsMotorista() {
           }}
           onSuccess={handleCompletionSuccess}
           allowSkipPhoto={true}
+          contexto={sequencia.contexto}
         />
 
         {/* Modal de Motivo de Skip */}
@@ -499,6 +527,10 @@ export default function CheckpointsMotorista() {
           <SkipReasonModal
             visible={!!skipModalParada}
             parada={toParadaData(skipModalParada)}
+            outrosServicosNoLocal={paradasDaVisita(
+              paradasContext,
+              toParadaData(skipModalParada),
+            ).slice(1)}
             onConfirm={confirmarSkip}
             onCancel={() => setSkipModalParada(null)}
           />

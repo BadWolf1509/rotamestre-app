@@ -21,12 +21,13 @@ import {
   SwipeOnboarding,
   hasSeenSwipeOnboarding,
 } from '@/components/SwipeOnboarding';
-import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
+import { type MotivoSkip } from '@/constants/skipReasons';
 import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
 import { useInicioModals } from '@/hooks/motorista/useInicioModals';
+import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
@@ -37,12 +38,7 @@ import {
 } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
-import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
-import {
-  avisoDeFalhaNoPulo,
-  pularEmSequencia,
-} from '@/lib/motorista/puloDaVisita';
 import {
   chegouPelaParadaAnterior,
   paradasDaVisita,
@@ -101,6 +97,13 @@ function MotoristaInicioContent() {
   const sequencia = useConclusaoEmSequencia({
     paradas,
     abrirConclusao: modals.openCompletionFlow,
+  });
+
+  const pularVisita = usePuloDaVisita({
+    paradas,
+    skipStop,
+    showSuccess,
+    showError,
   });
 
   // Navegação em tela cheia: o layout de abas esconde cabeçalho e abas.
@@ -348,25 +351,7 @@ function MotoristaInicioContent() {
     const parada = modals.selectedParadaForSkip;
     if (!parada) return;
     modals.closeSkipModal();
-    // Em sequência, a parada primeiro: se um pulo falhar, os seguintes não
-    // rodam e o sucesso não é anunciado.
-    const alvos = incluirOutros ? paradasDaVisita(paradas, parada) : [parada];
-    const { pulados, falha } = await pularEmSequencia(alvos, (alvo) =>
-      skipStop(alvo.id, motivo, observacoes),
-    );
-    if (!falha) {
-      showSuccess(
-        alvos.length > 1 ? 'Paradas Puladas' : 'Parada Pulada',
-        SKIP_REASON_LABELS[motivo],
-      );
-    } else if (alvos.length > 1) {
-      // Com vários serviços, o erro genérico não diz o que já foi pulado.
-      showError(
-        avisoDeFalhaNoPulo(pulados, falha, getErrorMessage(falha.erro).message),
-      );
-    } else {
-      showError(falha.erro);
-    }
+    await pularVisita(parada, motivo, observacoes, incluirOutros);
   };
 
   // Complete route - abre modal de confirmação (funciona em web e mobile)
