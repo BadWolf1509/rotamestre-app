@@ -109,17 +109,32 @@ renomeada e o caminho não é óbvio):
 - O Play Console exibe usuário e senha **em texto puro** para quem tem
   permissão. É a fonte de verdade dessas credenciais.
 
-**Quais contas usar — não é escolha cosmética.** As duas entradas devem apontar
-para o par **demo** (`gestor.demo@` / `motorista.demo@`), que vive na **Unidade
-Demo - Avaliacao Google**. Até 06/08/2026 a entrada de motorista apontava para
+**Quais contas usar — não é escolha cosmética.** Desde 20/10/2026 as duas
+entradas apontam para o par de **avaliação** (`avaliacao.gestor@rotamestre.tec.br`
+/ `avaliacao.motorista@rotamestre.tec.br`), que vive na unidade **Avaliação
+Google Play** (sede na Av. Epitácio Pessoa, 1000, João Pessoa) e não tem ninguém
+real. O motorista nasceu com `primeira_senha` desligada, para o revisor não cair
+na troca obrigatória de senha.
+
+**A conta demo antiga (`gestor.demo@` / `motorista.demo@`, Unidade Demo -
+Avaliacao Google) agora é só do e2e** (secrets `E2E_*` do GitHub e `.env`
+local). Ela saiu do Console porque o robô do relatório de pré-lançamento usa as
+credenciais daqui a cada upload, e desativava e renomeava o motorista demo: o
+e2e do mapa quebrava em PR sem relação. **Nunca recoloque essas credenciais
+aqui.** Depois de cada upload, o robô bagunça a unidade de avaliação, e isso é
+esperado; confira só se a rota de exemplo ainda serve à próxima revisão.
+
+**Regra que continua valendo:** a conta da revisão tem de viver numa unidade sem
+pessoas reais. Até 06/08/2026 a entrada de motorista apontava para
 uma conta de uma **unidade real**, e as policies dão a qualquer motorista da
 unidade: o registro completo da empresa (`unidades` — CNPJ, endereço, telefone,
 e-mail, plano) e **nome, e-mail e telefone de todo o time** (`usuarios`). Isso é
 dado pessoal de terceiros entregue a um revisor externo. As rotas em si ficam
 protegidas (`rotas_select` casa por `motorista_id`), mas o cadastro não.
 
-Ao revisar essas entradas, confirme sempre que o e-mail termina em `.demo@` — a
-Unidade Demo contém apenas as duas contas demo, nenhuma pessoa real.
+Ao revisar essas entradas, confirme sempre que os e-mails são os
+`avaliacao.*@rotamestre.tec.br`: a unidade Avaliação Google Play contém apenas
+essas duas contas, nenhuma pessoa real.
 
 Cadastrar duas entradas no Play Console, sem copiar senhas para este documento:
 
