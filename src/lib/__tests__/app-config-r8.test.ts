@@ -11,6 +11,7 @@ interface BuildPropertiesOptions {
     enableMinifyInReleaseBuilds?: boolean;
     enableShrinkResourcesInReleaseBuilds?: boolean;
     enableBundleCompression?: boolean;
+    extraProguardRules?: string;
   };
 }
 
@@ -43,6 +44,17 @@ describe('app.config.js — R8 no release Android', () => {
     expect(
       opcoesBuildProperties()?.android?.enableShrinkResourcesInReleaseBuilds,
     ).toBe(true);
+  });
+
+  // O AppLoaderProvider (expo-modules-core) instancia o RNHeadlessAppLoader por
+  // Class.forName a partir de um meta-data do manifest, e o R8 removia a classe:
+  // job de localização em segundo plano → NPE em TaskService.executeTask, crash
+  // em loop (moto g15, 21/10/2026).
+  it('mantém o carregador headless que o expo-task-manager acha por reflexão', () => {
+    const regras = opcoesBuildProperties()?.android?.extraProguardRules ?? '';
+    expect(regras).toContain(
+      '-keep class * implements expo.modules.apploader.HeadlessAppLoader { <init>(); }',
+    );
   });
 
   it('não liga a compressão do bundle, que não é R8 e atrasa a partida', () => {

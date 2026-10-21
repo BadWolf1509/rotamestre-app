@@ -23,6 +23,7 @@
    - **Nitro / Unistyles** — sem doc de ProGuard (busca nos repos `mrousavy/nitro` e `jpudysz/react-native-unistyles`); o código gerado anota com `@Keep`/`@DoNotStrip` (204 ocorrências), mantidos pelas regras do AndroidX e do `react-android`.
    - **FCM** — `firebase-messaging` traz regras no AAR.
    - Se o aparelho mostrar `ClassNotFoundException`/`NoSuchMethodError`/`NoSuchFieldError` com nome ofuscado, aí entra regra em `extraProguardRules`, com o stack e a fonte no PR.
+   - **Medido em 21/10/2026, contra a premissa acima:** o `AppLoaderProvider` do expo-modules-core instancia `expo.modules.adapters.react.apploader.RNHeadlessAppLoader` por `Class.forName`, a partir do `meta-data` `org.unimodules.core.AppLoader#react-native-headless` do manifest — referência que o R8 não enxerga e que nenhum `proguard-rules.pro` de lib cobre. Com R8, a classe sumia: o job de localização (`TaskJobService` → `TaskService.executeTask`) caía em `NullPointerException` e o app entrava em crash em loop, inclusive na partida normal com job pendente. Regra em `extraProguardRules`: `-keep class * implements expo.modules.apploader.HeadlessAppLoader { <init>(); }`, guardada por `app-config-r8.test.ts`.
 4. **Crash ofuscado:** sem serviço de erro no app; o `mapping.txt` vai dentro do `.aab` (`BUNDLE-METADATA`) e a Play desofusca o ANR/crash do Console sozinha. Conferir no Task 3.
 
 ## Global Constraints
