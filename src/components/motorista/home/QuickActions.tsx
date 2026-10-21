@@ -25,7 +25,6 @@ interface QuickActionsProps {
   style?: StyleProp<ViewStyle>;
 }
 
-
 interface ActionConfig {
   icon: IconName;
   label: string;
@@ -50,41 +49,133 @@ export function QuickActions({
     switch (state) {
       case 'no-route':
         return [
-          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory, haptic: 'light' },
-          { icon: 'bar-chart-outline', label: 'Estatísticas', onPress: onViewSummary, haptic: 'light' },
-          { icon: 'settings-outline', label: 'Configurações', onPress: onOpenSettings, haptic: 'light' },
-          { icon: 'help-circle-outline', label: 'Suporte', onPress: onContactSupport, haptic: 'light' },
+          {
+            icon: 'time-outline',
+            label: 'Histórico',
+            onPress: onViewHistory,
+            haptic: 'light',
+          },
+          {
+            icon: 'bar-chart-outline',
+            label: 'Estatísticas',
+            onPress: onViewSummary,
+            haptic: 'light',
+          },
+          {
+            icon: 'settings-outline',
+            label: 'Configurações',
+            onPress: onOpenSettings,
+            haptic: 'light',
+          },
+          {
+            icon: 'help-circle-outline',
+            label: 'Suporte',
+            onPress: onContactSupport,
+            haptic: 'light',
+          },
         ];
 
       case 'pending':
         return [
-          { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops, haptic: 'light' },
-          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident, haptic: 'medium', color: theme.colors.warning },
-          { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport, haptic: 'light' },
-          { icon: 'settings-outline', label: 'Navegação', onPress: onOpenSettings, haptic: 'light' },
+          {
+            icon: 'list-outline',
+            label: 'Ver Paradas',
+            onPress: onViewAllStops,
+            haptic: 'light',
+          },
+          {
+            icon: 'warning-outline',
+            label: 'Reportar',
+            onPress: onReportIncident,
+            haptic: 'medium',
+            color: theme.colors.warning,
+          },
+          {
+            icon: 'call-outline',
+            label: 'Suporte',
+            onPress: onContactSupport,
+            haptic: 'light',
+          },
+          {
+            icon: 'settings-outline',
+            label: 'Navegação',
+            onPress: onOpenSettings,
+            haptic: 'light',
+          },
         ];
 
       case 'active':
       case 'last-stop':
         return [
-          { icon: 'list-outline', label: 'Todas Paradas', onPress: onViewAllStops, haptic: 'light' },
-          { icon: 'warning-outline', label: 'Reportar', onPress: onReportIncident, haptic: 'medium', color: theme.colors.warning },
-          { icon: 'settings-outline', label: 'Navegação', onPress: onOpenSettings, haptic: 'light' },
-          { icon: 'call-outline', label: 'Suporte', onPress: onContactSupport, haptic: 'light' },
+          {
+            icon: 'list-outline',
+            label: 'Todas Paradas',
+            onPress: onViewAllStops,
+            haptic: 'light',
+          },
+          {
+            icon: 'warning-outline',
+            label: 'Reportar',
+            onPress: onReportIncident,
+            haptic: 'medium',
+            color: theme.colors.warning,
+          },
+          {
+            icon: 'settings-outline',
+            label: 'Navegação',
+            onPress: onOpenSettings,
+            haptic: 'light',
+          },
+          {
+            icon: 'call-outline',
+            label: 'Suporte',
+            onPress: onContactSupport,
+            haptic: 'light',
+          },
         ];
 
       case 'ready-to-complete':
         return [
-          { icon: 'document-text-outline', label: 'Ver Resumo', onPress: onViewSummary, haptic: 'light' },
-          { icon: 'list-outline', label: 'Ver Paradas', onPress: onViewAllStops, haptic: 'light' },
-          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport, haptic: 'light' },
+          {
+            icon: 'document-text-outline',
+            label: 'Ver Resumo',
+            onPress: onViewSummary,
+            haptic: 'light',
+          },
+          {
+            icon: 'list-outline',
+            label: 'Ver Paradas',
+            onPress: onViewAllStops,
+            haptic: 'light',
+          },
+          {
+            icon: 'share-outline',
+            label: 'Compartilhar',
+            onPress: onContactSupport,
+            haptic: 'light',
+          },
         ];
 
       case 'completed':
         return [
-          { icon: 'bar-chart-outline', label: 'Detalhes', onPress: onViewSummary, haptic: 'light' },
-          { icon: 'time-outline', label: 'Histórico', onPress: onViewHistory, haptic: 'light' },
-          { icon: 'share-outline', label: 'Compartilhar', onPress: onContactSupport, haptic: 'light' },
+          {
+            icon: 'bar-chart-outline',
+            label: 'Detalhes',
+            onPress: onViewSummary,
+            haptic: 'light',
+          },
+          {
+            icon: 'time-outline',
+            label: 'Histórico',
+            onPress: onViewHistory,
+            haptic: 'light',
+          },
+          {
+            icon: 'share-outline',
+            label: 'Compartilhar',
+            onPress: onContactSupport,
+            haptic: 'light',
+          },
         ];
 
       default:
@@ -120,20 +211,24 @@ export function QuickActions({
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <View style={[
-            styles.iconContainer,
-            action.color ? { backgroundColor: `${action.color}15` } : {}
-          ]}>
+          <View
+            style={[
+              styles.iconContainer,
+              action.color ? { backgroundColor: `${action.color}15` } : {},
+            ]}
+          >
             <Ionicons
               name={action.icon}
               size={24}
               color={action.color || theme.colors.primary}
             />
           </View>
-          <Text style={[
-            styles.actionLabel,
-            action.color ? { color: action.color } : {}
-          ]}>
+          <Text
+            style={[
+              styles.actionLabel,
+              action.color ? { color: action.color } : {},
+            ]}
+          >
             {action.label}
           </Text>
         </TouchableOpacity>
@@ -175,7 +270,8 @@ export function FloatingActionButton({
 
   // FAB fica acima da tab bar (60px base + insets.bottom + margem extra)
   // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
-  const fabBottom = TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 34) + tabBarHeight;
+  const fabBottom =
+    TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 34) + tabBarHeight;
 
   return (
     <TouchableOpacity
@@ -185,14 +281,18 @@ export function FloatingActionButton({
           backgroundColor: disabled ? theme.colors.gray400 : color,
           shadowColor: theme.colors.black,
           bottom: fabBottom,
-        }
+        },
       ]}
       onPress={handlePress}
       activeOpacity={0.8}
       disabled={disabled}
     >
       <Ionicons name={icon} size={28} color={theme.colors.white} />
-      {label && <Text style={[fabStyles.fabLabel, { color: theme.colors.white }]}>{label}</Text>}
+      {label && (
+        <Text style={[fabStyles.fabLabel, { color: theme.colors.white }]}>
+          {label}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -220,7 +320,9 @@ export function BottomActionsBar({
   bottomInset = 0,
 }: BottomActionsBarProps) {
   return (
-    <View style={[bottomBarStyles.container, { paddingBottom: bottomInset + 16 }]}>
+    <View
+      style={[bottomBarStyles.container, { paddingBottom: bottomInset + 16 }]}
+    >
       <QuickActions
         state={state}
         onViewAllStops={onViewAllStops}
