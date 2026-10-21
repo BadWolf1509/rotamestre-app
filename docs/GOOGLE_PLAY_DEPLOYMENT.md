@@ -131,6 +131,24 @@ Gere o bundle de produção:
 npx eas build --platform android --profile production
 ```
 
+**Sem cota no EAS:** o plano gratuito tem uma cota mensal de builds Android, e
+os builds preview e development de ajuste gastam a mesma cota. Quando ela
+acaba, o build sai pelo GitHub Actions (`.github/workflows/eas-build-android.yml`,
+que roda `eas build --local` num runner Linux; não roda no Windows) e usa do EAS
+só as credenciais e as variáveis do perfil:
+
+```bash
+gh workflow run eas-build-android.yml -f profile=production
+gh run download <run-id> -D <pasta-nova>
+npx --yes eas-cli@latest submit --platform android --profile internal --path <arquivo.aab>
+```
+
+Depende do secret `EXPO_TOKEN` (token do robô da conta Expo). O build leva uns
+35 minutos. O `.aab` fica 3 dias como artefato, porque o repositório é público.
+Confira o SHA-256 com o impresso no log e o certificado com
+`keytool -printcert -jarfile` (chave de upload de 16/06/2026). O envio para a
+Play continua local: a chave da conta de serviço não vai para o GitHub.
+
 Registre no handoff:
 
 - commit usado;
