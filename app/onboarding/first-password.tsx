@@ -73,7 +73,7 @@ function FirstPasswordContent() {
           'Erro',
           'Sessão expirada. Por favor, faça login novamente.',
         );
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         router.replace('/auth/login');
         return;
       }
