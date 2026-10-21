@@ -3,8 +3,11 @@
  * Bottom sheet com detalhes e ações para uma parada
  */
 
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import { Linking } from 'react-native';
+
+import { logger } from '@/lib/logger';
 
 import { ParadaBottomSheet } from '../ParadaBottomSheet';
 
@@ -131,7 +134,7 @@ describe('ParadaBottomSheet', () => {
           parada={null}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(toJSON()).toBeNull();
@@ -143,7 +146,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Parada 1')).toBeTruthy();
@@ -156,7 +159,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Av. Paulista, 1000')).toBeTruthy();
@@ -168,7 +171,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Entrega')).toBeTruthy();
@@ -181,7 +184,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaRetirada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Retirada')).toBeTruthy();
@@ -195,7 +198,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Pendente')).toBeTruthy();
@@ -208,7 +211,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaConcluida}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Concluída')).toBeTruthy();
@@ -221,7 +224,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaEmAndamento}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Em andamento')).toBeTruthy();
@@ -235,7 +238,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       // O overlay é o primeiro TouchableOpacity
@@ -251,20 +254,24 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByText('Navegar')).toBeTruthy();
     });
 
     it('não deve mostrar botão navegar sem coordenadas', () => {
-      const paradaSemCoords = { ...mockParada, latitude: null, longitude: null };
+      const paradaSemCoords = {
+        ...mockParada,
+        latitude: null,
+        longitude: null,
+      };
       const { queryByText } = render(
         <ParadaBottomSheet
           parada={paradaSemCoords}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(queryByText('Navegar')).toBeNull();
@@ -277,7 +284,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onNavigate={mockOnNavigate}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Navegar'));
@@ -292,7 +299,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Navegar'));
@@ -313,7 +320,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       expect(getByText('Concluir')).toBeTruthy();
@@ -327,7 +334,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       expect(getByText('Concluir')).toBeTruthy();
@@ -341,7 +348,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       expect(queryByText('Concluir')).toBeNull();
@@ -354,7 +361,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onMarkComplete={mockOnMarkComplete}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Concluir'));
@@ -372,7 +379,7 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onViewDetails={mockOnViewDetails}
-        />
+        />,
       );
 
       expect(getByText('Detalhes')).toBeTruthy();
@@ -384,7 +391,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(queryByText('Detalhes')).toBeNull();
@@ -397,13 +404,67 @@ describe('ParadaBottomSheet', () => {
           visible={true}
           onClose={mockOnClose}
           onViewDetails={mockOnViewDetails}
-        />
+        />,
       );
 
       fireEvent.press(getByText('Detalhes'));
 
       expect(mockOnViewDetails).toHaveBeenCalledWith(mockParada);
       expect(mockOnClose).toHaveBeenCalled();
+    });
+  });
+
+  // Saiu do balão do pino, onde não recebia toque no Android.
+  describe('Botão Ligar', () => {
+    it('liga para o telefone da parada', () => {
+      const openURL = jest
+        .spyOn(Linking, 'openURL')
+        .mockResolvedValue(undefined);
+      const { getByLabelText } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, telefone: '83999990000' }}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Ligar para 83999990000'));
+
+      expect(openURL).toHaveBeenCalledWith('tel:83999990000');
+    });
+
+    it('sem discador, registra o erro em vez de rejeitar solto', async () => {
+      const falha = new Error('sem discador');
+      jest.spyOn(Linking, 'openURL').mockRejectedValue(falha);
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const { getByLabelText } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, telefone: '83999990000' }}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Ligar para 83999990000'));
+
+      await waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(
+          'Não foi possível abrir o discador',
+          falha,
+        ),
+      );
+    });
+
+    it('não aparece sem telefone', () => {
+      const { queryByText } = render(
+        <ParadaBottomSheet
+          parada={mockParada}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      expect(queryByText('Ligar')).toBeNull();
     });
   });
 
@@ -414,7 +475,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-location-outline')).toBeTruthy();
@@ -426,7 +487,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-navigate')).toBeTruthy();
@@ -438,7 +499,7 @@ describe('ParadaBottomSheet', () => {
           parada={mockParada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-cube-outline')).toBeTruthy();
@@ -451,7 +512,7 @@ describe('ParadaBottomSheet', () => {
           parada={paradaRetirada}
           visible={true}
           onClose={mockOnClose}
-        />
+        />,
       );
 
       expect(getByTestId('icon-arrow-up-circle-outline')).toBeTruthy();

@@ -21,6 +21,7 @@ import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
+import { montarPinosDoMiniMap } from '@/lib/motorista/pinosPorLocal';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
@@ -133,6 +134,11 @@ export function MiniMap({
           p.is_checkpoint !== false,
       ),
     [paradas],
+  );
+  // Um pino por local: entrega + retirada no mesmo ponto saem como "2+3"
+  const pinosRestantes = useMemo(
+    () => montarPinosDoMiniMap(paradasRestantes),
+    [paradasRestantes],
   );
   const paradasConcluidas = useMemo(
     () =>
@@ -453,17 +459,16 @@ export function MiniMap({
     });
 
     // Add pending stop markers
-    paradasRestantes.forEach((parada, index) => {
-      const isNext = index === 0;
+    pinosRestantes.forEach(({ principal, rotulo, isNext }) => {
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
           size: isNext ? 34 : 28,
           backgroundColor: isNext ? colors.warning : colors.gray500,
-          text: String(parada.ordem),
+          text: rotulo,
           isNext,
         }),
       })
-        .setLngLat([parada.longitude, parada.latitude])
+        .setLngLat([principal.longitude, principal.latitude])
         .addTo(mapRef.current!);
       markersRef.current.push(marker);
     });
@@ -484,7 +489,7 @@ export function MiniMap({
     mapReady,
     userLocation,
     paradasConcluidas,
-    paradasRestantes,
+    pinosRestantes,
     checkpoints,
     createUserMarkerElement,
     createStopMarkerElement,

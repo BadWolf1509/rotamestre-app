@@ -51,9 +51,14 @@ for (const track of ordenadas) {
   }
   for (const release of releases) {
     const codes = (release.versionCodes ?? []).join(', ');
+    // Promover sem --notas apaga as notas da trilha; isto mostra se sobraram.
+    const notas = (release.releaseNotes ?? [])
+      .map((n) => `${n.language} ${[...(n.text ?? '')].length} car.`)
+      .join(', ');
     console.log(
       `${track.track.padEnd(11)} ${nome.padEnd(14)} ` +
-        `code ${codes} · "${release.name ?? '-'}" · ${release.status}`,
+        `code ${codes} · "${release.name ?? '-'}" · ${release.status}` +
+        ` · notas: ${notas || 'nenhuma'}`,
     );
   }
 }

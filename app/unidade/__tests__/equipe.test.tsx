@@ -40,6 +40,7 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 const mockUpdate = jest.fn().mockResolvedValue({ error: null });
+const mockRpc = jest.fn().mockResolvedValue({ data: 'pessoa', error: null });
 
 // A segunda carga fica pendurada de propósito. Sem isso ela resolveria no mesmo
 // tick e o estado intermediário nunca chegaria a renderizar — o teste passaria
@@ -67,6 +68,7 @@ jest.mock('@/lib/supabase', () => ({
         eq: () => mockUpdate(...args),
       }),
     }),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
 
@@ -97,5 +99,23 @@ describe('EquipeScreen', () => {
 
     mockResolverSegundaCarga!({ data: MEMBROS, error: null });
     await waitFor(() => expect(screen.getByText('Motorista Um')).toBeTruthy());
+  });
+
+  it('desativa motorista pela RPC da loja, não direto em usuarios', async () => {
+    render(<EquipeScreen />);
+
+    expect(await screen.findByText('Motorista Um')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Desativar'));
+
+    // Motorista que atende outra loja sai só desta; quem decide é o banco.
+    await waitFor(() =>
+      expect(mockRpc).toHaveBeenCalledWith('alternar_motorista_na_unidade', {
+        p_motorista_id: 'motorista-1',
+        p_unidade_id: 'unidade-1',
+        p_ativo: false,
+      }),
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });

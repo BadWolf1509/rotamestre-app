@@ -27,7 +27,16 @@ export interface MotoristaDetalhado {
   foto_url?: string;
   ativo: boolean;
   created_at: string;
+  /**
+   * Vínculo com a loja ativa. `false` só para quem atende outra loja e foi
+   * desativado nesta: a RLS de usuarios o esconde, então perfil e edição não
+   * abrem (só reativar). Ausente fora da lista de listar_motoristas_unidade.
+   */
+  vinculo_ativo?: boolean;
 }
+
+const MSG_VINCULO_INATIVO =
+  'Este motorista está desativado nesta loja. Ative-o para ver o perfil ou editar.';
 
 export interface UseMotoristasGestorReturn {
   // State
@@ -69,6 +78,8 @@ export interface UseMotoristasGestorReturn {
   loadMotoristas: () => Promise<void>;
   abrirModalAdicionar: () => void;
   abrirModalEditar: (motorista: MotoristaDetalhado) => void;
+  /** Avisa e devolve true quando o vínculo desta loja está inativo. */
+  avisarSeVinculoInativo: (motorista: MotoristaDetalhado) => boolean;
   adicionarMotorista: () => Promise<void>;
   editarMotorista: () => Promise<void>;
   toggleAtivo: (motorista: MotoristaDetalhado) => void;
@@ -105,11 +116,22 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     modals.openAddModal();
   }, [modals]);
 
+  const { showToast } = operations;
+  const avisarSeVinculoInativo = useCallback(
+    (motorista: MotoristaDetalhado) => {
+      if (motorista.vinculo_ativo !== false) return false;
+      showToast(MSG_VINCULO_INATIVO, 'info');
+      return true;
+    },
+    [showToast],
+  );
+
   const abrirModalEditar = useCallback(
     (motorista: MotoristaDetalhado) => {
+      if (avisarSeVinculoInativo(motorista)) return;
       modals.openEditModal(motorista);
     },
-    [modals]
+    [avisarSeVinculoInativo, modals],
   );
 
   const adicionarMotorista = useCallback(async () => {
@@ -123,7 +145,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
       () => {
         modals.setShowAddModal(false);
         form.resetFormulario();
-      }
+      },
     );
   }, [form, modals, operations]);
 
@@ -142,7 +164,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
         modals.setShowEditModal(false);
         modals.setMotoristaEditando(null);
         form.resetFormulario();
-      }
+      },
     );
   }, [form, modals, operations]);
 
@@ -150,7 +172,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     (motorista: MotoristaDetalhado) => {
       modals.openConfirmModal(motorista);
     },
-    [modals]
+    [modals],
   );
 
   const confirmarToggleAtivo = useCallback(async () => {
@@ -205,6 +227,7 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     loadMotoristas: operations.loadMotoristas,
     abrirModalAdicionar,
     abrirModalEditar,
+    avisarSeVinculoInativo,
     adicionarMotorista,
     editarMotorista,
     toggleAtivo,

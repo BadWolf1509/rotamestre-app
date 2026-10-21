@@ -9,17 +9,32 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
+import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { validatePhone } from '@/lib/phone';
 import { updateUsuario, logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
 import type { MotoristaDetalhado } from '../useMotoristasGestor';
 
-type VinculacaoComUsuario = {
-  usuario_id: string;
-  usuarios: MotoristaDetalhado | null;
-};
+const INDICE_TELEFONE_MOTORISTA = 'usuarios_motorista_telefone_unico';
+
+/**
+ * Se o erro é a colisão do índice único de telefone entre motoristas ativos,
+ * devolve a mensagem amigável do errorMapping; senão, null (quem chama mantém
+ * o comportamento de sempre). Aceita o Error relançado e o erro do Postgres.
+ */
+function mensagemTelefoneDuplicado(error: unknown): string | null {
+  const texto =
+    error instanceof Error
+      ? error.message
+      : error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : '';
+  if (!texto.includes(INDICE_TELEFONE_MOTORISTA)) return null;
+  return getErrorMessage(error).message;
+}
 
 interface FormData {
   nome: string;
@@ -38,15 +53,18 @@ export interface UseMotoristasOperationsReturn {
 
   // Actions
   loadMotoristas: () => Promise<void>;
-  adicionarMotorista: (formData: FormData, onSuccess: () => void) => Promise<void>;
+  adicionarMotorista: (
+    formData: FormData,
+    onSuccess: () => void,
+  ) => Promise<void>;
   editarMotorista: (
     formData: FormData,
     motoristaId: string,
-    onSuccess: () => void
+    onSuccess: () => void,
   ) => Promise<void>;
   confirmarToggleAtivo: (
     motorista: MotoristaDetalhado,
-    onSuccess: () => void
+    onSuccess: () => void,
   ) => Promise<void>;
 
   // Toast
@@ -79,27 +97,21 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
     try {
       setLoading(true);
 
-      const { data: vinculacoesData, error: vinculacoesError } = await supabase
-        .from('usuario_unidades')
-        .select(
-          `
-          usuario_id,
-          usuarios (
-            id, nome, email, telefone, foto_url, ativo, created_at
-          )
-        `
-        )
-        .eq('unidade_id', unidadeAtiva)
-        .eq('papel', 'motorista')
-        .eq('ativo', true)
-        .returns<VinculacaoComUsuario[]>();
+      // RPC e não select em usuario_unidades: o vínculo INATIVO desta loja
+      // (motorista que atende outra loja e foi desativado só aqui) precisa
+      // aparecer para ser reativado, e a RLS de usuarios o esconde.
+      const { data, error: listaError } = await supabase.rpc(
+        'listar_motoristas_unidade',
+        { p_unidade_id: unidadeAtiva },
+      );
 
-      if (vinculacoesError) throw vinculacoesError;
+      if (listaError) throw listaError;
 
-      const motoristasData = vinculacoesData
-        ?.map((v) => v.usuarios)
-        .filter((u): u is MotoristaDetalhado => u !== null)
-        .sort((a, b) => a.nome.localeCompare(b.nome));
+      // Sem tipos gerados: a RPC devolve exatamente as colunas de MotoristaDetalhado
+      const lista: MotoristaDetalhado[] = data ?? [];
+      const motoristasData = [...lista].sort((a, b) =>
+        a.nome.localeCompare(b.nome),
+      );
 
       setMotoristas(motoristasData || []);
     } catch (error) {
@@ -154,7 +166,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Erro ao obter sessão', sessionError);
           showToast(
             `Erro ao obter sessão: ${sessionError.message}. Faça logout e login novamente.`,
-            'error'
+            'error',
           );
           return;
         }
@@ -163,12 +175,14 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Sessão não encontrada');
           showToast(
             'Sua sessão expirou. Por favor, faça login novamente.',
-            'error'
+            'error',
           );
           return;
         }
 
-        logger.debug('[Motoristas] Sessão obtida', { email: session.user.email });
+        logger.debug('[Motoristas] Sessão obtida', {
+          email: session.user.email,
+        });
 
         const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
         const functionUrl = `${supabaseUrl}/functions/v1/criar-motorista`;
@@ -188,18 +202,21 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
               email: email.trim(),
               senha: senha.trim(),
               telefone: telefone.trim() || null,
+              unidade_id: unidadeAtiva,
             }),
           });
         } catch (fetchError: any) {
           logger.error('[Motoristas] Erro de rede', fetchError);
           showToast(
             `Erro de conexão: ${fetchError.message}. Verifique se a função foi deployada.`,
-            'error'
+            'error',
           );
           return;
         }
 
-        logger.debug('[Motoristas] Response status', { status: response.status });
+        logger.debug('[Motoristas] Response status', {
+          status: response.status,
+        });
 
         let result;
         try {
@@ -210,7 +227,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           logger.error('[Motoristas] Erro ao parsear resposta', parseError);
           showToast(
             'A Edge Function retornou uma resposta inválida. Função não deployada corretamente.',
-            'error'
+            'error',
           );
           return;
         }
@@ -237,7 +254,10 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
-        logger.error('[Motoristas] Erro inesperado ao adicionar motorista', error);
+        logger.error(
+          '[Motoristas] Erro inesperado ao adicionar motorista',
+          error,
+        );
         let message = 'Não foi possível adicionar o motorista';
         if (error instanceof Error) {
           message = error.message;
@@ -249,7 +269,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         setSalvando(false);
       }
     },
-    [loadMotoristas, showToast, userData]
+    [loadMotoristas, showToast, unidadeAtiva, userData],
   );
 
   // ============================================================================
@@ -301,7 +321,10 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
       } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao editar motorista', error);
         let message = 'Não foi possível editar o motorista';
-        if (error instanceof Error) {
+        const telefoneDuplicado = mensagemTelefoneDuplicado(error);
+        if (telefoneDuplicado) {
+          message = telefoneDuplicado;
+        } else if (error instanceof Error) {
           message = error.message;
         } else if (error && typeof error === 'object' && 'message' in error) {
           message = String(error.message);
@@ -311,7 +334,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         setSalvando(false);
       }
     },
-    [loadMotoristas, showToast, userData]
+    [loadMotoristas, showToast, userData],
   );
 
   // ============================================================================
@@ -320,36 +343,55 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
   const confirmarToggleAtivo = useCallback(
     async (motorista: MotoristaDetalhado, onSuccess: () => void) => {
+      if (!unidadeAtiva) return;
       const novoStatus = !motorista.ativo;
 
       try {
         await withToast(
           async () => {
-            // Use centralized query for update
-            const result = await updateUsuario(motorista.id, { ativo: novoStatus });
-            if (!result.success) throw new Error(result.error.message);
+            // Quem atende outra loja é desativado só nesta (o vínculo); quem
+            // atende uma só, a pessoa. A decisão é do banco.
+            const { error } = await supabase.rpc(
+              'alternar_motorista_na_unidade',
+              {
+                p_motorista_id: motorista.id,
+                p_unidade_id: unidadeAtiva,
+                p_ativo: novoStatus,
+              },
+            );
+            if (error) throw error;
 
             // Log action using centralized logging
             if (userData) {
-              logUserAction(userData.id, novoStatus ? 'motorista_ativado' : 'motorista_desativado', {
-                motorista_id: motorista.id,
-                motorista_nome: motorista.nome,
-              });
+              logUserAction(
+                userData.id,
+                novoStatus ? 'motorista_ativado' : 'motorista_desativado',
+                {
+                  motorista_id: motorista.id,
+                  motorista_nome: motorista.nome,
+                },
+              );
             }
           },
           {
             loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
             success: `Motorista ${novoStatus ? 'ativado' : 'desativado'} com sucesso!`,
-            error: 'Não foi possível alterar o status do motorista',
-          }
+            // No caso do telefone, o motivo é a informação útil (reativar
+            // esbarra em outro motorista ativo); um toast só, sem piscar.
+            error: (e) =>
+              mensagemTelefoneDuplicado(e) ??
+              mensagemRegraDoBanco(e) ??
+              'Não foi possível alterar o status do motorista',
+          },
         );
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
         logger.error('[Motoristas] Erro ao alterar status', error);
+        // withToast já mostrou o toast de erro.
       }
     },
-    [loadMotoristas, userData, withToast]
+    [loadMotoristas, unidadeAtiva, userData, withToast],
   );
 
   return {

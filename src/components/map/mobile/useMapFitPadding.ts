@@ -24,22 +24,24 @@ export interface MapFitPadding {
 
 export function useMapFitPadding(): MapFitPadding {
   const { theme } = useUnistyles();
+  // Memo pelos VALORES: o `theme` do Unistyles é um objeto novo a cada render
+  // no aparelho, e um padding novo a cada render re-agendava o fitBounds de
+  // useMobileMapCamera, devolvendo o mapa à visão geral (PR #594).
+  const toque = theme.components.minTouchTarget;
+  const fab = theme.spacing['14'];
+  const folga = theme.spacing['4'];
+  const margem = theme.spacing['12'];
 
   return useMemo(() => {
     // O maior dos dois botoes define a largura da coluna.
-    const larguraColuna = Math.max(
-      theme.components.minTouchTarget,
-      theme.spacing['14'],
-    );
+    const larguraColuna = Math.max(toque, fab);
     // `fabContainer` encosta a coluna a `spacing[4]` da borda; a folga extra
     // impede que o marcador fique colado no botao.
-    const folga = theme.spacing['4'];
-
     return {
-      top: theme.spacing['12'],
+      top: margem,
       right: larguraColuna + folga * 2,
       bottom: larguraColuna + folga * 2,
-      left: theme.spacing['12'],
+      left: margem,
     };
-  }, [theme]);
+  }, [toque, fab, folga, margem]);
 }

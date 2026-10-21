@@ -79,6 +79,7 @@ export default function MotoristasGestor() {
     // Actions
     abrirModalAdicionar,
     abrirModalEditar,
+    avisarSeVinculoInativo,
     adicionarMotorista,
     editarMotorista,
     toggleAtivo,
@@ -136,6 +137,10 @@ export default function MotoristasGestor() {
           accessibilityLabel="Campo de email do motorista"
         />
         {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+        <Text style={styles.hintText}>
+          Motorista que já usa o RotaMestre em outra loja? Fale com o suporte
+          para usar a mesma conta nas duas lojas.
+        </Text>
       </View>
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
@@ -317,8 +322,10 @@ export default function MotoristasGestor() {
       label: 'Ver Perfil',
       icon: 'person-outline',
       type: 'secondary',
-      onPress: (motorista) =>
-        router.push(`/gestor/motorista-perfil?id=${motorista.id}`),
+      onPress: (motorista) => {
+        if (avisarSeVinculoInativo(motorista)) return;
+        router.push(`/gestor/motorista-perfil?id=${motorista.id}`);
+      },
     },
     {
       label: 'Editar',

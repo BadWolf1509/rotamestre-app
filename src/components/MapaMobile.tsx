@@ -1,5 +1,5 @@
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 
 import { useLocationTracking } from '@/components/map/hooks/useLocationTracking';
@@ -8,25 +8,42 @@ import { useMobileMapCamera } from '@/components/map/hooks/useMobileMapCamera';
 import { useNavigationActions } from '@/components/map/hooks/useNavigationActions';
 import { useParadaFiltering } from '@/components/map/hooks/useParadaFiltering';
 import { useRouteShape } from '@/components/map/hooks/useRouteShape';
+import { BalaoSobreposto } from '@/components/map/mobile/BalaoSobreposto';
 import { FloatingActionButtons } from '@/components/map/mobile/FloatingActionButtons';
+import { CheckpointCallout } from '@/components/map/mobile/markers/CheckpointCallout';
 import { CheckpointMarker } from '@/components/map/mobile/markers/CheckpointMarker';
+import { ParadaCallout } from '@/components/map/mobile/markers/ParadaCallout';
 import { ParadaMarker } from '@/components/map/mobile/markers/ParadaMarker';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import { useBalaoSobreposto } from '@/components/map/mobile/useBalaoSobreposto';
+import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
 import type { RouteInfo } from '@/hooks/useRouteDirections';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { OPENFREEMAP_STYLE_URL, toLngLat } from '@/lib/maplibre';
+import { montarPinosPorLocal } from '@/lib/motorista/pinosPorLocal';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
+
+import type { MapRef } from '@maplibre/maplibre-react-native';
 
 interface MapaMobileProps {
   paradas: Parada[];
   selectedParadaId?: string | null;
   onMarkerPress?: (paradaId: string) => void;
+  /**
+   * Toque no pino que já está selecionado (ou no balão dele): abre as ações
+   * da parada. Sem ela, o toque repetido só seleciona de novo, e o balão não
+   * mostra a dica "Toque para ver ações".
+   */
+  onSelectedMarkerPress?: (paradaId: string) => void;
   /** Callback quando toca fora dos marcadores (deselecionar) */
   onMapPress?: () => void;
-  /** Callback para long-press no marcador (ações rápidas) */
+  /**
+   * Long-press no marcador. Não dispara no nativo: o Marker do Android não
+   * expõe long press (maplibre-react-native#1729) e nenhuma tela o usa.
+   */
   onMarkerLongPress?: (paradaId: string) => void;
   statusFilter?: StatusFilter;
   /** ID da rota para rastreamento em tempo real do motorista */
@@ -43,10 +60,28 @@ interface MapaMobileProps {
   storedRouteInfo?: RouteInfo | null;
 }
 
+/** Altura do pino de PARTIDA/CHEGADA (styles.checkpointMarkerCompact). */
+const ALTURA_PINO_CHECKPOINT = 36;
+
+/**
+ * Toque no pino. No Android o filho do <Marker> é reposicionado fora do
+ * Fabric, e um Pressable dentro dele nunca dispara onPress (o measure() vê a
+ * posição errada): quem recebe o toque é o mapa nativo, que o entrega ao
+ * onPress do próprio Marker. O evento sobe por bubbling até o onPress do Map,
+ * que desfaria a seleção na mesma renderização (maplibre-react-native#1618).
+ */
+function aoTocarPino(acao: () => void) {
+  return (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    acao();
+  };
+}
+
 export function MapaMobile({
   paradas,
   selectedParadaId,
   onMarkerPress,
+  onSelectedMarkerPress,
   onMapPress,
   onMarkerLongPress,
   statusFilter = 'all',
@@ -88,21 +123,54 @@ export function MapaMobile({
   const { isLocating, handleCenterOnUser } = useLocationTracking(cameraRef);
 
   // Marker/map gestures + clipboard
-  const {
-    handleMarkerPress,
-    handleMarkerLongPress,
-    handleMapPress,
-    handleCopyAddress,
-  } = useMarkerGestures({
-    onMarkerPress,
-    onMarkerLongPress,
-    onMapPress,
-    setSelectedCheckpointId,
-  });
+  const { handleMarkerPress, handleMapPress, handleCopyAddress } =
+    useMarkerGestures({
+      onMarkerPress,
+      onMarkerLongPress,
+      onMapPress,
+      setSelectedCheckpointId,
+    });
 
   // Navigation: next stop + fit-all + open external nav app
   const { proximaParadaPendente, handleNavigate, handleFitAll } =
     useNavigationActions(paradasReais, paradasComCoord as Parada[], cameraRef);
+
+  // Toque no pino já selecionado: abre as ações e fecha o balão do
+  // checkpoint, como o 1º toque (handleMarkerPress) já faz.
+  const abrirAcoes = (paradaId: string) => {
+    setSelectedCheckpointId(null);
+    onSelectedMarkerPress?.(paradaId);
+  };
+
+  // Um pino por local: serviços no mesmo ponto saem juntos ("3+4").
+  const pinos = montarPinosPorLocal(paradasFiltradas);
+
+  // Um balão por vez, sobre o mapa: o do checkpoint, se houver; senão o da
+  // parada selecionada.
+  const checkpointSelecionado =
+    checkpoints.find((c) => c.id === selectedCheckpointId) ?? null;
+  const pinoSelecionado = checkpointSelecionado
+    ? null
+    : (pinos.find((p) => p.membros.some((m) => m.id === selectedParadaId)) ??
+      null);
+  const selecionado = checkpointSelecionado ?? pinoSelecionado?.principal;
+
+  const mapRef = useRef<MapRef>(null);
+  const [areaDoMapa, setAreaDoMapa] = useState<{
+    largura: number;
+    altura: number;
+  } | null>(null);
+  const { ponto, onRegionWillChange, onRegionDidChange } = useBalaoSobreposto({
+    mapRef,
+    cameraRef,
+    alturaDoMapa: areaDoMapa?.altura ?? null,
+    alvo: selecionado
+      ? toLngLat({
+          latitude: selecionado.latitude!,
+          longitude: selecionado.longitude!,
+        })
+      : null,
+  });
 
   if (!hasParadasComCoordenadas) {
     return (
@@ -117,12 +185,15 @@ export function MapaMobile({
   return (
     <View style={styles.container}>
       <MapLibreGL.Map
+        ref={mapRef}
         style={styles.map}
         mapStyle={OPENFREEMAP_STYLE_URL}
         logo={false}
         attribution={true}
         compass={true}
         onPress={handleMapPress}
+        onRegionWillChange={onRegionWillChange}
+        onRegionDidChange={onRegionDidChange}
       >
         <MapLibreGL.Camera ref={cameraRef} initialViewState={initialCamera} />
 
@@ -146,37 +217,40 @@ export function MapaMobile({
               longitude: parada.longitude!,
             })}
             anchor="bottom"
+            onPress={aoTocarPino(() =>
+              setSelectedCheckpointId((prev) =>
+                prev === parada.id ? null : parada.id,
+              ),
+            )}
           >
-            <CheckpointMarker
-              index={index}
-              endereco={parada.endereco}
-              isSelected={selectedCheckpointId === parada.id}
-              unidadeNome={unidadeNome}
-              onPress={() =>
-                setSelectedCheckpointId((prev) =>
-                  prev === parada.id ? null : parada.id,
-                )
-              }
-              onCopyAddress={handleCopyAddress}
-            />
+            <CheckpointMarker index={index} endereco={parada.endereco} />
           </MapLibreGL.Marker>
         ))}
 
         {/* Marcadores das paradas reais (entregas/retiradas) - filtradas por status */}
-        {paradasFiltradas.map((parada) => (
+        {pinos.map(({ principal, membros, rotulo }) => (
           <MapLibreGL.Marker
-            key={parada.id}
+            key={membros[0].id}
             lngLat={toLngLat({
-              latitude: parada.latitude!,
-              longitude: parada.longitude!,
+              latitude: principal.latitude!,
+              longitude: principal.longitude!,
             })}
             anchor="bottom"
+            onPress={aoTocarPino(() =>
+              acaoDoToqueNoPino(
+                membros,
+                selectedParadaId,
+                onSelectedMarkerPress != null,
+              ) === 'abrir-acoes'
+                ? abrirAcoes(principal.id)
+                : handleMarkerPress(principal.id),
+            )}
           >
             <ParadaMarker
-              parada={parada}
-              isSelected={selectedParadaId === parada.id}
-              onPress={handleMarkerPress}
-              onLongPress={handleMarkerLongPress}
+              parada={principal}
+              rotulo={rotulo}
+              servicos={membros}
+              isSelected={membros.some((m) => m.id === selectedParadaId)}
             />
           </MapLibreGL.Marker>
         ))}
@@ -190,6 +264,52 @@ export function MapaMobile({
           />
         )}
       </MapLibreGL.Map>
+
+      {/* Balão do pino selecionado, por cima de todos os pinos (ver
+          BalaoSobreposto). box-none: só o balão captura toque. */}
+      <View
+        testID="mapa-camada-balao"
+        style={styles.balaoCamada}
+        pointerEvents="box-none"
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setAreaDoMapa({ largura: width, altura: height });
+        }}
+      >
+        {checkpointSelecionado && (
+          <BalaoSobreposto
+            key={checkpointSelecionado.id}
+            ponto={ponto}
+            area={areaDoMapa}
+            alturaDoPino={ALTURA_PINO_CHECKPOINT}
+          >
+            <CheckpointCallout
+              index={checkpoints.indexOf(checkpointSelecionado)}
+              endereco={checkpointSelecionado.endereco}
+              unidadeNome={unidadeNome}
+              onCopyAddress={handleCopyAddress}
+            />
+          </BalaoSobreposto>
+        )}
+        {pinoSelecionado && (
+          <BalaoSobreposto
+            key={pinoSelecionado.principal.id}
+            ponto={ponto}
+            area={areaDoMapa}
+            alturaDoPino={theme.components.minTouchTarget * 1.1}
+          >
+            <ParadaCallout
+              parada={pinoSelecionado.principal}
+              servicos={pinoSelecionado.membros}
+              onAbrirAcoes={
+                onSelectedMarkerPress
+                  ? () => onSelectedMarkerPress(pinoSelecionado.principal.id)
+                  : undefined
+              }
+            />
+          </BalaoSobreposto>
+        )}
+      </View>
 
       {/* Info Badge - mostra paradas e info da rota */}
       <View

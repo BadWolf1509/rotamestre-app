@@ -3,10 +3,13 @@
  * Modal para trocar motorista de uma rota
  */
 
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
-import { ChangeDriverModal, ChangeDriverModalProps } from '../ChangeDriverModal';
+import {
+  ChangeDriverModal,
+  ChangeDriverModalProps,
+} from '../ChangeDriverModal';
 
 // Mock Supabase
 const mockFrom = jest.fn();
@@ -29,12 +32,24 @@ jest.mock('@/hooks/useResponsive', () => ({
 // Mock theme
 // Mock DesktopModal with declarative button API
 jest.mock('@/components/desktop/DesktopModal', () => ({
-  DesktopModal: ({ visible, onClose, title, children, primaryButton, secondaryButton }: {
+  DesktopModal: ({
+    visible,
+    onClose,
+    title,
+    children,
+    primaryButton,
+    secondaryButton,
+  }: {
     visible: boolean;
     onClose: () => void;
     title: string;
     children: React.ReactNode;
-    primaryButton?: { text: string; onPress: () => void; loading?: boolean; disabled?: boolean };
+    primaryButton?: {
+      text: string;
+      onPress: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+    };
     secondaryButton?: { text: string; onPress: () => void; disabled?: boolean };
   }) => {
     const { View, Text, TouchableOpacity } = require('react-native');
@@ -81,10 +96,33 @@ jest.mock('@expo/vector-icons', () => ({
 
 describe('ChangeDriverModal', () => {
   const mockMotoristas = [
-    { id: 'motorista-1', nome: 'João Silva', email: 'joao@email.com', ativo: true },
-    { id: 'motorista-2', nome: 'Maria Santos', email: 'maria@email.com', ativo: true },
-    { id: 'motorista-3', nome: 'Carlos Ferreira', email: 'carlos@email.com', ativo: true },
+    {
+      id: 'motorista-1',
+      nome: 'João Silva',
+      email: 'joao@email.com',
+      ativo: true,
+    },
+    {
+      id: 'motorista-2',
+      nome: 'Maria Santos',
+      email: 'maria@email.com',
+      ativo: true,
+    },
+    {
+      id: 'motorista-3',
+      nome: 'Carlos Ferreira',
+      email: 'carlos@email.com',
+      ativo: true,
+    },
   ];
+
+  const comLogin = (m: (typeof mockMotoristas)[number]) => ({
+    ...m,
+    ultimo_login: '2026-10-01T10:00:00Z',
+  });
+  const mockShowConfirm = (
+    global as unknown as { mockUseAlert: { showConfirm: jest.Mock } }
+  ).mockUseAlert.showConfirm;
 
   const defaultProps: ChangeDriverModalProps = {
     visible: true,
@@ -119,7 +157,9 @@ describe('ChangeDriverModal', () => {
 
   describe('Renderização', () => {
     it('deve renderizar o modal quando visible=true', async () => {
-      const { getByTestId, getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      const { getByTestId, getByText } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
 
       expect(getByTestId('desktop-modal')).toBeTruthy();
       expect(getByText('Trocar Motorista')).toBeTruthy();
@@ -130,7 +170,9 @@ describe('ChangeDriverModal', () => {
     });
 
     it('não deve renderizar quando visible=false', () => {
-      const { queryByTestId } = render(<ChangeDriverModal {...defaultProps} visible={false} />);
+      const { queryByTestId } = render(
+        <ChangeDriverModal {...defaultProps} visible={false} />,
+      );
 
       expect(queryByTestId('desktop-modal')).toBeNull();
     });
@@ -149,7 +191,9 @@ describe('ChangeDriverModal', () => {
         currentMotoristaNome: undefined,
       };
 
-      const { getByText } = render(<ChangeDriverModal {...propsWithoutMotorista} />);
+      const { getByText } = render(
+        <ChangeDriverModal {...propsWithoutMotorista} />,
+      );
 
       expect(getByText('Sem motorista')).toBeTruthy();
     });
@@ -210,7 +254,9 @@ describe('ChangeDriverModal', () => {
       const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Nenhum motorista cadastrado na unidade')).toBeTruthy();
+        expect(
+          getByText('Nenhum motorista cadastrado na unidade'),
+        ).toBeTruthy();
       });
     });
   });
@@ -229,7 +275,9 @@ describe('ChangeDriverModal', () => {
     });
 
     it('deve selecionar motorista quando item é pressionado', async () => {
-      const { getByText, getByTestId } = render(<ChangeDriverModal {...defaultProps} />);
+      const { getByText, getByTestId } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
 
       await waitFor(() => {
         expect(getByText('Maria Santos')).toBeTruthy();
@@ -268,7 +316,101 @@ describe('ChangeDriverModal', () => {
       // Confirmar
       fireEvent.press(getByText('Confirmar'));
 
-      expect(defaultProps.onConfirm).toHaveBeenCalledWith('motorista-2', 'Maria Santos');
+      expect(defaultProps.onConfirm).toHaveBeenCalledWith(
+        'motorista-2',
+        'Maria Santos',
+      );
+    });
+  });
+
+  describe('Motorista que nunca entrou no app', () => {
+    beforeEach(() => {
+      // clearAllMocks mantém implementações: o teste de cancelar não pode vazar.
+      mockShowConfirm.mockResolvedValue(true);
+      mockFrom.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        returns: jest.fn().mockResolvedValue({
+          data: [
+            {
+              usuario_id: 'motorista-1',
+              usuarios: comLogin(mockMotoristas[0]),
+            },
+            {
+              usuario_id: 'motorista-2',
+              usuarios: { ...mockMotoristas[1], ultimo_login: null },
+            },
+            {
+              usuario_id: 'motorista-3',
+              usuarios: comLogin(mockMotoristas[2]),
+            },
+          ],
+          error: null,
+        }),
+      });
+    });
+
+    it('mostra o selo só para quem nunca entrou', async () => {
+      const { getAllByText, getByText } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
+
+      await waitFor(() => expect(getByText('Maria Santos')).toBeTruthy());
+
+      expect(getAllByText('Nunca entrou no app')).toHaveLength(1);
+    });
+
+    it('pede confirmação e só chama onConfirm depois de aceitar', async () => {
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      await waitFor(() => expect(getByText('Maria Santos')).toBeTruthy());
+
+      fireEvent.press(getByText('Maria Santos'));
+      fireEvent.press(getByText('Confirmar'));
+
+      expect(mockShowConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Motorista nunca entrou no app',
+          message: expect.stringContaining(
+            'Maria Santos ainda não entrou no RotaMestre',
+          ),
+          type: 'warning',
+          confirmText: 'Trocar mesmo assim',
+        }),
+      );
+      await waitFor(() =>
+        expect(defaultProps.onConfirm).toHaveBeenCalledWith(
+          'motorista-2',
+          'Maria Santos',
+        ),
+      );
+    });
+
+    it('não chama onConfirm quando o gestor cancela', async () => {
+      mockShowConfirm.mockResolvedValue(false);
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      await waitFor(() => expect(getByText('Maria Santos')).toBeTruthy());
+
+      fireEvent.press(getByText('Maria Santos'));
+      fireEvent.press(getByText('Confirmar'));
+
+      await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+      // deixa a promessa resolvida (false) ser processada antes de afirmar.
+      await act(async () => {});
+      expect(defaultProps.onConfirm).not.toHaveBeenCalled();
+    });
+
+    it('confirma direto quando o motorista já entrou', async () => {
+      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      await waitFor(() => expect(getByText('Carlos Ferreira')).toBeTruthy());
+
+      fireEvent.press(getByText('Carlos Ferreira'));
+      fireEvent.press(getByText('Confirmar'));
+
+      expect(mockShowConfirm).not.toHaveBeenCalled();
+      expect(defaultProps.onConfirm).toHaveBeenCalledWith(
+        'motorista-3',
+        'Carlos Ferreira',
+      );
     });
   });
 
@@ -305,7 +447,9 @@ describe('ChangeDriverModal', () => {
       const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
 
       await waitFor(() => {
-        expect(getByText('Nenhum motorista cadastrado na unidade')).toBeTruthy();
+        expect(
+          getByText('Nenhum motorista cadastrado na unidade'),
+        ).toBeTruthy();
       });
 
       expect(console.error).toHaveBeenCalled();
@@ -317,7 +461,15 @@ describe('ChangeDriverModal', () => {
         eq: jest.fn().mockReturnThis(),
         returns: jest.fn().mockResolvedValue({
           data: [
-            { usuario_id: 'motorista-1', usuarios: { id: 'motorista-1', nome: 'Motorista Inativo', email: 'inativo@email.com', ativo: false } },
+            {
+              usuario_id: 'motorista-1',
+              usuarios: {
+                id: 'motorista-1',
+                nome: 'Motorista Inativo',
+                email: 'inativo@email.com',
+                ativo: false,
+              },
+            },
             { usuario_id: 'motorista-2', usuarios: mockMotoristas[1] }, // ativo
           ],
           error: null,
@@ -325,7 +477,11 @@ describe('ChangeDriverModal', () => {
       });
 
       const { getByText, queryByText } = render(
-        <ChangeDriverModal {...defaultProps} currentMotoristaId="" currentMotoristaNome="" />
+        <ChangeDriverModal
+          {...defaultProps}
+          currentMotoristaId=""
+          currentMotoristaNome=""
+        />,
       );
 
       await waitFor(() => {
@@ -337,7 +493,9 @@ describe('ChangeDriverModal', () => {
     });
 
     it('deve recarregar motoristas quando modal abre novamente', async () => {
-      const { rerender } = render(<ChangeDriverModal {...defaultProps} visible={false} />);
+      const { rerender } = render(
+        <ChangeDriverModal {...defaultProps} visible={false} />,
+      );
 
       expect(mockFrom).not.toHaveBeenCalled();
 

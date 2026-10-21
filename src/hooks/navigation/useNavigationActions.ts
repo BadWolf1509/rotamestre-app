@@ -8,6 +8,7 @@
 import { useCallback } from 'react';
 
 import type { ParadaData } from '@/context/RouteStatusContext';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { abrirNavegacao } from '@/lib/navigation';
 
 interface UseNavigationActionsOptions {
@@ -49,9 +50,10 @@ export function useNavigationActions({
 
   const handleCompleteStop = useCallback(async () => {
     await triggerHaptic('impact');
+    const rotulo = rotuloTipoParada(currentStop.tipo);
     const confirmed = await showConfirm({
-      title: 'Confirmar Entrega',
-      message: `Confirma a entrega em:\n${currentStop.endereco}?`,
+      title: `Confirmar ${rotulo.titulo}`,
+      message: `Confirma a ${rotulo.nome} em:\n${currentStop.endereco}?`,
       confirmText: 'Confirmar',
       cancelText: 'Cancelar',
     });

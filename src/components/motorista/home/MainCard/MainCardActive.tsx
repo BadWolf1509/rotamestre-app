@@ -24,6 +24,8 @@ import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { RouteStatus } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
+import { paradasDaVisita } from '@/lib/motorista/visitaNoLocal';
 import { useUnistyles } from '@/utils/styles';
 
 import { ExpirationWarning } from '../ExpirationWarning';
@@ -85,6 +87,18 @@ export const MainCardActive = memo(function MainCardActive({
     [nextStop, paradas, currentStop?.id],
   );
 
+  // Serviços no mesmo ponto (entrega + retirada) formam uma visita só.
+  const visita = useMemo(
+    () =>
+      paradasDaVisita(
+        paradas.map((p) => ({ ...p, tipo: p.tipo ?? '' })),
+        { ...currentStop, tipo: currentStop.tipo ?? '' },
+      ),
+    [paradas, currentStop],
+  );
+
+  const tipoAtual = rotuloTipoParada(currentStop.tipo ?? '');
+
   // Memoize swipe actions para evitar re-render do SwipeableRow
   const swipeActions = useMemo(
     () => ({
@@ -137,6 +151,13 @@ export const MainCardActive = memo(function MainCardActive({
                   : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
               </Text>
             </View>
+            {tipoAtual.titulo !== 'Parada' && (
+              <View
+                style={[styles.badge, { backgroundColor: theme.colors.info }]}
+              >
+                <Text style={styles.badgeText}>{tipoAtual.titulo}</Text>
+              </View>
+            )}
             <View style={styles.timer}>
               {distanceInfo.isLoading ? (
                 <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -164,6 +185,16 @@ export const MainCardActive = memo(function MainCardActive({
           </View>
 
           <Text style={styles.addressMain}>{currentStop.endereco}</Text>
+
+          {visita.length > 1 && (
+            <View testID="visita-no-local">
+              <Text style={styles.contactText}>
+                {`Neste local: ${visita
+                  .map((p) => rotuloTipoParada(p.tipo).titulo)
+                  .join(' + ')}`}
+              </Text>
+            </View>
+          )}
 
           {currentStop.destinatario && (
             <View style={styles.contactInfo}>

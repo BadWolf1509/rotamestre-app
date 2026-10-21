@@ -4,36 +4,36 @@
  * Tests CRUD operations, loading, error handling, and toast feedback.
  */
 
-import { renderHook, act, waitFor } from "@testing-library/react-native";
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
-import { useToast } from "@/hooks/useToast";
-import { useUnidadeAtiva } from "@/hooks/useUnidadeAtiva";
-import { useUser } from "@/hooks/useUser";
-import { supabase } from "@/lib/supabase";
+import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
+import { useUser } from '@/hooks/useUser';
+import { supabase } from '@/lib/supabase';
 
-import { useMotoristasOperations } from "../useMotoristasOperations";
+import { useMotoristasOperations } from '../useMotoristasOperations';
 
-import type { MotoristaDetalhado } from "../../useMotoristasGestor";
+import type { MotoristaDetalhado } from '../../useMotoristasGestor';
 
 // ==========================================================================
 // Mocks
 // ==========================================================================
 
-jest.mock("@/hooks/useUnidadeAtiva", () => ({
+jest.mock('@/hooks/useUnidadeAtiva', () => ({
   useUnidadeAtiva: jest.fn(() => ({
-    unidadeAtiva: "unidade-123",
+    unidadeAtiva: 'unidade-123',
   })),
 }));
 
-jest.mock("@/hooks/useUser", () => ({
+jest.mock('@/hooks/useUser', () => ({
   useUser: jest.fn(() => ({
-    userData: { id: "user-123", nome: "Gestor Teste" },
+    userData: { id: 'user-123', nome: 'Gestor Teste' },
   })),
 }));
 
-jest.mock("@/hooks/useToast", () => ({
+jest.mock('@/hooks/useToast', () => ({
   useToast: jest.fn(() => ({
-    toast: { visible: false, message: "", type: "success", duration: 3000 },
+    toast: { visible: false, message: '', type: 'success', duration: 3000 },
     showToast: jest.fn(),
     hideToast: jest.fn(),
     withToast: jest.fn(async (fn: () => Promise<void>) => {
@@ -42,7 +42,7 @@ jest.mock("@/hooks/useToast", () => ({
   })),
 }));
 
-jest.mock("@/lib/logger", () => ({
+jest.mock('@/lib/logger', () => ({
   logger: {
     debug: jest.fn(),
     info: jest.fn(),
@@ -54,23 +54,24 @@ jest.mock("@/lib/logger", () => ({
 const mockUpdateUsuario = jest.fn();
 const mockLogUserAction = jest.fn();
 
-jest.mock("@/lib/queries", () => ({
+jest.mock('@/lib/queries', () => ({
   updateUsuario: (...args: unknown[]) => mockUpdateUsuario(...args),
   logUserAction: (...args: unknown[]) => mockLogUserAction(...args),
 }));
 
-jest.mock("@/lib/phone", () => ({
+jest.mock('@/lib/phone', () => ({
   maskPhone: jest.fn((text: string) => text),
   validatePhone: jest.fn(
-    (phone: string) => phone.replace(/\D/g, "").length >= 10,
+    (phone: string) => phone.replace(/\D/g, '').length >= 10,
   ),
   getPhoneErrorMessage: jest.fn(() => null),
 }));
 
 // Mock supabase
-jest.mock("@/lib/supabase", () => ({
+jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
+    rpc: jest.fn(),
     auth: {
       getSession: jest.fn(),
       signInWithPassword: jest.fn(),
@@ -83,6 +84,10 @@ jest.mock("@/lib/supabase", () => ({
   },
 }));
 
+// RPCs da tela Motoristas: a lista e o toggle
+const mockListar = jest.fn();
+const mockAlternar = jest.fn();
+
 // Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -94,12 +99,12 @@ global.fetch = mockFetch;
 const criarMotoristaMock = (
   overrides: Partial<MotoristaDetalhado> = {},
 ): MotoristaDetalhado => ({
-  id: "motorista-1",
-  nome: "João Silva",
-  email: "joao@example.com",
-  telefone: "(11) 99999-9999",
+  id: 'motorista-1',
+  nome: 'João Silva',
+  email: 'joao@example.com',
+  telefone: '(11) 99999-9999',
   ativo: true,
-  created_at: "2024-01-01T00:00:00Z",
+  created_at: '2024-01-01T00:00:00Z',
   ...overrides,
 });
 
@@ -107,15 +112,15 @@ const criarMockQueryBuilder = (data: unknown = [], error: unknown = null) => {
   const builder: Record<string, jest.Mock> = {} as Record<string, jest.Mock>;
 
   const chainMethods = [
-    "select",
-    "insert",
-    "update",
-    "delete",
-    "eq",
-    "neq",
-    "order",
-    "limit",
-    "range",
+    'select',
+    'insert',
+    'update',
+    'delete',
+    'eq',
+    'neq',
+    'order',
+    'limit',
+    'range',
   ];
   chainMethods.forEach((method) => {
     builder[method] = jest.fn(() => builder);
@@ -128,7 +133,7 @@ const criarMockQueryBuilder = (data: unknown = [], error: unknown = null) => {
   return builder;
 };
 
-describe("useMotoristasOperations", () => {
+describe('useMotoristasOperations', () => {
   let mockQueryBuilder: ReturnType<typeof criarMockQueryBuilder>;
   let mockShowToast: jest.Mock;
   let mockWithToast: jest.Mock;
@@ -138,14 +143,23 @@ describe("useMotoristasOperations", () => {
 
     // Re-set hook mocks (clearAllMocks removes mockReturnValue implementations)
     (useUnidadeAtiva as jest.Mock).mockReturnValue({
-      unidadeAtiva: "unidade-123",
+      unidadeAtiva: 'unidade-123',
     });
     (useUser as jest.Mock).mockReturnValue({
-      userData: { id: "user-123", nome: "Gestor Teste" },
+      userData: { id: 'user-123', nome: 'Gestor Teste' },
     });
 
     mockQueryBuilder = criarMockQueryBuilder();
     (supabase.from as jest.Mock).mockImplementation(() => mockQueryBuilder);
+
+    mockListar.mockResolvedValue({ data: [], error: null });
+    mockAlternar.mockResolvedValue({ data: 'pessoa', error: null });
+    (supabase.rpc as jest.Mock).mockImplementation(
+      (fn: string, args: Record<string, unknown>) =>
+        fn === 'listar_motoristas_unidade'
+          ? mockListar(args)
+          : mockAlternar(fn, args),
+    );
 
     mockUpdateUsuario.mockResolvedValue({ success: true, data: {} });
     mockLogUserAction.mockResolvedValue(undefined);
@@ -156,7 +170,7 @@ describe("useMotoristasOperations", () => {
     });
 
     (useToast as jest.Mock).mockReturnValue({
-      toast: { visible: false, message: "", type: "success", duration: 3000 },
+      toast: { visible: false, message: '', type: 'success', duration: 3000 },
       showToast: mockShowToast,
       hideToast: jest.fn(),
       withToast: mockWithToast,
@@ -166,8 +180,8 @@ describe("useMotoristasOperations", () => {
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: {
         session: {
-          access_token: "mock-token",
-          user: { email: "gestor@test.com" },
+          access_token: 'mock-token',
+          user: { email: 'gestor@test.com' },
         },
       },
       error: null,
@@ -179,18 +193,18 @@ describe("useMotoristasOperations", () => {
       status: 200,
       text: jest
         .fn()
-        .mockResolvedValue(JSON.stringify({ id: "new-motorista-1" })),
+        .mockResolvedValue(JSON.stringify({ id: 'new-motorista-1' })),
     });
 
-    process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
   });
 
   // ==========================================================================
   // Initialization and loading
   // ==========================================================================
 
-  describe("initialization", () => {
-    it("initializes with loading state", () => {
+  describe('initialization', () => {
+    it('initializes with loading state', () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       expect(result.current.loading).toBe(true);
@@ -200,16 +214,13 @@ describe("useMotoristasOperations", () => {
       expect(result.current.salvando).toBe(false);
     });
 
-    it("loads motoristas on mount", async () => {
+    it('loads motoristas on mount', async () => {
       const motoristas = [
-        criarMotoristaMock({ id: "mot-1", nome: "Ana" }),
-        criarMotoristaMock({ id: "mot-2", nome: "Carlos" }),
+        criarMotoristaMock({ id: 'mot-1', nome: 'Ana' }),
+        criarMotoristaMock({ id: 'mot-2', nome: 'Carlos' }),
       ];
 
-      mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
-        error: null,
-      });
+      mockListar.mockResolvedValue({ data: motoristas, error: null });
 
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -219,21 +230,18 @@ describe("useMotoristasOperations", () => {
 
       expect(result.current.motoristas).toHaveLength(2);
       // Sorted alphabetically
-      expect(result.current.motoristas[0].nome).toBe("Ana");
-      expect(result.current.motoristas[1].nome).toBe("Carlos");
+      expect(result.current.motoristas[0].nome).toBe('Ana');
+      expect(result.current.motoristas[1].nome).toBe('Carlos');
     });
 
-    it("computes totalMotoristas and ativosMotoristas", async () => {
+    it('computes totalMotoristas and ativosMotoristas', async () => {
       const motoristas = [
-        criarMotoristaMock({ id: "mot-1", ativo: true }),
-        criarMotoristaMock({ id: "mot-2", ativo: false }),
-        criarMotoristaMock({ id: "mot-3", ativo: true }),
+        criarMotoristaMock({ id: 'mot-1', ativo: true }),
+        criarMotoristaMock({ id: 'mot-2', ativo: false }),
+        criarMotoristaMock({ id: 'mot-3', ativo: true }),
       ];
 
-      mockQueryBuilder.returns.mockResolvedValue({
-        data: motoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
-        error: null,
-      });
+      mockListar.mockResolvedValue({ data: motoristas, error: null });
 
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -245,21 +253,21 @@ describe("useMotoristasOperations", () => {
       expect(result.current.ativosMotoristas).toBe(2);
     });
 
-    it("does not load if unidadeAtiva is null", async () => {
+    it('does not load if unidadeAtiva is null', async () => {
       (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: null });
 
       renderHook(() => useMotoristasOperations());
 
-      // Wait a tick to confirm from was not called
+      // Wait a tick to confirm the list was not requested
       await new Promise((r) => setTimeout(r, 50));
 
-      expect(supabase.from).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
-    it("shows error toast on load failure", async () => {
-      mockQueryBuilder.returns.mockResolvedValue({
+    it('shows error toast on load failure', async () => {
+      mockListar.mockResolvedValue({
         data: null,
-        error: { message: "DB error" },
+        error: { message: 'DB error' },
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -269,20 +277,14 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Não foi possível carregar os motoristas",
-        "error",
+        'Não foi possível carregar os motoristas',
+        'error',
       );
     });
 
-    it("filters out null usuarios from vinculacoes", async () => {
-      mockQueryBuilder.returns.mockResolvedValue({
-        data: [
-          {
-            usuario_id: "mot-1",
-            usuarios: criarMotoristaMock({ id: "mot-1" }),
-          },
-          { usuario_id: "mot-2", usuarios: null },
-        ],
+    it('loads from the RPC of the active unit (includes inactive links)', async () => {
+      mockListar.mockResolvedValue({
+        data: [criarMotoristaMock({ id: 'mot-1', ativo: false })],
         error: null,
       });
 
@@ -292,7 +294,12 @@ describe("useMotoristasOperations", () => {
         expect(result.current.loading).toBe(false);
       });
 
+      expect(supabase.rpc).toHaveBeenCalledWith('listar_motoristas_unidade', {
+        p_unidade_id: 'unidade-123',
+      });
+      expect(supabase.from).not.toHaveBeenCalledWith('usuario_unidades');
       expect(result.current.motoristas).toHaveLength(1);
+      expect(result.current.ativosMotoristas).toBe(0);
     });
   });
 
@@ -300,15 +307,15 @@ describe("useMotoristasOperations", () => {
   // adicionarMotorista
   // ==========================================================================
 
-  describe("adicionarMotorista", () => {
+  describe('adicionarMotorista', () => {
     const validFormData = {
-      nome: "Novo Motorista",
-      email: "novo@test.com",
-      telefone: "",
-      senha: "senha123",
+      nome: 'Novo Motorista',
+      email: 'novo@test.com',
+      telefone: '',
+      senha: 'senha123',
     };
 
-    it("validates required fields - empty nome", async () => {
+    it('validates required fields - empty nome', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -316,19 +323,19 @@ describe("useMotoristasOperations", () => {
       const onSuccess = jest.fn();
       await act(async () => {
         await result.current.adicionarMotorista(
-          { ...validFormData, nome: "" },
+          { ...validFormData, nome: '' },
           onSuccess,
         );
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Preencha todos os campos obrigatórios",
-        "error",
+        'Preencha todos os campos obrigatórios',
+        'error',
       );
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it("validates required fields - empty email", async () => {
+    it('validates required fields - empty email', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -336,18 +343,18 @@ describe("useMotoristasOperations", () => {
       const onSuccess = jest.fn();
       await act(async () => {
         await result.current.adicionarMotorista(
-          { ...validFormData, email: "" },
+          { ...validFormData, email: '' },
           onSuccess,
         );
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Preencha todos os campos obrigatórios",
-        "error",
+        'Preencha todos os campos obrigatórios',
+        'error',
       );
     });
 
-    it("validates required fields - empty senha", async () => {
+    it('validates required fields - empty senha', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -355,18 +362,18 @@ describe("useMotoristasOperations", () => {
       const onSuccess = jest.fn();
       await act(async () => {
         await result.current.adicionarMotorista(
-          { ...validFormData, senha: "" },
+          { ...validFormData, senha: '' },
           onSuccess,
         );
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Preencha todos os campos obrigatórios",
-        "error",
+        'Preencha todos os campos obrigatórios',
+        'error',
       );
     });
 
-    it("validates email format", async () => {
+    it('validates email format', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -374,19 +381,19 @@ describe("useMotoristasOperations", () => {
       const onSuccess = jest.fn();
       await act(async () => {
         await result.current.adicionarMotorista(
-          { ...validFormData, email: "invalid-email" },
+          { ...validFormData, email: 'invalid-email' },
           onSuccess,
         );
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Digite um email válido",
-        "error",
+        'Digite um email válido',
+        'error',
       );
     });
 
-    it("validates phone when provided", async () => {
-      const { validatePhone } = require("@/lib/phone");
+    it('validates phone when provided', async () => {
+      const { validatePhone } = require('@/lib/phone');
       (validatePhone as jest.Mock).mockReturnValue(false);
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -396,15 +403,15 @@ describe("useMotoristasOperations", () => {
       const onSuccess = jest.fn();
       await act(async () => {
         await result.current.adicionarMotorista(
-          { ...validFormData, telefone: "123" },
+          { ...validFormData, telefone: '123' },
           onSuccess,
         );
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith("Telefone inválido", "error");
+      expect(mockShowToast).toHaveBeenCalledWith('Telefone inválido', 'error');
     });
 
-    it("creates motorista via edge function on success", async () => {
+    it('creates motorista via edge function on success', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -415,30 +422,32 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://test.supabase.co/functions/v1/criar-motorista",
+        'https://test.supabase.co/functions/v1/criar-motorista',
         expect.objectContaining({
-          method: "POST",
+          method: 'POST',
           headers: expect.objectContaining({
-            "Content-Type": "application/json",
-            Authorization: "Bearer mock-token",
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer mock-token',
           }),
           body: JSON.stringify({
-            nome: "Novo Motorista",
-            email: "novo@test.com",
-            senha: "senha123",
+            nome: 'Novo Motorista',
+            email: 'novo@test.com',
+            senha: 'senha123',
             telefone: null,
+            // a loja aberta na tela, não a principal do gestor
+            unidade_id: 'unidade-123',
           }),
         }),
       );
 
       expect(onSuccess).toHaveBeenCalled();
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Motorista adicionado com sucesso!",
-        "success",
+        'Motorista adicionado com sucesso!',
+        'success',
       );
     });
 
-    it("logs user action after successful creation", async () => {
+    it('logs user action after successful creation', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -448,19 +457,19 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockLogUserAction).toHaveBeenCalledWith(
-        "user-123",
-        "motorista_criado",
+        'user-123',
+        'motorista_criado',
         {
-          motorista_nome: "Novo Motorista",
-          motorista_email: "novo@test.com",
+          motorista_nome: 'Novo Motorista',
+          motorista_email: 'novo@test.com',
         },
       );
     });
 
-    it("handles session error", async () => {
+    it('handles session error', async () => {
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
-        error: { message: "Session expired" },
+        error: { message: 'Session expired' },
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -472,12 +481,12 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining("Erro ao obter sessão"),
-        "error",
+        expect.stringContaining('Erro ao obter sessão'),
+        'error',
       );
     });
 
-    it("handles missing session", async () => {
+    it('handles missing session', async () => {
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
         error: null,
@@ -492,13 +501,13 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining("sessão expirou"),
-        "error",
+        expect.stringContaining('sessão expirou'),
+        'error',
       );
     });
 
-    it("handles network error on fetch", async () => {
-      mockFetch.mockRejectedValue(new Error("Network failure"));
+    it('handles network error on fetch', async () => {
+      mockFetch.mockRejectedValue(new Error('Network failure'));
 
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -509,18 +518,68 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining("Erro de conexão"),
-        "error",
+        expect.stringContaining('Erro de conexão'),
+        'error',
       );
     });
 
-    it("handles non-ok response from edge function", async () => {
+    it('shows the edge function text when the email already has an account (409)', async () => {
+      const msg =
+        'Este e-mail já tem uma conta no RotaMestre. Para usar o mesmo motorista em mais de uma loja, fale com o suporte.';
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 409,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ error: msg, codigo: 'email_ja_cadastrado' }),
+          ),
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.adicionarMotorista(validFormData, onSuccess);
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(msg, 'error');
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('shows the edge function error text on duplicate phone (409)', async () => {
+      const texto =
+        'Este motorista já usa o RotaMestre em outra loja. Cadastre-o com o e-mail da conta dele para vinculá-lo à sua loja.';
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 409,
+        text: jest
+          .fn()
+          .mockResolvedValue(
+            JSON.stringify({ error: texto, codigo: 'telefone_ja_cadastrado' }),
+          ),
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.adicionarMotorista(validFormData, onSuccess);
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(texto, 'error');
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('handles non-ok response from edge function', async () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 400,
         text: jest
           .fn()
-          .mockResolvedValue(JSON.stringify({ error: "Email já existe" })),
+          .mockResolvedValue(JSON.stringify({ error: 'Email já existe' })),
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -532,15 +591,15 @@ describe("useMotoristasOperations", () => {
         await result.current.adicionarMotorista(validFormData, onSuccess);
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith("Email já existe", "error");
+      expect(mockShowToast).toHaveBeenCalledWith('Email já existe', 'error');
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it("handles invalid JSON response", async () => {
+    it('handles invalid JSON response', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        text: jest.fn().mockResolvedValue("not json {{{"),
+        text: jest.fn().mockResolvedValue('not json {{{'),
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -552,12 +611,12 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining("resposta inválida"),
-        "error",
+        expect.stringContaining('resposta inválida'),
+        'error',
       );
     });
 
-    it("sets salvando during operation", async () => {
+    it('sets salvando during operation', async () => {
       let resolveFetch: (value: unknown) => void;
       const fetchPromise = new Promise((resolve) => {
         resolveFetch = resolve;
@@ -585,7 +644,7 @@ describe("useMotoristasOperations", () => {
         resolveFetch!({
           ok: true,
           status: 200,
-          text: jest.fn().mockResolvedValue(JSON.stringify({ id: "new-1" })),
+          text: jest.fn().mockResolvedValue(JSON.stringify({ id: 'new-1' })),
         });
         await addPromise!;
       });
@@ -598,15 +657,15 @@ describe("useMotoristasOperations", () => {
   // editarMotorista
   // ==========================================================================
 
-  describe("editarMotorista", () => {
+  describe('editarMotorista', () => {
     const validEditData = {
-      nome: "João Atualizado",
-      email: "joao.updated@test.com",
-      telefone: "",
-      senha: "",
+      nome: 'João Atualizado',
+      email: 'joao.updated@test.com',
+      telefone: '',
+      senha: '',
     };
 
-    it("validates required fields - empty nome", async () => {
+    it('validates required fields - empty nome', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -614,40 +673,40 @@ describe("useMotoristasOperations", () => {
       const onSuccess = jest.fn();
       await act(async () => {
         await result.current.editarMotorista(
-          { ...validEditData, nome: "" },
-          "motorista-1",
+          { ...validEditData, nome: '' },
+          'motorista-1',
           onSuccess,
         );
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Preencha todos os campos obrigatórios",
-        "error",
+        'Preencha todos os campos obrigatórios',
+        'error',
       );
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it("validates email format", async () => {
+    it('validates email format', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
         await result.current.editarMotorista(
-          { ...validEditData, email: "bad-email" },
-          "motorista-1",
+          { ...validEditData, email: 'bad-email' },
+          'motorista-1',
           jest.fn(),
         );
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Digite um email válido",
-        "error",
+        'Digite um email válido',
+        'error',
       );
     });
 
-    it("validates phone when provided", async () => {
-      const { validatePhone } = require("@/lib/phone");
+    it('validates phone when provided', async () => {
+      const { validatePhone } = require('@/lib/phone');
       (validatePhone as jest.Mock).mockReturnValue(false);
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -656,16 +715,16 @@ describe("useMotoristasOperations", () => {
 
       await act(async () => {
         await result.current.editarMotorista(
-          { ...validEditData, telefone: "123" },
-          "motorista-1",
+          { ...validEditData, telefone: '123' },
+          'motorista-1',
           jest.fn(),
         );
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith("Telefone inválido", "error");
+      expect(mockShowToast).toHaveBeenCalledWith('Telefone inválido', 'error');
     });
 
-    it("updates motorista via updateUsuario on success", async () => {
+    it('updates motorista via updateUsuario on success', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -674,25 +733,25 @@ describe("useMotoristasOperations", () => {
       await act(async () => {
         await result.current.editarMotorista(
           validEditData,
-          "motorista-1",
+          'motorista-1',
           onSuccess,
         );
       });
 
-      expect(mockUpdateUsuario).toHaveBeenCalledWith("motorista-1", {
-        nome: "João Atualizado",
-        email: "joao.updated@test.com",
+      expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-1', {
+        nome: 'João Atualizado',
+        email: 'joao.updated@test.com',
         telefone: null,
       });
 
       expect(onSuccess).toHaveBeenCalled();
       expect(mockShowToast).toHaveBeenCalledWith(
-        "Motorista atualizado com sucesso!",
-        "success",
+        'Motorista atualizado com sucesso!',
+        'success',
       );
     });
 
-    it("logs user action after successful edit", async () => {
+    it('logs user action after successful edit', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -700,25 +759,60 @@ describe("useMotoristasOperations", () => {
       await act(async () => {
         await result.current.editarMotorista(
           validEditData,
-          "motorista-1",
+          'motorista-1',
           jest.fn(),
         );
       });
 
       expect(mockLogUserAction).toHaveBeenCalledWith(
-        "user-123",
-        "motorista_editado",
+        'user-123',
+        'motorista_editado',
         {
-          motorista_id: "motorista-1",
-          motorista_nome: "João Atualizado",
+          motorista_id: 'motorista-1',
+          motorista_nome: 'João Atualizado',
         },
       );
     });
 
-    it("handles updateUsuario failure", async () => {
+    it('maps the unique-phone index violation to a friendly toast', async () => {
       mockUpdateUsuario.mockResolvedValue({
         success: false,
-        error: { message: "Email duplicado" },
+        error: {
+          type: 'validation',
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+          originalError: {
+            code: '23505',
+            message:
+              'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+          },
+        },
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.editarMotorista(
+          validEditData,
+          'motorista-1',
+          onSuccess,
+        );
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+        'error',
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('handles updateUsuario failure', async () => {
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: { message: 'Email duplicado' },
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -729,16 +823,16 @@ describe("useMotoristasOperations", () => {
       await act(async () => {
         await result.current.editarMotorista(
           validEditData,
-          "motorista-1",
+          'motorista-1',
           onSuccess,
         );
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith("Email duplicado", "error");
+      expect(mockShowToast).toHaveBeenCalledWith('Email duplicado', 'error');
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it("sets salvando during edit operation", async () => {
+    it('sets salvando during edit operation', async () => {
       let resolveUpdate: (value: unknown) => void;
       mockUpdateUsuario.mockReturnValue(
         new Promise((resolve) => {
@@ -754,7 +848,7 @@ describe("useMotoristasOperations", () => {
       act(() => {
         editPromise = result.current.editarMotorista(
           validEditData,
-          "motorista-1",
+          'motorista-1',
           jest.fn(),
         );
       });
@@ -769,7 +863,7 @@ describe("useMotoristasOperations", () => {
       expect(result.current.salvando).toBe(false);
     });
 
-    it("does not log action when userData is null", async () => {
+    it('does not log action when userData is null', async () => {
       (useUser as jest.Mock).mockReturnValue({ userData: null });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -779,7 +873,7 @@ describe("useMotoristasOperations", () => {
       await act(async () => {
         await result.current.editarMotorista(
           validEditData,
-          "motorista-1",
+          'motorista-1',
           jest.fn(),
         );
       });
@@ -792,8 +886,8 @@ describe("useMotoristasOperations", () => {
   // confirmarToggleAtivo
   // ==========================================================================
 
-  describe("confirmarToggleAtivo", () => {
-    it("deactivates an active motorista", async () => {
+  describe('confirmarToggleAtivo', () => {
+    it('deactivates an active motorista', async () => {
       const motorista = criarMotoristaMock({ ativo: true });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -805,13 +899,19 @@ describe("useMotoristasOperations", () => {
         await result.current.confirmarToggleAtivo(motorista, onSuccess);
       });
 
-      expect(mockUpdateUsuario).toHaveBeenCalledWith("motorista-1", {
-        ativo: false,
-      });
+      expect(mockAlternar).toHaveBeenCalledWith(
+        'alternar_motorista_na_unidade',
+        {
+          p_motorista_id: 'motorista-1',
+          p_unidade_id: 'unidade-123',
+          p_ativo: false,
+        },
+      );
+      expect(mockUpdateUsuario).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalled();
     });
 
-    it("activates an inactive motorista", async () => {
+    it('activates an inactive motorista', async () => {
       const motorista = criarMotoristaMock({ ativo: false });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -823,13 +923,18 @@ describe("useMotoristasOperations", () => {
         await result.current.confirmarToggleAtivo(motorista, onSuccess);
       });
 
-      expect(mockUpdateUsuario).toHaveBeenCalledWith("motorista-1", {
-        ativo: true,
-      });
+      expect(mockAlternar).toHaveBeenCalledWith(
+        'alternar_motorista_na_unidade',
+        {
+          p_motorista_id: 'motorista-1',
+          p_unidade_id: 'unidade-123',
+          p_ativo: true,
+        },
+      );
       expect(onSuccess).toHaveBeenCalled();
     });
 
-    it("uses withToast for feedback messages", async () => {
+    it('uses withToast for feedback messages', async () => {
       const motorista = criarMotoristaMock({ ativo: true });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -843,14 +948,14 @@ describe("useMotoristasOperations", () => {
       expect(mockWithToast).toHaveBeenCalledWith(
         expect.any(Function),
         expect.objectContaining({
-          loading: "Desativando motorista...",
-          success: "Motorista desativado com sucesso!",
-          error: "Não foi possível alterar o status do motorista",
+          loading: 'Desativando motorista...',
+          success: 'Motorista desativado com sucesso!',
+          error: expect.any(Function),
         }),
       );
     });
 
-    it("uses activation messages for inactive motorista", async () => {
+    it('uses activation messages for inactive motorista', async () => {
       const motorista = criarMotoristaMock({ ativo: false });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -864,14 +969,14 @@ describe("useMotoristasOperations", () => {
       expect(mockWithToast).toHaveBeenCalledWith(
         expect.any(Function),
         expect.objectContaining({
-          loading: "Ativando motorista...",
-          success: "Motorista ativado com sucesso!",
+          loading: 'Ativando motorista...',
+          success: 'Motorista ativado com sucesso!',
         }),
       );
     });
 
-    it("logs action after successful toggle", async () => {
-      const motorista = criarMotoristaMock({ ativo: true, nome: "João" });
+    it('logs action after successful toggle', async () => {
+      const motorista = criarMotoristaMock({ ativo: true, nome: 'João' });
 
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -882,16 +987,77 @@ describe("useMotoristasOperations", () => {
       });
 
       expect(mockLogUserAction).toHaveBeenCalledWith(
-        "user-123",
-        "motorista_desativado",
-        { motorista_id: "motorista-1", motorista_nome: "João" },
+        'user-123',
+        'motorista_desativado',
+        { motorista_id: 'motorista-1', motorista_nome: 'João' },
       );
     });
 
-    it("handles updateUsuario failure in toggle", async () => {
-      mockUpdateUsuario.mockResolvedValue({
-        success: false,
-        error: { message: "Update failed" },
+    it('maps the unique-phone error through withToast (single toast)', async () => {
+      const erroTelefone = {
+        code: '23505',
+        message:
+          'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+      };
+      mockAlternar.mockResolvedValue({ data: null, error: erroTelefone });
+      mockWithToast.mockImplementation(async (fn: () => Promise<void>) => {
+        await fn();
+      });
+      mockShowToast.mockClear();
+
+      const motorista = criarMotoristaMock({ ativo: false });
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.confirmarToggleAtivo(motorista, onSuccess);
+      });
+
+      const opcoes = mockWithToast.mock.calls.at(-1)?.[1] as {
+        error: (e: unknown) => string;
+      };
+      expect(opcoes.error(erroTelefone)).toBe(
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+      );
+      expect(opcoes.error(new Error('outro'))).toBe(
+        'Não foi possível alterar o status do motorista',
+      );
+      // regra de negócio do banco (P0001) chega ao gestor como foi escrita
+      expect(
+        opcoes.error({
+          code: 'P0001',
+          message:
+            'Este motorista também atende outra loja e está desativado. Para reativá-lo, fale com o suporte.',
+        }),
+      ).toBe(
+        'Este motorista também atende outra loja e está desativado. Para reativá-lo, fale com o suporte.',
+      );
+      // o catch não mostra um segundo toast
+      expect(mockShowToast).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('does nothing without an active unit', async () => {
+      (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: null });
+      const { result } = renderHook(() => useMotoristasOperations());
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.confirmarToggleAtivo(
+          criarMotoristaMock(),
+          onSuccess,
+        );
+      });
+
+      expect(mockAlternar).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('handles RPC failure in toggle', async () => {
+      mockAlternar.mockResolvedValue({
+        data: null,
+        error: { message: 'Update failed' },
       });
 
       // withToast should propagate the error
@@ -916,7 +1082,7 @@ describe("useMotoristasOperations", () => {
         }
       });
 
-      // onSuccess should not be called since updateUsuario failed
+      // onSuccess should not be called since the RPC failed
       expect(onSuccess).not.toHaveBeenCalled();
     });
   });
@@ -925,23 +1091,23 @@ describe("useMotoristasOperations", () => {
   // Toast state
   // ==========================================================================
 
-  describe("toast state", () => {
-    it("exposes toastState from useToast", () => {
+  describe('toast state', () => {
+    it('exposes toastState from useToast', () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       expect(result.current.toastState).toEqual({
         visible: false,
-        message: "",
-        type: "success",
+        message: '',
+        type: 'success',
         duration: 3000,
       });
     });
 
-    it("exposes showToast and hideToast", () => {
+    it('exposes showToast and hideToast', () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
-      expect(typeof result.current.showToast).toBe("function");
-      expect(typeof result.current.hideToast).toBe("function");
+      expect(typeof result.current.showToast).toBe('function');
+      expect(typeof result.current.hideToast).toBe('function');
     });
   });
 
@@ -949,27 +1115,26 @@ describe("useMotoristasOperations", () => {
   // loadMotoristas manual call
   // ==========================================================================
 
-  describe("loadMotoristas", () => {
-    it("can be called manually to refresh data", async () => {
+  describe('loadMotoristas', () => {
+    it('can be called manually to refresh data', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       // Reset call count after initial load
-      (supabase.from as jest.Mock).mockClear();
-      mockQueryBuilder = criarMockQueryBuilder([
-        {
-          usuario_id: "mot-new",
-          usuarios: criarMotoristaMock({ id: "mot-new", nome: "Novo" }),
-        },
-      ]);
-      (supabase.from as jest.Mock).mockReturnValue(mockQueryBuilder);
+      (supabase.rpc as jest.Mock).mockClear();
+      mockListar.mockResolvedValue({
+        data: [criarMotoristaMock({ id: 'mot-new', nome: 'Novo' })],
+        error: null,
+      });
 
       await act(async () => {
         await result.current.loadMotoristas();
       });
 
-      expect(supabase.from).toHaveBeenCalledWith("usuario_unidades");
+      expect(supabase.rpc).toHaveBeenCalledWith('listar_motoristas_unidade', {
+        p_unidade_id: 'unidade-123',
+      });
       expect(result.current.motoristas).toHaveLength(1);
     });
   });

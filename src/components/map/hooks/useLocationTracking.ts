@@ -60,6 +60,10 @@ export function useLocationTracking(
       cameraRef.current?.setStop({
         center: toLngLat(newUserLocation),
         zoom: zoomFromLongitudeDelta(0.01),
+        // A seleção de um pino põe padding no topo (useBalaoSobreposto). Um
+        // setStop com center já zera o que não for informado; o zero
+        // explícito documenta a intenção e não depende desse padrão.
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
         duration: 500,
       });
     } catch (error) {

@@ -8,6 +8,106 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.13.0, vínculo seguro e conta de avaliação da Play (20–21/10/2026)
+
+- **Vínculo multi-loja (#600, Migration 31):**
+  - **Problemas:** qualquer gestor vinculava qualquer pessoa à própria loja,
+    pela Edge Function (bastava o e-mail) ou direto pelo PostgREST; a função
+    apagava e recriava conta existente no Auth (tomada de conta), e o gestor
+    intruso podia desativar o motorista.
+  - **Agora:** `usuario_unidades` só aceita escrita pelo servidor; o
+    `criar-motorista` v15 recusa e-mail existente e nunca apaga conta. Motorista
+    de duas lojas: cada loja desativa só o próprio vínculo
+    (`alternar_motorista_na_unidade`) e só edita nome e telefone (trigger
+    `trava_motorista_outra_loja`).
+  - **Aplicação:** o MCP recusou a migration por causa de `DROP POLICY`/`REVOKE`;
+    o gestor rodou no SQL Editor, e a linha em `schema_migrations` foi inserida
+    depois. O convite aceito pelo motorista ficou para decisão (pendência 21).
+- **Conta de avaliação da Play** separada da conta do e2e. Unidade "Avaliação
+  Google Play", rotas de exemplo de 21 a 27/10. Ver `docs/play-store-metadata.md`.
+- **Build sem a cota do EAS:** a cota Free de builds Android acabou no mês,
+  gasta pelos builds de ajuste. O build passou a sair pelo GitHub Actions
+  (`eas-build-android.yml`, #603). O 1º esgotou o Metaspace do Gradle no lint e
+  travou até o timeout; com 6 GiB/2 GiB (#604), saiu em 35 min.
+- **1.13.0 (3037):** `eas submit` na interna, validação no moto g15 com o
+  binário da Play, e alpha + notas por API numa única edição. Notas (reaplicar
+  ao promover para produção):
+
+  > Mapa: tocar no pino agora abre a parada, com o mapa centralizado e o balão
+  > sempre visível. Entrega e retirada no mesmo endereço viram uma visita só. O
+  > gestor é avisado ao lançar rota para motorista que ainda não entrou no app.
+  > Correções de estabilidade.
+
+- **Avisos do Play Console sobre a 1.12.9:**
+  - ofuscação de 1%: o R8 está desligado; entra junto do SDK 57, com prazo até
+    fev/2027;
+  - APIs de ponta a ponta descontinuadas no Android 15: não estão no código do
+    app, devem vir de bibliotecas, e não têm prazo.
+
+## Pino do mapa nativo e motorista com conta duplicada (20/10/2026)
+
+- **Pino do mapa nativo (#594, fecha a pendência 18):** no Android o
+  `@maplibre/maplibre-react-native` tira o filho do `<Marker>` do Fabric, e um
+  `Pressable` lá dentro nunca recebe `onPress` (o upstream #1289 fechou sem
+  merge). O toque passou ao `onPress` do próprio `<Marker>`. O teste com o dedo
+  mostrou o resto:
+  - o balão e o bottom sheet abriam juntos: agora o 1º toque abre o balão e o
+    2º toque, ou "Toque para ver ações", abre o sheet;
+  - o mapa não centralizava;
+  - o balão ficava por baixo do pino vizinho: a ordem de desenho e a de toque
+    dos marcadores nativos são opostas, então o balão saiu do `<Marker>` e virou
+    uma camada sobre o mapa.
+
+  No aparelho apareceu um defeito anterior: o mapa voltava à visão geral a
+  cada render, porque o `theme` do Unistyles muda de identidade
+  (`eedb68a2`/`fe6ed3f5`). O mesmo no mapa web é o #596. O roteiro foi rodado
+  por adb num dev client + Metro (toques com `motionevent`), sem um build EAS
+  por ajuste; o build local esbarrou no limite de caminho do Windows.
+
+- **Modo navegação web sem mapa (#597).**
+- **Motorista com duas contas (#598):** um motorista que atende João Pessoa e
+  Cabedelo perdeu a rota da tarde. Em 26/02 Cabedelo o cadastrou com o e-mail
+  da loja, e nasceu uma 2ª conta com o mesmo telefone, que nunca fez login. Cinco
+  rotas foram para ela desde fevereiro. O vínculo pelo mesmo e-mail já existia e
+  funcionava (outro motorista fez 71 rotas da outra loja com uma conta só).
+  - **Dados:** a conta ativa foi vinculada às duas lojas e a órfã, desativada.
+  - **Banco:** a Migration 30 cria o telefone único entre motoristas ativos.
+  - **`criar-motorista` v14:** recusa com 409 o telefone já cadastrado e nunca
+    vincula pelo telefone.
+  - **Tela de Motoristas:** dica do vínculo pelo e-mail e toast de "vinculado".
+  - **Seleção de motorista:** selo e confirmação "Nunca entrou no app".
+  - **Processo:** feito por subagentes, com uma revisão por tarefa e a do branch
+    inteiro. O consentimento do vínculo ficou para a pendência 21.
+
+## Visita combinada, dependências e conta demo (19–20/10/2026)
+
+- **Dependências:** os 4 PRs do Dependabot estavam vermelhos só no audit, com 3
+  advisories novos (compression, shell-quote, source-map-js), que a `main` também
+  reprovava. Corrigido por `npm update` dentro dos ranges (#587). Entraram #586
+  (dev-deps), #585 (zod), #584 (maplibre-gl 6.14, com o e2e do mapa rodado antes
+  por `gh workflow run test.yml --ref <branch>`) e #583 (unistyles 3.5.3,
+  validado em build EAS e moto g15). Patches dos `expo-*` do SDK 56 em #592.
+- **"916h" na Início:** era dado de teste. O fixture do e2e restaurava a rota
+  demo sem limpar `iniciada_em`/`concluida_em` (#588). Motorista real não chega
+  a esse estado.
+- **Visita combinada (entrega + retirada no mesmo local):** havia 34 pares em
+  produção, e o motorista fazia tudo em dobro (mediana de ~45 s entre as duas
+  conclusões). A importação em lote descartava a 2ª linha. Entraram #590
+  (duplicata considera o tipo), #589 (otimizador mantém o grupo, entrega →
+  retirada) e #591 (motorista: card "Neste local", conclusão em sequência com
+  uma foto por serviço, pulo conjunto, pino "3+4", mini-mapa). O #591 foi feito
+  por subagentes (superpowers), com revisão por tarefa e do branch inteiro.
+  Validado no moto g15 com uma retirada de teste inserida e depois removida.
+- **Achados da validação em aparelho:** o mini-mapa tinha marcadores próprios
+  (corrigido no #591), e o toque em qualquer pino do mapa nativo não faz nada,
+  defeito anterior (#594). Também apareceu o erro da importação em lote sumindo
+  na primeira importação (#593).
+- **Conta demo:** o motorista demo estava desativado desde 05/10, o que quebrou
+  o e2e do mapa no #587. A causa provada é o robô de pré-lançamento da Play, que
+  usa a mesma conta do e2e (pendência 17).
+- **`expo doctor`:** a regressão de memória do Hermes V1 no SDK 56 levou a um
+  plano de upgrade para o SDK 57 (pendência 19).
+
 ## Release 1.12.9 (05/10/2026)
 
 - **Em interno + alpha** (3036) com notas pt-BR pedindo que o motorista confira

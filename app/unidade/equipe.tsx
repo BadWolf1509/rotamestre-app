@@ -21,6 +21,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -146,22 +147,43 @@ export default function EquipeScreen() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ ativo: !membro.ativo })
-        .eq('id', membro.id);
-
-      if (error) throw error;
+      let soNestaLoja = false;
+      if (membro.papel === 'motorista') {
+        // Motorista que atende outra loja sai só desta (o vínculo); o banco
+        // decide e recusa mexer na pessoa por aqui.
+        const { data, error } = await supabase.rpc(
+          'alternar_motorista_na_unidade',
+          {
+            p_motorista_id: membro.id,
+            p_unidade_id: userData?.unidade_id,
+            p_ativo: !membro.ativo,
+          },
+        );
+        if (error) throw error;
+        soNestaLoja = data === 'vinculo';
+      } else {
+        const { error } = await supabase
+          .from('usuarios')
+          .update({ ativo: !membro.ativo })
+          .eq('id', membro.id);
+        if (error) throw error;
+      }
 
       showToast(
-        `Usuário ${membro.ativo ? 'desativado' : 'reativado'} com sucesso!`,
+        soNestaLoja
+          ? `Motorista ${membro.ativo ? 'desativado' : 'reativado'} só nesta loja: ele também atende outra.`
+          : `Usuário ${membro.ativo ? 'desativado' : 'reativado'} com sucesso!`,
         'success',
         3000,
       );
       await loadMembros();
     } catch (error) {
       logger.error('Erro ao atualizar usuário', error);
-      showToast('Erro ao atualizar usuário', 'error', 4000);
+      showToast(
+        mensagemRegraDoBanco(error) ?? 'Erro ao atualizar usuário',
+        'error',
+        4000,
+      );
     }
   }
 

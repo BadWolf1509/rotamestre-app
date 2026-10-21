@@ -382,7 +382,9 @@ export function NavigationMode({
     endCheckpoint,
     isEntrega,
     mapLoaded,
-    theme,
+    // theme.colors, não theme: o useUnistyles devolve um theme novo a cada
+    // render, e com ele nas deps os marcadores eram recriados em todo render.
+    theme.colors,
   ]);
 
   // Add/update route polyline
@@ -569,21 +571,22 @@ export function NavigationMode({
     });
   };
 
-  // Loading state
-  if (!mapLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Carregando mapa...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* MapLibre Map */}
       <View style={styles.mapContainer}>
+        {/* O container existe desde o primeiro render: o efeito que cria o
+            mapa roda só no mount e sai cedo sem ele. O loading é overlay, e não
+            um early return — que deixava o mapa sem container e a tela em
+            "Carregando mapa..." para sempre. */}
         <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+        {!mapLoaded && (
+          <View style={styles.loadingOverlay} testID="navegacao-web-carregando">
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.loadingText}>Carregando mapa...</Text>
+          </View>
+        )}
 
         {/* Top Bar */}
         <View style={styles.topBar}>
@@ -661,8 +664,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flex: 1,
     backgroundColor: theme.colors.black,
   },
-  loadingContainer: {
-    flex: 1,
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: theme.colors.gray50,

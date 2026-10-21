@@ -25,6 +25,7 @@ import {
   toLngLat,
   zoomFromLongitudeDelta,
 } from '@/lib/maplibre';
+import { montarPinosDoMiniMap } from '@/lib/motorista/pinosPorLocal';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -130,6 +131,11 @@ export function MiniMap({
           isDeliveryStop(p),
       ),
     [paradas],
+  );
+  // Um pino por local: entrega + retirada no mesmo ponto saem como "2+3"
+  const pinosRestantes = useMemo(
+    () => montarPinosDoMiniMap(paradasRestantes),
+    [paradasRestantes],
   );
   const paradasConcluidas = useMemo(
     () => paradas.filter((p) => p.status === 'concluida' && isDeliveryStop(p)),
@@ -410,12 +416,12 @@ export function MiniMap({
               </MapLibreGL.Marker>
             ))}
 
-            {paradasRestantes.map((parada, index) => (
+            {pinosRestantes.map(({ principal, chave, rotulo, isNext }) => (
               <MapLibreGL.Marker
-                key={`pendente-${parada.id}`}
+                key={`pendente-${chave}`}
                 lngLat={toLngLat({
-                  latitude: parada.latitude,
-                  longitude: parada.longitude,
+                  latitude: principal.latitude,
+                  longitude: principal.longitude,
                 })}
                 anchor="center"
               >
@@ -423,10 +429,10 @@ export function MiniMap({
                   testID="marker"
                   style={[
                     styles.marker,
-                    index === 0 ? styles.markerNext : styles.markerPending,
+                    isNext ? styles.markerNext : styles.markerPending,
                   ]}
                 >
-                  <Text style={styles.markerText}>{parada.ordem}</Text>
+                  <Text style={styles.markerText}>{rotulo}</Text>
                 </View>
               </MapLibreGL.Marker>
             ))}

@@ -1228,3 +1228,79 @@ controle de segurança — a policy de INSERT de `logs` só exige
 outra migration.
 
 Revisada pelo `rls-policy-reviewer`: **APPROVE**, sem achado crítico.
+
+### ✅ Migration 30: telefone único entre motoristas ativos
+
+**Arquivo:** `20261020200000_motorista_telefone_unico.sql` · **aplicada em 20/10/2026**
+via MCP `apply_migration`, versão no banco `20261020184140`. Antes, uma sonda
+transacional (desfeita) provou a normalização dos três formatos, a busca e o
+bloqueio pelo índice.
+
+**Conta duplicada entre lojas.** O mesmo motorista cadastrado por duas lojas com
+e-mails diferentes virava duas contas, cada uma com as rotas de uma loja só. O
+telefone passa a ser a identidade entre motoristas **ativos**.
+
+**O que muda:** `normalizar_telefone(text)` (`IMMUTABLE`: só dígitos, tira o `55`
+com 12/13 dígitos, menos de 10 dígitos = `NULL`);
+`motorista_ativo_por_telefone(text)` (`STABLE`, `SECURITY INVOKER`, só
+`service_role`, para a Edge Function); índice único parcial
+`usuarios_motorista_telefone_unico` (`papel='motorista' AND ativo` e telefone
+normalizado não nulo). Um `DO $$` antes do índice aborta, listando os números, se
+já houver duplicata ativa. Sem tabela nova e sem policy.
+
+**Cliente:** `errorMapping` traduz o índice para "Telefone já cadastrado"
+(`UNIQUE_TELEFONE_MOTORISTA`), em vez do "Registro duplicado" genérico.
+
+### ✅ Migration 31: vínculo de motorista só pelo servidor
+
+**Arquivo:** `20261020220000_vinculo_motorista_seguro.sql` · **✅ aplicada em
+20/10/2026 pelo SQL Editor.** O SQL Editor não registra em `schema_migrations`;
+a linha foi inserida depois à mão, com a versão igual ao prefixo do arquivo
+(`20261020220000`, `created_by` = `sql-editor`), para o `migration list` casá-la.
+O MCP `apply_migration` recusou ("declined") por causa do `DROP POLICY`/`REVOKE`:
+migration com isso vai para o SQL Editor, rodada pelo gestor. Edge Function `criar-motorista` v15 publicada a partir da
+mesma PR. Antes, duas sondas transacionais (desfeitas) reproduziram os ataques no
+estado atual e mostraram o bloqueio no novo.
+
+**Vínculo sem consentimento.** A policy de INSERT de `usuario_unidades` só
+conferia a unidade de destino, nunca o `usuario_id`: qualquer gestor vinculava
+qualquer usuário à própria loja direto pelo PostgREST (medido: gestor de B
+inseriu vínculo de motorista de C). Depois do vínculo, `usuarios_update_optimized`
+deixava esse gestor desativar a pessoa, trocar o e-mail ou a unidade principal
+de motorista de outra empresa.
+
+**O que muda:**
+
+- `usuario_unidades`: as policies de INSERT/UPDATE/DELETE saem e o
+  `anon`/`authenticated` perdem INSERT/UPDATE/DELETE/TRUNCATE. Escrevem só a
+  Edge Function (service_role) e RPCs `SECURITY DEFINER`. O app não escrevia lá.
+- `motorista_atende_outra_loja(uuid)` (uso interno): vínculo, **ativo ou não**,
+  numa unidade em que `auth.uid()` não é gestor ativo. O inativo conta de
+  propósito: sem isso, a última loja a desativar caía no ramo "pessoa" e
+  desativava o motorista para todas.
+- Trigger `trava_motorista_outra_loja` (BEFORE UPDATE em `usuarios`): para quem
+  atende outra loja, o gestor só muda `nome` e `telefone`. Isentos: sem
+  `auth.uid()` (service role), o próprio usuário, quem tem `admin_role`, e o
+  preenchimento de `unidade_id` nulo pelo `sync_usuario_unidade_ativa`.
+- `listar_motoristas_unidade(uuid)`: a lista da tela Motoristas, com o vínculo
+  inativo da própria loja (a RLS de `usuarios` o esconde). Vínculo e pessoa
+  inativos ao mesmo tempo ficam fora, como antes. `vinculo_ativo` avisa a tela
+  de que perfil e edição não abrem nesse estado (a mesma RLS os bloqueia).
+- `alternar_motorista_na_unidade(uuid, uuid, boolean)`: o toggle. Quem atende
+  outra loja é desativado só nesta loja (o vínculo); quem atende uma só, a
+  pessoa, como antes. Reativar pessoa inativa que atende outra loja → suporte.
+
+**Junto, na Edge Function `criar-motorista`:** e-mail que já tem conta vira 409
+(não vincula mais), sai o `listUsers` + `deleteUser` de "órfão", e a loja do
+cadastro é a `unidade_id` do body, exigindo vínculo de gestor ativo nela (app
+antigo, sem o campo, cai na `usuarios.unidade_id`). Vínculo que falha desfaz a
+conta criada. **Ordem de deploy:** migration primeiro, função em seguida — a
+função nova não depende da migration, mas o app novo depende das duas RPCs.
+
+**Fica de fora:** o ramo "próprio usuário" de `usuarios_update_optimized` ainda
+aceita `ativo`/`unidade_id`, e o do gestor aceita `unidade_id` arbitrário para
+motorista de uma loja só (nenhuma policy lê `get_user_unidade()` hoje).
+
+Revisada pelo `rls-policy-reviewer`: **APPROVE**; os warnings da trava com o
+`sync_usuario_unidade_ativa` e da corrida do toggle (`FOR UPDATE`) foram
+incorporados.
