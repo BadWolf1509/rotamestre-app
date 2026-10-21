@@ -91,7 +91,7 @@ export function useAuth() {
   // Push token unregistration is handled by the SIGNED_OUT event in onAuthStateChange
   const signOut = useCallback(async () => {
     await clearAllCache(); // Limpar todo o cache ao fazer logout
-    return supabase.auth.signOut();
+    return supabase.auth.signOut({ scope: 'local' });
   }, []);
 
   return {

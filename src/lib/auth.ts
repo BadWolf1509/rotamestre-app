@@ -115,7 +115,7 @@ export const authService = {
   // Logout
   async signOut() {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       // Ignora erro "Auth session missing" pois o objetivo é deslogar
       // Se não há sessão, o usuário já está deslogado
       if (error && !error.message?.includes('Auth session missing')) {

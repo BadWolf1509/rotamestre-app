@@ -25,7 +25,7 @@ export function useDrawerLogout({ onClose }: UseDrawerLogoutOptions) {
     setShowLogoutDialog(false);
 
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
       onClose();
       router.replace('/auth/login');
     } catch (error) {
