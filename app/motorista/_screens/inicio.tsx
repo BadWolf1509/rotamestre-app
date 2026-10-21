@@ -37,7 +37,12 @@ import {
 } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
+import {
+  avisoDeFalhaNoPulo,
+  pularEmSequencia,
+} from '@/lib/motorista/puloDaVisita';
 import {
   chegouPelaParadaAnterior,
   paradasDaVisita,
@@ -343,19 +348,24 @@ function MotoristaInicioContent() {
     const parada = modals.selectedParadaForSkip;
     if (!parada) return;
     modals.closeSkipModal();
-    try {
-      // Em sequência, a parada primeiro: se um pulo falhar, os seguintes não
-      // rodam e o sucesso não é anunciado.
-      const alvos = incluirOutros ? paradasDaVisita(paradas, parada) : [parada];
-      for (const alvo of alvos) {
-        await skipStop(alvo.id, motivo, observacoes);
-      }
+    // Em sequência, a parada primeiro: se um pulo falhar, os seguintes não
+    // rodam e o sucesso não é anunciado.
+    const alvos = incluirOutros ? paradasDaVisita(paradas, parada) : [parada];
+    const { pulados, falha } = await pularEmSequencia(alvos, (alvo) =>
+      skipStop(alvo.id, motivo, observacoes),
+    );
+    if (!falha) {
       showSuccess(
         alvos.length > 1 ? 'Paradas Puladas' : 'Parada Pulada',
         SKIP_REASON_LABELS[motivo],
       );
-    } catch (error: unknown) {
-      showError(error);
+    } else if (alvos.length > 1) {
+      // Com vários serviços, o erro genérico não diz o que já foi pulado.
+      showError(
+        avisoDeFalhaNoPulo(pulados, falha, getErrorMessage(falha.erro).message),
+      );
+    } else {
+      showError(falha.erro);
     }
   };
 

@@ -34,11 +34,12 @@ let mockParadas: Array<typeof PARADA> = [PARADA];
 let mockCurrentStop: typeof PARADA = PARADA;
 const mockSkipStop = jest.fn();
 const mockShowSuccess = jest.fn();
+const mockShowError = jest.fn();
 jest.mock('@/hooks/useAlert', () => ({
   useAlert: () => ({
     showWarning: jest.fn(),
     showSuccess: (...a: unknown[]) => mockShowSuccess(...a),
-    showError: jest.fn(),
+    showError: (...a: unknown[]) => mockShowError(...a),
     AlertDialog: () => null,
   }),
 }));
@@ -596,5 +597,38 @@ describe('Início do motorista — pular os serviços do local juntos', () => {
     await waitFor(() => expect(mockSkipStop).toHaveBeenCalledTimes(1));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mockSkipStop).toHaveBeenCalledTimes(1);
+  });
+
+  // Erro genérico depois de um pulo parcial deixava o motorista sem saber se
+  // a entrega tinha ido: refazia tudo ou deixava a retirada para trás.
+  it('falha parcial diz qual serviço foi pulado e qual falhou', async () => {
+    mockShowError.mockClear();
+    mockShowSuccess.mockClear();
+    mockSkipStop
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('falhou'));
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-com-outros'));
+
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledTimes(1));
+    const [aviso] = mockShowError.mock.calls[0];
+    expect(aviso.title).toBe('Pulo incompleto');
+    expect(aviso.message).toContain('Pulada: Entrega (parada 3).');
+    expect(aviso.message).toContain('Não foi pulada: Retirada (parada 4).');
+    expect(mockShowSuccess).not.toHaveBeenCalled();
+  });
+
+  it('falha ao pular um serviço só segue com o erro traduzido', async () => {
+    mockShowError.mockClear();
+    const erro = new Error('falhou');
+    mockSkipStop.mockRejectedValueOnce(erro);
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await abrirModalDePular(getByText, findByText);
+
+    fireEvent.press(getByText('confirmar-sem-outros'));
+
+    await waitFor(() => expect(mockShowError).toHaveBeenCalledWith(erro));
   });
 });
