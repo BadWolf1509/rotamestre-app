@@ -133,7 +133,24 @@ module.exports = ({ config }) => {
             "O Rota Mestre usa a câmera para fotografar o comprovante de entrega.",
         },
       ],
-      "expo-sharing"
+      "expo-sharing",
+      // R8 (minificação + ofuscação) e shrinkResources no release Android —
+      // tira o aviso de ofuscação da Play. As libs nativas trazem as próprias
+      // regras (docs/superpowers/plans/2026-10-20-ativar-r8-android.md), com uma
+      // exceção: o expo-modules-core acha o RNHeadlessAppLoader por Class.forName
+      // a partir de um meta-data do manifest, e sem o keep o R8 o remove — o job
+      // de localização em segundo plano cai em NPE e o app entra em crash em loop.
+      [
+        "expo-build-properties",
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+            extraProguardRules:
+              "-keep class * implements expo.modules.apploader.HeadlessAppLoader { <init>(); }",
+          },
+        },
+      ]
       // MapLibre usa plugin oficial para ajustes nativos (gradle/podfile)
     ]
   };
