@@ -123,13 +123,16 @@ Installed in `.claude/`:
   without them falls back to `placeholder.supabase.co`. Android submit uses the
   gitignored service account in `play-store-credentials.json`; iOS credentials
   stay in EAS/Apple. Version bumps are mandatory before a new store artifact.
+  **The Free plan has a monthly Android build quota shared by preview/dev and
+  release builds** — iterate JS fixes with a dev client + Metro, not EAS
+  builds; when the quota is gone, build with the GitHub Actions workflow
+  `eas-build-android.yml` (`eas build --local` on Linux, secret `EXPO_TOKEN`).
   Follow `docs/GOOGLE_PLAY_DEPLOYMENT.md` and
   `docs/APP_STORE_DEPLOYMENT.md`.
 - **Asaas** — billing pending; `unidades.asaas_customer_id` is the join key when work begins.
 
 ---
 
-**Operational status:** see `docs/PROJECT_CONTEXT.md` (last consolidated
-25/07/2026). Read current versions from `package.json`, migration state from
+**Operational status:** see `docs/PROJECT_CONTEXT.md`. Read current versions from `package.json`, migration state from
 `npx supabase migration list`, and distribution state from EAS/Play Console.
 Do not maintain another release snapshot in this architecture guide.

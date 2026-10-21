@@ -8,6 +8,42 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.13.0, vínculo seguro e conta de avaliação da Play (20–21/10/2026)
+
+- **Vínculo multi-loja (#600, Migration 31):**
+  - **Problemas:** qualquer gestor vinculava qualquer pessoa à própria loja,
+    pela Edge Function (bastava o e-mail) ou direto pelo PostgREST; a função
+    apagava e recriava conta existente no Auth (tomada de conta), e o gestor
+    intruso podia desativar o motorista.
+  - **Agora:** `usuario_unidades` só aceita escrita pelo servidor; o
+    `criar-motorista` v15 recusa e-mail existente e nunca apaga conta. Motorista
+    de duas lojas: cada loja desativa só o próprio vínculo
+    (`alternar_motorista_na_unidade`) e só edita nome e telefone (trigger
+    `trava_motorista_outra_loja`).
+  - **Aplicação:** o MCP recusou a migration por causa de `DROP POLICY`/`REVOKE`;
+    o gestor rodou no SQL Editor, e a linha em `schema_migrations` foi inserida
+    depois. O convite aceito pelo motorista ficou para decisão (pendência 21).
+- **Conta de avaliação da Play** separada da conta do e2e. Unidade "Avaliação
+  Google Play", rotas de exemplo de 21 a 27/10. Ver `docs/play-store-metadata.md`.
+- **Build sem a cota do EAS:** a cota Free de builds Android acabou no mês,
+  gasta pelos builds de ajuste. O build passou a sair pelo GitHub Actions
+  (`eas-build-android.yml`, #603). O 1º esgotou o Metaspace do Gradle no lint e
+  travou até o timeout; com 6 GiB/2 GiB (#604), saiu em 35 min.
+- **1.13.0 (3037):** `eas submit` na interna, validação no moto g15 com o
+  binário da Play, e alpha + notas por API numa única edição. Notas (reaplicar
+  ao promover para produção):
+
+  > Mapa: tocar no pino agora abre a parada, com o mapa centralizado e o balão
+  > sempre visível. Entrega e retirada no mesmo endereço viram uma visita só. O
+  > gestor é avisado ao lançar rota para motorista que ainda não entrou no app.
+  > Correções de estabilidade.
+
+- **Avisos do Play Console sobre a 1.12.9:**
+  - ofuscação de 1%: o R8 está desligado; entra junto do SDK 57, com prazo até
+    fev/2027;
+  - APIs de ponta a ponta descontinuadas no Android 15: não estão no código do
+    app, devem vir de bibliotecas, e não têm prazo.
+
 ## Pino do mapa nativo e motorista com conta duplicada (20/10/2026)
 
 - **Pino do mapa nativo (#594, fecha a pendência 18):** no Android o
