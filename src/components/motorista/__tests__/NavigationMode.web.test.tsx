@@ -59,6 +59,14 @@ jest.mock('../NavigationSettings', () => ({
   NavigationSettings: () => null,
 }));
 
+const mockShowConfirm = jest.fn((_opcoes: unknown) => new Promise(() => {}));
+jest.mock('@/hooks/useAlert', () => ({
+  useAlert: () => ({
+    showConfirm: mockShowConfirm,
+    AlertDialog: () => null,
+  }),
+}));
+
 const mockParada = (id: string, ordem: number) => ({
   id,
   ordem,
@@ -75,7 +83,7 @@ const PROXIMA = mockParada('p2', 2);
 const PARADAS = [PARADA_ATUAL, PROXIMA];
 
 // Retorno estável entre renders: só o theme muda de um render para outro.
-const mockLogica = {
+const mockLogica: { distance: number | null; [chave: string]: unknown } = {
   userLocation: null,
   speed: 0,
   distance: null,
@@ -144,10 +152,10 @@ const onComplete = jest.fn();
 const onSkip = jest.fn();
 const onExit = jest.fn();
 
-function elemento() {
+function elemento(paradaAtual = PARADA_ATUAL) {
   return (
     <NavigationMode
-      currentStop={PARADA_ATUAL}
+      currentStop={paradaAtual}
       nextStop={PROXIMA}
       paradas={PARADAS}
       rotaId="rota-1"
@@ -212,5 +220,51 @@ describe('NavigationMode.web – mapa inicializa', () => {
     tela.rerender(elemento());
 
     expect(MockMarker.mock.calls.length).toBe(marcadoresNoLoad);
+  });
+});
+
+describe('NavigationMode.web – aviso de chegada', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMapa.handlers.clear();
+    mockLogica.distance = null;
+  });
+
+  afterAll(() => {
+    mockLogica.distance = null;
+  });
+
+  // Cada posição nova dentro do raio muda a distância e re-dispara o efeito.
+  // Sem a guarda por parada (a do nativo, `chegadaAnunciadaPara` em
+  // locationTracking.ts), o "Chegou ao Destino!" reabria a cada leitura.
+  it('avisa uma vez por parada, mesmo com várias posições dentro do raio', async () => {
+    mockLogica.distance = 20;
+    const tela = await renderizarCarregado();
+    mockLogica.distance = 15;
+    tela.rerender(elemento());
+    mockLogica.distance = 8;
+    tela.rerender(elemento());
+
+    expect(mockShowConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('avisa de novo depois de sair e voltar ao raio', async () => {
+    mockLogica.distance = 20;
+    const tela = await renderizarCarregado();
+    mockLogica.distance = 200;
+    tela.rerender(elemento());
+    mockLogica.distance = 10;
+    tela.rerender(elemento());
+
+    expect(mockShowConfirm).toHaveBeenCalledTimes(2);
+  });
+
+  it('avisa a próxima parada ao chegar nela', async () => {
+    mockLogica.distance = 20;
+    const tela = await renderizarCarregado();
+    mockLogica.distance = 12;
+    tela.rerender(elemento(PROXIMA));
+
+    expect(mockShowConfirm).toHaveBeenCalledTimes(2);
   });
 });

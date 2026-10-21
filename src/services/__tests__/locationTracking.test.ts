@@ -103,7 +103,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
-import locationTrackingService from '../locationTracking';
+import locationTrackingService, {
+  PREFERENCIAS_PADRAO,
+} from '../locationTracking';
 
 describe('LocationTrackingService', () => {
   let consoleSpy: jest.SpyInstance;
@@ -374,6 +376,51 @@ describe('LocationTrackingService', () => {
         '[ERROR]',
         '[LocationTracking] Error updating preferences',
         expect.any(Error),
+      );
+    });
+  });
+
+  describe('restaurarPreferenciasPadrao', () => {
+    it('apaga as preferências salvas em vez de gravar os padrões', async () => {
+      // Gravar os padrões de hoje os congelaria: um padrão alterado numa versão
+      // futura nunca alcançaria quem tivesse restaurado (pendência 15d).
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ soundAlerts: false, proximityRadius: 90 }),
+      );
+
+      await locationTrackingService.restaurarPreferenciasPadrao();
+
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+        'navigationPreferences',
+      );
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
+        'navigationPreferences',
+        expect.anything(),
+      );
+
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      expect(await locationTrackingService.getNavigationPreferences()).toEqual(
+        PREFERENCIAS_PADRAO,
+      );
+    });
+
+    it('com rastreamento ativo, a sessão em curso volta aos padrões', async () => {
+      (locationTrackingService as any).navigationState = {
+        ...PREFERENCIAS_PADRAO,
+        soundAlerts: false,
+        proximityRadius: 90,
+        rotaId: 'rota-1',
+      };
+
+      await locationTrackingService.restaurarPreferenciasPadrao();
+
+      const estado = (locationTrackingService as any).navigationState;
+      expect(estado.soundAlerts).toBe(true);
+      expect(estado.proximityRadius).toBe(50);
+      expect(estado.rotaId).toBe('rota-1');
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'navigationState',
+        JSON.stringify(estado),
       );
     });
   });

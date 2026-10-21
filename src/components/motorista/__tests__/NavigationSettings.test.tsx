@@ -30,6 +30,7 @@ jest.mock('@/services/locationTracking', () => ({
       proximityRadius: 50,
     }),
     updateNavigationPreferences: jest.fn().mockResolvedValue(undefined),
+    restaurarPreferenciasPadrao: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -252,6 +253,25 @@ describe('NavigationSettings', () => {
         }),
       );
     });
+  });
+
+  it('Restaurar Padrões limpa as preferências, sem gravar os padrões', async () => {
+    const LocationTrackingService = jest.requireMock(
+      '@/services/locationTracking',
+    ).default;
+    global.mockUseAlert.showConfirm.mockResolvedValueOnce(true);
+    const { getByText } = render(<NavigationSettings visible={true} />);
+
+    fireEvent.press(getByText('Restaurar Padrões'));
+
+    await waitFor(() => {
+      expect(
+        LocationTrackingService.restaurarPreferenciasPadrao,
+      ).toHaveBeenCalledTimes(1);
+    });
+    expect(
+      LocationTrackingService.updateNavigationPreferences,
+    ).not.toHaveBeenCalled();
   });
 
   it('deve mostrar descrição dos Alertas Sonoros', () => {

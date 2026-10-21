@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 // Importa versão diretamente do package.json (funciona em todas as plataformas)
- 
+
 const packageJson = require('../../package.json');
 
 /**
@@ -73,4 +73,19 @@ export function getVersionString(): string {
 export function getFullVersionString(): string {
   const info = getVersionInfo();
   return `${info.version} (${info.buildNumber}) - ${info.platform}`;
+}
+
+/**
+ * `X-Client-Info` do cliente Supabase nativo (ex:
+ * "rotamestre/1.13.0+3037; supabase-js; runtime=react-native").
+ *
+ * POR QUE NESTE HEADER, e não num `x-app-version` próprio: os edge_logs do
+ * Supabase só guardam uma lista fixa de headers (accept, cf_*, content_*,
+ * prefer, referer, user_agent, x_client_info — medido em 21/10/2026). Um header
+ * novo chegaria ao servidor e sumiria dos logs. Substitui o padrão do
+ * supabase-js (`supabase-js/<versão>; runtime=react-native`), que só dizia a
+ * versão da lib. Consulta: `log_attributes['request.headers.x_client_info']`.
+ */
+export function getSupabaseClientInfo(): string {
+  return `rotamestre/${getAppVersion()}+${getBuildNumber()}; supabase-js; runtime=react-native`;
 }
