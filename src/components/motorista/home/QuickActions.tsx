@@ -288,8 +288,16 @@ export function FloatingActionButton({
       disabled={disabled}
     >
       <Ionicons name={icon} size={28} color={theme.colors.white} />
+      {/* Cabe num círculo de 64 px: com a fonte do sistema em 2.0, "Navegar"
+          quebrava em "Nave / gar". Uma linha, encolhendo até caber. */}
       {label && (
-        <Text style={[fabStyles.fabLabel, { color: theme.colors.white }]}>
+        <Text
+          style={[fabStyles.fabLabel, { color: theme.colors.white }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+          maxFontSizeMultiplier={1.3}
+        >
           {label}
         </Text>
       )}
@@ -396,6 +404,8 @@ const fabStyles = StyleSheet.create((theme: Theme) => ({
     zIndex: 15,
   },
   fabLabel: {
+    maxWidth: '100%',
+    paddingHorizontal: theme.spacing['1'],
     fontSize: theme.typography.fontSize.xs,
     marginTop: theme.spacing['0.5'],
     fontFamily: theme.typography.fontSansSemiBold,

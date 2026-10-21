@@ -427,6 +427,26 @@ describe('FloatingActionButton', () => {
       expect(getByText('Adicionar')).toBeTruthy();
     });
 
+    // Com a fonte do sistema em 2.0, "Navegar" quebrava em "Nave / gar"
+    // dentro do círculo de 64 px. O CI não aplica escala de fonte, então o
+    // teste fixa as props que seguram o rótulo numa linha.
+    it('mantém o label numa linha, encolhendo em vez de quebrar', () => {
+      const { getByText } = render(
+        <FloatingActionButton
+          icon="navigate"
+          color="#4CAF50"
+          onPress={mockOnPress}
+          label="Navegar"
+        />,
+      );
+
+      const label = getByText('Navegar');
+      expect(label.props.numberOfLines).toBe(1);
+      expect(label.props.adjustsFontSizeToFit).toBe(true);
+      expect(label.props.minimumFontScale).toBeLessThan(1);
+      expect(label.props.maxFontSizeMultiplier).toBeGreaterThanOrEqual(1);
+    });
+
     it('não deve renderizar label quando undefined', () => {
       const { queryByText } = render(
         <FloatingActionButton
