@@ -183,10 +183,35 @@ Play Developer API:
    `{ "releases": [{ "versionCodes": ["3025"], "status": "completed" }] }`
 3. `POST /edits/{editId}:commit`
 
-A autenticação pronta está em `scripts/publish-play-listing.mjs`: JWT RS256
-assinado com `node:crypto`, trocado por token no escopo `androidpublisher`,
-**sem dependências externas**. Reaproveite esse padrão — a API já está
-conectada, não precisa de conta nem biblioteca nova.
+Isso está pronto em `npm run play:promote` (`scripts/play-promote.mjs`, com o
+cliente em `scripts/lib/play-api.mjs` e o corpo da release em
+`scripts/lib/play-release.js`, coberto por Jest):
+
+```bash
+npm run play:promote -- internal,alpha 3037 1.13.0 --notas=notas.txt --dry-run
+```
+
+- **Várias trilhas separadas por vírgula** vão na **mesma edição**, com um
+  único commit: ou todas mudam, ou nenhuma. É o jeito de cumprir a regra de
+  precedência acima (interna e fechado servindo o mesmo build).
+- **`--notas=<arquivo>`** aplica o texto como notas da versão em pt-BR. O
+  limite é **500 caracteres** (contados como caracteres, não bytes; CRLF vira
+  LF e BOM é descartado); acima disso, ou com arquivo vazio, o script recusa
+  antes de tocar na Play.
+- **Sem `--notas`, a release sai sem notas — e as que a trilha tinha somem**,
+  porque o `PUT` substitui a release inteira. O `eas submit` da interna também
+  sobe sem notas. Até a 1.13.0 isso era resolvido com script temporário; agora,
+  depois do `eas submit`, rode o `play:promote` com `--notas` para a interna
+  (mesmo versionCode) junto das demais trilhas. Para só reaplicar notas numa
+  trilha, é a mesma chamada com o versionCode que ela já serve.
+- `--rollout=N` só aceita **uma** trilha: rollout gradual é de produção, e
+  aplicar a mesma fração à interna junto seria acidente.
+- `npm run play:status` mostra, por release, se há notas e quantos caracteres
+  têm — confira depois de publicar.
+
+A autenticação (JWT RS256 assinado com `node:crypto`, trocado por token no
+escopo `androidpublisher`) é **sem dependências externas**;
+`scripts/publish-play-listing.mjs` mantém uma cópia própria do mesmo esquema.
 
 O arquivo `play-store-credentials.json` é local, gitignored e referenciado pelo
 EAS Submit. Ele nunca deve aparecer em issue, log, documentação ou commit.
