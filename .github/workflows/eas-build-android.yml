@@ -37,7 +37,7 @@ jobs:
   build:
     name: Build ${{ inputs.profile }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Conferir o secret
@@ -68,6 +68,22 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # O prebuild gera android/gradle.properties com -Xmx2048m e
+      # MaxMetaspaceSize=512m. No 1º build (20/10/2026) o daemon esgotou o
+      # Metaspace no lint de release, a tarefa falhou e o processo ficou parado
+      # até o timeout. O gradle.properties do usuário tem precedência sobre o do
+      # projeto; o runner de repositório público tem 16 GB.
+      - name: Memória do Gradle
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=2g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          org.gradle.daemon=false
+          org.gradle.parallel=true
+          org.gradle.workers.max=4
+          EOF
+          cat ~/.gradle/gradle.properties
+
       - name: Instalar dependências
         run: npm ci
 
@@ -89,5 +105,8 @@ jobs:
         with:
           name: ${{ env.SAIDA }}
           path: ${{ env.SAIDA }}
-          retention-days: 14
+          # Repositório público: artefato fica baixável por qualquer conta
+          # logada. O .aab assinado vai para a loja de todo jeito, mas não há
+          # por que deixá-lo exposto além do tempo de baixar e enviar.
+          retention-days: 3
           if-no-files-found: error
