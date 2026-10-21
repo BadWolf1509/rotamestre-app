@@ -3,6 +3,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
+import { getSupabaseClientInfo } from './appVersion';
 import { criarFetchComTimeout } from './fetchComTimeout';
 import { logger } from './logger';
 import { secureAuthStorage } from './secureAuthStorage';
@@ -59,6 +60,11 @@ if (isSupabaseConfigured) {
       // porque o mesmo cliente carrega o upload da foto do comprovante. Ver
       // `fetchComTimeout.ts`.
       fetch: criarFetchComTimeout(),
+      // Versão do app nos logs HTTP: sem isto não se sabia quem estava em
+      // qual versão (o user-agent é sempre o do okhttp). Vai no X-Client-Info
+      // porque é um dos poucos headers que os edge_logs guardam — ver
+      // `getSupabaseClientInfo`. Só no nativo; o web segue com o padrão.
+      headers: { 'X-Client-Info': getSupabaseClientInfo() },
     },
   });
 
@@ -96,6 +102,7 @@ if (isSupabaseConfigured) {
       // E2E/CI herda o `fetch` sem prazo do runtime.
       global: {
         fetch: criarFetchComTimeout(),
+        headers: { 'X-Client-Info': getSupabaseClientInfo() },
       },
     },
   );
