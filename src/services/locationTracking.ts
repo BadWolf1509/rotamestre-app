@@ -463,6 +463,33 @@ class LocationTrackingService {
       logger.error('[LocationTracking] Error updating preferences', error);
     }
   }
+
+  /**
+   * "Restaurar Padrões": APAGA o que foi salvo, em vez de gravar os padrões.
+   * Gravá-los os congelaria no storage — um padrão alterado numa versão
+   * futura nunca alcançaria quem tivesse restaurado (ver
+   * `lerPreferenciasCruas`). A leitura já completa tudo com
+   * `PREFERENCIAS_PADRAO`.
+   */
+  async restaurarPreferenciasPadrao() {
+    try {
+      await AsyncStorage.removeItem('navigationPreferences');
+
+      // A sessão em curso (lida pela task de segundo plano) volta aos padrões.
+      if (this.navigationState) {
+        this.navigationState = {
+          ...this.navigationState,
+          ...PREFERENCIAS_PADRAO,
+        };
+        await AsyncStorage.setItem(
+          'navigationState',
+          JSON.stringify(this.navigationState),
+        );
+      }
+    } catch (error) {
+      logger.error('[LocationTracking] Error restoring preferences', error);
+    }
+  }
 }
 
 // Background task definition

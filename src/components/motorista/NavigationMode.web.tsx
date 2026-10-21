@@ -454,15 +454,25 @@ export function NavigationMode({
     }
   }, [currentStop, onComplete, onSkip, showConfirm]);
 
+  // Parada cuja chegada já foi avisada — cada posição dentro do raio re-dispara
+  // o efeito, e sem isto o diálogo reabria a cada leitura (o nativo tem a
+  // mesma guarda, `chegadaAnunciadaPara` em locationTracking.ts).
+  const chegadaAvisadaParaRef = useRef<string | null>(null);
+
   const checkProximityAndAutoAdvance = useCallback(
     (distance: number) => {
       // Só se chega aqui com "Navegar com: Mapa do RotaMestre" — o aviso de
       // chegada é parte do modo, não de uma chave à parte.
-      if (distance < proximityRadius) {
-        handleArrival();
+      if (distance >= proximityRadius) {
+        // Saiu do raio: uma nova chegada volta a ser avisada.
+        chegadaAvisadaParaRef.current = null;
+        return;
       }
+      if (chegadaAvisadaParaRef.current === currentStop.id) return;
+      chegadaAvisadaParaRef.current = currentStop.id;
+      handleArrival();
     },
-    [handleArrival, proximityRadius],
+    [currentStop.id, handleArrival, proximityRadius],
   );
 
   const [temPermissaoDeLocalizacao, setTemPermissaoDeLocalizacao] =

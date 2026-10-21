@@ -1,0 +1,76 @@
+/**
+ * NavigationInfoPanel – botões com a fonte do sistema ampliada
+ *
+ * Com a fonte do sistema em 2.0 (moto g15, teste de rua da 1.12.9), "Concluir"
+ * encostava na borda do botão. O CI não aplica escala de fonte, então o teste
+ * fixa as props que seguram o rótulo numa linha e o respiro lateral — as
+ * mesmas que "Abrir no Google Maps" já tinha desde o #579.
+ */
+
+import { render } from '@testing-library/react-native';
+import React from 'react';
+import { Animated, StyleSheet } from 'react-native';
+
+import type { ParadaData } from '@/context/RouteStatusContext';
+
+import { NavigationInfoPanel } from '../NavigationInfoPanel';
+
+const parada = {
+  id: 'p1',
+  ordem: 1,
+  endereco: 'Rua A, 1',
+  latitude: -23.5,
+  longitude: -46.6,
+  status: 'pendente',
+  tipo: 'entrega',
+  is_checkpoint: true,
+} as unknown as ParadaData;
+
+function renderizar() {
+  return render(
+    <NavigationInfoPanel
+      currentStop={parada}
+      nextStop={null}
+      realParadas={[parada]}
+      currentStopIndex={0}
+      distance={120}
+      eta="2 min"
+      speed={0}
+      isEntrega
+      preferences={{} as never}
+      pulseAnim={new Animated.Value(1)}
+      buttonScaleAnims={{
+        skip: new Animated.Value(1),
+        maps: new Animated.Value(1),
+        complete: new Animated.Value(1),
+      }}
+      formatDistance={(m) => `${m} m`}
+      getSpeedColor={() => '#000'}
+      onAnimateButtonPress={jest.fn()}
+      onComplete={jest.fn()}
+      onSkip={jest.fn()}
+      onOpenInMaps={jest.fn()}
+      rotuloAppExterno="Abrir no Google Maps"
+    />,
+  );
+}
+
+describe('NavigationInfoPanel – botões de ação', () => {
+  it.each(['Pular', 'Concluir', 'Abrir no Google Maps'])(
+    '"%s" fica numa linha e encolhe ao lado do ícone',
+    (rotulo) => {
+      const texto = renderizar().getByText(rotulo);
+
+      expect(texto.props.numberOfLines).toBe(1);
+      expect(StyleSheet.flatten(texto.props.style).flexShrink).toBe(1);
+    },
+  );
+
+  it('o botão tem respiro lateral, para o rótulo não encostar na borda', () => {
+    const texto = renderizar().getByText('Concluir');
+    const botao = texto.parent?.parent;
+    const estilo = StyleSheet.flatten(botao?.props.style);
+
+    expect(estilo.paddingHorizontal).toBeGreaterThan(0);
+  });
+});

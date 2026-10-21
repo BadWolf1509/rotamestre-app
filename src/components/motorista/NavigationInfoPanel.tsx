@@ -236,7 +236,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
               size={20}
               color={theme.colors.warning}
             />
-            <Text style={styles.skipButtonText}>Pular</Text>
+            <Text style={styles.skipButtonText} numberOfLines={1}>
+              Pular
+            </Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -272,7 +274,9 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
               size={20}
               color={theme.colors.white}
             />
-            <Text style={styles.completeButtonText}>Concluir</Text>
+            <Text style={styles.completeButtonText} numberOfLines={1}>
+              Concluir
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -465,12 +469,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     gap: theme.spacing.xs + 2,
     paddingVertical: theme.spacing.md,
+    // Com a fonte do sistema ampliada o rótulo encostava na borda.
+    paddingHorizontal: theme.spacing.sm,
     borderRadius: theme.borderRadius.sm,
   },
   skipButton: {
     backgroundColor: theme.colors.warningBg,
   },
   skipButtonText: {
+    flexShrink: 1,
     color: theme.colors.warning,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
@@ -493,6 +500,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.success,
   },
   completeButtonText: {
+    flexShrink: 1,
     color: theme.colors.white,
     fontFamily: theme.typography.fontSansSemiBold,
     fontSize: theme.typography.fontSize.sm,
