@@ -13,6 +13,8 @@ import { View, Text, TouchableOpacity, Linking } from 'react-native';
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { logger } from '@/lib/logger';
+import { rotuloDoPino } from '@/lib/motorista/pinosPorLocal';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { showNavigationOptions } from '@/utils/navigation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -30,6 +32,11 @@ interface Parada {
 
 interface ParadaBottomSheetProps {
   parada: Parada | null;
+  /**
+   * Todos os serviços do pino (entrega + retirada no mesmo local), por
+   * `ordem`, incluindo `parada`. Com mais de um, o sheet lista cada um.
+   */
+  servicosNoLocal?: Parada[];
   visible: boolean;
   onClose: () => void;
   onNavigate?: (parada: Parada) => void;
@@ -39,6 +46,7 @@ interface ParadaBottomSheetProps {
 
 export function ParadaBottomSheet({
   parada,
+  servicosNoLocal,
   visible,
   onClose,
   onNavigate,
@@ -70,6 +78,8 @@ export function ParadaBottomSheet({
         return 'Em andamento';
       case 'pendente':
         return 'Pendente';
+      case 'pulada':
+        return 'Pulada';
       default:
         return status;
     }
@@ -93,11 +103,18 @@ export function ParadaBottomSheet({
 
   if (!parada) return null;
 
+  const agrupado = (servicosNoLocal?.length ?? 0) > 1;
+  const servicos = agrupado ? (servicosNoLocal as Parada[]) : [parada];
+
   return (
     <DesktopModal
       visible={visible}
       onClose={onClose}
-      title={`Parada ${parada.ordem}`}
+      title={
+        agrupado
+          ? `Paradas ${rotuloDoPino(servicos)}`
+          : `Parada ${parada.ordem}`
+      }
       maxWidth={480}
       contentStyle={styles.modalContent}
     >
@@ -109,7 +126,9 @@ export function ParadaBottomSheet({
             { backgroundColor: getStatusColor(parada.status) },
           ]}
         >
-          <Text style={styles.orderText}>{parada.ordem}</Text>
+          <Text style={styles.orderText}>
+            {agrupado ? rotuloDoPino(servicos) : parada.ordem}
+          </Text>
         </View>
         <View style={styles.headerDetails}>
           <View style={styles.statusContainer}>
@@ -141,8 +160,32 @@ export function ParadaBottomSheet({
         <Text style={styles.addressText}>{parada.endereco}</Text>
       </View>
 
+      {/* Serviços do local: o "Concluir" abaixo emenda um no outro */}
+      {agrupado && (
+        <View style={styles.servicosContainer}>
+          <Text style={styles.servicosTitulo}>Neste local</Text>
+          {servicos.map((s) => (
+            <View
+              key={s.id}
+              style={styles.servicoLinha}
+              testID={`servico-no-local-${s.id}`}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: getStatusColor(s.status) },
+                ]}
+              />
+              <Text style={styles.tipoText}>
+                {`${s.ordem} · ${rotuloTipoParada(s.tipo ?? '').titulo} · ${getStatusLabel(s.status)}`}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Tipo (se disponível) */}
-      {parada.tipo && (
+      {!agrupado && parada.tipo && (
         <View style={styles.tipoContainer}>
           <Ionicons
             name={
@@ -334,6 +377,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.textSecondary,
+  },
+  servicosContainer: {
+    gap: theme.spacing['2'],
+    marginBottom: theme.spacing['5'],
+  },
+  servicosTitulo: {
+    fontSize: theme.typography.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.textSecondary,
+  },
+  servicoLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing['2'],
   },
   actions: {
     flexDirection: 'row',

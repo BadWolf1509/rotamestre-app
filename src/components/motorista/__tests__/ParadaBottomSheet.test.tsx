@@ -518,4 +518,72 @@ describe('ParadaBottomSheet', () => {
       expect(getByTestId('icon-arrow-up-circle-outline')).toBeTruthy();
     });
   });
+
+  // Pino agrupado (entrega + retirada no mesmo local): o sheet mostrava só a
+  // principal, e o motorista não via que havia outro serviço ali.
+  describe('Serviços no mesmo local', () => {
+    const entrega = {
+      ...mockParada,
+      id: 'p3',
+      ordem: 3,
+      tipo: 'entrega',
+      status: 'pendente',
+    };
+    const retirada = {
+      ...mockParada,
+      id: 'p4',
+      ordem: 4,
+      tipo: 'retirada',
+      status: 'pendente',
+    };
+
+    it('lista cada serviço do local com tipo e status', () => {
+      const { getByText, getByTestId } = render(
+        <ParadaBottomSheet
+          parada={entrega}
+          servicosNoLocal={[entrega, retirada]}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      expect(getByText('Paradas 3+4')).toBeTruthy();
+      expect(getByTestId('servico-no-local-p3')).toHaveTextContent(
+        '3 · Entrega · Pendente',
+      );
+      expect(getByTestId('servico-no-local-p4')).toHaveTextContent(
+        '4 · Retirada · Pendente',
+      );
+    });
+
+    it('mostra o status de cada serviço, não só o da principal', () => {
+      const entregaFeita = { ...entrega, status: 'concluida' };
+      const { getByTestId } = render(
+        <ParadaBottomSheet
+          parada={retirada}
+          servicosNoLocal={[entregaFeita, retirada]}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      expect(getByTestId('servico-no-local-p3')).toHaveTextContent(
+        '3 · Entrega · Concluída',
+      );
+    });
+
+    it('com um serviço só, continua como parada simples', () => {
+      const { getByText, queryByTestId } = render(
+        <ParadaBottomSheet
+          parada={entrega}
+          servicosNoLocal={[entrega]}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      expect(getByText('Parada 3')).toBeTruthy();
+      expect(queryByTestId('servico-no-local-p3')).toBeNull();
+    });
+  });
 });
