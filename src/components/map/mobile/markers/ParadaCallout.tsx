@@ -131,7 +131,7 @@ export function ParadaCallout({
               color={theme.colors.textSecondary}
             />
             <Text style={styles.calloutTypeText}>
-              {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+              {rotuloTipoParada(parada.tipo).titulo}
             </Text>
           </View>
         )}

@@ -28,6 +28,7 @@ import {
 } from 'react-native';
 
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // Habilitar LayoutAnimation no Android
@@ -184,7 +185,7 @@ export function NextStopPreview({
                 color={theme.colors.gray500}
               />
               <Text style={styles.detailText}>
-                {nextStop.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                {rotuloTipoParada(nextStop.tipo).titulo}
               </Text>
             </View>
           )}

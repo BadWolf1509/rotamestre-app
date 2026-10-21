@@ -197,7 +197,7 @@ export function ParadaBottomSheet({
             color={theme.colors.gray500}
           />
           <Text style={styles.tipoText}>
-            {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+            {rotuloTipoParada(parada.tipo).titulo}
           </Text>
         </View>
       )}

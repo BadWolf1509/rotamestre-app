@@ -11,6 +11,7 @@ import { Animated, Text, TouchableOpacity, View } from 'react-native';
 
 import type { ParadaData } from '@/context/RouteStatusContext';
 import type { NavigationPreferences } from '@/hooks/navigation';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -184,7 +185,7 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
                     : styles.typeBadgeTextRetirada,
                 ]}
               >
-                {isEntrega ? 'Entrega' : 'Retirada'}
+                {rotuloTipoParada(currentStop.tipo ?? '').titulo}
               </Text>
             </View>
             <Text style={styles.destinationLabel}>

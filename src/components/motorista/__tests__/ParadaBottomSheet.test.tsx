@@ -191,6 +191,21 @@ describe('ParadaBottomSheet', () => {
     });
   });
 
+  describe('Rótulo do tipo', () => {
+    it('origem não aparece como "Retirada"', () => {
+      const { getByText, queryByText } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, tipo: 'origem' }}
+          visible={true}
+          onClose={mockOnClose}
+        />,
+      );
+
+      expect(getByText('Parada')).toBeTruthy();
+      expect(queryByText('Retirada')).toBeNull();
+    });
+  });
+
   describe('Status', () => {
     it('deve mostrar "Pendente" para status pendente', () => {
       const { getByText } = render(

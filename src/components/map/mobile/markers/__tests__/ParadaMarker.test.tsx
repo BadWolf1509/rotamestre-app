@@ -114,4 +114,12 @@ describe('ParadaCallout', () => {
     expect(getByText('3 · Entrega')).toBeTruthy();
     expect(getByText('4 · Retirada')).toBeTruthy();
   });
+
+  it('origem não aparece como "Retirada"', () => {
+    const { getByText, queryByText } = render(
+      <ParadaCallout parada={{ ...baseParada, tipo: 'origem' } as any} />,
+    );
+    expect(getByText('Parada')).toBeTruthy();
+    expect(queryByText('Retirada')).toBeNull();
+  });
 });

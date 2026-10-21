@@ -10,6 +10,7 @@ import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { SKIP_REASON_LABELS } from '@/constants/skipReasons';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -77,7 +78,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                   ]}
                 >
                   <Text style={styles.tipoTagText}>
-                    {parada.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                    {rotuloTipoParada(parada.tipo).titulo}
                   </Text>
                 </View>
                 <View

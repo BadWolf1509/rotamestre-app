@@ -74,3 +74,48 @@ describe('NavigationInfoPanel – botões de ação', () => {
     expect(estilo.paddingHorizontal).toBeGreaterThan(0);
   });
 });
+
+// A partida (tipo 'origem') caía no ternário Entrega/Retirada e aparecia como
+// "Retirada" no painel.
+describe('NavigationInfoPanel – rótulo do tipo', () => {
+  function renderizarTipo(tipo: string) {
+    const p = { ...parada, tipo } as ParadaData;
+    return render(
+      <NavigationInfoPanel
+        currentStop={p}
+        nextStop={null}
+        realParadas={[p]}
+        currentStopIndex={0}
+        distance={120}
+        eta="2 min"
+        speed={0}
+        isEntrega={tipo === 'entrega'}
+        preferences={{} as never}
+        pulseAnim={new Animated.Value(1)}
+        buttonScaleAnims={{
+          skip: new Animated.Value(1),
+          maps: new Animated.Value(1),
+          complete: new Animated.Value(1),
+        }}
+        formatDistance={(m) => `${m} m`}
+        getSpeedColor={() => '#000'}
+        onAnimateButtonPress={jest.fn()}
+        onComplete={jest.fn()}
+        onSkip={jest.fn()}
+        onOpenInMaps={jest.fn()}
+        rotuloAppExterno="Abrir no Google Maps"
+      />,
+    );
+  }
+
+  it('origem não aparece como "Retirada"', () => {
+    const { getByText, queryByText } = renderizarTipo('origem');
+
+    expect(getByText('Parada')).toBeTruthy();
+    expect(queryByText('Retirada')).toBeNull();
+  });
+
+  it('retirada continua "Retirada"', () => {
+    expect(renderizarTipo('retirada').getByText('Retirada')).toBeTruthy();
+  });
+});

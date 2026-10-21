@@ -324,4 +324,20 @@ describe('NextStopPreview', () => {
       expect(getByText(/Para Melhor Visualização/)).toBeTruthy();
     });
   });
+
+  describe('Rótulo do tipo', () => {
+    it('origem não aparece como "Retirada"', () => {
+      const { getByText, queryByText } = render(
+        <NextStopPreview
+          nextStop={{ ...defaultNextStop, tipo: 'origem' }}
+          totalStops={5}
+        />,
+      );
+
+      fireEvent.press(getByText('PRÓXIMA'));
+
+      expect(getByText('Parada')).toBeTruthy();
+      expect(queryByText('Retirada')).toBeNull();
+    });
+  });
 });
