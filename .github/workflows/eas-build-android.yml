@@ -1,0 +1,93 @@
+# Build Android com `eas build --local` num runner Linux do GitHub.
+#
+# Por que existe: o plano gratuito do EAS tem cota mensal de builds Android, e
+# em 20/10/2026 ela acabou antes da release 1.13.0 (os builds preview e
+# development de ajuste gastam a mesma cota). `--local` compila aqui, no
+# runner, e usa do EAS só as credenciais de assinatura e as variáveis de
+# ambiente — não consome a cota. Não roda no Windows, por isso não é local.
+#
+# O envio para a Play NÃO acontece aqui: a chave da conta de serviço fica só na
+# máquina do gestor. Baixe o artefato e rode
+#   npx --yes eas-cli@latest submit --platform android --profile internal --path <arquivo.aab>
+#
+# Requer o secret EXPO_TOKEN (token de acesso da conta Expo, criado pelo gestor).
+
+name: EAS Build Android (local)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Perfil do eas.json'
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+
+concurrency:
+  group: eas-build-android-${{ inputs.profile }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ inputs.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Conferir o secret
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error title=EXPO_TOKEN ausente::Cadastre o secret EXPO_TOKEN (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      # O build nativo do React Native passa de 14 GB com Gradle e NDK; o runner
+      # vem com ~14 GB livres. Remove SDKs que este build não usa.
+      - name: Liberar espaço em disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          VERSAO=$(node -p "require('./package.json').version")
+          CODIGO=$(node -p "require('./package.json').androidVersionCode")
+          if [ "${{ inputs.profile }}" = "production" ]; then EXT=aab; else EXT=apk; fi
+          SAIDA="rotamestre-${VERSAO}-${CODIGO}-${{ inputs.profile }}.${EXT}"
+          echo "SAIDA=$SAIDA" >> "$GITHUB_ENV"
+          npx --yes eas-cli@latest build --local --platform android \
+            --profile "${{ inputs.profile }}" --non-interactive --output "$SAIDA"
+          ls -la "$SAIDA"
+          sha256sum "$SAIDA"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.SAIDA }}
+          path: ${{ env.SAIDA }}
+          retention-days: 14
+          if-no-files-found: error
