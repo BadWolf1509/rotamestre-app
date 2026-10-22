@@ -24,7 +24,6 @@ async function run() {
     'get_all_tables',
     'notify_incidente_criado',
     'criar_notificacao',
-    'get_gestor_principal',
     'cleanup_old_locations'
   ];
 
