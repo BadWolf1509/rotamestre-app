@@ -1467,11 +1467,12 @@ para `anon`/`authenticated`; os seis gatilhos usam o helper e não sobrou `LIMIT
 Sonda (desfeita) com os eventos disparados como `authenticated`: os seis passaram
 e avisaram os dois gestores; o helper chamado direto por `authenticated` é recusado.
 
-### ⏳ Migration 36: remove `get_gestor_principal` (morta e quebrada)
+### ✅ Migration 36: remove `get_gestor_principal` (morta e quebrada)
 
-**Arquivo:** `20261022220000_remove_get_gestor_principal.sql` · **⏳ a aplicar pelo
-SQL Editor** (`DROP FUNCTION`, que o MCP recusa). Depois, registrar a versão
-`20261022220000` em `schema_migrations`.
+**Arquivo:** `20261022220000_remove_get_gestor_principal.sql` · **✅ aplicada em
+22/10/2026 pelo SQL Editor** (`DROP FUNCTION`, que o MCP recusa) e registrada
+depois em `schema_migrations` com a versão `20261022220000`. Conferido: a função
+não existe mais; `get_gestor_contato` e `transferir_gestao_principal` seguem.
 
 **Por quê.** A função estava executável por `PUBLIC` e `anon` (apontado pelo
 `rls-policy-reviewer` na revisão da Migration 35). Medido em produção: não é
