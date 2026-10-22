@@ -7,10 +7,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert as AlertInline } from '@/components/Alert';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { AvisoBateriaRestrita } from '@/components/motorista/home/AvisoBateriaRestrita';
 import { AvisoRastreamentoSegundoPlano } from '@/components/motorista/home/AvisoRastreamentoSegundoPlano';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
-import { FloatingActionButton } from '@/components/motorista/home/QuickActions';
+import {
+  ESPACO_SOB_O_FAB,
+  FloatingActionButton,
+} from '@/components/motorista/home/QuickActions';
 import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
@@ -547,7 +551,7 @@ function MotoristaInicioContent() {
       {/* Padding condicional baseado no estado:
           - no-route: sem FAB flutuante, padding mínimo
           - pending: botão dentro do scroll, padding mínimo
-          - outros: FAB flutuante, precisa de espaço extra (96px) */}
+          - outros: FAB flutuante; o fim do scroll precisa subir acima dele */}
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
@@ -556,7 +560,7 @@ function MotoristaInicioContent() {
             paddingBottom:
               routeStatus === 'no-route' || routeStatus === 'pending'
                 ? Math.max(16, insets.bottom + 16)
-                : Math.max(72, insets.bottom + 72),
+                : ESPACO_SOB_O_FAB,
           },
         ]}
         refreshControl={
@@ -628,6 +632,7 @@ function MotoristaInicioContent() {
         )}
 
         <AvisoRastreamentoSegundoPlano />
+        <AvisoBateriaRestrita />
 
         {/* Mini Map - Nos estados pending, active e last-stop para visualização da rota */}
         {route &&
@@ -666,7 +671,6 @@ function MotoristaInicioContent() {
           color={fabProps.color}
           onPress={handleMainAction}
           label={fabProps.label}
-          tabBarHeight={16}
         />
       )}
 
