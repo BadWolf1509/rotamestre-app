@@ -8,8 +8,10 @@ import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
+import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
+import { agruparPorLocal } from '@/lib/motorista/visitaNoLocal';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 function MapaMotoristaContent() {
@@ -17,7 +19,8 @@ function MapaMotoristaContent() {
   const { showWarning, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
-  const { route, paradas, loading, routeStatus } = useRouteStatus();
+  const { route, paradas, loading, routeStatus, refreshRoute } =
+    useRouteStatus();
 
   // Estados locais de UI apenas
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
@@ -58,6 +61,31 @@ function MapaMotoristaContent() {
     return paradas.find((p) => p.id === selectedParadaId) || null;
   }, [selectedParadaId, paradas]);
 
+  // Serviços sob o mesmo pino (entrega + retirada no local): o sheet lista
+  // todos, não só a principal. Mesmo agrupamento dos pinos, sem checkpoint.
+  const servicosNoLocal = useMemo(() => {
+    if (!selectedParadaId) return undefined;
+    const reais = paradas.filter((p) => p.is_checkpoint !== false);
+    return agruparPorLocal(reais).find((g) =>
+      g.some((p) => p.id === selectedParadaId),
+    );
+  }, [selectedParadaId, paradas]);
+
+  // Entrega e retirada no mesmo local: cada serviço tem o seu comprovante, e
+  // o fluxo do próximo abre quando o anterior conclui (como na Início).
+  const sequencia = useConclusaoEmSequencia({
+    paradas,
+    abrirConclusao: setParadaParaConcluir,
+  });
+
+  // O StopCompletionFlow chama onSuccess e onClose no mesmo tique; esperar o
+  // refresh deixa o modal fechar antes de o próximo abrir zerado.
+  const handleConclusaoSucesso = async () => {
+    const concluidaId = paradaParaConcluir?.id;
+    await refreshRoute();
+    if (concluidaId) sequencia.aoConcluir(concluidaId);
+  };
+
   const storedRouteInfo = useMemo(
     () =>
       route?.distancia_total != null && route?.tempo_total != null
@@ -91,13 +119,17 @@ function MapaMotoristaContent() {
 
       // A parada vem do contexto (objeto completo), não do bottom sheet: o
       // fluxo de conclusão precisa do `ParadaData` inteiro.
-      const completa = paradas.find((p) => p.id === parada.id) ?? null;
-      setParadaParaConcluir(completa);
+      const completa = paradas.find((p) => p.id === parada.id);
+      if (completa) sequencia.iniciar(completa);
     },
-    [route?.status, paradas, showWarning],
+    [route?.status, paradas, showWarning, sequencia],
   );
 
-  if (loading) {
+  // Spinner só na primeira carga. `completeStop` recarrega a rota e liga o
+  // `loading` no meio da conclusão: trocar a tela aqui desmontava o
+  // StopCompletionFlow, perdia o alerta de sucesso (e o onSuccess da sequência)
+  // e o remontava do zero com a parada já concluída. Achado no moto g15.
+  if (loading && paradas.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
@@ -248,6 +280,7 @@ function MapaMotoristaContent() {
       {/* Bottom Sheet de detalhes da parada */}
       <ParadaBottomSheet
         parada={selectedParada}
+        servicosNoLocal={servicosNoLocal}
         visible={bottomSheetVisible}
         onClose={handleCloseBottomSheet}
         onMarkComplete={handleMarkComplete}
@@ -257,7 +290,9 @@ function MapaMotoristaContent() {
         parada={paradaParaConcluir}
         visible={paradaParaConcluir !== null}
         onClose={() => setParadaParaConcluir(null)}
+        onSuccess={handleConclusaoSucesso}
         allowSkipPhoto={true}
+        contexto={sequencia.contexto}
       />
       {AlertDialog}
     </View>

@@ -22,12 +22,13 @@ import {
   SwipeOnboarding,
   hasSeenSwipeOnboarding,
 } from '@/components/SwipeOnboarding';
-import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
+import { type MotivoSkip } from '@/constants/skipReasons';
 import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
 import { useInicioModals } from '@/hooks/motorista/useInicioModals';
+import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
@@ -97,6 +98,13 @@ function MotoristaInicioContent() {
   const sequencia = useConclusaoEmSequencia({
     paradas,
     abrirConclusao: modals.openCompletionFlow,
+  });
+
+  const pularVisita = usePuloDaVisita({
+    paradas,
+    skipStop,
+    showSuccess,
+    showError,
   });
 
   // Navegação em tela cheia: o layout de abas esconde cabeçalho e abas.
@@ -344,20 +352,7 @@ function MotoristaInicioContent() {
     const parada = modals.selectedParadaForSkip;
     if (!parada) return;
     modals.closeSkipModal();
-    try {
-      // Em sequência, a parada primeiro: se um pulo falhar, os seguintes não
-      // rodam e o sucesso não é anunciado.
-      const alvos = incluirOutros ? paradasDaVisita(paradas, parada) : [parada];
-      for (const alvo of alvos) {
-        await skipStop(alvo.id, motivo, observacoes);
-      }
-      showSuccess(
-        alvos.length > 1 ? 'Paradas Puladas' : 'Parada Pulada',
-        SKIP_REASON_LABELS[motivo],
-      );
-    } catch (error: unknown) {
-      showError(error);
-    }
+    await pularVisita(parada, motivo, observacoes, incluirOutros);
   };
 
   // Complete route - abre modal de confirmação (funciona em web e mobile)
