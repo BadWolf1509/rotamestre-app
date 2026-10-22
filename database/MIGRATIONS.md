@@ -1431,11 +1431,11 @@ link; sem rota → gestor B), sem resíduo.
 **Drift esperado, não é erro:** arquivo `20261022200000`, registro remoto
 `20261022063859`.
 
-### ⏳ Migration 35: avisos da loja vão a todos os gestores ativos
+### ✅ Migration 35: avisos da loja vão a todos os gestores ativos
 
-**Arquivo:** `20261022210000_aviso_a_todos_os_gestores.sql` · **⏳ a aplicar.** Tem
-`REVOKE` (no helper novo), que o MCP recusa: aplicar pelo SQL Editor e registrar
-a versão `20261022210000` em `schema_migrations` depois.
+**Arquivo:** `20261022210000_aviso_a_todos_os_gestores.sql` · **✅ aplicada em
+22/10/2026 pelo SQL Editor** (tem `REVOKE`, que o MCP recusa) e registrada depois em
+`schema_migrations` com a versão `20261022210000`.
 
 **Por quê.** Os seis gatilhos que avisam o gestor (`notify_sos_acionado`,
 `notify_incidente_criado`, `notify_parada_pulada`, `notify_parada_reaberta`,
@@ -1461,3 +1461,8 @@ EXECUTE nele (consultas no cabeçalho do arquivo): os gatilhos rodam como
 `postgres`, e sem esse EXECUTE a falha derruba a operação que disparou o aviso.
 Revisão do `rls-policy-reviewer`: APPROVE (diff linha a linha contra os corpos
 vivos: só o bloco do gestor mudou).
+
+**Depois de aplicada,** helper com dono `postgres`, EXECUTE para `postgres` e não
+para `anon`/`authenticated`; os seis gatilhos usam o helper e não sobrou `LIMIT 1`.
+Sonda (desfeita) com os eventos disparados como `authenticated`: os seis passaram
+e avisaram os dois gestores; o helper chamado direto por `authenticated` é recusado.
