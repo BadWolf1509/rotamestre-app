@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Alert as AlertInline } from '@/components/Alert';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
+import { AvisoBateriaRestrita } from '@/components/motorista/home/AvisoBateriaRestrita';
 import { AvisoRastreamentoSegundoPlano } from '@/components/motorista/home/AvisoRastreamentoSegundoPlano';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
@@ -628,6 +629,7 @@ function MotoristaInicioContent() {
         )}
 
         <AvisoRastreamentoSegundoPlano />
+        <AvisoBateriaRestrita />
 
         {/* Mini Map - Nos estados pending, active e last-stop para visualização da rota */}
         {route &&

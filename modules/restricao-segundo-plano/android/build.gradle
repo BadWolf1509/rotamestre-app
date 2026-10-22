@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'br.tec.rotamestre'
+version = '1.0.0'
+
+android {
+  namespace "br.tec.rotamestre.restricao"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
