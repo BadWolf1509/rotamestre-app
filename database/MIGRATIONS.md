@@ -1304,3 +1304,41 @@ motorista de uma loja só (nenhuma policy lê `get_user_unidade()` hoje).
 Revisada pelo `rls-policy-reviewer`: **APPROVE**; os warnings da trava com o
 `sync_usuario_unidade_ativa` e da corrida do toggle (`FOR UPDATE`) foram
 incorporados.
+
+### ⏳ Migration 32: push sem a service_role antiga, extensão http fechada
+
+**Arquivo:** `20261022120000_push_sem_service_role_e_http_fechado.sql` · **⏳ a
+aplicar pelo SQL Editor** (tem `REVOKE` e `DROP TRIGGER`, que o MCP recusa).
+Depois de aplicada, inserir a linha em `schema_migrations` com a versão
+`20261022120000`, como na Migration 31.
+
+**Por quê.** Em 22/10/2026 a `service_role` (JWT do segredo legado) apareceu no
+histórico do repositório público — e embutida no webhook "send-push-notification"
+do painel. As chaves antigas foram desligadas; as Edge Functions passaram a ler
+`SUPABASE_SECRET_KEYS`/`SUPABASE_PUBLISHABLE_KEYS` (`_shared/chaves.ts`).
+
+**O que faz.**
+
+1. Apaga o webhook do painel (chave em texto puro; cada push saía em dobro) e faz
+   do gatilho `send_push_notification_trigger` (pg_net) o único caminho, com o
+   cabeçalho `x-push-secret` lido do Vault (`push_webhook_secret`). O gatilho
+   repassa todo insert — antes filtrava 4 dos 17 tipos, e o push só funcionava
+   porque o webhook mandava todos.
+2. Revoga EXECUTE de PUBLIC/anon/authenticated nas funções da extensão `http`
+   (`http_get`, `http_post`, ...), que `anon` chamava por `/rest/v1/rpc`. Nada no
+   projeto as usa.
+3. `criar_notificacao`: na chamada direta (RPC), só gestor ativo, só para quem é
+   ativo numa loja onde ele é gestor; rota (se vier) da loja dos dois; parada (se
+   vier) da rota informada. Os gatilhos `notify_*` não passam pela trava
+   (`pg_trigger_depth() > 0`) — e o `rls-policy-reviewer` achou dois deles que
+   aceitam dado do usuário (SOS forjado em `logs`; `motorista_id` de outra loja
+   em `rotas`): push entre empresas por esse caminho continua aberto, pré-existente,
+   e é a Migration 33.
+
+**Pré-requisitos, nesta ordem:** segredo `push_webhook_secret` no Vault igual ao
+secret `PUSH_WEBHOOK_SECRET` das Edge Functions; `send-push-notification`,
+`expire-routes` e `remind-routes` publicadas com `verify_jwt` desligado.
+
+**Verificação.** Sonda transacional (desfeita) em 22/10, 6 casos: gestor → motorista
+da mesma loja cria; gestor → outra loja, rota de outra loja, parada de outra rota e
+motorista → gestor recusam. Revisão do `rls-policy-reviewer`: APPROVE.

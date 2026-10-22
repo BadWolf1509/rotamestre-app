@@ -4,8 +4,11 @@
  * Envia push notifications via Expo Push Notification Service
  *
  * Chamada via:
- * 1. Database webhook quando notificação é criada
- * 2. API direta para testes
+ * - Gatilho `send_push_notification_trigger` (pg_net) a cada notificação
+ *   inserida, com o cabeçalho `x-push-secret` (segredo `push_webhook_secret` do
+ *   Vault, igual ao secret `PUSH_WEBHOOK_SECRET` da função). Publicar com
+ *   `verify_jwt` desligado: o segredo é a única porta. O webhook do painel saiu
+ *   na Migration 32 — guardava a service_role antiga, vazada em 22/10/2026.
  *
  * Body esperado:
  * {
@@ -24,6 +27,9 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+import { chaveSecreta } from '../_shared/chaves.ts';
+import { requirePushSecret } from '../_shared/cronAuth.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -107,7 +113,8 @@ Deno.serve(async (req: Request) => {
   const headers = {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type',
   };
 
   // Handle preflight
@@ -115,13 +122,17 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers });
   }
 
+  // Roda sem verify_jwt: o segredo próprio é a única porta (ver _shared/cronAuth.ts).
+  const naoAutorizado = requirePushSecret(req);
+  if (naoAutorizado) return naoAutorizado;
+
   try {
     const body = await req.json();
     console.log('[send-push] Received:', JSON.stringify(body));
 
     // Inicializar Supabase client com service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseServiceKey = chaveSecreta();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Determinar se é webhook do banco ou chamada direta
@@ -145,8 +156,12 @@ Deno.serve(async (req: Request) => {
       if (!PUSH_NOTIFICATION_TYPES.includes(tipo)) {
         console.log(`[send-push] Tipo '${tipo}' não requer push, ignorando`);
         return new Response(
-          JSON.stringify({ success: true, skipped: true, reason: 'tipo_nao_requer_push' }),
-          { headers }
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            reason: 'tipo_nao_requer_push',
+          }),
+          { headers },
         );
       }
 
@@ -162,10 +177,10 @@ Deno.serve(async (req: Request) => {
       mensagem = body.mensagem || '';
       data = body.data || {};
     } else {
-      return new Response(
-        JSON.stringify({ error: 'Invalid request body' }),
-        { status: 400, headers }
-      );
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+        status: 400,
+        headers,
+      });
     }
 
     // Buscar push token do usuário
@@ -186,12 +201,14 @@ Deno.serve(async (req: Request) => {
       });
       return new Response(
         JSON.stringify({ error: 'User not found', details: userError }),
-        { status: 404, headers }
+        { status: 404, headers },
       );
     }
 
     if (!usuario.push_token) {
-      console.log(`[send-push] Usuário ${usuario.nome} não tem push_token registrado`);
+      console.log(
+        `[send-push] Usuário ${usuario.nome} não tem push_token registrado`,
+      );
       await logPushAttempt(supabase, {
         notificacao_id,
         usuario_id,
@@ -200,8 +217,12 @@ Deno.serve(async (req: Request) => {
         error_message: 'Usuário não tem push_token registrado',
       });
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: 'no_push_token' }),
-        { headers }
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'no_push_token',
+        }),
+        { headers },
       );
     }
 
@@ -217,7 +238,7 @@ Deno.serve(async (req: Request) => {
       });
       return new Response(
         JSON.stringify({ error: 'Invalid push token format' }),
-        { status: 400, headers }
+        { status: 400, headers },
       );
     }
 
@@ -239,7 +260,7 @@ Deno.serve(async (req: Request) => {
     const expoPushResponse = await fetch(EXPO_PUSH_URL, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
         'Accept-Encoding': 'gzip, deflate',
         'Content-Type': 'application/json',
       },
@@ -280,13 +301,16 @@ Deno.serve(async (req: Request) => {
         ticket_id: ticket.id,
         message: success ? 'Push notification enviado' : ticket.message,
       }),
-      { headers }
+      { headers },
     );
   } catch (error) {
     console.error('[send-push] Erro:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: String(error) }),
-      { status: 500, headers }
+      JSON.stringify({
+        error: 'Internal server error',
+        details: String(error),
+      }),
+      { status: 500, headers },
     );
   }
 });
@@ -301,7 +325,7 @@ async function logPushAttempt(
     status: 'sent' | 'failed' | 'no_token';
     response?: unknown;
     error_message?: string | null;
-  }
+  },
 ) {
   try {
     await supabase.from('push_notification_logs').insert({

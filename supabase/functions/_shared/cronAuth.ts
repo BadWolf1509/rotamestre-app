@@ -14,7 +14,12 @@
 // existir ANTES do deploy — ver docs/GOOGLE_PLAY_DEPLOYMENT.md não se aplica;
 // as instruções estão no cabeçalho de cada função.
 
-const CRON_SECRET_HEADER = 'x-cron-secret';
+//
+// O push (`send-push-notification`) usa a mesma guarda com outro segredo: desde
+// 22/10/2026 ela roda sem `verify_jwt`, porque a única credencial que o webhook
+// do painel mandava era a `service_role` JWT antiga — vazada no histórico do
+// repositório público e desligada. Quem chama é o gatilho `pg_net`, que lê o
+// segredo do Vault (Migration 32).
 
 /**
  * Comparação de tempo constante, para não vazar o segredo byte a byte.
@@ -34,31 +39,35 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 /**
- * Valida o header `x-cron-secret` contra o secret `CRON_SECRET`.
+ * Valida o header `header` contra o secret de ambiente `envName`.
  *
  * @returns `null` quando autorizado; uma `Response` 401/500 pronta para
  *          retornar quando não.
  */
-export function requireCronSecret(req: Request): Response | null {
-  const expected = Deno.env.get('CRON_SECRET');
+function requireSecretHeader(
+  req: Request,
+  envName: string,
+  header: string,
+): Response | null {
+  const expected = Deno.env.get(envName);
 
   if (!expected) {
-    // Fail-closed. Preferimos parar a expiração a deixar o endpoint aberto:
-    // desde a migration 20260827190000, uma execução perdida é inofensiva
+    // Fail-closed. Preferimos parar a função a deixar o endpoint aberto:
+    // desde a migration 20260827190000, uma expiração perdida é inofensiva
     // (as rotas do dia expiram no próximo run, pelo ramo de dias anteriores).
-    console.error('CRON_SECRET não configurado — recusando a chamada.');
+    console.error(`${envName} não configurado — recusando a chamada.`);
     return new Response(
       JSON.stringify({
-        error: 'Server misconfigured: CRON_SECRET is not set.',
+        error: `Server misconfigured: ${envName} is not set.`,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
-  const provided = req.headers.get(CRON_SECRET_HEADER) ?? '';
+  const provided = req.headers.get(header) ?? '';
 
   if (!timingSafeEqual(expected, provided)) {
-    console.warn('Chamada recusada: x-cron-secret ausente ou inválido.');
+    console.warn(`Chamada recusada: ${header} ausente ou inválido.`);
     return new Response(JSON.stringify({ error: 'Unauthorized.' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -66,4 +75,14 @@ export function requireCronSecret(req: Request): Response | null {
   }
 
   return null;
+}
+
+/** Agendador (`expire-routes`, `remind-routes`): `x-cron-secret` × `CRON_SECRET`. */
+export function requireCronSecret(req: Request): Response | null {
+  return requireSecretHeader(req, 'CRON_SECRET', 'x-cron-secret');
+}
+
+/** Push (`send-push-notification`): `x-push-secret` × `PUSH_WEBHOOK_SECRET`. */
+export function requirePushSecret(req: Request): Response | null {
+  return requireSecretHeader(req, 'PUSH_WEBHOOK_SECRET', 'x-push-secret');
 }
