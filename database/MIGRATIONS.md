@@ -1492,11 +1492,13 @@ script. Revisão do `rls-policy-reviewer`: APPROVE (conferiu prosrc de todos os
 schemas, views, policies, gatilhos e `pg_depend`; das 37 funções com `search_path
 ''`, só esta lia `usuarios` sem prefixo).
 
-### ⏳ Migration 37: retenção de `motorista_locations` (90 dias)
+### ✅ Migration 37: retenção de `motorista_locations` (90 dias)
 
-**Arquivo:** `20261022230000_retencao_localizacoes_90_dias.sql` · **⏳ não
-aplicada.** Aplicar pelo SQL Editor e registrar em `schema_migrations` com a
-versão `20261022230000`, como a 32–36.
+**Arquivo:** `20261022230000_retencao_localizacoes_90_dias.sql` · **✅ aplicada em
+22/10/2026 pelo SQL Editor** e registrada depois em `schema_migrations` com a
+versão `20261022230000`. Conferido: `prosecdef` true, `search_path=public`,
+`proacl` só `postgres` e `service_role` (`anon`/`authenticated` sem EXECUTE);
+`cleanup_old_locations` não existe mais.
 
 **Por quê.** A tabela recebe uma posição a cada ~5 s em movimento e nunca era
 apagada: 67.090 linhas (22 MB) em 22/10/2026, desde 18/12/2025. Ninguém lê o
@@ -1527,4 +1529,7 @@ PUBLIC/anon/authenticated — o RLS barrava o DELETE. Saiu também da lista de
 é NOT NULL; nenhum leitor do histórico no app ou no banco).
 
 **Sonda.** O MCP recusa `DELETE` mesmo dentro de transação desfeita; a sonda
-roda no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`).
+rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
+67.204 → 54.319 linhas, esperado 12.885 = apagadas 12.885; posições de rotas
+pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
+(intocadas); `p_dias = 7` barrado pelo piso.
