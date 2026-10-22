@@ -1,10 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 
 import { RouteStatus } from '@/context/RouteStatusContext';
 
-import { QuickActions, FloatingActionButton } from '../QuickActions';
+import {
+  ESPACO_SOB_O_FAB,
+  FloatingActionButton,
+  QuickActions,
+} from '../QuickActions';
 
 // Mock haptics
 jest.mock('@/utils/haptics', () => ({
@@ -397,6 +402,35 @@ describe('FloatingActionButton', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('Posição', () => {
+    // A tab bar das abas do motorista ocupa espaço próprio (não é absoluta),
+    // então o fundo da tela já é o topo dela. Somar a altura da tab bar e o
+    // inset de novo deixava o botão ~110 dp acima do fundo, em cima do aviso e
+    // do mini-mapa da Início, onde o paddingBottom do scroll nunca o liberava.
+    function estiloDoFab() {
+      const { UNSAFE_getByType } = render(
+        <FloatingActionButton
+          icon="navigate"
+          color="#4CAF50"
+          onPress={mockOnPress}
+          label="Navegar"
+        />,
+      );
+      return StyleSheet.flatten(UNSAFE_getByType(TouchableOpacity).props.style);
+    }
+
+    it('fica a 16 dp do fundo da tela, sem contar a tab bar de novo', () => {
+      expect(estiloDoFab().bottom).toBe(16);
+    });
+
+    it('o espaço reservado no fim do scroll libera o botão inteiro', () => {
+      const { bottom, height } = estiloDoFab();
+      expect(ESPACO_SOB_O_FAB).toBeGreaterThanOrEqual(
+        Number(bottom) + Number(height) + 8,
+      );
+    });
   });
 
   describe('Renderização Básica', () => {

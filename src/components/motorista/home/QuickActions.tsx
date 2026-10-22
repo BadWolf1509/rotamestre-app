@@ -7,7 +7,6 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RouteStatus } from '@/context/RouteStatusContext';
 import type { IconName } from '@/types/icons';
@@ -238,8 +237,18 @@ export function QuickActions({
 }
 
 // FAB Component
-// Altura base da Tab Bar (sem safe area)
-const TAB_BAR_BASE_HEIGHT = 60;
+// Distância do fundo da tela. As abas do motorista têm tab bar própria (não
+// absoluta), então o fundo da tela já é o topo dela, com o inset incluído:
+// somar a tab bar aqui de novo deixava o botão ~110 dp acima, em cima do aviso
+// e do mini-mapa da Início.
+const FAB_DISTANCIA_DO_FUNDO = 16;
+const FAB_TAMANHO = 64;
+
+/**
+ * `paddingBottom` que a tela com o FAB precisa no fim do scroll para o último
+ * conteúdo poder subir acima do botão, com 16 dp de folga.
+ */
+export const ESPACO_SOB_O_FAB = FAB_DISTANCIA_DO_FUNDO + FAB_TAMANHO + 16;
 
 interface FloatingActionButtonProps {
   icon: IconName;
@@ -247,8 +256,6 @@ interface FloatingActionButtonProps {
   onPress: () => void;
   label?: string;
   disabled?: boolean;
-  /** Margem extra acima da tab bar. Default: 16 */
-  tabBarHeight?: number;
 }
 
 export function FloatingActionButton({
@@ -257,21 +264,14 @@ export function FloatingActionButton({
   onPress,
   label,
   disabled = false,
-  tabBarHeight = 16,
 }: FloatingActionButtonProps) {
   const { theme } = useUnistyles();
-  const insets = useSafeAreaInsets();
 
   const handlePress = async () => {
     if (disabled) return;
     await heavyHaptic();
     onPress();
   };
-
-  // FAB fica acima da tab bar (60px base + insets.bottom + margem extra)
-  // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
-  const fabBottom =
-    TAB_BAR_BASE_HEIGHT + Math.max(insets.bottom, 34) + tabBarHeight;
 
   return (
     <TouchableOpacity
@@ -280,7 +280,6 @@ export function FloatingActionButton({
         {
           backgroundColor: disabled ? theme.colors.gray400 : color,
           shadowColor: theme.colors.black,
-          bottom: fabBottom,
         },
       ]}
       onPress={handlePress}
@@ -390,10 +389,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
 const fabStyles = StyleSheet.create((theme: Theme) => ({
   fab: {
     position: 'absolute',
-    // bottom é definido dinamicamente via prop tabBarHeight
+    bottom: FAB_DISTANCIA_DO_FUNDO,
     right: theme.spacing['5'],
-    width: 64,
-    height: 64,
+    width: FAB_TAMANHO,
+    height: FAB_TAMANHO,
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
