@@ -1,5 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { ParadaCard, Parada } from '../ParadaCard';
 
@@ -324,6 +325,37 @@ describe('ParadaCard', () => {
   describe('Memoização', () => {
     it('deve ser um componente memoizado', () => {
       expect(ParadaCard.displayName).toBe('ParadaCard');
+    });
+  });
+
+  describe('com a fonte do sistema em 2.0', () => {
+    // Moto g15, 1.14.2: o selo absoluto "PRÓXIMA" crescia para baixo e
+    // cobria o pill do tipo; o ícone do "Como Chegar" vazava pela esquerda.
+    it('o selo PRÓXIMA tem teto de escala', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} isProxima />);
+
+      expect(
+        getByText('PRÓXIMA').props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+    });
+
+    it('o ícone e o texto do Como Chegar têm teto de escala', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} />);
+
+      expect(
+        getByText('\u{1F9ED}').props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+      expect(
+        getByText('Como Chegar').props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+    });
+
+    it('o texto do Como Chegar encolhe e quebra dentro do botão', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} />);
+
+      expect(
+        StyleSheet.flatten(getByText('Como Chegar').props.style).flexShrink,
+      ).toBe(1);
     });
   });
 });

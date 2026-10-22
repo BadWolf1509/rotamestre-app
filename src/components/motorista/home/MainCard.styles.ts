@@ -19,8 +19,10 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   },
   header: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: theme.spacing.xs,
     marginBottom: theme.spacing.md,
   },
   badge: {

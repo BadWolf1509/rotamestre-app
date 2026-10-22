@@ -5,7 +5,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ColorValue, Platform, Pressable, View } from 'react-native';
+import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationBell } from '@/components/NotificationBell';
@@ -49,6 +49,31 @@ export default function TabLayout() {
     focused: boolean,
   ) => <Ionicons name={focused ? name : nameOutline} size={24} color={color} />;
 
+  // Rótulo próprio: o Label padrão só repassa `allowFontScaling`, e a barra
+  // tem altura fixa. Sem teto de escala, com a fonte do sistema em 2.0 o
+  // rótulo ficava cortado atrás da barra de navegação do Android.
+  const renderTabLabel = ({
+    color,
+    children,
+  }: {
+    color: ColorValue;
+    children: string;
+  }) => (
+    <Text
+      numberOfLines={1}
+      maxFontSizeMultiplier={1.3}
+      style={{
+        color,
+        textAlign: 'center',
+        fontSize: theme.typography.xs,
+        fontFamily: theme.typography.fontSansSemiBold,
+        marginTop: 2,
+      }}
+    >
+      {children}
+    </Text>
+  );
+
   return (
     <NavegacaoTelaCheiaContext.Provider value={valorTelaCheia}>
       <Tabs
@@ -77,11 +102,7 @@ export default function TabLayout() {
                   },
                 }),
               },
-          tabBarLabelStyle: {
-            fontSize: theme.typography.xs,
-            fontFamily: theme.typography.fontSansSemiBold,
-            marginTop: 2,
-          },
+          tabBarLabel: renderTabLabel,
           tabBarItemStyle: {
             paddingVertical: 4,
           },

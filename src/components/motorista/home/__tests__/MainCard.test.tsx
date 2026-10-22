@@ -1,5 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { MainCard } from '../MainCard';
 
@@ -195,7 +196,8 @@ jest.mock('@/utils/styles', () => {
 jest.mock('@/design-system', () => {
   const { View, Text } = require('react-native');
   return {
-    Text: ({ children, style }: any) => <Text style={style}>{children}</Text>,
+    // Repassa as props como o Text real (maxFontSizeMultiplier etc.)
+    Text: (props: any) => <Text {...props} />,
     Button: ({ children, onPress }: any) => (
       <View onTouchEnd={onPress}>{children}</View>
     ),
@@ -610,5 +612,45 @@ describe('MainCard', () => {
 
     // Deve renderizar o card mas sem conteúdo ativo
     expect(toJSON()).toBeTruthy();
+  });
+
+  describe('com a fonte do sistema em 2.0', () => {
+    const parada = {
+      id: 'e',
+      endereco: 'Rua X, 1',
+      ordem: 1,
+      tipo: 'entrega',
+      status: 'pendente',
+      latitude: -7.1,
+      longitude: -34.8,
+    };
+    const props = {
+      ...defaultProps,
+      state: 'last-stop' as const,
+      route: { id: 'rota-1', status: 'em_andamento' },
+      paradas: [parada],
+      currentStop: parada,
+    };
+
+    // Moto g15, 1.14.2: "ÚLTIMA PARADA!", "Entrega" e "15 min" não cabiam
+    // numa linha e o tempo sumia à direita do card.
+    it.each(['ÚLTIMA PARADA! 🎯', 'Entrega', '5 min'])(
+      'o selo "%s" tem teto de escala',
+      (texto) => {
+        const { getByText } = render(<MainCard {...props} />);
+
+        expect(
+          getByText(texto).props.maxFontSizeMultiplier,
+        ).toBeLessThanOrEqual(1.3);
+      },
+    );
+
+    it('a linha de selos quebra em vez de empurrar o tempo para fora', () => {
+      const { getByTestId } = render(<MainCard {...props} />);
+
+      expect(
+        StyleSheet.flatten(getByTestId('selos-parada').props.style).flexWrap,
+      ).toBe('wrap');
+    });
   });
 });

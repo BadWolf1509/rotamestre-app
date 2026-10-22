@@ -257,6 +257,10 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xl,
   },
   botaoNavegarTexto: {
+    // Encolhe e quebra dentro do botão: sem isso, com fonte grande o
+    // conteúdo centralizado transbordava e o ícone saía pela esquerda.
+    flexShrink: 1,
+    textAlign: 'center',
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.base,
     fontFamily: theme.typography.fontSansSemiBold,

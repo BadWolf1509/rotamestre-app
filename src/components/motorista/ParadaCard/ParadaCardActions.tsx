@@ -31,8 +31,12 @@ export const PrimaryActions = memo(function PrimaryActions({
         accessibilityRole="button"
         accessibilityHint="Abre o aplicativo de navegação"
       >
-        <Text style={styles.botaoNavegarIcone}>{'\u{1F9ED}'}</Text>
-        <Text style={styles.botaoNavegarTexto}>Como Chegar</Text>
+        <Text style={styles.botaoNavegarIcone} maxFontSizeMultiplier={1.3}>
+          {'\u{1F9ED}'}
+        </Text>
+        <Text style={styles.botaoNavegarTexto} maxFontSizeMultiplier={1.3}>
+          Como Chegar
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity

@@ -158,7 +158,12 @@ export const ParadaCard = memo<ParadaCardProps>(
             {/* PROXIMA badge */}
             {!isSummary && isProxima && isPendente && (
               <View style={styles.proximaBadge}>
-                <Text style={styles.proximaBadgeText}>PRÓXIMA</Text>
+                <Text
+                  style={styles.proximaBadgeText}
+                  maxFontSizeMultiplier={1.3}
+                >
+                  PRÓXIMA
+                </Text>
               </View>
             )}
 
