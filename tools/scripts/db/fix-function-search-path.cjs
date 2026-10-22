@@ -23,8 +23,7 @@ async function run() {
     'notify_rota_concluida',
     'get_all_tables',
     'notify_incidente_criado',
-    'criar_notificacao',
-    'cleanup_old_locations'
+    'criar_notificacao'
   ];
 
   try {
