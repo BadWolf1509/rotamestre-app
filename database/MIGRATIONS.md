@@ -1396,3 +1396,37 @@ membro da loja ainda grava SOS na rota de um colega da mesma loja).
 da rota, o log do gestor, o do colega da loja e o log sem rota; reatribuir para
 motorista de outra empresa recusa, com 0 notificação para ele; o SOS legítimo chega
 ao gestor (1 notificação).
+
+### ✅ Migration 34: incidente avisa o gestor da loja da rota
+
+**Arquivo:** `20261022200000_incidente_avisa_loja_da_rota.sql` · **✅ aplicada em
+22/10/2026** pelo `apply_migration` do MCP (só `CREATE OR REPLACE FUNCTION`).
+
+**Por quê.** `notify_incidente_criado` escolhia a loja pelo vínculo principal do
+motorista e ignorava a rota do incidente. Com motorista de duas lojas
+(Migration 31), o incidente de uma rota da loja A ia para o gestor da loja B. E
+os motoristas de duas lojas não têm vínculo principal marcado, então a loja
+avisada saía do `LIMIT 1` sem ordem — arbitrária.
+
+**O que faz.** Se o incidente traz `rota_id` e a rota é do próprio motorista, a
+loja é a da rota. Senão, o comportamento de antes (vínculo principal, depois
+qualquer vínculo ativo). A conferência do motorista existe porque
+`incidentes_insert` só exige `motorista_id = auth.uid()`: um `rota_id` alheio não
+pode levar o texto ao gestor de outra empresa. Pelo mesmo motivo, a notificação
+só leva `rota_id` quando a rota foi aceita.
+
+**Verificação.** Medido antes: 26 incidentes, 23 com rota, todos de rota do
+próprio motorista e da loja que o gatilho escolhia — nenhum caiu no caso errado
+ainda. Sonda transacional (desfeita) em 22/10, motorista de duas lojas, função
+atual x nova: rota da loja A → gestor B (atual) / gestor A (nova); rota da loja B
+→ gestor B nas duas; rota de outra empresa → gestor B com o link da rota alheia
+(atual) / gestor B sem link (nova); sem rota → gestor B nas duas.
+Revisão do `rls-policy-reviewer`: APPROVE (pendência fora do escopo: o `LIMIT 1`
+do gestor segue sem ordem — loja com dois gestores ativos avisa um só, arbitrário).
+
+**Depois de aplicada,** a mesma sonda contra a função viva deu o resultado da
+função nova (rota A → gestor A; rota B → gestor B; rota alheia → gestor B sem
+link; sem rota → gestor B), sem resíduo.
+
+**Drift esperado, não é erro:** arquivo `20261022200000`, registro remoto
+`20261022063859`.
