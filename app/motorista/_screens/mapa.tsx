@@ -125,7 +125,11 @@ function MapaMotoristaContent() {
     [route?.status, paradas, showWarning, sequencia],
   );
 
-  if (loading) {
+  // Spinner só na primeira carga. `completeStop` recarrega a rota e liga o
+  // `loading` no meio da conclusão: trocar a tela aqui desmontava o
+  // StopCompletionFlow, perdia o alerta de sucesso (e o onSuccess da sequência)
+  // e o remontava do zero com a parada já concluída. Achado no moto g15.
+  if (loading && paradas.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />

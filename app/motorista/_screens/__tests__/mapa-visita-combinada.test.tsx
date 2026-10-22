@@ -39,13 +39,16 @@ const OUTRO_LOCAL = {
 };
 
 const mockParadas = [ENTREGA, RETIRADA, OUTRO_LOCAL];
+// `completeStop` recarrega a rota e liga o `loading` do contexto no meio da
+// conclusão; o teste o alterna para reproduzir isso.
+let mockLoading = false;
 const mockRefreshRoute = jest.fn(() => Promise.resolve());
 
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
     route: { id: 'rota-1', status: 'em_andamento', unidade_id: 'u-1' },
     paradas: mockParadas,
-    loading: false,
+    loading: mockLoading,
     routeStatus: 'active',
     refreshRoute: mockRefreshRoute,
   }),
@@ -122,7 +125,26 @@ jest.mock('@/hooks/useDriverLocationBroadcast', () => ({
 }));
 
 describe('aba Mapa — visita combinada', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLoading = false;
+  });
+
+  // Achado no moto g15 (21/10/2026): o recarregamento trocava a tela pelo
+  // spinner, o fluxo desmontava no meio da conclusão (o alerta de sucesso e o
+  // onSuccess se perdiam) e remontava do zero com a parada JÁ concluída.
+  it('o fluxo de conclusão continua montado enquanto a rota recarrega', () => {
+    const { getByText, rerender } = render(<MapaMotorista />);
+
+    fireEvent.press(getByText('marcador'));
+    fireEvent.press(getByText('sheet-concluir'));
+    expect(getByText('fluxo-conclusao:p3')).toBeTruthy();
+
+    mockLoading = true;
+    rerender(<MapaMotorista />);
+
+    expect(getByText('fluxo-conclusao:p3')).toBeTruthy();
+  });
 
   it('o sheet recebe todos os serviços do local do pino', () => {
     const { getByText } = render(<MapaMotorista />);
