@@ -5,9 +5,17 @@
  * Business logic lives in extracted hooks and pure calculation functions.
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  ReactNode,
+} from 'react';
 
 import {
+  useGarantirRastreamentoDaRota,
   useLoadActiveRoute,
   useRouteActions,
   useRouteRealtimeSubscription,
@@ -15,11 +23,18 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 
-import { getRouteStatus, getProgress, getCurrentStop, getNextStop } from './calculations';
+import {
+  getRouteStatus,
+  getProgress,
+  getCurrentStop,
+  getNextStop,
+} from './calculations';
 
 import type { ParadaData, RouteData, RouteStatusContextData } from './types';
 
-const RouteStatusContext = createContext<RouteStatusContextData>({} as RouteStatusContextData);
+const RouteStatusContext = createContext<RouteStatusContextData>(
+  {} as RouteStatusContextData,
+);
 
 export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const { userData, loading: userLoading } = useUser();
@@ -41,11 +56,19 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   });
 
   // Route actions (start, complete stop, skip, complete route)
-  const { startRoute, completeStop, skipStop, completeRoute } = useRouteActions({
+  const { startRoute, completeStop, skipStop, completeRoute } = useRouteActions(
+    {
+      route,
+      paradas,
+      userData: userData ? { id: userData.id, nome: userData.nome } : null,
+      loadActiveRoute,
+    },
+  );
+
+  // Religa o rastreamento em segundo plano que uma reinstalação apagou
+  const rastreamentoSegundoPlano = useGarantirRastreamentoDaRota({
     route,
-    paradas,
-    userData: userData ? { id: userData.id, nome: userData.nome } : null,
-    loadActiveRoute,
+    motorista: userData ? { id: userData.id, nome: userData.nome } : null,
   });
 
   // Realtime subscription
@@ -60,21 +83,36 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     loadActiveRoute();
   }, [loadActiveRoute]);
 
-  const contextValue = useMemo<RouteStatusContextData>(() => ({
-    routeStatus: getRouteStatus(route, paradas),
-    route,
-    paradas,
-    currentStop: getCurrentStop(paradas),
-    nextStop: getNextStop(paradas),
-    progress: getProgress(paradas),
-    pendingRoutesCount,
-    loading,
-    refreshRoute: loadActiveRoute,
-    startRoute,
-    completeStop,
-    skipStop,
-    completeRoute,
-  }), [route, paradas, pendingRoutesCount, loading, loadActiveRoute, startRoute, completeStop, skipStop, completeRoute]);
+  const contextValue = useMemo<RouteStatusContextData>(
+    () => ({
+      routeStatus: getRouteStatus(route, paradas),
+      route,
+      paradas,
+      currentStop: getCurrentStop(paradas),
+      nextStop: getNextStop(paradas),
+      progress: getProgress(paradas),
+      pendingRoutesCount,
+      loading,
+      refreshRoute: loadActiveRoute,
+      startRoute,
+      completeStop,
+      skipStop,
+      completeRoute,
+      rastreamentoSegundoPlano,
+    }),
+    [
+      route,
+      paradas,
+      pendingRoutesCount,
+      loading,
+      loadActiveRoute,
+      startRoute,
+      completeStop,
+      skipStop,
+      completeRoute,
+      rastreamentoSegundoPlano,
+    ],
+  );
 
   return (
     <RouteStatusContext.Provider value={contextValue}>

@@ -14,6 +14,7 @@ import {
   getTrackingContext,
   updateTrackingContext,
   requestAndStartTracking,
+  garantirRastreamentoDaRota,
 } from '../unifiedLocationTracking';
 
 import type { TrackingContext } from '../unifiedLocationTracking';
@@ -69,6 +70,13 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// A espera pelo primeiro plano é controlada pelo teste: por padrão o app já
+// está ativo; `mockAguardar` permite segurar a promessa.
+const mockAguardar = jest.fn(() => Promise.resolve());
+jest.mock('@/lib/appEmPrimeiroPlano', () => ({
+  aguardarAppEmPrimeiroPlano: () => mockAguardar(),
+}));
+
 // Mock Alert
 jest.mock('react-native', () => ({
   Alert: {
@@ -95,6 +103,10 @@ describe('unifiedLocationTracking', () => {
     mockGetItem.mockReset();
     mockSetItem.mockReset();
     mockRemoveItem.mockReset();
+    // Os testes de `garantirRastreamentoDaRota` usam `mockResolvedValue`
+    // (persistente), que o `clearAllMocks` não desfaz.
+    mockHasStartedLocationUpdates.mockReset();
+    mockStartLocationUpdates.mockReset();
     mockGetForegroundPermissions.mockResolvedValue({ status: 'undetermined' });
     mockGetBackgroundPermissions.mockResolvedValue({ status: 'undetermined' });
   });
@@ -206,6 +218,172 @@ describe('unifiedLocationTracking', () => {
 
       expect(result).toBe(true);
       expect(mockStartLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    // #570: o pedido de permissão do `requestAndStartTracking` tira o app da
+    // tela por uma fração de segundo, e o Android 12+ recusa o serviço em
+    // primeiro plano iniciado nessa janela.
+    it('só inicia o serviço depois que o app volta ao primeiro plano', async () => {
+      mockGetForegroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValueOnce({ status: 'granted' });
+      mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
+      let liberar: () => void = () => {};
+      mockAguardar.mockImplementationOnce(
+        () => new Promise<void>((resolve) => (liberar = resolve)),
+      );
+
+      const promessa = startBackgroundTracking(mockContext);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockStartLocationUpdates).not.toHaveBeenCalled();
+
+      liberar();
+      await expect(promessa).resolves.toBe(true);
+      expect(mockStartLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('garantirRastreamentoDaRota', () => {
+    it('não pede nada quando a task já está registrada', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValue(true);
+      mockGetItem.mockResolvedValue(JSON.stringify(mockContext));
+
+      const resultado = await garantirRastreamentoDaRota(mockContext);
+
+      expect(resultado).toBe('ativo');
+      expect(mockRequestForegroundPermissions).not.toHaveBeenCalled();
+      expect(mockRequestBackgroundPermissions).not.toHaveBeenCalled();
+      expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    // Num reinício a frio (force-stop, reboot, processo morto) o
+    // expo-task-manager restaura a task ANTES de o app estar na tela, e o
+    // expo-location recusa o serviço em primeiro plano ("Foreground location
+    // task cannot be started while the app is in the background!"): a task
+    // fica registrada, `hasStartedLocationUpdatesAsync` diz true, e o serviço
+    // não roda. Registrar de novo só atualiza as opções e sobe o serviço.
+    it('reafirma a task já registrada uma vez por processo', async () => {
+      await jest.isolateModulesAsync(async () => {
+        const modulo = require('../unifiedLocationTracking');
+        mockHasStartedLocationUpdates.mockResolvedValue(true);
+        mockGetForegroundPermissions.mockResolvedValue({ status: 'granted' });
+        mockGetBackgroundPermissions.mockResolvedValue({ status: 'granted' });
+        mockGetItem.mockResolvedValue(JSON.stringify(mockContext));
+
+        expect(await modulo.garantirRastreamentoDaRota(mockContext)).toBe(
+          'ativo',
+        );
+        expect(await modulo.garantirRastreamentoDaRota(mockContext)).toBe(
+          'ativo',
+        );
+
+        expect(mockStartLocationUpdates).toHaveBeenCalledTimes(1);
+        expect(mockAguardar).toHaveBeenCalled();
+      });
+    });
+
+    it('não reafirma a task registrada sem a permissão de segundo plano', async () => {
+      await jest.isolateModulesAsync(async () => {
+        const modulo = require('../unifiedLocationTracking');
+        mockHasStartedLocationUpdates.mockResolvedValue(true);
+        mockGetForegroundPermissions.mockResolvedValue({ status: 'granted' });
+        mockGetBackgroundPermissions.mockResolvedValue({ status: 'denied' });
+        mockGetItem.mockResolvedValue(JSON.stringify(mockContext));
+
+        await modulo.garantirRastreamentoDaRota(mockContext);
+
+        expect(mockStartLocationUpdates).not.toHaveBeenCalled();
+      });
+    });
+
+    it('religa o serviço sumido quando as duas permissões já existem', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValue(false);
+      mockGetForegroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetItem.mockResolvedValue(null);
+
+      const resultado = await garantirRastreamentoDaRota(mockContext);
+
+      expect(resultado).toBe('religado');
+      expect(mockStartLocationUpdates).toHaveBeenCalledTimes(1);
+      // O contexto some junto com a task numa reinstalação; sem ele a task
+      // roda e descarta toda posição.
+      expect(mockSetItem).toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+        JSON.stringify(mockContext),
+      );
+      expect(mockRequestForegroundPermissions).not.toHaveBeenCalled();
+      expect(mockRequestBackgroundPermissions).not.toHaveBeenCalled();
+      expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it('sem a permissão de segundo plano, não pede de surpresa nem inicia o serviço', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValue(false);
+      mockGetForegroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValue({ status: 'denied' });
+      mockGetItem.mockResolvedValue(null);
+
+      const resultado = await garantirRastreamentoDaRota(mockContext);
+
+      expect(resultado).toBe('sem-segundo-plano');
+      expect(mockStartLocationUpdates).not.toHaveBeenCalled();
+      expect(mockRequestBackgroundPermissions).not.toHaveBeenCalled();
+      // A divulgação destacada só aparece no fluxo que o motorista aciona.
+      expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it('sem permissão nenhuma, não pede nada', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValue(false);
+      mockGetForegroundPermissions.mockResolvedValue({ status: 'denied' });
+      mockGetBackgroundPermissions.mockResolvedValue({ status: 'denied' });
+
+      const resultado = await garantirRastreamentoDaRota(mockContext);
+
+      expect(resultado).toBe('sem-permissao');
+      expect(mockRequestForegroundPermissions).not.toHaveBeenCalled();
+      expect(mockStartLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('preserva o contexto já gravado para a mesma rota', async () => {
+      const gravado = { ...mockContext, startedAt: '2025-12-25T08:00:00Z' };
+      mockHasStartedLocationUpdates.mockResolvedValue(false);
+      mockGetForegroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetItem.mockResolvedValue(JSON.stringify(gravado));
+
+      await garantirRastreamentoDaRota(mockContext);
+
+      const gravacoes = mockSetItem.mock.calls.map((c) => JSON.parse(c[1]));
+      expect(gravacoes.every((g) => g.startedAt === gravado.startedAt)).toBe(
+        true,
+      );
+    });
+
+    it('troca o contexto que sobrou de outra rota', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValue(true);
+      mockGetItem.mockResolvedValue(
+        JSON.stringify({ ...mockContext, rotaId: 'rota-antiga' }),
+      );
+
+      await garantirRastreamentoDaRota(mockContext);
+
+      expect(mockSetItem).toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+        JSON.stringify(mockContext),
+      );
+    });
+
+    it('devolve falhou quando o Android recusa iniciar o serviço', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValue(false);
+      mockGetForegroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetBackgroundPermissions.mockResolvedValue({ status: 'granted' });
+      mockGetItem.mockResolvedValue(null);
+      mockStartLocationUpdates.mockRejectedValueOnce(
+        new Error('ForegroundServiceStartNotAllowedException'),
+      );
+
+      const resultado = await garantirRastreamentoDaRota(mockContext);
+
+      expect(resultado).toBe('falhou');
     });
   });
 

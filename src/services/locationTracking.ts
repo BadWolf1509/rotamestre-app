@@ -1,30 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { Alert, AppState } from 'react-native';
+import { Alert } from 'react-native';
 
+import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { requestLocationPermissions } from '@/services/unifiedLocationTracking';
 import { defaultTheme } from '@/utils/styles';
-
-/** Teto da espera: se o app não voltar, tenta assim mesmo (e falha como antes). */
-const ESPERA_MAXIMA_PRIMEIRO_PLANO_MS = 5000;
-
-function aguardarAppEmPrimeiroPlano(): Promise<void> {
-  if (AppState.currentState === 'active') return Promise.resolve();
-  return new Promise((resolve) => {
-    const assinatura = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active') concluir();
-    });
-    const prazo = setTimeout(concluir, ESPERA_MAXIMA_PRIMEIRO_PLANO_MS);
-    function concluir() {
-      clearTimeout(prazo);
-      assinatura.remove();
-      resolve();
-    }
-  });
-}
 
 // Task name for background location
 const LOCATION_TASK = 'background-location-tracking';
