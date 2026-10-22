@@ -1491,3 +1491,40 @@ Provável origem da quebra: `tools/scripts/db/fix-function-search-path.cjs` apli
 script. Revisão do `rls-policy-reviewer`: APPROVE (conferiu prosrc de todos os
 schemas, views, policies, gatilhos e `pg_depend`; das 37 funções com `search_path
 ''`, só esta lia `usuarios` sem prefixo).
+
+### ⏳ Migration 37: retenção de `motorista_locations` (90 dias)
+
+**Arquivo:** `20261022230000_retencao_localizacoes_90_dias.sql` · **⏳ não
+aplicada.** Aplicar pelo SQL Editor e registrar em `schema_migrations` com a
+versão `20261022230000`, como a 32–36.
+
+**Por quê.** A tabela recebe uma posição a cada ~5 s em movimento e nunca era
+apagada: 67.090 linhas (22 MB) em 22/10/2026, desde 18/12/2025. Ninguém lê o
+histórico — o app só usa a posição mais recente, para o mapa ao vivo
+(`useMotoristaLocationMapLibre`, `MotoristaMarker`). Também é a base da
+declaração de localização em segundo plano da Play (pendência 10): os dados têm
+prazo.
+
+**O que faz.** `limpar_localizacoes_antigas(p_dias integer DEFAULT 90)`,
+SECURITY DEFINER, só para `service_role`. Apaga as posições das rotas
+`concluida`, `cancelada` e `nao_executada` cujo `rotas.data` ficou mais de
+`p_dias` para trás; pendente e em andamento nunca perdem posição. Piso de 30
+dias (abaixo disso, exceção). Devolve quantas apagou. Prazo de 90 dias decidido
+pelo gestor em 22/10/2026. Na primeira execução, ~12.900 linhas.
+
+**Quem chama.** Não há `pg_cron` no projeto: a Edge Function `expire-routes`
+(cron do GitHub, 22:00 BRT) chama a função depois da expiração e devolve
+`localizacoes_apagadas`; falha na limpeza só vai ao log, sem derrubar a
+expiração (guarda `expire-routes/__tests__/retencaoLocalizacoes.test.ts`).
+Publicar a função depois de aplicar a migration — antes disso a chamada só
+registra erro no log.
+
+**Também remove `cleanup_old_locations()`** (Migration 007): sem chamador,
+apagava tudo com mais de 24 h (contradiz a retenção) e seguia executável por
+PUBLIC/anon/authenticated — o RLS barrava o DELETE. Saiu também da lista de
+`tools/scripts/db/fix-function-search-path.cjs`. Revisão do
+`rls-policy-reviewer`: APPROVE (privilégios cobrem os grants default; `rotas.data`
+é NOT NULL; nenhum leitor do histórico no app ou no banco).
+
+**Sonda.** O MCP recusa `DELETE` mesmo dentro de transação desfeita; a sonda
+roda no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`).

@@ -74,11 +74,27 @@ Deno.serve(async (req) => {
       `Expired ${stats.expired_count} routes, sent ${stats.notifications_sent} notifications`,
     );
 
+    // Retenção de motorista_locations (90 dias, Migration 37). Sem pg_cron no
+    // projeto, roda aqui; falha na limpeza só vai para o log, não derruba a
+    // expiração que já aconteceu.
+    let localizacoesApagadas: number | null = null;
+    const limpeza = await supabase.rpc('limpar_localizacoes_antigas');
+    if (limpeza.error) {
+      console.error(
+        'Error calling limpar_localizacoes_antigas:',
+        limpeza.error,
+      );
+    } else {
+      localizacoesApagadas = limpeza.data as number;
+      console.log(`Deleted ${localizacoesApagadas} old driver locations`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         expired_count: stats.expired_count,
         notifications_sent: stats.notifications_sent,
+        localizacoes_apagadas: localizacoesApagadas,
         executed_at: new Date().toISOString(),
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
