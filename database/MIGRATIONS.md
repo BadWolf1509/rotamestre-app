@@ -1430,3 +1430,34 @@ link; sem rota → gestor B), sem resíduo.
 
 **Drift esperado, não é erro:** arquivo `20261022200000`, registro remoto
 `20261022063859`.
+
+### ⏳ Migration 35: avisos da loja vão a todos os gestores ativos
+
+**Arquivo:** `20261022210000_aviso_a_todos_os_gestores.sql` · **⏳ a aplicar.** Tem
+`REVOKE` (no helper novo), que o MCP recusa: aplicar pelo SQL Editor e registrar
+a versão `20261022210000` em `schema_migrations` depois.
+
+**Por quê.** Os seis gatilhos que avisam o gestor (`notify_sos_acionado`,
+`notify_incidente_criado`, `notify_parada_pulada`, `notify_parada_reaberta`,
+`notify_rota_iniciada`, `notify_rota_concluida`) escolhiam o destinatário com
+`SELECT ... LIMIT 1` sem ordem: numa loja com dois gestores ativos, só um
+recebia, a critério do plano de execução — um SOS podia nunca chegar ao outro.
+
+**O que faz.** Todos os gestores com vínculo ativo na loja recebem, pelo helper
+`gestores_ativos_da_unidade(uuid)` (fonte única do critério; EXECUTE só para os
+gatilhos). O critério não muda: vínculo `gestor` ativo. Loja com um gestor só
+(todas, hoje) fica idêntica. `get_gestor_contato` e `get_gestor_principal`
+devolvem um contato por desenho e ficam como estão.
+
+**Verificação.** Medido antes: nenhuma loja com mais de um gestor ativo; 3 lojas
+paradas desde 02/2026 têm como único gestor uma pessoa com `usuarios.ativo =
+false` e seguem recebendo (o critério não passou a exigir `usuarios.ativo`).
+Sonda transacional (desfeita) em 22/10, com um segundo gestor ativo na loja e os
+seis eventos disparados: com as funções atuais, o segundo gestor recebeu 0 dos 6
+avisos; com as novas, os dois receberam cada um 1 de cada.
+
+**Depois de aplicar,** conferir que o helper é de `postgres` e que `postgres` tem
+EXECUTE nele (consultas no cabeçalho do arquivo): os gatilhos rodam como
+`postgres`, e sem esse EXECUTE a falha derruba a operação que disparou o aviso.
+Revisão do `rls-policy-reviewer`: APPROVE (diff linha a linha contra os corpos
+vivos: só o bloco do gestor mudou).
