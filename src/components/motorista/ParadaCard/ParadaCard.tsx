@@ -50,7 +50,10 @@ export const ParadaCard = memo<ParadaCardProps>(
     const prevStatusRef = useRef(parada.status);
 
     useEffect(() => {
-      if (prevStatusRef.current === 'pendente' && parada.status === 'concluida') {
+      if (
+        prevStatusRef.current === 'pendente' &&
+        parada.status === 'concluida'
+      ) {
         successHaptic();
 
         Animated.sequence([
@@ -71,36 +74,60 @@ export const ParadaCard = memo<ParadaCardProps>(
     }, [parada.status, scaleAnim]);
 
     // Memoized callbacks
-    const handleConcluir = useCallback(() => onConcluir(parada), [parada, onConcluir]);
+    const handleConcluir = useCallback(
+      () => onConcluir(parada),
+      [parada, onConcluir],
+    );
     const handlePular = useCallback(() => onPular(parada), [parada, onPular]);
-    const handleRetomar = useCallback(() => onRetomar(parada), [parada, onRetomar]);
-    const handleNavegar = useCallback(() => onNavegar(parada), [parada, onNavegar]);
-    const handleReportar = useCallback(() => onReportar(parada), [parada, onReportar]);
-    const handleToggleExpand = useCallback(() => setCardExpandido(prev => !prev), []);
+    const handleRetomar = useCallback(
+      () => onRetomar(parada),
+      [parada, onRetomar],
+    );
+    const handleNavegar = useCallback(
+      () => onNavegar(parada),
+      [parada, onNavegar],
+    );
+    const handleReportar = useCallback(
+      () => onReportar(parada),
+      [parada, onReportar],
+    );
+    const handleToggleExpand = useCallback(
+      () => setCardExpandido((prev) => !prev),
+      [],
+    );
 
     // Swipe configuration
     const canSwipe = !isSummary && isPendente && rotaEmAndamento;
 
     const leftActions = canSwipe
-      ? [{
-          icon: 'checkmark-circle' as const,
-          label: 'Concluir',
-          color: theme.colors.success,
-          onPress: handleConcluir,
-        }]
+      ? [
+          {
+            icon: 'checkmark-circle' as const,
+            label: 'Concluir',
+            color: theme.colors.success,
+            onPress: handleConcluir,
+          },
+        ]
       : [];
 
     const rightActions = canSwipe
-      ? [{
-          icon: 'arrow-forward-circle' as const,
-          label: 'Pular',
-          color: theme.colors.warning,
-          onPress: handlePular,
-        }]
+      ? [
+          {
+            icon: 'arrow-forward-circle' as const,
+            label: 'Pular',
+            color: theme.colors.warning,
+            onPress: handlePular,
+          },
+        ]
       : [];
 
     // Accessibility
-    const tipoLabel = parada.tipo === 'entrega' ? 'entrega' : parada.tipo === 'retirada' ? 'retirada' : 'origem';
+    const tipoLabel =
+      parada.tipo === 'entrega'
+        ? 'entrega'
+        : parada.tipo === 'retirada'
+          ? 'retirada'
+          : 'origem';
     const statusLabel = getStatusLabel(isConcluida, isPulada, isEmAndamento);
     const enderecoA11y = parada.enderecoSecundario
       ? `${parada.endereco}. ${parada.enderecoSecundario}`
@@ -189,16 +216,11 @@ export const ParadaCard = memo<ParadaCardProps>(
 
             {/* Retomar button for skipped cards */}
             {!isSummary && isPulada && (
-              <RetomarButton
-                onRetomar={handleRetomar}
-                retomando={retomando}
-              />
+              <RetomarButton onRetomar={handleRetomar} retomando={retomando} />
             )}
 
             {/* Swipe hint for pending cards */}
-            {!isSummary && isPendente && rotaEmAndamento && (
-              <SwipeHint />
-            )}
+            {!isSummary && isPendente && rotaEmAndamento && <SwipeHint />}
           </View>
         </SwipeableRow>
       </Animated.View>
@@ -216,7 +238,7 @@ export const ParadaCard = memo<ParadaCardProps>(
       prevProps.isProxima === nextProps.isProxima &&
       prevProps.variant === nextProps.variant
     );
-  }
+  },
 );
 
 ParadaCard.displayName = 'ParadaCard';
