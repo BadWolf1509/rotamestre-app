@@ -1343,12 +1343,11 @@ secret `PUSH_WEBHOOK_SECRET` das Edge Functions; `send-push-notification`,
 da mesma loja cria; gestor → outra loja, rota de outra loja, parada de outra rota e
 motorista → gestor recusam. Revisão do `rls-policy-reviewer`: APPROVE.
 
-### ⏳ Migration 33: gatilhos `notify_*` sem push entre empresas
+### ✅ Migration 33: gatilhos `notify_*` sem push entre empresas
 
-**Arquivo:** `20261022180000_gatilhos_notify_sem_push_entre_empresas.sql` · **⏳ a
-aplicar pelo SQL Editor** (tem `ALTER POLICY` e `REVOKE`, que o MCP recusa).
-Depois de aplicada, inserir a linha em `schema_migrations` com a versão
-`20261022180000`, como nas Migrations 31 e 32.
+**Arquivo:** `20261022180000_gatilhos_notify_sem_push_entre_empresas.sql` · **✅ aplicada
+em 22/10/2026 pelo SQL Editor** (tem `ALTER POLICY` e `REVOKE`, que o MCP recusa) e
+registrada depois em `schema_migrations` com a versão `20261022180000`.
 
 **Por quê.** A trava da Migration 32 não vale para os gatilhos
 (`pg_trigger_depth() > 0`), e dois deles tiram o destinatário de dado do usuário:
@@ -1391,3 +1390,9 @@ depois de aplicar, com o roteiro do PR. Revisão do `rls-policy-reviewer`:
 APPROVE (avisos não bloqueantes: o gatilho não confere `usuarios.ativo`, ao
 contrário da RPC; a regra de `logs` aceita vínculo de qualquer papel, então um
 membro da loja ainda grava SOS na rota de um colega da mesma loja).
+
+**Depois de aplicada (22/10/2026),** sonda pós-aplicação (desfeita): a policy de
+`logs` recusa o SOS e o log de gestor de outra empresa e aceita o SOS do motorista
+da rota, o log do gestor, o do colega da loja e o log sem rota; reatribuir para
+motorista de outra empresa recusa, com 0 notificação para ele; o SOS legítimo chega
+ao gestor (1 notificação).
