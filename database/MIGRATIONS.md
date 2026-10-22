@@ -1342,3 +1342,52 @@ secret `PUSH_WEBHOOK_SECRET` das Edge Functions; `send-push-notification`,
 **Verificação.** Sonda transacional (desfeita) em 22/10, 6 casos: gestor → motorista
 da mesma loja cria; gestor → outra loja, rota de outra loja, parada de outra rota e
 motorista → gestor recusam. Revisão do `rls-policy-reviewer`: APPROVE.
+
+### ⏳ Migration 33: gatilhos `notify_*` sem push entre empresas
+
+**Arquivo:** `20261022180000_gatilhos_notify_sem_push_entre_empresas.sql` · **⏳ a
+aplicar pelo SQL Editor** (tem `ALTER POLICY` e `REVOKE`, que o MCP recusa).
+Depois de aplicada, inserir a linha em `schema_migrations` com a versão
+`20261022180000`, como nas Migrations 31 e 32.
+
+**Por quê.** A trava da Migration 32 não vale para os gatilhos
+(`pg_trigger_depth() > 0`), e dois deles tiram o destinatário de dado do usuário:
+
+1. `logs` → `notify_sos_acionado`: a policy de INSERT só exigia
+   `usuario_id = auth.uid()`. Qualquer logado gravava `sos_acionado` com o
+   `rota_id` de outra loja e o `motivo` que quisesse, e o gestor daquela loja
+   recebia "SOS - EMERGÊNCIA" com esse texto.
+2. `rotas` → `notify_motorista_nova_rota(_insert)`: nada conferia o
+   `motorista_id`. O gestor da loja A atribuía um motorista da loja B e o
+   gatilho dava push nele.
+
+**O que faz.**
+
+- Gatilho `trg_validar_motorista_e_loja_da_rota` (BEFORE INSERT/UPDATE OF
+  `motorista_id`, `unidade_id`): `motorista_id` não nulo exige vínculo
+  `motorista` ativo na `unidade_id` da rota — o critério da RPC
+  `criar_rota_com_paradas` e do modal de troca de motorista. No UPDATE só
+  confere quando uma das duas colunas muda: rota antiga cujo motorista perdeu o
+  vínculo segue concluindo e expirando. Vale também para a service role.
+- `logs_insert_optimized` passa a exigir, quando há `rota_id`, que o autor seja
+  o motorista da rota ou tenha vínculo ativo (qualquer papel) na loja dela, via
+  `pode_registrar_log_na_rota(uuid)` (SECURITY DEFINER, para não depender da RLS
+  de `rotas`). Gatilhos e RPCs que gravam em `logs` são de `postgres` e ignoram
+  a RLS.
+
+`unidade_id` não muda pelo cliente: `authenticated` não tem UPDATE nessa coluna
+(medido na sonda).
+
+**Verificação.** Medido antes: 0 logs com rota seriam recusados; 3 rotas antigas
+(fechadas) com vínculo inativo, que a guarda não afeta. Sonda transacional
+(desfeita) em 22/10: controle com a regra atual reproduz os dois ataques (push
+para o motorista de outra empresa; SOS forjado chega ao gestor). Com a migration:
+atribuir, criar ou reatribuir para motorista sem vínculo na loja recusa, com 0
+notificação; reatribuir para motorista de duas lojas, tirar o motorista, iniciar
+a rota, a RPC e a rota antiga de vínculo inativo seguem; a regra de `logs`
+aceita motorista da rota, gestor e colega da loja, e recusa outra empresa e rota
+inexistente. O `ALTER POLICY` não roda pelo MCP: a policy em si se confere
+depois de aplicar, com o roteiro do PR. Revisão do `rls-policy-reviewer`:
+APPROVE (avisos não bloqueantes: o gatilho não confere `usuarios.ativo`, ao
+contrário da RPC; a regra de `logs` aceita vínculo de qualquer papel, então um
+membro da loja ainda grava SOS na rota de um colega da mesma loja).
