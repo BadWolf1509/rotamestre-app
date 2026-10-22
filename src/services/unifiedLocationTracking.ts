@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
+import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { logger } from '@/lib/logger';
 import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
@@ -208,6 +209,47 @@ export async function checkLocationPermissions(): Promise<LocationPermissions> {
 }
 
 /**
+ * Na primeira conferência de cada processo, a task já registrada é registrada
+ * de novo — ver `garantirRastreamentoDaRota`. `true` depois de qualquer início
+ * bem-sucedido neste processo.
+ */
+let taskConfirmadaNesteProcesso = false;
+
+/**
+ * Registra a task com o serviço em primeiro plano. Registrar uma task que já
+ * existe não a duplica: o `expo-task-manager` só atualiza as opções, e o
+ * `expo-location` sobe o serviço se ele não estiver rodando.
+ */
+async function iniciarTask(): Promise<void> {
+  // Configuração do tracking
+  const options: Location.LocationTaskOptions = {
+    accuracy: CONFIG.background.accuracy,
+    distanceInterval: CONFIG.background.distanceInterval,
+    deferredUpdatesInterval: CONFIG.background.deferredUpdatesInterval,
+    deferredUpdatesDistance: CONFIG.background.deferredUpdatesDistance,
+    showsBackgroundLocationIndicator: true,
+    pausesUpdatesAutomatically: false,
+
+    // iOS: Tipo de atividade para otimização
+    activityType: Location.ActivityType.AutomotiveNavigation,
+
+    // Android: Foreground Service com notificação persistente
+    foregroundService: {
+      notificationTitle: '🚗 RotaMestre - Em rota',
+      notificationBody: `Rastreando entrega`,
+      notificationColor: defaultTheme.colors.primary,
+    },
+  };
+
+  // #570: o pedido de permissão do `requestAndStartTracking` tira o app da
+  // tela por uma fração de segundo, e o Android 12+ recusa o serviço em
+  // primeiro plano iniciado nessa janela.
+  await aguardarAppEmPrimeiroPlano();
+  await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, options);
+  taskConfirmadaNesteProcesso = true;
+}
+
+/**
  * Inicia o rastreamento em background
  * Chamado quando o motorista inicia uma rota
  */
@@ -239,27 +281,7 @@ export async function startBackgroundTracking(
       return true;
     }
 
-    // Configuração do tracking
-    const options: Location.LocationTaskOptions = {
-      accuracy: CONFIG.background.accuracy,
-      distanceInterval: CONFIG.background.distanceInterval,
-      deferredUpdatesInterval: CONFIG.background.deferredUpdatesInterval,
-      deferredUpdatesDistance: CONFIG.background.deferredUpdatesDistance,
-      showsBackgroundLocationIndicator: true,
-      pausesUpdatesAutomatically: false,
-
-      // iOS: Tipo de atividade para otimização
-      activityType: Location.ActivityType.AutomotiveNavigation,
-
-      // Android: Foreground Service com notificação persistente
-      foregroundService: {
-        notificationTitle: '🚗 RotaMestre - Em rota',
-        notificationBody: `Rastreando entrega`,
-        notificationColor: defaultTheme.colors.primary,
-      },
-    };
-
-    await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, options);
+    await iniciarTask();
 
     return true;
   } catch (err) {
@@ -280,6 +302,7 @@ export async function stopBackgroundTracking(): Promise<void> {
     if (isTracking) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
+    taskConfirmadaNesteProcesso = false;
     await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
   } catch (err) {
     logger.error('[LocationTracking] Erro ao parar', err);
@@ -336,6 +359,86 @@ export async function updateTrackingContext(
     }
   } catch (err) {
     logger.error('[LocationTracking] Erro ao atualizar contexto', err);
+  }
+}
+
+export type ResultadoGarantia =
+  /** A task já estava registrada; nada foi iniciado. */
+  | 'ativo'
+  /** A task tinha sumido e foi religada sem pedir nada ao motorista. */
+  | 'religado'
+  /** Falta "Permitir o tempo todo": só o fluxo que o motorista aciona pede. */
+  | 'sem-segundo-plano'
+  /** Sem localização nenhuma — o aviso da Início já cobre esse caso. */
+  | 'sem-permissao'
+  | 'falhou';
+
+/**
+ * Garante o rastreamento em segundo plano de uma rota que JÁ está em
+ * andamento, sem pedir nada.
+ *
+ * POR QUE EXISTE. Só o `startRoute` ligava a task. Num reinício normal ela
+ * sobrevive (o `expo-task-manager` a restaura), mas numa reinstalação ou
+ * limpeza de dados no meio da rota a task e o contexto somem juntos e nada os
+ * religava: medido em 08/09/2026, nenhum serviço de localização rodando e o
+ * gestor sem a posição do motorista, em silêncio.
+ *
+ * Roda na abertura e em cada volta ao primeiro plano, então é só consulta:
+ * nunca chama `request…PermissionsAsync` nem a divulgação destacada — essa
+ * fica no `requestAndStartTracking`, que só o toque do motorista dispara.
+ */
+export async function garantirRastreamentoDaRota(
+  context: TrackingContext,
+): Promise<ResultadoGarantia> {
+  try {
+    // A mesma rota mantém o contexto gravado (o `startedAt` é o original);
+    // contexto ausente ou de outra rota é trocado.
+    const gravado = await getTrackingContext();
+    const contexto = gravado?.rotaId === context.rotaId ? gravado : context;
+
+    const jaRodando = await Location.hasStartedLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK,
+    );
+    if (jaRodando) {
+      if (contexto !== gravado) {
+        await AsyncStorage.setItem(
+          TRACKING_CONTEXT_KEY,
+          JSON.stringify(contexto),
+        );
+      }
+      // Registrada não quer dizer rodando: num reinício a frio (force-stop,
+      // reboot, processo morto) o `expo-task-manager` restaura a task antes de
+      // o app estar na tela, e o `expo-location` recusa o serviço ("Foreground
+      // location task cannot be started while the app is in the
+      // background!"). Medido em 21/10/2026: task restaurada, nenhum
+      // `LocationTaskService`. Registrar de novo, com o app ativo, sobe o
+      // serviço — uma vez por processo basta, ele não cai sem o processo.
+      if (!taskConfirmadaNesteProcesso) {
+        const permissoes = await checkLocationPermissions();
+        if (permissoes.foreground && permissoes.background) {
+          await iniciarTask();
+        }
+      }
+      return 'ativo';
+    }
+
+    const permissoes = await checkLocationPermissions();
+    if (!permissoes.foreground) return 'sem-permissao';
+    if (!permissoes.background) {
+      // Grava o contexto mesmo assim: o broadcast de primeiro plano o usa.
+      await AsyncStorage.setItem(
+        TRACKING_CONTEXT_KEY,
+        JSON.stringify(contexto),
+      );
+      return 'sem-segundo-plano';
+    }
+
+    // `startBackgroundTracking` devolve `false` quando o Android recusa o
+    // serviço (a exceção é logada lá dentro).
+    return (await startBackgroundTracking(contexto)) ? 'religado' : 'falhou';
+  } catch (error) {
+    logger.warn('[LocationTracking] Falha ao garantir o rastreamento', error);
+    return 'falhou';
   }
 }
 
