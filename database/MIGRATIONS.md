@@ -1397,11 +1397,10 @@ da rota, o log do gestor, o do colega da loja e o log sem rota; reatribuir para
 motorista de outra empresa recusa, com 0 notificação para ele; o SOS legítimo chega
 ao gestor (1 notificação).
 
-### ⏳ Migration 34: incidente avisa o gestor da loja da rota
+### ✅ Migration 34: incidente avisa o gestor da loja da rota
 
-**Arquivo:** `20261022200000_incidente_avisa_loja_da_rota.sql` · **⏳ a aplicar.**
-Só `CREATE OR REPLACE FUNCTION` (mesma assinatura e mesmo gatilho): pode ir pelo
-`apply_migration` do MCP.
+**Arquivo:** `20261022200000_incidente_avisa_loja_da_rota.sql` · **✅ aplicada em
+22/10/2026** pelo `apply_migration` do MCP (só `CREATE OR REPLACE FUNCTION`).
 
 **Por quê.** `notify_incidente_criado` escolhia a loja pelo vínculo principal do
 motorista e ignorava a rota do incidente. Com motorista de duas lojas
@@ -1424,3 +1423,10 @@ atual x nova: rota da loja A → gestor B (atual) / gestor A (nova); rota da loj
 (atual) / gestor B sem link (nova); sem rota → gestor B nas duas.
 Revisão do `rls-policy-reviewer`: APPROVE (pendência fora do escopo: o `LIMIT 1`
 do gestor segue sem ordem — loja com dois gestores ativos avisa um só, arbitrário).
+
+**Depois de aplicada,** a mesma sonda contra a função viva deu o resultado da
+função nova (rota A → gestor A; rota B → gestor B; rota alheia → gestor B sem
+link; sem rota → gestor B), sem resíduo.
+
+**Drift esperado, não é erro:** arquivo `20261022200000`, registro remoto
+`20261022063859`.
