@@ -1466,3 +1466,27 @@ vivos: só o bloco do gestor mudou).
 para `anon`/`authenticated`; os seis gatilhos usam o helper e não sobrou `LIMIT 1`.
 Sonda (desfeita) com os eventos disparados como `authenticated`: os seis passaram
 e avisaram os dois gestores; o helper chamado direto por `authenticated` é recusado.
+
+### ⏳ Migration 36: remove `get_gestor_principal` (morta e quebrada)
+
+**Arquivo:** `20261022220000_remove_get_gestor_principal.sql` · **⏳ a aplicar pelo
+SQL Editor** (`DROP FUNCTION`, que o MCP recusa). Depois, registrar a versão
+`20261022220000` em `schema_migrations`.
+
+**Por quê.** A função estava executável por `PUBLIC` e `anon` (apontado pelo
+`rls-policy-reviewer` na revisão da Migration 35). Medido em produção: não é
+SECURITY DEFINER e está quebrada — `search_path ''` com `usuarios` sem prefixo,
+então toda chamada falha com `relation "usuarios" does not exist`, até como
+`postgres`. Ninguém a usa: nenhum chamador no repositório, em função, policy ou
+view; `pg_depend` sem dependentes; nenhuma chamada pela API nos logs de 24 h.
+
+**O que faz.** `DROP FUNCTION public.get_gestor_principal(uuid)`. O conceito de
+gestor principal segue em `get_gestor_contato` e `transferir_gestao_principal`,
+que não dependem dela. O rollback recria a versão consertada, só para
+`service_role`.
+
+Provável origem da quebra: `tools/scripts/db/fix-function-search-path.cjs` aplica
+`search_path ''` às cegas, e o corpo não tinha prefixo. A função saiu da lista do
+script. Revisão do `rls-policy-reviewer`: APPROVE (conferiu prosrc de todos os
+schemas, views, policies, gatilhos e `pg_depend`; das 37 funções com `search_path
+''`, só esta lia `usuarios` sem prefixo).
