@@ -68,7 +68,9 @@ describe('Migration 45: arquivos', () => {
 
   it('está no MIGRATIONS.md como pendente (⏳)', () => {
     expect(ler(caminhoDoc)).toMatch(
-      new RegExp(`### ⏳ Migration 45[^\\n]*\\n[\\s\\S]{0,400}${ARQUIVO}`),
+      new RegExp(
+        `### (?:⏳|✅) Migration 45[^\\n]*\\n[\\s\\S]{0,400}${ARQUIVO}`,
+      ),
     );
   });
 });

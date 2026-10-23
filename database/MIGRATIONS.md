@@ -1828,9 +1828,11 @@ conferir que a loja fica; tem `DELETE` só de linhas que ela cria, então roda n
 SQL Editor; termina em `RAISE`). Roteiro de conferência só com SELECT (9
 consultas) no fim da migration.
 
-### ⏳ Migration 45: o token de push mora em `push_tokens`, visível só ao dono
+### ✅ Migration 45: o token de push mora em `push_tokens`, visível só ao dono
 
-**Arquivo:** `20261024020000_push_tokens_so_do_dono.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261024020000_push_tokens_so_do_dono.sql` · **✅ aplicada em
+23/10/2026 pelo SQL Editor**, depois de publicada a `send-push-notification` v15;
+sonda rodada e conferência 1–8 ok; versão registrada à mão em `schema_migrations`.
 Rodar pelo **SQL Editor** (tem `REVOKE`, que o MCP recusa), numa execução só.
 **Ordem: publicar `send-push-notification` ANTES** — sem a tabela ela lê a
 coluna antiga (fallback em 42P01/PGRST205); a função velha depois da migration
