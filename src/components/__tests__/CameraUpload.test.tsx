@@ -34,6 +34,8 @@ declare global {
 // Mock functions - declared before jest.mock
 const mockRequestCameraPermissionsAsync = jest.fn();
 const mockRequestMediaLibraryPermissionsAsync = jest.fn();
+const mockGetCameraPermissionsAsync = jest.fn();
+const mockGetMediaLibraryPermissionsAsync = jest.fn();
 const mockLaunchCameraAsync = jest.fn();
 const mockLaunchImageLibraryAsync = jest.fn();
 const mockGetPendingResultAsync = jest.fn();
@@ -49,6 +51,10 @@ jest.mock('expo-image-picker', () => ({
     mockRequestCameraPermissionsAsync(...args),
   requestMediaLibraryPermissionsAsync: (...args: any[]) =>
     mockRequestMediaLibraryPermissionsAsync(...args),
+  getCameraPermissionsAsync: (...args: any[]) =>
+    mockGetCameraPermissionsAsync(...args),
+  getMediaLibraryPermissionsAsync: (...args: any[]) =>
+    mockGetMediaLibraryPermissionsAsync(...args),
   launchCameraAsync: (...args: any[]) => mockLaunchCameraAsync(...args),
   launchImageLibraryAsync: (...args: any[]) =>
     mockLaunchImageLibraryAsync(...args),
@@ -121,6 +127,15 @@ describe('CameraUpload Component', () => {
     mockRequestCameraPermissionsAsync.mockResolvedValue({ status: 'granted' });
     mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({
       status: 'granted',
+    });
+    // Ainda não perguntado: a consulta não basta e o pedido acontece.
+    mockGetCameraPermissionsAsync.mockResolvedValue({
+      status: 'undetermined',
+      canAskAgain: true,
+    });
+    mockGetMediaLibraryPermissionsAsync.mockResolvedValue({
+      status: 'undetermined',
+      canAskAgain: true,
     });
     mockManipulateAsync.mockResolvedValue({ uri: 'compressed-image-uri' });
     mockUploadELinkFotoParada.mockResolvedValue(true);
@@ -286,6 +301,46 @@ describe('CameraUpload Component', () => {
         get: () => originalPlatform,
         configurable: true,
       });
+    });
+  });
+
+  // No Android, todo `request…PermissionsAsync` abre a activity de permissão
+  // do sistema MESMO já concedida: o app vai a segundo plano por um instante
+  // (ver `pedirPermissao` em src/lib/permissoes.ts e o #570). Consultar antes.
+  describe('Permissão já concedida', () => {
+    beforeEach(() => {
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+    });
+
+    it('câmera concedida: abre a câmera sem reabrir o pedido do sistema', async () => {
+      mockGetCameraPermissionsAsync.mockResolvedValue({
+        status: 'granted',
+        canAskAgain: true,
+      });
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      await acionarOpcao(getByText, '📷 Tirar Foto');
+
+      await waitFor(() => expect(mockLaunchCameraAsync).toHaveBeenCalled());
+      expect(mockRequestCameraPermissionsAsync).not.toHaveBeenCalled();
+    });
+
+    it('galeria concedida: abre a galeria sem reabrir o pedido do sistema', async () => {
+      mockGetMediaLibraryPermissionsAsync.mockResolvedValue({
+        status: 'granted',
+        canAskAgain: true,
+      });
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      await acionarOpcao(getByText, '🖼️ Escolher da Galeria');
+
+      await waitFor(() =>
+        expect(mockLaunchImageLibraryAsync).toHaveBeenCalled(),
+      );
+      expect(mockRequestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
     });
   });
 

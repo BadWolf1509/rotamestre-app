@@ -55,10 +55,17 @@ export function useProfilePhoto({
         // Request appropriate permission (not needed on web)
         if (Platform.OS !== 'web') {
           const ehCamera = source === 'camera';
-          const permissao = await pedirPermissao(() =>
-            ehCamera
-              ? ImagePicker.requestCameraPermissionsAsync()
-              : ImagePicker.requestMediaLibraryPermissionsAsync(),
+          // Consulta antes de pedir: no Android o `request` abre a tela de
+          // permissão do sistema mesmo já concedida (src/lib/permissoes.ts).
+          const permissao = await pedirPermissao(
+            () =>
+              ehCamera
+                ? ImagePicker.requestCameraPermissionsAsync()
+                : ImagePicker.requestMediaLibraryPermissionsAsync(),
+            () =>
+              ehCamera
+                ? ImagePicker.getCameraPermissionsAsync()
+                : ImagePicker.getMediaLibraryPermissionsAsync(),
           );
 
           if (!permissao.concedida) {

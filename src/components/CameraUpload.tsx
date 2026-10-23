@@ -157,8 +157,9 @@ export default function CameraUpload({
    * Abrir câmera
    */
   const openCamera = async () => {
-    const permissao = await pedirPermissao(() =>
-      ImagePicker.requestCameraPermissionsAsync(),
+    const permissao = await pedirPermissao(
+      () => ImagePicker.requestCameraPermissionsAsync(),
+      () => ImagePicker.getCameraPermissionsAsync(),
     );
     if (!permissao.concedida) {
       await oferecerSaidaParaConfiguracoes(
@@ -193,8 +194,9 @@ export default function CameraUpload({
    * Abrir galeria
    */
   const openGallery = async () => {
-    const permissao = await pedirPermissao(() =>
-      ImagePicker.requestMediaLibraryPermissionsAsync(),
+    const permissao = await pedirPermissao(
+      () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+      () => ImagePicker.getMediaLibraryPermissionsAsync(),
     );
     if (!permissao.concedida) {
       await oferecerSaidaParaConfiguracoes(
