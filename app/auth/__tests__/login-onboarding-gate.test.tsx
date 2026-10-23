@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { authService } from '@/lib/auth';
+import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 
 import Login from '../login';
 
@@ -78,5 +79,36 @@ describe('portão de onboarding em app/auth/login', () => {
       expect(mockReplace).toHaveBeenCalledWith('/gestor/inicio');
     });
     expect(mockReplace).not.toHaveBeenCalledWith('/onboarding/criar-unidade');
+  });
+
+  // Contrato com `authService.signIn`: falha ao buscar o perfil agora
+  // REJEITA (antes virava `usuario: null` e caía no ramo do onboarding acima).
+  // Aqui só se fixa que a rejeição não leva ao onboarding.
+  it('falha ao buscar o perfil não manda ao onboarding e diz o que houve', async () => {
+    mockAuth.signIn.mockRejectedValue(
+      new FalhaAoCarregarPerfil('sem resposta', {
+        transitoria: true,
+        status: 0,
+      }),
+    );
+
+    const { getByPlaceholderText, getByText, findByText } = render(<Login />);
+
+    fireEvent.changeText(
+      getByPlaceholderText('seu@email.com'),
+      'motorista@rotamestre.com',
+    );
+    fireEvent.changeText(getByPlaceholderText('••••••••'), 'senha123');
+    fireEvent.press(getByText('Entrar'));
+
+    await waitFor(() => expect(mockAuth.signIn).toHaveBeenCalled());
+    await waitFor(() => expect(getByText('Entrar')).toBeTruthy());
+    expect(mockReplace).not.toHaveBeenCalledWith('/onboarding/criar-unidade');
+    // M3: a senha foi aceita — não é "erro de login" genérico.
+    expect(
+      await findByText(
+        'Você entrou, mas não conseguimos carregar seu perfil. Verifique a conexão e tente de novo.',
+      ),
+    ).toBeTruthy();
   });
 });

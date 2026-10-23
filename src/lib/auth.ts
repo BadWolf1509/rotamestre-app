@@ -1,10 +1,12 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { classificarFalhaPerfil } from './auth/falhaPerfil';
 import {
   limparAparelhoAoExcluirConta,
   limparEstadoLocalDoUsuario,
 } from './auth/limparEstadoLocal';
+import { exigirSessaoDe, lerSessao } from './auth/sessao';
 import { obterSessaoComTimeout } from './auth/sessaoComTimeout';
 import { logger } from './logger';
 import { unregisterPushToken } from './notifications';
@@ -304,6 +306,9 @@ export const authService = {
     return data.session;
   },
 
+  /** Sessão + se a falta dela é offline (ver `src/lib/auth/sessao.ts`). */
+  lerSessao,
+
   // Obter dados do usuário
   async getUsuario(userId: string): Promise<Usuario | null> {
     // `.maybeSingle()`, não `.single()`: entre o cadastro e a RPC do onboarding
@@ -312,17 +317,38 @@ export const authService = {
     // onboarding. O `.single()` traduzia esse estado esperado em 406 + PGRST116,
     // que virava logger.error em todo cadastro que DEU CERTO. Aqui zero linhas devolve
     // data:null com error:null, e só falha de verdade cai no if abaixo.
-    const { data, error } = await supabase
+    //
+    // Falha LANÇA `FalhaAoCarregarPerfil` (não devolve null): null aqui
+    // significa "sem perfil" e manda ao onboarding. Devolver null também na
+    // falha de rede pôs motorista offline em "Criar sua unidade". Lançar em vez
+    // de um resultado discriminado porque todos os chamadores já têm try/catch.
+    //
+    // E null só vale se a busca saiu AUTENTICADA: sem sessão ela sai anônima e
+    // a RLS devolve as mesmas 0 linhas. Por isso a sessão é exigida antes e,
+    // no caso do null, conferida de novo depois (o refresh pode ter caído no
+    // meio).
+    await exigirSessaoDe(userId);
+
+    const { data, error, status } = await supabase
       .from('usuarios')
       .select('*, unidades(nome)')
       .eq('id', userId)
       .maybeSingle();
 
     if (error) {
-      logger.error('[Auth] Erro ao buscar usuário:', error);
-      return null;
+      const falha = classificarFalhaPerfil(error, status);
+      if (falha.transitoria) {
+        logger.warn(
+          `[Auth] Perfil indisponível (transitório; status=${falha.status}, code=${falha.code})`,
+          error,
+        );
+      } else {
+        logger.error('[Auth] Erro ao buscar usuário:', error);
+      }
+      throw falha;
     }
 
+    if (!data) await exigirSessaoDe(userId);
     return data;
   },
 

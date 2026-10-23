@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import { authService } from '../auth';
+import { FalhaAoCarregarPerfil } from '../auth/falhaPerfil';
 import { logger } from '../logger';
 import { supabase } from '../supabase';
 
@@ -26,9 +27,21 @@ jest.mock('expo-constants', () => ({
 // Apenas fazemos o cast para usar com TypeScript
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
+// `getUsuario` só aceita a resposta de uma busca AUTENTICADA (sem sessão o
+// supabase-js manda a query como anon, a RLS devolve 0 linhas e isso seria lido
+// como "sem perfil"). Os testes dão a sessão do usuário consultado.
+let idDaSessao: string | null = 'user-123';
+
 describe('AuthService - Unit Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    idDaSessao = 'user-123';
+    mockSupabase.auth.getSession.mockImplementation(async () => ({
+      data: {
+        session: idDaSessao ? ({ user: { id: idDaSessao } } as any) : null,
+      },
+      error: null,
+    }));
   });
 
   // ============================================
@@ -94,6 +107,7 @@ describe('AuthService - Unit Tests', () => {
     });
 
     it('deve retornar usuario null quando usuário não existe na tabela', async () => {
+      idDaSessao = 'user-999';
       const mockSession = {
         access_token: 'mock-token-123',
         user: { id: 'user-999', email: 'teste@rotamestre.com' },
@@ -108,9 +122,12 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        // Sem linha é data:null + error:null (`.maybeSingle()`). Antes este
+        // teste usava um `error` aqui e exigia `usuario: null` — era o defeito:
+        // falha de rede virava "sem perfil" e o login mandava ao onboarding.
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
-          error: new Error('Usuário não encontrado'),
+          error: null,
         }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
@@ -122,6 +139,42 @@ describe('AuthService - Unit Tests', () => {
 
       expect(result.session).toEqual(mockSession);
       expect(result.usuario).toBeNull();
+    });
+
+    it('falha ao buscar o perfil propaga o erro (não vira "sem perfil")', async () => {
+      idDaSessao = 'user-999';
+      const mockSession = {
+        access_token: 'mock-token-123',
+        user: { id: 'user-999', email: 'teste@rotamestre.com' },
+      };
+
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user } as any,
+        error: null,
+      });
+
+      const falhaDeRede = {
+        message: 'TypeError: Network request failed',
+        code: '',
+      };
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({
+          data: null,
+          error: falhaDeRede,
+          status: 0,
+        }),
+      } as any);
+
+      // Classe própria: a tela de login a distingue de credencial errada
+      // ("Você entrou, mas não conseguimos carregar seu perfil").
+      const erro = await authService
+        .signIn('teste@rotamestre.com', 'senha123')
+        .catch((e) => e);
+      expect(erro).toBeInstanceOf(FalhaAoCarregarPerfil);
+      expect(erro.transitoria).toBe(true);
     });
 
     it('deve atualizar ultimo_login após login bem-sucedido', async () => {
@@ -593,13 +646,16 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        // "Não existe" com `.maybeSingle()` é data:null + error:null. O
+        // `error` que estava aqui exigia que falha virasse "não existe".
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
-          error: new Error('Usuário não encontrado'),
+          error: null,
         }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
+      idDaSessao = 'user-999';
       const usuario = await authService.getUsuario('user-999');
 
       expect(usuario).toBeNull();
@@ -629,6 +685,7 @@ describe('AuthService - Unit Tests', () => {
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
+      idDaSessao = 'user-sem-perfil-ainda';
       const usuario = await authService.getUsuario('user-sem-perfil-ainda');
 
       expect(usuario).toBeNull();
@@ -647,6 +704,7 @@ describe('AuthService - Unit Tests', () => {
         }),
       } as any);
 
+      idDaSessao = 'user-specific-id';
       await authService.getUsuario('user-specific-id');
 
       expect(mockEq).toHaveBeenCalledWith('id', 'user-specific-id');
@@ -669,7 +727,10 @@ describe('AuthService - Unit Tests', () => {
       expect(mockSelect).toHaveBeenCalledWith('*, unidades(nome)');
     });
 
-    it('deve logar erro quando busca falha', async () => {
+    // Antes exigia `null` aqui — o mesmo null de "sem linha", que o portão
+    // (app/index.tsx) lê como cadastro incompleto e manda ao onboarding.
+    // Motorista offline caía em "Criar sua unidade". Falha agora lança.
+    it('lança quando a busca falha, em vez de devolver null', async () => {
       const mockError = new Error('Database error');
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
@@ -680,13 +741,92 @@ describe('AuthService - Unit Tests', () => {
         }),
       } as any);
 
-      const result = await authService.getUsuario('user-123');
-
+      const erro = await authService.getUsuario('user-123').catch((e) => e);
+      expect(erro).toBeInstanceOf(FalhaAoCarregarPerfil);
+      expect(erro.causa).toBe(mockError);
+      // Erro sem status (não é rede): defeito de verdade, sem perfil velho.
+      expect(erro.transitoria).toBe(false);
       expect(logger.error).toHaveBeenCalledWith(
         '[Auth] Erro ao buscar usuário:',
         mockError,
       );
-      expect(result).toBeNull();
+    });
+
+    it('falha sem resposta (status 0) é transitória e só gera warn', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'TypeError: Network request failed', code: '' },
+          status: 0,
+        }),
+      } as any);
+
+      const erro = await authService.getUsuario('user-123').catch((e) => e);
+      expect(erro.transitoria).toBe(true);
+      expect(logger.error).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('400 de schema NÃO é transitória', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'column does not exist', code: '42703' },
+          status: 400,
+        }),
+      } as any);
+
+      const erro = await authService.getUsuario('user-123').catch((e) => e);
+      expect(erro.transitoria).toBe(false);
+      expect(erro.status).toBe(400);
+    });
+
+    // I1: sem sessão a query sai como anon e a RLS devolve 0 linhas —
+    // `data:null, error:null` igual ao "sem perfil" de verdade.
+    it('sem sessão não busca e lança transitória (nunca "sem perfil")', async () => {
+      idDaSessao = null;
+      const maybeSingle = jest
+        .fn()
+        .mockResolvedValue({ data: null, error: null });
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle,
+      } as any);
+
+      const erro = await authService.getUsuario('user-123').catch((e) => e);
+      expect(erro).toBeInstanceOf(FalhaAoCarregarPerfil);
+      expect(erro.transitoria).toBe(true);
+      expect(maybeSingle).not.toHaveBeenCalled();
+    });
+
+    it('zero linhas com a sessão sumindo no meio não vira "sem perfil"', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockImplementation(async () => {
+          idDaSessao = null; // o refresh falhou durante a busca
+          return { data: null, error: null };
+        }),
+      } as any);
+
+      const erro = await authService.getUsuario('user-123').catch((e) => e);
+      expect(erro).toBeInstanceOf(FalhaAoCarregarPerfil);
+      expect(erro.transitoria).toBe(true);
+    });
+
+    it('devolve null só quando não há linha (data:null, error:null)', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      } as any);
+
+      await expect(authService.getUsuario('user-123')).resolves.toBeNull();
     });
   });
 
@@ -737,6 +877,7 @@ describe('AuthService - Unit Tests', () => {
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
+      idDaSessao = 'user-456';
       const tipo = await authService.verificarTipoUsuario('user-456');
 
       expect(tipo).toBe('motorista');
@@ -747,13 +888,16 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        // "Não existe" com `.maybeSingle()` é data:null + error:null. O
+        // `error` que estava aqui exigia que falha virasse "não existe".
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
-          error: new Error('Usuário não encontrado'),
+          error: null,
         }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
+      idDaSessao = 'user-999';
       const tipo = await authService.verificarTipoUsuario('user-999');
 
       expect(tipo).toBeNull();

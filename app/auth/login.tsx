@@ -26,6 +26,7 @@ import { TesterLoginLink } from '@/components/testar/TesterLoginLink';
 import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 import { getErrorMessage } from '@/lib/errorMapping';
 import {
   confirmationResendRateLimiter,
@@ -254,6 +255,18 @@ function LoginContent() {
         router.replace('/onboarding/criar-unidade');
       }
     } catch (error: unknown) {
+      // A senha foi aceita e só a busca do perfil falhou (`signIn` lança
+      // `FalhaAoCarregarPerfil`): não é credencial errada nem erro genérico.
+      if (error instanceof FalhaAoCarregarPerfil) {
+        await loginRateLimiter.recordAttempt(email, true);
+        showAlert(
+          'Perfil não carregado',
+          'Você entrou, mas não conseguimos carregar seu perfil. Verifique a conexão e tente de novo.',
+          'warning',
+        );
+        return;
+      }
+
       // Usar error mapping para mensagem amigável (sem expor detalhes técnicos)
       const friendlyError = getErrorMessage(error);
 

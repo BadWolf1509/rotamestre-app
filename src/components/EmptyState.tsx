@@ -7,13 +7,13 @@
  * Usa design tokens para cores, tipografia e espaçamento.
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import React from "react";
-import { View, Text, ViewStyle } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, ViewStyle } from 'react-native';
 
-import { StyleSheet, useUnistyles, type Theme } from "@/utils/styles";
+import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-import { Button } from "./Button";
+import { Button } from './Button';
 
 interface EmptyStateProps {
   /** Ionicons icon name (default: 'file-tray-outline') */
@@ -26,17 +26,20 @@ interface EmptyStateProps {
   description?: string;
   actionLabel?: string;
   onActionPress?: () => void;
+  /** Ação em curso: o botão mostra carregando e fica desabilitado. */
+  actionLoading?: boolean;
   style?: ViewStyle;
 }
 
 export function EmptyState({
-  icon = "file-tray-outline",
+  icon = 'file-tray-outline',
   emoji,
   illustration: Illustration,
   title,
   description,
   actionLabel,
   onActionPress,
+  actionLoading = false,
   style,
 }: EmptyStateProps) {
   const { theme } = useUnistyles();
@@ -70,6 +73,7 @@ export function EmptyState({
           title={actionLabel}
           onPress={onActionPress}
           variant="primary"
+          loading={actionLoading}
           style={styles.button}
         />
       )}
@@ -80,8 +84,8 @@ export function EmptyState({
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: theme.spacing.xl,
   },
 
@@ -91,14 +95,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
 
   illustrationContainer: {
     marginBottom: theme.spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   emoji: {
     fontSize: 64,
     marginBottom: theme.spacing.lg,
-    textAlign: "center" as const,
+    textAlign: 'center' as const,
   },
 
   title: {
@@ -106,7 +110,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.base,
     lineHeight: theme.typography.fontSize.base * 1.5,
     color: theme.colors.gray900,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: theme.spacing.sm,
   },
 
@@ -115,7 +119,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     lineHeight: theme.typography.fontSize.sm * 1.5,
     color: theme.colors.gray500,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: theme.spacing.lg,
     maxWidth: 300,
   },

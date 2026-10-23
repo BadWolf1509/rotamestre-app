@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot, useRouter } from 'expo-router';
 import { ColorValue, Pressable, View } from 'react-native';
 
+import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -11,7 +12,14 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
 export default function GestorLayout() {
-  const { isReady, isAuthorized, userData } = useRequireAuth({
+  const {
+    isReady,
+    isAuthorized,
+    userData,
+    perfilIndisponivel,
+    tentando,
+    tentarNovamente,
+  } = useRequireAuth({
     role: 'gestor',
   });
   const { isDesktop } = useResponsive();
@@ -20,6 +28,18 @@ export default function GestorLayout() {
   // Aguardar verificação de autenticação
   if (!isReady) {
     return <AuthLoadingScreen />;
+  }
+
+  // Sem perfil para decidir (busca falhou, nenhum perfil conhecido): sem
+  // redirect — ver useRequireAuth.
+  if (perfilIndisponivel) {
+    return (
+      <PerfilIndisponivelScreen
+        motivo={perfilIndisponivel}
+        tentando={tentando}
+        onTentarNovamente={tentarNovamente}
+      />
+    );
   }
 
   // Se não autorizado, retorna null (redirect já aconteceu)
