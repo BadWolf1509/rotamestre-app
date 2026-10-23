@@ -31,6 +31,7 @@ import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { contarParadasDasRotas } from '@/lib/gestor/contarParadasDasRotas';
 import {
   excluirRota as excluirRotaNoServidor,
   ExclusaoRotaError,
@@ -86,6 +87,13 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [loading, setLoading] = useState(true);
+  // Erro da última carga (null = ok). `Alert.alert` era no-op no web: a tela
+  // ficava vazia ou com dados velhos sem dizer nada.
+  const [erroCarga, setErroCarga] = useState<string | null>(null);
+  // Quando há erro e a tela mostra dados anteriores (cache ou carga que deu
+  // certo antes): de quando eles são (epoch ms). null = sem dados anteriores.
+  const [dadosDe, setDadosDe] = useState<number | null>(null);
+  const ultimaCargaOkRef = useRef<number | null>(null);
 
   // Modal state for delete confirmation
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -129,7 +137,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     abortControllerRef.current = new AbortController();
 
     // Stale-while-revalidate: show cache first
-    const cachedData = await loadFromCache();
+    const cache = await loadFromCache();
+    const cachedData = cache?.data ?? null;
     if (cachedData && cachedData.length > 0) {
       setRotas(cachedData);
       setLoading(false);
@@ -191,48 +200,25 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         return;
       }
 
-      // Fetch routes and stops in parallel (2 queries instead of N+1)
-      const [rotasResult, paradasResult] = await Promise.all([
-        supabase
-          .from('rotas')
-          .select(
-            'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)',
-          )
-          .eq('unidade_id', unidadeAtiva)
-          .order('data', { ascending: false })
-          .limit(100)
-          .abortSignal(abortControllerRef.current.signal),
-        supabase
-          .from('paradas')
-          .select('rota_id, status, is_checkpoint, rotas!inner(unidade_id)')
-          .eq('rotas.unidade_id', unidadeAtiva)
-          .abortSignal(abortControllerRef.current.signal),
-      ]);
+      const signal = abortControllerRef.current.signal;
+      const rotasResult = await supabase
+        .from('rotas')
+        .select(
+          'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)',
+        )
+        .eq('unidade_id', unidadeAtiva)
+        .order('data', { ascending: false })
+        .limit(100)
+        .abortSignal(signal);
 
       if (rotasResult.error) throw rotasResult.error;
 
-      // Create count map by rota_id
-      const paradasPorRota = new Map<
-        string,
-        { total: number; concluidas: number }
-      >();
-
-      if (!paradasResult.error && paradasResult.data) {
-        for (const parada of paradasResult.data) {
-          if (parada.is_checkpoint === false) continue;
-
-          const rotaId = parada.rota_id;
-          if (!paradasPorRota.has(rotaId)) {
-            paradasPorRota.set(rotaId, { total: 0, concluidas: 0 });
-          }
-
-          const stats = paradasPorRota.get(rotaId)!;
-          stats.total++;
-          if (parada.status === 'concluida') {
-            stats.concluidas++;
-          }
-        }
-      }
+      // Só as paradas das rotas carregadas, paginado: a busca de todas as
+      // paradas da unidade era cortada em 1.000 linhas pelo PostgREST.
+      const paradasPorRota = await contarParadasDasRotas(
+        (rotasResult.data || []).map((r) => r.id),
+        signal,
+      );
 
       // Build final result
       const rotasComParadas: RotaHistorico[] = (rotasResult.data || []).map(
@@ -261,6 +247,9 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       );
 
       setRotas(rotasComParadas);
+      setErroCarga(null);
+      setDadosDe(null);
+      ultimaCargaOkRef.current = Date.now();
 
       // Save to cache for future use
       await saveToCache(rotasComParadas);
@@ -290,11 +279,13 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       ) {
         return;
       }
-      // Only show error if no cached data
-      if (!cachedData || cachedData.length === 0) {
-        logger.error('Erro ao carregar rotas:', error);
-        Alert.alert('Erro', 'Não foi possível carregar as rotas');
-      }
+      logger.error('Erro ao carregar rotas:', error);
+      setErroCarga('Não foi possível carregar as rotas.');
+      setDadosDe(
+        cachedData && cachedData.length > 0
+          ? (cache?.timestamp ?? null)
+          : ultimaCargaOkRef.current,
+      );
     } finally {
       setLoading(false);
     }
@@ -480,6 +471,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     rotas,
     rotasFiltradas,
     loading,
+    erroCarga,
+    dadosDe,
     filtroStatus,
     searchQuery,
     showConfirmModal,

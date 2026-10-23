@@ -17,7 +17,8 @@ interface UseRotasCacheOptions {
 
 interface UseRotasCacheResult {
   getCacheKey: () => string;
-  loadFromCache: () => Promise<RotaHistorico[] | null>;
+  /** Dados do cache e quando foram gravados (epoch ms). */
+  loadFromCache: () => Promise<CachedRotas | null>;
   saveToCache: (data: RotaHistorico[]) => Promise<void>;
   clearCache: () => Promise<void>;
 }
@@ -32,17 +33,17 @@ export function useRotasCache({
     return `${CACHE_KEY_PREFIX}${unidadeId}`;
   }, [unidadeId]);
 
-  const loadFromCache = useCallback(async (): Promise<RotaHistorico[] | null> => {
+  const loadFromCache = useCallback(async (): Promise<CachedRotas | null> => {
     try {
       const cacheKey = getCacheKey();
       const cached = await AsyncStorage.getItem(cacheKey);
       if (!cached) return null;
 
-      const { data }: CachedRotas = JSON.parse(cached);
+      const { data, timestamp }: CachedRotas = JSON.parse(cached);
 
       // Stale-while-revalidate: return data even if stale
       // Revalidation happens in background in the main hook
-      return data;
+      return { data, timestamp };
     } catch (error) {
       logger.warn('Falha ao carregar cache de rotas', error);
       return null;
@@ -59,7 +60,7 @@ export function useRotasCache({
         // Silently fail - cache is optional
       }
     },
-    [getCacheKey]
+    [getCacheKey],
   );
 
   const clearCache = useCallback(async () => {
