@@ -5,7 +5,11 @@ import { Platform } from 'react-native';
 
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
-import { sincronizarFilaAcoesParada } from './motorista/filaAcoesParada';
+import {
+  lerDescartesDaFila,
+  lerFilaAcoesParada,
+  sincronizarFilaAcoesParada,
+} from './motorista/filaAcoesParada';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { uploadELinkFotoParada } from './storage';
 import { supabase } from './supabase';
@@ -260,7 +264,15 @@ let fotosEmCurso: Promise<void> | null = null;
 /**
  * Processa uploads de fotos pendentes
  */
-export async function processOfflinePhotos(): Promise<{
+export async function processOfflinePhotos({
+  reter,
+}: {
+  /**
+   * Paradas cuja foto ainda NÃO pode subir: a conclusão delas está na fila
+   * de ações e o servidor ainda não a aceitou (`solicitarEnvioFila`).
+   */
+  reter?: ReadonlySet<string>;
+} = {}): Promise<{
   success: number;
   failed: number;
 }> {
@@ -292,6 +304,7 @@ export async function processOfflinePhotos(): Promise<{
 
     for (const photo of index) {
       if (!fotoEDe(photo, usuarioAtual)) continue;
+      if (reter?.has(photo.paradaId)) continue;
       try {
         // Verificar se arquivo ainda existe
         if (Platform.OS !== 'web') {
@@ -344,6 +357,50 @@ export async function processOfflinePhotos(): Promise<{
     fotosEmCurso = null;
     terminarFotos();
   }
+}
+
+/**
+ * Tira do aparelho as fotos de comprovante cuja ação de parada foi DESCARTADA
+ * pelo servidor (parada removida, rota passada a outro motorista ou
+ * encerrada, status divergente, recusa persistente). Subi-las deixaria um
+ * objeto sem referência no Storage (parada invisível: o UPDATE do `foto_url`
+ * não acha linha) ou um comprovante ligado a uma parada aberta.
+ *
+ * Só as fotos de `usuarioAtual` (as de outra conta nunca), e só as tiradas
+ * até o descarte: uma foto nova da mesma parada, depois dele, é outra
+ * conclusão. O descarte fica persistido até o motorista dispensar o aviso, e
+ * por isso esta limpeza roda em todo envio — cobre o app fechado entre o
+ * descarte e a limpeza.
+ */
+async function descartarFotosDeAcoesDescartadas(
+  usuarioAtual: string,
+): Promise<void> {
+  const descartes = await lerDescartesDaFila(usuarioAtual);
+  if (descartes.length === 0) return;
+  const descartadaEm = new Map<string, string>();
+  for (const d of descartes) {
+    const atual = descartadaEm.get(d.acao.paradaId);
+    if (!atual || d.em > atual) descartadaEm.set(d.acao.paradaId, d.em);
+  }
+  const index = await getOfflinePhotosIndex();
+  const sair = index.filter((p) => {
+    const em = descartadaEm.get(p.paradaId);
+    return em !== undefined && fotoEDe(p, usuarioAtual) && p.savedAt <= em;
+  });
+  for (const p of sair) {
+    await deleteLocalPhoto(p.localPath);
+    await removeFromPhotosIndex(p.paradaId, p.localPath);
+  }
+}
+
+/** Paradas com ação de `usuarioAtual` ainda na fila (foto espera). */
+async function paradasComAcaoNaFila(
+  usuarioAtual: string,
+): Promise<Set<string>> {
+  const fila = await lerFilaAcoesParada();
+  return new Set(
+    fila.filter((a) => a.motoristaId === usuarioAtual).map((a) => a.paradaId),
+  );
 }
 
 /**
@@ -656,7 +713,9 @@ let pedirEnvioDeNovo = false;
 
 /**
  * Ponto ÚNICO de envio do que ficou guardado no aparelho: fotos de
- * comprovante PRIMEIRO, depois as ações de parada (concluir/pular).
+ * comprovante PRIMEIRO, depois as ações de parada (concluir/pular) — exceto a
+ * foto de parada cuja conclusão está na fila, que espera o servidor aceitar
+ * a conclusão (e, se ela for descartada, sai do aparelho sem subir).
  *
  * Chamado na volta da rede, ao abrir o app, ao voltar ao primeiro plano, no
  * puxar para atualizar, depois de cada ação online e antes de finalizar a
@@ -684,10 +743,28 @@ export function solicitarEnvioFila(): Promise<{
         pedirEnvioDeNovo = false;
         if (!(await isOnline())) break;
         if (fotosEmCurso) await fotosEmCurso;
+        const usuario = await usuarioDaSessao();
+        // Foto de conclusão que está na fila só sobe depois que o servidor
+        // aceita a conclusão; a de ação descartada não sobe (ver
+        // `descartarFotosDeAcoesDescartadas`). As demais sobem antes.
+        if (usuario) await descartarFotosDeAcoesDescartadas(usuario);
+        const retidas = usuario
+          ? await paradasComAcaoNaFila(usuario)
+          : new Set<string>();
         if ((await getPendingPhotosCount()) > 0) {
-          fotos += (await processOfflinePhotos()).success;
+          fotos += (await processOfflinePhotos({ reter: retidas })).success;
         }
         acoes += (await sincronizarFilaAcoesParada()).enviadas;
+        if (usuario && retidas.size > 0) {
+          await descartarFotosDeAcoesDescartadas(usuario);
+          if ((await getPendingPhotosCount()) > 0) {
+            fotos += (
+              await processOfflinePhotos({
+                reter: await paradasComAcaoNaFila(usuario),
+              })
+            ).success;
+          }
+        }
       } while (pedirEnvioDeNovo);
     } catch (error) {
       logger.warn('[Offline] Falha ao enviar o que ficou no aparelho', error);

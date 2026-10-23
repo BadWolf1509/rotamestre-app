@@ -83,6 +83,8 @@ jest.mock('../notifications', () => ({
 
 jest.mock('../motorista/filaAcoesParada', () => ({
   sincronizarFilaAcoesParada: jest.fn(),
+  lerFilaAcoesParada: jest.fn(async () => []),
+  lerDescartesDaFila: jest.fn(async () => []),
 }));
 
 beforeEach(async () => {

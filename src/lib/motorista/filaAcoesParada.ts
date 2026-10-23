@@ -21,11 +21,13 @@
  * - **Por usuário.** A ação guarda o `motoristaId` da rota; só é enviada com a
  *   sessão dessa pessoa, para nunca registrar entrega em nome de outra.
  * - **Ordem preservada.** Envio em ordem de criação; falha de rede para o
- *   lote (o resto espera a próxima vez). A foto é enviada ANTES, no mesmo
- *   ciclo de sincronização (`setupOfflineSync`): a conclusão não referencia o
- *   arquivo — `foto_url` é ligada pelo próprio upload — então a ordem garante
- *   que o comprovante sobe primeiro, sem que um upload preso bloqueie a
- *   entrega para sempre.
+ *   lote (o resto espera a próxima vez). A foto de uma parada cuja conclusão
+ *   está nesta fila sobe DEPOIS que o servidor aceita a conclusão, no mesmo
+ *   ciclo (`solicitarEnvioFila` em `src/lib/offline.ts`); se a ação for
+ *   descartada, a foto sai do aparelho sem subir — senão viraria objeto sem
+ *   referência no Storage ou comprovante de parada aberta. A conclusão não
+ *   referencia o arquivo (`foto_url` é ligada pelo próprio upload), então um
+ *   upload preso nunca bloqueia a entrega.
  *
  * O acesso ao banco entra por uma porta (`PortaParadas`): os testes usam um
  * banco em memória com as mesmas regras, e o app usa `portaParadasSupabase`.
