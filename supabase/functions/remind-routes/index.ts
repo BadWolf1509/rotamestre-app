@@ -72,10 +72,10 @@ Deno.serve(async (req) => {
     if (error) {
       console.error('Error calling remind_pending_routes:', error);
       return new Response(
+        // Detalhe só no log acima: o workflow público imprime este corpo.
         JSON.stringify({
           success: false,
-          error: error.message,
-          details: error.details,
+          error: 'Falha ao chamar remind_pending_routes',
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } },
       );
@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: err instanceof Error ? err.message : 'Unknown error',
+        error: 'Erro interno',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     );

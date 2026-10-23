@@ -18,6 +18,10 @@ on:
         default: false
         type: boolean
 
+# GITHUB_TOKEN só leitura: nenhum job aqui escreve no repositório.
+permissions:
+  contents: read
+
 jobs:
   design-system-audit:
     name: Design System Drift Check

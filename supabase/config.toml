@@ -347,3 +347,29 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+
+# Edge Functions: todas sem verify_jwt (desde 22/10/2026 ele só entende o JWT
+# antigo, desligado) — cada função autoriza por dentro (auth.getUser,
+# x-cron-secret, x-push-secret). Declarado aqui para que um `functions deploy`
+# sem `--no-verify-jwt` não religue o verify_jwt e derrube a função.
+# Guarda: supabase/functions/_shared/__tests__/configFuncoes.test.ts
+[functions.criar-motorista]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
+
+[functions.expire-routes]
+verify_jwt = false
+
+[functions.google-place-details]
+verify_jwt = false
+
+[functions.google-places-autocomplete]
+verify_jwt = false
+
+[functions.remind-routes]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false

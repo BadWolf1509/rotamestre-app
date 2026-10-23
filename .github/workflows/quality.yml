@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+# GITHUB_TOKEN só leitura: nenhum job aqui escreve no repositório.
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: TypeScript & Linting

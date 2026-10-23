@@ -16,7 +16,10 @@ import {
   failure,
 } from './routeErrors';
 
-import type { GoogleDirectionsLeg, GoogleDirectionsResult } from '../types/google-directions';
+import type {
+  GoogleDirectionsLeg,
+  GoogleDirectionsResult,
+} from '../types/google-directions';
 
 // ============================================================================
 // SHARED INTERFACES
@@ -56,23 +59,6 @@ export interface GoogleAutocompletePrediction {
     main_text: string;
     secondary_text?: string;
   };
-}
-
-/**
- * Interface para elemento da Distance Matrix.
- */
-export interface DistanceMatrixElement {
-  status: string;
-  distance?: { value: number; text: string };
-  duration?: { value: number; text: string };
-  duration_in_traffic?: { value: number; text: string };
-}
-
-/**
- * Interface para linha da Distance Matrix.
- */
-export interface DistanceMatrixRow {
-  elements: DistanceMatrixElement[];
 }
 
 /**
@@ -148,7 +134,7 @@ export function parseDuration(duration: string): number {
  */
 export function adaptRoutesAPIResponse(
   apiResponse: RoutesAPIResponse,
-  storedAddresses?: { start?: string; end?: string; waypoints?: string[] }
+  storedAddresses?: { start?: string; end?: string; waypoints?: string[] },
 ): GoogleDirectionsResult {
   const route = apiResponse.routes?.[0];
 
@@ -160,9 +146,11 @@ export function adaptRoutesAPIResponse(
     distancia_metros: leg.distanceMeters || 0,
     duracao_segundos: parseDuration(leg.duration),
     // Routes API não retorna endereços formatados - usar dados armazenados ou coordenadas
-    endereco_inicio: storedAddresses?.waypoints?.[index] ||
+    endereco_inicio:
+      storedAddresses?.waypoints?.[index] ||
       `${leg.startLocation.latLng.latitude.toFixed(6)}, ${leg.startLocation.latLng.longitude.toFixed(6)}`,
-    endereco_fim: storedAddresses?.waypoints?.[index + 1] ||
+    endereco_fim:
+      storedAddresses?.waypoints?.[index + 1] ||
       `${leg.endLocation.latLng.latitude.toFixed(6)}, ${leg.endLocation.latLng.longitude.toFixed(6)}`,
     coordenadas_inicio: {
       latitude: leg.startLocation.latLng.latitude,
@@ -197,11 +185,11 @@ export function mapRoutesAPIError(error: RoutesAPIResponse['error']): string {
   if (!error) return 'UNKNOWN_ERROR';
 
   const statusMap: Record<string, string> = {
-    'INVALID_ARGUMENT': 'INVALID_REQUEST',
-    'NOT_FOUND': 'NOT_FOUND',
-    'PERMISSION_DENIED': 'REQUEST_DENIED',
-    'RESOURCE_EXHAUSTED': 'OVER_QUERY_LIMIT',
-    'UNAVAILABLE': 'UNKNOWN_ERROR',
+    INVALID_ARGUMENT: 'INVALID_REQUEST',
+    NOT_FOUND: 'NOT_FOUND',
+    PERMISSION_DENIED: 'REQUEST_DENIED',
+    RESOURCE_EXHAUSTED: 'OVER_QUERY_LIMIT',
+    UNAVAILABLE: 'UNKNOWN_ERROR',
   };
 
   return statusMap[error.status] || error.status || 'UNKNOWN_ERROR';
@@ -244,7 +232,7 @@ export function createAccumulators(): DirectionsAccumulators {
  */
 export function processDirectionsSegment(
   apiResponse: RoutesAPIResponse,
-  accumulators: DirectionsAccumulators
+  accumulators: DirectionsAccumulators,
 ): boolean {
   if (!apiResponse.routes || apiResponse.routes.length === 0) {
     return false;
@@ -307,7 +295,7 @@ export function handleDirectionsError(err: unknown): RouteError {
  * @returns RouteResult com sucesso ou falha
  */
 export function validateAndAdaptRoutesResponse(
-  apiResponse: RoutesAPIResponse
+  apiResponse: RoutesAPIResponse,
 ): RouteResult<GoogleDirectionsResult> {
   // Verificar erros da Routes API
   if (apiResponse.error) {

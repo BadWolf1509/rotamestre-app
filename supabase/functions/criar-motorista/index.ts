@@ -240,15 +240,20 @@ serve(async (req) => {
         );
       }
 
-      return new Response(
-        JSON.stringify({
-          error: `Erro ao criar usuário: ${createAuthError.message}`,
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      // Mensagem do Auth só no log; para fora, o motivo de negócio que o
+      // gestor consegue corrigir, ou o genérico.
+      console.error('[criar-motorista] createUser falhou:', createAuthError);
+      const codigoAuth = (createAuthError as { code?: string }).code;
+      const mensagemAuth =
+        codigoAuth === 'weak_password'
+          ? 'A senha não atende aos requisitos mínimos.'
+          : codigoAuth === 'email_address_invalid'
+            ? 'E-mail inválido.'
+            : 'Não foi possível criar o usuário. Tente de novo.';
+      return new Response(JSON.stringify({ error: mensagemAuth }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (!authData.user) {
@@ -290,9 +295,13 @@ serve(async (req) => {
         );
       }
 
+      console.error(
+        '[criar-motorista] insert em usuarios falhou:',
+        insertError,
+      );
       return new Response(
         JSON.stringify({
-          error: `Erro ao criar registro: ${insertError.message}`,
+          error: 'Não foi possível criar o motorista. Tente de novo.',
         }),
         {
           status: 400,
@@ -342,7 +351,8 @@ serve(async (req) => {
       },
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[criar-motorista] Erro inesperado:', error);
+    return new Response(JSON.stringify({ error: 'Erro interno' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
