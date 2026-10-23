@@ -278,6 +278,26 @@ describe('fila persistida por usuário', () => {
     expect(fila).toHaveLength(1);
     expect(fila[0].tipo).toBe('concluir');
   });
+
+  it('a ação de outra conta para a mesma parada não engole a desta conta', async () => {
+    // Rota passada de A para B no mesmo aparelho: a ação de A vai ser
+    // descartada no envio; a de B não pode sumir por causa dela.
+    await enfileirarAcaoParada(
+      criarAcaoParada({
+        tipo: 'concluir',
+        paradaId: 'p1',
+        rotaId: 'rota-1',
+        motoristaId: 'outra-conta',
+        em: '2026-10-23T12:00:00.000Z',
+      }),
+    );
+    await enfileirarAcaoParada(concluirP1());
+    const fila = await lerFilaAcoesParada();
+    expect(fila.map((a) => a.motoristaId).sort()).toEqual([
+      'mot-1',
+      'outra-conta',
+    ]);
+  });
 });
 
 describe('processarFilaAcoesParada', () => {

@@ -57,3 +57,62 @@ export async function limparEstadoLocalDoUsuario(): Promise<void> {
     logger.warn('[Logout] Falha ao limpar estado local da conta', error);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Exclusão de conta
+// ---------------------------------------------------------------------------
+
+const CHAVE_FILA_ACOES = '@rotamestre:fila_acoes_parada'; // src/lib/motorista/filaAcoesParada.ts
+const CHAVE_DESCARTES_ACOES = '@rotamestre:fila_acoes_parada_descartes'; // idem
+const CHAVE_INDICE_FOTOS = '@rotamestre:offline_photos_index'; // src/lib/offline.ts
+
+type ComDono = { motoristaId?: string };
+type FotoComDono = { userId?: string; semDono?: boolean };
+
+/**
+ * Excluir a conta apaga tudo do aparelho, MENOS as pendências de OUTRAS
+ * contas: concluir/pular feitos sem rede (e seus avisos) e as fotos de
+ * comprovante que ainda não subiram. Elas sobem quando a dona entrar; um
+ * `AsyncStorage.clear()` cru as perderia sem aviso. Foto sem dono conhecido
+ * (`semDono`) também fica — pode ser de qualquer um.
+ *
+ * POR QUE GUARDAR E REGRAVAR (e não apagar chave a chave): o resto do
+ * aparelho deve mesmo sumir numa exclusão; só estas três chaves misturam
+ * dados de várias contas, e é só delas que se tira o que é de quem sai.
+ */
+export async function limparAparelhoAoExcluirConta(
+  usuarioId: string,
+): Promise<void> {
+  const lerLista = async <T>(chave: string): Promise<T[]> => {
+    try {
+      const bruto = await AsyncStorage.getItem(chave);
+      return bruto ? (JSON.parse(bruto) as T[]) : [];
+    } catch (error) {
+      logger.warn('[ExcluirConta] Falha ao ler pendências do aparelho', error);
+      return [];
+    }
+  };
+
+  const acoes = (await lerLista<ComDono>(CHAVE_FILA_ACOES)).filter(
+    (a) => a.motoristaId !== usuarioId,
+  );
+  const descartes = (
+    await lerLista<{ acao?: ComDono }>(CHAVE_DESCARTES_ACOES)
+  ).filter((d) => d.acao?.motoristaId !== usuarioId);
+  const fotos = (await lerLista<FotoComDono>(CHAVE_INDICE_FOTOS)).filter(
+    (f) => f.semDono || (f.userId !== undefined && f.userId !== usuarioId),
+  );
+
+  await AsyncStorage.clear();
+
+  const guardar: [string, unknown[]][] = [
+    [CHAVE_FILA_ACOES, acoes],
+    [CHAVE_DESCARTES_ACOES, descartes],
+    [CHAVE_INDICE_FOTOS, fotos],
+  ];
+  for (const [chave, lista] of guardar) {
+    if (lista.length > 0) {
+      await AsyncStorage.setItem(chave, JSON.stringify(lista));
+    }
+  }
+}

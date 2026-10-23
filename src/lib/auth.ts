@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-import { limparEstadoLocalDoUsuario } from './auth/limparEstadoLocal';
+import {
+  limparAparelhoAoExcluirConta,
+  limparEstadoLocalDoUsuario,
+} from './auth/limparEstadoLocal';
 import { obterSessaoComTimeout } from './auth/sessaoComTimeout';
 import { logger } from './logger';
 import { unregisterPushToken } from './notifications';
@@ -182,6 +185,13 @@ export const authService = {
    * locais somente depois da confirmação do servidor.
    */
   async deleteAccount() {
+    // Quem sai, lido antes: depois do signOut a sessão some, e é por esse id
+    // que as pendências de OUTRAS contas no aparelho são poupadas.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const usuarioId = session?.user?.id;
+
     const { data, error } = await supabase.functions.invoke('delete-account', {
       method: 'POST',
     });
@@ -194,7 +204,11 @@ export const authService = {
     // A conta já não existe no servidor. Limpa a sessão local sem depender de
     // outra chamada de rede e remove caches que possam conter dados pessoais.
     await supabase.auth.signOut({ scope: 'local' });
-    await AsyncStorage.clear();
+    if (usuarioId) {
+      await limparAparelhoAoExcluirConta(usuarioId);
+    } else {
+      await AsyncStorage.clear();
+    }
     setMockSession(null, null);
 
     return data as {

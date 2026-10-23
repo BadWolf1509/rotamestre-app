@@ -5,6 +5,11 @@
  *
  * A fila mora em `src/lib/motorista/filaAcoesParada.ts`; este hook só lê e
  * acompanha as mudanças (enfileirar, enviar, descartar avisam os ouvintes).
+ *
+ * `acoesDeOutraConta`: ações deixadas no aparelho por OUTRA conta (só sobem
+ * com a sessão dela). Só o número sai daqui — nada da outra pessoa. Dispensar
+ * o aviso é só da tela: as ações continuam na fila; ele volta se o número
+ * mudar.
  */
 import { useCallback, useEffect, useState } from 'react';
 
@@ -20,11 +25,14 @@ import {
 export function useFilaAcoesParada(motoristaId: string | null | undefined) {
   const [acoes, setAcoes] = useState<AcaoParada[]>([]);
   const [descartes, setDescartes] = useState<DescarteDeAcao[]>([]);
+  const [deOutraConta, setDeOutraConta] = useState(0);
+  const [dispensadoEm, setDispensadoEm] = useState<number | null>(null);
 
   useEffect(() => {
     if (!motoristaId) {
       setAcoes([]);
       setDescartes([]);
+      setDeOutraConta(0);
       return;
     }
     let ativo = true;
@@ -35,6 +43,7 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
       ]);
       if (!ativo) return;
       setAcoes(fila.filter((a) => a.motoristaId === motoristaId));
+      setDeOutraConta(fila.filter((a) => a.motoristaId !== motoristaId).length);
       setDescartes(avisos);
     };
     void ler();
@@ -51,5 +60,17 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
     if (motoristaId) await dispensar(motoristaId);
   }, [motoristaId]);
 
-  return { acoes, descartes, dispensarDescartes };
+  const dispensarAvisoOutraConta = useCallback(() => {
+    setDispensadoEm(deOutraConta);
+  }, [deOutraConta]);
+
+  const acoesDeOutraConta = deOutraConta === dispensadoEm ? 0 : deOutraConta;
+
+  return {
+    acoes,
+    descartes,
+    dispensarDescartes,
+    acoesDeOutraConta,
+    dispensarAvisoOutraConta,
+  };
 }

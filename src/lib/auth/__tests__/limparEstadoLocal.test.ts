@@ -6,7 +6,10 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { limparEstadoLocalDoUsuario } from '../limparEstadoLocal';
+import {
+  limparAparelhoAoExcluirConta,
+  limparEstadoLocalDoUsuario,
+} from '../limparEstadoLocal';
 
 const DA_PESSOA = [
   '@cache_user_data_u1',
@@ -24,6 +27,10 @@ const DA_PESSOA = [
 ];
 
 const DO_APARELHO = [
+  // Concluir/pular feitos sem rede e seus avisos: podem ser de OUTRA conta
+  // (sobem quando ela entrar) — sair desta não pode apagá-los.
+  '@rotamestre:fila_acoes_parada',
+  '@rotamestre:fila_acoes_parada_descartes',
   '@rotamestre:offline_queue',
   '@rotamestre:offline_photos_index',
   '@rotamestre:theme_preference',
@@ -71,5 +78,95 @@ describe('limparEstadoLocalDoUsuario', () => {
       new Error('disco'),
     );
     await expect(limparEstadoLocalDoUsuario()).resolves.toBeUndefined();
+  });
+});
+
+describe('limparAparelhoAoExcluirConta', () => {
+  const acao = (paradaId: string, motoristaId: string) => ({
+    id: `a-${paradaId}`,
+    tipo: 'concluir',
+    paradaId,
+    rotaId: 'r1',
+    motoristaId,
+    em: '2026-10-23T12:00:00.000Z',
+    tentativas: 0,
+  });
+  const foto = (paradaId: string, dono: Record<string, unknown>) => ({
+    localPath: `/docs/offline_photos/${paradaId}.jpg`,
+    unidadeId: 'u1',
+    rotaId: 'r1',
+    paradaId,
+    originalUri: 'file://x',
+    savedAt: '2026-10-23T12:00:00Z',
+    ...dono,
+  });
+
+  beforeEach(() => {
+    disco.set(
+      '@rotamestre:fila_acoes_parada',
+      JSON.stringify([acao('p1', 'quem-sai'), acao('p2', 'outra-conta')]),
+    );
+    disco.set(
+      '@rotamestre:fila_acoes_parada_descartes',
+      JSON.stringify([
+        { acao: acao('p3', 'quem-sai'), motivo: 'rota_encerrada', em: 'x' },
+        { acao: acao('p4', 'outra-conta'), motivo: 'rota_encerrada', em: 'x' },
+      ]),
+    );
+    disco.set(
+      '@rotamestre:offline_photos_index',
+      JSON.stringify([
+        foto('p1', { userId: 'quem-sai' }),
+        foto('p2', { userId: 'outra-conta' }),
+        foto('p5', { semDono: true }),
+      ]),
+    );
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(
+      async (k: string) => disco.get(k) ?? null,
+    );
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(
+      async (k: string, v: string) => {
+        disco.set(k, v);
+      },
+    );
+    (AsyncStorage.clear as jest.Mock).mockImplementation(async () => {
+      disco.clear();
+    });
+  });
+
+  const ler = (k: string) => JSON.parse(disco.get(k) ?? '[]');
+
+  it('apaga tudo do aparelho, mas guarda as pendências de OUTRAS contas', async () => {
+    await limparAparelhoAoExcluirConta('quem-sai');
+
+    expect(
+      ler('@rotamestre:fila_acoes_parada').map(
+        (a: { paradaId: string }) => a.paradaId,
+      ),
+    ).toEqual(['p2']);
+    expect(
+      ler('@rotamestre:fila_acoes_parada_descartes').map(
+        (d: { acao: { paradaId: string } }) => d.acao.paradaId,
+      ),
+    ).toEqual(['p4']);
+    // Foto sem dono conhecido pode ser de qualquer um: fica.
+    expect(
+      ler('@rotamestre:offline_photos_index').map(
+        (f: { paradaId: string }) => f.paradaId,
+      ),
+    ).toEqual(['p2', 'p5']);
+    for (const k of DA_PESSOA) expect(disco.has(k)).toBe(false);
+    expect(disco.has('@rotamestre:theme_preference')).toBe(false);
+  });
+
+  it('sem pendência de outra conta, não regrava chave vazia', async () => {
+    disco.set(
+      '@rotamestre:fila_acoes_parada',
+      JSON.stringify([acao('p1', 'quem-sai')]),
+    );
+    disco.delete('@rotamestre:fila_acoes_parada_descartes');
+    disco.delete('@rotamestre:offline_photos_index');
+    await limparAparelhoAoExcluirConta('quem-sai');
+    expect([...disco.keys()]).toEqual([]);
   });
 });

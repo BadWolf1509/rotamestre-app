@@ -62,4 +62,36 @@ describe('AvisosDaFilaDeParadas', () => {
     fireEvent.press(getByLabelText('Fechar alerta'));
     expect(dispensar).toHaveBeenCalled();
   });
+
+  it('ações de outra conta no aparelho: aviso discreto, só o número, dispensável', () => {
+    const dispensar = jest.fn();
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      acoesDeOutraConta: 3,
+      dispensarAvisoOutraConta: dispensar,
+    };
+    const { getByTestId, getByText, getByLabelText } = render(
+      <AvisosDaFilaDeParadas />,
+    );
+    expect(getByTestId('aviso-acoes-outra-conta')).toBeTruthy();
+    expect(
+      getByText(/Há 3 ações de outra conta guardadas neste aparelho/),
+    ).toBeTruthy();
+    expect(getByText(/sobem quando essa conta entrar/)).toBeTruthy();
+    fireEvent.press(getByLabelText('Fechar alerta'));
+    expect(dispensar).toHaveBeenCalled();
+  });
+
+  it('uma ação de outra conta: singular', () => {
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      acoesDeOutraConta: 1,
+    };
+    const { getByText } = render(<AvisosDaFilaDeParadas />);
+    expect(
+      getByText(/Há 1 ação de outra conta guardada neste aparelho/),
+    ).toBeTruthy();
+  });
 });

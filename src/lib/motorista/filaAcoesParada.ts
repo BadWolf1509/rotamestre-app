@@ -173,7 +173,17 @@ export async function enfileirarAcaoParada(acao: AcaoParada): Promise<void> {
   await emSerie(async () => {
     const fila = await lerLista<AcaoParada>(CHAVE_FILA);
     // A primeira decisão sobre a parada vale: a tela já a mostra resolvida.
-    if (fila.some((a) => a.paradaId === acao.paradaId)) return;
+    // Por conta: a ação de outra pessoa para a mesma parada (rota passada a
+    // esta conta no mesmo aparelho) vai ser descartada no envio dela, e não
+    // pode engolir a desta.
+    if (
+      fila.some(
+        (a) =>
+          a.paradaId === acao.paradaId && a.motoristaId === acao.motoristaId,
+      )
+    ) {
+      return;
+    }
     fila.push(acao);
     await gravarLista(CHAVE_FILA, fila);
   });

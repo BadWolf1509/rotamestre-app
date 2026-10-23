@@ -118,6 +118,12 @@ export interface RouteStatusContextData {
   /** Ações da fila descartadas por conflito (parada removida, rota mudou). */
   avisosDeEnvio?: DescarteDeAcao[];
   dispensarAvisosDeEnvio?: () => Promise<void>;
+  /**
+   * Ações de OUTRA conta guardadas neste aparelho (sobem quando ela entrar).
+   * Só o número: nada da outra pessoa chega à tela. 0 depois de dispensado.
+   */
+  acoesDeOutraConta?: number;
+  dispensarAvisoOutraConta?: () => void;
   completeRoute: () => Promise<void>;
   /**
    * Rastreamento em segundo plano da rota em andamento, religado na abertura e
