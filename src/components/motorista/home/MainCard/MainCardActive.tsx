@@ -136,7 +136,7 @@ export const MainCardActive = memo(function MainCardActive({
           onPress={onPress}
           activeOpacity={0.9}
         >
-          <View style={styles.header}>
+          <View style={styles.header} testID="selos-parada">
             <View
               style={[
                 styles.badge,
@@ -145,7 +145,7 @@ export const MainCardActive = memo(function MainCardActive({
                 },
               ]}
             >
-              <Text style={styles.badgeText}>
+              <Text style={styles.badgeText} maxFontSizeMultiplier={1.3}>
                 {state === 'last-stop'
                   ? 'ÚLTIMA PARADA! 🎯'
                   : `PARADA ${currentStop.ordem}/${paradasReais.length}`}
@@ -155,7 +155,9 @@ export const MainCardActive = memo(function MainCardActive({
               <View
                 style={[styles.badge, { backgroundColor: theme.colors.info }]}
               >
-                <Text style={styles.badgeText}>{tipoAtual.titulo}</Text>
+                <Text style={styles.badgeText} maxFontSizeMultiplier={1.3}>
+                  {tipoAtual.titulo}
+                </Text>
               </View>
             )}
             <View style={styles.timer}>
@@ -169,6 +171,7 @@ export const MainCardActive = memo(function MainCardActive({
                     color={theme.colors.primary}
                   />
                   <Text
+                    maxFontSizeMultiplier={1.3}
                     style={[
                       styles.timerText,
                       {

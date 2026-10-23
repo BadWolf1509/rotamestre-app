@@ -1,5 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { ParadaCard, Parada } from '../ParadaCard';
 
@@ -70,7 +71,7 @@ describe('ParadaCard', () => {
       };
 
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaEmAndamento} />
+        <ParadaCard {...defaultProps} parada={paradaEmAndamento} />,
       );
 
       expect(getByText('Em rota')).toBeTruthy();
@@ -78,7 +79,7 @@ describe('ParadaCard', () => {
 
     it('deve renderizar parada concluída corretamente', () => {
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />
+        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />,
       );
 
       expect(getByText('✓ Concluída')).toBeTruthy();
@@ -86,7 +87,7 @@ describe('ParadaCard', () => {
 
     it('deve renderizar parada pulada corretamente', () => {
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaPulada} />
+        <ParadaCard {...defaultProps} parada={mockParadaPulada} />,
       );
 
       expect(getByText('↷ Pulada')).toBeTruthy();
@@ -98,7 +99,7 @@ describe('ParadaCard', () => {
         tipo: 'retirada',
       };
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaRetirada} />
+        <ParadaCard {...defaultProps} parada={paradaRetirada} />,
       );
 
       expect(getByText('Retirada')).toBeTruthy();
@@ -122,7 +123,7 @@ describe('ParadaCard', () => {
         observacoes: 'Entregar na portaria',
       };
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={paradaComObs} />
+        <ParadaCard {...defaultProps} parada={paradaComObs} />,
       );
 
       expect(getByText('📝 Observações:')).toBeTruthy();
@@ -146,7 +147,7 @@ describe('ParadaCard', () => {
     it('deve chamar onNavegar ao pressionar Como Chegar', () => {
       const onNavegar = jest.fn();
       const { getByText } = render(
-        <ParadaCard {...defaultProps} onNavegar={onNavegar} />
+        <ParadaCard {...defaultProps} onNavegar={onNavegar} />,
       );
 
       fireEvent.press(getByText('Como Chegar'));
@@ -156,7 +157,7 @@ describe('ParadaCard', () => {
     it('deve chamar onReportar ao pressionar Reportar Problema', () => {
       const onReportar = jest.fn();
       const { getByText } = render(
-        <ParadaCard {...defaultProps} onReportar={onReportar} />
+        <ParadaCard {...defaultProps} onReportar={onReportar} />,
       );
 
       fireEvent.press(getByText('Reportar Problema'));
@@ -165,7 +166,7 @@ describe('ParadaCard', () => {
 
     it('NÃO deve mostrar botões de ação para parada concluída', () => {
       const { queryByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />
+        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />,
       );
 
       expect(queryByText('Como Chegar')).toBeNull();
@@ -174,7 +175,7 @@ describe('ParadaCard', () => {
 
     it('NÃO deve mostrar botões de ação para parada pulada', () => {
       const { queryByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaPulada} />
+        <ParadaCard {...defaultProps} parada={mockParadaPulada} />,
       );
 
       expect(queryByText('Como Chegar')).toBeNull();
@@ -185,7 +186,7 @@ describe('ParadaCard', () => {
   describe('Botão Retomar', () => {
     it('deve mostrar botão Retomar para parada pulada', () => {
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaPulada} />
+        <ParadaCard {...defaultProps} parada={mockParadaPulada} />,
       );
 
       expect(getByText('Retomar Parada')).toBeTruthy();
@@ -194,7 +195,11 @@ describe('ParadaCard', () => {
     it('deve chamar onRetomar ao pressionar Retomar Parada', () => {
       const onRetomar = jest.fn();
       const { getByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaPulada} onRetomar={onRetomar} />
+        <ParadaCard
+          {...defaultProps}
+          parada={mockParadaPulada}
+          onRetomar={onRetomar}
+        />,
       );
 
       fireEvent.press(getByText('Retomar Parada'));
@@ -209,7 +214,7 @@ describe('ParadaCard', () => {
 
     it('NÃO deve mostrar botão Retomar para parada concluída', () => {
       const { queryByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />
+        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />,
       );
 
       expect(queryByText('Retomar Parada')).toBeNull();
@@ -225,7 +230,7 @@ describe('ParadaCard', () => {
 
     it('NÃO deve mostrar hint de swipe quando rota não está em andamento', () => {
       const { queryByText } = render(
-        <ParadaCard {...defaultProps} rotaEmAndamento={false} />
+        <ParadaCard {...defaultProps} rotaEmAndamento={false} />,
       );
 
       expect(queryByText('Deslize para ações')).toBeNull();
@@ -233,7 +238,7 @@ describe('ParadaCard', () => {
 
     it('NÃO deve mostrar hint de swipe para parada concluída', () => {
       const { queryByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />
+        <ParadaCard {...defaultProps} parada={mockParadaConcluida} />,
       );
 
       expect(queryByText('Deslize para ações')).toBeNull();
@@ -241,7 +246,7 @@ describe('ParadaCard', () => {
 
     it('NÃO deve mostrar hint de swipe para parada pulada', () => {
       const { queryByText } = render(
-        <ParadaCard {...defaultProps} parada={mockParadaPulada} />
+        <ParadaCard {...defaultProps} parada={mockParadaPulada} />,
       );
 
       expect(queryByText('Deslize para ações')).toBeNull();
@@ -257,7 +262,7 @@ describe('ParadaCard', () => {
           parada={mockParadaPulada}
           onRetomar={onRetomar}
           retomando={true}
-        />
+        />,
       );
 
       // O botão deve estar desabilitado
@@ -320,6 +325,46 @@ describe('ParadaCard', () => {
   describe('Memoização', () => {
     it('deve ser um componente memoizado', () => {
       expect(ParadaCard.displayName).toBe('ParadaCard');
+    });
+  });
+
+  describe('com a fonte do sistema em 2.0', () => {
+    // Moto g15, 1.14.2: o selo absoluto "PRÓXIMA" crescia para baixo e
+    // cobria o pill do tipo; o ícone do "Como Chegar" vazava pela esquerda.
+    it('o selo PRÓXIMA tem teto de escala', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} isProxima />);
+
+      expect(
+        getByText('PRÓXIMA').props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+    });
+
+    // O círculo da ordem tem tamanho fixo e o número já o ocupa em 1.0:
+    // em 2.0 o algarismo saía cortado. `maxFontSizeMultiplier={1}` o deixava
+    // inteiro mas fora do centro no aparelho; `allowFontScaling={false}` não.
+    it('o número da ordem não cresce além do círculo', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} />);
+
+      expect(getByText('1').props.allowFontScaling).toBe(false);
+    });
+
+    it('o ícone e o texto do Como Chegar têm teto de escala', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} />);
+
+      expect(
+        getByText('\u{1F9ED}').props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+      expect(
+        getByText('Como Chegar').props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+    });
+
+    it('o texto do Como Chegar encolhe e quebra dentro do botão', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} />);
+
+      expect(
+        StyleSheet.flatten(getByText('Como Chegar').props.style).flexShrink,
+      ).toBe(1);
     });
   });
 });
