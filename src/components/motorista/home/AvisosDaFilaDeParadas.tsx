@@ -22,13 +22,15 @@ const MOTIVO: Record<MotivoDescarte, string> = {
 };
 
 /**
- * Comprovante nunca se perde com o descarte: a foto sobe mesmo assim, ligada
- * na parada quando dá, senão registrada para o gestor
- * (`subirFotoDaFilaOffline` em `src/lib/storage.ts`); sem sessão da conta,
- * espera no aparelho.
+ * O que acontece com a foto quando a conclusão é descartada, sem prometer
+ * além do que existe: ela continua no aparelho até subir
+ * (`subirFotoDaFilaOffline` em `src/lib/storage.ts`) — o que pode não
+ * acontecer, se o vínculo do motorista com a loja for desativado — e, se não
+ * puder ser ligada à parada, o caminho fica num registro (`logs`) que nenhuma
+ * tela mostra ainda: recuperar depende do suporte.
  */
 const SOBRE_A_FOTO =
-  'A foto do comprovante, se houver, não se perde: ela é enviada e fica com o gestor.';
+  'A foto do comprovante, se houver, continua guardada e é enviada assim que for possível; se não puder ser ligada à parada, fica registrada para a loja recuperar com o suporte.';
 
 export function AvisosDaFilaDeParadas() {
   const {

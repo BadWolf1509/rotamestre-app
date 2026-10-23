@@ -70,10 +70,13 @@ describe('AvisosDaFilaDeParadas', () => {
       avisosDeEnvio: [descarte('p7', 'rota_encerrada')],
     };
     const { getByText } = render(<AvisosDaFilaDeParadas />);
-    expect(
-      getByText(/A foto do comprovante, se houver, não se perde/),
-    ).toBeTruthy();
-    expect(getByText(/fica com o gestor/)).toBeTruthy();
+    const texto = getByText(/A foto do comprovante, se houver/).props
+      .children as string;
+    // Não promete o que não existe: entrega garantida ou tela do gestor.
+    expect(texto).toMatch(
+      /continua guardada e é enviada assim que for possível; se não puder ser ligada à parada, fica registrada para a loja recuperar com o suporte\./,
+    );
+    expect(texto).not.toMatch(/fica com o gestor|não se perde/);
   });
 
   it('pulo descartado não fala de foto (pulo não tem comprovante)', () => {
