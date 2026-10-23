@@ -263,11 +263,12 @@ export function ehErroDefinitivo(erro: unknown): boolean {
   if (!erro || typeof erro !== 'object') return false;
   if (ehErroDeSessao(erro)) return false;
   const e = erro as { code?: string; status?: number };
-  if (
-    typeof e.code === 'string' &&
-    (/^PGRST\d+$/.test(e.code) || /^[0-9A-Z]{5}$/.test(e.code))
-  ) {
-    return true;
+  if (typeof e.code === 'string' && /^PGRST\d+$/.test(e.code)) return true;
+  // SQLSTATE: as classes 08 (conexão), 40 (deadlock/serialização), 53
+  // (recurso esgotado), 57 (consulta cancelada/servidor caindo) e 58 (erro
+  // de sistema) passam sozinhas — esperam, sem contar tentativa.
+  if (typeof e.code === 'string' && /^[0-9A-Z]{5}$/.test(e.code)) {
+    return !/^(08|40|53|57|58)/.test(e.code);
   }
   if (
     typeof e.status === 'number' &&

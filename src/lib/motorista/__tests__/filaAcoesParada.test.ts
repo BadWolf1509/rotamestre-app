@@ -16,6 +16,7 @@ import {
   lerFilaAcoesParada,
   processarFilaAcoesParada,
   ehFalhaDeEnvio,
+  ehErroDefinitivo,
   dispensarDescartes,
   sobreporAcoesPendentes,
   _resetFilaAcoesParada,
@@ -622,4 +623,29 @@ describe('ehFalhaDeEnvio', () => {
       ehFalhaDeEnvio({ message: 'permission denied', code: '42501' }),
     ).toBe(false);
   });
+});
+
+describe('ehErroDefinitivo — SQLSTATE transitório não conta tentativa', () => {
+  // Deadlock, serialização, conexão, recurso esgotado e consulta cancelada
+  // passam sozinhos: descartar a entrega por eles seria perder dado numa
+  // disputa de trava (ex.: gestor inserindo parada enquanto o motorista envia).
+  it.each([
+    '40P01',
+    '40001',
+    '08006',
+    '08001',
+    '53300',
+    '57014',
+    '57P01',
+    '58000',
+  ])('%s espera, sem contar tentativa', (code) => {
+    expect(ehErroDefinitivo({ code, message: 'transitório' })).toBe(false);
+  });
+
+  it.each(['23514', '42501', '22P02', 'PGRST116'])(
+    '%s continua definitivo',
+    (code) => {
+      expect(ehErroDefinitivo({ code, message: 'recusa' })).toBe(true);
+    },
+  );
 });
