@@ -8,6 +8,13 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Retenção, fonte 2.0, mini-mapa e fim do PiP (22/10/2026)
+
+- **#625 — Migration 37:** `limpar_localizacoes_antigas(p_dias default 90)` (SECURITY DEFINER, só `service_role`, piso de 30 dias) apaga posições de rotas `concluida`/`cancelada`/`nao_executada` com `rotas.data` mais antiga que 90 dias; a `expire-routes` a chama depois da expiração e devolve `localizacoes_apagadas`. Saiu a `cleanup_old_locations()` legada (apagaria tudo com mais de 24 h). Sonda no SQL Editor: 12.885 de 67.204 linhas, nenhuma de rota ativa nem dos últimos 90 dias. O MCP recusa `DELETE` mesmo em transação desfeita.
+- **#626 — fonte do sistema em 2.0 (fecha a antiga pendência 15):** tab bar com altura que cresce com a fonte (cortava o rótulo já em 1.0), selos e "Como Chegar" com teto de escala, número da ordem que não acompanha a fonte. Validado no moto g15 em 2.0 e 1.0.
+- **#627 — PiP removido e mini-mapa corrigido:** o mapa flutuante duplicava o mini-mapa, custava um 2º MapLibre e uma chamada OSRM por leitura de GPS e tinha bugs de gesto (toque teletransportava, reabria fora da tela). No mini-mapa: web cria o mapa uma vez (era recriado a cada parada concluída) e erro de tile não derruba mais; link do Google Maps só com pendentes em janela contínua de 9; coordenada inválida (inclusive 0,0) não vira pino; chip "1 parada restante • X km no total"; teto de fonte; cores fixas "sobre o mapa" (`CORES_SOBRE_O_MAPA` em `miniMapCompartilhado.ts`), porque o estilo do mapa é sempre claro e `colors.white`/`black` invertem no escuro; área do mapa web com papel `link` (`button` gerava `<button>` dentro de `<button>`).
+- **#628:** o #627 entrou com o check Design System Drift vermelho — o merge foi encadeado com a espera do CI e o `--admin` passou por cima (lição na memória "merge exige admin override"). As cores fixas passaram a vir de `defaultTheme.colors`.
+
 ## Release 1.14.2 e Migrations 33–36 (22/10/2026)
 
 - **#618 — tarefa de localização no entry:** o `TaskManager.defineTask('rotamestre-background-location')` morava num módulo que só a tela importava; na partida sem tela o expo-task-manager achava a tarefa indefinida (`Execution of "rotamestre-background-location" was requested but looks like it is not defined`) e a desregistrava. Agora é definida no carregamento. Também: aviso de bateria restrita (módulo nativo `isBackgroundRestricted`, botão abre a tela do app) e botão "Navegar" que não cobre mais o aviso.
