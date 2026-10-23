@@ -1,26 +1,27 @@
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
-import { View, ScrollView, TouchableOpacity, Switch } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { View, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { NavigationSettings } from "@/components/motorista/NavigationSettings";
-import { ThemeSettings } from "@/components/ThemeSettings";
-import { MobileCard, Text } from "@/design-system";
-import { useAlert } from "@/hooks/useAlert";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { NavigationSettings } from '@/components/motorista/NavigationSettings';
+import { ThemeSettings } from '@/components/ThemeSettings';
+import { MobileCard, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import {
   getAppVersion,
   getBuildNumber,
   getPlatformName,
-} from "@/lib/appVersion";
-import { logger } from "@/lib/logger";
-import { StyleSheet, type Theme, useUnistyles } from "@/utils/styles";
+} from '@/lib/appVersion';
+import { chavesParaLimparNoCache } from '@/lib/limpezaDeCache';
+import { logger } from '@/lib/logger';
+import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 // Storage keys (only for settings NOT managed by NavigationSettings)
 const STORAGE_KEYS = {
-  NOTIFICATIONS_ENABLED: "@rotamestre:notifications_enabled",
+  NOTIFICATIONS_ENABLED: '@rotamestre:notifications_enabled',
 };
 
 export default function ConfiguracoesScreen() {
@@ -42,13 +43,13 @@ export default function ConfiguracoesScreen() {
         );
 
         if (notifications !== null)
-          setNotificationsEnabled(notifications === "true");
+          setNotificationsEnabled(notifications === 'true');
 
         // Estimate cache size
         const keys = await AsyncStorage.getAllKeys();
         setCacheSize(`~${keys.length} itens`);
       } catch (error) {
-        logger.error("Erro ao carregar configurações:", error);
+        logger.error('Erro ao carregar configurações:', error);
       } finally {
         setLoading(false);
       }
@@ -64,18 +65,18 @@ export default function ConfiguracoesScreen() {
       );
       setNotificationsEnabled(value);
     } catch (error) {
-      logger.error("Erro ao salvar configuração de notificações:", error);
+      logger.error('Erro ao salvar configuração de notificações:', error);
     }
   }
 
   async function handleClearCache() {
     const confirmed = await showConfirm({
-      title: "Limpar Cache",
+      title: 'Limpar Cache',
       message:
-        "Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?",
-      confirmText: "Limpar",
-      cancelText: "Cancelar",
-      type: "danger",
+        'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
+      confirmText: 'Limpar',
+      cancelText: 'Cancelar',
+      type: 'danger',
     });
 
     if (!confirmed) return;
@@ -83,15 +84,14 @@ export default function ConfiguracoesScreen() {
     try {
       // Get all keys except auth keys
       const keys = await AsyncStorage.getAllKeys();
-      const keysToRemove = keys.filter(
-        (k) => !k.includes("supabase") && !k.includes("auth"),
-      );
+      // Preserva sessão, fila de ações offline e fotos pendentes.
+      const keysToRemove = chavesParaLimparNoCache(keys);
       await Promise.all(keysToRemove.map((k) => AsyncStorage.removeItem(k)));
-      setCacheSize("0 itens");
-      showSuccess("Sucesso", "Cache limpo com sucesso!");
+      setCacheSize('0 itens');
+      showSuccess('Sucesso', 'Cache limpo com sucesso!');
     } catch (error) {
-      logger.error("Erro ao limpar cache:", error);
-      showError({ title: "Erro", message: "Não foi possível limpar o cache." });
+      logger.error('Erro ao limpar cache:', error);
+      showError({ title: 'Erro', message: 'Não foi possível limpar o cache.' });
     }
   }
 
@@ -130,7 +130,7 @@ export default function ConfiguracoesScreen() {
               onValueChange={toggleNotifications}
               trackColor={{
                 false: theme.colors.gray300,
-                true: theme.colors.primary + "60",
+                true: theme.colors.primary + '60',
               }}
               thumbColor={
                 notificationsEnabled
@@ -155,7 +155,7 @@ export default function ConfiguracoesScreen() {
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Limpar Cache</Text>
               <Text style={styles.settingSubtext}>
-                Cache atual: {cacheSize || "Calculando..."}
+                Cache atual: {cacheSize || 'Calculando...'}
               </Text>
             </View>
             <Text style={styles.settingAction}>Limpar</Text>
@@ -182,7 +182,7 @@ export default function ConfiguracoesScreen() {
         <MobileCard title="Suporte">
           <TouchableOpacity
             style={[styles.supportRow, styles.settingRowLast]}
-            onPress={() => router.push("/motorista/ajuda")}
+            onPress={() => router.push('/motorista/ajuda')}
           >
             <View style={styles.supportIcon}>
               <Ionicons
@@ -219,8 +219,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
@@ -232,8 +232,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginVertical: theme.spacing.sm,
   },
   settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
@@ -260,8 +260,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.error,
   },
   aboutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
@@ -279,20 +279,20 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   supportRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: theme.spacing.md,
   },
   supportIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.primary + "15",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: theme.colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: theme.spacing.md,
   },
   footer: {
-    height: theme.spacing["3xl"],
+    height: theme.spacing['3xl'],
   },
 }));
