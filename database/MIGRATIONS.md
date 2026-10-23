@@ -1756,3 +1756,73 @@ motorista, porque o filtro do app é por motorista e não pela loja da rota.
 sonda transacional `database/sondas/20261023120000_sonda_migration42.sql` (cenário
 próprio: lojas A/B/C, motorista em A e B; 11 casos, termina em `RAISE`). O
 roteiro de conferência só com SELECT está no fim da migration.
+
+### ⏳ Migration 43: o incidente grava a própria loja
+
+**Arquivo:** `20261024000000_incidente_com_loja.sql` · **⏳ a aplicar — ANTES
+do merge do PR** (o app passa a filtrar por `incidentes.unidade_id`; publicado
+antes da coluna, a lista e o contador de incidentes falham). Só tem `ALTER
+TABLE`, `CREATE INDEX`, funções, gatilho, `UPDATE` e `ALTER POLICY` — o
+`apply_migration` aceita; o `REVOKE` das funções novas pode exigir o SQL
+Editor.
+
+**Por quê.** A Migration 42 decide a visibilidade pela loja DA ROTA. Incidente
+sem rota (o app grava sem rota quando não há rota aberta; e a FK da rota é `ON
+DELETE SET NULL`) não tinha loja para olhar e seguia o vínculo do motorista —
+com motorista de duas lojas, valia para as duas.
+
+**O que faz.** Coluna `incidentes.unidade_id` (FK `ON DELETE CASCADE`, como
+`rotas.unidade_id`, + índice). Helper `unidade_do_incidente(motorista, rota)`
+(SECURITY DEFINER, sem EXECUTE para a API), fonte única do critério: a loja da
+rota; sem rota, o vínculo ativo do motorista — o único; com vários, o principal,
+depois o de `usuarios.unidade_id`, depois o mais antigo; sem vínculo, NULL (só o
+motorista vê). Gatilho `BEFORE INSERT OR UPDATE` `incidentes_define_unidade`:
+no INSERT a loja é sempre a do helper (o cliente não escolhe); no UPDATE só muda
+quando a rota muda para outra rota (ou a loja ainda estava vazia) — o `SET NULL`
+da rota apagada **não** muda a loja. Backfill pelo mesmo helper antes do
+gatilho. `incidentes_select`/`incidentes_update` (USING = WITH CHECK) e
+`incidentes_delete_optimized` passam a `TO authenticated` com "próprio motorista
+ou gestor ativo da loja gravada" (o DELETE segue só do gestor); sai o ramo
+"rota_id IS NULL → vínculo". `notify_incidente_criado` avisa os gestores de
+`NEW.unidade_id`, a mesma loja que vai enxergar o incidente (antes, sem rota,
+vínculo principal ou `LIMIT 1` sem ordem).
+
+**Decisão: várias lojas e sem rota.** O servidor escolhe, o app não manda
+`unidade_id`. O app do motorista não tem loja ativa (o seletor é do gestor), as
+versões nativas instaladas não mandariam o campo, e o valor do cliente teria de
+ser validado de qualquer jeito. Recusar o INSERT perderia o incidente; NULL
+visível a todas as lojas é o que a migration fecha.
+
+**Alternativas.** (1) Gatilho que "congela" `rota_id`: a rota apagada deixa de
+existir — o id não diz mais a loja, recusar o `SET NULL` bloquearia apagar a
+rota, e não cobre o incidente que nasce sem rota. (2) View com a loja derivada:
+não há de onde derivar a loja do incidente sem rota, e a tabela seguiria exposta
+pela API. (3) Coluna + gatilho (escolhida): a loja é fato do momento do
+incidente, sobrevive à rota, e a policy fica mais simples (um EXISTS por
+índice, sem JOIN em `rotas`).
+
+**Efeito em outras peças.** A policy "fotos-entrega select" (ramo
+`incidentes/`, Migration 38) não muda: lê `incidentes` com o RLS de quem pede e
+herda a regra. O gatilho `incidentes_confere_rota_parada` (Migration 38) não
+muda e roda antes deste (ordem alfabética dos BEFORE), então a rota já está
+conferida quando a loja é lida dela.
+
+**Medido em 23/10/2026 (só SELECT).** 26 incidentes, 23 com rota (todos de rota
+do próprio motorista; nenhuma rota sem loja) e 3 sem rota — os três do mesmo
+motorista, de 27/12/2025, com dois vínculos ativos e nenhum principal;
+`usuarios.unidade_id` aponta uma das duas, que é também a loja de todas as rotas
+dele entre 24 e 28/12/2025. O critério, calculado por SELECT, dá loja a 26/26 e
+essa loja aos 3. Efeito colateral: o backfill renova `updated_at` das 26 linhas
+(gatilho `update_incidentes_updated_at`; o app não exibe esse campo).
+
+**App.** `useIncidentesGestor`, o histórico do motorista (`useIncidentesModals` →
+`fetchIncidentesForGestor`) e o contador do dashboard filtram por `unidade_id` da
+loja ativa — antes, um gestor de duas lojas via na lista os incidentes sem rota
+do motorista nas duas. O INSERT (`useIncidentSubmit`) não muda.
+
+**Verificação.** Guarda estática `database/__tests__/migration43-incidente-com-loja.test.ts`;
+sonda `database/sondas/20261024000000_sonda_migration43.sql` (lojas A/B/C,
+motorista em A e B e outro só em A; 14 casos, inclusive apagar a rota e
+conferir que a loja fica; tem `DELETE` só de linhas que ela cria, então roda no
+SQL Editor; termina em `RAISE`). Roteiro de conferência só com SELECT (9
+consultas) no fim da migration.
