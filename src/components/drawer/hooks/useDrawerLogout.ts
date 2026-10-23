@@ -5,8 +5,8 @@
 import { useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
 
+import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
 
 interface UseDrawerLogoutOptions {
   onClose: () => void;
@@ -25,7 +25,8 @@ export function useDrawerLogout({ onClose }: UseDrawerLogoutOptions) {
     setShowLogoutDialog(false);
 
     try {
-      await supabase.auth.signOut({ scope: 'local' });
+      // authService: tira o token de push do banco e limpa o estado local.
+      await authService.signOut();
       onClose();
       router.replace('/auth/login');
     } catch (error) {

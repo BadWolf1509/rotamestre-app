@@ -76,7 +76,7 @@ describe('useAuth', () => {
 
       expect(supabase.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
       expect(supabase.auth.onAuthStateChange).toHaveBeenCalledWith(
-        expect.any(Function)
+        expect.any(Function),
       );
     });
   });
@@ -116,10 +116,12 @@ describe('useAuth', () => {
   describe('Mudanças de Autenticação', () => {
     it('deve atualizar quando auth state mudar', async () => {
       let authCallback: any;
-      (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation((cb) => {
-        authCallback = cb;
-        return { data: { subscription: mockSubscription } };
-      });
+      (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+        (cb) => {
+          authCallback = cb;
+          return { data: { subscription: mockSubscription } };
+        },
+      );
 
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
@@ -142,10 +144,12 @@ describe('useAuth', () => {
 
     it('deve atualizar quando usuário fizer logout', async () => {
       let authCallback: any;
-      (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation((cb) => {
-        authCallback = cb;
-        return { data: { subscription: mockSubscription } };
-      });
+      (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
+        (cb) => {
+          authCallback = cb;
+          return { data: { subscription: mockSubscription } };
+        },
+      );
 
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: mockSession },
@@ -164,26 +168,6 @@ describe('useAuth', () => {
         expect(result.current.session).toBeNull();
         expect(result.current.user).toBeNull();
       });
-    });
-  });
-
-  describe('signOut', () => {
-    it('deve chamar supabase.auth.signOut', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: { session: mockSession },
-      });
-
-      (supabase.auth.signOut as jest.Mock).mockResolvedValue({});
-
-      const { result } = renderHook(() => useAuth());
-
-      await waitFor(() => {
-        expect(result.current.session).toEqual(mockSession);
-      });
-
-      await result.current.signOut();
-
-      expect(supabase.auth.signOut).toHaveBeenCalledTimes(1);
     });
   });
 

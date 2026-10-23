@@ -7,14 +7,19 @@
  * de uma medição de memória; e, em uso real, o gestor que saía no celular era
  * desconectado também na web (e o motorista, em qualquer outro aparelho).
  *
- * POR QUE ESTÁTICA: são cinco chamadores diretos espalhados (drawer, useAuth,
+ * POR QUE ESTÁTICA: eram cinco chamadores diretos espalhados (drawer, useAuth,
  * authService, onboarding); um teste por componente deixaria o sexto passar.
+ *
+ * Desde 22/10/2026 o único que chama é `authService` (`src/lib/auth.ts`): o
+ * logout dele tira o token de push do banco com a sessão viva e limpa o estado
+ * local da conta. O drawer (o "Sair" do motorista) chamava direto e pulava as
+ * duas coisas — então a regra agora é também "ninguém mais chama".
  *
  * O QUE ELA NÃO PEGA: chamada indireta via variável
  * (`const sair = supabase.auth.signOut; sair()`).
  */
 import { readdirSync, readFileSync, statSync } from 'fs';
-import { extname, join, relative } from 'path';
+import { extname, join, relative, sep } from 'path';
 
 const RAIZ = join(__dirname, '..', '..', '..');
 const DIRETORIOS = ['src', 'app'];
@@ -42,7 +47,17 @@ describe('signOut só neste aparelho', () => {
       (n, f) => n + [...readFileSync(f, 'utf8').matchAll(CHAMADA)].length,
       0,
     );
-    expect(total).toBeGreaterThanOrEqual(5);
+    expect(total).toBeGreaterThanOrEqual(2);
+  });
+
+  it('só src/lib/auth.ts chama auth.signOut (o resto usa authService.signOut)', () => {
+    const fora = fontes
+      .filter(
+        (f) => relative(RAIZ, f).split(sep).join('/') !== 'src/lib/auth.ts',
+      )
+      .filter((f) => [...readFileSync(f, 'utf8').matchAll(CHAMADA)].length > 0)
+      .map((f) => relative(RAIZ, f));
+    expect(fora).toEqual([]);
   });
 
   it("toda chamada a auth.signOut passa scope: 'local'", () => {

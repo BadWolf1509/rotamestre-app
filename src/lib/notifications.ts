@@ -325,6 +325,30 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 }
 
+interface TokenGuardado {
+  token: string;
+  userId: string | null;
+}
+
+/**
+ * Lê o token guardado no aparelho e a conta para a qual ele foi gravado.
+ * Instalações antigas guardavam só o token (sem dono): vale como token de
+ * conta desconhecida, o que força gravar de novo no próximo login.
+ */
+async function lerTokenGuardado(): Promise<TokenGuardado | null> {
+  const bruto = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+  if (!bruto) return null;
+  try {
+    const v = JSON.parse(bruto) as Partial<TokenGuardado> | null;
+    if (v && typeof v.token === 'string') {
+      return { token: v.token, userId: v.userId ?? null };
+    }
+  } catch {
+    // Não é JSON: formato antigo, o valor é o próprio token.
+  }
+  return { token: bruto, userId: null };
+}
+
 /**
  * Registra o push token no banco de dados (tabela usuarios)
  * Deve ser chamado após o login do usuário
@@ -338,25 +362,41 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       return false;
     }
 
-    // Verificar se o token mudou
-    const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
-    if (storedToken === token) {
+    // Só pula o banco se o token já foi gravado para ESTA conta: com duas
+    // contas no mesmo aparelho, o token é igual e a segunda nunca o gravava.
+    const guardado = await lerTokenGuardado();
+    if (guardado?.token === token && guardado.userId === userId) {
       return true;
     }
 
-    // Atualizar token no banco
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ push_token: token })
-      .eq('id', userId);
+    // Pela RPC (Migration `20261023010000`): grava o token na conta logada e
+    // o tira de qualquer OUTRA conta. Um aparelho é de uma conta por vez — se
+    // o logout de A falhou (offline), a linha de A ainda tem este token, e só
+    // o servidor pode limpá-la quando B entra (a RLS não deixa B tocar em A).
+    let { error } = await supabase.rpc('registrar_push_token', {
+      p_token: token,
+    });
+
+    // PGRST202 = a função não existe no banco (app publicado antes da
+    // migration). Cai no UPDATE direto antigo da própria linha, para o
+    // registro não depender da ordem de deploy. Qualquer outro erro fica.
+    if (error?.code === 'PGRST202') {
+      ({ error } = await supabase
+        .from('usuarios')
+        .update({ push_token: token })
+        .eq('id', userId));
+    }
 
     if (error) {
       logger.error('[Push] Erro ao salvar token', error);
       return false;
     }
 
-    // Salvar token localmente para comparação futura
-    await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+    // Salvar token e dono localmente para comparação futura
+    await AsyncStorage.setItem(
+      PUSH_TOKEN_KEY,
+      JSON.stringify({ token, userId } satisfies TokenGuardado),
+    );
     return true;
   } catch (error) {
     logger.error('[Push] Erro ao registrar token', error);
@@ -365,22 +405,47 @@ export async function registerPushToken(userId: string): Promise<boolean> {
 }
 
 /**
- * Remove o push token do banco de dados (logout)
+ * Remove o push token do banco de dados (logout).
+ *
+ * Precisa rodar com a sessão AINDA viva (antes do `auth.signOut`): sem ela o
+ * UPDATE vai anônimo e a RLS filtra 0 linhas, sem erro. Só limpa se o banco
+ * ainda tiver o token deste aparelho — a coluna é uma por usuário, e sair no
+ * aparelho A não pode apagar o token que o aparelho B gravou depois.
  */
-export async function unregisterPushToken(userId: string): Promise<void> {
-  if (Platform.OS === 'web') return;
+export async function unregisterPushToken(
+  userId: string | undefined,
+): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
 
   try {
-    // Remover token do banco
-    await supabase
+    const guardado = await lerTokenGuardado();
+    if (!guardado) {
+      await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+      return true;
+    }
+
+    // Sem sessão viva o UPDATE iria anônimo e a RLS filtraria 0 linhas, sem
+    // erro — pareceria limpo. Fica a chave: quem entrar depois neste aparelho
+    // registra pela RPC, que tira o token da conta que saiu.
+    if (!userId) return false;
+
+    // O PostgREST devolve `{ error }` sem lançar (offline, por exemplo): só
+    // esquece o token local quando o banco de fato limpou.
+    const { error } = await supabase
       .from('usuarios')
       .update({ push_token: null })
-      .eq('id', userId);
+      .eq('id', userId)
+      .eq('push_token', guardado.token);
+    if (error) {
+      logger.warn('[Push] Erro ao limpar token no banco', error);
+      return false;
+    }
 
-    // Limpar token local
     await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+    return true;
   } catch (error) {
     logger.error('[Push] Erro ao remover token', error);
+    return false;
   }
 }
 

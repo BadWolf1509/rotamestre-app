@@ -1534,6 +1534,55 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
+### ✅ Migration 39: token de push pertence a uma conta só
+
+**Arquivo:** `20261023010000_push_token_de_uma_conta_so.sql` · **✅ aplicada em
+23/10/2026 via `apply_migration`** (PR #629), versão alinhada ao arquivo em
+`schema_migrations`. Antes, a sonda rodou junto com a migration numa transação
+só, desfeita pelo `RAISE`: positivo e negativos 0–4 como esperado. Recria a
+trava `trava_motorista_outra_loja` (idêntica à viva + o bloco da marca).
+
+**Por quê.** O app gravava o token direto na linha da conta logada. Se o logout
+de A não limpou a linha (offline, sessão vencida) e B entrou no mesmo aparelho,
+as duas linhas ficavam com o mesmo token. A RLS impede B de limpar a linha de A,
+então só o servidor resolve.
+
+**O que faz.** `registrar_push_token(p_token text)`, SECURITY DEFINER,
+`search_path = ''`, EXECUTE só para `authenticated`: exige `auth.uid()` e token
+no formato Expo (até 200 caracteres), trava por token
+(`pg_advisory_xact_lock`), grava primeiro na própria linha (sem perfil em
+`usuarios`, exceção — não tira o token de ninguém) e só então zera
+`push_token = p_token` das outras contas. O app registra por ela
+(`registerPushToken` em `src/lib/notifications.ts`) e, se a função ainda não
+existir (PGRST202), cai no UPDATE direto antigo — não depende da ordem de
+deploy. A `trava_motorista_outra_loja` (Migration 31) aceita a mudança que só
+zera o `push_token` **apenas** com a marca da RPC (`rotamestre.push_rpc` da
+transação); UPDATE direto de gestor segue recusado, e o logout do próprio
+usuário não passa por ali (o atalho `auth.uid() = id` vem antes). Sem UNIQUE em
+`push_token` de propósito (quebraria o registro das versões antigas). Em
+23/10/2026: 7 tokens, todos distintos. Revisão do `rls-policy-reviewer`:
+APPROVE (trava idêntica à viva + bloco novo); ajustes dele incorporados.
+
+**Sonda.** Bloco `DO` comentado no fim do arquivo (rodar depois de aplicar;
+termina sempre em `RAISE`): A = motorista ativo em duas lojas ou mais, B =
+gestor de uma delas que não é gestor de todas (confirmado com
+`motorista_atende_outra_loja` sob as claims de B; sem esse par, `SKIP` explícito).
+B registra o token que está em A → A fica sem token, B com ele. Negativos, como
+postgres com as claims de B (exercitam a trava, não a RLS): (0) UPDATE direto
+sem a marca da RPC que só zera o token de A → recusado; (1) gravar token em A e
+(2) zerar junto com o nome → recusados mesmo com a marca; (3) RPC sem
+`auth.uid()` → 42501; (4) `anon` sem EXECUTE; token fora do formato recusado.
+Sintaxe validada com o parser do Postgres (libpg-query).
+
+termina sempre em `RAISE`): B registra o token que está num motorista A (com
+vínculo) de loja onde B não é gestor → A fica sem token, B com ele. Negativos:
+gravar token em A e zerar junto com o nome são recusados pela trava mesmo com a
+marca; RPC sem `auth.uid()` → 42501; `anon` sem EXECUTE; token fora do formato
+recusado. Sintaxe validada com o parser do Postgres (libpg-query).
+
+termina em `RAISE`): B registra o token que está num motorista A de loja onde B
+não é gestor → A fica sem token, B com ele; token fora do formato é recusado.
+
 ### ✅ Migration 42: incidentes visíveis ao gestor só na loja da rota
 
 **Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **✅

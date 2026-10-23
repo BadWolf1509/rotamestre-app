@@ -28,6 +28,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
+import {
+  extrairTicket,
+  mascararToken,
+  resumoDoTicket,
+  tokenDeveSerLimpo,
+} from './expoTicket.ts';
 import { chaveSecreta } from '../_shared/chaves.ts';
 import { requirePushSecret } from '../_shared/cronAuth.ts';
 
@@ -43,13 +49,6 @@ interface ExpoPushMessage {
   channelId?: string;
   priority?: 'default' | 'normal' | 'high';
   ttl?: number;
-}
-
-interface ExpoPushTicket {
-  status: 'ok' | 'error';
-  id?: string;
-  message?: string;
-  details?: { error?: string };
 }
 
 // Tipos de notificação que devem gerar push
@@ -128,7 +127,12 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    console.log('[send-push] Received:', JSON.stringify(body));
+    // Só ids e tipo no log: título e mensagem trazem nome e endereço de cliente.
+    console.log('[send-push] Recebido:', {
+      tipo: body?.record?.tipo ?? 'direct',
+      notificacao_id: body?.record?.id ?? null,
+      usuario_id: body?.record?.usuario_id ?? body?.usuario_id ?? null,
+    });
 
     // Inicializar Supabase client com service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -206,9 +210,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!usuario.push_token) {
-      console.log(
-        `[send-push] Usuário ${usuario.nome} não tem push_token registrado`,
-      );
+      console.log(`[send-push] Usuário ${usuario_id} sem token registrado`);
       await logPushAttempt(supabase, {
         notificacao_id,
         usuario_id,
@@ -228,7 +230,10 @@ Deno.serve(async (req: Request) => {
 
     // Validar formato do token Expo
     if (!usuario.push_token.startsWith('ExponentPushToken[')) {
-      console.error(`[send-push] Token inválido: ${usuario.push_token}`);
+      console.error(
+        `[send-push] Token fora do formato Expo (usuário ${usuario_id}):`,
+        mascararToken(usuario.push_token),
+      );
       await logPushAttempt(supabase, {
         notificacao_id,
         usuario_id,
@@ -254,7 +259,12 @@ Deno.serve(async (req: Request) => {
       ttl: 86400, // 24 horas
     };
 
-    console.log('[send-push] Enviando para Expo:', JSON.stringify(pushMessage));
+    console.log('[send-push] Enviando para Expo:', {
+      notificacao_id,
+      usuario_id,
+      tipo,
+      token: mascararToken(usuario.push_token),
+    });
 
     // Enviar para Expo Push Service
     const expoPushResponse = await fetch(EXPO_PUSH_URL, {
@@ -268,11 +278,35 @@ Deno.serve(async (req: Request) => {
     });
 
     const expoPushResult = await expoPushResponse.json();
-    console.log('[send-push] Resposta Expo:', JSON.stringify(expoPushResult));
 
-    // Processar resultado
-    const ticket: ExpoPushTicket = expoPushResult.data?.[0] || expoPushResult;
+    // Envio único: a Expo devolve `data` como objeto (ver expoTicket.ts).
+    const ticket = extrairTicket(expoPushResult);
     const success = ticket.status === 'ok';
+    console.log('[send-push] Resposta Expo:', {
+      notificacao_id,
+      usuario_id,
+      http: expoPushResponse.status,
+      ...resumoDoTicket(ticket),
+    });
+
+    // Token morto (app desinstalado): sai do banco para não falhar de novo a
+    // cada notificação. Só se ainda for o mesmo — o aparelho pode ter
+    // registrado um novo enquanto este envio estava no ar.
+    if (tokenDeveSerLimpo(ticket)) {
+      const { error: limparError } = await supabase
+        .from('usuarios')
+        .update({ push_token: null })
+        .eq('id', usuario_id)
+        .eq('push_token', usuario.push_token);
+      if (limparError) {
+        console.error(
+          `[send-push] Falha ao limpar token morto (usuário ${usuario_id}):`,
+          limparError.message,
+        );
+      } else {
+        console.log(`[send-push] Token morto removido (usuário ${usuario_id})`);
+      }
+    }
 
     // Atualizar notificação como enviada
     if (notificacao_id && success) {
@@ -299,7 +333,9 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         success,
         ticket_id: ticket.id,
-        message: success ? 'Push notification enviado' : ticket.message,
+        message: success
+          ? 'Push notification enviado'
+          : (ticket.details?.error ?? 'Falha no envio'),
       }),
       { headers },
     );
