@@ -19,6 +19,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
@@ -40,6 +41,9 @@ export default function EquipeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
+  // A loja ABERTA (como no resto do app), não o `usuarios.unidade_id`
+  // legado — gestor de várias lojas via a equipe de outra.
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -65,7 +69,7 @@ export default function EquipeScreen() {
   const cargaInicialFeitaRef = useRef(false);
 
   const loadMembros = useCallback(async () => {
-    const unidadeId = userData?.unidade_id;
+    const unidadeId = unidadeAtiva;
     if (!unidadeId) {
       setMembros([]);
       setLoading(false);
@@ -76,17 +80,48 @@ export default function EquipeScreen() {
       if (!cargaInicialFeitaRef.current) {
         setLoading(true);
       }
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select(
-          'id, nome, email, papel, is_gestor_principal, ativo, created_at, foto_url',
-        )
-        .eq('unidade_id', unidadeId)
-        .order('created_at', { ascending: false });
+      // Mesma fonte da tela Motoristas: o vínculo (`usuario_unidades`), não
+      // `usuarios.unidade_id`. Motoristas pela RPC (inclui quem está inativo
+      // só nesta loja); gestores pelo vínculo ativo com a loja.
+      const [motoristasRes, gestoresRes] = await Promise.all([
+        supabase.rpc('listar_motoristas_unidade', { p_unidade_id: unidadeId }),
+        supabase
+          .from('usuario_unidades')
+          .select(
+            'usuarios(id, nome, email, papel, is_gestor_principal, ativo, created_at, foto_url)',
+          )
+          .eq('unidade_id', unidadeId)
+          .eq('papel', 'gestor')
+          .eq('ativo', true),
+      ]);
 
-      if (error) throw error;
+      if (motoristasRes.error) throw motoristasRes.error;
+      if (gestoresRes.error) throw gestoresRes.error;
 
-      setMembros(data || []);
+      type LinhaMotorista = Omit<Membro, 'papel' | 'is_gestor_principal'>;
+      const motoristas: Membro[] = (
+        (motoristasRes.data ?? []) as LinhaMotorista[]
+      ).map((m) => ({
+        id: m.id,
+        nome: m.nome,
+        email: m.email,
+        papel: 'motorista',
+        is_gestor_principal: false,
+        ativo: m.ativo,
+        created_at: m.created_at,
+        foto_url: m.foto_url,
+      }));
+      const gestores: Membro[] = (
+        (gestoresRes.data ?? []) as unknown as { usuarios: Membro | null }[]
+      )
+        .map((v) => v.usuarios)
+        .filter((u): u is Membro => !!u);
+
+      setMembros(
+        [...gestores, ...motoristas].sort((a, b) =>
+          b.created_at.localeCompare(a.created_at),
+        ),
+      );
     } catch (error) {
       logger.error('Erro ao carregar membros', error);
       showToast('Erro ao carregar equipe', 'error', 4000);
@@ -95,7 +130,7 @@ export default function EquipeScreen() {
       cargaInicialFeitaRef.current = true;
       setLoading(false);
     }
-  }, [showToast, userData?.unidade_id]);
+  }, [showToast, unidadeAtiva]);
 
   useEffect(() => {
     loadMembros();
@@ -126,11 +161,13 @@ export default function EquipeScreen() {
       return;
     }
 
-    // Não permitir desativar gestor principal
-    if (membro.is_gestor_principal) {
+    // Gestor não se desativa por aqui: a RLS de `usuarios` só deixa o gestor
+    // alterar a si mesmo e motoristas, e recusava em silêncio (0 linhas) — a
+    // tela dizia "sucesso". A ação nem aparece para gestor; isto é a trava.
+    if (membro.papel !== 'motorista') {
       showWarning(
-        'Erro',
-        'O gestor principal não pode ser desativado. Transfira a gestão primeiro.',
+        'Ação indisponível',
+        'Gestores só podem ser desativados pelo suporte.',
       );
       return;
     }
@@ -147,27 +184,18 @@ export default function EquipeScreen() {
     if (!confirmed) return;
 
     try {
-      let soNestaLoja = false;
-      if (membro.papel === 'motorista') {
-        // Motorista que atende outra loja sai só desta (o vínculo); o banco
-        // decide e recusa mexer na pessoa por aqui.
-        const { data, error } = await supabase.rpc(
-          'alternar_motorista_na_unidade',
-          {
-            p_motorista_id: membro.id,
-            p_unidade_id: userData?.unidade_id,
-            p_ativo: !membro.ativo,
-          },
-        );
-        if (error) throw error;
-        soNestaLoja = data === 'vinculo';
-      } else {
-        const { error } = await supabase
-          .from('usuarios')
-          .update({ ativo: !membro.ativo })
-          .eq('id', membro.id);
-        if (error) throw error;
-      }
+      // Motorista que atende outra loja sai só desta (o vínculo); o banco
+      // decide e recusa mexer na pessoa por aqui.
+      const { data, error } = await supabase.rpc(
+        'alternar_motorista_na_unidade',
+        {
+          p_motorista_id: membro.id,
+          p_unidade_id: unidadeAtiva,
+          p_ativo: !membro.ativo,
+        },
+      );
+      if (error) throw error;
+      const soNestaLoja = data === 'vinculo';
 
       showToast(
         soNestaLoja
@@ -331,7 +359,7 @@ export default function EquipeScreen() {
 
               {isGestorPrincipal &&
                 membro.id !== userData?.id &&
-                !membro.is_gestor_principal && (
+                membro.papel === 'motorista' && (
                   <View style={styles.membroActions}>
                     <Button
                       title={membro.ativo ? 'Desativar' : 'Reativar'}

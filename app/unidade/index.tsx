@@ -23,6 +23,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { nomeEstadoParaUF } from '@/lib/estados';
 import { googlePlacesService } from '@/lib/googlePlaces';
@@ -61,6 +62,9 @@ export default function UnidadeScreen() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
+  // A loja ABERTA, não o `usuarios.unidade_id` legado (gestor de várias
+  // lojas editava a ficha de outra).
+  const { unidadeAtiva } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -98,7 +102,7 @@ export default function UnidadeScreen() {
   const sedePrecisaConfirmacao = sedeFoiAlterada && !sedeTemCoordenadas;
 
   const loadUnidade = useCallback(async () => {
-    const unidadeId = userData?.unidade_id;
+    const unidadeId = unidadeAtiva;
     if (!unidadeId) {
       setUnidade(null);
       setLoading(false);
@@ -129,27 +133,29 @@ export default function UnidadeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [showToast, userData?.unidade_id]);
+  }, [showToast, unidadeAtiva]);
 
   const loadMembrosCount = useCallback(async () => {
-    const unidadeId = userData?.unidade_id;
+    const unidadeId = unidadeAtiva;
     if (!unidadeId) {
       setMembrosCount(0);
       return;
     }
 
     try {
+      // Pelo vínculo com a loja (como a Equipe), não `usuarios.unidade_id`.
       const { count, error } = await supabase
-        .from('usuarios')
-        .select('*', { count: 'exact', head: true })
-        .eq('unidade_id', unidadeId);
+        .from('usuario_unidades')
+        .select('usuario_id', { count: 'exact', head: true })
+        .eq('unidade_id', unidadeId)
+        .eq('ativo', true);
 
       if (error) throw error;
       setMembrosCount(count || 0);
     } catch (error) {
       logger.error('Erro ao contar membros', error);
     }
-  }, [userData?.unidade_id]);
+  }, [unidadeAtiva]);
 
   useEffect(() => {
     loadUnidade();
