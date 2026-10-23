@@ -22,6 +22,7 @@ import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import { montarPinosDoMiniMap } from '@/lib/motorista/pinosPorLocal';
+import { montarUrlRotaGoogleMaps } from '@/lib/motorista/urlRotaGoogleMaps';
 import {
   getOpenFreeMapStyle,
   installOpenFreeMapMissingImageHandler,
@@ -84,6 +85,7 @@ export function MiniMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Extrair cores do theme para ref estável (evita recriação de markers a cada mudança de tema)
   const themeColorsRef = useRef(theme.colors);
@@ -323,17 +325,18 @@ export function MiniMap({
     [],
   );
 
-  // Initialize MapLibre map
+  // Centro/zoom só servem de ponto de partida: a câmera depois é ajustada
+  // sem recriar o mapa (efeito abaixo).
+  const cameraInicialRef = useRef({ center, zoom });
+  cameraInicialRef.current = { center, zoom };
+
+  // Cria o mapa UMA vez. Recriar a cada parada concluída piscava o mapa e
+  // rebaixava estilo e tiles de novo.
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Clean up existing map
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
-    }
-
     let cancelled = false;
+    let carregou = false;
     let mapInstance: maplibregl.Map | null = null;
     let removeMissingImageHandler: (() => void) | null = null;
 
@@ -342,12 +345,13 @@ export function MiniMap({
         const style = await getOpenFreeMapStyle();
         if (cancelled || !mapContainerRef.current) return;
 
+        const inicial = cameraInicialRef.current;
         configureMaplibreWorker();
         mapInstance = new maplibregl.Map({
           container: mapContainerRef.current,
           style,
-          center: [center.lng, center.lat],
-          zoom,
+          center: [inicial.center.lng, inicial.center.lat],
+          zoom: inicial.zoom,
           attributionControl: false,
           interactive: false, // MiniMap is not interactive
         });
@@ -355,11 +359,18 @@ export function MiniMap({
           installOpenFreeMapMissingImageHandler(mapInstance);
 
         mapInstance.on('load', () => {
+          carregou = true;
           setMapReady(true);
           mapRef.current = mapInstance;
         });
 
         mapInstance.on('error', (e) => {
+          // Depois do load, erro é de tile/glifo/sprite: o mapa segue de pé.
+          if (carregou) {
+            logger.warn('[MiniMap.web] Erro do mapa após carregar:', e);
+            return;
+          }
+          // Antes do load (estilo, worker), o mapa não vai aparecer.
           logger.error('[MiniMap.web] Map error:', e);
           setMapError('Erro ao carregar mapa');
         });
@@ -377,16 +388,17 @@ export function MiniMap({
       if (removeMissingImageHandler) {
         removeMissingImageHandler();
       }
-      // Clean up markers
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
       if (mapInstance) {
         mapInstance.remove();
       }
       mapRef.current = null;
       setMapReady(false);
     };
-  }, [center.lat, center.lng, zoom]);
+  }, []);
 
   // Fit bounds when map is ready and coordinates change
   useEffect(() => {
@@ -422,27 +434,17 @@ export function MiniMap({
     });
   }, [mapReady, coordsForBounds, expanded]);
 
-  // Add markers
+  // Marcadores das paradas: só refazem quando as paradas mudam. A
+  // localização do motorista chega a cada leitura do GPS e tem efeito próprio.
   useEffect(() => {
-    if (!mapRef.current || !mapReady) return;
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
 
     const colors = themeColorsRef.current;
 
-    // Clear existing markers
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    // Add user marker
-    if (userLocation) {
-      const userMarker = new maplibregl.Marker({
-        element: createUserMarkerElement(),
-      })
-        .setLngLat([userLocation.longitude, userLocation.latitude])
-        .addTo(mapRef.current);
-      markersRef.current.push(userMarker);
-    }
-
-    // Add completed stop markers
     paradasConcluidas.forEach((parada) => {
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
@@ -452,11 +454,10 @@ export function MiniMap({
         }),
       })
         .setLngLat([parada.longitude, parada.latitude])
-        .addTo(mapRef.current!);
+        .addTo(map);
       markersRef.current.push(marker);
     });
 
-    // Add pending stop markers
     pinosRestantes.forEach(({ principal, rotulo, isNext }) => {
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
@@ -467,11 +468,10 @@ export function MiniMap({
         }),
       })
         .setLngLat([principal.longitude, principal.latitude])
-        .addTo(mapRef.current!);
+        .addTo(map);
       markersRef.current.push(marker);
     });
 
-    // Add checkpoint markers
     checkpoints.forEach((checkpoint) => {
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
@@ -480,18 +480,41 @@ export function MiniMap({
         }),
       })
         .setLngLat([checkpoint.longitude, checkpoint.latitude])
-        .addTo(mapRef.current!);
+        .addTo(map);
       markersRef.current.push(marker);
     });
   }, [
     mapReady,
-    userLocation,
     paradasConcluidas,
     pinosRestantes,
     checkpoints,
-    createUserMarkerElement,
     createStopMarkerElement,
   ]);
+
+  // Marcador do motorista: criado uma vez, movido com setLngLat.
+  const userLat = userLocation?.latitude;
+  const userLng = userLocation?.longitude;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    if (userLat == null || userLng == null) {
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+      return;
+    }
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLngLat([userLng, userLat]);
+      return;
+    }
+
+    userMarkerRef.current = new maplibregl.Marker({
+      element: createUserMarkerElement(),
+    })
+      .setLngLat([userLng, userLat])
+      .addTo(map);
+  }, [mapReady, userLat, userLng, createUserMarkerElement]);
 
   // Add route polyline
   useEffect(() => {
@@ -540,26 +563,17 @@ export function MiniMap({
     });
   }, [mapReady, routeCoordinates, theme.colors.primary]);
 
-  // Gerar URL do Google Maps para fallback
-  const generateMapsUrl = useCallback(() => {
-    const todasParadas = [...paradas].sort((a, b) => a.ordem - b.ordem);
-    if (todasParadas.length === 0) return '#';
-
-    const origin = `${todasParadas[0].latitude},${todasParadas[0].longitude}`;
-    const destination = `${todasParadas[todasParadas.length - 1].latitude},${todasParadas[todasParadas.length - 1].longitude}`;
-    const waypoints = todasParadas
-      .slice(1, -1)
-      .map((p) => `${p.latitude},${p.longitude}`)
-      .join('|');
-
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ''}&travelmode=driving`;
-  }, [paradas]);
+  // Rota no Google Maps para o fallback: só o que falta fazer
+  const urlGoogleMaps = useMemo(
+    () => montarUrlRotaGoogleMaps(paradas),
+    [paradas],
+  );
 
   const openGoogleMaps = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      window.open(generateMapsUrl(), '_blank');
+    if (urlGoogleMaps && typeof window !== 'undefined') {
+      window.open(urlGoogleMaps, '_blank');
     }
-  }, [generateMapsUrl]);
+  }, [urlGoogleMaps]);
 
   // Handler para click no mapa
   const handleMapClick = useCallback(() => {
@@ -571,6 +585,29 @@ export function MiniMap({
   }, [onOpenFullMap, openGoogleMaps]);
 
   // Estado de erro
+  if (mapError && !urlGoogleMaps) {
+    return (
+      <View style={styles.container} testID={testID}>
+        <View
+          style={[
+            styles.mapContainer,
+            styles.fallbackContainer,
+            { height: 56 },
+          ]}
+        >
+          <View style={styles.compactRow}>
+            <Ionicons
+              name="map-outline"
+              size={20}
+              color={theme.colors.gray400}
+            />
+            <Text style={styles.compactText}>Mapa indisponível</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   if (mapError) {
     return (
       <View style={styles.container} testID={testID}>
