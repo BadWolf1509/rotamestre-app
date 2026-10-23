@@ -12,7 +12,8 @@ export interface Stats {
   emAndamento: number;
   concluidas: number;
   distanciaTotal: number;
-  incidentesAbertos?: number;
+  /** null = indisponível (a contagem falhou); a tela mostra "—". */
+  incidentesAbertos?: number | null;
 }
 
 export interface TodayStats {
@@ -402,11 +403,14 @@ export function useDashboardData(
               .eq('papel', 'motorista')
               .eq('ativo', true),
           ]);
-          if (daLoja.error) {
+          // Erro em qualquer parte vira INDISPONÍVEL (null), nunca 0: "0
+          // incidentes abertos" é uma afirmação, e seria falsa.
+          if (daLoja.error || vinculos.error) {
             logger.warn(
-              '[Dashboard] contagem de incidentes falhou',
-              daLoja.error,
+              '[Dashboard] contagem de incidentes indisponível',
+              daLoja.error ?? vinculos.error,
             );
+            return null;
           }
 
           let semRota = 0;
@@ -419,7 +423,11 @@ export function useDashboardData(
               .in('motorista_id', motoristasIds)
               .eq('status', 'aberto');
             if (error) {
-              logger.warn('[Dashboard] incidentes sem rota falharam', error);
+              logger.warn(
+                '[Dashboard] incidentes sem rota indisponíveis',
+                error,
+              );
+              return null;
             }
             semRota = count || 0;
           }
@@ -592,7 +600,10 @@ export function useDashboardData(
         emAndamento: 0,
         concluidas: 0,
         distanciaTotal: 0,
-        incidentesAbertos: stats.incidentesAbertos || 0,
+        incidentesAbertos:
+          stats.incidentesAbertos === null
+            ? null
+            : stats.incidentesAbertos || 0,
       };
     }
 
@@ -601,7 +612,8 @@ export function useDashboardData(
       emAndamento: rotas.filter((r) => r.status === 'em_andamento').length,
       concluidas: rotas.filter((r) => r.status === 'concluida').length,
       distanciaTotal: rotas.reduce((sum, r) => sum + r.distancia_total, 0),
-      incidentesAbertos: stats.incidentesAbertos || 0,
+      incidentesAbertos:
+        stats.incidentesAbertos === null ? null : stats.incidentesAbertos || 0,
     };
   }, [rotas, stats.incidentesAbertos]);
 

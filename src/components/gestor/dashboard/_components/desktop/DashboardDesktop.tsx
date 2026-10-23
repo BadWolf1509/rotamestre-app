@@ -235,7 +235,11 @@ export function DashboardDesktop({
                 activeOpacity={0.8}
               >
                 <StatsCard
-                  value={stats.incidentesAbertos || 0}
+                  value={
+                    stats.incidentesAbertos === null
+                      ? '—'
+                      : stats.incidentesAbertos || 0
+                  }
                   label="Incidentes Abertos"
                   backgroundColor={theme.colors.kpiIncidentes}
                 />

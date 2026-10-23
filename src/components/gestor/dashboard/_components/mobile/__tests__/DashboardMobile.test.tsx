@@ -378,6 +378,18 @@ describe('DashboardMobile', () => {
       expect(getByTestId('dashboard-flat-list')).toBeTruthy();
     });
   });
+  describe('Incidentes indisponíveis', () => {
+    it('contagem nula aparece como "—", não 0', () => {
+      const { getByTestId } = render(
+        <DashboardMobile
+          {...(defaultProps as any)}
+          stats={{ ...defaultProps.stats, incidentesAbertos: null }}
+        />,
+      );
+      expect(getByTestId('stats-Incidentes Abertos')).toHaveTextContent(/—/);
+    });
+  });
+
   describe('Erro de carga', () => {
     it('mostra o aviso e "Tentar novamente" chama onRefresh', () => {
       const onRefresh = jest.fn();

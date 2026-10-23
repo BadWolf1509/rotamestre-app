@@ -250,6 +250,18 @@ describe('DashboardDesktop', () => {
       expect(typeof defaultProps.onRefresh).toBe('function');
     });
   });
+  describe('Incidentes indisponíveis', () => {
+    it('contagem nula aparece como "—", não 0', () => {
+      const { getByTestId } = render(
+        <DashboardDesktop
+          {...(defaultProps as any)}
+          stats={{ ...defaultProps.stats, incidentesAbertos: null }}
+        />,
+      );
+      expect(getByTestId('stats-Incidentes Abertos')).toHaveTextContent(/—/);
+    });
+  });
+
   describe('Erro de carga', () => {
     it('mostra o aviso e "Tentar novamente" chama onRefresh', () => {
       const onRefresh = jest.fn();

@@ -11,7 +11,12 @@ import { View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Text } from '@/components/Text';
-import { formatTimeBR } from '@/lib/dateUtils';
+import {
+  formatDateBR,
+  formatTimeBR,
+  getTodayISO,
+  toLocalISODate,
+} from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface AvisoErroCargaProps {
@@ -22,6 +27,16 @@ interface AvisoErroCargaProps {
   testID?: string;
 }
 
+/** "HH:MM" se for de hoje; "DD/MM/AAAA às HH:MM" se for de outro dia. */
+function quando(epochMs: number): string {
+  // Timestamp (carrega fuso): pode passar por new Date. O dia sai de
+  // toLocalISODate (local), nunca de toISOString().
+  const momento = new Date(epochMs);
+  const hora = formatTimeBR(momento.toISOString());
+  const dia = toLocalISODate(momento);
+  return dia === getTodayISO() ? hora : `${formatDateBR(dia)} às ${hora}`;
+}
+
 export function AvisoErroCarga({
   mensagem,
   dadosDe,
@@ -29,10 +44,7 @@ export function AvisoErroCarga({
   testID = 'aviso-erro-carga',
 }: AvisoErroCargaProps) {
   const { theme } = useUnistyles();
-  const selo =
-    dadosDe != null
-      ? ` Mostrando dados de ${formatTimeBR(new Date(dadosDe).toISOString())}.`
-      : '';
+  const selo = dadosDe != null ? ` Mostrando dados de ${quando(dadosDe)}.` : '';
 
   return (
     <View style={styles.container} testID={testID} accessibilityRole="alert">

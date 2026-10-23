@@ -36,6 +36,8 @@ const mockTabelas: Record<string, Linha[]> = {};
 // filtro de status) para simular carga em voo.
 const mockSeguradas: Record<string, Promise<void>> = {};
 let mockFalharRotas = false;
+// Tabelas cujas consultas devolvem erro (ex.: 'incidentes', 'usuario_unidades').
+const mockTabelasComErro = new Set<string>();
 
 function mockValor(linha: Linha, coluna: string): unknown {
   return coluna
@@ -82,6 +84,9 @@ function mockQuery(tabela: string) {
           if (tabela === 'rotas' && mockFalharRotas) {
             return { data: null, error: { message: 'rede' } };
           }
+          if (mockTabelasComErro.has(tabela)) {
+            return { data: null, count: null, error: { message: 'falhou' } };
+          }
           const linhas = (mockTabelas[tabela] ?? []).filter((l) =>
             filtros.every((f) => f(l)),
           );
@@ -122,6 +127,7 @@ function rota(id: string, data: string, status = 'pendente', loja = 'loja-a') {
 
 beforeEach(() => {
   mockFalharRotas = false;
+  mockTabelasComErro.clear();
   for (const k of Object.keys(mockSeguradas)) delete mockSeguradas[k];
   mockTabelas.rotas = [
     rota('hoje-1', hoje),
@@ -197,6 +203,24 @@ describe('useDashboardData — incidentes abertos', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.stats.incidentesAbertos).toBe(2);
+  });
+
+  // Erro na contagem virava 0 calado: "0 incidentes abertos" é uma
+  // afirmação, e falsa. Indisponível = null (a tela mostra "—").
+  it('erro na contagem de incidentes da loja: indisponível, não 0', async () => {
+    mockTabelasComErro.add('incidentes');
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.stats.incidentesAbertos).toBeNull();
+  });
+
+  it('erro ao ler os vínculos dos motoristas: indisponível, não só os da rota', async () => {
+    mockTabelasComErro.add('usuario_unidades');
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.stats.incidentesAbertos).toBeNull();
   });
 });
 
