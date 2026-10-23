@@ -142,6 +142,28 @@ const ERROR_PATTERNS: Array<{
       code: 'ROUTE_STOPS_PENDING',
     },
   },
+  // Conclusão/pulo guardados sem rede (fila de ações de parada) ainda não
+  // chegaram ao banco: finalizar agora seria recusado por "paradas pendentes".
+  {
+    pattern: /ROTA_ENVIOS_PENDENTES/,
+    result: {
+      title: 'Envio pendente',
+      message:
+        'Algumas paradas foram registradas sem internet e ainda não foram enviadas. Assim que o sinal voltar elas sobem sozinhas; depois finalize a rota.',
+      type: 'warning',
+      code: 'ROUTE_SENDS_PENDING',
+    },
+  },
+  {
+    pattern: /PARADA_INDISPONIVEL/,
+    result: {
+      title: 'Parada indisponível',
+      message:
+        'Esta parada foi removida ou a rota foi passada para outro motorista. Puxe a tela para atualizar ou fale com o gestor.',
+      type: 'warning',
+      code: 'STOP_UNAVAILABLE',
+    },
+  },
   {
     pattern: /ROTA_NAO_EM_ANDAMENTO/,
     result: {

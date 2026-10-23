@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
+import { sincronizarFilaAcoesParada } from './motorista/filaAcoesParada';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { uploadELinkFotoParada } from './storage';
 import { supabase } from './supabase';
@@ -684,6 +685,11 @@ export function setupOfflineSync(): () => void {
         const photoResult = await processOfflinePhotos();
         photosSuccess = photoResult.success;
       }
+
+      // Concluir/pular guardados sem rede: DEPOIS das fotos, para o
+      // comprovante subir antes da ação que o gestor vê.
+      const acoesParada = await sincronizarFilaAcoesParada();
+      actionsSuccess += acoesParada.enviadas;
 
       // Notificar se houve sincronização
       if (actionsSuccess > 0 || photosSuccess > 0) {

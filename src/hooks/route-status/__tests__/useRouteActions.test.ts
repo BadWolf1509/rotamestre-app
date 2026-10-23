@@ -64,6 +64,12 @@ function makeParada(overrides: Partial<ParadaData> = {}): ParadaData {
   };
 }
 
+const porta = {
+  lerParada: jest.fn(),
+  atualizarSeAberta: jest.fn(),
+  avancarProxima: jest.fn(),
+};
+
 function setup(
   overrides: {
     route?: RouteData | null;
@@ -81,12 +87,20 @@ function setup(
         ? overrides.userData!
         : { id: 'user-1', nome: 'Joao' },
     loadActiveRoute,
+    portaParadas: porta,
   });
   return { ...actions, loadActiveRoute };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  porta.lerParada.mockResolvedValue({
+    status: 'em_andamento',
+    rota_id: 'route-1',
+    rota: { status: 'em_andamento', motorista_id: 'user-1' },
+  });
+  porta.atualizarSeAberta.mockResolvedValue(true);
+  porta.avancarProxima.mockResolvedValue(undefined);
   // Default: update chain succeeds
   mockUpdateEq.mockResolvedValue({ error: null });
   // Default: select chain returns empty fresh paradas
@@ -95,15 +109,6 @@ beforeEach(() => {
   // Default to web platform to avoid location tracking calls
   (Platform as any).OS = 'web';
 });
-
-/**
- * Helper to set what the fresh paradas DB query returns.
- * Used by completeStop and skipStop tests.
- */
-function setFreshParadas(paradas: Partial<ParadaData>[]) {
-  freshParadasResponse = { data: paradas, error: null };
-  mockSelectOrder.mockImplementation(() => freshParadasResponse);
-}
 
 // ============================================================================
 // startRoute
@@ -250,24 +255,7 @@ describe('completeStop', () => {
     await expect(completeStop('p1')).rejects.toThrow('em andamento');
   });
 
-  it('updates parada with status concluida', async () => {
-    const { completeStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
-    });
-
-    await completeStop('p1');
-
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'concluida',
-        concluida_em: expect.any(String),
-      }),
-    );
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
-  });
-
-  it('includes foto_url when provided', async () => {
+  it('caminho legado com URL: grava foto_url antes de concluir', async () => {
     const { completeStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
       paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
@@ -275,141 +263,27 @@ describe('completeStop', () => {
 
     await completeStop('p1', 'https://storage.com/photo.jpg');
 
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        foto_url: 'https://storage.com/photo.jpg',
-      }),
-    );
-  });
-
-  it('omits foto_url when not provided', async () => {
-    const { completeStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
+    expect(mockUpdate).toHaveBeenCalledWith({
+      foto_url: 'https://storage.com/photo.jpg',
     });
-
-    await completeStop('p1');
-
-    const firstUpdateCall = mockUpdate.mock.calls[0][0];
-    expect(firstUpdateCall).not.toHaveProperty('foto_url');
-  });
-
-  it('fetches fresh paradas from DB instead of using closure', async () => {
-    // Set fresh paradas that the DB query will return
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { completeStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    await completeStop('p1');
-
-    // Verify select chain was called with correct params
-    expect(mockSelect).toHaveBeenCalledWith('id, status, ordem, is_checkpoint');
-    expect(mockSelectEq).toHaveBeenCalledWith('rota_id', 'route-1');
-    expect(mockSelectOrder).toHaveBeenCalledWith('ordem');
-  });
-
-  it('advances to next pending parada from fresh DB data', async () => {
-    // DB returns p1 already completed, p2 still pending
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { completeStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    await completeStop('p1');
-
-    // Should update p2 to em_andamento via marcarProximaParadaEmAndamento
-    const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(
-      true,
-    );
-  });
-
-  it('does not call marcarProximaParadaEmAndamento when fresh query returns null', async () => {
-    mockSelectOrder.mockImplementation(() => ({
-      data: null,
-      error: { message: 'query failed' },
-    }));
-
-    const { completeStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    await completeStop('p1');
-
-    // The update for the stop itself should have happened
-    expect(mockUpdate).toHaveBeenCalledWith(
+    expect(porta.atualizarSeAberta).toHaveBeenCalledWith(
+      'p1',
       expect.objectContaining({ status: 'concluida' }),
     );
-    // But no second update for promoting the next stop should occur
-    // (only 1 update call for the parada completion, no promotion)
-    const updateEqCalls = mockUpdateEq.mock.calls.filter(
-      (c: any[]) => c[0] === 'id' && c[1] === 'p2',
-    );
-    expect(updateEqCalls).toHaveLength(0);
   });
 
-  it('uses fresh DB state even when closure paradas are stale (race condition fix)', async () => {
-    // Simulate race condition: closure has both paradas as pendente,
-    // but DB shows p1 is already concluida (completed by another rapid call)
-    // and p2 is also concluida. The fresh query reveals p3 is the real next.
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'concluida', is_checkpoint: true },
-      { id: 'p3', ordem: 3, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    // Closure has stale data where p2 and p3 are both pendente
-    const { completeStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-        makeParada({ id: 'p3', ordem: 3, status: 'pendente' }),
-      ],
-    });
-
-    await completeStop('p1');
-
-    // With the old stale closure logic, p2 would be promoted.
-    // With the fresh DB query, p3 is promoted because p2 is already concluida.
-    const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(
-      true,
-    );
-    // p2 should NOT be promoted
-    expect(
-      eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2'),
-    ).toHaveLength(0);
-  });
-
-  it('calls loadActiveRoute', async () => {
+  it('conclui pela porta (UPDATE só de parada aberta) e recarrega a rota', async () => {
     const { completeStop, loadActiveRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
       paradas: [makeParada({ id: 'p1' })],
     });
 
-    await completeStop('p1');
+    await expect(completeStop('p1')).resolves.toBe('enviada');
+    expect(porta.atualizarSeAberta).toHaveBeenCalledWith('p1', {
+      status: 'concluida',
+      concluida_em: expect.any(String),
+    });
+    expect(porta.avancarProxima).toHaveBeenCalledWith('route-1');
     expect(loadActiveRoute).toHaveBeenCalled();
   });
 });
@@ -428,149 +302,32 @@ describe('skipStop', () => {
     );
   });
 
-  it('updates parada with status pulada and motivo_skip', async () => {
-    const { skipStop } = setup({
+  it('pula pela porta com motivo, sem observações quando não há', async () => {
+    const { skipStop, loadActiveRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
       paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
     });
 
-    await skipStop('p1', 'cliente_ausente');
-
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'pulada',
-        motivo_skip: 'cliente_ausente',
-      }),
-    );
+    await expect(skipStop('p1', 'recusa')).resolves.toBe('enviada');
+    expect(porta.atualizarSeAberta).toHaveBeenCalledWith('p1', {
+      status: 'pulada',
+      motivo_skip: 'recusa',
+    });
+    expect(porta.avancarProxima).toHaveBeenCalledWith('route-1');
+    expect(loadActiveRoute).toHaveBeenCalled();
   });
 
-  it('includes observacoes when provided', async () => {
+  it('inclui observações quando informadas', async () => {
     const { skipStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
       paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
     });
 
     await skipStop('p1', 'outro', 'Chuva forte');
-
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        observacoes: 'Chuva forte',
-      }),
+    expect(porta.atualizarSeAberta).toHaveBeenCalledWith(
+      'p1',
+      expect.objectContaining({ observacoes: 'Chuva forte' }),
     );
-  });
-
-  it('omits observacoes when not provided', async () => {
-    const { skipStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
-    });
-
-    await skipStop('p1', 'recusa');
-
-    const firstUpdateCall = mockUpdate.mock.calls[0][0];
-    expect(firstUpdateCall).not.toHaveProperty('observacoes');
-  });
-
-  it('fetches fresh paradas from DB instead of using closure', async () => {
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { skipStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    await skipStop('p1', 'endereco_incorreto');
-
-    // Verify select chain was called with correct params
-    expect(mockSelect).toHaveBeenCalledWith('id, status, ordem, is_checkpoint');
-    expect(mockSelectEq).toHaveBeenCalledWith('rota_id', 'route-1');
-    expect(mockSelectOrder).toHaveBeenCalledWith('ordem');
-  });
-
-  it('advances to next pending parada from fresh DB data and calls loadActiveRoute', async () => {
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { skipStop, loadActiveRoute } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    await skipStop('p1', 'endereco_incorreto');
-
-    const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(
-      true,
-    );
-    expect(loadActiveRoute).toHaveBeenCalled();
-  });
-
-  it('does not call marcarProximaParadaEmAndamento when fresh query returns null', async () => {
-    mockSelectOrder.mockImplementation(() => ({
-      data: null,
-      error: { message: 'query failed' },
-    }));
-
-    const { skipStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    await skipStop('p1', 'cliente_ausente');
-
-    // The update for the skip itself should have happened
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'pulada' }),
-    );
-    // But no promotion of p2 should occur
-    const updateEqCalls = mockUpdateEq.mock.calls.filter(
-      (c: any[]) => c[0] === 'id' && c[1] === 'p2',
-    );
-    expect(updateEqCalls).toHaveLength(0);
-  });
-
-  it('uses fresh DB state even when closure paradas are stale (race condition fix)', async () => {
-    // Simulate: closure says p2 is pendente, but DB says p2 is already pulada.
-    // The fresh query reveals p3 is the actual next pendente stop.
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pulada', is_checkpoint: true },
-      { id: 'p3', ordem: 3, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { skipStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-        makeParada({ id: 'p3', ordem: 3, status: 'pendente' }),
-      ],
-    });
-
-    await skipStop('p1', 'endereco_incorreto');
-
-    // With fresh DB query, p3 should be promoted (not p2)
-    const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(
-      true,
-    );
-    expect(
-      eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2'),
-    ).toHaveLength(0);
   });
 });
 
@@ -729,61 +486,31 @@ describe('completeRoute', () => {
 // ============================================================================
 
 describe('marcarProximaParadaEmAndamento error propagation', () => {
-  it('propagates error to completeStop caller', async () => {
-    // Fresh paradas from DB with a pending stop to promote
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'concluida', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { completeStop } = setup({
+  it('completeStop: entrega gravada + falha ao promover a próxima não vira erro', async () => {
+    porta.avancarProxima.mockRejectedValueOnce({ message: 'promotion failed' });
+    const { completeStop, loadActiveRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
+      paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
     });
 
-    // First update call (complete p1) succeeds, second (promote p2) fails
-    mockUpdateEq
-      .mockResolvedValueOnce({ error: null }) // completeStop: update p1
-      .mockResolvedValueOnce({ error: { message: 'promotion failed' } }); // marcarProximaParadaEmAndamento: update p2
-
-    await expect(completeStop('p1')).rejects.toEqual({
-      message: 'promotion failed',
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('marcarProximaParadaEmAndamento'),
+    await expect(completeStop('p1')).resolves.toBe('enviada');
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('próxima'),
       expect.objectContaining({ message: 'promotion failed' }),
     );
+    expect(loadActiveRoute).toHaveBeenCalled();
   });
 
-  it('propagates error to skipStop caller', async () => {
-    setFreshParadas([
-      { id: 'p1', ordem: 1, status: 'pulada', is_checkpoint: true },
-      { id: 'p2', ordem: 2, status: 'pendente', is_checkpoint: true },
-    ]);
-
-    const { skipStop } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas: [
-        makeParada({ id: 'p1', ordem: 1, status: 'em_andamento' }),
-        makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-      ],
-    });
-
-    // First update (skip p1) succeeds, second (promote p2) fails
-    mockUpdateEq
-      .mockResolvedValueOnce({ error: null })
-      .mockResolvedValueOnce({ error: { message: 'skip promotion failed' } });
-
-    await expect(skipStop('p1', 'cliente_ausente')).rejects.toEqual({
+  it('skipStop: pulo gravado + falha ao promover a próxima não vira erro', async () => {
+    porta.avancarProxima.mockRejectedValueOnce({
       message: 'skip promotion failed',
     });
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('marcarProximaParadaEmAndamento'),
-      expect.objectContaining({ message: 'skip promotion failed' }),
-    );
+    const { skipStop } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
+    });
+
+    await expect(skipStop('p1', 'cliente_ausente')).resolves.toBe('enviada');
   });
 
   it('propagates error to startRoute caller when promoting first parada fails', async () => {

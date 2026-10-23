@@ -5,12 +5,21 @@
 import { Platform } from 'react-native';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
-import type {
-  ParadaData,
-  ParadaUpdateData,
-  RouteData,
-} from '@/context/route-status/types';
+import type { ParadaData, RouteData } from '@/context/route-status/types';
 import { logger } from '@/lib/logger';
+import {
+  aplicarAcaoParada,
+  criarAcaoParada,
+  ehFalhaDeEnvio,
+  enfileirarAcaoParada,
+  lerFilaAcoesParada,
+  portaParadasSupabase,
+  type AcaoParada,
+  type DestinoDaAcao,
+  type PortaParadas,
+  type ResultadoAplicacao,
+} from '@/lib/motorista/filaAcoesParada';
+import { isOnline } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
 import {
   stopBackgroundTracking,
@@ -22,6 +31,8 @@ interface UseRouteActionsOptions {
   paradas: ParadaData[];
   userData: { id: string; nome?: string } | null;
   loadActiveRoute: () => Promise<void>;
+  /** Acesso ao banco das ações de parada; os testes injetam um em memória. */
+  portaParadas?: PortaParadas;
 }
 
 /**
@@ -51,6 +62,7 @@ export function useRouteActions({
   paradas,
   userData,
   loadActiveRoute,
+  portaParadas = portaParadasSupabase,
 }: UseRouteActionsOptions) {
   // Inicia rota
   const startRoute = async () => {
@@ -114,9 +126,62 @@ export function useRouteActions({
     }
   };
 
+  // Concluir e pular passam pela fila de ações de parada
+  // (`src/lib/motorista/filaAcoesParada.ts`): sem rede — ou com a rede caindo
+  // no meio do envio — a ação fica guardada no aparelho e sobe sozinha quando
+  // o sinal voltar, em vez de virar erro e a entrega sumir.
+  const executarOuEnfileirar = async (
+    acao: AcaoParada,
+    rotulo: string,
+  ): Promise<DestinoDaAcao> => {
+    if (!(await isOnline())) {
+      await enfileirarAcaoParada(acao);
+      return 'na_fila';
+    }
+
+    let resultado: ResultadoAplicacao;
+    try {
+      resultado = await aplicarAcaoParada(acao, portaParadas);
+    } catch (error) {
+      if (ehFalhaDeEnvio(error)) {
+        await enfileirarAcaoParada(acao);
+        return 'na_fila';
+      }
+      logger.error(`[RouteStatus] Erro ao ${rotulo} parada`, error);
+      throw error;
+    }
+
+    if (resultado.tipo === 'descartada') {
+      // Mesmas sentinelas do `errorMapping`: a mensagem diz o que houve.
+      throw new Error(
+        resultado.motivo === 'rota_encerrada'
+          ? 'ROTA_NAO_EM_ANDAMENTO: a rota não está mais em andamento'
+          : 'PARADA_INDISPONIVEL: a parada foi removida ou a rota mudou de motorista',
+      );
+    }
+
+    // Lê o estado fresco do banco (não o da closure) e só promove a próxima
+    // quando nenhuma outra está em andamento — pular uma parada fora da vez
+    // não pode deixar duas "em andamento". A entrega JÁ está gravada: falhar
+    // aqui não pode virar erro na tela, ou o motorista a refaria.
+    if (resultado.tipo === 'aplicada') {
+      try {
+        await portaParadas.avancarProxima(acao.rotaId);
+      } catch (error) {
+        logger.warn('[RouteStatus] Falha ao promover a próxima parada', error);
+      }
+    }
+
+    await loadActiveRoute();
+    return 'enviada';
+  };
+
   // Completa parada
-  const completeStop = async (paradaId: string, fotoUrl?: string) => {
-    if (!route || route.status !== 'em_andamento') {
+  const completeStop = async (
+    paradaId: string,
+    fotoUrl?: string,
+  ): Promise<DestinoDaAcao> => {
+    if (!route || route.status !== 'em_andamento' || !userData) {
       logger.warn(
         `[RouteStatus] completeStop Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`,
       );
@@ -125,36 +190,29 @@ export function useRouteActions({
       );
     }
 
-    try {
-      const updateData: ParadaUpdateData = {
-        status: 'concluida',
-        concluida_em: new Date().toISOString(),
-        ...(fotoUrl && { foto_url: fotoUrl }),
-      };
-
+    if (fotoUrl) {
+      // Caminho legado: hoje ninguém passa URL (o upload liga a foto à
+      // parada sozinho). Fica online, porque `foto_url` não entra na fila.
       const { error } = await supabase
         .from('paradas')
-        .update(updateData)
+        .update({ foto_url: fotoUrl })
         .eq('id', paradaId);
-
-      if (error) throw error;
-
-      // Fetch fresh paradas from DB to avoid stale closure race condition
-      const { data: freshParadas } = await supabase
-        .from('paradas')
-        .select('id, status, ordem, is_checkpoint')
-        .eq('rota_id', route.id)
-        .order('ordem');
-
-      if (freshParadas) {
-        await marcarProximaParadaEmAndamento(freshParadas as ParadaData[]);
+      if (error) {
+        logger.error('[RouteStatus] Erro ao concluir parada', error);
+        throw error;
       }
-
-      await loadActiveRoute();
-    } catch (error) {
-      logger.error('[RouteStatus] Erro ao concluir parada', error);
-      throw error;
     }
+
+    return executarOuEnfileirar(
+      criarAcaoParada({
+        tipo: 'concluir',
+        paradaId,
+        rotaId: route.id,
+        motoristaId: userData.id,
+        em: new Date().toISOString(),
+      }),
+      'concluir',
+    );
   };
 
   // Pula parada com motivo estruturado
@@ -162,42 +220,26 @@ export function useRouteActions({
     paradaId: string,
     motivo: MotivoSkip,
     observacoes?: string,
-  ) => {
-    if (!route || route.status !== 'em_andamento') {
+  ): Promise<DestinoDaAcao> => {
+    if (!route || route.status !== 'em_andamento' || !userData) {
       logger.warn(
         `[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`,
       );
       throw new Error('A rota precisa estar em andamento para pular paradas');
     }
 
-    try {
-      const { error } = await supabase
-        .from('paradas')
-        .update({
-          status: 'pulada',
-          motivo_skip: motivo,
-          ...(observacoes && { observacoes }),
-        })
-        .eq('id', paradaId);
-
-      if (error) throw error;
-
-      // Fetch fresh paradas from DB to avoid stale closure race condition
-      const { data: freshParadas } = await supabase
-        .from('paradas')
-        .select('id, status, ordem, is_checkpoint')
-        .eq('rota_id', route.id)
-        .order('ordem');
-
-      if (freshParadas) {
-        await marcarProximaParadaEmAndamento(freshParadas as ParadaData[]);
-      }
-
-      await loadActiveRoute();
-    } catch (error) {
-      logger.error('[RouteStatus] Erro ao pular parada', error);
-      throw error;
-    }
+    return executarOuEnfileirar(
+      criarAcaoParada({
+        tipo: 'pular',
+        paradaId,
+        rotaId: route.id,
+        motoristaId: userData.id,
+        em: new Date().toISOString(),
+        motivo,
+        ...(observacoes ? { observacoes } : {}),
+      }),
+      'pular',
+    );
   };
 
   // Finaliza rota. Uma operação só no banco (RPC `finalizar_rota`, em
@@ -218,6 +260,17 @@ export function useRouteActions({
       // Mesma sentinela da RPC: o errorMapping dá a mensagem útil.
       throw new Error(
         `ROTA_PARADAS_PENDENTES: Não é possível concluir a rota com ${pendingStops.length} parada(s) pendentes`,
+      );
+    }
+
+    // Conclusão guardada sem rede ainda não chegou ao banco: a RPC recusaria
+    // com "paradas pendentes", e o motorista não entenderia por quê.
+    const naFila = (await lerFilaAcoesParada()).filter(
+      (a) => a.rotaId === route.id,
+    ).length;
+    if (naFila > 0) {
+      throw new Error(
+        `ROTA_ENVIOS_PENDENTES: ${naFila} parada(s) aguardando envio`,
       );
     }
 

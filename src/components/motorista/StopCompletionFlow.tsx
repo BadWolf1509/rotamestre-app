@@ -23,6 +23,7 @@ import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
+import { AVISO_ENVIO_PENDENTE } from '@/lib/motorista/filaAcoesParada';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -119,13 +120,24 @@ export function StopCompletionFlow({
       // ('success' ou 'pending_sync'). A foto já foi salva por uploadELinkFotoParada.
       // Passar 'success' como foto_url sobrescreveria a URL correta no banco!
       const isActualUrl = photoUrl && photoUrl.startsWith('http');
-      await completeStop(parada.id, isActualUrl ? photoUrl : undefined);
+      const destino = await completeStop(
+        parada.id,
+        isActualUrl ? photoUrl : undefined,
+      );
 
       // Feedback de sucesso
-      if (Platform.OS === 'web') {
+      if (Platform.OS === 'web' && destino !== 'na_fila') {
         // Na web, feedback visual do modal é suficiente
         onSuccess?.();
         onClose();
+      } else if (destino === 'na_fila') {
+        // Sem rede: a conclusão ficou na fila do aparelho
+        // (`filaAcoesParada.ts`). Dizer "concluída" sem ressalva faria o
+        // motorista achar que o gestor já vê a entrega.
+        showSuccess('Parada salva', AVISO_ENVIO_PENDENTE, () => {
+          onSuccess?.();
+          onClose();
+        });
       } else {
         showSuccess(
           'Sucesso!',

@@ -4,6 +4,10 @@
 
 import type { MotivoSkip } from '@/constants/skipReasons';
 import type { RastreamentoSegundoPlano } from '@/hooks/route-status/useGarantirRastreamentoDaRota';
+import type {
+  DescarteDeAcao,
+  DestinoDaAcao,
+} from '@/lib/motorista/filaAcoesParada';
 
 export type RouteStatus =
   | 'no-route'
@@ -96,12 +100,24 @@ export interface RouteStatusContextData {
   atualizadoEm: number | null;
   refreshRoute: () => Promise<void>;
   startRoute: () => Promise<void>;
-  completeStop: (paradaId: string, fotoUrl?: string) => Promise<void>;
+  /**
+   * `'na_fila'`: sem rede, a ação ficou guardada no aparelho e sobe sozinha
+   * (`src/lib/motorista/filaAcoesParada.ts`). `void` só para mocks antigos.
+   */
+  completeStop: (
+    paradaId: string,
+    fotoUrl?: string,
+  ) => Promise<DestinoDaAcao | void>;
   skipStop: (
     paradaId: string,
     motivo: MotivoSkip,
     observacoes?: string,
-  ) => Promise<void>;
+  ) => Promise<DestinoDaAcao | void>;
+  /** Paradas resolvidas no aparelho que ainda não chegaram ao banco. */
+  paradasComEnvioPendente?: ReadonlySet<string>;
+  /** Ações da fila descartadas por conflito (parada removida, rota mudou). */
+  avisosDeEnvio?: DescarteDeAcao[];
+  dispensarAvisosDeEnvio?: () => Promise<void>;
   completeRoute: () => Promise<void>;
   /**
    * Rastreamento em segundo plano da rota em andamento, religado na abertura e
