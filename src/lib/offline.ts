@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
+import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { uploadELinkFotoParada } from './storage';
@@ -33,6 +34,26 @@ interface OfflinePhotoData {
    * fotos enfileiradas por versões antigas: essas sobem com a sessão atual.
    */
   userId?: string;
+  /**
+   * Foto nova cujo dono não se soube (nem sessão, nem último usuário). Nunca
+   * sobe sozinha: subir com a sessão de quem estiver logado poderia gravar o
+   * comprovante em nome de outra pessoa. Distingue-a da foto antiga sem dono.
+   */
+  semDono?: true;
+}
+
+/** Foto que a sessão `usuarioAtual` pode subir/contar. */
+function fotoEDe(photo: OfflinePhotoData, usuarioAtual: string): boolean {
+  if (photo.userId) return photo.userId === usuarioAtual;
+  return !photo.semDono; // antiga, de antes de a fila guardar o dono
+}
+
+/**
+ * Dono de uma foto tirada agora: a sessão, ou — offline com o token vencido,
+ * quando `getSession()` devolve null sem renovar — o último usuário logado.
+ */
+async function donoConhecido(): Promise<string | null> {
+  return (await usuarioDaSessao()) ?? (await lerUltimoUsuario());
 }
 
 /** Id de quem está logado neste aparelho, ou null sem sessão. */
@@ -104,7 +125,7 @@ export async function savePhotoOffline(
     to: localPath,
   });
 
-  const userId = await usuarioDaSessao();
+  const userId = await donoConhecido();
   const photoData: OfflinePhotoData = {
     localPath,
     unidadeId,
@@ -112,7 +133,7 @@ export async function savePhotoOffline(
     paradaId,
     originalUri: photoUri,
     savedAt: new Date().toISOString(),
-    ...(userId ? { userId } : {}),
+    ...(userId ? { userId } : { semDono: true as const }),
   };
 
   // Salvar índice de fotos offline
@@ -245,7 +266,7 @@ export async function processOfflinePhotos(): Promise<{
     let failed = 0;
 
     for (const photo of index) {
-      if (photo.userId && photo.userId !== usuarioAtual) continue;
+      if (!fotoEDe(photo, usuarioAtual)) continue;
       try {
         // Verificar se arquivo ainda existe
         if (Platform.OS !== 'web') {
@@ -302,8 +323,11 @@ export async function processOfflinePhotos(): Promise<{
  * Obtém contagem de fotos pendentes de sync
  */
 export async function getPendingPhotosCount(): Promise<number> {
+  // Só as de quem está no aparelho: as de outra conta não sobem agora, e
+  // contá-las faria o aviso "pendentes" mentir para esta pessoa.
+  const dono = await donoConhecido();
   const index = await getOfflinePhotosIndex();
-  return index.length;
+  return index.filter((p) => (dono ? fotoEDe(p, dono) : false)).length;
 }
 
 /**
@@ -600,6 +624,25 @@ let hasNotifiedOffline = false;
  * Hook para monitorar status de conexão e processar fila automaticamente
  */
 export function setupOfflineSync(): () => void {
+  // Auth: guarda quem está no aparelho (dono das fotos mesmo com a sessão
+  // vencida offline) e, ao entrar, sobe as fotos que esperavam esta pessoa —
+  // sem isso elas só subiriam na próxima troca de conectividade.
+  const {
+    data: { subscription: assinaturaAuth },
+  } = supabase.auth.onAuthStateChange((evento, sessao) => {
+    const userId = sessao?.user?.id;
+    if (!userId) return;
+    void (async () => {
+      await gravarUltimoUsuario(userId);
+      if (evento === 'SIGNED_IN' && (await getPendingPhotosCount()) > 0) {
+        const r = await processOfflinePhotos();
+        if (r.success > 0) await notifySyncComplete(0, r.success);
+      }
+    })().catch((error) =>
+      logger.warn('[Offline] Falha ao sincronizar fotos no login', error),
+    );
+  });
+
   const unsubscribe = NetInfo.addEventListener(async (state) => {
     if (state.isConnected && state.isInternetReachable) {
       // Resetar flag de notificação offline
@@ -642,5 +685,8 @@ export function setupOfflineSync(): () => void {
     }
   });
 
-  return unsubscribe;
+  return () => {
+    unsubscribe();
+    assinaturaAuth.unsubscribe();
+  };
 }

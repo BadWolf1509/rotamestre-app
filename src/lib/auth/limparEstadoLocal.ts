@@ -24,6 +24,7 @@ export const CHAVES_DA_CONTA = [
   '@rotamestre:conclusao_em_voo', // src/lib/motorista/conclusaoEmVoo.ts
   '@rotamestre:rascunho_incidente', // src/lib/motorista/rascunhoIncidente.ts
   '@rotamestre:offline_data', // src/lib/offline.ts (rota/paradas em cache, não a fila)
+  '@rotamestre:ultimo_usuario', // src/lib/auth/ultimoUsuario.ts
 ] as const;
 
 /** Prefixos de chaves com dado da conta. */

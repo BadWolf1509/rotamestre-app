@@ -37,10 +37,14 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 }));
 
 // Mock Supabase
+const mockUnsubscribeAuth = jest.fn();
 jest.mock('../supabase', () => ({
   supabase: {
     // Fila de fotos só sobe com sessão (ver offline-fotos-por-usuario.test.ts)
     auth: {
+      onAuthStateChange: jest.fn(() => ({
+        data: { subscription: { unsubscribe: mockUnsubscribeAuth } },
+      })),
       getSession: jest.fn(() =>
         Promise.resolve({
           data: { session: { user: { id: 'user-1' } } },
@@ -899,13 +903,15 @@ describe('offline', () => {
       expect(mockNetInfo.addEventListener).toHaveBeenCalled();
     });
 
-    it('deve retornar função de unsubscribe', () => {
+    it('deve retornar função que desliga NetInfo e o ouvinte de auth', () => {
       const mockUnsubscribe = jest.fn();
       mockNetInfo.addEventListener.mockReturnValueOnce(mockUnsubscribe);
 
       const unsubscribe = setupOfflineSync();
+      unsubscribe();
 
-      expect(unsubscribe).toBe(mockUnsubscribe);
+      expect(mockUnsubscribe).toHaveBeenCalled();
+      expect(mockUnsubscribeAuth).toHaveBeenCalled();
     });
 
     it('deve processar fila quando reconecta', async () => {

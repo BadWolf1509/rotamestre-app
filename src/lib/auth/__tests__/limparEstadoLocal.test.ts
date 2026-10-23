@@ -20,6 +20,7 @@ const DA_PESSOA = [
   '@rotamestre:conclusao_em_voo',
   '@rotamestre:rascunho_incidente',
   '@rotamestre:offline_data',
+  '@rotamestre:ultimo_usuario',
 ];
 
 const DO_APARELHO = [
