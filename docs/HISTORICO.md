@@ -8,6 +8,21 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Pós-varredura e release 1.14.3 (23/10/2026)
+
+- **#637:** a busca de endereço se identifica com a sessão do usuário; sem sessão, usa a chave publishable.
+- **#639 — Migration 43:** o incidente grava a própria loja em `incidentes.unidade_id` por gatilho; as policies de incidentes passam pela loja gravada e o aviso ao gestor também. Aplicada antes do merge, com migration e sonda numa execução só no SQL Editor (14/14).
+- **#638 — fila offline e gestor:** aviso de ações de outra conta no aparelho; foto do comprovante desacoplada da ação (ligada sem sobrescrever, ou registrada em `logs` com evento `foto_comprovante_sem_vinculo`, ou mantida no aparelho); exclusão de conta preserva pendências de outras contas e apaga os arquivos de quem sai; gestor principal por loja; contagem de membros igual à lista da Equipe; texto honesto do "Limpar Cache".
+- **#640:** bump para 1.14.3 (versionCode 3041).
+- **Release:** a 1.14.3 foi buildada pelo workflow `eas-build-android.yml` e enviada à faixa interna com notas; a alpha segue na 1.14.2 até a validação no aparelho.
+- **Migrations aplicadas até a 43.** Em aberto: PR #641 (pendências menores), ainda não mesclado.
+
+**Lições:**
+
+- O moto g15 tinha o dev client (instalado por adb) e não o app da Play: a atualização pela Play falha com `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (assinatura). Foi preciso desinstalar e instalar pela Play.
+- `apply_migration` aceita `ALTER POLICY` e `CREATE OR REPLACE TRIGGER` (use no lugar de `DROP` + `CREATE TRIGGER`); o `REVOKE` de função às vezes é aceito.
+- Para provar migration com sonda que tem `DELETE`, rode migration e sonda numa execução só pelo SQL Editor, com `RAISE EXCEPTION` final que desfaz tudo; o MCP recusa o `DELETE`.
+
 ## Varredura e correções de 22–23/10/2026
 
 - **#629 — push e logout:** o ticket da Expo passou a ser verificado; o token de push pertence a uma conta só, registrado pela RPC `registrar_push_token`; o logout apaga o token do banco e limpa o estado local do aparelho.
