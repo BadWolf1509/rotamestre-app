@@ -5,10 +5,13 @@
 import { renderHook } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 
-import { useManterPushTokenAtualizado } from '../useManterPushTokenAtualizado';
+import {
+  reiniciarAberturaDoPush,
+  useManterPushTokenAtualizado,
+} from '../useManterPushTokenAtualizado';
 
 const mockAtualizar = jest.fn().mockResolvedValue(true);
-jest.mock('../../lib/notifications', () => ({
+jest.mock('@/lib/notifications', () => ({
   atualizarRegistroDePush: (...a: unknown[]) => mockAtualizar(...a),
 }));
 
@@ -18,6 +21,7 @@ describe('useManterPushTokenAtualizado', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    reiniciarAberturaDoPush();
     ouvinte = undefined;
     jest.spyOn(AppState, 'addEventListener').mockImplementation(((
       _: string,
@@ -31,6 +35,17 @@ describe('useManterPushTokenAtualizado', () => {
   it('ao montar, reenvia forçando', () => {
     renderHook(() => useManterPushTokenAtualizado());
     expect(mockAtualizar).toHaveBeenCalledWith({ forcar: true });
+  });
+
+  it('remontar a raiz no mesmo processo não força de novo', () => {
+    const primeira = renderHook(() => useManterPushTokenAtualizado());
+    primeira.unmount();
+    mockAtualizar.mockClear();
+
+    renderHook(() => useManterPushTokenAtualizado());
+
+    expect(mockAtualizar).toHaveBeenCalledTimes(1);
+    expect(mockAtualizar).toHaveBeenCalledWith({ forcar: false });
   });
 
   it('ao voltar ao primeiro plano, chama sem forçar', () => {

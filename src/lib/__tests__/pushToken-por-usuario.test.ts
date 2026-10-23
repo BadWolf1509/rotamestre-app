@@ -40,8 +40,16 @@ let mockErroUpdate: { message: string } | null = null;
 let mockErroDelete: { message: string; code?: string } | null = null;
 let mockErroRpc: { message: string; code?: string } | null = null;
 
+// O registro confere que a sessão atual é da conta que está registrando.
+let mockSessaoId = 'A';
+
 jest.mock('../supabase', () => ({
   supabase: {
+    auth: {
+      getSession: jest.fn(async () => ({
+        data: { session: { user: { id: mockSessaoId } } },
+      })),
+    },
     rpc: jest.fn(async (nome: string, args: unknown) => {
       mockRpc.push([nome, args]);
       return { data: null, error: mockErroRpc };
@@ -98,12 +106,14 @@ beforeEach(() => {
   mockErroUpdate = null;
   mockErroDelete = null;
   mockErroRpc = null;
+  mockSessaoId = 'A';
   Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
 });
 
 describe('registerPushToken: token guardado por conta', () => {
   it('grava no banco quando o token do aparelho é de OUTRA conta', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
+    mockSessaoId = 'B';
 
     await expect(registerPushToken('B')).resolves.toBe(true);
 
