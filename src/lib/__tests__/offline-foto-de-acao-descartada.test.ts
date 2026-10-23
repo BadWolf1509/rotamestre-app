@@ -1,24 +1,25 @@
 /**
- * Foto de comprovante cuja conclusão está na fila do aparelho só sobe
- * DEPOIS que o servidor aceita a conclusão. Se a ação for descartada
- * (parada removida, rota passada a outro motorista ou encerrada, status
- * divergente), a foto não sobe: subir deixaria um objeto sem referência no
- * Storage (parada invisível) ou um comprovante ligado a uma parada aberta.
+ * Foto de comprovante x ação da fila descartada.
  *
- * A fila de ações é a real (AsyncStorage em memória); só a decisão do
- * servidor (`sincronizarFilaAcoesParada`) é simulada, mexendo no disco do
- * mesmo jeito que o módulo real.
+ * Regra: comprovante NUNCA é apagado do aparelho sem ter subido. O descarte
+ * da conclusão (parada removida, rota reatribuída ou encerrada, status
+ * divergente, recusa persistente) não decide nada sobre a foto: ela sobe
+ * pelo `subirFotoDaFilaOffline`, que liga na parada quando pode e, quando
+ * não pode, registra o caminho em `logs` para o gestor recuperar. A foto só
+ * sai do aparelho quando esse envio confirma o destino.
  */
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { solicitarEnvioFila, _resetProcessingLocks } from '../offline';
-import { uploadELinkFotoParada } from '../storage';
+import { subirFotoDaFilaOffline } from '../storage';
 
 const CHAVE_FILA = '@rotamestre:fila_acoes_parada';
 const CHAVE_DESCARTES = '@rotamestre:fila_acoes_parada_descartes';
 const CHAVE_FOTOS = '@rotamestre:offline_photos_index';
 
 const ordem: string[] = [];
+/** O que `rotas` devolve (null = rota passada a outro motorista, RLS). */
+let mockRotaVisivel: { unidade_id: string } | null = { unidade_id: 'u1' };
 
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(async () => ({
@@ -61,50 +62,43 @@ jest.mock('../supabase', () => ({
     from: jest.fn(() => ({
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({
-            data: { unidade_id: 'u1' },
-            error: null,
-          }),
+          maybeSingle: async () => ({ data: mockRotaVisivel, error: null }),
         }),
       }),
     })),
   },
 }));
 
-jest.mock('../storage', () => ({ uploadELinkFotoParada: jest.fn() }));
+jest.mock('../storage', () => ({ subirFotoDaFilaOffline: jest.fn() }));
 jest.mock('../notifications', () => ({
   notifySyncComplete: jest.fn(),
   notifyOfflineMode: jest.fn(),
 }));
 
-type Decisao = 'aceita' | 'descartada';
-let decisoes: Record<string, Decisao> = {};
+let mockDescartar = new Set<string>();
 
-jest.mock('../motorista/filaAcoesParada', () => {
-  const real = jest.requireActual('../motorista/filaAcoesParada');
-  return {
-    ...real,
-    sincronizarFilaAcoesParada: jest.fn(),
-  };
-});
+jest.mock('../motorista/filaAcoesParada', () => ({
+  ...jest.requireActual('../motorista/filaAcoesParada'),
+  sincronizarFilaAcoesParada: jest.fn(),
+}));
 
 function disco(): Map<string, string> {
   return jest.requireMock('@react-native-async-storage/async-storage').__mapa;
 }
 const ler = (k: string) => JSON.parse(disco().get(k) ?? '[]');
 
-const acao = (paradaId: string, motoristaId = 'mot-1') => ({
+const acao = (paradaId: string) => ({
   id: `a-${paradaId}`,
   tipo: 'concluir',
   paradaId,
   rotaId: 'rota-1',
-  motoristaId,
+  motoristaId: 'mot-1',
   em: '2026-10-23T12:00:00.000Z',
   tentativas: 0,
 });
 const foto = (paradaId: string, userId = 'mot-1') => ({
   localPath: `/docs/offline_photos/${paradaId}.jpg`,
-  unidadeId: 'u1',
+  unidadeId: 'u-da-captura',
   rotaId: 'rota-1',
   paradaId,
   originalUri: 'file://x',
@@ -114,33 +108,29 @@ const foto = (paradaId: string, userId = 'mot-1') => ({
 
 beforeEach(() => {
   ordem.length = 0;
-  decisoes = {};
+  mockDescartar = new Set();
+  mockRotaVisivel = { unidade_id: 'u1' };
   _resetProcessingLocks();
   disco().clear();
   (FileSystem.deleteAsync as jest.Mock).mockClear();
-  (uploadELinkFotoParada as jest.Mock).mockImplementation(
-    async (_u: string, _r: string, paradaId: string) => {
+  (subirFotoDaFilaOffline as jest.Mock).mockReset();
+  (subirFotoDaFilaOffline as jest.Mock).mockImplementation(
+    async ({ paradaId }: { paradaId: string }) => {
       ordem.push(`foto:${paradaId}`);
-      return true;
+      return { resultado: 'registrada', path: `u1/rota-1/${paradaId}.jpg` };
     },
   );
   const { sincronizarFilaAcoesParada } = jest.requireMock(
     '../motorista/filaAcoesParada',
   );
   (sincronizarFilaAcoesParada as jest.Mock).mockImplementation(async () => {
-    // Simula o servidor: cada ação da conta sai da fila; a descartada vira
-    // descarte persistido, como em `processarFilaAcoesParada`.
+    // Simula o servidor: a ação sai da fila; a descartada vira descarte.
     const fila = ler(CHAVE_FILA) as ReturnType<typeof acao>[];
-    const minhas = fila.filter((a) => a.motoristaId === 'mot-1');
     const descartadas = [];
-    for (const a of minhas) {
+    for (const a of fila) {
       ordem.push(`acao:${a.paradaId}`);
-      if (decisoes[a.paradaId] === 'descartada') {
-        const d = {
-          acao: a,
-          motivo: 'rota_encerrada',
-          em: new Date().toISOString(),
-        };
+      if (mockDescartar.has(a.paradaId)) {
+        const d = { acao: a, motivo: 'rota_encerrada', em: 'agora' };
         descartadas.push(d);
         disco().set(
           CHAVE_DESCARTES,
@@ -148,86 +138,44 @@ beforeEach(() => {
         );
       }
     }
-    disco().set(
-      CHAVE_FILA,
-      JSON.stringify(fila.filter((a) => a.motoristaId !== 'mot-1')),
-    );
+    disco().set(CHAVE_FILA, '[]');
     return {
-      enviadas: minhas.length - descartadas.length,
+      enviadas: fila.length - descartadas.length,
       descartadas,
       restantes: 0,
     };
   });
 });
 
-describe('foto de comprovante x ação da fila', () => {
-  it('foto de conclusão na fila sobe só depois que a conclusão é aceita', async () => {
+describe('foto de comprovante x ação descartada', () => {
+  it('ação descartada não apaga a foto: ela sobe (antes da ação, como sempre)', async () => {
     disco().set(CHAVE_FILA, JSON.stringify([acao('p1')]));
     disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1')]));
-    decisoes.p1 = 'aceita';
+    mockDescartar.add('p1');
 
     await solicitarEnvioFila();
 
-    expect(ordem).toEqual(['acao:p1', 'foto:p1']);
-    expect(ler(CHAVE_FOTOS)).toEqual([]);
+    expect(ordem).toEqual(['foto:p1', 'acao:p1']);
   });
 
-  it('ação descartada: a foto não sobe e sai do aparelho', async () => {
-    disco().set(CHAVE_FILA, JSON.stringify([acao('p1')]));
-    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1')]));
-    decisoes.p1 = 'descartada';
-
-    await solicitarEnvioFila();
-
-    expect(ordem).toEqual(['acao:p1']);
-    expect(ler(CHAVE_FOTOS)).toEqual([]);
-    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
-      '/docs/offline_photos/p1.jpg',
-      { idempotent: true },
-    );
-  });
-
-  it('foto sem ação na fila continua subindo antes das ações', async () => {
-    disco().set(CHAVE_FILA, JSON.stringify([acao('p2')]));
-    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1'), foto('p2')]));
-    decisoes.p2 = 'aceita';
-
-    await solicitarEnvioFila();
-
-    expect(ordem).toEqual(['foto:p1', 'acao:p2', 'foto:p2']);
-  });
-
-  it('descarte já registrado (app fechou antes de limpar a foto): a foto não sobe', async () => {
+  it('descarte já registrado não impede o envio da foto que ficou', async () => {
     disco().set(
       CHAVE_DESCARTES,
       JSON.stringify([
-        {
-          acao: acao('p1'),
-          motivo: 'parada_removida',
-          em: '2026-10-23T13:00:00.000Z',
-        },
+        { acao: acao('p1'), motivo: 'parada_removida', em: 'x' },
       ]),
     );
     disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1')]));
 
     await solicitarEnvioFila();
 
-    expect(ordem.filter((o) => o.startsWith('foto'))).toEqual([]);
+    expect(ordem).toEqual(['foto:p1']);
     expect(ler(CHAVE_FOTOS)).toEqual([]);
   });
 
-  it('foto de OUTRA conta nunca é apagada pelo descarte desta', async () => {
-    disco().set(
-      CHAVE_DESCARTES,
-      JSON.stringify([
-        {
-          acao: acao('p1'),
-          motivo: 'parada_removida',
-          em: '2026-10-23T13:00:00.000Z',
-        },
-      ]),
-    );
-    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1', 'outra-conta')]));
+  it('envio sem destino confirmado (null): a foto e o arquivo FICAM no aparelho', async () => {
+    (subirFotoDaFilaOffline as jest.Mock).mockResolvedValue(null);
+    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1')]));
 
     await solicitarEnvioFila();
 
@@ -235,21 +183,30 @@ describe('foto de comprovante x ação da fila', () => {
     expect(FileSystem.deleteAsync).not.toHaveBeenCalled();
   });
 
-  it('foto nova da mesma parada, tirada DEPOIS do descarte, sobe normalmente', async () => {
-    disco().set(
-      CHAVE_DESCARTES,
-      JSON.stringify([
-        {
-          acao: acao('p1'),
-          motivo: 'rota_encerrada',
-          em: '2026-10-23T11:00:00.000Z',
-        },
-      ]),
-    );
-    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1')])); // savedAt 12:00
+  it('rota passada a outro motorista (invisível): sobe pela loja gravada na captura', async () => {
+    mockRotaVisivel = null;
+    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1')]));
 
     await solicitarEnvioFila();
 
-    expect(ordem).toEqual(['foto:p1']);
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unidadeId: 'u-da-captura',
+        rotaId: 'rota-1',
+        paradaId: 'p1',
+        usuarioId: 'mot-1',
+      }),
+    );
+    expect(ler(CHAVE_FOTOS)).toEqual([]);
+  });
+
+  it('foto de OUTRA conta não sobe nem sai do aparelho', async () => {
+    disco().set(CHAVE_FOTOS, JSON.stringify([foto('p1', 'outra-conta')]));
+
+    await solicitarEnvioFila();
+
+    expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
+    expect(ler(CHAVE_FOTOS)).toHaveLength(1);
+    expect(FileSystem.deleteAsync).not.toHaveBeenCalled();
   });
 });

@@ -297,14 +297,25 @@ export async function salvarFotoParada(
   fotoUrl: string,
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('paradas')
       .update({ foto_url: fotoUrl })
-      .eq('id', paradaId);
+      .eq('id', paradaId)
+      .select('id');
 
     if (error) {
       logger.error('[Storage] Erro ao salvar foto_url', error);
       throw error;
+    }
+
+    // Sem linha alterada (parada apagada ou invisível pela RLS) o UPDATE não
+    // dá erro: tratar como sucesso deixava a foto sem referência e o app
+    // dizendo que ligou.
+    if ((data?.length ?? 0) === 0) {
+      logger.warn('[Storage] foto_url não ligada: parada não encontrada', {
+        paradaId,
+      });
+      return false;
     }
 
     return true;
@@ -312,6 +323,94 @@ export async function salvarFotoParada(
     logger.error('[Storage] Erro ao salvar foto na parada', error);
     return false;
   }
+}
+
+/** Onde a foto da fila do aparelho foi parar. */
+export type DestinoFotoDaFila =
+  | { resultado: 'ligada'; path: string }
+  | { resultado: 'registrada'; path: string };
+
+/**
+ * Sobe a foto de comprovante que esperava no aparelho (`processOfflinePhotos`).
+ *
+ * REGRA: comprovante é prova e nunca se perde. A foto sobe sempre que a conta
+ * dona puder subir, qualquer que tenha sido o destino da conclusão na fila
+ * (aceita, ou descartada por parada removida, rota reatribuída/encerrada,
+ * status divergente):
+ * - **ligada**: a parada está visível e ainda sem foto — grava `foto_url`. O
+ *   UPDATE só vale com `foto_url` nula: não sobrescreve comprovante que
+ *   chegou por outro caminho.
+ * - **registrada**: não deu para ligar (parada apagada, rota de outro
+ *   motorista, parada já com foto) — o objeto fica no Storage, no caminho da
+ *   loja, e o caminho vai para `logs` (`parada_id` dentro de `detalhes`:
+ *   `logs` não tem essa coluna) para o gestor recuperar.
+ * - **null**: nada confirmado (upload, ligação ou registro falharam) — quem
+ *   chama mantém a foto no aparelho e tenta de novo. Um objeto repetido no
+ *   Storage é só custo; uma foto apagada sem ter subido, não.
+ *
+ * POR QUE NÃO DECIDIR PELO MOTIVO DO DESCARTE: o banco já diz, no UPDATE
+ * condicional, se a foto pode ligar — e isso vale também para foto sem ação
+ * na fila. Uma regra só, sem acoplar a foto ao destino da ação.
+ */
+export async function subirFotoDaFilaOffline({
+  unidadeId,
+  rotaId,
+  paradaId,
+  fotoUri,
+  usuarioId,
+}: {
+  unidadeId: string;
+  rotaId: string;
+  paradaId: string;
+  fotoUri: string;
+  usuarioId: string;
+}): Promise<DestinoFotoDaFila | null> {
+  const path = await uploadFotoEntrega(unidadeId, rotaId, paradaId, fotoUri);
+  if (!path) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('paradas')
+      .update({ foto_url: path })
+      .eq('id', paradaId)
+      .is('foto_url', null)
+      .select('id');
+    if (error) throw error;
+    if ((data?.length ?? 0) > 0) return { resultado: 'ligada', path };
+  } catch (error) {
+    logger.warn(
+      '[Storage] Falha ao ligar a foto da fila; fica no aparelho',
+      error,
+    );
+    return null;
+  }
+
+  const registro = {
+    usuario_id: usuarioId,
+    evento: 'foto_comprovante_sem_vinculo',
+    detalhes: { parada_id: paradaId, foto_path: path },
+  };
+  // Com a rota quando a RLS de `logs` deixa (dono da rota ou membro da loja);
+  // senão sem ela — a parada e o caminho seguem em `detalhes`.
+  // `.select` confirma a linha: o gatilho `prevent_duplicate_log` cancela
+  // em silêncio (sem erro) um registro igual nos últimos 5 s.
+  const registrar = async (rota: string | null) => {
+    const { data, error } = await supabase
+      .from('logs')
+      .insert({ ...registro, rota_id: rota })
+      .select('id');
+    return { gravou: !error && (data?.length ?? 0) > 0, error };
+  };
+  if ((await registrar(rotaId)).gravou)
+    return { resultado: 'registrada', path };
+  const semRota = await registrar(null);
+  if (semRota.gravou) return { resultado: 'registrada', path };
+
+  logger.warn(
+    '[Storage] Foto subiu mas não foi ligada nem registrada; fica no aparelho',
+    semRota.error,
+  );
+  return null;
 }
 
 /**

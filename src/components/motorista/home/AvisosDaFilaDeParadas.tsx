@@ -21,6 +21,15 @@ const MOTIVO: Record<MotivoDescarte, string> = {
   falha_persistente: 'o servidor recusou o envio várias vezes',
 };
 
+/**
+ * Comprovante nunca se perde com o descarte: a foto sobe mesmo assim, ligada
+ * na parada quando dá, senão registrada para o gestor
+ * (`subirFotoDaFilaOffline` em `src/lib/storage.ts`); sem sessão da conta,
+ * espera no aparelho.
+ */
+const SOBRE_A_FOTO =
+  'A foto do comprovante, se houver, não se perde: ela é enviada e fica com o gestor.';
+
 export function AvisosDaFilaDeParadas() {
   const {
     paradasComEnvioPendente,
@@ -73,9 +82,10 @@ export function AvisosDaFilaDeParadas() {
               : 'Um registro não foi enviado'
           }
           message={descartes
-            .map(
-              (d) =>
-                `${d.acao.tipo === 'concluir' ? 'Conclusão' : 'Pulo'} não enviado: ${MOTIVO[d.motivo]}.`,
+            .map((d) =>
+              d.acao.tipo === 'concluir'
+                ? `Conclusão não enviada: ${MOTIVO[d.motivo]}. ${SOBRE_A_FOTO}`
+                : `Pulo não enviado: ${MOTIVO[d.motivo]}.`,
             )
             .join('\n')}
           onClose={() => {

@@ -11,7 +11,7 @@ import {
   solicitarEnvioFila,
   _resetProcessingLocks,
 } from '../offline';
-import { uploadELinkFotoParada } from '../storage';
+import { subirFotoDaFilaOffline } from '../storage';
 
 const ordem: string[] = [];
 
@@ -73,7 +73,7 @@ jest.mock('../supabase', () => ({
 }));
 
 jest.mock('../storage', () => ({
-  uploadELinkFotoParada: jest.fn(),
+  subirFotoDaFilaOffline: jest.fn(),
 }));
 
 jest.mock('../notifications', () => ({
@@ -107,7 +107,7 @@ beforeEach(async () => {
       },
     ]),
   );
-  (uploadELinkFotoParada as jest.Mock).mockImplementation(async () => {
+  (subirFotoDaFilaOffline as jest.Mock).mockImplementation(async () => {
     ordem.push('foto');
     return true;
   });
@@ -147,7 +147,7 @@ describe('solicitarEnvioFila (ponto único de envio)', () => {
 
   it('pedidos durante um envio se juntam numa rodada extra, não em paralelo', async () => {
     let liberar: () => void = () => undefined;
-    (uploadELinkFotoParada as jest.Mock).mockImplementationOnce(async () => {
+    (subirFotoDaFilaOffline as jest.Mock).mockImplementationOnce(async () => {
       ordem.push('foto');
       await new Promise<void>((r) => {
         liberar = r;
@@ -169,7 +169,7 @@ describe('solicitarEnvioFila (ponto único de envio)', () => {
 
   it('se o envio de fotos já está rodando por outro caminho, as ações esperam por ele', async () => {
     let liberar: () => void = () => undefined;
-    (uploadELinkFotoParada as jest.Mock).mockImplementationOnce(async () => {
+    (subirFotoDaFilaOffline as jest.Mock).mockImplementationOnce(async () => {
       await new Promise<void>((r) => {
         liberar = r;
       });

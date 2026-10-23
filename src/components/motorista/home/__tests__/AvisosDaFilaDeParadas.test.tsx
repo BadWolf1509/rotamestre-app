@@ -63,6 +63,31 @@ describe('AvisosDaFilaDeParadas', () => {
     expect(dispensar).toHaveBeenCalled();
   });
 
+  it('conclusão descartada: diz o que acontece com a foto do comprovante', () => {
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      avisosDeEnvio: [descarte('p7', 'rota_encerrada')],
+    };
+    const { getByText } = render(<AvisosDaFilaDeParadas />);
+    expect(
+      getByText(/A foto do comprovante, se houver, não se perde/),
+    ).toBeTruthy();
+    expect(getByText(/fica com o gestor/)).toBeTruthy();
+  });
+
+  it('pulo descartado não fala de foto (pulo não tem comprovante)', () => {
+    const pulo = descarte('p8', 'rota_encerrada');
+    pulo.acao.tipo = 'pular';
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      avisosDeEnvio: [pulo],
+    };
+    const { queryByText } = render(<AvisosDaFilaDeParadas />);
+    expect(queryByText(/foto do comprovante/)).toBeNull();
+  });
+
   it('ações de outra conta no aparelho: aviso discreto, só o número, dispensável', () => {
     const dispensar = jest.fn();
     mockContexto = {

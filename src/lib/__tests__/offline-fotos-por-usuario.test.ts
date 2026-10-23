@@ -66,7 +66,7 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 jest.mock('../storage', () => ({
-  uploadELinkFotoParada: jest.fn(async () => true),
+  subirFotoDaFilaOffline: jest.fn(async () => true),
 }));
 
 jest.mock('../logger', () => ({
@@ -88,7 +88,7 @@ import {
   queuePhotoUpload,
   setupOfflineSync,
 } from '../offline';
-import { uploadELinkFotoParada } from '../storage';
+import { subirFotoDaFilaOffline } from '../storage';
 
 const INDICE = '@rotamestre:offline_photos_index';
 const CHAVE_ULTIMO = '@rotamestre:ultimo_usuario';
@@ -128,12 +128,14 @@ describe('fila de fotos offline por usuário', () => {
     const r = await processOfflinePhotos();
 
     expect(r).toEqual({ success: 1, failed: 0 });
-    expect(uploadELinkFotoParada).toHaveBeenCalledTimes(1);
-    expect(uploadELinkFotoParada).toHaveBeenCalledWith(
-      'un1',
-      'r1',
-      'pB',
-      '/docs/offline_photos/pB.jpg',
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unidadeId: 'un1',
+        rotaId: 'r1',
+        paradaId: 'pB',
+        fotoUri: '/docs/offline_photos/pB.jpg',
+      }),
     );
     expect((await getOfflinePhotosIndex()).map((f) => f.paradaId)).toEqual([
       'pA',
@@ -147,7 +149,7 @@ describe('fila de fotos offline por usuário', () => {
     const r = await processOfflinePhotos();
 
     expect(r).toEqual({ success: 0, failed: 0 });
-    expect(uploadELinkFotoParada).not.toHaveBeenCalled();
+    expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
     expect(await getOfflinePhotosIndex()).toHaveLength(1);
   });
 
@@ -177,7 +179,7 @@ describe('fila de fotos offline por usuário', () => {
     const r = await processOfflinePhotos();
 
     expect(r).toEqual({ success: 0, failed: 0 });
-    expect(uploadELinkFotoParada).not.toHaveBeenCalled();
+    expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
     expect(await getOfflinePhotosIndex()).toHaveLength(1);
   });
 
@@ -200,7 +202,7 @@ describe('fila de fotos e login', () => {
     await mockOuvintesAuth[0]?.('SIGNED_IN', { user: { id: 'B' } });
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(uploadELinkFotoParada).toHaveBeenCalledTimes(1);
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
     expect(mockDisco[CHAVE_ULTIMO]).toBe('B');
     parar();
   });
@@ -215,12 +217,14 @@ describe('fila de fotos e login', () => {
     await mockOuvintesAuth[0]?.('SIGNED_IN', { user: { id: 'B' } });
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(uploadELinkFotoParada).toHaveBeenCalledTimes(1);
-    expect(uploadELinkFotoParada).toHaveBeenCalledWith(
-      'un1',
-      'r1',
-      'pSemDono',
-      '/docs/offline_photos/pSemDono.jpg',
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unidadeId: 'un1',
+        rotaId: 'r1',
+        paradaId: 'pSemDono',
+        fotoUri: '/docs/offline_photos/pSemDono.jpg',
+      }),
     );
     expect((await getOfflinePhotosIndex()).map((f) => f.paradaId)).toEqual([
       'pA',
