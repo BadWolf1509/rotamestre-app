@@ -113,3 +113,31 @@ export function buildRouteData(rota: RotaQueryRow): RouteData {
     unidade_nome: unidadeNome,
   };
 }
+
+/** O que mostrar no lugar da rota quando ela não está na tela. */
+export type EstadoDaCarga = 'carregando' | 'sem-conexao';
+
+/**
+ * Sem rota na tela, distingue a carga inicial em curso e a falha antes da
+ * primeira carga do "não há rota". As três viravam "Sem rota"/"Nenhuma rota
+ * ativa" — inclusive para o motorista no meio da rota. Com rota na tela,
+ * devolve null: os dados preservados valem (o erro vira aviso, não troca a tela).
+ * Se já houve carga bem-sucedida sem rota (`atualizadoEm`), o vazio é o último
+ * dado confirmado e continua valendo.
+ */
+export function getEstadoDaCarga({
+  route,
+  loading,
+  error,
+  atualizadoEm,
+}: {
+  route: RouteData | null;
+  loading: boolean;
+  error: Error | null;
+  atualizadoEm: number | null;
+}): EstadoDaCarga | null {
+  if (route) return null;
+  if (loading) return 'carregando';
+  if (error && atualizadoEm === null) return 'sem-conexao';
+  return null;
+}

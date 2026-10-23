@@ -6,6 +6,7 @@ import { MapaAdapter } from '@/components/MapaAdapter';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
@@ -19,8 +20,15 @@ function MapaMotoristaContent() {
   const { showWarning, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
-  const { route, paradas, loading, routeStatus, refreshRoute } =
-    useRouteStatus();
+  const {
+    route,
+    paradas,
+    loading,
+    error,
+    atualizadoEm,
+    routeStatus,
+    refreshRoute,
+  } = useRouteStatus();
 
   // Estados locais de UI apenas
   const [selectedParadaId, setSelectedParadaId] = useState<string | null>(null);
@@ -134,6 +142,32 @@ function MapaMotoristaContent() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Carregando mapa...</Text>
+      </View>
+    );
+  }
+
+  // Falha antes da primeira carga: não é "não há rota" (ver getEstadoDaCarga).
+  if (
+    getEstadoDaCarga({
+      route,
+      loading,
+      error: error ?? null,
+      atualizadoEm: atualizadoEm ?? null,
+    }) === 'sem-conexao'
+  ) {
+    return (
+      <View
+        testID="motorista-mapa-sem-conexao"
+        style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
+      >
+        <MobileEmptyState
+          icon="📡"
+          title="Sem conexão"
+          subtitle="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
+          actionLabel="Tentar novamente"
+          onAction={refreshRoute}
+          fullScreen
+        />
       </View>
     );
   }

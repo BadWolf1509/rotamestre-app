@@ -17,6 +17,7 @@ import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleto
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { type MotivoSkip } from '@/constants/skipReasons';
+import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
@@ -44,6 +45,8 @@ export default function CheckpointsMotorista() {
     route,
     paradas: paradasContext,
     loading,
+    error,
+    atualizadoEm,
     routeStatus,
     refreshRoute,
     skipStop,
@@ -285,6 +288,32 @@ export default function CheckpointsMotorista() {
 
   const showEmptyState =
     !loading && (routeStatus === 'no-route' || paradas.length === 0);
+
+  // Falha antes da primeira carga: não é "não há rota" (ver getEstadoDaCarga).
+  if (
+    getEstadoDaCarga({
+      route,
+      loading,
+      error: error ?? null,
+      atualizadoEm: atualizadoEm ?? null,
+    }) === 'sem-conexao'
+  ) {
+    return (
+      <View
+        testID="motorista-checkpoints-sem-conexao"
+        style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
+      >
+        <MobileEmptyState
+          icon="📡"
+          title="Sem conexão"
+          subtitle="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
+          actionLabel="Tentar novamente"
+          onAction={refreshRoute}
+          fullScreen
+        />
+      </View>
+    );
+  }
 
   // Early return para empty state (evita renderizar dentro do GestureHandlerRootView)
   if (showEmptyState) {

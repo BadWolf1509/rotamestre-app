@@ -28,6 +28,7 @@ import {
 } from '@/components/SwipeOnboarding';
 import { type MotivoSkip } from '@/constants/skipReasons';
 import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
+import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
@@ -95,13 +96,8 @@ function MotoristaInicioContent() {
   // Sem dado em que confiar ainda: a carga inicial (abertura do app, Activity
   // recriada) ou a falha antes da primeira carga. Nos dois casos `route` é
   // null, e mostrar "Sem rota" a quem está no meio da rota era o defeito.
-  const estadoDaCarga: 'carregando' | 'sem-conexao' | undefined = route
-    ? undefined
-    : loading
-      ? 'carregando'
-      : error && atualizadoEm === null
-        ? 'sem-conexao'
-        : undefined;
+  const estadoDaCarga =
+    getEstadoDaCarga({ route, loading, error, atualizadoEm }) ?? undefined;
 
   // Broadcast localização do motorista quando a rota está em andamento
   useDriverLocationBroadcast({

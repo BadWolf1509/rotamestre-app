@@ -33,13 +33,21 @@ const mockShowError = jest.fn();
 
 let mockLoading = false;
 let mockParadasDoContexto: typeof mockParadas = mockParadas;
+let mockRota: { id: string; status: string; unidade_id: string } | null = {
+  id: 'rota-1',
+  status: 'em_andamento',
+  unidade_id: 'u-1',
+};
+let mockErro: Error | null = null;
 
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
-    route: { id: 'rota-1', status: 'em_andamento', unidade_id: 'u-1' },
+    route: mockRota,
     paradas: mockParadasDoContexto,
     loading: mockLoading,
-    routeStatus: 'active',
+    error: mockErro,
+    atualizadoEm: null,
+    routeStatus: mockRota ? 'active' : 'no-route',
     refreshRoute: mockRefreshRoute,
     skipStop: (...a: unknown[]) => mockSkipStop(...a),
   }),
@@ -156,6 +164,23 @@ describe('aba Paradas — recarga silenciosa', () => {
     jest.clearAllMocks();
     mockLoading = false;
     mockParadasDoContexto = mockParadas;
+    mockRota = { id: 'rota-1', status: 'em_andamento', unidade_id: 'u-1' };
+    mockErro = null;
+  });
+
+  // Sem sinal ao abrir o app: a aba dizia "Nenhuma rota ativa" ao motorista
+  // no meio da rota.
+  it('erro sem nunca ter carregado: "Sem conexão" com tentar de novo', () => {
+    mockRota = null;
+    mockParadasDoContexto = [];
+    mockErro = new Error('Network request failed');
+    const { getByText, queryByText } = render(<CheckpointsMotorista />);
+
+    expect(getByText('Sem conexão')).toBeTruthy();
+    expect(queryByText('Nenhuma rota ativa no momento')).toBeNull();
+
+    fireEvent.press(getByText('Tentar novamente'));
+    expect(mockRefreshRoute).toHaveBeenCalledTimes(1);
   });
 
   it('loading com paradas na tela mantém a lista (não vira skeleton)', () => {
