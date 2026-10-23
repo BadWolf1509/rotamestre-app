@@ -37,7 +37,6 @@ describe("useInicioModals", () => {
       const { result } = renderHook(() => useInicioModals());
 
       expect(result.current.showIncidentWizard).toBe(false);
-      expect(result.current.showPiPMap).toBe(false);
       expect(result.current.showOptimization).toBe(false);
       expect(result.current.showCompletionFlow).toBe(false);
       expect(result.current.showSupportModal).toBe(false);
@@ -65,8 +64,6 @@ describe("useInicioModals", () => {
 
       expect(typeof result.current.openIncidentWizard).toBe("function");
       expect(typeof result.current.closeIncidentWizard).toBe("function");
-      expect(typeof result.current.openPiPMap).toBe("function");
-      expect(typeof result.current.closePiPMap).toBe("function");
       expect(typeof result.current.openCompletionFlow).toBe("function");
       expect(typeof result.current.closeCompletionFlow).toBe("function");
       expect(typeof result.current.openSupport).toBe("function");
@@ -106,40 +103,6 @@ describe("useInicioModals", () => {
       });
 
       expect(result.current.showIncidentWizard).toBe(false);
-    });
-  });
-
-  describe("PiP map", () => {
-    it("opens PiP map and collapses mini map", () => {
-      const { result } = renderHook(() => useInicioModals());
-
-      // First expand mini map
-      act(() => {
-        result.current.toggleMiniMap();
-      });
-      expect(result.current.miniMapExpanded).toBe(true);
-
-      // Open PiP should collapse mini map
-      act(() => {
-        result.current.openPiPMap();
-      });
-
-      expect(result.current.showPiPMap).toBe(true);
-      expect(result.current.miniMapExpanded).toBe(false);
-    });
-
-    it("closes PiP map", () => {
-      const { result } = renderHook(() => useInicioModals());
-
-      act(() => {
-        result.current.openPiPMap();
-      });
-
-      act(() => {
-        result.current.closePiPMap();
-      });
-
-      expect(result.current.showPiPMap).toBe(false);
     });
   });
 
@@ -333,7 +296,6 @@ describe("useInicioModals", () => {
       expect(result.current.showSupportModal).toBe(true);
       expect(result.current.navigationMode).toBe(true);
       // Other modals remain closed
-      expect(result.current.showPiPMap).toBe(false);
       expect(result.current.showCompletionFlow).toBe(false);
     });
 
@@ -357,7 +319,6 @@ describe("useInicioModals", () => {
       // Open multiple modals and set data
       act(() => {
         result.current.openIncidentWizard();
-        result.current.openPiPMap();
         result.current.openCompletionFlow(mockParada);
         result.current.openSupport();
         result.current.openCompleteRoute();
@@ -376,7 +337,6 @@ describe("useInicioModals", () => {
       // a direct reset function, we verify that closing each modal individually works.
       act(() => {
         result.current.closeIncidentWizard();
-        result.current.closePiPMap();
         result.current.closeCompletionFlow();
         result.current.closeSupport();
         result.current.closeCompleteRoute();
@@ -386,7 +346,6 @@ describe("useInicioModals", () => {
       });
 
       expect(result.current.showIncidentWizard).toBe(false);
-      expect(result.current.showPiPMap).toBe(false);
       expect(result.current.showCompletionFlow).toBe(false);
       expect(result.current.showSupportModal).toBe(false);
       expect(result.current.showCompleteRouteModal).toBe(false);
@@ -406,7 +365,6 @@ describe("useInicioModals", () => {
       const firstRender = {
         openIncidentWizard: result.current.openIncidentWizard,
         closeIncidentWizard: result.current.closeIncidentWizard,
-        openPiPMap: result.current.openPiPMap,
         openSupport: result.current.openSupport,
         setNavigationMode: result.current.setNavigationMode,
         toggleMiniMap: result.current.toggleMiniMap,
@@ -420,7 +378,6 @@ describe("useInicioModals", () => {
       expect(result.current.closeIncidentWizard).toBe(
         firstRender.closeIncidentWizard,
       );
-      expect(result.current.openPiPMap).toBe(firstRender.openPiPMap);
       expect(result.current.openSupport).toBe(firstRender.openSupport);
       expect(result.current.setNavigationMode).toBe(
         firstRender.setNavigationMode,

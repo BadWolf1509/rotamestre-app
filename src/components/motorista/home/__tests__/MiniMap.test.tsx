@@ -257,19 +257,6 @@ describe('MiniMap', () => {
       expect(onToggleExpand).toHaveBeenCalledTimes(1);
     });
 
-    it('deve chamar onOpenPiP quando botão PiP é pressionado', () => {
-      const onOpenPiP = jest.fn();
-
-      const { getByLabelText } = render(
-        <MiniMap {...defaultProps} onOpenPiP={onOpenPiP} />,
-      );
-
-      const pipButton = getByLabelText('Abrir mapa flutuante');
-      fireEvent.press(pipButton);
-
-      expect(onOpenPiP).toHaveBeenCalledTimes(1);
-    });
-
     it('deve chamar onOpenFullMap quando mapa é pressionado', () => {
       const onOpenFullMap = jest.fn();
 
@@ -508,15 +495,10 @@ describe('MiniMap', () => {
 
     it('deve ter labels nos botões de controle', () => {
       const { getByLabelText } = render(
-        <MiniMap
-          {...defaultProps}
-          onToggleExpand={() => {}}
-          onOpenPiP={() => {}}
-        />,
+        <MiniMap {...defaultProps} onToggleExpand={() => {}} />,
       );
 
       expect(getByLabelText('Expandir mapa')).toBeTruthy();
-      expect(getByLabelText('Abrir mapa flutuante')).toBeTruthy();
     });
 
     it('deve ter role de button nos botões', () => {

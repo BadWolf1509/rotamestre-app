@@ -52,7 +52,6 @@ interface MiniMapProps {
   expanded?: boolean;
   onToggleExpand?: () => void;
   onOpenFullMap?: () => void;
-  onOpenPiP?: () => void;
   route?: Rota;
   testID?: string;
 }
@@ -74,7 +73,6 @@ export function MiniMap({
   expanded = false,
   onToggleExpand,
   onOpenFullMap,
-  onOpenPiP,
   route,
   testID,
 }: MiniMapProps) {
@@ -653,24 +651,6 @@ export function MiniMap({
           </View>
 
           <View style={styles.controlButtons}>
-            {onOpenPiP && (
-              <TouchableOpacity
-                style={styles.pipButton}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  onOpenPiP();
-                }}
-                accessibilityLabel="Abrir mapa flutuante"
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name="copy-outline"
-                  size={18}
-                  color={theme.colors.white}
-                />
-              </TouchableOpacity>
-            )}
-
             {onToggleExpand && (
               <TouchableOpacity
                 style={styles.expandButton}
@@ -770,14 +750,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   expandButton: {
     backgroundColor: withOpacity(theme.colors.black, 0.5),
-    width: 32,
-    height: 32,
-    borderRadius: theme.borderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pipButton: {
-    backgroundColor: withOpacity(theme.colors.primary, 0.85),
     width: 32,
     height: 32,
     borderRadius: theme.borderRadius.full,

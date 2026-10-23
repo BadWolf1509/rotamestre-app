@@ -16,7 +16,6 @@ module.exports = {
     '!src/services/locationTracking.ts',
     '!src/components/motorista/NavigationMode.web.tsx',
     '!src/components/motorista/home/MiniMap.web.tsx',
-    '!src/components/motorista/PictureInPictureMap.web.tsx',
     '!src/components/MapaMobile.tsx',
     '!src/components/MapaRN.tsx',
     '!src/components/MapaWeb.tsx',

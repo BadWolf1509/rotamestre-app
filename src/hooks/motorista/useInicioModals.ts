@@ -22,7 +22,6 @@ export interface InicioModalsState {
    * parada certa, que pode nao ser a atual.
    */
   selectedParadaForIncident: ParadaData | null;
-  showPiPMap: boolean;
   showOptimization: boolean;
   showCompletionFlow: boolean;
   showSupportModal: boolean;
@@ -42,7 +41,6 @@ export interface InicioModalsState {
 const initialState: InicioModalsState = {
   showIncidentWizard: false,
   selectedParadaForIncident: null,
-  showPiPMap: false,
   showOptimization: false,
   showCompletionFlow: false,
   showSupportModal: false,
@@ -60,8 +58,6 @@ const initialState: InicioModalsState = {
 type ModalAction =
   | { type: 'OPEN_INCIDENT_WIZARD'; parada: ParadaData | null }
   | { type: 'CLOSE_INCIDENT_WIZARD' }
-  | { type: 'OPEN_PIP_MAP' }
-  | { type: 'CLOSE_PIP_MAP' }
   | { type: 'OPEN_COMPLETION_FLOW'; parada: ParadaData }
   | { type: 'CLOSE_COMPLETION_FLOW' }
   | { type: 'OPEN_SUPPORT' }
@@ -97,11 +93,6 @@ function modalReducer(
         showIncidentWizard: false,
         selectedParadaForIncident: null,
       };
-
-    case 'OPEN_PIP_MAP':
-      return { ...state, showPiPMap: true, miniMapExpanded: false };
-    case 'CLOSE_PIP_MAP':
-      return { ...state, showPiPMap: false };
 
     case 'OPEN_COMPLETION_FLOW':
       return {
@@ -174,12 +165,6 @@ export function useInicioModals() {
     [],
   );
 
-  const openPiPMap = useCallback(() => dispatch({ type: 'OPEN_PIP_MAP' }), []);
-  const closePiPMap = useCallback(
-    () => dispatch({ type: 'CLOSE_PIP_MAP' }),
-    [],
-  );
-
   const openCompletionFlow = useCallback(
     (parada: ParadaData) => dispatch({ type: 'OPEN_COMPLETION_FLOW', parada }),
     [],
@@ -242,8 +227,6 @@ export function useInicioModals() {
     // Actions
     openIncidentWizard,
     closeIncidentWizard,
-    openPiPMap,
-    closePiPMap,
     openCompletionFlow,
     closeCompletionFlow,
     openSupport,
