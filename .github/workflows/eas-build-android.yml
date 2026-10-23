@@ -96,7 +96,9 @@ jobs:
           if [ "${{ inputs.profile }}" = "production" ]; then EXT=aab; else EXT=apk; fi
           SAIDA="rotamestre-${VERSAO}-${CODIGO}-${{ inputs.profile }}.${EXT}"
           echo "SAIDA=$SAIDA" >> "$GITHUB_ENV"
-          npx --yes eas-cli@latest build --local --platform android \
+          # Versão exata (não @latest): o EXPO_TOKEN está no ambiente. Para
+          # atualizar: npm view eas-cli version, e troque aqui.
+          npx --yes eas-cli@25.3.0 build --local --platform android \
             --profile "${{ inputs.profile }}" --non-interactive --output "$SAIDA"
           ls -la "$SAIDA"
           sha256sum "$SAIDA"

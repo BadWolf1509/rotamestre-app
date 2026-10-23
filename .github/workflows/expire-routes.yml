@@ -31,6 +31,16 @@ on:
           - final-warning
           - expire
 
+# Dois disparos do mesmo tipo (agendado + manual) não rodam ao mesmo tempo:
+# o segundo espera, sem cancelar o que já está avisando/expirando.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.schedule || github.event.inputs.action }}
+  cancel-in-progress: false
+
+# GITHUB_TOKEN só leitura: nenhum job aqui escreve no repositório.
+permissions:
+  contents: read
+
 jobs:
   # Job para lembrete das 16:00 (19:00 UTC)
   remind-routes:
