@@ -141,7 +141,8 @@ describe('migration registrar_push_token', () => {
     ).replace(/\r\n/g, '\n');
     expect(doc).toMatch(
       new RegExp(
-        `### ⏳ Migration 39:[^\\n]*\\n+\\*\\*Arquivo:\\*\\* \`${ARQUIVO}\``,
+        // ⏳ a aplicar ou ✅ aplicada: a entrada existe nos dois estados.
+        `### (⏳|✅) Migration 39:[^\\n]*\\n+\\*\\*Arquivo:\\*\\* \`${ARQUIVO}\``,
       ),
     );
   });
