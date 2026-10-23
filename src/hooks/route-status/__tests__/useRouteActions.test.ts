@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import {
@@ -709,6 +710,17 @@ describe('completeRoute', () => {
 
     await expect(completeRoute()).rejects.toThrow('2 parada(s) pendentes');
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('a recusa do atalho do cliente vira mensagem útil, não "erro inesperado"', async () => {
+    const { completeRoute } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+      paradas: [makeParada({ id: 'p1', status: 'pendente' })],
+    });
+
+    const erro = await completeRoute().catch((e: unknown) => e);
+
+    expect(getErrorMessage(erro).code).toBe('ROUTE_STOPS_PENDING');
   });
 });
 

@@ -1788,7 +1788,7 @@ describe('RouteStatusContext actions', () => {
       });
 
       // A RPC `finalizar_rota` marca o checkpoint de maior ordem junto com a
-      // rota (Migration 38); o cliente não grava a chegada em separado.
+      // rota (Migration 40); o cliente não grava a chegada em separado.
       expect(mockRpcCalls).toHaveLength(1);
       expect(
         mockUpdateCalls.find(

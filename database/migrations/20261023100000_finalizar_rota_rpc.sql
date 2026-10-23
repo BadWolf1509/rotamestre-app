@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 38: RPC finalizar_rota (rota + checkpoint de chegada numa transação)
+-- Migration 40: RPC finalizar_rota (rota + checkpoint de chegada numa transação)
 -- Date: 2026-10-23
 -- Author: Wellinton Ribeiro
 -- Purpose: o app finalizava a rota em dois UPDATEs do cliente — a rota e,
@@ -11,14 +11,21 @@
 --
 -- finalizar_rota(p_rota_id):
 --   1. quem chama é o motorista da rota (auth.uid());
---   2. a rota está 'em_andamento' (trava a linha: FOR UPDATE);
+--   2. a rota está 'em_andamento' (trava a linha: FOR UPDATE). Se já está
+--      'concluida', retorna SEM erro: a resposta da 1ª chamada pode se perder
+--      com sinal ruim, e o novo toque não pode virar "erro inesperado";
+--   2b. trava as paradas da rota (FOR UPDATE) antes de contar: uma parada
+--      reaberta ou inserida (inserir_parada mexe na chegada) ao mesmo tempo
+--      espera esta transação, e a contagem seguinte já a vê;
 --   3. nenhuma parada REAL (is_checkpoint verdadeiro ou nulo, a convenção do
 --      app `p.is_checkpoint !== false` e de notify_rota_concluida) está
 --      'pendente' ou 'em_andamento';
 --   4. marca o checkpoint de chegada (is_checkpoint = false de maior ordem)
 --      como concluído, se ainda não estiver, e a rota como 'concluida' com
 --      concluida_em = now().
--- Qualquer falha: RAISE EXCEPTION com mensagem para o motorista, e nada muda.
+-- Qualquer falha: RAISE EXCEPTION, e nada muda. Cada mensagem começa por uma
+-- sentinela (NAO_AUTENTICADO, ROTA_*) que src/lib/errorMapping.ts traduz para
+-- o motorista (guarda: src/lib/__tests__/rpc-finalizar-rota.test.ts).
 --
 -- SECURITY DEFINER porque o UPDATE de rotas/paradas precisa valer como uma
 -- unidade, independente das policies; a guarda é a conferência do passo 1.
@@ -43,7 +50,7 @@ DECLARE
   v_agora timestamptz := now();
 BEGIN
   IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'Sessão expirada. Entre de novo para finalizar a rota.'
+    RAISE EXCEPTION 'NAO_AUTENTICADO: sessão expirada ao finalizar a rota.'
       USING ERRCODE = '42501';
   END IF;
 
@@ -55,15 +62,24 @@ BEGIN
 
   -- Mesma mensagem para "não existe" e "não é sua": não revela rota alheia.
   IF NOT FOUND OR v_motorista_id IS DISTINCT FROM auth.uid() THEN
-    RAISE EXCEPTION 'Rota não encontrada para este motorista.'
+    RAISE EXCEPTION 'ROTA_NAO_ENCONTRADA: rota não encontrada para este motorista.'
       USING ERRCODE = '42501';
   END IF;
 
+  -- Idempotente: o dono pedindo de novo uma rota já concluída é sucesso.
+  IF v_status = 'concluida' THEN RETURN; END IF;
+
   IF v_status IS DISTINCT FROM 'em_andamento' THEN
-    RAISE EXCEPTION 'A rota precisa estar em andamento para ser finalizada (status atual: %).',
+    RAISE EXCEPTION 'ROTA_NAO_EM_ANDAMENTO: a rota precisa estar em andamento para ser finalizada (status atual: %).',
       v_status
       USING ERRCODE = 'P0001';
   END IF;
+
+  -- Trava as paradas antes de contar (ver 2b no cabeçalho).
+  PERFORM 1
+     FROM public.paradas p
+    WHERE p.rota_id = p_rota_id
+      FOR UPDATE;
 
   SELECT count(*)
     INTO v_pendentes
@@ -73,7 +89,7 @@ BEGIN
      AND p.status IN ('pendente', 'em_andamento');
 
   IF v_pendentes > 0 THEN
-    RAISE EXCEPTION 'Não é possível finalizar a rota com % parada(s) pendente(s).',
+    RAISE EXCEPTION 'ROTA_PARADAS_PENDENTES: não é possível finalizar a rota com % parada(s) pendente(s).',
       v_pendentes
       USING ERRCODE = 'P0001';
   END IF;
@@ -105,7 +121,7 @@ REVOKE ALL ON FUNCTION public.finalizar_rota(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.finalizar_rota(uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.finalizar_rota(uuid) IS
-  'Finaliza a rota do motorista chamador: exige em_andamento e nenhuma parada real pendente; conclui o checkpoint de chegada e a rota numa transação (Migration 38).';
+  'Finaliza a rota do motorista chamador (idempotente se já concluída): exige em_andamento e nenhuma parada real pendente; conclui o checkpoint de chegada e a rota numa transação (Migration 40).';
 
 COMMIT;
 

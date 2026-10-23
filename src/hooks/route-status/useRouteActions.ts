@@ -215,8 +215,9 @@ export function useRouteActions({
         (p.status === 'pendente' || p.status === 'em_andamento'),
     );
     if (pendingStops.length > 0) {
+      // Mesma sentinela da RPC: o errorMapping dá a mensagem útil.
       throw new Error(
-        `Não é possível concluir a rota com ${pendingStops.length} parada(s) pendentes`,
+        `ROTA_PARADAS_PENDENTES: Não é possível concluir a rota com ${pendingStops.length} parada(s) pendentes`,
       );
     }
 
