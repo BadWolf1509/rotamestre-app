@@ -1757,14 +1757,15 @@ sonda transacional `database/sondas/20261023120000_sonda_migration42.sql` (cená
 próprio: lojas A/B/C, motorista em A e B; 11 casos, termina em `RAISE`). O
 roteiro de conferência só com SELECT está no fim da migration.
 
-### ⏳ Migration 43: o incidente grava a própria loja
+### ✅ Migration 43: o incidente grava a própria loja
 
-**Arquivo:** `20261024000000_incidente_com_loja.sql` · **⏳ a aplicar — ANTES
-do merge do PR** (o app passa a filtrar por `incidentes.unidade_id`; publicado
-antes da coluna, a lista e o contador de incidentes falham). Só tem `ALTER
-TABLE`, `CREATE INDEX`, funções, gatilho, `UPDATE` e `ALTER POLICY` — o
-`apply_migration` aceita; o `REVOKE` das funções novas pode exigir o SQL
-Editor.
+**Arquivo:** `20261024000000_incidente_com_loja.sql` · **✅ aplicada em
+23/10/2026 via `apply_migration`, antes do merge do PR** (o app passa a filtrar
+por `incidentes.unidade_id`). Antes, a migration e a sonda rodaram juntas no SQL
+Editor numa execução só, desfeita pelo `RAISE` (a sonda tem `DELETE` de linhas
+próprias): os 14 casos OK. Gatilho com `CREATE OR REPLACE TRIGGER`. Conferido
+depois: 26/26 incidentes com loja, helper e função do gatilho sem `EXECUTE` para
+`anon`/`authenticated`, versão alinhada em `schema_migrations`.
 
 **Por quê.** A Migration 42 decide a visibilidade pela loja DA ROTA. Incidente
 sem rota (o app grava sem rota quando não há rota aberta; e a FK da rota é `ON

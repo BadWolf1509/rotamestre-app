@@ -188,8 +188,8 @@ UPDATE public.incidentes i
 SET unidade_id = public.unidade_do_incidente(i.motorista_id, i.rota_id)
 WHERE i.unidade_id IS NULL;
 
-DROP TRIGGER IF EXISTS incidentes_define_unidade ON public.incidentes;
-CREATE TRIGGER incidentes_define_unidade
+-- CREATE OR REPLACE (PG14+) em vez de DROP + CREATE: idempotente sem DROP TRIGGER.
+CREATE OR REPLACE TRIGGER incidentes_define_unidade
   BEFORE INSERT OR UPDATE ON public.incidentes
   FOR EACH ROW EXECUTE FUNCTION public.incidentes_define_unidade();
 

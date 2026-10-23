@@ -140,7 +140,7 @@ describe('Migration 43: o incidente grava a própria loja', () => {
     // fora disso a loja gravada fica (inclusive no ON DELETE SET NULL da rota)
     expect(n).toMatch(/ELSE NEW\.unidade_id := OLD\.unidade_id;/);
     expect(executavel).toMatch(
-      /CREATE TRIGGER incidentes_define_unidade\s+BEFORE INSERT OR UPDATE ON public\.incidentes\s+FOR EACH ROW EXECUTE FUNCTION public\.incidentes_define_unidade\(\);/,
+      /CREATE (?:OR REPLACE )?TRIGGER incidentes_define_unidade\s+BEFORE INSERT OR UPDATE ON public\.incidentes\s+FOR EACH ROW EXECUTE FUNCTION public\.incidentes_define_unidade\(\);/,
     );
     expect(executavel).toMatch(
       /REVOKE ALL ON FUNCTION public\.incidentes_define_unidade\(\) FROM PUBLIC, anon, authenticated;/,
@@ -152,7 +152,7 @@ describe('Migration 43: o incidente grava a própria loja', () => {
       /UPDATE public\.incidentes i\s+SET unidade_id = public\.unidade_do_incidente\(i\.motorista_id, i\.rota_id\)\s+WHERE i\.unidade_id IS NULL;/,
     );
     const gatilho = executavel.search(
-      /CREATE TRIGGER incidentes_define_unidade/,
+      /CREATE (?:OR REPLACE )?TRIGGER incidentes_define_unidade/,
     );
     expect(backfill).toBeGreaterThan(-1);
     expect(gatilho).toBeGreaterThan(backfill);
