@@ -1534,10 +1534,13 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
-### ⏳ Migration 39: token de push pertence a uma conta só
+### ✅ Migration 39: token de push pertence a uma conta só
 
-**Arquivo:** `20261023010000_push_token_de_uma_conta_so.sql` · **⏳ a aplicar**
-(PR #629). Aditiva.
+**Arquivo:** `20261023010000_push_token_de_uma_conta_so.sql` · **✅ aplicada em
+23/10/2026 via `apply_migration`** (PR #629), versão alinhada ao arquivo em
+`schema_migrations`. Antes, a sonda rodou junto com a migration numa transação
+só, desfeita pelo `RAISE`: positivo e negativos 0–4 como esperado. Recria a
+trava `trava_motorista_outra_loja` (idêntica à viva + o bloco da marca).
 
 **Por quê.** O app gravava o token direto na linha da conta logada. Se o logout
 de A não limpou a linha (offline, sessão vencida) e B entrou no mesmo aparelho,
