@@ -133,8 +133,9 @@ $function$;
 COMMIT;
 
 -- SONDA (SQL Editor, DEPOIS de aplicar). Termina SEMPRE em RAISE, que desfaz
--- tudo. A = motorista com vínculo numa loja onde B NÃO é gestor (exercita a
--- exceção da trava); B = outro usuário, não admin.
+-- tudo. A = motorista ativo em duas lojas ou mais; B = gestor ativo de uma
+-- delas que não é gestor de todas (do ponto de vista de B, A "atende outra
+-- loja" — confirmado antes dos negativos). Sem esse par: SKIP explícito.
 --
 -- DO $$
 -- DECLARE
@@ -142,28 +143,48 @@ COMMIT;
 --   v_tok constant text := 'ExponentPushToken[sonda-migration-39]';
 --   v_claims_b text;
 -- BEGIN
---   SELECT u.id INTO v_a FROM public.usuarios u
+--   -- A: motorista ativo em duas lojas ou mais (vínculos ativos).
+--   -- B: gestor ativo de UMA das lojas de A e não gestor de todas — o cenário
+--   -- real da trava ("motorista compartilhado, gestor de uma das lojas").
+--   SELECT u.id, g.usuario_id INTO v_a, v_b
+--     FROM public.usuarios u
+--     JOIN public.usuario_unidades ua
+--       ON ua.usuario_id = u.id AND ua.ativo
+--     JOIN public.usuario_unidades g
+--       ON g.unidade_id = ua.unidade_id AND g.papel = 'gestor' AND g.ativo
+--      AND g.usuario_id <> u.id
+--     JOIN public.usuarios gb
+--       ON gb.id = g.usuario_id AND gb.admin_role IS NULL
 --    WHERE u.papel = 'motorista' AND u.ativo
---      AND EXISTS (SELECT 1 FROM public.usuario_unidades uu
---                   WHERE uu.usuario_id = u.id)
---    LIMIT 1;
---   SELECT b.id INTO v_b FROM public.usuarios b
---    WHERE b.id <> v_a AND b.admin_role IS NULL
---      AND NOT EXISTS (
---        SELECT 1 FROM public.usuario_unidades ua
---        JOIN public.usuario_unidades gb
---          ON gb.unidade_id = ua.unidade_id AND gb.usuario_id = b.id
---         AND gb.papel = 'gestor'
---        WHERE ua.usuario_id = v_a)
+--      AND (SELECT count(*) >= 2 FROM public.usuario_unidades x
+--            WHERE x.usuario_id = u.id AND x.ativo)
+--      -- ...e A tem loja onde B NÃO é gestor ativo.
+--      AND EXISTS (
+--        SELECT 1 FROM public.usuario_unidades y
+--         WHERE y.usuario_id = u.id
+--           AND NOT EXISTS (
+--             SELECT 1 FROM public.usuario_unidades gg
+--              WHERE gg.usuario_id = g.usuario_id
+--                AND gg.unidade_id = y.unidade_id
+--                AND gg.papel = 'gestor' AND gg.ativo))
 --    LIMIT 1;
 --   IF v_a IS NULL OR v_b IS NULL THEN
---     RAISE EXCEPTION 'SONDA SKIP: sem par A/B (a=%, b=%)', v_a, v_b;
+--     RAISE EXCEPTION 'SONDA M39 (desfeita): SKIP sem motorista em duas lojas';
 --   END IF;
 --   v_claims_b := json_build_object('sub', v_b, 'role', 'authenticated')::text;
 --
+--   -- Confere do ponto de vista de B (auth.uid() = B) que A "atende outra
+--   -- loja"; senão a trava retornaria cedo e os negativos dariam falso defeito.
+--   PERFORM set_config('request.jwt.claims', v_claims_b, true);
+--   IF NOT public.motorista_atende_outra_loja(v_a) THEN
+--     RAISE EXCEPTION 'SONDA M39 (desfeita): SKIP sem motorista em duas lojas';
+--   END IF;
+--
+--   -- Prepara: põe o token em A sem auth.uid() (a trava não age sem uid).
+--   PERFORM set_config('request.jwt.claims', '', true);
 --   UPDATE public.usuarios SET push_token = v_tok WHERE id = v_a;
 --
---   -- Positivo: B registra o token que está em A.
+--   -- Positivo: B registra pela RPC, como authenticated, o token que está em A.
 --   PERFORM set_config('request.jwt.claims', v_claims_b, true);
 --   SET LOCAL ROLE authenticated;
 --   PERFORM public.registrar_push_token(v_tok);
@@ -171,17 +192,36 @@ COMMIT;
 --   SELECT push_token INTO v_token_a FROM public.usuarios WHERE id = v_a;
 --   SELECT push_token INTO v_token_b FROM public.usuarios WHERE id = v_b;
 --   IF v_token_a IS NOT NULL OR v_token_b IS DISTINCT FROM v_tok THEN
---     RAISE EXCEPTION 'SONDA FALHOU (positivo): A=% B=%', v_token_a, v_token_b;
+--     RAISE EXCEPTION 'SONDA M39 FALHOU (positivo): A=% B=%', v_token_a, v_token_b;
 --   END IF;
 --
---   -- (1) B grava token em A, mesmo com a marca da RPC: a trava recusa.
+--   -- Os casos (0), (1) e (2) rodam como postgres com as claims de B: exercitam
+--   -- a trava DEFINER, não a RLS de authenticated (que talvez nem deixasse B ver
+--   -- a linha de A). Cada um espera P0001 da trava.
+--
+--   -- Devolve um token a A, de novo sem auth.uid().
+--   PERFORM set_config('request.jwt.claims', '', true);
+--   UPDATE public.usuarios SET push_token = v_tok WHERE id = v_a;
+--   PERFORM set_config('request.jwt.claims', v_claims_b, true);
+--
+--   -- (0) UPDATE direto SEM a marca da RPC que só zera o push_token de A: a
+--   -- exceção da trava vale só pela RPC, então é recusado.
+--   BEGIN
+--     PERFORM set_config('rotamestre.push_rpc', '', true);
+--     UPDATE public.usuarios SET push_token = NULL WHERE id = v_a;
+--     RAISE EXCEPTION 'SONDA M39 FALHOU (0): UPDATE direto zerou o token sem a RPC';
+--   EXCEPTION WHEN raise_exception THEN
+--     IF SQLERRM LIKE 'SONDA M39 FALHOU%' THEN RAISE; END IF;
+--   END;
+--
+--   -- (1) B grava token em A, mesmo com a marca: a trava recusa.
 --   BEGIN
 --     PERFORM set_config('rotamestre.push_rpc', '1', true);
 --     UPDATE public.usuarios
 --        SET push_token = 'ExponentPushToken[sonda-outro]' WHERE id = v_a;
---     RAISE EXCEPTION 'SONDA FALHOU (1): gravou token em A';
+--     RAISE EXCEPTION 'SONDA M39 FALHOU (1): gravou token em A';
 --   EXCEPTION WHEN raise_exception THEN
---     IF SQLERRM LIKE 'SONDA FALHOU%' THEN RAISE; END IF;
+--     IF SQLERRM LIKE 'SONDA M39 FALHOU%' THEN RAISE; END IF;
 --   END;
 --
 --   -- (2) Zerar push_token junto com o nome, com a marca: a trava recusa.
@@ -189,9 +229,9 @@ COMMIT;
 --     PERFORM set_config('rotamestre.push_rpc', '1', true);
 --     UPDATE public.usuarios
 --        SET push_token = NULL, nome = nome || ' (sonda)' WHERE id = v_a;
---     RAISE EXCEPTION 'SONDA FALHOU (2): mudou nome junto';
+--     RAISE EXCEPTION 'SONDA M39 FALHOU (2): mudou nome junto';
 --   EXCEPTION WHEN raise_exception THEN
---     IF SQLERRM LIKE 'SONDA FALHOU%' THEN RAISE; END IF;
+--     IF SQLERRM LIKE 'SONDA M39 FALHOU%' THEN RAISE; END IF;
 --   END;
 --   PERFORM set_config('rotamestre.push_rpc', '', true);
 --
@@ -199,7 +239,7 @@ COMMIT;
 --   BEGIN
 --     PERFORM set_config('request.jwt.claims', '', true);
 --     PERFORM public.registrar_push_token(v_tok);
---     RAISE EXCEPTION 'SONDA FALHOU (3): aceitou sem auth.uid()';
+--     RAISE EXCEPTION 'SONDA M39 FALHOU (3): aceitou sem auth.uid()';
 --   EXCEPTION WHEN insufficient_privilege THEN NULL;
 --   END;
 --
@@ -207,7 +247,7 @@ COMMIT;
 --   BEGIN
 --     SET LOCAL ROLE anon;
 --     PERFORM public.registrar_push_token(v_tok);
---     RAISE EXCEPTION 'SONDA FALHOU (4): anon executou';
+--     RAISE EXCEPTION 'SONDA M39 FALHOU (4): anon executou';
 --   EXCEPTION WHEN insufficient_privilege THEN NULL;
 --   END;
 --   RESET ROLE;
@@ -216,11 +256,11 @@ COMMIT;
 --   BEGIN
 --     PERFORM set_config('request.jwt.claims', v_claims_b, true);
 --     PERFORM public.registrar_push_token('qualquer-coisa');
---     RAISE EXCEPTION 'SONDA FALHOU: aceitou token inválido';
+--     RAISE EXCEPTION 'SONDA M39 FALHOU: aceitou token inválido';
 --   EXCEPTION WHEN invalid_parameter_value THEN NULL;
 --   END;
 --
---   RAISE EXCEPTION 'SONDA OK: A=% perdeu o token, B=% ficou com ele; negativos 1-4 recusados', v_a, v_b;
+--   RAISE EXCEPTION 'SONDA M39 (desfeita): OK — A=% perdeu o token para B=%; negativos 0-4 recusados', v_a, v_b;
 -- END $$;
 
 -- ROLLBACK:

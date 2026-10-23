@@ -1561,6 +1561,16 @@ usuário não passa por ali (o atalho `auth.uid() = id` vem antes). Sem UNIQUE e
 APPROVE (trava idêntica à viva + bloco novo); ajustes dele incorporados.
 
 **Sonda.** Bloco `DO` comentado no fim do arquivo (rodar depois de aplicar;
+termina sempre em `RAISE`): A = motorista ativo em duas lojas ou mais, B =
+gestor de uma delas que não é gestor de todas (confirmado com
+`motorista_atende_outra_loja` sob as claims de B; sem esse par, `SKIP` explícito).
+B registra o token que está em A → A fica sem token, B com ele. Negativos, como
+postgres com as claims de B (exercitam a trava, não a RLS): (0) UPDATE direto
+sem a marca da RPC que só zera o token de A → recusado; (1) gravar token em A e
+(2) zerar junto com o nome → recusados mesmo com a marca; (3) RPC sem
+`auth.uid()` → 42501; (4) `anon` sem EXECUTE; token fora do formato recusado.
+Sintaxe validada com o parser do Postgres (libpg-query).
+
 termina sempre em `RAISE`): B registra o token que está num motorista A (com
 vínculo) de loja onde B não é gestor → A fica sem token, B com ele. Negativos:
 gravar token em A e zerar junto com o nome são recusados pela trava mesmo com a

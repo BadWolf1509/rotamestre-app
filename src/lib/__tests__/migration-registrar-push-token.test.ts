@@ -106,6 +106,34 @@ describe('migration registrar_push_token', () => {
     expect(sql).toMatch(/RAISE EXCEPTION 'SONDA/);
     expect(sql).toMatch(/SET LOCAL ROLE authenticated/);
     expect(sql).toMatch(/SET LOCAL ROLE anon/);
+  });
+
+  describe('sonda', () => {
+    const sonda = sql.slice(
+      Math.max(0, sql.indexOf('-- SONDA')),
+      sql.indexOf('-- ROLLBACK:'),
+    );
+
+    it('escolhe motorista que atende outra loja do ponto de vista de B, ou sai em SKIP claro', () => {
+      // Sem isso a trava retorna cedo e os casos negativos acusam falso defeito.
+      expect(sonda).toMatch(/count\(\*\) >= 2/);
+      expect(sonda).toMatch(/NOT public\.motorista_atende_outra_loja\(v_a\)/);
+      expect(sonda).toMatch(
+        /SONDA M39 \(desfeita\): SKIP sem motorista em duas lojas/,
+      );
+    });
+
+    it('prova que a exceção da trava só vale pela RPC (UPDATE direto sem a marca → P0001)', () => {
+      expect(sonda).toMatch(/\(0\) UPDATE direto SEM a marca/);
+      const caso0 = sonda.slice(sonda.indexOf('(0) UPDATE direto SEM a marca'));
+      expect(caso0).toMatch(/set_config\('rotamestre\.push_rpc', '', true\)/);
+      expect(caso0).toMatch(/SET push_token = NULL WHERE id = v_a/);
+    });
+
+    it('explica que (0)–(2) rodam como postgres com claims de B', () => {
+      expect(sonda).toMatch(/como postgres com as claims de B/);
+      expect(sonda).toMatch(/trava DEFINER, não a RLS/);
+    });
     // Checkout no Windows vem com CRLF; o índice guarda LF.
     const doc = readFileSync(
       join(RAIZ, 'database', 'MIGRATIONS.md'),
