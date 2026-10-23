@@ -80,6 +80,15 @@ describe('NavigationInfoPanel – botões de ação', () => {
     expect(tela.getByText('Concluir')).toBeTruthy();
   });
 
+  it.each(['Pular', 'Concluir', 'Abrir no Google Maps'])(
+    '"%s" tem teto de escala de fonte',
+    (rotulo) => {
+      expect(
+        renderizar().getByText(rotulo).props.maxFontSizeMultiplier,
+      ).toBeLessThanOrEqual(1.3);
+    },
+  );
+
   it('o botão tem respiro lateral, para o rótulo não encostar na borda', () => {
     const texto = renderizar().getByText('Concluir');
     const botao = texto.parent?.parent;

@@ -15,6 +15,8 @@ const MOTIVO: Record<MotivoDescarte, string> = {
   parada_removida:
     'a parada foi removida ou a rota foi passada para outro motorista',
   rota_encerrada: 'a rota não estava mais em andamento',
+  status_divergente:
+    'a parada já tinha sido concluída ou pulada por outro caminho',
   falha_persistente: 'o servidor recusou o envio várias vezes',
 };
 

@@ -1,4 +1,4 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { act, render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -634,7 +634,7 @@ describe('MainCard', () => {
       currentStop: parada,
     };
 
-    it('botões visíveis chamam concluir e pular, sem depender do gesto', () => {
+    it('botões visíveis chamam concluir e pular, sem depender do gesto', async () => {
       const onSwipeRight = jest.fn();
       const onSwipeLeft = jest.fn();
       const { getByLabelText } = render(
@@ -645,10 +645,42 @@ describe('MainCard', () => {
         />,
       );
 
-      fireEvent.press(getByLabelText('Concluir parada 3'));
+      await act(async () => {
+        fireEvent.press(getByLabelText('Concluir parada 3'));
+      });
       expect(onSwipeRight).toHaveBeenCalled();
       fireEvent.press(getByLabelText('Pular parada 3'));
       expect(onSwipeLeft).toHaveBeenCalled();
+    });
+
+    it('toque duplo em Concluir não abre o fluxo duas vezes', async () => {
+      let liberar: () => void = () => undefined;
+      const onSwipeRight = jest.fn(
+        () =>
+          new Promise<void>((r) => {
+            liberar = r;
+          }),
+      );
+      const { getByLabelText } = render(
+        <MainCard
+          {...base}
+          onSwipeRight={onSwipeRight}
+          onSwipeLeft={jest.fn()}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      expect(onSwipeRight).toHaveBeenCalledTimes(1);
+      expect(
+        getByLabelText('Concluir parada 3').props.accessibilityState,
+      ).toMatchObject({ disabled: true });
+
+      await act(async () => {
+        liberar();
+      });
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      expect(onSwipeRight).toHaveBeenCalledTimes(2);
     });
 
     it('com fonte 2.0 os rótulos têm teto de escala e a linha quebra', () => {

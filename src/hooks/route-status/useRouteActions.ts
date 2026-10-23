@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import {
   aplicarAcaoParada,
   criarAcaoParada,
+  ehErroDeSessao,
   ehFalhaDeEnvio,
   enfileirarAcaoParada,
   lerFilaAcoesParada,
@@ -19,7 +20,7 @@ import {
   type PortaParadas,
   type ResultadoAplicacao,
 } from '@/lib/motorista/filaAcoesParada';
-import { isOnline } from '@/lib/offline';
+import { isOnline, solicitarEnvioFila } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
 import {
   stopBackgroundTracking,
@@ -143,7 +144,8 @@ export function useRouteActions({
     try {
       resultado = await aplicarAcaoParada(acao, portaParadas);
     } catch (error) {
-      if (ehFalhaDeEnvio(error)) {
+      // Sem resposta (rede) ou sessão vencida: guarda e envia depois.
+      if (ehFalhaDeEnvio(error) || ehErroDeSessao(error)) {
         await enfileirarAcaoParada(acao);
         return 'na_fila';
       }
@@ -156,7 +158,9 @@ export function useRouteActions({
       throw new Error(
         resultado.motivo === 'rota_encerrada'
           ? 'ROTA_NAO_EM_ANDAMENTO: a rota não está mais em andamento'
-          : 'PARADA_INDISPONIVEL: a parada foi removida ou a rota mudou de motorista',
+          : resultado.motivo === 'status_divergente'
+            ? 'PARADA_JA_RESOLVIDA: a parada já foi concluída ou pulada por outro caminho'
+            : 'PARADA_INDISPONIVEL: a parada foi removida ou a rota mudou de motorista',
       );
     }
 
@@ -173,6 +177,9 @@ export function useRouteActions({
     }
 
     await loadActiveRoute();
+    // A rede respondeu: é a hora de mandar o que tenha ficado na fila antes
+    // (ex.: timeout com o NetInfo dizendo "conectado").
+    void solicitarEnvioFila();
     return 'enviada';
   };
 
@@ -264,10 +271,15 @@ export function useRouteActions({
     }
 
     // Conclusão guardada sem rede ainda não chegou ao banco: a RPC recusaria
-    // com "paradas pendentes", e o motorista não entenderia por quê.
-    const naFila = (await lerFilaAcoesParada()).filter(
-      (a) => a.rotaId === route.id,
-    ).length;
+    // com "paradas pendentes", e o motorista não entenderia por quê. Tenta
+    // enviar antes de recusar.
+    const contarNaFila = async () =>
+      (await lerFilaAcoesParada()).filter((a) => a.rotaId === route.id).length;
+    let naFila = await contarNaFila();
+    if (naFila > 0) {
+      await solicitarEnvioFila();
+      naFila = await contarNaFila();
+    }
     if (naFila > 0) {
       throw new Error(
         `ROTA_ENVIOS_PENDENTES: ${naFila} parada(s) aguardando envio`,

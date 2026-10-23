@@ -19,6 +19,7 @@ import {
   dispensarDescartes,
   sobreporAcoesPendentes,
   _resetFilaAcoesParada,
+  MAX_TENTATIVAS,
   type PortaParadas,
 } from '../filaAcoesParada';
 
@@ -181,7 +182,8 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
       }),
       banco.porta,
     );
-    expect(r).toEqual({ tipo: 'ja_resolvida', status: 'concluida' });
+    // A conclusão vale; o pulo vira aviso (status_divergente).
+    expect(r).toEqual({ tipo: 'descartada', motivo: 'status_divergente' });
     expect(banco.paradas.get('p1')!.status).toBe('concluida');
   });
 
@@ -395,6 +397,110 @@ describe('processarFilaAcoesParada', () => {
     });
     const fila = await lerFilaAcoesParada();
     expect(fila.map((a) => a.paradaId)).toEqual(['p2']);
+  });
+});
+
+describe('revisão 1: estado divergente, sessão e reagendamento', () => {
+  it('concluiu offline, mas a parada foi pulada por outro caminho: descarte com aviso, não "enviada"', async () => {
+    const banco = cenario();
+    banco.paradas.get('p1')!.status = 'pulada';
+    expect(await aplicarAcaoParada(concluirP1(), banco.porta)).toEqual({
+      tipo: 'descartada',
+      motivo: 'status_divergente',
+    });
+
+    await enfileirarAcaoParada(concluirP1());
+    const r = await processarFilaAcoesParada({
+      usuarioAtual: 'mot-1',
+      porta: banco.porta,
+    });
+    expect(r.enviadas).toBe(0);
+    expect((await lerDescartesDaFila('mot-1'))[0].motivo).toBe(
+      'status_divergente',
+    );
+  });
+
+  it('mesmo status já no banco continua "já resolvida" (reenvio idempotente)', async () => {
+    const banco = cenario();
+    banco.paradas.get('p1')!.status = 'concluida';
+    expect(await aplicarAcaoParada(concluirP1(), banco.porta)).toEqual({
+      tipo: 'ja_resolvida',
+      status: 'concluida',
+    });
+  });
+
+  it('UPDATE não mudou nada e a releitura não explica: descarte, não "enviada"', async () => {
+    const banco = cenario();
+    banco.porta.atualizarSeAberta = async () => false;
+    expect(await aplicarAcaoParada(concluirP1(), banco.porta)).toEqual({
+      tipo: 'descartada',
+      motivo: 'status_divergente',
+    });
+  });
+
+  it.each([
+    [{ code: 'PGRST301', message: 'JWT expired' }],
+    [{ code: 'PGRST303', message: 'JWT expired' }],
+    [{ status: 401, message: 'Unauthorized' }],
+    [{ message: 'invalid JWT: token is expired' }],
+  ])(
+    'erro de sessão %p não conta tentativa: a ação espera a sessão',
+    async (erro) => {
+      const banco = cenario();
+      await enfileirarAcaoParada(concluirP1());
+      banco.falharCom(Object.assign(new Error(erro.message), erro));
+      for (let i = 0; i < MAX_TENTATIVAS + 2; i++) {
+        await processarFilaAcoesParada({
+          usuarioAtual: 'mot-1',
+          porta: banco.porta,
+        });
+      }
+      const fila = await lerFilaAcoesParada();
+      expect(fila).toHaveLength(1);
+      expect(fila[0].tentativas).toBe(0);
+      expect(await lerDescartesDaFila('mot-1')).toEqual([]);
+    },
+  );
+
+  it('chamada recusada por já estar processando roda de novo ao terminar', async () => {
+    const banco = cenario();
+    await enfileirarAcaoParada(concluirP1());
+    let liberar: () => void = () => undefined;
+    const lerOriginal = banco.porta.lerParada;
+    banco.porta.lerParada = async (id) => {
+      if (id === 'p1') {
+        await new Promise<void>((r) => {
+          liberar = r;
+        });
+      }
+      return lerOriginal(id);
+    };
+
+    const primeira = processarFilaAcoesParada({
+      usuarioAtual: 'mot-1',
+      porta: banco.porta,
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    // Chega uma ação nova enquanto a primeira rodada está presa na rede.
+    await enfileirarAcaoParada(
+      criarAcaoParada({
+        tipo: 'pular',
+        paradaId: 'p2',
+        rotaId: 'rota-1',
+        motoristaId: 'mot-1',
+        em: '2026-10-23T12:01:00.000Z',
+        motivo: 'outro',
+      }),
+    );
+    await processarFilaAcoesParada({
+      usuarioAtual: 'mot-1',
+      porta: banco.porta,
+    });
+    liberar();
+    await primeira;
+
+    expect(await lerFilaAcoesParada()).toEqual([]);
+    expect(banco.paradas.get('p2')!.status).toBe('pulada');
   });
 });
 

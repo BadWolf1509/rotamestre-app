@@ -18,7 +18,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
 import { SwipeableRow } from '@/components/SwipeableRow';
@@ -70,6 +70,22 @@ export const MainCardActive = memo(function MainCardActive({
   onPress,
 }: MainCardActiveProps) {
   const { theme } = useUnistyles();
+
+  // Toque duplo nos botões não pode abrir o fluxo (ou o motivo) duas vezes:
+  // a ref barra o segundo toque no mesmo instante; o estado desabilita.
+  const ocupadoRef = useRef(false);
+  const [ocupado, setOcupado] = useState(false);
+  const acionar = async (acao?: () => void | Promise<void>) => {
+    if (!acao || ocupadoRef.current) return;
+    ocupadoRef.current = true;
+    setOcupado(true);
+    try {
+      await acao();
+    } finally {
+      ocupadoRef.current = false;
+      setOcupado(false);
+    }
+  };
 
   // Memoize paradas reais para evitar recálculo a cada render
   const paradasReais = useMemo(() => filterRealStops(paradas), [paradas]);
@@ -270,10 +286,12 @@ export const MainCardActive = memo(function MainCardActive({
                 { backgroundColor: theme.colors.success },
               ]}
               onPress={() => {
-                void onSwipeRight?.();
+                void acionar(onSwipeRight);
               }}
+              disabled={ocupado}
               accessibilityRole="button"
               accessibilityLabel={`Concluir parada ${currentStop.ordem}`}
+              accessibilityState={{ disabled: ocupado }}
             >
               <Ionicons
                 name="checkmark-circle"
@@ -300,10 +318,12 @@ export const MainCardActive = memo(function MainCardActive({
                 },
               ]}
               onPress={() => {
-                void onSwipeLeft?.();
+                void acionar(onSwipeLeft);
               }}
+              disabled={ocupado}
               accessibilityRole="button"
               accessibilityLabel={`Pular parada ${currentStop.ordem}`}
+              accessibilityState={{ disabled: ocupado }}
             >
               <Ionicons
                 name="arrow-forward-circle-outline"

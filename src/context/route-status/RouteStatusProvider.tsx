@@ -7,12 +7,14 @@
 
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   ReactNode,
 } from 'react';
+import { AppState } from 'react-native';
 
 import { useFilaAcoesParada } from '@/hooks/motorista/useFilaAcoesParada';
 import {
@@ -24,11 +26,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
-import {
-  processarFilaAcoesParada,
-  sobreporAcoesPendentes,
-} from '@/lib/motorista/filaAcoesParada';
-import { isOnline } from '@/lib/offline';
+import { sobreporAcoesPendentes } from '@/lib/motorista/filaAcoesParada';
+import { solicitarEnvioFila } from '@/lib/offline';
 
 import {
   getRouteStatus,
@@ -68,17 +67,29 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     [paradasDoBanco, filaDeAcoes.acoes, route?.id],
   );
 
-  // Abrir o app (ou entrar na conta) com rede envia o que ficou guardado. A
-  // volta da rede com o app aberto fica com `setupOfflineSync`.
-  useEffect(() => {
-    if (!motoristaId) return;
-    void (async () => {
-      if (!(await isOnline())) return;
-      await processarFilaAcoesParada({ usuarioAtual: motoristaId });
-    })().catch((e) =>
+  // Envio do que ficou no aparelho (fotos antes das ações, sempre pelo mesmo
+  // caminho, `solicitarEnvioFila`): ao abrir o app/entrar na conta e ao voltar
+  // ao primeiro plano. A volta da rede fica com `setupOfflineSync`.
+  const enviarFila = useCallback(() => {
+    solicitarEnvioFila().catch((e) =>
       logger.warn('[RouteStatus] Falha ao enviar a fila de paradas', e),
     );
-  }, [motoristaId]);
+  }, []);
+  useEffect(() => {
+    if (!motoristaId) return;
+    enviarFila();
+    const assinatura = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') enviarFila();
+    });
+    return () => assinatura.remove();
+  }, [motoristaId, enviarFila]);
+
+  // Puxar para atualizar também tenta enviar (sem esperar: foto pode demorar;
+  // quando a fila encolher, o efeito abaixo recarrega).
+  const atualizarRota = useCallback(async () => {
+    enviarFila();
+    await loadActiveRoute();
+  }, [enviarFila, loadActiveRoute]);
 
   // A fila encolheu (enviada ou descartada): o banco mudou, recarrega.
   const tamanhoAnteriorDaFila = useRef(filaDeAcoes.acoes.length);
@@ -129,7 +140,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       atualizadoEm,
-      refreshRoute: loadActiveRoute,
+      refreshRoute: atualizarRota,
       startRoute,
       completeStop,
       skipStop,
@@ -146,7 +157,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       atualizadoEm,
-      loadActiveRoute,
+      atualizarRota,
       startRoute,
       completeStop,
       skipStop,

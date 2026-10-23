@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { render, waitFor, act, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { Text, Pressable } from 'react-native';
+import { AppState, Text, Pressable } from 'react-native';
 
 import {
   _resetFilaAcoesParada,
@@ -177,6 +177,12 @@ jest.mock('@/lib/supabase', () => {
       }),
       channel: mockChannel,
       removeChannel: jest.fn(),
+      // A fila de ações só envia com a sessão do dono.
+      auth: {
+        getSession: jest.fn(async () => ({
+          data: { session: { user: { id: 'motorista-1' } } },
+        })),
+      },
       realtime: {
         setAuth: jest.fn(),
       },
@@ -1367,6 +1373,79 @@ describe('RouteStatusContext com ações na fila offline', () => {
     });
     expect(getByTestId('concluidas').props.children).toBe(1);
     expect(mockUpdateCalls).toHaveLength(0);
+  });
+
+  // Ação que foi para a fila com o NetInfo "conectado" (timeout em sinal
+  // fraco) não tem mudança de rede para dispará-la: estes gatilhos cobrem.
+  function ficarOffline() {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+  }
+  function ficarOnline() {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+  }
+  const enviouParada1 = () =>
+    mockUpdateCalls.some(
+      (c) => c.filter.value === 'parada-1' && c.data.status === 'concluida',
+    );
+
+  it('voltar ao primeiro plano envia a fila', async () => {
+    // Embrulha o addEventListener de verdade (sem trocar o retorno), só para
+    // poder disparar o 'active' depois.
+    const ouvintes: ((estado: string) => void)[] = [];
+    const original = AppState.addEventListener;
+    AppState.addEventListener = ((tipo: 'change', fn: (e: string) => void) => {
+      ouvintes.push(fn);
+      return original.call(AppState, tipo, fn as never);
+    }) as typeof AppState.addEventListener;
+    ficarOffline();
+    await enfileirarConclusaoDaParada1();
+    const { getByTestId, unmount } = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('parada-1');
+    });
+    expect(enviouParada1()).toBe(false);
+
+    ficarOnline();
+    await act(async () => {
+      ouvintes.forEach((fn) => fn('active'));
+    });
+
+    await waitFor(() => expect(enviouParada1()).toBe(true));
+    unmount();
+    AppState.addEventListener = original;
+  });
+
+  it('puxar para atualizar envia a fila', async () => {
+    ficarOffline();
+    await enfileirarConclusaoDaParada1();
+    let atualizar: () => Promise<void> = async () => undefined;
+    function Captura() {
+      atualizar = useRouteStatus().refreshRoute;
+      return null;
+    }
+    render(
+      <RouteStatusProvider>
+        <Captura />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => expect(mockRotasData).toBeTruthy());
+
+    ficarOnline();
+    await act(async () => {
+      await atualizar();
+    });
+
+    await waitFor(() => expect(enviouParada1()).toBe(true));
   });
 
   it('com rede ao abrir: envia a fila para o banco e tira o selo', async () => {

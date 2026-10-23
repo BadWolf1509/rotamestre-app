@@ -241,7 +241,11 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
               size={20}
               color={theme.colors.white}
             />
-            <Text style={styles.completeButtonText} numberOfLines={1}>
+            <Text
+              style={styles.completeButtonText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.3}
+            >
               Concluir
             </Text>
           </TouchableOpacity>
@@ -264,7 +268,11 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
                 size={20}
                 color={theme.colors.warning}
               />
-              <Text style={styles.skipButtonText} numberOfLines={1}>
+              <Text
+                style={styles.skipButtonText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={1.3}
+              >
                 Pular
               </Text>
             </TouchableOpacity>
@@ -282,7 +290,11 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
               accessibilityRole="button"
             >
               <Ionicons name="navigate" size={20} color={theme.colors.white} />
-              <Text style={styles.mapsButtonText} numberOfLines={1}>
+              <Text
+                style={styles.mapsButtonText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={1.3}
+              >
                 {rotuloAppExterno}
               </Text>
             </TouchableOpacity>

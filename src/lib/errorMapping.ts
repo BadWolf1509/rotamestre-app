@@ -155,6 +155,16 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    pattern: /PARADA_JA_RESOLVIDA/,
+    result: {
+      title: 'Parada já resolvida',
+      message:
+        'Esta parada já foi concluída ou pulada por outro caminho. Puxe a tela para atualizar.',
+      type: 'warning',
+      code: 'STOP_ALREADY_RESOLVED',
+    },
+  },
+  {
     pattern: /PARADA_INDISPONIVEL/,
     result: {
       title: 'Parada indisponível',

@@ -17,6 +17,11 @@ import {
 
 import { useRouteActions } from '../useRouteActions';
 
+const mockSolicitarEnvioFila = jest.fn();
+jest.mock('@/lib/offline', () => ({
+  ...jest.requireActual('@/lib/offline'),
+  solicitarEnvioFila: (...a: unknown[]) => mockSolicitarEnvioFila(...a),
+}));
 jest.mock('@/lib/supabase');
 jest.mock('@/services/unifiedLocationTracking');
 jest.mock('@/lib/logger');
@@ -108,6 +113,7 @@ function ficarOffline() {
 beforeEach(() => {
   (AsyncStorage as unknown as { __mapa: Map<string, string> }).__mapa.clear();
   _resetFilaAcoesParada();
+  mockSolicitarEnvioFila.mockReset().mockResolvedValue(undefined);
   (NetInfo.fetch as jest.Mock).mockResolvedValue({
     isConnected: true,
     isInternetReachable: true,
@@ -167,6 +173,60 @@ describe('completeStop sem rede', () => {
     const { completeStop } = setup(banco.porta);
     await expect(completeStop('p1')).rejects.toBeTruthy();
     expect(await lerFilaAcoesParada()).toEqual([]);
+  });
+});
+
+describe('revisão 1', () => {
+  it('online, parada já pulada por outro caminho: concluir avisa, não finge sucesso', async () => {
+    const banco = criarBancoFake();
+    banco.status.p1 = 'pulada';
+    const { completeStop } = setup(banco.porta);
+    const erro = await completeStop('p1').catch((e) => e);
+    expect(getErrorMessage(erro).code).toBe('STOP_ALREADY_RESOLVED');
+  });
+
+  it('online com sessão vencida (PGRST301): vai para a fila em vez de virar erro', async () => {
+    const banco = criarBancoFake();
+    banco.falharCom({ code: 'PGRST301', message: 'JWT expired' });
+    const { completeStop } = setup(banco.porta);
+    await expect(completeStop('p1')).resolves.toBe('na_fila');
+  });
+
+  it('ação online bem-sucedida pede o envio do que ficou na fila', async () => {
+    const banco = criarBancoFake();
+    const { completeStop } = setup(banco.porta);
+    await completeStop('p1');
+    expect(mockSolicitarEnvioFila).toHaveBeenCalled();
+  });
+
+  it('Finalizar com pendência tenta enviar antes de recusar', async () => {
+    const banco = criarBancoFake();
+    await enfileirarAcaoParada(
+      criarAcaoParada({
+        tipo: 'concluir',
+        paradaId: 'p1',
+        rotaId: 'route-1',
+        motoristaId: 'user-1',
+        em: '2026-10-23T12:00:00.000Z',
+      }),
+    );
+    // O envio esvazia a fila: aí a finalização segue.
+    mockSolicitarEnvioFila.mockImplementationOnce(async () => {
+      jest
+        .requireMock('@react-native-async-storage/async-storage')
+        .__mapa.delete('@rotamestre:fila_acoes_parada');
+    });
+    const supabase = jest.requireMock('@/lib/supabase').supabase;
+    supabase.rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+    const { completeRoute } = setup(banco.porta, [
+      { ...paradas[0], status: 'concluida' },
+    ]);
+
+    await completeRoute();
+    expect(mockSolicitarEnvioFila).toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith('finalizar_rota', {
+      p_rota_id: 'route-1',
+    });
   });
 });
 

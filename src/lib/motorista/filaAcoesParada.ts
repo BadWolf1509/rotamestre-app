@@ -70,7 +70,11 @@ export interface AcaoParada {
 }
 
 export type MotivoDescarte =
-  'parada_removida' | 'rota_encerrada' | 'falha_persistente';
+  | 'parada_removida'
+  | 'rota_encerrada'
+  /** O banco já tem outra decisão (ex.: concluída offline, pulada por outro caminho). */
+  | 'status_divergente'
+  | 'falha_persistente';
 
 export interface DescarteDeAcao {
   acao: AcaoParada;
@@ -231,6 +235,18 @@ export function sobreporAcoesPendentes<
 // ---------------------------------------------------------------------------
 
 /**
+ * Sessão vencida ou ausente (JWT expirado, 401). Não é recusa da ação: ela
+ * espera a sessão renovar, sem contar tentativa.
+ */
+export function ehErroDeSessao(erro: unknown): boolean {
+  if (!erro || typeof erro !== 'object') return false;
+  const e = erro as { code?: string; status?: number; message?: string };
+  if (e.code === 'PGRST301' || e.code === 'PGRST303') return true;
+  if (e.status === 401) return true;
+  return /jwt|token is expired|not authenticated/i.test(e.message ?? '');
+}
+
+/**
  * A requisição não chegou (ou a resposta não voltou): sem rede, rede que não
  * responde (timeout do `fetchComTimeout`, `AbortError`) ou `fetch` recusado.
  * Erro com código do Postgres/PostgREST é resposta do servidor — não é isto.
@@ -272,15 +288,23 @@ function classificar(
     return { tipo: 'descartada', motivo: 'parada_removida' };
   }
   if (STATUS_RESOLVIDOS.includes(parada.status)) {
-    return { tipo: 'ja_resolvida', status: parada.status };
+    // Mesma decisão já no banco: reenvio idempotente. Outra decisão: o
+    // motorista precisa saber que a dele não valeu.
+    return parada.status === statusPretendido(acao)
+      ? { tipo: 'ja_resolvida', status: parada.status }
+      : { tipo: 'descartada', motivo: 'status_divergente' };
   }
   if (parada.rota.status !== 'em_andamento') {
     return { tipo: 'descartada', motivo: 'rota_encerrada' };
   }
   if (!STATUS_ABERTOS.includes(parada.status)) {
-    return { tipo: 'ja_resolvida', status: parada.status };
+    return { tipo: 'descartada', motivo: 'status_divergente' };
   }
   return null;
+}
+
+function statusPretendido(acao: AcaoParada): string {
+  return acao.tipo === 'concluir' ? 'concluida' : 'pulada';
 }
 
 /**
@@ -299,7 +323,9 @@ export async function aplicarAcaoParada(
 
   // Alguém resolveu a parada entre a leitura e o UPDATE.
   const depois = classificar(acao, await porta.lerParada(acao.paradaId));
-  return depois ?? { tipo: 'ja_resolvida', status: 'desconhecido' };
+  // Ainda aberta e o UPDATE não mudou nada: sem explicação, não conta como
+  // enviada em silêncio.
+  return depois ?? { tipo: 'descartada', motivo: 'status_divergente' };
 }
 
 // ---------------------------------------------------------------------------
@@ -307,6 +333,8 @@ export async function aplicarAcaoParada(
 // ---------------------------------------------------------------------------
 
 let processando = false;
+/** Pedido que chegou durante uma rodada: roda de novo ao terminar. */
+let rodarDeNovo = false;
 
 export interface ResultadoProcessamento {
   enviadas: number;
@@ -364,19 +392,19 @@ export async function processarFilaAcoesParada({
   usuarioAtual: string;
   porta?: PortaParadas;
 }): Promise<ResultadoProcessamento> {
-  if (processando) return { enviadas: 0, descartadas: [], restantes: 0 };
+  if (processando) {
+    rodarDeNovo = true;
+    return { enviadas: 0, descartadas: [], restantes: 0 };
+  }
   processando = true;
 
   const descartadas: DescarteDeAcao[] = [];
   const rotasAlteradas = new Set<string>();
   let enviadas = 0;
 
-  try {
-    const minhas = (await lerFilaAcoesParada()).filter(
-      (a) => a.motoristaId === usuarioAtual,
-    );
-
-    for (const acao of minhas) {
+  /** Envia em ordem; true = parou esperando rede/sessão (o resto espera). */
+  const enviarLote = async (acoes: AcaoParada[]): Promise<boolean> => {
+    for (const acao of acoes) {
       try {
         const r = await aplicarAcaoParada(acao, porta);
         if (r.tipo === 'descartada') {
@@ -387,7 +415,8 @@ export async function processarFilaAcoesParada({
         enviadas++;
         if (r.tipo === 'aplicada') rotasAlteradas.add(acao.rotaId);
       } catch (error) {
-        if (ehFalhaDeEnvio(error)) break; // a rede caiu de novo: o resto espera
+        // Rede caiu de novo ou sessão vencida: não é recusa da ação.
+        if (ehFalhaDeEnvio(error) || ehErroDeSessao(error)) return true;
         logger.warn('[FilaParada] Servidor recusou a ação', error);
         const tentativas = await contarTentativa(acao.id);
         if (tentativas >= MAX_TENTATIVAS) {
@@ -395,6 +424,18 @@ export async function processarFilaAcoesParada({
         }
       }
     }
+    return false;
+  };
+
+  try {
+    let esperarRede = false;
+    do {
+      rodarDeNovo = false;
+      const minhas = (await lerFilaAcoesParada()).filter(
+        (a) => a.motoristaId === usuarioAtual,
+      );
+      esperarRede = await enviarLote(minhas);
+    } while (rodarDeNovo && !esperarRede);
 
     for (const rotaId of rotasAlteradas) {
       try {

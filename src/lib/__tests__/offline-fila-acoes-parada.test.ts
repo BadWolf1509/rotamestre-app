@@ -5,7 +5,12 @@
 import NetInfo from '@react-native-community/netinfo';
 
 import { sincronizarFilaAcoesParada } from '../motorista/filaAcoesParada';
-import { setupOfflineSync, _resetProcessingLocks } from '../offline';
+import {
+  processOfflinePhotos,
+  setupOfflineSync,
+  solicitarEnvioFila,
+  _resetProcessingLocks,
+} from '../offline';
 import { uploadELinkFotoParada } from '../storage';
 
 const ordem: string[] = [];
@@ -116,4 +121,64 @@ it('sem nada de foto, as ações de parada são enviadas mesmo assim', async () 
   await ouvinte({ isConnected: true, isInternetReachable: true });
 
   expect(ordem).toEqual(['acoes']);
+});
+
+describe('solicitarEnvioFila (ponto único de envio)', () => {
+  it('fotos antes das ações', async () => {
+    await solicitarEnvioFila();
+    expect(ordem).toEqual(['foto', 'acoes']);
+  });
+
+  it('pedidos durante um envio se juntam numa rodada extra, não em paralelo', async () => {
+    let liberar: () => void = () => undefined;
+    (uploadELinkFotoParada as jest.Mock).mockImplementationOnce(async () => {
+      ordem.push('foto');
+      await new Promise<void>((r) => {
+        liberar = r;
+      });
+      return true;
+    });
+
+    const a = solicitarEnvioFila();
+    const b = solicitarEnvioFila();
+    const c = solicitarEnvioFila();
+    await new Promise((r) => setTimeout(r, 0));
+    liberar();
+    await Promise.all([a, b, c]);
+
+    // 1ª rodada (foto + ações) e UMA rodada extra pelos pedidos que chegaram
+    // no meio (sem foto pendente, só ações).
+    expect(ordem).toEqual(['foto', 'acoes', 'acoes']);
+  });
+
+  it('se o envio de fotos já está rodando por outro caminho, as ações esperam por ele', async () => {
+    let liberar: () => void = () => undefined;
+    (uploadELinkFotoParada as jest.Mock).mockImplementationOnce(async () => {
+      await new Promise<void>((r) => {
+        liberar = r;
+      });
+      ordem.push('foto');
+      return true;
+    });
+
+    const fotosPorFora = processOfflinePhotos();
+    await new Promise((r) => setTimeout(r, 0));
+    const envio = solicitarEnvioFila();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ordem).toEqual([]);
+    liberar();
+    await Promise.all([fotosPorFora, envio]);
+
+    expect(ordem[0]).toBe('foto');
+    expect(ordem).toContain('acoes');
+  });
+
+  it('sem rede, não tenta nada', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+    await solicitarEnvioFila();
+    expect(ordem).toEqual([]);
+  });
 });
