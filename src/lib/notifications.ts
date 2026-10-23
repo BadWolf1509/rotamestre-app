@@ -373,9 +373,19 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     // o tira de qualquer OUTRA conta. Um aparelho é de uma conta por vez — se
     // o logout de A falhou (offline), a linha de A ainda tem este token, e só
     // o servidor pode limpá-la quando B entra (a RLS não deixa B tocar em A).
-    const { error } = await supabase.rpc('registrar_push_token', {
+    let { error } = await supabase.rpc('registrar_push_token', {
       p_token: token,
     });
+
+    // PGRST202 = a função não existe no banco (app publicado antes da
+    // migration). Cai no UPDATE direto antigo da própria linha, para o
+    // registro não depender da ordem de deploy. Qualquer outro erro fica.
+    if (error?.code === 'PGRST202') {
+      ({ error } = await supabase
+        .from('usuarios')
+        .update({ push_token: token })
+        .eq('id', userId));
+    }
 
     if (error) {
       logger.error('[Push] Erro ao salvar token', error);

@@ -1534,10 +1534,10 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
-### ⏳ Migration 38: token de push pertence a uma conta só
+### ⏳ Migration 39: token de push pertence a uma conta só
 
 **Arquivo:** `20261023010000_push_token_de_uma_conta_so.sql` · **⏳ a aplicar**
-(PR #629). Aditiva. Numeração provisória: se outra migration entrar antes, renumerar.
+(PR #629). Aditiva.
 
 **Por quê.** O app gravava o token direto na linha da conta logada. Se o logout
 de A não limpou a linha (offline, sessão vencida) e B entrou no mesmo aparelho,
@@ -1546,16 +1546,27 @@ então só o servidor resolve.
 
 **O que faz.** `registrar_push_token(p_token text)`, SECURITY DEFINER,
 `search_path = ''`, EXECUTE só para `authenticated`: exige `auth.uid()` e token
-no formato Expo, zera `push_token = p_token` de qualquer outra conta e grava na
-de quem chama. O app passa a registrar só por ela (`registerPushToken` em
-`src/lib/notifications.ts`); versões antigas seguem com o UPDATE direto. A
-`trava_motorista_outra_loja` (Migration 31) passa a aceitar a mudança que só
-zera o `push_token` — sem isso, limpar o token de um motorista que atende outra
-loja cairia em "só nome e telefone". Sem UNIQUE em `push_token` de propósito
-(quebraria o registro das versões antigas). Em 23/10/2026: 7 tokens, todos
-distintos.
+no formato Expo (até 200 caracteres), trava por token
+(`pg_advisory_xact_lock`), grava primeiro na própria linha (sem perfil em
+`usuarios`, exceção — não tira o token de ninguém) e só então zera
+`push_token = p_token` das outras contas. O app registra por ela
+(`registerPushToken` em `src/lib/notifications.ts`) e, se a função ainda não
+existir (PGRST202), cai no UPDATE direto antigo — não depende da ordem de
+deploy. A `trava_motorista_outra_loja` (Migration 31) aceita a mudança que só
+zera o `push_token` **apenas** com a marca da RPC (`rotamestre.push_rpc` da
+transação); UPDATE direto de gestor segue recusado, e o logout do próprio
+usuário não passa por ali (o atalho `auth.uid() = id` vem antes). Sem UNIQUE em
+`push_token` de propósito (quebraria o registro das versões antigas). Em
+23/10/2026: 7 tokens, todos distintos. Revisão do `rls-policy-reviewer`:
+APPROVE (trava idêntica à viva + bloco novo); ajustes dele incorporados.
 
 **Sonda.** Bloco `DO` comentado no fim do arquivo (rodar depois de aplicar;
+termina sempre em `RAISE`): B registra o token que está num motorista A (com
+vínculo) de loja onde B não é gestor → A fica sem token, B com ele. Negativos:
+gravar token em A e zerar junto com o nome são recusados pela trava mesmo com a
+marca; RPC sem `auth.uid()` → 42501; `anon` sem EXECUTE; token fora do formato
+recusado. Sintaxe validada com o parser do Postgres (libpg-query).
+
 termina em `RAISE`): B registra o token que está num motorista A de loja onde B
 não é gestor → A fica sem token, B com ele; token fora do formato é recusado.
 

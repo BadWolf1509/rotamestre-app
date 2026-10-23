@@ -204,4 +204,27 @@ describe('fila de fotos e login', () => {
     expect(mockDisco[CHAVE_ULTIMO]).toBe('B');
     parar();
   });
+
+  it('ao entrar, adota as fotos sem dono do aparelho; as de outra conta seguem paradas', async () => {
+    mockDisco[INDICE] = JSON.stringify([
+      { ...foto('pSemDono'), semDono: true },
+      foto('pA', 'A'),
+    ]);
+    const parar = setupOfflineSync();
+
+    await mockOuvintesAuth[0]?.('SIGNED_IN', { user: { id: 'B' } });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(uploadELinkFotoParada).toHaveBeenCalledTimes(1);
+    expect(uploadELinkFotoParada).toHaveBeenCalledWith(
+      'un1',
+      'r1',
+      'pSemDono',
+      '/docs/offline_photos/pSemDono.jpg',
+    );
+    expect((await getOfflinePhotosIndex()).map((f) => f.paradaId)).toEqual([
+      'pA',
+    ]);
+    parar();
+  });
 });

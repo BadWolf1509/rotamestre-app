@@ -36,7 +36,7 @@ const mockChamadas: Array<{ update: unknown; eq: Array<[string, unknown]> }> =
   [];
 const mockRpc: Array<[string, unknown]> = [];
 let mockErroUpdate: { message: string } | null = null;
-let mockErroRpc: { message: string } | null = null;
+let mockErroRpc: { message: string; code?: string } | null = null;
 
 jest.mock('../supabase', () => ({
   supabase: {
@@ -168,6 +168,33 @@ describe('registerPushToken: falha da RPC', () => {
 
     await expect(registerPushToken('A')).resolves.toBe(false);
     expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('RPC ainda não publicada (PGRST202): cai no UPDATE direto da própria linha', async () => {
+    getItem.mockResolvedValue(null);
+    // Formato real do PostgREST quando a função não existe no schema cache.
+    mockErroRpc = {
+      code: 'PGRST202',
+      message:
+        'Could not find the function public.registrar_push_token(p_token) in the schema cache',
+    };
+
+    await expect(registerPushToken('A')).resolves.toBe(true);
+    expect(mockChamadas).toEqual([
+      { update: { push_token: TOKEN }, eq: [['id', 'A']] },
+    ]);
+    expect(setItem).toHaveBeenCalledWith(
+      CHAVE,
+      JSON.stringify({ token: TOKEN, userId: 'A' }),
+    );
+  });
+
+  it('outro erro da RPC (ex.: 42501) NÃO cai no UPDATE direto', async () => {
+    getItem.mockResolvedValue(null);
+    mockErroRpc = { code: '42501', message: 'Sessão necessária' };
+
+    await expect(registerPushToken('A')).resolves.toBe(false);
+    expect(mockChamadas).toEqual([]);
   });
 });
 

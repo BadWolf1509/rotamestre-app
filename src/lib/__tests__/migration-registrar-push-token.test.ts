@@ -48,6 +48,36 @@ describe('migration registrar_push_token', () => {
     expect(funcao).toMatch(/SET push_token = p_token\s+WHERE id = v_uid/);
   });
 
+  it('grava primeiro na própria linha e exige que ela exista', () => {
+    // Conta sem linha em usuarios não pode tirar o token de terceiros.
+    const propria = funcao.search(
+      /SET push_token = p_token\s+WHERE id = v_uid/,
+    );
+    const naoAchou = funcao.search(/IF NOT FOUND THEN\s+RAISE EXCEPTION/);
+    const outras = funcao.search(/SET push_token = NULL/);
+    expect(propria).toBeGreaterThan(-1);
+    expect(naoAchou).toBeGreaterThan(propria);
+    expect(outras).toBeGreaterThan(naoAchou);
+  });
+
+  it('serializa por token e limita o tamanho', () => {
+    expect(funcao).toMatch(
+      /PERFORM pg_advisory_xact_lock\(hashtext\(p_token\)\)/,
+    );
+    expect(funcao.search(/pg_advisory_xact_lock/)).toBeLessThan(
+      funcao.search(/UPDATE public\.usuarios/),
+    );
+    expect(funcao).toMatch(/length\(p_token\) > 200/);
+  });
+
+  it('marca o caminho da RPC antes de zerar nas outras contas', () => {
+    const marca = funcao.search(
+      /PERFORM set_config\('rotamestre\.push_rpc', '1', true\)/,
+    );
+    expect(marca).toBeGreaterThan(-1);
+    expect(marca).toBeLessThan(funcao.search(/SET push_token = NULL/));
+  });
+
   it('só authenticated executa', () => {
     expect(semRollback).toMatch(
       /REVOKE ALL ON FUNCTION public\.registrar_push_token\(text\) FROM PUBLIC, anon;/,
@@ -61,6 +91,10 @@ describe('migration registrar_push_token', () => {
     // Sem isso, B limpando o token que ficou na linha de A (motorista de outra
     // loja) cairia na exceção "só dá para mudar nome e telefone".
     expect(trava).toMatch(/NEW\.push_token IS NULL/);
+    // Só no caminho da RPC: UPDATE direto de gestor continua recusado.
+    expect(trava).toMatch(
+      /current_setting\('rotamestre\.push_rpc', true\) = '1'/,
+    );
     expect(trava).toMatch(/to_jsonb\(NEW\) - 'push_token'/);
     expect(trava).toMatch(/to_jsonb\(OLD\) - 'push_token'/);
     // E o resto da trava continua lá.
@@ -70,13 +104,17 @@ describe('migration registrar_push_token', () => {
   it('tem rollback, sonda e entrada pendente no MIGRATIONS.md', () => {
     expect(sql).toMatch(/-- ROLLBACK:/);
     expect(sql).toMatch(/RAISE EXCEPTION 'SONDA/);
+    expect(sql).toMatch(/SET LOCAL ROLE authenticated/);
+    expect(sql).toMatch(/SET LOCAL ROLE anon/);
     // Checkout no Windows vem com CRLF; o índice guarda LF.
     const doc = readFileSync(
       join(RAIZ, 'database', 'MIGRATIONS.md'),
       'utf8',
     ).replace(/\r\n/g, '\n');
     expect(doc).toMatch(
-      new RegExp(`### ⏳ [^\\n]*\\n+\\*\\*Arquivo:\\*\\* \`${ARQUIVO}\``),
+      new RegExp(
+        `### ⏳ Migration 39:[^\\n]*\\n+\\*\\*Arquivo:\\*\\* \`${ARQUIVO}\``,
+      ),
     );
   });
 });

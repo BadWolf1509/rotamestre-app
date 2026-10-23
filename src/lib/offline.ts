@@ -49,6 +49,24 @@ function fotoEDe(photo: OfflinePhotoData, usuarioAtual: string): boolean {
 }
 
 /**
+ * Dá a quem acabou de entrar as fotos `semDono` do aparelho (tiradas sem
+ * sessão nem último usuário conhecido). Sem isso elas ficariam presas para
+ * sempre, sem aviso — e são comprovante de entrega. Quem as tirou neste
+ * aparelho é, na prática, quem entra nele em seguida; a RLS ainda barra o
+ * upload em parada de outra loja. Foto com `userId` de outra conta não muda.
+ */
+async function adotarFotosSemDono(userId: string): Promise<void> {
+  const index = await getOfflinePhotosIndex();
+  if (!index.some((p) => p.semDono)) return;
+  const adotado = index.map((p) => {
+    if (!p.semDono) return p;
+    const { semDono: _semDono, ...resto } = p;
+    return { ...resto, userId };
+  });
+  await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(adotado));
+}
+
+/**
  * Dono de uma foto tirada agora: a sessão, ou — offline com o token vencido,
  * quando `getSession()` devolve null sem renovar — o último usuário logado.
  */
@@ -634,6 +652,7 @@ export function setupOfflineSync(): () => void {
     if (!userId) return;
     void (async () => {
       await gravarUltimoUsuario(userId);
+      if (evento === 'SIGNED_IN') await adotarFotosSemDono(userId);
       if (evento === 'SIGNED_IN' && (await getPendingPhotosCount()) > 0) {
         const r = await processOfflinePhotos();
         if (r.success > 0) await notifySyncComplete(0, r.success);
