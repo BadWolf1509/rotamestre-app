@@ -9,7 +9,11 @@ import { View, Text } from 'react-native';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './ParadaCard.styles';
-import { getTipoInfo, getStatusBadgeText, type ParadaTipo } from './ParadaCard.types';
+import {
+  getTipoInfo,
+  getStatusBadgeText,
+  type ParadaTipo,
+} from './ParadaCard.types';
 
 interface ParadaCardHeaderProps {
   ordem: number;
@@ -32,13 +36,21 @@ export const ParadaCardHeader = memo(function ParadaCardHeader({
 }: ParadaCardHeaderProps) {
   const { theme } = useUnistyles();
   const tipoInfo = getTipoInfo(tipo);
-  const statusBadgeText = getStatusBadgeText(isConcluida, isPulada, isEmAndamento, isSummary);
+  const statusBadgeText = getStatusBadgeText(
+    isConcluida,
+    isPulada,
+    isEmAndamento,
+    isSummary,
+  );
 
   return (
     <View style={styles.paradaHeader}>
       {/* Ordem badge */}
       <View style={styles.ordemBadge}>
-        <Text style={styles.ordemText}>{ordem}</Text>
+        {/* Círculo de tamanho fixo, já cheio em 1.0: não acompanha a fonte */}
+        <Text style={styles.ordemText} allowFontScaling={false}>
+          {ordem}
+        </Text>
       </View>
 
       {/* Status badge */}

@@ -339,6 +339,15 @@ describe('ParadaCard', () => {
       ).toBeLessThanOrEqual(1.3);
     });
 
+    // O círculo da ordem tem tamanho fixo e o número já o ocupa em 1.0:
+    // em 2.0 o algarismo saía cortado. `maxFontSizeMultiplier={1}` o deixava
+    // inteiro mas fora do centro no aparelho; `allowFontScaling={false}` não.
+    it('o número da ordem não cresce além do círculo', () => {
+      const { getByText } = render(<ParadaCard {...defaultProps} />);
+
+      expect(getByText('1').props.allowFontScaling).toBe(false);
+    });
+
     it('o ícone e o texto do Como Chegar têm teto de escala', () => {
       const { getByText } = render(<ParadaCard {...defaultProps} />);
 

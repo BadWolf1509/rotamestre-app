@@ -5,7 +5,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ColorValue, Platform, Pressable, Text, View } from 'react-native';
+import {
+  ColorValue,
+  Platform,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NotificationBell } from '@/components/NotificationBell';
@@ -15,13 +22,19 @@ import { useRouteStatus } from '@/context/RouteStatusContext';
 import { logger } from '@/lib/logger';
 import { useUnistyles } from '@/utils/styles';
 
-// Altura base da tab bar
-const TAB_BAR_HEIGHT = 60;
+// Parte fixa da altura da tab bar: paddingTop 8 + item 4 + 4 + ícone 28
+// (a caixa do react-navigation) + margem do rótulo 2 + folga 4 para os
+// descendentes (no moto g15, em 2.0, o "p" de Mapa encostava na barra do
+// sistema sem ela). A linha do rótulo soma por cima, na escala da fonte do
+// sistema (até o teto).
+const ALTURA_FIXA_TAB_BAR = 50;
+const ESCALA_MAX_ROTULO = 1.3;
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   const { openDrawer } = useDrawerMenu();
   const routeStatus = useRouteStatus();
   const { theme } = useUnistyles();
@@ -49,9 +62,13 @@ export default function TabLayout() {
     focused: boolean,
   ) => <Ionicons name={focused ? name : nameOutline} size={24} color={color} />;
 
-  // Rótulo próprio: o Label padrão só repassa `allowFontScaling`, e a barra
-  // tem altura fixa. Sem teto de escala, com a fonte do sistema em 2.0 o
-  // rótulo ficava cortado atrás da barra de navegação do Android.
+  // Rótulo próprio: o Label padrão só repassa `allowFontScaling`. Com altura
+  // fixa e sem teto de escala, o rótulo ficava cortado atrás da barra de
+  // navegação do Android (já em 1.0, e mais com a fonte do sistema em 2.0).
+  const linhaRotulo = Math.round(theme.typography.xs * 1.4);
+  const alturaTabBar =
+    ALTURA_FIXA_TAB_BAR +
+    Math.ceil(linhaRotulo * Math.min(fontScale, ESCALA_MAX_ROTULO));
   const renderTabLabel = ({
     color,
     children,
@@ -61,11 +78,12 @@ export default function TabLayout() {
   }) => (
     <Text
       numberOfLines={1}
-      maxFontSizeMultiplier={1.3}
+      maxFontSizeMultiplier={ESCALA_MAX_ROTULO}
       style={{
         color,
         textAlign: 'center',
         fontSize: theme.typography.xs,
+        lineHeight: linhaRotulo,
         fontFamily: theme.typography.fontSansSemiBold,
         marginTop: 2,
       }}
@@ -84,7 +102,7 @@ export default function TabLayout() {
           tabBarStyle: telaCheia
             ? { display: 'none' }
             : {
-                height: TAB_BAR_HEIGHT + insets.bottom,
+                height: alturaTabBar + insets.bottom,
                 paddingBottom: insets.bottom,
                 paddingTop: 8,
                 backgroundColor: theme.colors.white,
