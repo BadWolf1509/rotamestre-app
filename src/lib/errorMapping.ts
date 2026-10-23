@@ -129,6 +129,39 @@ const ERROR_PATTERNS: Array<{
       code: 'AUTH_NOT_AUTHENTICATED',
     },
   },
+  // Sentinelas da RPC finalizar_rota (Migration 40, guarda em
+  // src/lib/__tests__/rpc-finalizar-rota.test.ts). Sem elas o motorista, no
+  // fim da rota, recebia "Algo deu errado".
+  {
+    pattern: /ROTA_PARADAS_PENDENTES/,
+    result: {
+      title: 'Ainda há paradas pendentes',
+      message:
+        'Conclua ou pule as paradas que faltam antes de finalizar a rota. Puxe a tela para atualizar se já fez isso.',
+      type: 'warning',
+      code: 'ROUTE_STOPS_PENDING',
+    },
+  },
+  {
+    pattern: /ROTA_NAO_EM_ANDAMENTO/,
+    result: {
+      title: 'Rota não está em andamento',
+      message:
+        'Esta rota não está mais em andamento. Puxe a tela para atualizar.',
+      type: 'warning',
+      code: 'ROUTE_NOT_IN_PROGRESS',
+    },
+  },
+  {
+    pattern: /ROTA_NAO_ENCONTRADA/,
+    result: {
+      title: 'Rota não encontrada',
+      message:
+        'Esta rota não está mais atribuída a você. Puxe a tela para atualizar ou fale com o gestor.',
+      type: 'warning',
+      code: 'ROUTE_NOT_FOUND',
+    },
+  },
   {
     // Sentinela da RPC criar_unidade_para_novo_gestor: a conta já tem perfil,
     // então já passou pelo onboarding. A rota /onboarding/criar-unidade abre

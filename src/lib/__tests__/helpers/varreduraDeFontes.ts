@@ -65,6 +65,37 @@ export function semComentarios(fonte: string): string {
     .replace(/\/\/.*$/gm, '');
 }
 
+/**
+ * Remove comentários SEM apagar o conteúdo das strings.
+ *
+ * `semComentarios` do helper não serve aqui: ele neutraliza os literais antes
+ * de cortar os comentários, então `'motorista_locations'` chega como `'####'` e
+ * uma varredura por nome de tabela não acha nada — verde por cegueira, que foi
+ * o que o segundo teste de `realtime-motorista-locations-somente-insert`
+ * pegou na primeira tentativa.
+ *
+ * A saída é usar a versão neutralizada só como MÁSCARA: ela tem o mesmo
+ * comprimento do original, então os intervalos de comentário encontrados nela
+ * valem como índices no texto original.
+ */
+export function semComentariosMantendoStrings(fonte: string): string {
+  const mascara = comStringsNeutralizadas(fonte);
+  const intervalos: [number, number][] = [];
+  const regex = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+
+  let achado: RegExpExecArray | null;
+  while ((achado = regex.exec(mascara)) !== null) {
+    intervalos.push([achado.index, achado.index + achado[0].length]);
+  }
+
+  let saida = fonte;
+  for (const [inicio, fim] of intervalos.reverse()) {
+    saida =
+      saida.slice(0, inicio) + ' '.repeat(fim - inicio) + saida.slice(fim);
+  }
+  return saida;
+}
+
 /** Lê um arquivo de produção pelo caminho relativo à raiz do repo. */
 export function lerFonte(caminho: string): string {
   return readFileSync(join(RAIZ, caminho), 'utf8');

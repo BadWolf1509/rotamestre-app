@@ -131,24 +131,29 @@ export function NavigationMode({
   }).current;
   const isPulsingRef = useRef(false);
 
+  // Liga a navegação e, a cada parada NOVA (o `startNavigation` só muda com
+  // os ids), troca o alvo. O serviço não é parado aqui: parar e religar a cada
+  // parada derrubava o serviço em primeiro plano no meio da rota.
+  const preferenciasCarregadasRef = useRef(false);
   useEffect(() => {
-    const initialize = async () => {
+    const iniciar = async () => {
       await startNavigation();
+      if (preferenciasCarregadasRef.current) return;
+      preferenciasCarregadasRef.current = true;
       await loadPreferences();
       setIsInitializing(false);
     };
-    initialize();
-    return () => {
+    iniciar();
+  }, [startNavigation, loadPreferences, setIsInitializing]);
+
+  // Parar o serviço só ao sair da navegação.
+  useEffect(
+    () => () => {
       stopNavigation();
       cleanupSound();
-    };
-  }, [
-    loadPreferences,
-    setIsInitializing,
-    startNavigation,
-    stopNavigation,
-    cleanupSound,
-  ]);
+    },
+    [stopNavigation, cleanupSound],
+  );
 
   // "Manter Tela Ligada": até 03/10/2026 só o Turn-by-Turn aplicava; no
   // modo mapa a tela apagava no meio da rota.

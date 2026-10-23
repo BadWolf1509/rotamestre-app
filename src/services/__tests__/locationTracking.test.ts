@@ -132,6 +132,12 @@ describe('LocationTrackingService', () => {
     (Location.requestBackgroundPermissionsAsync as jest.Mock).mockResolvedValue(
       { status: 'granted' },
     );
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+    });
+    (Location.getBackgroundPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'granted',
+    });
     (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockResolvedValue(
       false,
     );
@@ -473,8 +479,6 @@ describe('LocationTrackingService', () => {
       );
 
       expect(result).toBe(true);
-      expect(Location.requestForegroundPermissionsAsync).toHaveBeenCalled();
-      expect(Location.requestBackgroundPermissionsAsync).toHaveBeenCalled();
       expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(
         'background-location-tracking',
         expect.objectContaining({
@@ -501,9 +505,9 @@ describe('LocationTrackingService', () => {
     });
 
     it('deve retornar false quando foreground permission negada', async () => {
-      (
-        Location.requestForegroundPermissionsAsync as jest.Mock
-      ).mockResolvedValueOnce({ status: 'denied' });
+      (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+        status: 'denied',
+      });
 
       const result = await locationTrackingService.startTracking(
         'rota-1',
@@ -516,9 +520,9 @@ describe('LocationTrackingService', () => {
     });
 
     it('deve continuar quando background permission negada (warn)', async () => {
-      (
-        Location.requestBackgroundPermissionsAsync as jest.Mock
-      ).mockResolvedValueOnce({ status: 'denied' });
+      (Location.getBackgroundPermissionsAsync as jest.Mock).mockResolvedValue({
+        status: 'denied',
+      });
       const chain = createChain({ data: stopData, error: null });
       mockFrom.mockReturnValue(chain);
 
@@ -530,6 +534,67 @@ describe('LocationTrackingService', () => {
       // Background denied is a warning, not a blocker
       expect(result).toBe(true);
       expect(Location.startLocationUpdatesAsync).toHaveBeenCalled();
+    });
+
+    // Modo navegação: o motorista está dirigindo. Pedir permissão abre a
+    // activity do sistema (e o aviso de localização em segundo plano) no meio
+    // da rua, e tira o app da tela — o que derruba o serviço em primeiro plano
+    // no Android 12+. Só consulta; quem pede é o início da rota.
+    it('nunca PEDE permissão: só consulta', async () => {
+      mockFrom.mockReturnValue(createChain({ data: stopData, error: null }));
+      // Segundo plano ainda não concedido: é o caso em que o caminho antigo
+      // abria o aviso e o pedido do sistema.
+      (Location.getBackgroundPermissionsAsync as jest.Mock).mockResolvedValue({
+        status: 'undetermined',
+      });
+
+      await locationTrackingService.startTracking('rota-1', 'stop-1');
+
+      expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+      expect(Location.requestBackgroundPermissionsAsync).not.toHaveBeenCalled();
+      expect(Location.getForegroundPermissionsAsync).toHaveBeenCalled();
+    });
+
+    // O rastreamento da rota (`rotamestre-background-location`) já é um
+    // serviço em primeiro plano com GPS. Subir um segundo duplicava a
+    // notificação, o consumo de bateria e as posições gravadas.
+    it('reaproveita o serviço de segundo plano da rota, sem subir outro', async () => {
+      mockFrom.mockReturnValue(createChain({ data: stopData, error: null }));
+      (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockImplementation(
+        (tarefa: string) =>
+          Promise.resolve(tarefa === 'rotamestre-background-location'),
+      );
+
+      const result = await locationTrackingService.startTracking(
+        'rota-1',
+        'stop-1',
+        'stop-2',
+      );
+
+      expect(result).toBe(true);
+      expect(Location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+      const state = (locationTrackingService as any).navigationState;
+      expect(state.currentStopId).toBe('stop-1');
+      expect(state.currentStopLocation).toEqual({
+        latitude: -23.55,
+        longitude: -46.63,
+      });
+    });
+
+    it('troca de parada com o serviço já rodando só atualiza o alvo', async () => {
+      mockFrom.mockReturnValue(createChain({ data: stopData, error: null }));
+      (Location.hasStartedLocationUpdatesAsync as jest.Mock).mockImplementation(
+        (tarefa: string) =>
+          Promise.resolve(tarefa === 'background-location-tracking'),
+      );
+
+      await locationTrackingService.startTracking('rota-1', 'stop-7', 'stop-8');
+
+      expect(Location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+      expect(Location.stopLocationUpdatesAsync).not.toHaveBeenCalled();
+      expect(
+        (locationTrackingService as any).navigationState.currentStopId,
+      ).toBe('stop-7');
     });
 
     it('deve retornar false quando parada não encontrada', async () => {

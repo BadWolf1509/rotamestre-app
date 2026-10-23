@@ -10,6 +10,7 @@ import {
   getCurrentStop,
   getNextStop,
   buildRouteData,
+  getEstadoDaCarga,
 } from '../calculations';
 
 import type { ParadaData, RouteData, RotaQueryRow } from '../types';
@@ -87,10 +88,20 @@ describe('getRouteStatus', () => {
   it('excludes checkpoints from pending count', () => {
     const route = makeRoute({ status: 'em_andamento' });
     const paradas = [
-      makeParada({ id: 'cp1', ordem: 0, status: 'concluida', is_checkpoint: false }),
+      makeParada({
+        id: 'cp1',
+        ordem: 0,
+        status: 'concluida',
+        is_checkpoint: false,
+      }),
       makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
       makeParada({ id: 'p2', ordem: 2, status: 'concluida' }),
-      makeParada({ id: 'cp2', ordem: 3, status: 'pendente', is_checkpoint: false }),
+      makeParada({
+        id: 'cp2',
+        ordem: 3,
+        status: 'pendente',
+        is_checkpoint: false,
+      }),
     ];
     // Only real stops matter — both real stops are concluida
     expect(getRouteStatus(route, paradas)).toBe('ready-to-complete');
@@ -134,13 +145,19 @@ describe('getRouteStatus', () => {
 
     it('should use custom now param for celebration window', () => {
       const thirtyMinLater = concluidaMs + 30 * 60 * 1000;
-      const route = makeRoute({ status: 'concluida', concluida_em: concluidaEm });
+      const route = makeRoute({
+        status: 'concluida',
+        concluida_em: concluidaEm,
+      });
       expect(getRouteStatus(route, [], thirtyMinLater)).toBe('completed');
     });
 
     it('should expire celebration with custom now param after 1 hour', () => {
       const twoHoursLater = concluidaMs + 2 * 60 * 60 * 1000;
-      const route = makeRoute({ status: 'concluida', concluida_em: concluidaEm });
+      const route = makeRoute({
+        status: 'concluida',
+        concluida_em: concluidaEm,
+      });
       expect(getRouteStatus(route, [], twoHoursLater)).toBe('no-route');
     });
 
@@ -166,7 +183,11 @@ describe('getProgress', () => {
       makeParada({ id: 'p2', status: 'concluida' }),
       makeParada({ id: 'p3', status: 'pendente' }),
     ];
-    expect(getProgress(paradas)).toEqual({ completed: 2, total: 3, percentage: 67 });
+    expect(getProgress(paradas)).toEqual({
+      completed: 2,
+      total: 3,
+      percentage: 67,
+    });
   });
 
   it('excludes checkpoints from progress', () => {
@@ -175,7 +196,11 @@ describe('getProgress', () => {
       makeParada({ id: 'p1', status: 'concluida' }),
       makeParada({ id: 'p2', status: 'pendente' }),
     ];
-    expect(getProgress(paradas)).toEqual({ completed: 1, total: 2, percentage: 50 });
+    expect(getProgress(paradas)).toEqual({
+      completed: 1,
+      total: 2,
+      percentage: 50,
+    });
   });
 
   it('returns 100% when all real stops are done', () => {
@@ -183,7 +208,11 @@ describe('getProgress', () => {
       makeParada({ id: 'p1', status: 'concluida' }),
       makeParada({ id: 'p2', status: 'concluida' }),
     ];
-    expect(getProgress(paradas)).toEqual({ completed: 2, total: 2, percentage: 100 });
+    expect(getProgress(paradas)).toEqual({
+      completed: 2,
+      total: 2,
+      percentage: 100,
+    });
   });
 });
 
@@ -211,7 +240,12 @@ describe('getCurrentStop', () => {
 
   it('excludes checkpoints', () => {
     const paradas = [
-      makeParada({ id: 'cp', ordem: 0, status: 'pendente', is_checkpoint: false }),
+      makeParada({
+        id: 'cp',
+        ordem: 0,
+        status: 'pendente',
+        is_checkpoint: false,
+      }),
       makeParada({ id: 'p1', ordem: 1, status: 'pendente' }),
     ];
     expect(getCurrentStop(paradas)?.id).toBe('p1');
@@ -337,5 +371,58 @@ describe('buildRouteData', () => {
 
     const result = buildRouteData(row);
     expect(result.unidade_nome).toBe('');
+  });
+});
+
+/**
+ * Sem rota na tela, as telas precisam distinguir "carregando", "sem conexão"
+ * e "não há rota" — antes as três viravam "Nenhuma rota ativa".
+ */
+describe('getEstadoDaCarga', () => {
+  const rota = { id: 'r1' } as RouteData;
+  const erro = new Error('Network request failed');
+
+  it('sem rota e carregando: carregando', () => {
+    expect(
+      getEstadoDaCarga({
+        route: null,
+        loading: true,
+        error: null,
+        atualizadoEm: null,
+      }),
+    ).toBe('carregando');
+  });
+
+  it('sem rota, com erro e nunca carregou: sem-conexao', () => {
+    expect(
+      getEstadoDaCarga({
+        route: null,
+        loading: false,
+        error: erro,
+        atualizadoEm: null,
+      }),
+    ).toBe('sem-conexao');
+  });
+
+  it('sem rota confirmada antes, depois erro: o vazio vale (dados de antes)', () => {
+    expect(
+      getEstadoDaCarga({
+        route: null,
+        loading: false,
+        error: erro,
+        atualizadoEm: 1,
+      }),
+    ).toBeNull();
+  });
+
+  it('com rota na tela: nada sobrepõe, nem com erro', () => {
+    expect(
+      getEstadoDaCarga({
+        route: rota,
+        loading: true,
+        error: erro,
+        atualizadoEm: null,
+      }),
+    ).toBeNull();
   });
 });

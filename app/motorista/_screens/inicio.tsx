@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform, RefreshControl, ScrollView } from 'react-native';
+import { Platform, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Alert as AlertInline } from '@/components/Alert';
@@ -19,6 +19,7 @@ import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
+import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import {
@@ -27,6 +28,7 @@ import {
 } from '@/components/SwipeOnboarding';
 import { type MotivoSkip } from '@/constants/skipReasons';
 import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
+import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
@@ -42,6 +44,7 @@ import {
 } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
+import { formatTimeBR } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import {
   chegouPelaParadaAnterior,
@@ -80,12 +83,21 @@ function MotoristaInicioContent() {
     nextStop,
     progress,
     pendingRoutesCount,
+    loading,
+    error,
+    atualizadoEm,
     refreshRoute,
     startRoute,
     completeStop: _completeStop,
     skipStop,
     completeRoute,
   } = useRouteStatus();
+
+  // Sem dado em que confiar ainda: a carga inicial (abertura do app, Activity
+  // recriada) ou a falha antes da primeira carga. Nos dois casos `route` é
+  // null, e mostrar "Sem rota" a quem está no meio da rota era o defeito.
+  const estadoDaCarga =
+    getEstadoDaCarga({ route, loading, error, atualizadoEm }) ?? undefined;
 
   // Broadcast localização do motorista quando a rota está em andamento
   useDriverLocationBroadcast({
@@ -581,23 +593,48 @@ function MotoristaInicioContent() {
           completedStops={progress.completed}
           totalStops={progress.total}
           timeElapsed={getElapsedTime() ?? undefined}
+          estadoDaCarga={estadoDaCarga}
         />
 
-        {/* Main Card */}
-        <MainCard
-          state={routeStatus}
-          route={route}
-          paradas={paradas}
-          currentStop={currentStop}
-          nextStop={nextStop}
-          location={location}
-          pendingRoutesCount={pendingRoutesCount}
-          onSwipeLeft={handleSkipStop}
-          onSwipeRight={handleCompleteStop}
-          onPress={handleMainAction}
-          onChecklistChange={handleChecklistChange}
-          testID="motorista-main-card"
-        />
+        {/* Recarga falhou: os dados ficam, com a hora em que foram lidos */}
+        {error && atualizadoEm !== null && (
+          <AlertInline
+            type="warning"
+            title={`Sem conexão — dados de ${formatTimeBR(new Date(atualizadoEm).toISOString())}`}
+            message="Puxe para atualizar quando o sinal voltar."
+            testID="aviso-sem-conexao"
+          />
+        )}
+        {estadoDaCarga === 'sem-conexao' && (
+          <AlertInline
+            type="warning"
+            title="Sem conexão"
+            message="Não foi possível carregar a sua rota. Puxe para tentar de novo."
+            testID="aviso-sem-conexao"
+          />
+        )}
+
+        {/* Main Card (skeleton enquanto não há dado) */}
+        {estadoDaCarga === 'carregando' ? (
+          <View testID="motorista-inicio-carregando">
+            <RotaCardSkeleton />
+          </View>
+        ) : estadoDaCarga === 'sem-conexao' ? null : (
+          <MainCard
+            state={routeStatus}
+            route={route}
+            paradas={paradas}
+            currentStop={currentStop}
+            nextStop={nextStop}
+            location={location}
+            pendingRoutesCount={pendingRoutesCount}
+            onSwipeLeft={handleSkipStop}
+            onSwipeRight={handleCompleteStop}
+            onPress={handleMainAction}
+            onChecklistChange={handleChecklistChange}
+            testID="motorista-main-card"
+          />
+        )}
 
         {avisoDeLocalizacaoVisivel && (
           <AlertInline
@@ -663,7 +700,7 @@ function MotoristaInicioContent() {
       </ScrollView>
 
       {/* Floating Action Button - apenas quando NÃO é pending (pending usa StartRouteButton) */}
-      {routeStatus !== 'pending' && (
+      {routeStatus !== 'pending' && !estadoDaCarga && (
         <FloatingActionButton
           icon={fabProps.icon}
           color={fabProps.color}

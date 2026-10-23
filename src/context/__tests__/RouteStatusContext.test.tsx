@@ -39,6 +39,9 @@ let mockRotasConcluidas: any | null = null;
 let mockParadasData: any[] | null = null;
 let mockUpdateError: any = null;
 
+// Track rpc calls (finalizar_rota)
+const mockRpcCalls: { fn: string; args: unknown }[] = [];
+
 // Track update calls
 const mockUpdateCalls: {
   table: string;
@@ -121,6 +124,10 @@ jest.mock('@/lib/supabase', () => {
   return {
     supabase: {
       from: jest.fn((tableName: string) => createQueryMock(tableName)),
+      rpc: jest.fn((fn: string, args: unknown) => {
+        mockRpcCalls.push({ fn, args });
+        return Promise.resolve({ data: null, error: null });
+      }),
       channel: mockChannel,
       removeChannel: jest.fn(),
       realtime: {
@@ -291,6 +298,7 @@ describe('RouteStatusContext', () => {
     mockParadasData = null;
     mockUpdateError = null;
     mockUpdateCalls.length = 0;
+    mockRpcCalls.length = 0;
   });
 
   describe('Initial state', () => {
@@ -1246,6 +1254,7 @@ describe('RouteStatusContext actions', () => {
     mockParadasData = null;
     mockUpdateError = null;
     mockUpdateCalls.length = 0;
+    mockRpcCalls.length = 0;
   });
 
   describe('startRoute()', () => {
@@ -1730,15 +1739,14 @@ describe('RouteStatusContext actions', () => {
         fireEvent.press(getByTestId('completeRoute'));
       });
 
-      const rotaUpdate = mockUpdateCalls.find(
-        (c) => c.table === 'rotas' && c.data.status === 'concluida',
-      );
-      expect(rotaUpdate).toBeDefined();
-      expect(rotaUpdate?.filter.value).toBe('rota-123');
-      expect(rotaUpdate?.data.concluida_em).toBeDefined();
+      // Uma operação só no banco (RPC em transação), nunca UPDATE direto.
+      expect(mockRpcCalls).toEqual([
+        { fn: 'finalizar_rota', args: { p_rota_id: 'rota-123' } },
+      ]);
+      expect(mockUpdateCalls.filter((c) => c.table === 'rotas')).toEqual([]);
     });
 
-    it('deve marcar checkpoint de chegada como concluido', async () => {
+    it('a chegada é concluída pela RPC, não por UPDATE do cliente', async () => {
       mockRotasData = [
         createMockRoute({ id: 'rota-123', status: 'em_andamento' }),
       ];
@@ -1779,12 +1787,15 @@ describe('RouteStatusContext actions', () => {
         fireEvent.press(getByTestId('completeRoute'));
       });
 
-      // Deve marcar o checkpoint de maior ordem (chegada)
-      const checkpointUpdate = mockUpdateCalls.find(
-        (c) => c.table === 'paradas' && c.filter.value === 'checkpoint-chegada',
-      );
-      expect(checkpointUpdate).toBeDefined();
-      expect(checkpointUpdate?.data.status).toBe('concluida');
+      // A RPC `finalizar_rota` marca o checkpoint de maior ordem junto com a
+      // rota (Migration 40); o cliente não grava a chegada em separado.
+      expect(mockRpcCalls).toHaveLength(1);
+      expect(
+        mockUpdateCalls.find(
+          (c) =>
+            c.table === 'paradas' && c.filter.value === 'checkpoint-chegada',
+        ),
+      ).toBeUndefined();
     });
   });
 
@@ -1851,6 +1862,7 @@ describe('RouteStatusContext edge cases', () => {
     mockParadasData = null;
     mockUpdateError = null;
     mockUpdateCalls.length = 0;
+    mockRpcCalls.length = 0;
   });
 
   it('deve priorizar rota em_andamento sobre pendente', async () => {

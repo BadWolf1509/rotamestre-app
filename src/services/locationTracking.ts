@@ -6,7 +6,10 @@ import { Alert } from 'react-native';
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
-import { requestLocationPermissions } from '@/services/unifiedLocationTracking';
+import {
+  checkLocationPermissions,
+  isBackgroundTrackingActive,
+} from '@/services/unifiedLocationTracking';
 import { defaultTheme } from '@/utils/styles';
 
 // Task name for background location
@@ -97,14 +100,29 @@ class LocationTrackingService {
     return LocationTrackingService.instance;
   }
 
-  // Initialize and start tracking
+  /**
+   * Liga o modo navegação para a parada atual — ou, se já estiver ligado, só
+   * troca o alvo do geofence.
+   *
+   * - **Só CONSULTA permissão, nunca pede.** O motorista está dirigindo: o
+   *   pedido abria a activity do sistema (e o aviso de segundo plano) no meio
+   *   da rua e tirava o app da tela, o que derruba serviço em primeiro plano no
+   *   Android 12+. Quem pede é o início da rota (`requestAndStartTracking`).
+   * - **Não sobe um 2º serviço em primeiro plano.** Se o rastreamento da rota
+   *   (`rotamestre-background-location`) já roda, ele é reaproveitado: o GPS e
+   *   a notificação já existem, e as posições já são gravadas por ele. Se o
+   *   serviço deste modo já roda (troca de parada), só o alvo muda. Com o
+   *   serviço da rota no lugar, o aviso de chegada deste modo não roda — hoje
+   *   ele não exibe nada (`sendNotification` é um marcador), e o modo navegação
+   *   mede a distância pela tela.
+   */
   async startTracking(
     rotaId: string,
     currentStopId: string,
     nextStopId?: string,
   ) {
     try {
-      const permissions = await requestLocationPermissions();
+      const permissions = await checkLocationPermissions();
       if (!permissions.foreground) {
         throw new Error('Permissão de localização negada');
       }
@@ -151,9 +169,15 @@ class LocationTrackingService {
         JSON.stringify(this.navigationState),
       );
 
+      // Já há serviço em primeiro plano com GPS: só o alvo mudou.
+      const jaRodando =
+        (await isBackgroundTrackingActive()) ||
+        (await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK));
+      if (jaRodando) return true;
+
       // O Android 12+ recusa iniciar serviço em primeiro plano com o app fora
-      // da tela — e um pedido de permissão (deste fluxo ou de outra tela) tira
-      // o app da tela por uma fração de segundo.
+      // da tela — e um pedido de permissão (de outra tela) tira o app da tela
+      // por uma fração de segundo.
       await aguardarAppEmPrimeiroPlano();
 
       // Start background location updates

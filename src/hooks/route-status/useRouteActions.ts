@@ -5,7 +5,11 @@
 import { Platform } from 'react-native';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
-import type { ParadaData, ParadaUpdateData, RouteData } from '@/context/route-status/types';
+import type {
+  ParadaData,
+  ParadaUpdateData,
+  RouteData,
+} from '@/context/route-status/types';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import {
@@ -26,7 +30,7 @@ interface UseRouteActionsOptions {
  */
 async function marcarProximaParadaEmAndamento(paradasAtuais: ParadaData[]) {
   const proximaPendente = paradasAtuais
-    .filter(p => p.status === 'pendente' && p.is_checkpoint !== false)
+    .filter((p) => p.status === 'pendente' && p.is_checkpoint !== false)
     .sort((a, b) => a.ordem - b.ordem)[0];
 
   if (proximaPendente) {
@@ -54,7 +58,9 @@ export function useRouteActions({
 
     // Validar se a rota está em status pendente
     if (route.status !== 'pendente') {
-      logger.warn(`[RouteStatus] startRoute Tentativa de iniciar rota com status '${route.status}' - ignorado`);
+      logger.warn(
+        `[RouteStatus] startRoute Tentativa de iniciar rota com status '${route.status}' - ignorado`,
+      );
       return;
     }
 
@@ -73,7 +79,9 @@ export function useRouteActions({
       if (error) throw error;
 
       // 2. Marcar ponto de partida (ordem 0) como concluído
-      const checkpointPartida = paradas.find(p => p.is_checkpoint === false && p.ordem === 0);
+      const checkpointPartida = paradas.find(
+        (p) => p.is_checkpoint === false && p.ordem === 0,
+      );
       if (checkpointPartida) {
         const { error: checkpointError } = await supabase
           .from('paradas')
@@ -109,8 +117,12 @@ export function useRouteActions({
   // Completa parada
   const completeStop = async (paradaId: string, fotoUrl?: string) => {
     if (!route || route.status !== 'em_andamento') {
-      logger.warn(`[RouteStatus] completeStop Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`);
-      throw new Error('A rota precisa estar em andamento para concluir paradas');
+      logger.warn(
+        `[RouteStatus] completeStop Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`,
+      );
+      throw new Error(
+        'A rota precisa estar em andamento para concluir paradas',
+      );
     }
 
     try {
@@ -146,9 +158,15 @@ export function useRouteActions({
   };
 
   // Pula parada com motivo estruturado
-  const skipStop = async (paradaId: string, motivo: MotivoSkip, observacoes?: string) => {
+  const skipStop = async (
+    paradaId: string,
+    motivo: MotivoSkip,
+    observacoes?: string,
+  ) => {
     if (!route || route.status !== 'em_andamento') {
-      logger.warn(`[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`);
+      logger.warn(
+        `[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`,
+      );
       throw new Error('A rota precisa estar em andamento para pular paradas');
     }
 
@@ -182,57 +200,50 @@ export function useRouteActions({
     }
   };
 
-  // Finaliza rota
+  // Finaliza rota. Uma operação só no banco (RPC `finalizar_rota`, em
+  // transação): confere que a rota é do motorista e está em andamento, que não
+  // há parada real pendente, e marca chegada + rota juntas. O rastreamento só
+  // para DEPOIS do sucesso — antes parava primeiro, e uma falha deixava a rota
+  // em andamento sem rastreamento.
   const completeRoute = async () => {
     if (!route) return;
 
-    // Validate all real stops are completed or skipped
+    // Atalho de UX: o banco confere de novo, isto só evita a ida e volta.
     const pendingStops = paradas.filter(
-      p => p.is_checkpoint !== false && (p.status === 'pendente' || p.status === 'em_andamento')
+      (p) =>
+        p.is_checkpoint !== false &&
+        (p.status === 'pendente' || p.status === 'em_andamento'),
     );
     if (pendingStops.length > 0) {
-      throw new Error(`Não é possível concluir a rota com ${pendingStops.length} parada(s) pendentes`);
+      // Mesma sentinela da RPC: o errorMapping dá a mensagem útil.
+      throw new Error(
+        `ROTA_PARADAS_PENDENTES: Não é possível concluir a rota com ${pendingStops.length} parada(s) pendentes`,
+      );
     }
 
     try {
-      const now = new Date().toISOString();
-
-      // 1. Parar rastreamento de localização em background
-      if (Platform.OS !== 'web') {
-        await stopBackgroundTracking();
-      }
-
-      // 2. Atualizar status da rota
-      const { error } = await supabase
-        .from('rotas')
-        .update({
-          status: 'concluida',
-          concluida_em: now,
-        })
-        .eq('id', route.id);
-
+      const { error } = await supabase.rpc('finalizar_rota', {
+        p_rota_id: route.id,
+      });
       if (error) throw error;
-
-      // 3. Marcar checkpoint de chegada (última parada com is_checkpoint=false) como concluído
-      const checkpointChegada = paradas
-        .filter(p => p.is_checkpoint === false)
-        .sort((a, b) => b.ordem - a.ordem)[0];
-
-      if (checkpointChegada) {
-        await supabase
-          .from('paradas')
-          .update({
-            status: 'concluida',
-            concluida_em: now,
-          })
-          .eq('id', checkpointChegada.id);
-      }
-
-      await loadActiveRoute();
     } catch (error) {
       logger.error('[RouteStatus] Erro ao concluir rota', error);
       throw error;
     }
+
+    // A rota já está concluída no banco: falhar aqui não pode desfazê-la.
+    if (Platform.OS !== 'web') {
+      try {
+        await stopBackgroundTracking();
+      } catch (error) {
+        logger.warn(
+          '[RouteStatus] Rota concluída, mas o rastreamento não parou',
+          error,
+        );
+      }
+    }
+
+    await loadActiveRoute();
   };
 
   return { startRoute, completeStop, skipStop, completeRoute };

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import {
@@ -34,10 +35,11 @@ const mockFrom = jest.fn(() => ({
 (supabase.from as jest.Mock) = mockFrom;
 
 /** Default fresh paradas returned by select queries */
-let freshParadasResponse: { data: Partial<ParadaData>[] | null; error: null } = {
-  data: [],
-  error: null,
-};
+let freshParadasResponse: { data: Partial<ParadaData>[] | null; error: null } =
+  {
+    data: [],
+    error: null,
+  };
 
 function makeRoute(overrides: Partial<RouteData> = {}): RouteData {
   return {
@@ -62,17 +64,22 @@ function makeParada(overrides: Partial<ParadaData> = {}): ParadaData {
   };
 }
 
-function setup(overrides: {
-  route?: RouteData | null;
-  paradas?: ParadaData[];
-  userData?: { id: string; nome?: string } | null;
-} = {}) {
+function setup(
+  overrides: {
+    route?: RouteData | null;
+    paradas?: ParadaData[];
+    userData?: { id: string; nome?: string } | null;
+  } = {},
+) {
   const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
   // eslint-disable-next-line react-hooks/rules-of-hooks -- useRouteActions is not a real hook (no useState/useEffect)
   const actions = useRouteActions({
     route: 'route' in overrides ? overrides.route! : makeRoute(),
     paradas: overrides.paradas ?? [],
-    userData: 'userData' in overrides ? overrides.userData! : { id: 'user-1', nome: 'Joao' },
+    userData:
+      'userData' in overrides
+        ? overrides.userData!
+        : { id: 'user-1', nome: 'Joao' },
     loadActiveRoute,
   });
   return { ...actions, loadActiveRoute };
@@ -120,7 +127,9 @@ describe('startRoute', () => {
       route: makeRoute({ status: 'em_andamento' }),
     });
     await startRoute();
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('em_andamento'));
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('em_andamento'),
+    );
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
@@ -141,7 +150,11 @@ describe('startRoute', () => {
   });
 
   it('marks checkpoint partida (ordem=0, is_checkpoint=false) as concluida', async () => {
-    const checkpoint = makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false });
+    const checkpoint = makeParada({
+      id: 'cp-start',
+      ordem: 0,
+      is_checkpoint: false,
+    });
     const parada = makeParada({ id: 'parada-1', ordem: 1 });
     const { startRoute } = setup({ paradas: [checkpoint, parada] });
 
@@ -150,9 +163,11 @@ describe('startRoute', () => {
     // First call: update rota, Second call: update checkpoint, Third call: next parada
     expect(mockFrom).toHaveBeenCalledWith('paradas');
     const updateCalls = mockUpdate.mock.calls;
-    expect(updateCalls.some((c: any[]) =>
-      c[0]?.status === 'concluida' && c[0]?.concluida_em,
-    )).toBe(true);
+    expect(
+      updateCalls.some(
+        (c: any[]) => c[0]?.status === 'concluida' && c[0]?.concluida_em,
+      ),
+    ).toBe(true);
   });
 
   it('calls marcarProximaParadaEmAndamento for first real parada', async () => {
@@ -166,7 +181,9 @@ describe('startRoute', () => {
 
     // Should update the first pendente parada to em_andamento
     const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p1')).toBe(true);
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p1')).toBe(
+      true,
+    );
   });
 
   it('calls loadActiveRoute on success', async () => {
@@ -319,11 +336,16 @@ describe('completeStop', () => {
 
     // Should update p2 to em_andamento via marcarProximaParadaEmAndamento
     const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(true);
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(
+      true,
+    );
   });
 
   it('does not call marcarProximaParadaEmAndamento when fresh query returns null', async () => {
-    mockSelectOrder.mockImplementation(() => ({ data: null, error: { message: 'query failed' } }));
+    mockSelectOrder.mockImplementation(() => ({
+      data: null,
+      error: { message: 'query failed' },
+    }));
 
     const { completeStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
@@ -372,9 +394,13 @@ describe('completeStop', () => {
     // With the old stale closure logic, p2 would be promoted.
     // With the fresh DB query, p3 is promoted because p2 is already concluida.
     const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(true);
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(
+      true,
+    );
     // p2 should NOT be promoted
-    expect(eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toHaveLength(0);
+    expect(
+      eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2'),
+    ).toHaveLength(0);
   });
 
   it('calls loadActiveRoute', async () => {
@@ -397,7 +423,9 @@ describe('skipStop', () => {
     const { skipStop } = setup({
       route: makeRoute({ status: 'pendente' }),
     });
-    await expect(skipStop('p1', 'cliente_ausente')).rejects.toThrow('em andamento');
+    await expect(skipStop('p1', 'cliente_ausente')).rejects.toThrow(
+      'em andamento',
+    );
   });
 
   it('updates parada with status pulada and motivo_skip', async () => {
@@ -482,12 +510,17 @@ describe('skipStop', () => {
     await skipStop('p1', 'endereco_incorreto');
 
     const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(true);
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toBe(
+      true,
+    );
     expect(loadActiveRoute).toHaveBeenCalled();
   });
 
   it('does not call marcarProximaParadaEmAndamento when fresh query returns null', async () => {
-    mockSelectOrder.mockImplementation(() => ({ data: null, error: { message: 'query failed' } }));
+    mockSelectOrder.mockImplementation(() => ({
+      data: null,
+      error: { message: 'query failed' },
+    }));
 
     const { skipStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
@@ -532,8 +565,12 @@ describe('skipStop', () => {
 
     // With fresh DB query, p3 should be promoted (not p2)
     const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(true);
-    expect(eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2')).toHaveLength(0);
+    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p3')).toBe(
+      true,
+    );
+    expect(
+      eqCalls.filter((c: any[]) => c[0] === 'id' && c[1] === 'p2'),
+    ).toHaveLength(0);
   });
 });
 
@@ -541,47 +578,43 @@ describe('skipStop', () => {
 // completeRoute
 // ============================================================================
 
+/**
+ * Finalizar a rota é UMA operação no banco: a RPC `finalizar_rota` confere
+ * dono, status e paradas pendentes e marca chegada + rota numa transação.
+ * Antes eram dois UPDATEs do cliente (rota, depois checkpoint, com o erro do
+ * segundo ignorado) e o rastreamento parava ANTES — uma falha deixava a rota
+ * em andamento sem rastreamento.
+ */
 describe('completeRoute', () => {
+  const mockRpc = jest.fn();
+
+  beforeEach(() => {
+    mockRpc.mockReset().mockResolvedValue({ data: null, error: null });
+    (supabase as unknown as { rpc: jest.Mock }).rpc = mockRpc;
+  });
+
   it('returns early when route is null', async () => {
     const { completeRoute } = setup({ route: null });
     await completeRoute();
+    expect(mockRpc).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
-  it('updates rota status to concluida', async () => {
+  it('finaliza pela RPC atômica, sem UPDATE direto em rotas/paradas', async () => {
     const { completeRoute } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
+      route: makeRoute({ id: 'route-9', status: 'em_andamento' }),
+      paradas: [makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false })],
     });
 
     await completeRoute();
 
-    expect(mockFrom).toHaveBeenCalledWith('rotas');
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'concluida',
-        concluida_em: expect.any(String),
-      }),
-    );
-  });
-
-  it('marks checkpoint chegada (highest ordem, is_checkpoint=false) as concluida', async () => {
-    const paradas = [
-      makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false }),
-      makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
-      makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false }),
-    ];
-    const { completeRoute } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-      paradas,
+    expect(mockRpc).toHaveBeenCalledWith('finalizar_rota', {
+      p_rota_id: 'route-9',
     });
-
-    await completeRoute();
-
-    const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'cp-end')).toBe(true);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('calls stopBackgroundTracking on mobile', async () => {
+  it('para o rastreamento só DEPOIS do sucesso da RPC (mobile)', async () => {
     (Platform as any).OS = 'android';
     const { completeRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
@@ -590,6 +623,46 @@ describe('completeRoute', () => {
     await completeRoute();
 
     expect(stopBackgroundTracking).toHaveBeenCalled();
+    expect(mockRpc.mock.invocationCallOrder[0]).toBeLessThan(
+      (stopBackgroundTracking as jest.Mock).mock.invocationCallOrder[0],
+    );
+  });
+
+  it('erro da RPC propaga e NÃO para o rastreamento', async () => {
+    (Platform as any).OS = 'android';
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: 'Não é possível finalizar a rota com 1 parada(s) pendente(s).',
+      },
+    });
+    const { completeRoute, loadActiveRoute } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+    });
+
+    await expect(completeRoute()).rejects.toEqual(
+      expect.objectContaining({ message: expect.stringContaining('pendente') }),
+    );
+    expect(stopBackgroundTracking).not.toHaveBeenCalled();
+    expect(loadActiveRoute).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('concluir rota'),
+      expect.anything(),
+    );
+  });
+
+  it('falha ao parar o rastreamento depois do sucesso não desfaz a finalização', async () => {
+    (Platform as any).OS = 'android';
+    (stopBackgroundTracking as jest.Mock).mockRejectedValueOnce(
+      new Error('task'),
+    );
+    const { completeRoute, loadActiveRoute } = setup({
+      route: makeRoute({ status: 'em_andamento' }),
+    });
+
+    await expect(completeRoute()).resolves.toBeUndefined();
+    expect(loadActiveRoute).toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalled();
   });
 
   it('does not call stopBackgroundTracking on web', async () => {
@@ -612,26 +685,23 @@ describe('completeRoute', () => {
     expect(loadActiveRoute).toHaveBeenCalled();
   });
 
-  it('throws and logs error on supabase failure', async () => {
-    mockUpdateEq.mockResolvedValueOnce({ error: { message: 'DB fail' } });
-    const { completeRoute } = setup({
-      route: makeRoute({ status: 'em_andamento' }),
-    });
-
-    await expect(completeRoute()).rejects.toEqual({ message: 'DB fail' });
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('concluir rota'),
-      expect.anything(),
-    );
-  });
-
-  it('throws when there are pending real stops', async () => {
+  it('recusa já no cliente quando há parada real pendente (sem chamar a RPC)', async () => {
     const paradas = [
-      makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false, status: 'concluida' }),
+      makeParada({
+        id: 'cp-start',
+        ordem: 0,
+        is_checkpoint: false,
+        status: 'concluida',
+      }),
       makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
-      makeParada({ id: 'p2', ordem: 2, status: 'pendente' }), // real stop still pending
-      makeParada({ id: 'p3', ordem: 3, status: 'em_andamento' }), // real stop still in progress
-      makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false, status: 'pendente' }),
+      makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
+      makeParada({ id: 'p3', ordem: 3, status: 'em_andamento' }),
+      makeParada({
+        id: 'cp-end',
+        ordem: 99,
+        is_checkpoint: false,
+        status: 'pendente',
+      }),
     ];
     const { completeRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
@@ -639,31 +709,18 @@ describe('completeRoute', () => {
     });
 
     await expect(completeRoute()).rejects.toThrow('2 parada(s) pendentes');
-    // Should not have made any DB calls
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('succeeds when all real stops are concluida or pulada', async () => {
-    const paradas = [
-      makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false, status: 'concluida' }),
-      makeParada({ id: 'p1', ordem: 1, status: 'concluida' }),
-      makeParada({ id: 'p2', ordem: 2, status: 'pulada' }),
-      makeParada({ id: 'p3', ordem: 3, status: 'concluida' }),
-      makeParada({ id: 'cp-end', ordem: 99, is_checkpoint: false, status: 'pendente' }), // checkpoint can be pending
-    ];
-    const { completeRoute, loadActiveRoute } = setup({
+  it('a recusa do atalho do cliente vira mensagem útil, não "erro inesperado"', async () => {
+    const { completeRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
-      paradas,
+      paradas: [makeParada({ id: 'p1', status: 'pendente' })],
     });
 
-    await completeRoute();
+    const erro = await completeRoute().catch((e: unknown) => e);
 
-    // Should have proceeded to update the route
-    expect(mockFrom).toHaveBeenCalledWith('rotas');
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'concluida' }),
-    );
-    expect(loadActiveRoute).toHaveBeenCalled();
+    expect(getErrorMessage(erro).code).toBe('ROUTE_STOPS_PENDING');
   });
 });
 
@@ -692,7 +749,9 @@ describe('marcarProximaParadaEmAndamento error propagation', () => {
       .mockResolvedValueOnce({ error: null }) // completeStop: update p1
       .mockResolvedValueOnce({ error: { message: 'promotion failed' } }); // marcarProximaParadaEmAndamento: update p2
 
-    await expect(completeStop('p1')).rejects.toEqual({ message: 'promotion failed' });
+    await expect(completeStop('p1')).rejects.toEqual({
+      message: 'promotion failed',
+    });
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('marcarProximaParadaEmAndamento'),
       expect.objectContaining({ message: 'promotion failed' }),
@@ -718,7 +777,9 @@ describe('marcarProximaParadaEmAndamento error propagation', () => {
       .mockResolvedValueOnce({ error: null })
       .mockResolvedValueOnce({ error: { message: 'skip promotion failed' } });
 
-    await expect(skipStop('p1', 'cliente_ausente')).rejects.toEqual({ message: 'skip promotion failed' });
+    await expect(skipStop('p1', 'cliente_ausente')).rejects.toEqual({
+      message: 'skip promotion failed',
+    });
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('marcarProximaParadaEmAndamento'),
       expect.objectContaining({ message: 'skip promotion failed' }),
@@ -726,9 +787,7 @@ describe('marcarProximaParadaEmAndamento error propagation', () => {
   });
 
   it('propagates error to startRoute caller when promoting first parada fails', async () => {
-    const paradas = [
-      makeParada({ id: 'p1', ordem: 1, status: 'pendente' }),
-    ];
+    const paradas = [makeParada({ id: 'p1', ordem: 1, status: 'pendente' })];
 
     const { startRoute } = setup({ paradas });
 
@@ -737,7 +796,9 @@ describe('marcarProximaParadaEmAndamento error propagation', () => {
       .mockResolvedValueOnce({ error: null }) // startRoute: update rota
       .mockResolvedValueOnce({ error: { message: 'start promotion failed' } }); // marcarProximaParadaEmAndamento
 
-    await expect(startRoute()).rejects.toEqual({ message: 'start promotion failed' });
+    await expect(startRoute()).rejects.toEqual({
+      message: 'start promotion failed',
+    });
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('iniciar rota'),
       expect.anything(),
@@ -751,7 +812,11 @@ describe('marcarProximaParadaEmAndamento error propagation', () => {
 
 describe('startRoute checkpoint update error', () => {
   it('throws when checkpoint partida update fails', async () => {
-    const checkpoint = makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false });
+    const checkpoint = makeParada({
+      id: 'cp-start',
+      ordem: 0,
+      is_checkpoint: false,
+    });
     const parada = makeParada({ id: 'p1', ordem: 1 });
 
     const { startRoute } = setup({ paradas: [checkpoint, parada] });
@@ -759,9 +824,13 @@ describe('startRoute checkpoint update error', () => {
     // First update (rota status) succeeds, second (checkpoint) fails
     mockUpdateEq
       .mockResolvedValueOnce({ error: null }) // update rota
-      .mockResolvedValueOnce({ error: { message: 'checkpoint update failed' } }); // update checkpoint
+      .mockResolvedValueOnce({
+        error: { message: 'checkpoint update failed' },
+      }); // update checkpoint
 
-    await expect(startRoute()).rejects.toEqual({ message: 'checkpoint update failed' });
+    await expect(startRoute()).rejects.toEqual({
+      message: 'checkpoint update failed',
+    });
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('iniciar rota'),
       expect.objectContaining({ message: 'checkpoint update failed' }),
@@ -769,17 +838,25 @@ describe('startRoute checkpoint update error', () => {
   });
 
   it('does not proceed to marcarProximaParadaEmAndamento when checkpoint fails', async () => {
-    const checkpoint = makeParada({ id: 'cp-start', ordem: 0, is_checkpoint: false });
+    const checkpoint = makeParada({
+      id: 'cp-start',
+      ordem: 0,
+      is_checkpoint: false,
+    });
     const parada = makeParada({ id: 'p1', ordem: 1, status: 'pendente' });
 
-    const { startRoute, loadActiveRoute } = setup({ paradas: [checkpoint, parada] });
+    const { startRoute, loadActiveRoute } = setup({
+      paradas: [checkpoint, parada],
+    });
 
     // First update (rota) succeeds, second (checkpoint) fails
     mockUpdateEq
       .mockResolvedValueOnce({ error: null })
       .mockResolvedValueOnce({ error: { message: 'checkpoint failed' } });
 
-    await expect(startRoute()).rejects.toEqual({ message: 'checkpoint failed' });
+    await expect(startRoute()).rejects.toEqual({
+      message: 'checkpoint failed',
+    });
 
     // Should only have 2 update calls (rota + checkpoint), NOT 3 (no promotion)
     expect(mockUpdateEq).toHaveBeenCalledTimes(2);

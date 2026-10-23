@@ -1533,3 +1533,50 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 67.204 → 54.319 linhas, esperado 12.885 = apagadas 12.885; posições de rotas
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
+
+### ✅ Migration 40: RPC `finalizar_rota` (rota e chegada numa transação)
+
+**Arquivo:** `20261023100000_finalizar_rota_rpc.sql` · **✅ aplicada em
+23/10/2026 via `apply_migration`, antes do merge** do PR da Onda C (#630,
+carregamento da rota do motorista), com a versão alinhada ao arquivo em
+`schema_migrations`. Sonda rodada antes: os 6 casos como esperado e as contagens
+de aviso/log iguais após a 2ª chamada (idempotente). O número 40
+segue a ordem de aplicação (38 e 39 são de outras ondas); o prefixo do arquivo
+não muda.
+
+**Por quê.** O app finalizava em dois UPDATEs do cliente (rota, depois checkpoint
+de chegada, com o erro deste ignorado) e conferia as paradas pendentes só na
+lista em memória — que vinha vazia quando a consulta das paradas falhava, e a
+rota aparecia "pronta para finalizar". O rastreamento também parava antes do
+UPDATE: uma falha deixava a rota em andamento sem rastreamento.
+
+**O que faz.** `finalizar_rota(p_rota_id uuid)`, SECURITY DEFINER,
+`search_path = public`, EXECUTE só para `authenticated` (REVOKE de PUBLIC/anon).
+Trava só a rota do próprio motorista (dono no `WHERE`, `FOR NO KEY UPDATE`):
+"não existe" e "não é sua" caem no mesmo `NOT FOUND` → `ROTA_NAO_ENCONTRADA`. Rota
+já `concluida` do próprio motorista retorna **sem erro** (idempotente: a resposta
+da 1ª chamada pode se perder com sinal ruim e o motorista toca de novo). Fora
+isso, exige `em_andamento`; trava as paradas da rota (`FOR NO KEY UPDATE`) e só então
+conta as reais (`is_checkpoint` verdadeiro ou nulo) `pendente`/`em_andamento`;
+conclui o checkpoint de chegada (maior `ordem` com `is_checkpoint = false`) e a
+rota (`concluida_em = now()`). Cada recusa começa por uma sentinela
+(`NAO_AUTENTICADO`, `ROTA_NAO_ENCONTRADA`, `ROTA_NAO_EM_ANDAMENTO`,
+`ROTA_PARADAS_PENDENTES`) que `src/lib/errorMapping.ts` traduz para o motorista
+(guarda: `src/lib/__tests__/rpc-finalizar-rota.test.ts`). Os gatilhos de log e de
+aviso ao gestor disparam como antes. No app, `completeRoute` (`useRouteActions.ts`)
+chama a RPC e só depois para o rastreamento.
+
+**Alcance da trava das paradas.** Trava de linha não impede INSERT de linha nova.
+Ela serializa com reabertura de parada (UPDATE) e com `inserir_parada`, que
+sempre move o checkpoint de chegada antes de inserir; um INSERT direto em
+`paradas` (sem a RPC) ao mesmo tempo ainda passaria — fechar isso exige mexer em
+`inserir_parada`/policy de INSERT, fora desta migration. As travas são `FOR NO
+KEY UPDATE`, nunca `FOR UPDATE`: o INSERT de `inserir_parada` pega `FOR KEY SHARE`
+na rota pela FK, e `FOR UPDATE` conflitaria com ele (deadlock gestor-insere x
+motorista-finaliza, apontado pelo `rls-policy-reviewer`); nenhuma chave muda aqui.
+
+**Verificação.** Sonda transacional (desfeita) a rodar antes de aplicar: rota com
+parada pendente → recusa; outro motorista → recusa; `anon` → sem permissão; sem
+pendente → conclui (rota e chegada); 2ª chamada do dono → sucesso sem novo aviso
+nem log; rota cancelada → recusa. Conta avisos `rota_concluida` e logs
+`motorista_concluiu_rota`/`parada_concluida` depois da 1ª e da 2ª chamada.
