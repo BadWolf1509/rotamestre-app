@@ -2,11 +2,14 @@ import { useRouter, useSegments } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
+import { SemConexaoScreen } from '@/components/auth/SemConexaoScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { authService } from '@/lib/auth';
+import { lerPerfilConhecido } from '@/lib/auth/perfilConhecido';
 import { obterSessaoComTimeout } from '@/lib/auth/sessaoComTimeout';
 import { logger } from '@/lib/logger';
 import { isRecoveryRedirect } from '@/lib/supabase';
+import type { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 /**
@@ -26,6 +29,8 @@ function IndexContent() {
   const router = useRouter();
   const segments = useSegments();
   const [loading, setLoading] = useState(true);
+  // Busca do perfil falhou e o aparelho não conhece perfil desta conta.
+  const [semConexao, setSemConexao] = useState(false);
   const hasRedirected = useRef(false);
 
   useEffect(() => {
@@ -78,7 +83,27 @@ function IndexContent() {
 
       if (session?.user) {
         // Usuário autenticado: buscar dados completos para verificar primeira_senha
-        const usuario = await authService.getUsuario(session.user.id);
+        let usuario: Usuario | null;
+        try {
+          usuario = await authService.getUsuario(session.user.id);
+        } catch (erroBusca) {
+          // Falha de rede/servidor NÃO é "sem perfil" (isso é data:null sem
+          // erro, tratado abaixo). Vale o último perfil conhecido da própria
+          // conta; sem ele, "Sem conexão" — nunca login nem onboarding.
+          usuario = await lerPerfilConhecido(session.user.id);
+          if (!usuario) {
+            logger.warn(
+              '[index] Busca do perfil falhou sem perfil conhecido',
+              erroBusca,
+            );
+            setSemConexao(true);
+            return;
+          }
+          logger.warn(
+            '[index] Busca do perfil falhou; seguindo pelo último perfil conhecido',
+            erroBusca,
+          );
+        }
 
         if (!usuario) {
           // Sessão válida sem perfil = cadastro incompleto. Mandar para o login
@@ -125,9 +150,10 @@ function IndexContent() {
         router.replace('/auth/login');
       }
     } catch (error) {
-      // Erro ao verificar sessão: vai para login como fallback
+      // Erro ao verificar a sessão: o login não resolveria (a sessão pode ser
+      // válida e o login também precisa de rede). Fica em "Sem conexão".
       logger.error('❌ Erro ao verificar sessão:', error);
-      router.replace('/auth/login');
+      setSemConexao(true);
     } finally {
       setLoading(false);
     }
@@ -140,6 +166,18 @@ function IndexContent() {
         <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Verificando sessão...</Text>
       </View>
+    );
+  }
+
+  if (semConexao) {
+    return (
+      <SemConexaoScreen
+        onTentarNovamente={() => {
+          setSemConexao(false);
+          setLoading(true);
+          checkSessionAndRedirect();
+        }}
+      />
     );
   }
 

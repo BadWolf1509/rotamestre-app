@@ -32,7 +32,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const router = useRouter();
   const segments = useSegments();
   const { user, loading: authLoading } = useAuth();
-  const { userData, loading: userLoading } = useUser();
+  const { userData, loading: userLoading, semConexao, refresh } = useUser();
   const [isReady, setIsReady] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
@@ -64,9 +64,24 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       return;
     }
 
+    // A busca do perfil falhou e o aparelho não conhece perfil desta conta:
+    // não é "sem perfil" nem "deslogado". O login não resolveria (a sessão é
+    // válida e o login também precisa de rede) — o layout mostra
+    // `SemConexaoScreen` e a pessoa tenta de novo.
+    if (!userData && semConexao) {
+      logger.warn(
+        '[Auth] Perfil indisponível (sem conexão). Sem redirecionar.',
+      );
+      setIsReady(true);
+      setIsAuthorized(false);
+      return;
+    }
+
     // userData ausente após carregamento -> tratar como não autorizado
     if (!userData) {
-      logger.warn('[Auth] userData ausente após carregar. Redirecionando para login.');
+      logger.warn(
+        '[Auth] userData ausente após carregar. Redirecionando para login.',
+      );
       setIsReady(true);
       setIsAuthorized(false);
       router.replace(redirectTo);
@@ -76,7 +91,9 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     // IMPORTANTE: Verificar se usuário precisa trocar senha (primeira_senha)
     // Isso evita tela branca caso o usuário acesse diretamente uma rota protegida
     if (userData.primeira_senha === true) {
-      logger.warn('[Auth] Usuário precisa trocar senha. Redirecionando para first-password.');
+      logger.warn(
+        '[Auth] Usuário precisa trocar senha. Redirecionando para first-password.',
+      );
       setIsReady(true);
       setIsAuthorized(false);
       router.replace('/onboarding/first-password');
@@ -102,7 +119,17 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     // Tudo ok - usuário autenticado e autorizado
     setIsReady(true);
     setIsAuthorized(true);
-  }, [authLoading, userLoading, user, userData, role, redirectTo, router, segments]);
+  }, [
+    authLoading,
+    userLoading,
+    user,
+    userData,
+    semConexao,
+    role,
+    redirectTo,
+    router,
+    segments,
+  ]);
 
   return {
     /** Indica se a verificação de auth foi concluída */
@@ -113,5 +140,9 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     userData,
     /** Indica se ainda está carregando */
     isLoading: authLoading || userLoading,
+    /** Busca do perfil falhou sem perfil conhecido: mostre `SemConexaoScreen`. */
+    semConexao: !userData && semConexao,
+    /** Refaz a busca do perfil (botão "Tentar novamente"). */
+    tentarNovamente: refresh,
   };
 }

@@ -79,4 +79,26 @@ describe('portão de onboarding em app/auth/login', () => {
     });
     expect(mockReplace).not.toHaveBeenCalledWith('/onboarding/criar-unidade');
   });
+
+  // Contrato com `authService.signIn`: falha ao buscar o perfil agora
+  // REJEITA (antes virava `usuario: null` e caía no ramo do onboarding acima).
+  // Aqui só se fixa que a rejeição não leva ao onboarding.
+  it('falha ao buscar o perfil não manda ao onboarding', async () => {
+    mockAuth.signIn.mockRejectedValue({
+      message: 'TypeError: Network request failed',
+    } as never);
+
+    const { getByPlaceholderText, getByText } = render(<Login />);
+
+    fireEvent.changeText(
+      getByPlaceholderText('seu@email.com'),
+      'motorista@rotamestre.com',
+    );
+    fireEvent.changeText(getByPlaceholderText('••••••••'), 'senha123');
+    fireEvent.press(getByText('Entrar'));
+
+    await waitFor(() => expect(mockAuth.signIn).toHaveBeenCalled());
+    await waitFor(() => expect(getByText('Entrar')).toBeTruthy());
+    expect(mockReplace).not.toHaveBeenCalledWith('/onboarding/criar-unidade');
+  });
 });

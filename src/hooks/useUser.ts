@@ -3,6 +3,11 @@ import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
 import {
+  apagarPerfilConhecido,
+  gravarPerfilConhecido,
+  lerPerfilConhecido,
+} from '../lib/auth/perfilConhecido';
+import {
   getCache,
   setCache,
   clearCache,
@@ -21,6 +26,9 @@ export function useUser() {
   const [userData, setUserData] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
   const [fromCache, setFromCache] = useState(false);
+  // A busca falhou e não há perfil conhecido desta conta para responder.
+  // Distingue "não deu para saber" de "não tem perfil" (userData null em ambos).
+  const [semConexao, setSemConexao] = useState(false);
   const fetchingRef = useRef(false);
   const mountedRef = useRef(true);
   const userDataRef = useRef<Usuario | null>(null);
@@ -128,6 +136,7 @@ export function useUser() {
 
       if (!userId) {
         setUserData(null);
+        setSemConexao(false);
         setLoading(false);
         return;
       }
@@ -136,6 +145,10 @@ export function useUser() {
       fetchingRef.current = true;
 
       const cacheKey = CACHE_KEYS.USER_DATA(userId);
+      // O que a tela já mostra, mas só se for DESTA conta: na troca A→B o
+      // estado ainda guarda o perfil de A, que não pode responder por B.
+      let exibido: Usuario | null =
+        userDataRef.current?.id === userId ? userDataRef.current : null;
 
       try {
         // 1. Verificar cache primeiro (se não for refresh forçado)
@@ -146,6 +159,7 @@ export function useUser() {
           if (cached !== null && mountedRef.current) {
             setUserData(cached);
             setFromCache(true);
+            exibido = cached;
             // NÃO definir loading=false aqui - aguardar query Supabase validar sessão
           }
         }
@@ -156,19 +170,30 @@ export function useUser() {
         if (freshData && mountedRef.current) {
           setUserData(freshData);
           setFromCache(false);
+          setSemConexao(false);
           await setCache(cacheKey, freshData, CACHE_TTL.USER_DATA);
+          await gravarPerfilConhecido(freshData);
         } else if (!freshData && mountedRef.current) {
           // Sem linha em `usuarios` — perfil ainda não criado (onboarding) ou não
           // visível para este usuário. É estado real, não erro: reflita-o e não
           // deixe um perfil antigo em cache responder por ele.
           setUserData(null);
           setFromCache(false);
+          setSemConexao(false);
           await clearCache(cacheKey);
+          await apagarPerfilConhecido(userId);
         }
       } catch (error) {
+        // Falha de rede/servidor não é "sem perfil": stale-if-error. O cache de
+        // 5 min pode já ter vencido (processo morto na câmera, offline), então
+        // o último perfil conhecido da conta responde. Sem ele, `semConexao`,
+        // e o portão mostra a tela de reconexão em vez de mandar ao login.
         logger.error('Error loading user data:', error);
-        if (mountedRef.current && !userDataRef.current) {
-          setUserData(null);
+        const conhecido = exibido ?? (await lerPerfilConhecido(userId));
+        if (mountedRef.current) {
+          setUserData(conhecido);
+          setFromCache(conhecido !== null);
+          setSemConexao(conhecido === null);
         }
       } finally {
         if (mountedRef.current) {
@@ -243,6 +268,7 @@ export function useUser() {
     userData,
     loading: authLoading || loading, // ✅ Inclui authLoading para evitar queries prematuras
     fromCache, // ✅ Indica se dados vieram do cache
+    semConexao,
     isGestor: userData?.papel === 'gestor',
     isMotorista: userData?.papel === 'motorista',
     unidade: userData?.unidades,

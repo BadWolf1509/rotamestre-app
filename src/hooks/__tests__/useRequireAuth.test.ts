@@ -32,11 +32,15 @@ jest.mock('../useAuth', () => ({
 // Mock useUser
 let mockUserData: any = { id: 'user-1', nome: 'Test User', papel: 'gestor' };
 let mockUserLoading = false;
+let mockSemConexao = false;
+const mockRefresh = jest.fn();
 
 jest.mock('../useUser', () => ({
   useUser: () => ({
     userData: mockUserData,
     loading: mockUserLoading,
+    semConexao: mockSemConexao,
+    refresh: mockRefresh,
   }),
 }));
 
@@ -47,6 +51,7 @@ describe('useRequireAuth', () => {
     mockAuthLoading = false;
     mockUserData = { id: 'user-1', nome: 'Test User', papel: 'gestor' };
     mockUserLoading = false;
+    mockSemConexao = false;
     mockUseSegments.mockReturnValue(['gestor']);
   });
 
@@ -104,7 +109,7 @@ describe('useRequireAuth', () => {
       mockUser = null;
 
       const { result } = renderHook(() =>
-        useRequireAuth({ redirectTo: '/custom-login' })
+        useRequireAuth({ redirectTo: '/custom-login' }),
       );
 
       await waitFor(() => {
@@ -119,7 +124,9 @@ describe('useRequireAuth', () => {
     it('deve redirecionar gestor para área de gestor', async () => {
       mockUserData = { papel: 'gestor' };
 
-      const { result } = renderHook(() => useRequireAuth({ role: 'motorista' }));
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
 
       await waitFor(() => {
         expect(result.current.isReady).toBe(true);
@@ -239,6 +246,37 @@ describe('useRequireAuth', () => {
       const { result } = renderHook(() => useRequireAuth());
 
       expect(result.current.isLoading).toBe(false);
+    });
+  });
+
+  // Offline sem nenhum perfil conhecido: ir ao login não resolve (a sessão é
+  // válida e o login também precisa de rede) e ainda tira a pessoa do app.
+  describe('busca do perfil falhou sem perfil conhecido', () => {
+    beforeEach(() => {
+      mockUserData = null;
+      mockSemConexao = true;
+      mockUseSegments.mockReturnValue(['motorista']);
+    });
+
+    it('não redireciona e sinaliza semConexao', async () => {
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      expect(result.current.isAuthorized).toBe(false);
+      expect(result.current.semConexao).toBe(true);
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('tentarNovamente refaz a busca do perfil', async () => {
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      result.current.tentarNovamente();
+      expect(mockRefresh).toHaveBeenCalled();
     });
   });
 });

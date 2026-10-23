@@ -105,6 +105,10 @@ describe('useUser', () => {
     });
 
     it('deve definir userData como null quando falhar ao carregar usuário', async () => {
+      // Sem perfil em cache: o cache em memória do `lib/cache` atravessa os
+      // testes, e um perfil válido deixado pelo teste anterior agora (com
+      // stale-if-error) responderia pela falha — corretamente.
+      await require('@/lib/cache').clearAllCache();
       const errorMessage = 'Erro ao buscar usuário';
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
@@ -124,6 +128,7 @@ describe('useUser', () => {
 
       expect(result.current.userData).toBeNull();
       expect(result.current.unidade).toBeUndefined();
+      expect(result.current.semConexao).toBe(true);
     });
 
     it('não loga erro quando o perfil ainda não existe', async () => {
@@ -334,6 +339,141 @@ describe('useUser', () => {
       await waitFor(() => {
         expect(callCount).toBeGreaterThan(initialCallCount);
       });
+    });
+  });
+
+  // Reproduzido no aparelho (1.14.3): offline, processo morto na câmera, app
+  // reabre do zero. O cache de 5 min já venceu, a busca falha, e o perfil
+  // sumia — `useRequireAuth` mandava o motorista para o login.
+  describe('busca falhando: último perfil conhecido (stale-if-error)', () => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const memoria = new Map<string, string>();
+    const falhaDeRede = { message: 'TypeError: Network request failed' };
+    const buscaFalhando = () =>
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest
+          .fn()
+          .mockResolvedValue({ data: null, error: falhaDeRede }),
+      });
+    const comUsuario = (id: string) =>
+      require('../useAuth').useAuth.mockReturnValue({
+        user: { ...mockUser, id },
+        loading: false,
+      });
+    const guardar = (perfil: { id: string }) =>
+      memoria.set(
+        '@rotamestre:perfil_conhecido',
+        JSON.stringify({ userId: perfil.id, perfil }),
+      );
+
+    beforeEach(() => {
+      memoria.clear();
+      AsyncStorage.getItem.mockImplementation(
+        async (k: string) => memoria.get(k) ?? null,
+      );
+      AsyncStorage.setItem.mockImplementation(async (k: string, v: string) => {
+        memoria.set(k, v);
+      });
+      AsyncStorage.removeItem.mockImplementation(async (k: string) => {
+        memoria.delete(k);
+      });
+      const { logger } = require('@/lib/logger');
+      jest.spyOn(logger, 'error').mockImplementation(() => {});
+      jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    });
+
+    it('usa o perfil conhecido do mesmo usuário quando a busca falha', async () => {
+      const motorista = { id: 'mot-offline-1', papel: 'motorista' as const };
+      comUsuario('mot-offline-1');
+      guardar(motorista);
+      buscaFalhando();
+
+      const { result } = renderHook(() => useUser());
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.userData).toEqual(motorista);
+      expect(result.current.isMotorista).toBe(true);
+      expect(result.current.semConexao).toBe(false);
+    });
+
+    it('não usa o perfil conhecido de OUTRA conta', async () => {
+      comUsuario('mot-offline-2');
+      guardar({ id: 'conta-a', papel: 'gestor' } as never);
+      buscaFalhando();
+
+      const { result } = renderHook(() => useUser());
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.userData).toBeNull();
+      expect(result.current.semConexao).toBe(true);
+    });
+
+    it('não deixa o perfil exibido da conta A responder pela conta B', async () => {
+      const useAuth = require('../useAuth').useAuth;
+      const contaA = { id: 'conta-a-troca', papel: 'gestor' as const };
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: contaA, error: null }),
+      });
+      comUsuario('conta-a-troca');
+
+      const { result, rerender } = renderHook(() => useUser());
+      await waitFor(() => expect(result.current.userData).toEqual(contaA));
+
+      memoria.clear();
+      buscaFalhando();
+      useAuth.mockReturnValue({
+        user: { ...mockUser, id: 'conta-b-troca' },
+        loading: false,
+      });
+      rerender({});
+
+      await waitFor(() => expect(result.current.semConexao).toBe(true));
+      expect(result.current.userData).toBeNull();
+    });
+
+    it('busca que volta com perfil diferente vence o conhecido', async () => {
+      comUsuario('mot-offline-3');
+      guardar({
+        id: 'mot-offline-3',
+        papel: 'motorista',
+        ativo: true,
+      } as never);
+      const fresco = { id: 'mot-offline-3', papel: 'gestor', ativo: false };
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: fresco, error: null }),
+      });
+
+      const { result } = renderHook(() => useUser());
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.userData).toEqual(fresco);
+      // E o fresco passa a ser o conhecido.
+      expect(
+        JSON.parse(memoria.get('@rotamestre:perfil_conhecido')!).perfil,
+      ).toEqual(fresco);
+    });
+
+    it('sem linha (data null, sem erro) apaga o perfil conhecido', async () => {
+      comUsuario('mot-offline-4');
+      guardar({ id: 'mot-offline-4', papel: 'motorista' } as never);
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      });
+
+      const { result } = renderHook(() => useUser());
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.userData).toBeNull();
+      expect(result.current.semConexao).toBe(false);
+      expect(memoria.has('@rotamestre:perfil_conhecido')).toBe(false);
     });
   });
 });

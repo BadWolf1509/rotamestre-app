@@ -108,9 +108,12 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        // Sem linha é data:null + error:null (`.maybeSingle()`). Antes este
+        // teste usava um `error` aqui e exigia `usuario: null` — era o defeito:
+        // falha de rede virava "sem perfil" e o login mandava ao onboarding.
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
-          error: new Error('Usuário não encontrado'),
+          error: null,
         }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
@@ -122,6 +125,33 @@ describe('AuthService - Unit Tests', () => {
 
       expect(result.session).toEqual(mockSession);
       expect(result.usuario).toBeNull();
+    });
+
+    it('falha ao buscar o perfil propaga o erro (não vira "sem perfil")', async () => {
+      const mockSession = {
+        access_token: 'mock-token-123',
+        user: { id: 'user-999', email: 'teste@rotamestre.com' },
+      };
+
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: { session: mockSession, user: mockSession.user } as any,
+        error: null,
+      });
+
+      const falhaDeRede = { message: 'TypeError: Network request failed' };
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({
+          data: null,
+          error: falhaDeRede,
+        }),
+      } as any);
+
+      await expect(
+        authService.signIn('teste@rotamestre.com', 'senha123'),
+      ).rejects.toBe(falhaDeRede);
     });
 
     it('deve atualizar ultimo_login após login bem-sucedido', async () => {
@@ -593,9 +623,11 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        // "Não existe" com `.maybeSingle()` é data:null + error:null. O
+        // `error` que estava aqui exigia que falha virasse "não existe".
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
-          error: new Error('Usuário não encontrado'),
+          error: null,
         }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
@@ -669,7 +701,10 @@ describe('AuthService - Unit Tests', () => {
       expect(mockSelect).toHaveBeenCalledWith('*, unidades(nome)');
     });
 
-    it('deve logar erro quando busca falha', async () => {
+    // Antes exigia `null` aqui — o mesmo null de "sem linha", que o portão
+    // (app/index.tsx) lê como cadastro incompleto e manda ao onboarding.
+    // Motorista offline caía em "Criar sua unidade". Falha agora lança.
+    it('lança quando a busca falha, em vez de devolver null', async () => {
       const mockError = new Error('Database error');
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
@@ -680,13 +715,21 @@ describe('AuthService - Unit Tests', () => {
         }),
       } as any);
 
-      const result = await authService.getUsuario('user-123');
-
+      await expect(authService.getUsuario('user-123')).rejects.toBe(mockError);
       expect(logger.error).toHaveBeenCalledWith(
         '[Auth] Erro ao buscar usuário:',
         mockError,
       );
-      expect(result).toBeNull();
+    });
+
+    it('devolve null só quando não há linha (data:null, error:null)', async () => {
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      } as any);
+
+      await expect(authService.getUsuario('user-123')).resolves.toBeNull();
     });
   });
 
@@ -747,9 +790,11 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        // "Não existe" com `.maybeSingle()` é data:null + error:null. O
+        // `error` que estava aqui exigia que falha virasse "não existe".
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
-          error: new Error('Usuário não encontrado'),
+          error: null,
         }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);

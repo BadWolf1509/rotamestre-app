@@ -312,6 +312,12 @@ export const authService = {
     // onboarding. O `.single()` traduzia esse estado esperado em 406 + PGRST116,
     // que virava logger.error em todo cadastro que DEU CERTO. Aqui zero linhas devolve
     // data:null com error:null, e só falha de verdade cai no if abaixo.
+    //
+    // Falha LANÇA (não devolve null): null aqui significa "sem perfil" e manda
+    // ao onboarding. Devolver null também na falha de rede pôs motorista
+    // offline em "Criar sua unidade". Lançar em vez de um resultado
+    // discriminado porque todos os chamadores já têm try/catch, e o
+    // `fetchUserData` do useUser já lança do mesmo jeito.
     const { data, error } = await supabase
       .from('usuarios')
       .select('*, unidades(nome)')
@@ -320,7 +326,7 @@ export const authService = {
 
     if (error) {
       logger.error('[Auth] Erro ao buscar usuário:', error);
-      return null;
+      throw error;
     }
 
     return data;

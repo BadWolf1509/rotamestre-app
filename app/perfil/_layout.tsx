@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 
+import { SemConexaoScreen } from '@/components/auth/SemConexaoScreen';
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -9,12 +10,20 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
 export default function PerfilGestorLayout() {
-  const { isReady, isAuthorized } = useRequireAuth({ role: 'any' });
+  const { isReady, isAuthorized, semConexao, tentarNovamente } = useRequireAuth(
+    { role: 'any' },
+  );
   const { isDesktop } = useResponsive();
 
   // Aguardar verificação de autenticação
   if (!isReady) {
     return <AuthLoadingScreen />;
+  }
+
+  // Sem perfil para decidir (busca falhou, nenhum perfil conhecido): sem
+  // redirect — ver useRequireAuth.
+  if (semConexao) {
+    return <SemConexaoScreen onTentarNovamente={tentarNovamente} />;
   }
 
   // Se não autorizado, retorna null (redirect já aconteceu)
