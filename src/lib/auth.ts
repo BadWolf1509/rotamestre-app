@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { limparEstadoLocalDoUsuario } from './auth/limparEstadoLocal';
+import { obterSessaoComTimeout } from './auth/sessaoComTimeout';
 import { logger } from './logger';
 import { unregisterPushToken } from './notifications';
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -10,6 +11,23 @@ import { setMockSession } from '../hooks/useAuth';
 import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
 
 import type { Session } from '@supabase/supabase-js';
+
+/**
+ * Quanto o "Sair" espera a limpeza do token de push. Offline, o supabase-js
+ * pode ficar tentando renovar a sessão e o UPDATE pendurado; a pessoa não pode
+ * ficar presa na tela de logout por isso. O que não limpar a tempo fica para o
+ * servidor: quem entrar depois neste aparelho registra pela RPC
+ * `registrar_push_token`, que tira o token da conta que saiu.
+ */
+export const PRAZO_LIMPEZA_PUSH_MS = 4000;
+
+async function limparPushDestaConta(): Promise<void> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (userId) await unregisterPushToken(userId);
+}
 
 const FALLBACK_WEB_BASE_URL = 'https://app.rotamestre.tec.br';
 
@@ -120,17 +138,23 @@ export const authService = {
    *
    * 1. Tira o token de push do banco ANTES do `auth.signOut`: depois dele o
    *    UPDATE vai anônimo e a RLS filtra 0 linhas sem erro — o aparelho
-   *    seguia recebendo push da conta que saiu.
+   *    seguia recebendo push da conta que saiu. Melhor esforço, com prazo
+   *    (`PRAZO_LIMPEZA_PUSH_MS`): offline ou com a sessão vencida não dá, e
+   *    a garantia fica no servidor (RPC `registrar_push_token`).
    * 2. Sai só deste aparelho (`scope: 'local'`).
    * 3. Limpa o estado local da conta, mesmo se o passo 2 falhar.
    */
   async signOut() {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-      if (userId) await unregisterPushToken(userId);
+      await obterSessaoComTimeout(
+        limparPushDestaConta,
+        PRAZO_LIMPEZA_PUSH_MS,
+        () =>
+          logger.warn(
+            '[Logout] Limpeza do push passou do prazo',
+            PRAZO_LIMPEZA_PUSH_MS,
+          ),
+      );
     } catch (error) {
       // Push é opcional: falhar aqui não pode prender a pessoa logada.
       logger.warn('[Logout] Falha ao remover token de push', error);

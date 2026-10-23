@@ -30,7 +30,7 @@ jest.mock('../logger', () => ({
   },
 }));
 
-import { authService } from '../auth';
+import { authService, PRAZO_LIMPEZA_PUSH_MS } from '../auth';
 import { limparEstadoLocalDoUsuario } from '../auth/limparEstadoLocal';
 import { unregisterPushToken } from '../notifications';
 import { supabase } from '../supabase';
@@ -88,5 +88,51 @@ describe('authService.signOut', () => {
       message: 'Network error',
     });
     expect(limparEstadoLocalDoUsuario).toHaveBeenCalled();
+  });
+
+  it('limpeza do push que não responde não segura o logout além do prazo', async () => {
+    jest.useFakeTimers();
+    try {
+      // Rede pendurada: a promessa nunca resolve.
+      (unregisterPushToken as jest.Mock).mockImplementationOnce(
+        () => new Promise(() => {}),
+      );
+
+      let terminou = false;
+      const p = authService.signOut().then(() => {
+        terminou = true;
+      });
+
+      await jest.advanceTimersByTimeAsync(PRAZO_LIMPEZA_PUSH_MS - 1);
+      expect(terminou).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(1);
+      await p;
+      expect(terminou).toBe(true);
+      expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(limparEstadoLocalDoUsuario).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('getSession pendurado também cai no prazo', async () => {
+    jest.useFakeTimers();
+    try {
+      auth.getSession.mockImplementationOnce(() => new Promise(() => {}));
+
+      const p = authService.signOut();
+      await jest.advanceTimersByTimeAsync(PRAZO_LIMPEZA_PUSH_MS);
+      await p;
+
+      expect(auth.signOut).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('o prazo é curto (3–5 s)', () => {
+    expect(PRAZO_LIMPEZA_PUSH_MS).toBeGreaterThanOrEqual(3000);
+    expect(PRAZO_LIMPEZA_PUSH_MS).toBeLessThanOrEqual(5000);
   });
 });

@@ -369,11 +369,13 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       return true;
     }
 
-    // Atualizar token no banco
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ push_token: token })
-      .eq('id', userId);
+    // Pela RPC (Migration `20261023010000`): grava o token na conta logada e
+    // o tira de qualquer OUTRA conta. Um aparelho é de uma conta por vez — se
+    // o logout de A falhou (offline), a linha de A ainda tem este token, e só
+    // o servidor pode limpá-la quando B entra (a RLS não deixa B tocar em A).
+    const { error } = await supabase.rpc('registrar_push_token', {
+      p_token: token,
+    });
 
     if (error) {
       logger.error('[Push] Erro ao salvar token', error);
@@ -400,24 +402,40 @@ export async function registerPushToken(userId: string): Promise<boolean> {
  * ainda tiver o token deste aparelho — a coluna é uma por usuário, e sair no
  * aparelho A não pode apagar o token que o aparelho B gravou depois.
  */
-export async function unregisterPushToken(userId: string): Promise<void> {
-  if (Platform.OS === 'web') return;
+export async function unregisterPushToken(
+  userId: string | undefined,
+): Promise<boolean> {
+  if (Platform.OS === 'web') return true;
 
   try {
     const guardado = await lerTokenGuardado();
-    if (guardado) {
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ push_token: null })
-        .eq('id', userId)
-        .eq('push_token', guardado.token);
-      if (error) logger.warn('[Push] Erro ao limpar token no banco', error);
+    if (!guardado) {
+      await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+      return true;
     }
 
-    // Limpar token local
+    // Sem sessão viva o UPDATE iria anônimo e a RLS filtraria 0 linhas, sem
+    // erro — pareceria limpo. Fica a chave: quem entrar depois neste aparelho
+    // registra pela RPC, que tira o token da conta que saiu.
+    if (!userId) return false;
+
+    // O PostgREST devolve `{ error }` sem lançar (offline, por exemplo): só
+    // esquece o token local quando o banco de fato limpou.
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ push_token: null })
+      .eq('id', userId)
+      .eq('push_token', guardado.token);
+    if (error) {
+      logger.warn('[Push] Erro ao limpar token no banco', error);
+      return false;
+    }
+
     await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+    return true;
   } catch (error) {
     logger.error('[Push] Erro ao remover token', error);
+    return false;
   }
 }
 

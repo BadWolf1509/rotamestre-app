@@ -34,9 +34,16 @@ jest.mock('expo-device', () => ({ isDevice: true }));
 
 const mockChamadas: Array<{ update: unknown; eq: Array<[string, unknown]> }> =
   [];
+const mockRpc: Array<[string, unknown]> = [];
+let mockErroUpdate: { message: string } | null = null;
+let mockErroRpc: { message: string } | null = null;
 
 jest.mock('../supabase', () => ({
   supabase: {
+    rpc: jest.fn(async (nome: string, args: unknown) => {
+      mockRpc.push([nome, args]);
+      return { data: null, error: mockErroRpc };
+    }),
     from: jest.fn(() => ({
       update: jest.fn((payload: unknown) => {
         const registro = {
@@ -49,8 +56,8 @@ jest.mock('../supabase', () => ({
             registro.eq.push([col, val]);
             return builder;
           }),
-          then: (resolve: (v: { error: null }) => unknown) =>
-            resolve({ error: null }),
+          then: (resolve: (v: { error: unknown }) => unknown) =>
+            resolve({ error: mockErroUpdate }),
         };
         return builder;
       }),
@@ -71,6 +78,9 @@ const setItem = AsyncStorage.setItem as jest.Mock;
 beforeEach(() => {
   jest.clearAllMocks();
   mockChamadas.length = 0;
+  mockRpc.length = 0;
+  mockErroUpdate = null;
+  mockErroRpc = null;
   Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
 });
 
@@ -80,9 +90,10 @@ describe('registerPushToken: token guardado por conta', () => {
 
     await expect(registerPushToken('B')).resolves.toBe(true);
 
-    expect(mockChamadas).toEqual([
-      { update: { push_token: TOKEN }, eq: [['id', 'B']] },
-    ]);
+    // Pela RPC, que tira o mesmo token de qualquer OUTRA conta no servidor:
+    // a linha de A não pode continuar apontando para o celular de B.
+    expect(mockRpc).toEqual([['registrar_push_token', { p_token: TOKEN }]]);
+    expect(mockChamadas).toEqual([]);
     expect(setItem).toHaveBeenCalledWith(
       CHAVE,
       JSON.stringify({ token: TOKEN, userId: 'B' }),
@@ -94,7 +105,7 @@ describe('registerPushToken: token guardado por conta', () => {
 
     await expect(registerPushToken('A')).resolves.toBe(true);
 
-    expect(mockChamadas).toEqual([]);
+    expect(mockRpc).toEqual([]);
     expect(setItem).not.toHaveBeenCalled();
   });
 
@@ -103,7 +114,7 @@ describe('registerPushToken: token guardado por conta', () => {
 
     await registerPushToken('A');
 
-    expect(mockChamadas).toHaveLength(1);
+    expect(mockRpc).toHaveLength(1);
     expect(setItem).toHaveBeenCalledWith(
       CHAVE,
       JSON.stringify({ token: TOKEN, userId: 'A' }),
@@ -147,5 +158,40 @@ describe('unregisterPushToken: só o token deste aparelho', () => {
 
     expect(mockChamadas).toEqual([]);
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith(CHAVE);
+  });
+});
+
+describe('registerPushToken: falha da RPC', () => {
+  it('não guarda o token como registrado quando a RPC falha', async () => {
+    getItem.mockResolvedValue(null);
+    mockErroRpc = { message: 'offline' };
+
+    await expect(registerPushToken('A')).resolves.toBe(false);
+    expect(setItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('unregisterPushToken: só esquece o token quando o banco limpou', () => {
+  it('UPDATE com erro (offline): mantém a chave local e devolve false', async () => {
+    getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
+    mockErroUpdate = { message: 'Network request failed' };
+
+    await expect(unregisterPushToken('A')).resolves.toBe(false);
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('UPDATE ok: apaga a chave e devolve true', async () => {
+    getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
+
+    await expect(unregisterPushToken('A')).resolves.toBe(true);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(CHAVE);
+  });
+
+  it('sem sessão viva não tenta (iria anônimo, a RLS filtraria 0 linhas) e mantém a chave', async () => {
+    getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
+
+    await expect(unregisterPushToken(undefined)).resolves.toBe(false);
+    expect(mockChamadas).toEqual([]);
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
   });
 });

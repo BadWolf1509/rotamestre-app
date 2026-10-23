@@ -1534,6 +1534,31 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
+### ⏳ Migration 38: token de push pertence a uma conta só
+
+**Arquivo:** `20261023010000_push_token_de_uma_conta_so.sql` · **⏳ a aplicar**
+(PR #629). Aditiva. Numeração provisória: se outra migration entrar antes, renumerar.
+
+**Por quê.** O app gravava o token direto na linha da conta logada. Se o logout
+de A não limpou a linha (offline, sessão vencida) e B entrou no mesmo aparelho,
+as duas linhas ficavam com o mesmo token. A RLS impede B de limpar a linha de A,
+então só o servidor resolve.
+
+**O que faz.** `registrar_push_token(p_token text)`, SECURITY DEFINER,
+`search_path = ''`, EXECUTE só para `authenticated`: exige `auth.uid()` e token
+no formato Expo, zera `push_token = p_token` de qualquer outra conta e grava na
+de quem chama. O app passa a registrar só por ela (`registerPushToken` em
+`src/lib/notifications.ts`); versões antigas seguem com o UPDATE direto. A
+`trava_motorista_outra_loja` (Migration 31) passa a aceitar a mudança que só
+zera o `push_token` — sem isso, limpar o token de um motorista que atende outra
+loja cairia em "só nome e telefone". Sem UNIQUE em `push_token` de propósito
+(quebraria o registro das versões antigas). Em 23/10/2026: 7 tokens, todos
+distintos.
+
+**Sonda.** Bloco `DO` comentado no fim do arquivo (rodar depois de aplicar;
+termina em `RAISE`): B registra o token que está num motorista A de loja onde B
+não é gestor → A fica sem token, B com ele; token fora do formato é recusado.
+
 ### ✅ Migration 42: incidentes visíveis ao gestor só na loja da rota
 
 **Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **✅

@@ -46,6 +46,8 @@ jest.mock('expo-device', () => ({
 
 jest.mock('../supabase', () => ({
   supabase: {
+    // Registro do token pela RPC registrar_push_token
+    rpc: jest.fn(() => Promise.resolve({ data: null, error: null })),
     from: jest.fn(() => ({
       update: jest.fn(() => ({
         eq: jest.fn(() => ({ error: null })),
