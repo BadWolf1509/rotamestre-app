@@ -144,6 +144,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
+AS $$
 DECLARE
   v_rota_mudou boolean := true;
   v_parada_mudou boolean := true;

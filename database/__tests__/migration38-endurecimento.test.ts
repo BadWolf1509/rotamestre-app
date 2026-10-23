@@ -79,6 +79,9 @@ describe('Migration 38: endurecimento', () => {
       ),
       executavel.indexOf('CREATE TRIGGER incidentes_confere_rota_parada'),
     );
+    // O corpo abre com AS $$ (em 23/10 o AS $$ sumiu numa edição e a
+    // migration inteira deixaria de rodar).
+    expect(corpo).toMatch(/SET search_path = ''\s+AS \$\$\s+DECLARE/);
     // Cada campo só é conferido quando muda no UPDATE...
     expect(corpo).toMatch(
       /v_rota_mudou\s*:=\s*NEW\.rota_id IS DISTINCT FROM OLD\.rota_id/,
