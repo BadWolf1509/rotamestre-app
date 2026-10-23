@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useToast } from '@/hooks/useToast';
 import { logger } from '@/lib/logger';
-import { normalizarOrdemParadas } from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
 
 import type { Parada, Rota, ResumoParadas } from '../types';
@@ -113,7 +112,11 @@ export function useMapaRotaData({
 
       if (paradasError) throw paradasError;
 
-      // Check if order needs normalization (arrival checkpoint not at end)
+      // Ordem inconsistente (chegada fora do fim) só é REGISTRADA. Abrir a
+      // tela não escreve no banco: antes, isto chamava a normalização (UPDATE
+      // em duas etapas nas paradas) só por o gestor ter aberto a rota, e
+      // ignorava o resultado. Quem reescreve a ordem é a ação explícita de
+      // reordenar (RPC `reordenar_paradas`).
       if (paradasData && paradasData.length > 0) {
         const chegada = paradasData.find(
           (p) => p.is_checkpoint === false && p.ordem > 0,
@@ -124,19 +127,11 @@ export function useMapaRotaData({
         const expectedChegadaOrdem = paradasReaisArr.length + 1;
 
         if (chegada && chegada.ordem !== expectedChegadaOrdem) {
-          logger.debug('[useMapaRotaData] Normalizing order', {
+          logger.warn('[useMapaRotaData] ordem das paradas inconsistente', {
+            rotaId: String(id),
             chegadaOrdem: chegada.ordem,
             expectedChegadaOrdem,
           });
-          await normalizarOrdemParadas(String(id));
-          // Reload paradas after normalization
-          const { data: reloadedParadas } = await supabase
-            .from('paradas')
-            .select('*')
-            .eq('rota_id', id)
-            .order('ordem');
-          setParadas(reloadedParadas || []);
-          return;
         }
       }
 

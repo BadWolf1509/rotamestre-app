@@ -18,6 +18,13 @@ export type LinhaFalsa = Record<string, unknown>;
 
 export const tabelasFalsas: Record<string, LinhaFalsa[]> = {};
 
+/**
+ * Toda escrita (update/insert/delete/upsert) pedida é registrada aqui e
+ * "dá certo" sem mudar as linhas — para provar que um caminho de LEITURA não
+ * escreve no banco.
+ */
+export const escritasFalsas: { tabela: string; operacao: string }[] = [];
+
 function valor(linha: LinhaFalsa, coluna: string): unknown {
   return coluna
     .split('.')
@@ -28,7 +35,15 @@ function consulta(tabela: string) {
   const filtros: ((l: LinhaFalsa) => boolean)[] = [];
   let ordem: { coluna: string; asc: boolean } | null = null;
   let contar = false;
+  const escrever = (operacao: string) => () => {
+    escritasFalsas.push({ tabela, operacao });
+    return api;
+  };
   const api = {
+    update: escrever('update'),
+    insert: escrever('insert'),
+    upsert: escrever('upsert'),
+    delete: escrever('delete'),
     select: (_c?: string, opts?: { head?: boolean }) => {
       contar = !!opts?.head;
       return api;

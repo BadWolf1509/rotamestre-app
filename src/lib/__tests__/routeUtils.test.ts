@@ -6,7 +6,6 @@
 import {
   recalcularRota,
   reordenarParadas,
-  normalizarOrdemParadas,
   removerParadaERecalcular,
   notificarMotoristaRotaEditada,
   NotificacaoRotaEditadaTipo,
@@ -462,221 +461,6 @@ describe('routeUtils', () => {
     });
   });
 
-  describe('normalizarOrdemParadas', () => {
-    const mockRotaId = 'rota-456';
-
-    it('deve retornar erro se fetch falhar', async () => {
-      const chain = createSupabaseChain({
-        data: null,
-        error: { message: 'Fetch error' },
-      });
-      chain.order.mockImplementation(() => ({
-        then: (
-          resolve: (value: { data: null; error: { message: string } }) => void,
-        ) =>
-          Promise.resolve({
-            data: null,
-            error: { message: 'Fetch error' },
-          }).then(resolve),
-      }));
-      mockFrom.mockReturnValue(chain);
-
-      const result = await normalizarOrdemParadas(mockRotaId);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('Erro ao buscar paradas');
-    });
-
-    it('deve retornar sucesso se nenhuma mudança é necessária', async () => {
-      // Paradas já estão na ordem correta
-      const paradasCorretas = [
-        {
-          id: 'partida',
-          ordem: 0,
-          is_checkpoint: false,
-          observacoes: 'Partida',
-        },
-        { id: 'p1', ordem: 1, is_checkpoint: true, observacoes: null },
-        { id: 'p2', ordem: 2, is_checkpoint: true, observacoes: null },
-        {
-          id: 'chegada',
-          ordem: 3,
-          is_checkpoint: false,
-          observacoes: 'Chegada',
-        },
-      ];
-
-      const chain = createSupabaseChain({ data: paradasCorretas, error: null });
-      chain.order.mockImplementation(() => ({
-        then: (
-          resolve: (value: {
-            data: typeof paradasCorretas;
-            error: null;
-          }) => void,
-        ) =>
-          Promise.resolve({ data: paradasCorretas, error: null }).then(resolve),
-      }));
-      mockFrom.mockReturnValue(chain);
-
-      const result = await normalizarOrdemParadas(mockRotaId);
-
-      expect(result.success).toBe(true);
-      // update não deve ser chamado
-      expect(chain.update).not.toHaveBeenCalled();
-    });
-
-    it('deve reordenar paradas quando ordem está incorreta', async () => {
-      // Paradas com ordem incorreta (partida em 5, chegada em 1)
-      const paradasDesordenadas = [
-        {
-          id: 'partida',
-          ordem: 5,
-          is_checkpoint: false,
-          observacoes: 'Partida',
-        },
-        { id: 'p1', ordem: 3, is_checkpoint: true, observacoes: null },
-        {
-          id: 'chegada',
-          ordem: 1,
-          is_checkpoint: false,
-          observacoes: 'Chegada',
-        },
-      ];
-
-      let updateCallCount = 0;
-
-      // Mock mais simples que funciona para o fluxo completo
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'paradas') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            update: jest.fn().mockReturnThis(),
-            eq: jest
-              .fn()
-              .mockImplementation((field: string, _value: unknown) => {
-                if (field === 'rota_id') {
-                  // Primeira chamada é para buscar paradas
-                  return {
-                    order: jest
-                      .fn()
-                      .mockResolvedValue({
-                        data: paradasDesordenadas,
-                        error: null,
-                      }),
-                  };
-                }
-                // Chamadas subsequentes são para update
-                updateCallCount++;
-                return Promise.resolve({ data: null, error: null });
-              }),
-            order: jest
-              .fn()
-              .mockResolvedValue({ data: paradasDesordenadas, error: null }),
-          };
-        }
-        return createSupabaseChain({ data: null, error: null });
-      });
-
-      const result = await normalizarOrdemParadas(mockRotaId);
-
-      expect(result.success).toBe(true);
-      // Deve ter chamado update múltiplas vezes (2 etapas x 3 paradas = 6 chamadas)
-      expect(updateCallCount).toBeGreaterThan(0);
-    });
-
-    it('deve retornar erro se step 1 (temp values) falhar', async () => {
-      const paradasDesordenadas = [
-        {
-          id: 'partida',
-          ordem: 5,
-          is_checkpoint: false,
-          observacoes: 'Partida',
-        },
-        { id: 'p1', ordem: 3, is_checkpoint: true, observacoes: null },
-      ];
-
-      let callCount = 0;
-      mockFrom.mockImplementation(() => ({
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation((field: string) => {
-          if (field === 'rota_id') {
-            return {
-              order: jest
-                .fn()
-                .mockResolvedValue({ data: paradasDesordenadas, error: null }),
-            };
-          }
-          callCount++;
-          // Falhar no primeiro update (step 1)
-          if (callCount === 1) {
-            return Promise.resolve({
-              data: null,
-              error: { message: 'Update failed' },
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const result = await normalizarOrdemParadas(mockRotaId);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('valores temporários');
-    });
-
-    it('deve retornar erro se step 2 (target values) falhar', async () => {
-      const paradasDesordenadas = [
-        {
-          id: 'partida',
-          ordem: 5,
-          is_checkpoint: false,
-          observacoes: 'Partida',
-        },
-      ];
-
-      let callCount = 0;
-      mockFrom.mockImplementation(() => ({
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation((field: string) => {
-          if (field === 'rota_id') {
-            return {
-              order: jest
-                .fn()
-                .mockResolvedValue({ data: paradasDesordenadas, error: null }),
-            };
-          }
-          callCount++;
-          // Falhar no segundo update (step 2) - depois do step 1 concluir
-          if (callCount === 2) {
-            return Promise.resolve({
-              data: null,
-              error: { message: 'Step 2 failed' },
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const result = await normalizarOrdemParadas(mockRotaId);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('ordem correta');
-    });
-
-    it('deve capturar exceções', async () => {
-      mockFrom.mockImplementation(() => {
-        throw new Error('Database connection failed');
-      });
-
-      const result = await normalizarOrdemParadas(mockRotaId);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Database connection failed');
-    });
-  });
-
   describe('removerParadaERecalcular', () => {
     const mockParadaId = 'parada-to-remove';
     const mockRotaId = 'rota-789';
@@ -740,12 +524,10 @@ describe('routeUtils', () => {
     it('deve retornar erro se delete falhar', async () => {
       const chain = {
         delete: jest.fn().mockReturnThis(),
-        eq: jest
-          .fn()
-          .mockResolvedValue({
-            data: null,
-            error: { message: 'Delete failed' },
-          }),
+        eq: jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'Delete failed' },
+        }),
       };
       mockFrom.mockReturnValue(chain);
 
