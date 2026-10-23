@@ -5,15 +5,42 @@
 // Migrado dos endpoints legados em 2026-07-10: a chave atual é restrita à
 // Places API (New) — projetos GCP novos não ativam mais a Places API legada.
 // A resposta preserva o contrato legado ({ status, predictions[] }) que o app consome.
-// Deploy: supabase functions deploy google-places-autocomplete --no-verify-jwt
+// Exige o JWT de um usuário logado (desde 26/10/2026): antes, sem verify_jwt e
+// sem autenticação própria, era um proxy anônimo da chave Google.
+// Deploy: npx supabase functions deploy google-places-autocomplete --no-verify-jwt --project-ref xezslsyxjivunmhhyxtd
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+import { exigirUsuario } from '../_shared/autenticacao.ts';
+import { chavePublica } from '../_shared/chaves.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
 };
+
+// Endereço digitado não passa disso; texto maior é abuso ou erro.
+const TAMANHO_MAXIMO_INPUT = 200;
+const TAMANHO_MAXIMO_SESSION_TOKEN = 128;
+
+/** O Authorization recebido corresponde a um usuário do Auth? */
+async function usuarioValido(authorization: string): Promise<boolean> {
+  const cliente = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    chavePublica(),
+    {
+      global: { headers: { Authorization: authorization } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    },
+  );
+  const {
+    data: { user },
+    error,
+  } = await cliente.auth.getUser();
+  return !error && !!user;
+}
 
 interface AutocompleteRequest {
   input: string;
@@ -36,9 +63,30 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const naoAutorizado = await exigirUsuario(req, usuarioValido, corsHeaders);
+  if (naoAutorizado) {
+    return naoAutorizado;
+  }
+
   try {
     const body = (await req.json()) as AutocompleteRequest;
     const { input, sessionToken, locationBias } = body;
+
+    if (
+      (input !== undefined && typeof input !== 'string') ||
+      (input?.length ?? 0) > TAMANHO_MAXIMO_INPUT ||
+      (sessionToken !== undefined &&
+        (typeof sessionToken !== 'string' ||
+          sessionToken.length > TAMANHO_MAXIMO_SESSION_TOKEN))
+    ) {
+      return new Response(
+        JSON.stringify({ error: 'Entrada inválida', predictions: [] }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
 
     if (!input || input.length < 3) {
       return new Response(JSON.stringify({ predictions: [] }), {
@@ -49,13 +97,11 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'Google Maps API Key não configurada' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      console.error('[Places Autocomplete] GOOGLE_MAPS_API_KEY ausente');
+      return new Response(JSON.stringify({ error: 'Serviço indisponível' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Places API (New): POST com body JSON (antes: GET com query params)
@@ -105,9 +151,10 @@ serve(async (req) => {
         data.error?.message,
       );
       return new Response(
+        // A mensagem da Google fica no log acima; para fora, só o genérico.
         JSON.stringify({
-          error: data.error?.message || 'Erro na API de autocomplete',
-          status: data.error?.status || 'REQUEST_DENIED',
+          error: 'Erro na API de autocomplete',
+          status: 'REQUEST_DENIED',
           predictions: [],
         }),
         {
@@ -144,7 +191,7 @@ serve(async (req) => {
     console.error('[Places Autocomplete] Exception:', error);
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: 'Erro interno',
         status: 'INTERNAL_ERROR',
         predictions: [],
       }),
