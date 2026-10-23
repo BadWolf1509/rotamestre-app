@@ -125,11 +125,14 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
     try {
       setLoading(true);
 
-      // Recorte pela LOJA DA ROTA (rotas!inner + unidade_id), não pelos
-      // motoristas da loja: motorista que atende duas lojas levava para
-      // esta loja os incidentes das rotas da outra. Incidente sem rota não
-      // tem loja própria — esse vem pelo vínculo do motorista com a loja.
-      const campos = `
+      // Recorte pela LOJA GRAVADA NO INCIDENTE (`unidade_id`, Migration 43),
+      // não pelos motoristas da loja nem pela rota: motorista que atende
+      // duas lojas levava para esta loja os incidentes da outra — inclusive
+      // os sem rota, que agora também têm loja.
+      let query = supabase
+        .from('incidentes')
+        .select(
+          `
           id,
           categoria,
           descricao,
@@ -140,54 +143,21 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
           observacoes_gestao,
           motorista_id,
           motorista:usuarios!motorista_id (nome),
-          parada:paradas (endereco)`;
-
-      let queryDaLoja = supabase
-        .from('incidentes')
-        .select(`${campos}, rota:rotas!inner (id, data, unidade_id)`)
-        .eq('rota.unidade_id', unidadeAtiva)
+          rota:rotas (id, data),
+          parada:paradas (endereco)`,
+        )
+        .eq('unidade_id', unidadeAtiva)
         .order('created_at', { ascending: false });
 
-      const { data: vinculacoes, error: erroVinculos } = await supabase
-        .from('usuario_unidades')
-        .select('usuario_id')
-        .eq('unidade_id', unidadeAtiva)
-        .eq('papel', 'motorista')
-        .eq('ativo', true);
-      if (erroVinculos) throw erroVinculos;
-
-      const motoristasIds = (vinculacoes ?? []).map((v) => v.usuario_id);
-
-      let querySemRota =
-        motoristasIds.length > 0
-          ? supabase
-              .from('incidentes')
-              .select(`${campos}, rota:rotas (id, data)`)
-              .is('rota_id', null)
-              .in('motorista_id', motoristasIds)
-              .order('created_at', { ascending: false })
-          : null;
-
       if (filtroStatus !== 'todos') {
-        queryDaLoja = queryDaLoja.eq('status', filtroStatus);
-        querySemRota = querySemRota?.eq('status', filtroStatus) ?? null;
+        query = query.eq('status', filtroStatus);
       }
       if (filtroCategoria !== 'todos') {
-        queryDaLoja = queryDaLoja.eq('categoria', filtroCategoria);
-        querySemRota = querySemRota?.eq('categoria', filtroCategoria) ?? null;
+        query = query.eq('categoria', filtroCategoria);
       }
 
-      const [daLoja, semRota] = await Promise.all([
-        queryDaLoja,
-        querySemRota ?? Promise.resolve({ data: [], error: null }),
-      ]);
-
-      if (daLoja.error) throw daLoja.error;
-      if (semRota.error) throw semRota.error;
-
-      const data = [...(daLoja.data ?? []), ...(semRota.data ?? [])].sort(
-        (x, y) => (x.created_at < y.created_at ? 1 : -1),
-      );
+      const { data, error } = await query;
+      if (error) throw error;
 
       const incidentesFormatados = (data || []).map((inc: any) => ({
         id: inc.id,
@@ -235,6 +205,7 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
   // Modal management
   const modals = useIncidentesModals({
     incidentes,
+    unidadeId: unidadeAtiva,
     onStatusUpdate: fetchIncidentes,
   });
 

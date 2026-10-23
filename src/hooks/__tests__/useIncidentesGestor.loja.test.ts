@@ -1,12 +1,12 @@
 /**
- * Incidentes do gestor filtrados pela LOJA DA ROTA, não pelos motoristas
- * da loja. Antes: motorista que atende duas lojas levava para a loja A os
- * incidentes das rotas da loja B. Incidente sem rota continua pelo vínculo
- * do motorista com a loja (não tem outra loja para olhar).
+ * Incidentes do gestor filtrados pela LOJA GRAVADA NO INCIDENTE
+ * (`incidentes.unidade_id`, Migration 43), não pelos motoristas da loja nem
+ * pela rota. Motorista que atende duas lojas não leva para a loja A os
+ * incidentes da loja B — nem os sem rota, que agora também têm loja.
  *
  * Banco falso que aplica os filtros de verdade (`consultaFalsa`).
  */
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { tabelasFalsas } from '@/__tests__/helpers/consultaFalsa';
 import { defaultTheme } from '@/utils/styles.base';
@@ -38,6 +38,7 @@ jest.mock('@/lib/logger', () => ({
 function incidente(
   id: string,
   motorista: string,
+  unidade_id: string,
   rota: { id: string; data: string; unidade_id: string } | null,
   created_at: string,
 ) {
@@ -51,6 +52,7 @@ function incidente(
     created_at,
     observacoes_gestao: null,
     motorista_id: motorista,
+    unidade_id,
     rota_id: rota?.id ?? null,
     motorista: { nome: motorista },
     rota,
@@ -77,28 +79,49 @@ beforeEach(() => {
     incidente(
       'da-loja-a',
       'ana',
+      'loja-a',
       { id: 'r1', data: '2026-10-20', unidade_id: 'loja-a' },
       '2026-10-20T10:00:00Z',
     ),
     incidente(
       'da-loja-b',
       'ana',
+      'loja-b',
       { id: 'r2', data: '2026-10-21', unidade_id: 'loja-b' },
       '2026-10-21T10:00:00Z',
     ),
-    incidente('sem-rota', 'ana', null, '2026-10-22T10:00:00Z'),
+    // sem rota: a loja gravada decide — o vínculo da Ana com as duas
+    // lojas não leva o da loja B para a loja A
+    incidente('sem-rota-a', 'ana', 'loja-a', null, '2026-10-22T10:00:00Z'),
+    incidente('sem-rota-b', 'ana', 'loja-b', null, '2026-10-23T10:00:00Z'),
   ];
 });
 
 describe('useIncidentesGestor — recorte pela loja', () => {
-  it('mostra os da rota desta loja e os sem rota; não os da rota de outra loja', async () => {
+  it('mostra só os incidentes gravados nesta loja, com ou sem rota', async () => {
     const { result } = renderHook(() =>
       useIncidentesGestor(defaultTheme as never),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.incidentes.map((i) => i.id)).toEqual([
-      'sem-rota',
+      'sem-rota-a',
+      'da-loja-a',
+    ]);
+  });
+
+  it('o histórico do motorista também fica nesta loja (a Ana atende as duas)', async () => {
+    const { result } = renderHook(() =>
+      useIncidentesGestor(defaultTheme as never),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleVerHistoricoMotorista('ana', 'Ana');
+    });
+
+    expect(result.current.incidentesMotorista.map((i) => i.id)).toEqual([
+      'sem-rota-a',
       'da-loja-a',
     ]);
   });

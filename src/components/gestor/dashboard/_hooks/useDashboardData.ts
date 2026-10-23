@@ -382,57 +382,25 @@ export function useDashboardData(
         // =====================================================================
         // BUSCAR INCIDENTES ABERTOS (em paralelo com outras queries)
         // =====================================================================
-        // Pela LOJA DA ROTA, não pelos motoristas da loja: motorista que
-        // atende duas lojas levava os incidentes da outra loja junto.
-        // Incidente sem rota não tem loja própria — esse conta pelo vínculo
-        // do motorista com esta loja.
+        // Pela LOJA GRAVADA NO INCIDENTE (`unidade_id`, Migration 43), não
+        // pelos motoristas da loja: motorista que atende duas lojas levava
+        // os incidentes da outra loja junto — inclusive os sem rota.
         const incidentesPromise = (async () => {
-          const [daLoja, vinculos] = await Promise.all([
-            supabase
-              .from('incidentes')
-              .select('id, rotas!inner(unidade_id)', {
-                count: 'exact',
-                head: true,
-              })
-              .eq('rotas.unidade_id', unidadeId)
-              .eq('status', 'aberto'),
-            supabase
-              .from('usuario_unidades')
-              .select('usuario_id')
-              .eq('unidade_id', unidadeId)
-              .eq('papel', 'motorista')
-              .eq('ativo', true),
-          ]);
-          // Erro em qualquer parte vira INDISPONÍVEL (null), nunca 0: "0
-          // incidentes abertos" é uma afirmação, e seria falsa.
-          if (daLoja.error || vinculos.error) {
+          const { count, error } = await supabase
+            .from('incidentes')
+            .select('id', { count: 'exact', head: true })
+            .eq('unidade_id', unidadeId)
+            .eq('status', 'aberto');
+          // Erro vira INDISPONÍVEL (null), nunca 0: "0 incidentes abertos" é
+          // uma afirmação, e seria falsa.
+          if (error) {
             logger.warn(
               '[Dashboard] contagem de incidentes indisponível',
-              daLoja.error ?? vinculos.error,
+              error,
             );
             return null;
           }
-
-          let semRota = 0;
-          const motoristasIds = (vinculos.data ?? []).map((v) => v.usuario_id);
-          if (motoristasIds.length > 0) {
-            const { count, error } = await supabase
-              .from('incidentes')
-              .select('id', { count: 'exact', head: true })
-              .is('rota_id', null)
-              .in('motorista_id', motoristasIds)
-              .eq('status', 'aberto');
-            if (error) {
-              logger.warn(
-                '[Dashboard] incidentes sem rota indisponíveis',
-                error,
-              );
-              return null;
-            }
-            semRota = count || 0;
-          }
-
-          return (daLoja.count || 0) + semRota;
+          return count || 0;
         })();
 
         // =====================================================================

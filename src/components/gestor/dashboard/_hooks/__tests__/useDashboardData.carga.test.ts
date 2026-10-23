@@ -141,6 +141,7 @@ beforeEach(() => {
     { usuario_id: 'm1', unidade_id: 'loja-b', papel: 'motorista', ativo: true },
     { usuario_id: 'm2', unidade_id: 'loja-a', papel: 'motorista', ativo: true },
   ];
+  // A loja vem gravada no incidente (`unidade_id`, Migration 43).
   mockTabelas.incidentes = [
     // da rota da loja A: conta
     {
@@ -148,6 +149,7 @@ beforeEach(() => {
       status: 'aberto',
       motorista_id: 'm1',
       rota_id: 'hoje-1',
+      unidade_id: 'loja-a',
       rotas: { unidade_id: 'loja-a' },
     },
     // da rota da loja B, mesma motorista: NÃO conta na loja A
@@ -156,15 +158,17 @@ beforeEach(() => {
       status: 'aberto',
       motorista_id: 'm1',
       rota_id: 'outra-loja',
+      unidade_id: 'loja-b',
       rotas: { unidade_id: 'loja-b' },
     },
-    // sem rota, de motorista da loja A: conta pelo vínculo
+    // sem rota, gravado na loja A: conta
     {
       id: 'i3',
       status: 'aberto',
       motorista_id: 'm2',
       rota_id: null,
       rotas: null,
+      unidade_id: 'loja-a',
     },
     // resolvido: não conta
     {
@@ -172,7 +176,18 @@ beforeEach(() => {
       status: 'resolvido',
       motorista_id: 'm2',
       rota_id: 'hoje-1',
+      unidade_id: 'loja-a',
       rotas: { unidade_id: 'loja-a' },
+    },
+    // sem rota, da Ana (atende A e B), gravado na loja B: NÃO conta na A —
+    // o vínculo da motorista com esta loja não traz o incidente da outra
+    {
+      id: 'i5',
+      status: 'aberto',
+      motorista_id: 'm1',
+      rota_id: null,
+      rotas: null,
+      unidade_id: 'loja-b',
     },
   ];
 });
@@ -198,7 +213,7 @@ describe('useDashboardData — período "hoje"', () => {
 });
 
 describe('useDashboardData — incidentes abertos', () => {
-  it('conta pela loja da rota (e, sem rota, pelo vínculo do motorista)', async () => {
+  it('conta pela loja gravada no incidente, com ou sem rota', async () => {
     const { result } = renderHook(() => useDashboardData());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -215,13 +230,8 @@ describe('useDashboardData — incidentes abertos', () => {
     expect(result.current.stats.incidentesAbertos).toBeNull();
   });
 
-  it('erro ao ler os vínculos dos motoristas: indisponível, não só os da rota', async () => {
-    mockTabelasComErro.add('usuario_unidades');
-    const { result } = renderHook(() => useDashboardData());
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.stats.incidentesAbertos).toBeNull();
-  });
+  // (o teste "erro ao ler os vínculos dos motoristas" saiu: a contagem não
+  // lê mais os vínculos — a loja vem gravada no incidente)
 });
 
 describe('useDashboardData — recarga concorrente', () => {

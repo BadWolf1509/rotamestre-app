@@ -35,6 +35,7 @@ function consulta(tabela: string) {
   const filtros: ((l: LinhaFalsa) => boolean)[] = [];
   let ordem: { coluna: string; asc: boolean } | null = null;
   let contar = false;
+  let limite: number | null = null;
   const escrever = (operacao: string) => () => {
     escritasFalsas.push({ tabela, operacao });
     return api;
@@ -76,6 +77,12 @@ function consulta(tabela: string) {
       ordem = { coluna, asc: opts?.ascending ?? true };
       return api;
     },
+    limit: (n: number) => {
+      limite = n;
+      return api;
+    },
+    // `.returns<T>()` só informa o tipo na lib real.
+    returns: () => api,
     // `.single()` sem linha é 406 + PGRST116 no PostgREST real;
     // `.maybeSingle()` devolve data null. Mais de uma linha: erro nos dois.
     single: async () => {
@@ -106,6 +113,7 @@ function consulta(tabela: string) {
           return asc ? x.localeCompare(y) : y.localeCompare(x);
         });
       }
+      if (limite !== null) linhas = linhas.slice(0, limite);
       resolve(
         contar
           ? { data: null, count: linhas.length, error: null }

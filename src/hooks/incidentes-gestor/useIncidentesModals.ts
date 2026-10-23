@@ -13,6 +13,8 @@ import type { Incidente } from './types';
 
 interface UseIncidentesModalsOptions {
   incidentes: Incidente[];
+  /** Loja ativa: o histórico do motorista fica nela (Migration 43). */
+  unidadeId?: string | null;
   onStatusUpdate: () => Promise<void>;
 }
 
@@ -56,6 +58,7 @@ interface UseIncidentesModalsResult {
  */
 export function useIncidentesModals({
   incidentes: _incidentes,
+  unidadeId,
   onStatusUpdate,
 }: UseIncidentesModalsOptions): UseIncidentesModalsResult {
   const { showToast } = useToast();
@@ -173,8 +176,11 @@ export function useIncidentesModals({
       setShowHistoricoMotoristaModal(true);
       setHistoricoLoading(true);
 
+      // Só os incidentes desta loja: motorista que atende duas lojas tem
+      // histórico nas duas, e o da outra não é deste gestor.
       const result = await fetchIncidentesForGestor({
         motoristasIds: [motoristaId],
+        unidadeId: unidadeId ?? undefined,
       });
       if (result.success) {
         setIncidentesMotorista(result.data);
@@ -187,7 +193,7 @@ export function useIncidentesModals({
       }
       setHistoricoLoading(false);
     },
-    [showToast],
+    [showToast, unidadeId],
   );
 
   return {
