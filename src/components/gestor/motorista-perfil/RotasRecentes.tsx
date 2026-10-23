@@ -7,6 +7,9 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+// `rotas.data` é coluna date: new Date() dela é meia-noite UTC e, em UTC-3,
+// volta um dia. formatDateBR monta a data com componentes locais.
+import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import type { IconName } from '@/types/icons';
 import { useUnistyles } from '@/utils/styles';
@@ -71,15 +74,6 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
   const { theme } = useUnistyles();
   const router = useRouter();
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
   const statusConfig = STATUS_CONFIG[rota.status] || STATUS_CONFIG.pendente;
   // Excluir 'incident' do tipo pois é um objeto, não uma string de cor
   type SimpleColorKey = Exclude<keyof typeof theme.colors, 'incident'>;
@@ -103,7 +97,7 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
           <Ionicons name={statusConfig.icon} size={20} color={iconColor} />
         </View>
         <View style={styles.rotaInfo}>
-          <Text style={styles.rotaData}>{formatDate(rota.data)}</Text>
+          <Text style={styles.rotaData}>{formatDateBR(rota.data)}</Text>
           {rota.distancia_total && (
             <Text style={styles.rotaDistancia}>
               {formatarDecimal(rota.distancia_total)} km

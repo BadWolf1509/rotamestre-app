@@ -82,6 +82,67 @@ describe('coluna date-only nunca passa por new Date()', () => {
 });
 
 /**
+ * A mesma classe por um degrau: em 22/10/2026 o perfil do motorista mostrava
+ * as rotas recentes um dia atrás porque `RotasRecentes.tsx` passava
+ * `rota.data` a um helper LOCAL (`formatDate(dateString)`) que fazia
+ * `new Date(dateString)`. A guarda acima só olha `new Date(<algo>.data)`
+ * literal, e esta forma passava batido.
+ *
+ * Aqui: um helper definido no próprio arquivo cujo corpo faz
+ * `new Date(<seu 1º parâmetro>)`, chamado no mesmo arquivo com `.data` ou
+ * `rota_data`. Helper chamado só com timestamp (`created_at`) não é pego —
+ * timestamp carrega fuso e pode passar por `new Date`.
+ */
+const DEFINICAO_DE_HELPER =
+  /(?:function\s+(\w+)\s*\(\s*(\w+)|(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\(\s*(\w+))/g;
+
+function helperLocalFazNewDateEmColunaDate(fonte: string): boolean {
+  for (const m of fonte.matchAll(DEFINICAO_DE_HELPER)) {
+    const nome = m[1] ?? m[3];
+    const parametro = m[2] ?? m[4];
+    const corpo = fonte.slice(m.index ?? 0, (m.index ?? 0) + 400);
+    if (!new RegExp(`new Date\\(\\s*${parametro}\\s*\\)`).test(corpo)) {
+      continue;
+    }
+    const chamadaComColunaDate = new RegExp(
+      `\\b${nome}\\(\\s*[A-Za-z0-9_.?\\[\\]'"]*\\b(?:${COLUNAS_DATE_ONLY.join('|')})\\b\\s*\\)`,
+    );
+    if (chamadaComColunaDate.test(fonte)) return true;
+  }
+  return false;
+}
+
+describe('coluna date-only nunca passa por helper local com new Date()', () => {
+  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+
+  it('nenhum arquivo passa `data`/`rota_data` a helper que faz new Date', () => {
+    const infratores = fontes
+      .filter((caminho) =>
+        helperLocalFazNewDateEmColunaDate(readFileSync(caminho, 'utf8')),
+      )
+      .map((caminho) => relative(RAIZ, caminho).replace(/\\/g, '/'));
+
+    expect(infratores).toEqual([]);
+  });
+
+  it('a checagem casa com a forma do RotasRecentes e poupa as legítimas', () => {
+    const quebrado = [
+      'const formatDate = (dateString: string) => {',
+      '  const date = new Date(dateString);',
+      "  return date.toLocaleDateString('pt-BR');",
+      '};',
+      '<Text>{formatDate(rota.data)}</Text>',
+    ].join('\n');
+    const comTimestamp = quebrado.replace('rota.data', 'motorista.created_at');
+    const corrigido = '<Text>{formatDateBR(rota.data)}</Text>';
+
+    expect(helperLocalFazNewDateEmColunaDate(quebrado)).toBe(true);
+    expect(helperLocalFazNewDateEmColunaDate(comTimestamp)).toBe(false);
+    expect(helperLocalFazNewDateEmColunaDate(corrigido)).toBe(false);
+  });
+});
+
+/**
  * A outra metade da mesma classe, descoberta em 05/09/2026 varrendo o app com o
  * dev build: recortar o dia de um `toISOString()` devolve a data em **UTC**. Em
  * UTC-3, a partir das 21:00 isso já é o dia seguinte.

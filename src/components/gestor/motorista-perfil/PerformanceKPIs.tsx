@@ -78,11 +78,25 @@ export function PerformanceKPIs({ performance }: PerformanceKPIsProps) {
     return `${formatarDecimal(km)} km`;
   };
 
+  // Sem base não há taxa: a view devolve 100.0 quando não há rota
+  // concluída nem não executada, e nenhuma linha para motorista inativo.
+  const taxa =
+    performance.taxa_execucao == null ||
+    performance.rotas_concluidas + performance.rotas_nao_executadas === 0
+      ? null
+      : Number(performance.taxa_execucao);
+
   const taxaStyle = useMemo(() => {
-    if (performance.taxa_execucao >= 80) return 'success';
-    if (performance.taxa_execucao >= 50) return 'warning';
+    if (taxa == null) return 'default';
+    if (taxa >= 80) return 'success';
+    if (taxa >= 50) return 'warning';
     return 'error';
-  }, [performance.taxa_execucao]);
+  }, [taxa]);
+
+  const taxaTexto =
+    taxa == null
+      ? '—'
+      : `${Number.isInteger(taxa) ? taxa : formatarDecimal(taxa)}%`;
 
   const naoExecStyle = useMemo(() => {
     if (performance.rotas_nao_executadas === 0) return 'default';
@@ -109,7 +123,7 @@ export function PerformanceKPIs({ performance }: PerformanceKPIsProps) {
         />
 
         <KPICard
-          value={`${performance.taxa_execucao}%`}
+          value={taxaTexto}
           label="Taxa de Execução"
           icon="trending-up"
           color={
@@ -117,7 +131,9 @@ export function PerformanceKPIs({ performance }: PerformanceKPIsProps) {
               ? theme.colors.success
               : taxaStyle === 'warning'
                 ? theme.colors.warning
-                : theme.colors.error
+                : taxaStyle === 'default'
+                  ? theme.colors.gray500
+                  : theme.colors.error
           }
           valueStyle={taxaStyle}
         />

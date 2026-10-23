@@ -61,6 +61,24 @@ function consulta(tabela: string) {
       ordem = { coluna, asc: opts?.ascending ?? true };
       return api;
     },
+    // `.single()` sem linha é 406 + PGRST116 no PostgREST real;
+    // `.maybeSingle()` devolve data null. Mais de uma linha: erro nos dois.
+    single: async () => {
+      const linhas = (tabelasFalsas[tabela] ?? []).filter((l) =>
+        filtros.every((f) => f(l)),
+      );
+      return linhas.length === 1
+        ? { data: linhas[0], error: null }
+        : { data: null, error: { code: 'PGRST116', message: '406' } };
+    },
+    maybeSingle: async () => {
+      const linhas = (tabelasFalsas[tabela] ?? []).filter((l) =>
+        filtros.every((f) => f(l)),
+      );
+      return linhas.length > 1
+        ? { data: null, error: { code: 'PGRST116', message: 'várias' } }
+        : { data: linhas[0] ?? null, error: null };
+    },
     then: (resolve: (v: unknown) => void) => {
       let linhas = (tabelasFalsas[tabela] ?? []).filter((l) =>
         filtros.every((f) => f(l)),

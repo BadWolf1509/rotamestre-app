@@ -39,6 +39,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { buscarPerformanceMotorista } from '@/lib/gestor/performanceMotorista';
 import { logger } from '@/lib/logger';
 import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/lib/phone';
@@ -105,33 +106,10 @@ export default function MotoristaPerfil() {
       if (motoristaError) throw motoristaError;
       setMotorista(motoristaData);
 
-      // 2. Fetch performance from view
-      const { data: performanceData, error: performanceError } = await supabase
-        .from('vw_performance_motoristas')
-        .select('*')
-        .eq('id', motoristaId)
-        .single();
-
-      if (performanceError) {
-        // View might not have data for this motorista (no routes yet)
-        logger.warn('Performance data not found:', performanceError);
-        setPerformance({
-          id: motoristaId,
-          nome: motoristaData.nome,
-          unidade_id: '',
-          unidade_nome: '',
-          total_rotas: 0,
-          rotas_concluidas: 0,
-          rotas_em_andamento: 0,
-          rotas_nao_executadas: 0,
-          rotas_canceladas: 0,
-          taxa_execucao: 100,
-          distancia_total_km: null,
-          tempo_medio_minutos: null,
-        });
-      } else {
-        setPerformance(performanceData);
-      }
+      // 2. Performance (view sem linha para motorista inativo → taxa "—")
+      setPerformance(
+        await buscarPerformanceMotorista(motoristaId, motoristaData.nome),
+      );
 
       // 3. Fetch recent routes
       const { data: rotasData, error: rotasError } = await supabase

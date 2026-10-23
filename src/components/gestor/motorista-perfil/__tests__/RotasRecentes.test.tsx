@@ -80,35 +80,35 @@ describe('RotasRecentes', () => {
   const mockRotas: RotaRecente[] = [
     {
       id: 'rota-1',
-      data: '2025-12-20T10:00:00Z',
+      data: '2025-12-20',
       status: 'concluida',
       distancia_total: 45.5,
       paradas_count: 8,
     },
     {
       id: 'rota-2',
-      data: '2025-12-19T10:00:00Z',
+      data: '2025-12-19',
       status: 'em_andamento',
       distancia_total: 32.3,
       paradas_count: 5,
     },
     {
       id: 'rota-3',
-      data: '2025-12-18T10:00:00Z',
+      data: '2025-12-18',
       status: 'pendente',
       distancia_total: null,
       paradas_count: 10,
     },
     {
       id: 'rota-4',
-      data: '2025-12-17T10:00:00Z',
+      data: '2025-12-17',
       status: 'nao_executada',
       distancia_total: 28.0,
       paradas_count: 6,
     },
     {
       id: 'rota-5',
-      data: '2025-12-16T10:00:00Z',
+      data: '2025-12-16',
       status: 'cancelada',
       distancia_total: 15.0,
       paradas_count: 3,
@@ -249,7 +249,7 @@ describe('RotasRecentes', () => {
     it('deve usar fallback para status desconhecido', () => {
       const rotaDesconhecida: RotaRecente = {
         id: 'rota-x',
-        data: '2025-12-15T10:00:00Z',
+        data: '2025-12-15',
         status: 'status_invalido',
         distancia_total: 10.0,
         paradas_count: 2,
