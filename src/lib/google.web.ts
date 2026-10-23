@@ -1,7 +1,5 @@
 import {
   type PlaceSuggestion,
-  type DistanceMatrixRow,
-  type DistanceMatrixElement,
   handleDirectionsError,
   parseGoogleError,
   RouteResult,
@@ -18,7 +16,12 @@ import { GoogleDirectionsResult } from '../types/google-directions';
 // Re-export polyline utilities for backwards compatibility
 export { decodePolyline, encodePolyline, mergePolylines } from './polyline';
 // Re-export shared utilities for backwards compatibility
-export { RoutesAPIResponse, adaptRoutesAPIResponse, mapRoutesAPIError, parseDuration } from './google-shared';
+export {
+  RoutesAPIResponse,
+  adaptRoutesAPIResponse,
+  mapRoutesAPIError,
+  parseDuration,
+} from './google-shared';
 
 // PlaceSuggestion is now exported from google-shared.ts
 export type { PlaceSuggestion } from './google-shared';
@@ -31,19 +34,28 @@ export type { PlaceSuggestion } from './google-shared';
 export const googleMapsService = {
   // Autocomplete usando Edge Function (não depende da JS API estar carregada)
   // Usa Supabase Edge Function para evitar CORS e funcionar sem MapaWeb renderizado
-  async autocompleteAddress(input: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
+  async autocompleteAddress(
+    input: string,
+    sessionToken?: string,
+  ): Promise<PlaceSuggestion[]> {
     if (input.length < 3) {
       return [];
     }
 
     try {
       // Chamar Edge Function do Supabase (não precisa da JS API)
-      const { data, error } = await supabase.functions.invoke('google-places-autocomplete', {
-        body: { input, sessionToken },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        'google-places-autocomplete',
+        {
+          body: { input, sessionToken },
+        },
+      );
 
       if (error) {
-        logger.error('[Google.web] Erro no autocomplete (Edge Function)', error);
+        logger.error(
+          '[Google.web] Erro no autocomplete (Edge Function)',
+          error,
+        );
         return [];
       }
 
@@ -55,15 +67,24 @@ export const googleMapsService = {
   },
 
   // Obter detalhes usando Edge Function (não depende da JS API estar carregada)
-  async getPlaceDetails(placeId: string, sessionToken?: string): Promise<EnderecoGeocodificado | null> {
+  async getPlaceDetails(
+    placeId: string,
+    sessionToken?: string,
+  ): Promise<EnderecoGeocodificado | null> {
     try {
       // Chamar Edge Function do Supabase
-      const { data, error } = await supabase.functions.invoke('google-place-details', {
-        body: { placeId, sessionToken },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        'google-place-details',
+        {
+          body: { placeId, sessionToken },
+        },
+      );
 
       if (error) {
-        logger.error('[Google.web] Erro ao obter detalhes do place (Edge Function)', error);
+        logger.error(
+          '[Google.web] Erro ao obter detalhes do place (Edge Function)',
+          error,
+        );
         return null;
       }
 
@@ -80,10 +101,14 @@ export const googleMapsService = {
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints?: Coordenadas[],
-    optimize: boolean = true
+    optimize: boolean = true,
   ): Promise<GoogleDirectionsResult | null> {
-    return this.getDirectionsWithError(origin, destination, waypoints, optimize)
-      .then(result => result.success ? result.data! : null);
+    return this.getDirectionsWithError(
+      origin,
+      destination,
+      waypoints,
+      optimize,
+    ).then((result) => (result.success ? result.data! : null));
   },
 
   // MIGRADO PARA OSRM - Gratuito! (vs Edge Function → Google Routes API)
@@ -91,19 +116,24 @@ export const googleMapsService = {
     origin: Coordenadas,
     destination: Coordenadas,
     waypoints?: Coordenadas[],
-    optimize: boolean = true
+    optimize: boolean = true,
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
       // Usar OSRM (gratuito!) em vez de Edge Function → Google Routes API
       const osrmResult = await osrmGetDirections(
         { latitude: origin.latitude, longitude: origin.longitude },
         { latitude: destination.latitude, longitude: destination.longitude },
-        waypoints?.map(wp => ({ latitude: wp.latitude, longitude: wp.longitude })),
-        optimize
+        waypoints?.map((wp) => ({
+          latitude: wp.latitude,
+          longitude: wp.longitude,
+        })),
+        optimize,
       );
 
       if (!osrmResult) {
-        return failure(parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota'));
+        return failure(
+          parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota'),
+        );
       }
 
       // Converter formato OSRM para formato Google (compatibilidade)
@@ -112,7 +142,7 @@ export const googleMapsService = {
         distancia_total_metros: osrmResult.distancia_total_metros,
         duracao_total_segundos: osrmResult.duracao_total_segundos,
         ordem_otimizada: osrmResult.ordem_otimizada,
-        legs: osrmResult.legs.map(leg => ({
+        legs: osrmResult.legs.map((leg) => ({
           distancia_metros: leg.distancia_metros,
           duracao_segundos: leg.duracao_segundos,
           endereco_inicio: leg.endereco_inicio,
@@ -140,29 +170,40 @@ export const googleMapsService = {
   async getDirectionsSequential(
     origin: Coordenadas,
     destination: Coordenadas,
-    waypoints: Coordenadas[]
+    waypoints: Coordenadas[],
   ): Promise<GoogleDirectionsResult | null> {
-    return this.getDirectionsSequentialWithError(origin, destination, waypoints)
-      .then(result => result.success ? result.data! : null);
+    return this.getDirectionsSequentialWithError(
+      origin,
+      destination,
+      waypoints,
+    ).then((result) => (result.success ? result.data! : null));
   },
 
   // MIGRADO PARA OSRM - Usa optimize=false para manter ordem manual
   async getDirectionsSequentialWithError(
     origin: Coordenadas,
     destination: Coordenadas,
-    waypoints: Coordenadas[]
+    waypoints: Coordenadas[],
   ): Promise<RouteResult<GoogleDirectionsResult>> {
     try {
       // Usar OSRM com optimize=false para manter a ordem
       const osrmResult = await osrmGetDirections(
         { latitude: origin.latitude, longitude: origin.longitude },
         { latitude: destination.latitude, longitude: destination.longitude },
-        waypoints.map(wp => ({ latitude: wp.latitude, longitude: wp.longitude })),
-        false // Não otimizar - manter ordem manual
+        waypoints.map((wp) => ({
+          latitude: wp.latitude,
+          longitude: wp.longitude,
+        })),
+        false, // Não otimizar - manter ordem manual
       );
 
       if (!osrmResult) {
-        return failure(parseGoogleError('ZERO_RESULTS', 'Não foi possível calcular a rota sequencial'));
+        return failure(
+          parseGoogleError(
+            'ZERO_RESULTS',
+            'Não foi possível calcular a rota sequencial',
+          ),
+        );
       }
 
       // Converter formato OSRM para formato Google
@@ -171,7 +212,7 @@ export const googleMapsService = {
         distancia_total_metros: osrmResult.distancia_total_metros,
         duracao_total_segundos: osrmResult.duracao_total_segundos,
         ordem_otimizada: [], // Vazio porque não otimizou
-        legs: osrmResult.legs.map(leg => ({
+        legs: osrmResult.legs.map((leg) => ({
           distancia_metros: leg.distancia_metros,
           duracao_segundos: leg.duracao_segundos,
           endereco_inicio: leg.endereco_inicio,
@@ -192,48 +233,6 @@ export const googleMapsService = {
       const error = handleDirectionsError(err);
       logger.error('[OSRM.web Sequential] ' + formatErrorForLog(error));
       return failure(error);
-    }
-  },
-
-  // Calcular matriz de distâncias usando Edge Function (não depende da JS API)
-  async getDistanceMatrix(origins: Coordenadas[], destinations: Coordenadas[]) {
-    try {
-      // Converter coordenadas para formato da API (lat,lng|lat,lng)
-      const originsStr = origins.map((o) => `${o.latitude},${o.longitude}`).join('|');
-      const destinationsStr = destinations.map((d) => `${d.latitude},${d.longitude}`).join('|');
-
-      // Usar Edge Function do Supabase (evita CORS e não depende da JS API)
-      const { data, error: invokeError } = await supabase.functions.invoke('google-distance-matrix', {
-        body: {
-          origins: originsStr,
-          destinations: destinationsStr,
-          mode: 'driving',
-        },
-      });
-
-      if (invokeError) {
-        logger.error('[Google.web] DistanceMatrix Edge Function error', invokeError);
-        return null;
-      }
-
-      // Processar resposta da Distance Matrix API
-      if (data?.status === 'OK' && data?.rows) {
-        const matrix = (data.rows as DistanceMatrixRow[]).map((row, i: number) => ({
-          origem: origins[i],
-          destinos: row.elements.map((element: DistanceMatrixElement, j: number) => ({
-            destino: destinations[j],
-            distancia: element.distance?.value || 0,
-            tempo: element.duration_in_traffic?.value || element.duration?.value || 0,
-          })),
-        }));
-        return matrix;
-      }
-
-      logger.error('[Google.web] DistanceMatrix API Error', { status: data?.status || 'Unknown error' });
-      return null;
-    } catch (error) {
-      logger.error('[Google.web] Erro na matriz de distâncias', error);
-      return null;
     }
   },
 };
