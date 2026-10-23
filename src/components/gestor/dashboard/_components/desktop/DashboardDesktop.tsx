@@ -90,8 +90,8 @@ export function DashboardDesktop({
     userImageUrl: userData?.foto_url,
   });
 
-  // Rota escolhida para excluir (o status vem da lista; o servidor confere
-  // de novo em `excluirRota`).
+  // Rota escolhida para excluir (o status vem da lista; `excluirRota`
+  // reconsulta antes de apagar).
   const rotaParaExcluir = rotaToDelete
     ? rotas.find((r) => r.id === rotaToDelete)
     : undefined;
@@ -105,8 +105,8 @@ export function DashboardDesktop({
   const handleDeleteRota = useCallback(
     (rotaId: string) => {
       const rota = rotas.find((r) => r.id === rotaId);
-      // Atalho de UX: a lista já sabe que está em andamento. A trava de
-      // verdade é a reconsulta no servidor dentro de `excluirRota`.
+      // Atalho de UX: a lista já sabe que está em andamento. `excluirRota`
+      // reconsulta o status; a trava no banco é o gatilho da Migration 41.
       if (rota?.status === 'em_andamento') {
         showToast(MENSAGEM_ROTA_EM_ANDAMENTO, 'error');
         return;

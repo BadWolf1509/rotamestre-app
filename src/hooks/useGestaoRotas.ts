@@ -371,8 +371,9 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
   const excluirRota = useCallback(
     (rota: RotaHistorico) => {
-      // Atalho de UX: a lista já sabe que está em andamento. A trava de
-      // verdade é a reconsulta no servidor dentro de `excluirRotaNoServidor`.
+      // Atalho de UX: a lista já sabe que está em andamento.
+      // `excluirRotaNoServidor` reconsulta o status; a trava no banco é o
+      // gatilho da Migration 41.
       if (rota.status === 'em_andamento') {
         if (Platform.OS === 'web') {
           showToast(MENSAGEM_ROTA_EM_ANDAMENTO, 'error', 5000);
