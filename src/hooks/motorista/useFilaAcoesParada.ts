@@ -69,7 +69,9 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
   }, [deOutraConta, motoristaId]);
 
   const acoesDeOutraConta =
-    dispensa?.motoristaId === motoristaId && dispensa.contagem === deOutraConta
+    dispensa !== null &&
+    dispensa.motoristaId === motoristaId &&
+    dispensa.contagem === deOutraConta
       ? 0
       : deOutraConta;
 
