@@ -24,6 +24,8 @@ interface UseRouteRealtimeOptions {
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
+/** Revalidação silenciosa enquanto há rota na tela (rota apagada/reatribuída). */
+const REVALIDACAO_COM_ROTA_MS = 90_000;
 
 /**
  * Assinaturas filtradas, sem DELETE nem `'*'`.
@@ -34,8 +36,9 @@ const MAX_RECONNECT_ATTEMPTS = 3;
  * - Nada de DELETE: o realtime não aplica RLS a DELETE (ver PROJECT_CONTEXT) e
  *   não filtra DELETE por coluna que não seja a chave. A remoção de parada pelo
  *   gestor é seguida de UPDATE (reordenação das restantes e da rota), que chega
- *   pelos canais filtrados; a rota apagada aparece na volta ao primeiro plano,
- *   na reconexão, no polling ou no puxar-para-atualizar.
+ *   pelos canais filtrados; a rota apagada ou reatribuída sai da tela na
+ *   revalidação periódica (90 s, só com rota na tela), na volta ao primeiro
+ *   plano, na reconexão ou no puxar-para-atualizar.
  * - O canal não depende do VALOR do token (só de existir): o refresh do token
  *   atualiza o `setAuth` sem recriar o canal.
  */
@@ -71,6 +74,18 @@ export function useRouteRealtimeSubscription({
     });
     return () => sub.remove();
   }, [motoristaId]);
+
+  // Rota apagada ou reatribuída pelo gestor não chega por este canal: não há
+  // DELETE, e o UPDATE da reatribuição sai do filtro `motorista_id=eq.<eu>`.
+  // Enquanto há rota na tela, uma revalidação silenciosa (não liga `loading`)
+  // a cada 90 s tira a rota que não é mais do motorista.
+  useEffect(() => {
+    if (!rotaId) return;
+    const intervalo = setInterval(() => {
+      loadRef.current();
+    }, REVALIDACAO_COM_ROTA_MS);
+    return () => clearInterval(intervalo);
+  }, [rotaId]);
 
   useEffect(() => {
     // Aguardar autenticação E motorista ID

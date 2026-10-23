@@ -403,4 +403,61 @@ describe('useRouteRealtimeSubscription', () => {
       expect(loadActiveRoute).not.toHaveBeenCalled();
     });
   });
+
+  // Rota apagada ou reatribuída pelo gestor não gera evento que este canal
+  // receba (sem DELETE; o UPDATE da reatribuição sai do filtro do motorista).
+  // Enquanto há rota na tela, uma revalidação silenciosa periódica a tira.
+  describe('revalidação periódica com rota na tela (Onda C)', () => {
+    const INTERVALO = 90_000;
+
+    it('com rota, recarrega a cada 90 s', () => {
+      const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
+      renderHook(() =>
+        useRouteRealtimeSubscription({
+          ...defaultProps,
+          rotaId: 'rota-1',
+          loadActiveRoute,
+        }),
+      );
+
+      jest.advanceTimersByTime(INTERVALO - 1);
+      expect(loadActiveRoute).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(loadActiveRoute).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(INTERVALO);
+      expect(loadActiveRoute).toHaveBeenCalledTimes(2);
+    });
+
+    it('sem rota na tela, não revalida', () => {
+      const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
+      renderHook(() =>
+        useRouteRealtimeSubscription({ ...defaultProps, loadActiveRoute }),
+      );
+
+      jest.advanceTimersByTime(INTERVALO * 3);
+      expect(loadActiveRoute).not.toHaveBeenCalled();
+    });
+
+    it('para quando a rota sai da tela e no unmount', () => {
+      const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
+      const { rerender, unmount } = renderHook(
+        (props: { rotaId?: string }) =>
+          useRouteRealtimeSubscription({
+            ...defaultProps,
+            loadActiveRoute,
+            ...props,
+          }),
+        { initialProps: { rotaId: 'rota-1' } as { rotaId?: string } },
+      );
+
+      rerender({ rotaId: undefined });
+      jest.advanceTimersByTime(INTERVALO * 2);
+      expect(loadActiveRoute).not.toHaveBeenCalled();
+
+      rerender({ rotaId: 'rota-2' });
+      unmount();
+      jest.advanceTimersByTime(INTERVALO * 2);
+      expect(loadActiveRoute).not.toHaveBeenCalled();
+    });
+  });
 });
