@@ -186,7 +186,7 @@ function CriarUnidadeScreen() {
   // o Stack deste layout tem headerBackVisible=false e gestureEnabled=false, e
   // reabrir o app cai na mesma tela de novo.
   async function handleSair() {
-    await supabase.auth.signOut({ scope: 'local' });
+    await authService.signOut();
     router.replace('/auth/login');
   }
 

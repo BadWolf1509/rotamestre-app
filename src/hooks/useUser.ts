@@ -218,8 +218,8 @@ export function useUser() {
     // Remover token quando logout
     if (!userId && pushTokenRegistered.current) {
       pushTokenRegistered.current = false;
-      // Nota: unregisterPushToken precisa do userId, então usamos o último userData
-      // Isso é handled no signOut do useAuth
+      // A remoção do token mora em authService.signOut, que roda antes de a
+      // sessão sumir (aqui ela já sumiu e o UPDATE iria anônimo).
     }
   }, [userData?.id, userId]);
 

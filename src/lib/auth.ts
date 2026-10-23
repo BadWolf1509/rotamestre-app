@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { limparEstadoLocalDoUsuario } from './auth/limparEstadoLocal';
 import { logger } from './logger';
+import { unregisterPushToken } from './notifications';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
 import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
@@ -112,8 +114,28 @@ export const authService = {
     return data;
   },
 
-  // Logout
+  /**
+   * Logout deste aparelho — o ÚNICO caminho de "Sair" (guarda em
+   * `__tests__/signout-so-neste-aparelho.test.ts`).
+   *
+   * 1. Tira o token de push do banco ANTES do `auth.signOut`: depois dele o
+   *    UPDATE vai anônimo e a RLS filtra 0 linhas sem erro — o aparelho
+   *    seguia recebendo push da conta que saiu.
+   * 2. Sai só deste aparelho (`scope: 'local'`).
+   * 3. Limpa o estado local da conta, mesmo se o passo 2 falhar.
+   */
   async signOut() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (userId) await unregisterPushToken(userId);
+    } catch (error) {
+      // Push é opcional: falhar aqui não pode prender a pessoa logada.
+      logger.warn('[Logout] Falha ao remover token de push', error);
+    }
+
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       // Ignora erro "Auth session missing" pois o objetivo é deslogar
@@ -126,6 +148,8 @@ export const authService = {
       if (!err.message?.includes('Auth session missing')) {
         throw err;
       }
+    } finally {
+      await limparEstadoLocalDoUsuario();
     }
   },
 

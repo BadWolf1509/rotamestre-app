@@ -9,6 +9,7 @@ import { Button, Card, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
+import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { isPasswordValid } from '@/utils/passwordValidation';
@@ -73,7 +74,7 @@ function FirstPasswordContent() {
           'Erro',
           'Sessão expirada. Por favor, faça login novamente.',
         );
-        await supabase.auth.signOut({ scope: 'local' });
+        await authService.signOut();
         router.replace('/auth/login');
         return;
       }

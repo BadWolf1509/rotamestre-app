@@ -1,9 +1,9 @@
 import { Session, User } from '@supabase/supabase-js';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
-import { clearAllCache, cleanExpiredCache } from '../lib/cache';
+import { cleanExpiredCache } from '../lib/cache';
 import { logger } from '../lib/logger';
-import { registerPushToken, unregisterPushToken } from '../lib/notifications';
+import { registerPushToken } from '../lib/notifications';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Mock session storage for E2E/CI environments
@@ -56,14 +56,13 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // Capture previous userId before overwriting — needed for SIGNED_OUT unregister
-      const previousUserId = lastUserId.current;
-
       setSession(session);
       setUser(session?.user ?? null);
 
-      // Wire push token registration/unregistration (non-blocking, failures are
-      // logged as warnings — push is optional and must not affect the auth flow)
+      // Registro do token de push (não bloqueia; push é opcional e não pode
+      // afetar o fluxo de auth). A REMOÇÃO não mora aqui: o SIGNED_OUT chega
+      // depois de a sessão sumir, e o UPDATE iria anônimo (RLS filtra 0
+      // linhas, sem erro). Ela fica em `authService.signOut`, antes do signOut.
       if (event === 'SIGNED_IN' && session?.user) {
         const userId = session.user.id;
         const alreadyRegistered = lastUserId.current === userId;
@@ -75,29 +74,18 @@ export function useAuth() {
         }
       }
       if (event === 'SIGNED_OUT') {
+        // Próximo SIGNED_IN (outra conta, ou a mesma) registra de novo.
         lastUserId.current = null;
-        if (previousUserId) {
-          unregisterPushToken(previousUserId).catch((err) =>
-            logger.warn('[Push] Push unregister failed', err),
-          );
-        }
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // ✅ Logout com limpeza de cache
-  // Push token unregistration is handled by the SIGNED_OUT event in onAuthStateChange
-  const signOut = useCallback(async () => {
-    await clearAllCache(); // Limpar todo o cache ao fazer logout
-    return supabase.auth.signOut({ scope: 'local' });
-  }, []);
-
+  // Logout: `authService.signOut` (src/lib/auth.ts), o único caminho.
   return {
     session,
     user,
     loading,
-    signOut,
   };
 }

@@ -1,8 +1,12 @@
 /**
  * Tests: push notification wiring in useAuth
  *
- * Verifies that registerPushToken is called on SIGNED_IN and
- * that unregisterPushToken is called on SIGNED_OUT.
+ * Verifies that registerPushToken is called on SIGNED_IN.
+ *
+ * O SIGNED_OUT NÃO remove o token: o supabase-js dispara esse evento DEPOIS de
+ * apagar a sessão, o UPDATE ia anônimo e a RLS filtrava 0 linhas sem erro. A
+ * remoção mora em `authService.signOut`, antes do `auth.signOut` (ver
+ * src/lib/__tests__/signout-limpa-push-e-estado.test.ts).
  *
  * Actual exported names (from src/lib/notifications.ts):
  *   - registerPushToken(userId: string): Promise<boolean>
@@ -104,7 +108,7 @@ describe('useAuth – push notification wiring', () => {
     expect(notifications.registerPushToken).toHaveBeenCalledWith('user-42');
   });
 
-  it('calls unregisterPushToken when SIGNED_OUT event fires', async () => {
+  it('NÃO chama unregisterPushToken no SIGNED_OUT (a sessão já saiu)', async () => {
     await mountAndFlush();
 
     // Sign in first so lastUserId.current is populated
@@ -118,8 +122,26 @@ describe('useAuth – push notification wiring', () => {
       await Promise.resolve();
     });
 
-    expect(notifications.unregisterPushToken).toHaveBeenCalledTimes(1);
-    expect(notifications.unregisterPushToken).toHaveBeenCalledWith('user-42');
+    expect(notifications.unregisterPushToken).not.toHaveBeenCalled();
+  });
+
+  it('registra de novo depois de SIGNED_OUT + SIGNED_IN (troca de conta)', async () => {
+    await mountAndFlush();
+
+    await act(async () => {
+      mockAuthCallbacks[0]?.('SIGNED_IN', mockSession);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      mockAuthCallbacks[0]?.('SIGNED_OUT', null);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      mockAuthCallbacks[0]?.('SIGNED_IN', mockSession);
+      await Promise.resolve();
+    });
+
+    expect(notifications.registerPushToken).toHaveBeenCalledTimes(2);
   });
 
   it('does NOT crash when registerPushToken rejects', async () => {
@@ -165,24 +187,8 @@ describe('useAuth – push notification wiring', () => {
     expect(notifications.registerPushToken).toHaveBeenCalledTimes(1);
   });
 
-  it('calls unregisterPushToken exactly once on signOut + SIGNED_OUT event', async () => {
-    await mountAndFlush();
-
-    // Simulate prior login so lastUserId.current is set
-    await act(async () => {
-      mockAuthCallbacks[0]?.('SIGNED_IN', { user: { id: 'user-1' } });
-      await Promise.resolve();
-    });
-
-    (notifications.unregisterPushToken as jest.Mock).mockClear();
-
-    // Simulate sign-out auth event (the only place unregister should fire)
-    await act(async () => {
-      mockAuthCallbacks[0]?.('SIGNED_OUT', null);
-      await Promise.resolve();
-    });
-
-    expect(notifications.unregisterPushToken).toHaveBeenCalledTimes(1);
-    expect(notifications.unregisterPushToken).toHaveBeenCalledWith('user-1');
+  it('useAuth não expõe signOut: o logout é authService.signOut', async () => {
+    const { result } = await mountAndFlush();
+    expect(result.current).not.toHaveProperty('signOut');
   });
 });

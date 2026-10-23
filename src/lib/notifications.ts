@@ -325,6 +325,30 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 }
 
+interface TokenGuardado {
+  token: string;
+  userId: string | null;
+}
+
+/**
+ * Lê o token guardado no aparelho e a conta para a qual ele foi gravado.
+ * Instalações antigas guardavam só o token (sem dono): vale como token de
+ * conta desconhecida, o que força gravar de novo no próximo login.
+ */
+async function lerTokenGuardado(): Promise<TokenGuardado | null> {
+  const bruto = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+  if (!bruto) return null;
+  try {
+    const v = JSON.parse(bruto) as Partial<TokenGuardado> | null;
+    if (v && typeof v.token === 'string') {
+      return { token: v.token, userId: v.userId ?? null };
+    }
+  } catch {
+    // Não é JSON: formato antigo, o valor é o próprio token.
+  }
+  return { token: bruto, userId: null };
+}
+
 /**
  * Registra o push token no banco de dados (tabela usuarios)
  * Deve ser chamado após o login do usuário
@@ -338,9 +362,10 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       return false;
     }
 
-    // Verificar se o token mudou
-    const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
-    if (storedToken === token) {
+    // Só pula o banco se o token já foi gravado para ESTA conta: com duas
+    // contas no mesmo aparelho, o token é igual e a segunda nunca o gravava.
+    const guardado = await lerTokenGuardado();
+    if (guardado?.token === token && guardado.userId === userId) {
       return true;
     }
 
@@ -355,8 +380,11 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       return false;
     }
 
-    // Salvar token localmente para comparação futura
-    await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+    // Salvar token e dono localmente para comparação futura
+    await AsyncStorage.setItem(
+      PUSH_TOKEN_KEY,
+      JSON.stringify({ token, userId } satisfies TokenGuardado),
+    );
     return true;
   } catch (error) {
     logger.error('[Push] Erro ao registrar token', error);
@@ -365,17 +393,26 @@ export async function registerPushToken(userId: string): Promise<boolean> {
 }
 
 /**
- * Remove o push token do banco de dados (logout)
+ * Remove o push token do banco de dados (logout).
+ *
+ * Precisa rodar com a sessão AINDA viva (antes do `auth.signOut`): sem ela o
+ * UPDATE vai anônimo e a RLS filtra 0 linhas, sem erro. Só limpa se o banco
+ * ainda tiver o token deste aparelho — a coluna é uma por usuário, e sair no
+ * aparelho A não pode apagar o token que o aparelho B gravou depois.
  */
 export async function unregisterPushToken(userId: string): Promise<void> {
   if (Platform.OS === 'web') return;
 
   try {
-    // Remover token do banco
-    await supabase
-      .from('usuarios')
-      .update({ push_token: null })
-      .eq('id', userId);
+    const guardado = await lerTokenGuardado();
+    if (guardado) {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ push_token: null })
+        .eq('id', userId)
+        .eq('push_token', guardado.token);
+      if (error) logger.warn('[Push] Erro ao limpar token no banco', error);
+    }
 
     // Limpar token local
     await AsyncStorage.removeItem(PUSH_TOKEN_KEY);

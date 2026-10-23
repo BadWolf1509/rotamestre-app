@@ -81,15 +81,23 @@ import {
 } from '../notifications';
 
 // Type the mocked functions
-const mockScheduleNotificationAsync = Notifications.scheduleNotificationAsync as jest.Mock;
-const mockCancelScheduledNotificationAsync = Notifications.cancelScheduledNotificationAsync as jest.Mock;
-const mockGetAllScheduledNotificationsAsync = Notifications.getAllScheduledNotificationsAsync as jest.Mock;
+const mockScheduleNotificationAsync =
+  Notifications.scheduleNotificationAsync as jest.Mock;
+const mockCancelScheduledNotificationAsync =
+  Notifications.cancelScheduledNotificationAsync as jest.Mock;
+const mockGetAllScheduledNotificationsAsync =
+  Notifications.getAllScheduledNotificationsAsync as jest.Mock;
 const mockGetPermissionsAsync = Notifications.getPermissionsAsync as jest.Mock;
-const mockRequestPermissionsAsync = Notifications.requestPermissionsAsync as jest.Mock;
-const mockSetNotificationChannelAsync = Notifications.setNotificationChannelAsync as jest.Mock;
-const mockGetExpoPushTokenAsync = Notifications.getExpoPushTokenAsync as jest.Mock;
-const mockAddNotificationReceivedListener = Notifications.addNotificationReceivedListener as jest.Mock;
-const mockAddNotificationResponseReceivedListener = Notifications.addNotificationResponseReceivedListener as jest.Mock;
+const mockRequestPermissionsAsync =
+  Notifications.requestPermissionsAsync as jest.Mock;
+const mockSetNotificationChannelAsync =
+  Notifications.setNotificationChannelAsync as jest.Mock;
+const mockGetExpoPushTokenAsync =
+  Notifications.getExpoPushTokenAsync as jest.Mock;
+const mockAddNotificationReceivedListener =
+  Notifications.addNotificationReceivedListener as jest.Mock;
+const mockAddNotificationResponseReceivedListener =
+  Notifications.addNotificationResponseReceivedListener as jest.Mock;
 
 describe('notifications', () => {
   const originalPlatform = Platform.OS;
@@ -103,7 +111,9 @@ describe('notifications', () => {
     mockRequestPermissionsAsync.mockResolvedValue({ status: 'granted' });
     mockScheduleNotificationAsync.mockResolvedValue('notification-id');
     mockGetAllScheduledNotificationsAsync.mockResolvedValue([]);
-    mockGetExpoPushTokenAsync.mockResolvedValue({ data: 'ExponentPushToken[xxx]' });
+    mockGetExpoPushTokenAsync.mockResolvedValue({
+      data: 'ExponentPushToken[xxx]',
+    });
 
     // Reset Platform.OS
     Object.defineProperty(Platform, 'OS', {
@@ -172,7 +182,7 @@ describe('notifications', () => {
 
     it('should return stored settings merged with defaults', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: false })
+        JSON.stringify({ routeReminder: false }),
       );
 
       const settings = await getNotificationSettings();
@@ -182,7 +192,9 @@ describe('notifications', () => {
     });
 
     it('should return defaults on error', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockRejectedValue(new Error('Storage error'));
+      (AsyncStorage.getItem as jest.Mock).mockRejectedValue(
+        new Error('Storage error'),
+      );
 
       const settings = await getNotificationSettings();
 
@@ -196,13 +208,13 @@ describe('notifications', () => {
 
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
         '@rotamestre:notification_settings',
-        expect.any(String)
+        expect.any(String),
       );
     });
 
     it('should merge with existing settings', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true, reminderTime: '09:00' })
+        JSON.stringify({ routeReminder: true, reminderTime: '09:00' }),
       );
 
       await saveNotificationSettings({ routeReminder: false });
@@ -214,10 +226,14 @@ describe('notifications', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      (AsyncStorage.setItem as jest.Mock).mockRejectedValue(new Error('Save error'));
+      (AsyncStorage.setItem as jest.Mock).mockRejectedValue(
+        new Error('Save error'),
+      );
 
       // Should not throw
-      await expect(saveNotificationSettings({ routeReminder: false })).resolves.toBeUndefined();
+      await expect(
+        saveNotificationSettings({ routeReminder: false }),
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -233,7 +249,9 @@ describe('notifications', () => {
     it('should schedule notification and return id', async () => {
       mockScheduleNotificationAsync.mockResolvedValue('notif-123');
 
-      const result = await sendLocalNotification('Title', 'Body', { type: 'test' });
+      const result = await sendLocalNotification('Title', 'Body', {
+        type: 'test',
+      });
 
       expect(mockScheduleNotificationAsync).toHaveBeenCalledWith({
         content: {
@@ -248,7 +266,9 @@ describe('notifications', () => {
     });
 
     it('should return null on error', async () => {
-      mockScheduleNotificationAsync.mockRejectedValue(new Error('Schedule error'));
+      mockScheduleNotificationAsync.mockRejectedValue(
+        new Error('Schedule error'),
+      );
 
       const result = await sendLocalNotification('Title', 'Body');
 
@@ -259,7 +279,7 @@ describe('notifications', () => {
   describe('notifyRoutePending', () => {
     it('should send notification when routeReminder enabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true })
+        JSON.stringify({ routeReminder: true }),
       );
 
       await notifyRoutePending('Unidade X');
@@ -269,7 +289,7 @@ describe('notifications', () => {
 
     it('should not send notification when routeReminder disabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: false })
+        JSON.stringify({ routeReminder: false }),
       );
 
       await notifyRoutePending('Unidade X');
@@ -281,7 +301,7 @@ describe('notifications', () => {
   describe('notifyRouteComplete', () => {
     it('should send notification when routeComplete enabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeComplete: true })
+        JSON.stringify({ routeComplete: true }),
       );
 
       await notifyRouteComplete(5, '2h 30min');
@@ -291,7 +311,7 @@ describe('notifications', () => {
 
     it('should not send notification when routeComplete disabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeComplete: false })
+        JSON.stringify({ routeComplete: false }),
       );
 
       await notifyRouteComplete(5, '2h 30min');
@@ -303,7 +323,7 @@ describe('notifications', () => {
   describe('notifyOfflineMode', () => {
     it('should send notification when offlineAlert enabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ offlineAlert: true })
+        JSON.stringify({ offlineAlert: true }),
       );
 
       await notifyOfflineMode();
@@ -313,7 +333,7 @@ describe('notifications', () => {
 
     it('should not send notification when offlineAlert disabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ offlineAlert: false })
+        JSON.stringify({ offlineAlert: false }),
       );
 
       await notifyOfflineMode();
@@ -359,7 +379,7 @@ describe('notifications', () => {
 
     it('should return null when routeReminder disabled', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: false })
+        JSON.stringify({ routeReminder: false }),
       );
 
       const result = await scheduleRouteReminder();
@@ -369,7 +389,7 @@ describe('notifications', () => {
 
     it('should schedule reminder and return id', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true, reminderTime: '08:00' })
+        JSON.stringify({ routeReminder: true, reminderTime: '08:00' }),
       );
       mockScheduleNotificationAsync.mockResolvedValue('reminder-123');
 
@@ -384,19 +404,23 @@ describe('notifications', () => {
         { identifier: 'old-1', content: { data: { type: 'daily_reminder' } } },
       ]);
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true, reminderTime: '08:00' })
+        JSON.stringify({ routeReminder: true, reminderTime: '08:00' }),
       );
 
       await scheduleRouteReminder();
 
-      expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith('old-1');
+      expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith(
+        'old-1',
+      );
     });
 
     it('should return null on error', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true, reminderTime: '08:00' })
+        JSON.stringify({ routeReminder: true, reminderTime: '08:00' }),
       );
-      mockScheduleNotificationAsync.mockRejectedValue(new Error('Schedule error'));
+      mockScheduleNotificationAsync.mockRejectedValue(
+        new Error('Schedule error'),
+      );
 
       const result = await scheduleRouteReminder();
 
@@ -415,18 +439,25 @@ describe('notifications', () => {
 
     it('should cancel daily reminder notifications', async () => {
       mockGetAllScheduledNotificationsAsync.mockResolvedValue([
-        { identifier: 'reminder-1', content: { data: { type: 'daily_reminder' } } },
+        {
+          identifier: 'reminder-1',
+          content: { data: { type: 'daily_reminder' } },
+        },
         { identifier: 'other-2', content: { data: { type: 'other' } } },
       ]);
 
       await cancelRouteReminder();
 
-      expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith('reminder-1');
+      expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith(
+        'reminder-1',
+      );
       expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledTimes(1);
     });
 
     it('should handle errors gracefully', async () => {
-      mockGetAllScheduledNotificationsAsync.mockRejectedValue(new Error('Error'));
+      mockGetAllScheduledNotificationsAsync.mockRejectedValue(
+        new Error('Error'),
+      );
 
       // Should not throw
       await expect(cancelRouteReminder()).resolves.toBeUndefined();
@@ -439,7 +470,9 @@ describe('notifications', () => {
 
       addNotificationReceivedListener(callback);
 
-      expect(mockAddNotificationReceivedListener).toHaveBeenCalledWith(callback);
+      expect(mockAddNotificationReceivedListener).toHaveBeenCalledWith(
+        callback,
+      );
     });
   });
 
@@ -449,7 +482,9 @@ describe('notifications', () => {
 
       addNotificationResponseListener(callback);
 
-      expect(mockAddNotificationResponseReceivedListener).toHaveBeenCalledWith(callback);
+      expect(mockAddNotificationResponseReceivedListener).toHaveBeenCalledWith(
+        callback,
+      );
     });
   });
 
@@ -464,7 +499,9 @@ describe('notifications', () => {
 
     it('should return token when permissions granted', async () => {
       mockGetPermissionsAsync.mockResolvedValue({ status: 'granted' });
-      mockGetExpoPushTokenAsync.mockResolvedValue({ data: 'ExponentPushToken[xxx]' });
+      mockGetExpoPushTokenAsync.mockResolvedValue({
+        data: 'ExponentPushToken[xxx]',
+      });
 
       const result = await getExpoPushToken();
 
@@ -499,8 +536,13 @@ describe('notifications', () => {
     });
 
     it('should return true when token already stored', async () => {
-      mockGetExpoPushTokenAsync.mockResolvedValue({ data: 'ExponentPushToken[xxx]' });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('ExponentPushToken[xxx]');
+      mockGetExpoPushTokenAsync.mockResolvedValue({
+        data: 'ExponentPushToken[xxx]',
+      });
+      // Guardado para a MESMA conta (formato { token, userId })
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ token: 'ExponentPushToken[xxx]', userId: 'user-123' }),
+      );
 
       const result = await registerPushToken('user-123');
 
@@ -529,7 +571,9 @@ describe('notifications', () => {
     it('should remove token from storage', async () => {
       await unregisterPushToken('user-123');
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@rotamestre:push_token');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+        '@rotamestre:push_token',
+      );
     });
   });
 
@@ -543,18 +587,27 @@ describe('notifications', () => {
     });
 
     it('should setup notification channels on Android', async () => {
-      Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
+      Object.defineProperty(Platform, 'OS', {
+        value: 'android',
+        writable: true,
+      });
 
       await initializeNotifications();
 
-      expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith('default', expect.any(Object));
-      expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith('emergencia', expect.any(Object));
+      expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith(
+        'default',
+        expect.any(Object),
+      );
+      expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith(
+        'emergencia',
+        expect.any(Object),
+      );
     });
 
     it('should schedule route reminder when permissions granted', async () => {
       mockGetPermissionsAsync.mockResolvedValue({ status: 'granted' });
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true, reminderTime: '08:00' })
+        JSON.stringify({ routeReminder: true, reminderTime: '08:00' }),
       );
 
       await initializeNotifications();
@@ -573,21 +626,25 @@ describe('notifications', () => {
     });
 
     it('should register push token', async () => {
-      mockGetExpoPushTokenAsync.mockResolvedValue({ data: 'ExponentPushToken[xxx]' });
+      mockGetExpoPushTokenAsync.mockResolvedValue({
+        data: 'ExponentPushToken[xxx]',
+      });
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
       await initializePushNotifications('user-123');
 
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
         '@rotamestre:push_token',
-        'ExponentPushToken[xxx]'
+        JSON.stringify({ token: 'ExponentPushToken[xxx]', userId: 'user-123' }),
       );
     });
   });
 
   describe('notificationService', () => {
     it('should export all functions', () => {
-      expect(notificationService.requestPermissions).toBe(requestNotificationPermissions);
+      expect(notificationService.requestPermissions).toBe(
+        requestNotificationPermissions,
+      );
       expect(notificationService.getSettings).toBe(getNotificationSettings);
       expect(notificationService.saveSettings).toBe(saveNotificationSettings);
       expect(notificationService.send).toBe(sendLocalNotification);
@@ -595,15 +652,23 @@ describe('notifications', () => {
       expect(notificationService.notifyRouteComplete).toBe(notifyRouteComplete);
       expect(notificationService.notifyOfflineMode).toBe(notifyOfflineMode);
       expect(notificationService.notifySyncComplete).toBe(notifySyncComplete);
-      expect(notificationService.scheduleRouteReminder).toBe(scheduleRouteReminder);
+      expect(notificationService.scheduleRouteReminder).toBe(
+        scheduleRouteReminder,
+      );
       expect(notificationService.cancelRouteReminder).toBe(cancelRouteReminder);
-      expect(notificationService.addReceivedListener).toBe(addNotificationReceivedListener);
-      expect(notificationService.addResponseListener).toBe(addNotificationResponseListener);
+      expect(notificationService.addReceivedListener).toBe(
+        addNotificationReceivedListener,
+      );
+      expect(notificationService.addResponseListener).toBe(
+        addNotificationResponseListener,
+      );
       expect(notificationService.initialize).toBe(initializeNotifications);
       expect(notificationService.getExpoPushToken).toBe(getExpoPushToken);
       expect(notificationService.registerPushToken).toBe(registerPushToken);
       expect(notificationService.unregisterPushToken).toBe(unregisterPushToken);
-      expect(notificationService.initializePush).toBe(initializePushNotifications);
+      expect(notificationService.initializePush).toBe(
+        initializePushNotifications,
+      );
     });
   });
 });
