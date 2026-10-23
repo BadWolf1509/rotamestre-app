@@ -214,6 +214,31 @@ describe('googlePlacesService', () => {
       expect(logger.error).toHaveBeenCalled();
     });
 
+    it('não deixa o listener de abort pendurado no sinal depois da requisição', async () => {
+      const adicionados: unknown[] = [];
+      const removidos: unknown[] = [];
+      const add = jest
+        .spyOn(AbortSignal.prototype, 'addEventListener')
+        .mockImplementation(function (this: AbortSignal, tipo, fn) {
+          if (tipo === 'abort') adicionados.push(fn);
+        });
+      const remove = jest
+        .spyOn(AbortSignal.prototype, 'removeEventListener')
+        .mockImplementation(function (this: AbortSignal, tipo, fn) {
+          if (tipo === 'abort') removidos.push(fn);
+        });
+      try {
+        mockFetchResponse(makeAutocompleteResponse());
+        await googlePlacesService.autocompleteAddress('Rua Augusta');
+      } finally {
+        add.mockRestore();
+        remove.mockRestore();
+      }
+
+      expect(adicionados.length).toBeGreaterThan(0);
+      for (const fn of adicionados) expect(removidos).toContain(fn);
+    });
+
     it('returns empty array on timeout (AbortError)', async () => {
       const abortError = new DOMException(
         'The operation was aborted',

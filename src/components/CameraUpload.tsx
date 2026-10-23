@@ -40,7 +40,7 @@ import {
   hasOfflinePhoto,
   getOfflinePhotoPath,
 } from '../lib/offline';
-import { uploadELinkFotoParada } from '../lib/storage';
+import { ehParadaIndisponivel, uploadELinkFotoParada } from '../lib/storage';
 
 interface CameraUploadProps {
   unidadeId: string;
@@ -302,10 +302,17 @@ export default function CameraUpload({
         try {
           await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-          showWarning(
-            'Erro de conexão',
-            'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.',
-          );
+          if (ehParadaIndisponivel(error)) {
+            showWarning(
+              'Parada indisponível',
+              'Esta parada não está mais disponível; a foto ficou guardada e será registrada para a loja.',
+            );
+          } else {
+            showWarning(
+              'Erro de conexão',
+              'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.',
+            );
+          }
 
           setPendingSync(true);
           setOfflinePhotoPath(selectedImage);

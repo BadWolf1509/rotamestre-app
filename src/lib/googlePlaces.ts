@@ -98,16 +98,18 @@ async function fetchEdgeFunction<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  const escuta: { aoAbortar?: () => void } = {};
   try {
     // A leitura da sessão corre sob o mesmo prazo da requisição.
     const token = await Promise.race([
       tokenDeAutorizacao(),
       new Promise<never>((_, rejeitar) => {
-        controller.signal.addEventListener('abort', () => {
+        escuta.aoAbortar = () => {
           const abortado = new Error('Aborted');
           abortado.name = 'AbortError';
           rejeitar(abortado);
-        });
+        };
+        controller.signal.addEventListener('abort', escuta.aoAbortar);
       }),
     ]);
     const response = await fetch(url, {
@@ -139,6 +141,11 @@ async function fetchEdgeFunction<T>(
       logger.error('[GooglePlaces] Fetch error', error);
     }
     return null;
+  } finally {
+    // O listener da corrida não pode ficar no sinal depois da requisição.
+    if (escuta.aoAbortar) {
+      controller.signal.removeEventListener('abort', escuta.aoAbortar);
+    }
   }
 }
 

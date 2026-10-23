@@ -3,6 +3,8 @@ import {
   uploadFotoEntrega,
   salvarFotoParada,
   uploadELinkFotoParada,
+  ehParadaIndisponivel,
+  ParadaIndisponivelError,
   deletarFoto,
   uploadFotoUsuario,
   uploadIncidentPhoto,
@@ -359,6 +361,14 @@ describe('Storage Functions', () => {
 
       (supabase.from as jest.Mock).mockReturnValue({
         update: mockUpdate,
+        // releitura: a parada continua sem foto, então o rollback pode apagar
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest
+              .fn()
+              .mockResolvedValue({ data: { foto_url: null }, error: null }),
+          }),
+        }),
       });
 
       const result = await uploadELinkFotoParada(
@@ -370,6 +380,118 @@ describe('Storage Functions', () => {
 
       expect(result).toBe(false);
       expect(mockRemove).toHaveBeenCalled();
+    });
+
+    describe('rollback quando o UPDATE pode ter gravado e a resposta se perdeu', () => {
+      let foto_urlLido: {
+        data: { foto_url: string | null } | null;
+        error: Error | null;
+      };
+
+      function prepararFalhaDeResposta() {
+        mockFetchWithBlob(1024 * 500);
+        const mockRemove = jest.fn().mockResolvedValue({ error: null });
+        const mockUpload = jest
+          .fn()
+          .mockResolvedValue({ data: { path: 'x' }, error: null });
+        (supabase.storage.from as jest.Mock).mockReturnValue({
+          upload: mockUpload,
+          remove: mockRemove,
+        });
+        (supabase.from as jest.Mock).mockReturnValue({
+          // a resposta do UPDATE se perdeu
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              select: jest
+                .fn()
+                .mockResolvedValue({ data: null, error: new Error('rede') }),
+            }),
+          }),
+          // releitura do foto_url da parada
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockImplementation(async () => {
+                const enviado = mockUpload.mock.calls[0][0] as string;
+                return foto_urlLido.data?.foto_url === 'ENVIADO'
+                  ? { data: { foto_url: enviado }, error: null }
+                  : foto_urlLido;
+              }),
+            }),
+          }),
+        });
+        return mockRemove;
+      }
+
+      it('não apaga o objeto se o foto_url da parada já aponta para ele', async () => {
+        foto_urlLido = { data: { foto_url: 'ENVIADO' }, error: null };
+        const mockRemove = prepararFalhaDeResposta();
+
+        const result = await uploadELinkFotoParada(
+          mockUnidadeId,
+          mockRotaId,
+          mockParadaId,
+          mockFotoUri,
+        );
+
+        expect(result).toBe(true);
+        expect(mockRemove).not.toHaveBeenCalled();
+      });
+
+      it('não apaga se não conseguiu reler o foto_url (incerto)', async () => {
+        foto_urlLido = { data: null, error: new Error('rede') };
+        const mockRemove = prepararFalhaDeResposta();
+
+        const result = await uploadELinkFotoParada(
+          mockUnidadeId,
+          mockRotaId,
+          mockParadaId,
+          mockFotoUri,
+        );
+
+        expect(result).toBe(false);
+        expect(mockRemove).not.toHaveBeenCalled();
+      });
+
+      it('parada invisível (0 linhas): apaga o objeto e sinaliza ParadaIndisponivelError', async () => {
+        foto_urlLido = { data: null, error: null };
+        const mockRemove = prepararFalhaDeResposta();
+        (supabase.from as jest.Mock).mockReturnValueOnce({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              select: jest.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        });
+
+        const erro = await uploadELinkFotoParada(
+          mockUnidadeId,
+          mockRotaId,
+          mockParadaId,
+          mockFotoUri,
+        ).catch((e: unknown) => e);
+        // O guard é o mesmo que a tela usa: lado que lança e lado que lê
+        // não podem divergir.
+        expect(ehParadaIndisponivel(erro)).toBe(true);
+        expect(erro).toBeInstanceOf(ParadaIndisponivelError);
+        expect(ehParadaIndisponivel(new Error('rede'))).toBe(false);
+        expect(ehParadaIndisponivel(null)).toBe(false);
+        expect(mockRemove).toHaveBeenCalled();
+      });
+
+      it('apaga o objeto se o foto_url é outro (UPDATE não gravou)', async () => {
+        foto_urlLido = { data: { foto_url: null }, error: null };
+        const mockRemove = prepararFalhaDeResposta();
+
+        const result = await uploadELinkFotoParada(
+          mockUnidadeId,
+          mockRotaId,
+          mockParadaId,
+          mockFotoUri,
+        );
+
+        expect(result).toBe(false);
+        expect(mockRemove).toHaveBeenCalled();
+      });
     });
   });
 

@@ -4,6 +4,8 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 
+import { logger } from '@/lib/logger';
+
 import { useIncidentesModals } from '../useIncidentesModals';
 
 import type { Incidente } from '../types';
@@ -335,6 +337,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
+          unidadeId: 'loja-1',
         }),
       );
 
@@ -347,7 +350,29 @@ describe('useIncidentesModals', () => {
 
       expect(mockFetchIncidentes).toHaveBeenCalledWith({
         motoristasIds: ['driver-1'],
+        unidadeId: 'loja-1',
       });
+    });
+
+    it('sem unidadeId não busca (fail-closed): lista vazia e aviso no log', async () => {
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleVerHistoricoMotorista(
+          'driver-1',
+          'João Silva',
+        );
+      });
+
+      expect(mockFetchIncidentes).not.toHaveBeenCalled();
+      expect(result.current.incidentesMotorista).toEqual([]);
+      expect(result.current.historicoLoading).toBe(false);
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it('opens modal and sets motorista data', async () => {
@@ -360,6 +385,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
+          unidadeId: 'loja-1',
         }),
       );
 
@@ -390,6 +416,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
+          unidadeId: 'loja-1',
         }),
       );
 
@@ -424,6 +451,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
+          unidadeId: 'loja-1',
         }),
       );
 
@@ -452,6 +480,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
+          unidadeId: 'loja-1',
         }),
       );
 
@@ -478,6 +507,7 @@ describe('useIncidentesModals', () => {
         useIncidentesModals({
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
+          unidadeId: 'loja-1',
         }),
       );
 

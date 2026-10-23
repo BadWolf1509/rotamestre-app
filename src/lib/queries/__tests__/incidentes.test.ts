@@ -80,6 +80,7 @@ describe('incidentes queries', () => {
     it('should return empty array when motoristasIds is empty', async () => {
       const result = await fetchIncidentesForGestor({
         motoristasIds: [],
+        unidadeId: 'unidade-1',
       });
 
       expect(result.success).toBe(true);
@@ -111,6 +112,7 @@ describe('incidentes queries', () => {
 
       const result = await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1', 'motorista-2'],
+        unidadeId: 'unidade-1',
       });
 
       expect(result.success).toBe(true);
@@ -126,6 +128,7 @@ describe('incidentes queries', () => {
 
       await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1'],
+        unidadeId: 'unidade-1',
         status: 'aberto',
       });
 
@@ -138,6 +141,7 @@ describe('incidentes queries', () => {
 
       await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1'],
+        unidadeId: 'unidade-1',
         categoria: 'vehicle',
       });
 
@@ -168,6 +172,7 @@ describe('incidentes queries', () => {
 
       const result = await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1'],
+        unidadeId: 'unidade-1',
       });
 
       expect(result.success).toBe(true);
@@ -184,6 +189,7 @@ describe('incidentes queries', () => {
       // safeQuery will catch the error
       await fetchIncidentesForGestor({
         motoristasIds: ['motorista-1'],
+        unidadeId: 'unidade-1',
       });
 
       // The mock safeQuery catches errors and returns success: false

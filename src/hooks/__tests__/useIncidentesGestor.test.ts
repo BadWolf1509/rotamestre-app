@@ -506,8 +506,6 @@ const _mockIncidente3: Incidente = {
   observacoes_gestao: 'Resolvido com sucesso',
 };
 
-const mockVinculacoes = [{ usuario_id: 'mot-1' }, { usuario_id: 'mot-2' }];
-
 // O hook faz duas consultas em `incidentes`: as da loja da rota
 // (rotas!inner) e as sem rota (`.is('rota_id', null)`). Nestes mocks a 1ª
 // devolve os dados do teste; a 2ª, aberta pelo `.is`, volta vazia.
@@ -575,14 +573,7 @@ describe('useIncidentesGestor', () => {
       const mockIn = jest.fn().mockReturnThis();
       const mockOrder = jest.fn().mockResolvedValue({ data: [], error: null });
 
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            order: jest.fn().mockResolvedValue({ data: [], error: null }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: mockSelect,
           eq: mockEq,
@@ -717,9 +708,6 @@ describe('useIncidentesGestor', () => {
     });
 
     it('busca os incidentes pela loja gravada neles, sem ler os vínculos dos motoristas', async () => {
-      const mockSelectVinc = jest.fn().mockReturnThis();
-      const _mockEqVinc = jest.fn().mockReturnThis();
-
       const mockSelectInc = jest.fn().mockReturnThis();
       const mockEqInc = jest.fn().mockReturnThis();
       const mockInInc = jest.fn().mockReturnThis();
@@ -728,20 +716,7 @@ describe('useIncidentesGestor', () => {
         error: null,
       });
 
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: mockSelectVinc,
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: mockVinculacoes,
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: mockSelectInc,
           eq: mockEqInc,
@@ -762,21 +737,8 @@ describe('useIncidentesGestor', () => {
       expect(mockInInc).not.toHaveBeenCalled();
     });
 
-    it('loja sem incidentes: lista vazia', async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: [],
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+    it('consulta da loja volta vazia: lista vazia, sem tocar em usuario_unidades', async () => {
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -793,23 +755,11 @@ describe('useIncidentesGestor', () => {
       });
 
       expect(result.current.incidentes).toEqual([]);
+      expect(mockFrom).not.toHaveBeenCalledWith('usuario_unidades');
     });
 
     it('deve mostrar toast de erro quando query falha', async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: mockVinculacoes,
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -842,20 +792,7 @@ describe('useIncidentesGestor', () => {
   describe('resumoGeral', () => {
     it('deve calcular estatisticas corretamente', async () => {
       // Simula incidentes ja carregados via fetchIncidentes
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: mockVinculacoes,
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -901,20 +838,7 @@ describe('useIncidentesGestor', () => {
     });
 
     it('deve retornar zeros quando nao ha incidentes', async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: [],
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -947,20 +871,7 @@ describe('useIncidentesGestor', () => {
 
   describe('estatisticasMotorista', () => {
     it('deve agrupar incidentes por motorista', async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: mockVinculacoes,
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -1031,20 +942,7 @@ describe('useIncidentesGestor', () => {
         motorista: { nome: 'Motorista 0' },
       }));
 
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: mockVinculacoes,
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -1165,19 +1063,6 @@ describe('useIncidentesGestor', () => {
             order: jest.fn().mockResolvedValue({ data: [], error: null }),
           };
         }
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: [],
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -1251,19 +1136,6 @@ describe('useIncidentesGestor', () => {
             in: jest.fn().mockReturnThis(),
             is: () => mockConsultaSemRotaVazia(),
             order: jest.fn().mockResolvedValue({ data: [], error: null }),
-          };
-        }
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: [],
-                  error: null,
-                }),
-              }),
-            }),
           };
         }
         return {
@@ -1480,20 +1352,7 @@ describe('useIncidentesGestor', () => {
 
   describe('handleVerHistoricoMotorista', () => {
     it('deve abrir modal com historico do motorista', async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: mockVinculacoes,
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),

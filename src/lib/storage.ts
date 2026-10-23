@@ -296,6 +296,14 @@ export async function salvarFotoParada(
   paradaId: string,
   fotoUrl: string,
 ): Promise<boolean> {
+  return (await salvarFotoParadaDetalhado(paradaId, fotoUrl)) === 'ligada';
+}
+
+/** Erro de rede/servidor, ou a parada sumiu (apagada, reatribuída)? */
+async function salvarFotoParadaDetalhado(
+  paradaId: string,
+  fotoUrl: string,
+): Promise<'ligada' | 'sem_linha' | 'erro'> {
   try {
     const { data, error } = await supabase
       .from('paradas')
@@ -315,14 +323,32 @@ export async function salvarFotoParada(
       logger.warn('[Storage] foto_url não ligada: parada não encontrada', {
         paradaId,
       });
-      return false;
+      return 'sem_linha';
     }
 
-    return true;
+    return 'ligada';
   } catch (error) {
     logger.error('[Storage] Erro ao salvar foto na parada', error);
-    return false;
+    return 'erro';
   }
+}
+
+/**
+ * A parada não está mais visível (apagada ou reatribuída): não é problema de
+ * rede, e a tela precisa dizer isso. Reconhecido pelo `name`.
+ */
+const NOME_ERRO_PARADA_INDISPONIVEL = 'ParadaIndisponivelError';
+
+export class ParadaIndisponivelError extends Error {
+  constructor() {
+    super('Parada indisponível para ligar a foto');
+    this.name = NOME_ERRO_PARADA_INDISPONIVEL;
+  }
+}
+
+/** Único ponto que reconhece o erro (por `name`, imune a mocks e a bundles). */
+export function ehParadaIndisponivel(erro: unknown): boolean {
+  return erro instanceof Error && erro.name === NOME_ERRO_PARADA_INDISPONIVEL;
 }
 
 /** Onde a foto da fila do aparelho foi parar. */
@@ -413,6 +439,26 @@ export async function subirFotoDaFilaOffline({
   return null;
 }
 
+/** O `foto_url` atual da parada aponta para este objeto? ('incerto' = não leu) */
+async function fotoJaLigadaNaParada(
+  paradaId: string,
+  path: string,
+): Promise<'sim' | 'nao' | 'incerto'> {
+  try {
+    const { data, error } = await supabase
+      .from('paradas')
+      .select('foto_url')
+      .eq('id', paradaId)
+      .maybeSingle();
+    if (error) return 'incerto';
+    const atual = data?.foto_url ? getStoragePath(data.foto_url) : null;
+    return atual === path ? 'sim' : 'nao';
+  } catch {
+    // Não crítico: sem leitura, o chamador mantém o objeto (lado seguro).
+    return 'incerto';
+  }
+}
+
 /**
  * Upload completo: foto + atualizar banco
  *
@@ -447,19 +493,33 @@ export async function uploadELinkFotoParada(
     }
 
     // 2. Salvar URL no banco
-    const salvou = await salvarFotoParada(paradaId, fotoUrl);
+    const resultado = await salvarFotoParadaDetalhado(paradaId, fotoUrl);
 
-    if (!salvou) {
+    if (resultado !== 'ligada') {
+      // O UPDATE pode ter gravado e a resposta se perdido: apagar o objeto
+      // agora deixaria `foto_url` apontando para o nada, e a fila offline
+      // (UPDATE só com `foto_url` nula) não consertaria. Releia antes.
+      const ligada = await fotoJaLigadaNaParada(paradaId, fotoUrl);
+      if (ligada === 'sim') return true;
+      if (ligada === 'incerto') {
+        // Objeto repetido no Storage é só custo; comprovante apagado, não.
+        logger.warn(
+          '[Storage] Falha ao salvar e sem como conferir; objeto mantido',
+        );
+        return false;
+      }
       // Rollback: deletar foto do storage se falhou ao atualizar banco
       logger.warn(
         '[Storage] Falha ao salvar no banco, realizando rollback da foto...',
       );
       await deletarFoto(fotoUrl);
+      if (resultado === 'sem_linha') throw new ParadaIndisponivelError();
       return false;
     }
 
     return true;
   } catch (error) {
+    if (ehParadaIndisponivel(error)) throw error;
     logger.error('[Storage] Erro no processo de upload', error);
     return false;
   }
