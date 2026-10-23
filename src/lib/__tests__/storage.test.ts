@@ -3,6 +3,8 @@ import {
   uploadFotoEntrega,
   salvarFotoParada,
   uploadELinkFotoParada,
+  ehParadaIndisponivel,
+  ParadaIndisponivelError,
   deletarFoto,
   uploadFotoUsuario,
   uploadIncidentPhoto,
@@ -461,14 +463,18 @@ describe('Storage Functions', () => {
           }),
         });
 
-        await expect(
-          uploadELinkFotoParada(
-            mockUnidadeId,
-            mockRotaId,
-            mockParadaId,
-            mockFotoUri,
-          ),
-        ).rejects.toMatchObject({ name: 'ParadaIndisponivelError' });
+        const erro = await uploadELinkFotoParada(
+          mockUnidadeId,
+          mockRotaId,
+          mockParadaId,
+          mockFotoUri,
+        ).catch((e: unknown) => e);
+        // O guard é o mesmo que a tela usa: lado que lança e lado que lê
+        // não podem divergir.
+        expect(ehParadaIndisponivel(erro)).toBe(true);
+        expect(erro).toBeInstanceOf(ParadaIndisponivelError);
+        expect(ehParadaIndisponivel(new Error('rede'))).toBe(false);
+        expect(ehParadaIndisponivel(null)).toBe(false);
         expect(mockRemove).toHaveBeenCalled();
       });
 

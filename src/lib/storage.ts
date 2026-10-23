@@ -337,11 +337,18 @@ async function salvarFotoParadaDetalhado(
  * A parada não está mais visível (apagada ou reatribuída): não é problema de
  * rede, e a tela precisa dizer isso. Reconhecido pelo `name`.
  */
+const NOME_ERRO_PARADA_INDISPONIVEL = 'ParadaIndisponivelError';
+
 export class ParadaIndisponivelError extends Error {
   constructor() {
     super('Parada indisponível para ligar a foto');
-    this.name = 'ParadaIndisponivelError';
+    this.name = NOME_ERRO_PARADA_INDISPONIVEL;
   }
+}
+
+/** Único ponto que reconhece o erro (por `name`, imune a mocks e a bundles). */
+export function ehParadaIndisponivel(erro: unknown): boolean {
+  return erro instanceof Error && erro.name === NOME_ERRO_PARADA_INDISPONIVEL;
 }
 
 /** Onde a foto da fila do aparelho foi parar. */
@@ -512,7 +519,7 @@ export async function uploadELinkFotoParada(
 
     return true;
   } catch (error) {
-    if (error instanceof ParadaIndisponivelError) throw error;
+    if (ehParadaIndisponivel(error)) throw error;
     logger.error('[Storage] Erro no processo de upload', error);
     return false;
   }

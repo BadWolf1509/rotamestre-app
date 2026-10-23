@@ -40,7 +40,7 @@ import {
   hasOfflinePhoto,
   getOfflinePhotoPath,
 } from '../lib/offline';
-import { uploadELinkFotoParada } from '../lib/storage';
+import { ehParadaIndisponivel, uploadELinkFotoParada } from '../lib/storage';
 
 interface CameraUploadProps {
   unidadeId: string;
@@ -302,9 +302,7 @@ export default function CameraUpload({
         try {
           await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-          // Comparação por nome (não instanceof): o erro vem de lib/storage e
-          // o mock dos testes não exporta a classe.
-          if ((error as Error | null)?.name === 'ParadaIndisponivelError') {
+          if (ehParadaIndisponivel(error)) {
             showWarning(
               'Parada indisponível',
               'Esta parada não está mais disponível; a foto ficou guardada e será registrada para a loja.',

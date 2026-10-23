@@ -77,9 +77,16 @@ jest.mock('expo-image-manipulator', () => ({
 }));
 
 // Mock storage
-jest.mock('@/lib/storage', () => ({
-  uploadELinkFotoParada: (...args: any[]) => mockUploadELinkFotoParada(...args),
-}));
+// O guard e o erro são os reais: a tela e o storage não podem divergir no nome.
+jest.mock('@/lib/storage', () => {
+  const real = jest.requireActual('@/lib/storage');
+  return {
+    uploadELinkFotoParada: (...args: any[]) =>
+      mockUploadELinkFotoParada(...args),
+    ehParadaIndisponivel: real.ehParadaIndisponivel,
+    ParadaIndisponivelError: real.ParadaIndisponivelError,
+  };
+});
 
 // Spy on Alert.alert for the options menu (still uses Alert.alert on mobile).
 // mockImplementation vazio, sem call-through: o mock global (jest.setup.js)
@@ -755,9 +762,10 @@ describe('CameraUpload Component', () => {
         canceled: false,
         assets: [{ uri: 'test-uri' }],
       });
-      const indisponivel = new Error('parada fora de alcance');
-      indisponivel.name = 'ParadaIndisponivelError';
-      mockUploadELinkFotoParada.mockRejectedValue(indisponivel);
+      const { ParadaIndisponivelError } = jest.requireActual('@/lib/storage');
+      mockUploadELinkFotoParada.mockRejectedValue(
+        new ParadaIndisponivelError(),
+      );
       const fila = jest
         .spyOn(offline, 'queuePhotoUpload')
         .mockResolvedValue(undefined as never);
