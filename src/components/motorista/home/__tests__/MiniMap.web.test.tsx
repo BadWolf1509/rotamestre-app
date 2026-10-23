@@ -363,6 +363,19 @@ describe('MiniMap.web', () => {
       expect(area.props.accessibilityHint).toMatch(/2 paradas restantes/);
     });
 
+    it('a área do mapa é link, não botão: ela contém o botão de expandir', async () => {
+      // No react-native-web, accessibilityRole="button" vira <button>, e um
+      // <button> dentro de outro é HTML inválido (erro no console, leitor de
+      // tela confuso). O toque leva a outra tela, então "link" é o papel certo.
+      const { getByLabelText } = await renderizarCarregado({
+        onToggleExpand: jest.fn(),
+      });
+
+      expect(
+        getByLabelText('Abrir mapa completo').props.accessibilityRole,
+      ).toBe('link');
+    });
+
     it('botão de expandir tem 44×44', async () => {
       const { getByLabelText } = await renderizarCarregado({
         onToggleExpand: jest.fn(),

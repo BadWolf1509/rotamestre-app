@@ -64,7 +64,6 @@ interface MiniMapProps {
   testID?: string;
 }
 
-
 /**
  * Erro do maplibre que não impede o mapa: falha de um tile/fonte (o evento
  * traz `sourceId` ou `tile`) ou de sprite, glifo ou imagem do estilo.
@@ -676,7 +675,9 @@ export function MiniMap({
           onOpenFullMap ? 'Abrir mapa completo' : 'Abrir rota no Google Maps'
         }
         accessibilityHint={`Mapa da rota. ${restantesTexto}`}
-        accessibilityRole="button"
+        // "link", não "button": no react-native-web "button" vira <button>, e
+        // esta área contém o botão de expandir (<button> dentro de <button>).
+        accessibilityRole="link"
       >
         <div
           ref={mapContainerRef}
