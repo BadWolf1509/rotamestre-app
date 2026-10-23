@@ -40,8 +40,16 @@ let mockErroUpdate: { message: string } | null = null;
 let mockErroDelete: { message: string; code?: string } | null = null;
 let mockErroRpc: { message: string; code?: string } | null = null;
 
+// O registro confere que a sessão atual é da conta que está registrando.
+let mockSessaoId = 'A';
+
 jest.mock('../supabase', () => ({
   supabase: {
+    auth: {
+      getSession: jest.fn(async () => ({
+        data: { session: { user: { id: mockSessaoId } } },
+      })),
+    },
     rpc: jest.fn(async (nome: string, args: unknown) => {
       mockRpc.push([nome, args]);
       return { data: null, error: mockErroRpc };
@@ -98,12 +106,14 @@ beforeEach(() => {
   mockErroUpdate = null;
   mockErroDelete = null;
   mockErroRpc = null;
+  mockSessaoId = 'A';
   Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
 });
 
 describe('registerPushToken: token guardado por conta', () => {
   it('grava no banco quando o token do aparelho é de OUTRA conta', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
+    mockSessaoId = 'B';
 
     await expect(registerPushToken('B')).resolves.toBe(true);
 
@@ -117,13 +127,15 @@ describe('registerPushToken: token guardado por conta', () => {
     );
   });
 
-  it('não regrava quando o token e a conta são os mesmos', async () => {
+  // Antes: "não regrava quando o token e a conta são os mesmos". Esse atalho
+  // saiu: o reenvio a cada abertura mantém o registro do aparelho atualizado e
+  // o limite de aparelhos por uso recente (ver pushToken-reenvia-ao-abrir).
+  it('regrava mesmo quando o token e a conta são os mesmos', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
 
     await expect(registerPushToken('A')).resolves.toBe(true);
 
-    expect(mockRpc).toEqual([]);
-    expect(setItem).not.toHaveBeenCalled();
+    expect(mockRpc).toEqual([['registrar_push_token', { p_token: TOKEN }]]);
   });
 
   it('formato antigo (só o token, sem dono) grava de novo', async () => {

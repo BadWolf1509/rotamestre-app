@@ -48,6 +48,12 @@ jest.mock('../supabase', () => ({
   supabase: {
     // Registro do token pela RPC registrar_push_token
     rpc: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    // O registro confere que a sessão atual é da conta que está registrando
+    auth: {
+      getSession: jest.fn(() =>
+        Promise.resolve({ data: { session: { user: { id: 'user-123' } } } }),
+      ),
+    },
     from: jest.fn(() => ({
       update: jest.fn(() => ({
         eq: jest.fn(() => ({ error: null })),
