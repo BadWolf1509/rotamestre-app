@@ -239,7 +239,10 @@ schema vivo.
 **Data:** Opcional
 **Objetivo:** Adicionar RLS na tabela `spatial_ref_sys` do PostGIS
 
-**Nota:** Tabela do sistema PostGIS, RLS não é necessário (somente leitura de metadados)
+**Nota (corrigida em 23/10/2026):** a premissa "somente leitura" estava errada —
+`anon` e `authenticated` têm INSERT/UPDATE/DELETE/TRUNCATE na tabela, sem RLS. Ver
+Migration 38: o `REVOKE` feito por `postgres` provavelmente não tem efeito (tabela
+de `supabase_admin`), e o PostGIS não é usado — desligá-lo no painel resolve.
 
 **SQL:**
 
@@ -1533,6 +1536,46 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 67.204 → 54.319 linhas, esperado 12.885 = apagadas 12.885; posições de rotas
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
+
+### ⏳ Migration 38: endurece `usuarios`, fotos de perfil/incidente, `incidentes` e grants
+
+**Arquivo:** `20261023000000_endurece_usuarios_storage_incidentes.sql` · **⏳ a
+aplicar pelo SQL Editor** (tem `DROP POLICY`, `ALTER POLICY` e `REVOKE`, que o MCP
+recusa) e registrar depois em `schema_migrations` com a versão `20261023000000`.
+
+**Por quê.** Auditoria de segurança de 22/10/2026:
+(a) a policy `usuarios_insert_optimized` deixava qualquer gestor ativo criar perfil
+com qualquer `papel`/`admin_role`/`unidade_id`; (b) `spatial_ref_sys` (PostGIS) sem
+RLS e com escrita para `anon`/`authenticated`; (c) a leitura de `perfis/` e
+`incidentes/` no bucket `fotos-entrega` valia para qualquer objeto referenciado por
+um `foto_url` visível — e o próprio usuário grava o seu, então bastava gravar o path
+da foto de outra pessoa; (d) incidente aceitava `rota_id`/`parada_id` de qualquer
+rota; (e) helpers de RLS executáveis por `PUBLIC`/`anon`, views `vw_*` com escrita
+para `authenticated`, FK `rascunhos_rota.unidade_id` sem índice.
+
+**O que faz.** (a) `DROP POLICY usuarios_insert_optimized` + `REVOKE INSERT` de
+`anon`/`authenticated` — os únicos INSERT legítimos são da `criar-motorista` (chave
+secreta) e da RPC `criar_unidade_para_novo_gestor` (SECURITY DEFINER). (b) `REVOKE`
+de escrita em `spatial_ref_sys`; **provavelmente sem efeito** (tabela e grants de
+`supabase_admin`, `postgres` sem grant option) — a migration avisa com `WARNING`. O
+PostGIS não é usado (0 colunas geo, 0 funções/views com `ST_*`): a correção real é
+desligá-lo no painel (Database → Extensions). (c) A policy de SELECT das fotos passa
+a exigir que a linha que referencia o objeto seja do dono do objeto (`usuarios.id` /
+`incidentes.motorista_id` = `owner`/`owner_id`). (d) Gatilho
+`incidentes_confere_rota_parada`: rota do próprio motorista, parada da própria rota;
+no UPDATE só confere se a ligação mudou. (e) As 4 policies que chamam os helpers
+passam de `public` para `authenticated` (anon segue com 0 linhas, em vez de
+"permission denied"), e o EXECUTE dos 5 helpers sai de `PUBLIC`/`anon`; views sem
+escrita; índice `idx_rascunhos_rota_unidade_id`.
+
+**Medido antes (23/10/2026, só SELECT):** 3/3 fotos de perfil e 9/9 de incidente
+com o dono do objeto igual ao dono da linha (nenhuma foto legítima deixa de abrir);
+0 incidentes com rota de outro motorista ou parada fora da rota; nenhuma função
+SECURITY INVOKER nem view chama os helpers; o app não insere em `usuarios`.
+
+**Depois de aplicar:** roteiro de conferência no fim do arquivo (9 consultas) e a
+sonda `database/sondas/20261023000000_sonda_migration38.sql` (termina em `RAISE`,
+desfaz tudo; esperado "OK" em todas as linhas).
 
 ### ✅ Migration 39: token de push pertence a uma conta só
 
