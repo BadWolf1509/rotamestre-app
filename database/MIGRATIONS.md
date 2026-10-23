@@ -1827,3 +1827,116 @@ motorista em A e B e outro só em A; 14 casos, inclusive apagar a rota e
 conferir que a loja fica; tem `DELETE` só de linhas que ela cria, então roda no
 SQL Editor; termina em `RAISE`). Roteiro de conferência só com SELECT (9
 consultas) no fim da migration.
+
+### ✅ Migration 45: o token de push mora em `push_tokens`, visível só ao dono
+
+**Arquivo:** `20261024020000_push_tokens_so_do_dono.sql` · **✅ aplicada em
+23/10/2026 pelo SQL Editor**, depois de publicada a `send-push-notification` v15;
+sonda rodada e conferência 1–8 ok; versão registrada à mão em `schema_migrations`.
+Rodar pelo **SQL Editor** (tem `REVOKE`, que o MCP recusa), numa execução só.
+**Ordem: publicar `send-push-notification` ANTES** — sem a tabela ela lê a
+coluna antiga (fallback em 42P01/PGRST205); a função velha depois da migration
+leria a coluna vazia e o push pararia. `SET LOCAL lock_timeout = '5s'`: se
+algum lock em `usuarios` demorar, a migration falha inteira em vez de
+enfileirar a API — rodar de novo num horário calmo. Absorve a limpeza de
+grants proposta para uma Migration 44 que não chegou à main.
+
+**Por quê.** `usuarios.push_token` era lido por quem enxerga a linha de
+`usuarios` (colegas e gestores da mesma loja), e `push_notification_logs`
+guardava o token inteiro, legível pelo gestor. Quem sabe o token de outra conta
+consegue registrá-lo para si (RPC da Migration 39 ou UPDATE direto das versões
+antigas) e passa a receber os pushes dela. Não há como provar que o token é do
+aparelho de quem chama; o que fecha é ninguém ler o token de outra conta.
+
+**O que faz.** (1) Tabela `push_tokens (token PK, usuario_id → usuarios ON
+DELETE CASCADE, atualizado_em)` + índice por `usuario_id`; RLS com SELECT e
+DELETE só do dono; a API fica só com SELECT/DELETE (sem INSERT/UPDATE).
+(2) `gravar_push_token(usuario, token)`, DEFINER sem EXECUTE para a API, é a
+única escrita: com sessão, só para a própria conta (`auth.uid() <> usuario` →
+42501, defesa em profundidade); formato Expo (`ExponentPushToken[…]` e
+`ExpoPushToken[…]`, os dois que o Expo emite), até 200 caracteres, trava por
+token, upsert trocando o dono (um aparelho, uma conta) e no máximo 5 aparelhos
+por conta — `clock_timestamp()` em `atualizado_em` (o `now()` empataria os
+registros da mesma transação) e desempate pelo token no corte. O limite não é
+fronteira de segurança (em 23/10/2026: 7 tokens em 18 usuários).
+`registrar_push_token` grava por ela e não toca mais em `usuarios`.
+(3) Backfill (um dono por token, `updated_at` mais recente), coluna zerada e
+CHECK `usuarios_push_token_vazio` (`push_token IS NULL`). (4) Gatilho
+`push_token_vai_para_push_tokens` (BEFORE UPDATE, quando chega token): leva o
+token da própria linha para `push_tokens` e devolve a coluna a NULL — o UPDATE
+direto do 1.14.2 segue funcionando; token na linha de outra conta → 42501.
+(5) `notify_push_on_insert` (sem gatilho ligado) passa a olhar `push_tokens`.
+(6) Logs: token reduzido aos 6 últimos caracteres; token da mensagem da Expo
+tirado de `error_message`/`response` (irreversível). Roda **primeiro**, antes
+do `CREATE TABLE` (a FK pega lock em `usuarios`): os ~1.656 UPDATEs não ficam
+dentro da janela de lock. (7) UPDATE de
+`authenticated` em `usuarios` só em nome, email, telefone, unidade_id,
+foto_url, updated_at, ultimo_login, primeira_senha e push_token; saem `id`,
+`created_at` e `ativo` (o ramo "própria linha" deixava o desativado se
+reativar; o toggle é só pela RPC `alternar_motorista_na_unidade`).
+
+**Logout das versões antigas.** O 1.14.3 sai com `UPDATE ... SET push_token =
+NULL WHERE id = uid AND push_token = <token>`: com a coluna sempre NULL, não
+casa linha e nada acontece. Sem o token não dá para apagar só o daquele
+aparelho; apagar todos os da conta desligaria os outros aparelhos (e nem teria
+gatilho para disparar). Aceito: nessas versões o token sobrevive ao logout,
+como já acontecia no logout offline, até outra conta entrar no aparelho (a RPC
+troca o dono) ou a Expo o invalidar (o envio apaga o token morto). O app novo
+(`unregisterPushToken`) apaga de `push_tokens` pelo token; se a tabela ainda
+não existir (PGRST205), cai no UPDATE antigo.
+
+**Alternativas.** (1) Só tirar `push_token` do SELECT por grant de coluna:
+quebra todo `select('*')` de `usuarios` e o `WHERE push_token = …` do logout
+do 1.14.3 (permission denied). (2) Gatilho que trava a escrita direta (a 44
+proposta): não esconde o token, então a RPC seguia aceitando o token lido.
+(3) Apagar a coluna: o UPDATE do 1.14.2 passaria a dar 400 e o registro de
+push dessas instalações morreria. (4) Tabela própria com RLS do dono + coluna
+vazia por CHECK + gatilho de compatibilidade (escolhida): fecha a leitura,
+mantém as versões antigas registrando e ganha vários aparelhos por conta. A
+coluna pode sair quando não houver mais 1.14.2/1.14.3 em uso.
+
+**Resíduo.** Token copiado ANTES da migration continua válido para quem o
+guardou (a RPC aceita qualquer token no formato). A vítima o recupera ao
+entrar de novo na conta noutro aparelho ou reinstalar; o app só reenvia o
+token quando ele muda ou quando muda a conta (`registerPushToken` pula o banco
+com o mesmo token e a mesma conta) — reenviar a cada abertura encurtaria essa
+janela.
+
+**Conhecidos (aceitos).** **W6** — o logout do 1.14.3 deixa de limpar o token
+(ver "Logout das versões antigas"); aceito, o app novo apaga pelo token.
+**W7** — o registro (RPC e gatilho) não confere `usuarios.ativo`: conta
+desativada que ainda tem sessão registra token; fora do escopo (a desativação
+é por vínculo de loja, e a notificação já é decidida por quem a cria).
+
+**Decisões da revisão (rodada 1).** Fallback da função: a alternativa era
+publicar a função junto da migration, numa janela curta; o fallback tira a
+janela e a dependência de ordem, ao custo de um ramo que morre quando a
+migration for aplicada. Ordem da máscara dos logs: a alternativa era uma
+migration à parte só para os logs; mover para o começo da mesma transação
+mantém a atomicidade e já tira os UPDATEs da janela de lock. `lock_timeout`
+local em vez de `statement_timeout`: o risco é esperar lock em `usuarios`
+(lida em toda requisição), não consulta lenta. Checagem de `auth.uid()` no
+helper com variável (`v_uid`) e não no gatilho apenas: o gatilho já confere a
+linha, mas o helper é a porta única e não deve depender de quem o chama.
+
+**Edge Function.** `send-push-notification` lê os tokens por
+`lerTokensDaConta` (`tokensDaConta.ts`, testado no Jest): `push_tokens`, e sem
+a tabela (42P01/PGRST205) a coluna antiga; outro erro não cai na coluna. Envia
+para cada aparelho; aceita `ExponentPushToken[…]` e `ExpoPushToken[…]`; token
+morto (`DeviceNotRegistered`) sai de onde veio (`apagarTokenMorto`: linha de
+`push_tokens` se ainda for da mesma conta, ou a coluna se ainda for o mesmo
+token); o log grava token mascarado, o resumo do ticket e o código de erro
+(nunca a resposta crua nem a `message` da Expo).
+
+**Verificação.** Guarda estática `database/__tests__/migration45-push-tokens-so-do-dono.test.ts`;
+sonda `database/sondas/20261024020000_sonda_migration45.sql` (loja com
+motorista M e gestor G; 14 casos numerados + A–F, inclusive G não ver o token
+de M, o UPDATE direto do 1.14.2 ir para a tabela, G recusado na linha de M
+exigindo 42501, troca de dono pela RPC, o logout do 1.14.3 como INFO, o limite
+conferindo que ficam os lotes 3 a 7, M desativado não se reativar, as funções
+internas sem EXECUTE e o helper recusando outra conta, os UPDATEs legítimos do
+próprio usuário e do gestor depois do REVOKE, `id`/`created_at` recusados, o
+service_role movendo token para a tabela e a RPC recusando conta sem perfil;
+tem `DELETE` só de tokens que ela cria, então roda no SQL Editor;
+termina em `RAISE`). Roteiro de conferência só com SELECT (9 consultas) no fim
+da migration. Sintaxe validada com o parser do Postgres (libpg-query).

@@ -17,13 +17,53 @@ describe('send-push-notification: ticket da Expo', () => {
     expect(fonte).not.toMatch(/data\?\.\[0\]/);
   });
 
-  it('zera o token morto, e só se ainda for o mesmo que falhou', () => {
+  it('limpa o token morto pela função testada, na origem de onde ele veio', () => {
     const i = fonte.indexOf('tokenDeveSerLimpo(ticket)');
     expect(i).toBeGreaterThan(-1);
-    const trecho = fonte.slice(i, i + 600);
-    expect(trecho).toMatch(/\.update\(\{\s*push_token:\s*null\s*\}\)/);
-    expect(trecho).toMatch(/\.eq\('id',\s*usuario_id\)/);
-    expect(trecho).toMatch(/\.eq\('push_token',\s*usuario\.push_token\)/);
+    const trecho = fonte.slice(i, i + 400);
+    expect(trecho).toMatch(
+      /apagarTokenMorto\(\s*supabase,\s*usuario_id,\s*token,\s*origem,?\s*\)/,
+    );
+  });
+});
+
+// Migration 45: o token mora em push_tokens (vários por conta, um por
+// aparelho); a coluna usuarios.push_token fica sempre vazia. Até a migration
+// ser aplicada, a leitura cai na coluna (tokensDaConta.ts, testado à parte).
+describe('send-push-notification: tokens de push_tokens', () => {
+  it('lê os tokens pela função testada (com o fallback), não direto', () => {
+    expect(fonte).toMatch(
+      /import\s*\{[^}]*lerTokensDaConta[^}]*\}\s*from\s*'\.\/tokensDaConta\.ts'/,
+    );
+    expect(fonte).toMatch(/await lerTokensDaConta\(supabase,\s*usuario_id\)/);
+    expect(fonte).not.toMatch(/\.from\('push_tokens'\)/);
+    expect(fonte).not.toMatch(/\.from\('usuarios'\)/);
+  });
+
+  it('confere o formato pela função testada (ExponentPushToken e ExpoPushToken)', () => {
+    expect(fonte).toMatch(/!tokenNoFormatoExpo\(token\)/);
+    expect(fonte).not.toMatch(/startsWith\('Expo/);
+  });
+
+  it('envia para cada aparelho da conta', () => {
+    expect(fonte).toMatch(/for \(const token of tokens\)/);
+  });
+
+  // No DeviceNotRegistered a `message` da Expo (e a resposta crua) trazem o
+  // token inteiro: o log guarda o resumo e o código de erro.
+  it('o log de push não guarda a resposta crua nem a mensagem da Expo', () => {
+    expect(fonte).not.toMatch(/response:\s*expoPushResult/);
+    expect(fonte).toMatch(/response:\s*resumoDoTicket\(ticket\)/);
+    expect(fonte).not.toMatch(/error_message:\s*ticket\.message/);
+  });
+
+  it('o log de push guarda só o token mascarado', () => {
+    const i = fonte.indexOf("from('push_notification_logs').insert(");
+    expect(i).toBeGreaterThan(-1);
+    const trecho = fonte.slice(i, i + 300);
+    expect(trecho).toMatch(
+      /push_token:\s*data\.push_token \? mascararToken\(data\.push_token\) : null/,
+    );
   });
 });
 

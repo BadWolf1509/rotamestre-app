@@ -34,8 +34,10 @@ jest.mock('expo-device', () => ({ isDevice: true }));
 
 const mockChamadas: Array<{ update: unknown; eq: Array<[string, unknown]> }> =
   [];
+const mockDeletes: Array<{ tabela: string; eq: Array<[string, unknown]> }> = [];
 const mockRpc: Array<[string, unknown]> = [];
 let mockErroUpdate: { message: string } | null = null;
+let mockErroDelete: { message: string; code?: string } | null = null;
 let mockErroRpc: { message: string; code?: string } | null = null;
 
 jest.mock('../supabase', () => ({
@@ -44,7 +46,7 @@ jest.mock('../supabase', () => ({
       mockRpc.push([nome, args]);
       return { data: null, error: mockErroRpc };
     }),
-    from: jest.fn(() => ({
+    from: jest.fn((tabela: string) => ({
       update: jest.fn((payload: unknown) => {
         const registro = {
           update: payload,
@@ -58,6 +60,19 @@ jest.mock('../supabase', () => ({
           }),
           then: (resolve: (v: { error: unknown }) => unknown) =>
             resolve({ error: mockErroUpdate }),
+        };
+        return builder;
+      }),
+      delete: jest.fn(() => {
+        const registro = { tabela, eq: [] as Array<[string, unknown]> };
+        mockDeletes.push(registro);
+        const builder = {
+          eq: jest.fn((col: string, val: unknown) => {
+            registro.eq.push([col, val]);
+            return builder;
+          }),
+          then: (resolve: (v: { error: unknown }) => unknown) =>
+            resolve({ error: mockErroDelete }),
         };
         return builder;
       }),
@@ -78,8 +93,10 @@ const setItem = AsyncStorage.setItem as jest.Mock;
 beforeEach(() => {
   jest.clearAllMocks();
   mockChamadas.length = 0;
+  mockDeletes.length = 0;
   mockRpc.length = 0;
   mockErroUpdate = null;
+  mockErroDelete = null;
   mockErroRpc = null;
   Object.defineProperty(Platform, 'OS', { value: 'android', writable: true });
 });
@@ -123,11 +140,39 @@ describe('registerPushToken: token guardado por conta', () => {
 });
 
 describe('unregisterPushToken: só o token deste aparelho', () => {
-  it('limpa no banco só se ainda for o token deste aparelho', async () => {
+  // Migration 45: o token mora em push_tokens (um por aparelho, só o dono
+  // vê e apaga pela RLS); a coluna usuarios.push_token fica sempre vazia, e o
+  // UPDATE antigo `.eq('push_token', token)` não casaria linha nenhuma.
+  it('apaga de push_tokens só o token deste aparelho', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
 
     await unregisterPushToken('A');
 
+    expect(mockDeletes).toEqual([
+      { tabela: 'push_tokens', eq: [['token', TOKEN]] },
+    ]);
+    expect(mockChamadas).toEqual([]);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(CHAVE);
+  });
+
+  it('formato antigo também serve: o valor é o token', async () => {
+    getItem.mockResolvedValue(TOKEN);
+
+    await unregisterPushToken('A');
+
+    expect(mockDeletes[0]?.eq).toEqual([['token', TOKEN]]);
+  });
+
+  it('banco sem a Migration 45 (PGRST205): cai no UPDATE antigo da coluna', async () => {
+    getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
+    // Formato real do PostgREST quando a tabela não está no schema cache.
+    mockErroDelete = {
+      code: 'PGRST205',
+      message:
+        "Could not find the table 'public.push_tokens' in the schema cache",
+    };
+
+    await expect(unregisterPushToken('A')).resolves.toBe(true);
     expect(mockChamadas).toEqual([
       {
         update: { push_token: null },
@@ -137,18 +182,6 @@ describe('unregisterPushToken: só o token deste aparelho', () => {
         ],
       },
     ]);
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith(CHAVE);
-  });
-
-  it('formato antigo também serve: o valor é o token', async () => {
-    getItem.mockResolvedValue(TOKEN);
-
-    await unregisterPushToken('A');
-
-    expect(mockChamadas[0]?.eq).toEqual([
-      ['id', 'A'],
-      ['push_token', TOKEN],
-    ]);
   });
 
   it('sem token guardado não mexe no banco (o token no banco é de outro aparelho)', async () => {
@@ -157,6 +190,7 @@ describe('unregisterPushToken: só o token deste aparelho', () => {
     await unregisterPushToken('A');
 
     expect(mockChamadas).toEqual([]);
+    expect(mockDeletes).toEqual([]);
     expect(AsyncStorage.removeItem).toHaveBeenCalledWith(CHAVE);
   });
 });
@@ -199,15 +233,16 @@ describe('registerPushToken: falha da RPC', () => {
 });
 
 describe('unregisterPushToken: só esquece o token quando o banco limpou', () => {
-  it('UPDATE com erro (offline): mantém a chave local e devolve false', async () => {
+  it('DELETE com erro (offline): mantém a chave local e devolve false', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
-    mockErroUpdate = { message: 'Network request failed' };
+    mockErroDelete = { message: 'Network request failed' };
 
     await expect(unregisterPushToken('A')).resolves.toBe(false);
+    expect(mockChamadas).toEqual([]);
     expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
   });
 
-  it('UPDATE ok: apaga a chave e devolve true', async () => {
+  it('DELETE ok: apaga a chave e devolve true', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
 
     await expect(unregisterPushToken('A')).resolves.toBe(true);
