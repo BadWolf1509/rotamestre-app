@@ -72,6 +72,18 @@ const ACEITOS = {
       'configuração do build — trava a build, não atinge usuário final.',
     revisarEm: '2026-11-01',
   },
+  'GHSA-mrhx-c7xc-m3w5': {
+    pacote: 'zod',
+    motivo:
+      'Consumo de memória ao validar coleção restrita muito grande. Corrigido ' +
+      'só no zod 4.6.6; a linha 3 não tem correção. O zod do app já é o 4.6.7. ' +
+      'O 3.25.76 vulnerável chega só via expo -> @expo/cli (até a 58.1.14, a ' +
+      'mais nova, ainda pede ^3.25.76), que valida a configuração do próprio ' +
+      'projeto no build e no servidor de desenvolvimento: não entra no bundle ' +
+      'do app nem recebe entrada de usuário. Forçar o zod 4 por overrides ' +
+      'arriscaria quebrar o build (APIs da 3 e da 4 diferem).',
+    revisarEm: '2026-11-01',
+  },
 };
 
 const GRAVES = new Set(['high', 'critical']);
