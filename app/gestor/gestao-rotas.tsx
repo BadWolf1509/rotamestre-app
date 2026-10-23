@@ -87,7 +87,7 @@ export default function GestaoRotas() {
     filtroStatus,
     searchQuery,
     showConfirmModal,
-    rotaToDelete,
+    confirmacaoExclusao,
     userData,
     setFiltroStatus,
     setSearchQuery,
@@ -441,8 +441,8 @@ export default function GestaoRotas() {
         <Dialog
           visible={showConfirmModal}
           variant="confirm"
-          title="Excluir Rota"
-          message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+          title={confirmacaoExclusao.titulo}
+          message={confirmacaoExclusao.mensagem}
           confirmText="Excluir"
           cancelText="Cancelar"
           type="danger"
@@ -598,8 +598,8 @@ export default function GestaoRotas() {
       <Dialog
         visible={showConfirmModal}
         variant="confirm"
-        title="Confirmar Exclusão"
-        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+        title={confirmacaoExclusao.titulo}
+        message={confirmacaoExclusao.mensagem}
         confirmText="Excluir"
         cancelText="Cancelar"
         type="danger"

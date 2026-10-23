@@ -698,7 +698,7 @@ describe('useGestaoRotas', () => {
       });
 
       expect(Alert.alert).toHaveBeenCalledWith(
-        'Confirmar Exclusão',
+        'Excluir Rota',
         expect.stringContaining('Tem certeza que deseja excluir esta rota?'),
         expect.arrayContaining([
           expect.objectContaining({ text: 'Cancelar' }),

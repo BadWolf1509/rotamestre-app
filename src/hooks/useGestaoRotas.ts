@@ -31,6 +31,12 @@ import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import {
+  excluirRota as excluirRotaNoServidor,
+  ExclusaoRotaError,
+  MENSAGEM_ROTA_EM_ANDAMENTO,
+  textoConfirmacaoExclusao,
+} from '@/lib/gestor/excluirRota';
 import { logger } from '@/lib/logger';
 import {
   classifyError,
@@ -342,35 +348,30 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
       try {
         await withToast(
-          async () => {
-            const { error } = await supabase
-              .from('rotas')
-              .delete()
-              .eq('id', rota.id);
-
-            if (error) throw error;
-
-            await supabase.from('logs').insert({
-              usuario_id: usuarioId,
-              rota_id: rota.id,
-              evento: 'rota_excluida',
-              detalhes: {
-                motivo: 'Excluída pelo gestor',
-                motorista: rota.motorista_nome,
-                paradas_count: rota.paradas_count,
-                status_anterior: rota.status,
-              },
-            });
-          },
+          () =>
+            excluirRotaNoServidor({
+              rotaId: rota.id,
+              usuarioId,
+              motoristaNome: rota.motorista_nome,
+              paradasCount: rota.paradas_count,
+            }),
           {
             loading: 'Excluindo rota...',
             success: 'Rota excluída com sucesso!',
-            error: 'Não foi possível excluir a rota',
+            error: (erro) =>
+              erro instanceof ExclusaoRotaError
+                ? erro.message
+                : 'Não foi possível excluir a rota',
           },
         );
 
         loadRotas();
       } catch (error) {
+        if (error instanceof ExclusaoRotaError) {
+          // Já explicado no toast; a lista estava velha — recarrega.
+          loadRotas();
+          return;
+        }
         logger.error('Erro ao excluir rota:', error);
       }
     },
@@ -379,19 +380,13 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
   const excluirRota = useCallback(
     (rota: RotaHistorico) => {
-      // Validation: don't allow deleting routes in progress
+      // Atalho de UX: a lista já sabe que está em andamento. A trava de
+      // verdade é a reconsulta no servidor dentro de `excluirRotaNoServidor`.
       if (rota.status === 'em_andamento') {
         if (Platform.OS === 'web') {
-          showToast(
-            'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.',
-            'error',
-            5000,
-          );
+          showToast(MENSAGEM_ROTA_EM_ANDAMENTO, 'error', 5000);
         } else {
-          Alert.alert(
-            'Ação não permitida',
-            'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.',
-          );
+          Alert.alert('Ação não permitida', MENSAGEM_ROTA_EM_ANDAMENTO);
         }
         return;
       }
@@ -401,9 +396,13 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         setRotaToDelete(rota);
         setShowConfirmModal(true);
       } else {
-        // Mobile: use native Alert.alert
-        const mensagem = `Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rota.motorista_nome || 'Sem motorista'}\nParadas: ${rota.paradas_count}\n\nEsta ação não pode ser desfeita.`;
-        Alert.alert('Confirmar Exclusão', mensagem, [
+        // Mobile: Alert.alert com botões funciona no nativo.
+        const { titulo, mensagem } = textoConfirmacaoExclusao({
+          status: rota.status,
+          motoristaNome: rota.motorista_nome ?? null,
+          paradasCount: rota.paradas_count,
+        });
+        Alert.alert(titulo, mensagem, [
           { text: 'Cancelar', style: 'cancel' },
           {
             text: 'Excluir',
@@ -415,6 +414,18 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     },
     [showToast, executarExclusao],
   );
+
+  /** Título/mensagem do Dialog de confirmação (web) para `rotaToDelete`. */
+  const confirmacaoExclusao = textoConfirmacaoExclusao({
+    status: rotaToDelete?.status,
+    motoristaNome: rotaToDelete
+      ? (rotaToDelete.motorista_nome ?? null)
+      : undefined,
+    paradasCount: rotaToDelete?.paradas_count,
+    statusLabel: rotaToDelete?.status
+      ? getRotaStatusLabel(rotaToDelete.status)
+      : null,
+  });
 
   const handleConfirmDelete = useCallback(() => {
     setShowConfirmModal(false);
@@ -473,6 +484,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     searchQuery,
     showConfirmModal,
     rotaToDelete,
+    confirmacaoExclusao,
     userData,
 
     // State Setters
