@@ -41,6 +41,11 @@ export interface IncidenteDB {
   status: IncidenteStatus;
   observacoes_gestao: string | null;
   resolvido_em: string | null;
+  /**
+   * Loja do incidente, gravada pelo servidor (gatilho da Migration 43): a da
+   * rota; sem rota, a do vínculo ativo do motorista. O app não a envia.
+   */
+  unidade_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +100,8 @@ export interface IncidenteUpdate {
  */
 export interface FetchIncidentesOptions {
   motoristasIds: string[];
+  /** Só os incidentes gravados nesta loja (`incidentes.unidade_id`). */
+  unidadeId?: string;
   status?: IncidenteStatus;
   categoria?: IncidenteCategoria;
   limit?: number;
@@ -124,7 +131,7 @@ interface IncidenteQueryRow {
 export async function fetchIncidentesForGestor(
   options: FetchIncidentesOptions,
 ): Promise<QueryResult<IncidenteWithRelations[]>> {
-  const { motoristasIds, status, categoria, limit = 100 } = options;
+  const { motoristasIds, unidadeId, status, categoria, limit = 100 } = options;
 
   if (motoristasIds.length === 0) {
     return { success: true, data: [] };
@@ -153,6 +160,9 @@ export async function fetchIncidentesForGestor(
       .order('created_at', { ascending: false })
       .limit(limit);
 
+    if (unidadeId) {
+      query = query.eq('unidade_id', unidadeId);
+    }
     if (status) {
       query = query.eq('status', status);
     }

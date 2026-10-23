@@ -716,7 +716,7 @@ describe('useIncidentesGestor', () => {
       expect(result.current.incidentes).toEqual([]);
     });
 
-    it('deve buscar motoristas da unidade e incidentes filtrados', async () => {
+    it('busca os incidentes pela loja gravada neles, sem ler os vínculos dos motoristas', async () => {
       const mockSelectVinc = jest.fn().mockReturnThis();
       const _mockEqVinc = jest.fn().mockReturnThis();
 
@@ -756,11 +756,13 @@ describe('useIncidentesGestor', () => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(mockFrom).toHaveBeenCalledWith('usuario_unidades');
+      expect(mockFrom).not.toHaveBeenCalledWith('usuario_unidades');
       expect(mockFrom).toHaveBeenCalledWith('incidentes');
+      expect(mockEqInc).toHaveBeenCalledWith('unidade_id', 'unidade-1');
+      expect(mockInInc).not.toHaveBeenCalled();
     });
 
-    it('deve setar incidentes vazios quando nao ha motoristas', async () => {
+    it('loja sem incidentes: lista vazia', async () => {
       mockFrom.mockImplementation((table: string) => {
         if (table === 'usuario_unidades') {
           return {
