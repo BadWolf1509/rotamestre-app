@@ -76,7 +76,9 @@ export default function AlterarSenha() {
         })
         .eq('id', session.user.id);
 
-      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () => router.back());
+      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () =>
+        router.back(),
+      );
     } catch (error: unknown) {
       logger.error('Erro ao alterar senha:', error);
       showError(error);
@@ -95,128 +97,148 @@ export default function AlterarSenha() {
     if (password.length >= 6 && password.length < 8) {
       return { isValid: true, message: 'Senha fraca' };
     }
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    if (
+      !/[A-Z]/.test(password) ||
+      !/[a-z]/.test(password) ||
+      !/[0-9]/.test(password)
+    ) {
       return { isValid: true, message: 'Senha média' };
     }
     return { isValid: true, message: 'Senha forte' };
   }
 
   const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
-  const passwordsMatch = novaSenha && confirmarSenha && novaSenha === confirmarSenha;
+  const passwordsMatch =
+    novaSenha && confirmarSenha && novaSenha === confirmarSenha;
 
   return (
     <ErrorBoundary>
-    <View style={styles(theme).container}>
-      <ScrollView
-        style={styles(theme).scrollView}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
-      >
-        <View style={styles(theme).header}>
-          <View style={styles(theme).headerContent}>
-            <Text style={styles(theme).headerSubtitle}>
-              Crie uma senha forte para proteger sua conta
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles(theme).form}>
-          <Input
-            label="Senha Atual"
-            required
-            placeholder="Digite sua senha atual"
-            value={senhaAtual}
-            onChangeText={setSenhaAtual}
-            secureTextEntry={!showSenhaAtual}
-            autoCapitalize="none"
-            autoCorrect={false}
-            rightIcon={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
-            onRightIconPress={() => setShowSenhaAtual(!showSenhaAtual)}
-          />
-
-          <Input
-            label="Nova Senha"
-            required
-            placeholder="Digite a nova senha"
-            value={novaSenha}
-            onChangeText={setNovaSenha}
-            secureTextEntry={!showNovaSenha}
-            autoCapitalize="none"
-            autoCorrect={false}
-            rightIcon={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
-            onRightIconPress={() => setShowNovaSenha(!showNovaSenha)}
-          />
-          {passwordStrength && (
-            <Text
-              style={[
-                styles(theme).helperText,
-                passwordStrength.message === 'Senha forte' &&
-                  styles(theme).helperTextSuccess,
-                passwordStrength.message === 'Senha media' &&
-                  styles(theme).helperTextWarning,
-                !passwordStrength.isValid && styles(theme).helperTextError,
-              ]}
-            >
-              {passwordStrength.message}
-            </Text>
-          )}
-
-          <Input
-            label="Confirmar Nova Senha"
-            required
-            placeholder="Digite a senha novamente"
-            value={confirmarSenha}
-            onChangeText={setConfirmarSenha}
-            secureTextEntry={!showConfirmarSenha}
-            autoCapitalize="none"
-            autoCorrect={false}
-            rightIcon={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
-            onRightIconPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
-          />
-          {confirmarSenha && (
-            <Text
-              style={[
-                styles(theme).helperText,
-                passwordsMatch
-                  ? styles(theme).helperTextSuccess
-                  : styles(theme).helperTextError,
-              ]}
-            >
-              {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
-            </Text>
-          )}
-
-          <View style={styles(theme).tipsContainer}>
-            <Text style={styles(theme).tipsTitle}>Dicas para uma senha forte:</Text>
-            <Text style={styles(theme).tipText}>- Mínimo de 6 caracteres</Text>
-            <Text style={styles(theme).tipText}>- Use letras maiúsculas e minúsculas</Text>
-            <Text style={styles(theme).tipText}>- Inclua numeros</Text>
-            <Text style={styles(theme).tipText}>
-              - Adicione caracteres especiais (@, #, $, etc.)
-            </Text>
+      <View style={styles(theme).container}>
+        <ScrollView
+          style={styles(theme).scrollView}
+          contentContainerStyle={{
+            paddingBottom: Math.max(20, insets.bottom + 20),
+          }}
+        >
+          <View style={styles(theme).header}>
+            <View style={styles(theme).headerContent}>
+              <Text style={styles(theme).headerSubtitle}>
+                Crie uma senha forte para proteger sua conta
+              </Text>
+            </View>
           </View>
 
-          <View style={styles(theme).buttonsContainer}>
-            <Button
-              title="Cancelar"
-              variant="outline"
-              onPress={() => router.push('/motorista/perfil')}
-              disabled={saving}
-              style={styles(theme).buttonSecondary}
+          <View style={styles(theme).form}>
+            <Input
+              label="Senha Atual"
+              required
+              placeholder="Digite sua senha atual"
+              value={senhaAtual}
+              onChangeText={setSenhaAtual}
+              secureTextEntry={!showSenhaAtual}
+              autoCapitalize="none"
+              autoCorrect={false}
+              rightIcon={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
+              onRightIconPress={() => setShowSenhaAtual(!showSenhaAtual)}
             />
 
-            <Button
-              title="Salvar"
-              variant="secondary"
-              onPress={handleSave}
-              loading={saving}
-              disabled={saving || !passwordStrength?.isValid || !passwordsMatch || !senhaAtual}
-              style={styles(theme).buttonPrimary}
+            <Input
+              label="Nova Senha"
+              required
+              placeholder="Digite a nova senha"
+              value={novaSenha}
+              onChangeText={setNovaSenha}
+              secureTextEntry={!showNovaSenha}
+              autoCapitalize="none"
+              autoCorrect={false}
+              rightIcon={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
+              onRightIconPress={() => setShowNovaSenha(!showNovaSenha)}
             />
+            {passwordStrength && (
+              <Text
+                style={[
+                  styles(theme).helperText,
+                  passwordStrength.message === 'Senha forte' &&
+                    styles(theme).helperTextSuccess,
+                  passwordStrength.message === 'Senha media' &&
+                    styles(theme).helperTextWarning,
+                  !passwordStrength.isValid && styles(theme).helperTextError,
+                ]}
+              >
+                {passwordStrength.message}
+              </Text>
+            )}
+
+            <Input
+              label="Confirmar Nova Senha"
+              required
+              placeholder="Digite a senha novamente"
+              value={confirmarSenha}
+              onChangeText={setConfirmarSenha}
+              secureTextEntry={!showConfirmarSenha}
+              autoCapitalize="none"
+              autoCorrect={false}
+              rightIcon={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
+              onRightIconPress={() =>
+                setShowConfirmarSenha(!showConfirmarSenha)
+              }
+            />
+            {confirmarSenha && (
+              <Text
+                style={[
+                  styles(theme).helperText,
+                  passwordsMatch
+                    ? styles(theme).helperTextSuccess
+                    : styles(theme).helperTextError,
+                ]}
+              >
+                {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
+              </Text>
+            )}
+
+            <View style={styles(theme).tipsContainer}>
+              <Text style={styles(theme).tipsTitle}>
+                Dicas para uma senha forte:
+              </Text>
+              <Text style={styles(theme).tipText}>
+                - Mínimo de 6 caracteres
+              </Text>
+              <Text style={styles(theme).tipText}>
+                - Use letras maiúsculas e minúsculas
+              </Text>
+              <Text style={styles(theme).tipText}>- Inclua numeros</Text>
+              <Text style={styles(theme).tipText}>
+                - Adicione caracteres especiais (@, #, $, etc.)
+              </Text>
+            </View>
+
+            <View style={styles(theme).buttonsContainer}>
+              <Button
+                title="Cancelar"
+                variant="outline"
+                onPress={() => router.push('/motorista/perfil')}
+                disabled={saving}
+                style={styles(theme).buttonSecondary}
+              />
+
+              <Button
+                title="Salvar"
+                variant="secondary"
+                onPress={handleSave}
+                loading={saving}
+                disabled={
+                  saving ||
+                  !passwordStrength?.isValid ||
+                  !passwordsMatch ||
+                  !senhaAtual
+                }
+                style={styles(theme).buttonPrimary}
+              />
+            </View>
           </View>
-        </View>
-      </ScrollView>
-      {AlertDialog}
-    </View>
+        </ScrollView>
+        {AlertDialog}
+      </View>
     </ErrorBoundary>
   );
 }
