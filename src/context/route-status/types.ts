@@ -45,6 +45,8 @@ export interface ParadaData {
   is_checkpoint?: boolean;
   /** Timestamp quando a parada foi concluída */
   concluida_em?: string;
+  /** Mantido por gatilho no banco; usado para preservar a identidade na recarga */
+  updated_at?: string;
 }
 
 /** Dados retornados pela query de rotas do Supabase */
@@ -83,7 +85,15 @@ export interface RouteStatusContextData {
   };
   /** Quantidade de outras rotas pendentes (além da atual) */
   pendingRoutesCount: number;
+  /** Só na carga inicial; recargas são silenciosas. */
   loading: boolean;
+  /**
+   * Erro da última recarga. Com ele, `route`/`paradas` são os de
+   * `atualizadoEm` (preservados), nunca apagados por falha de rede.
+   */
+  error: Error | null;
+  /** Epoch (ms) da última carga bem-sucedida; null se nunca carregou. */
+  atualizadoEm: number | null;
   refreshRoute: () => Promise<void>;
   startRoute: () => Promise<void>;
   completeStop: (paradaId: string, fotoUrl?: string) => Promise<void>;

@@ -35,8 +35,15 @@ export function useNotificationRealtime({
     onUpdateRef.current = onUpdate;
   }, [onUpdate]);
 
+  // Refresh do token: só reautentica o socket. O canal depende de o token
+  // EXISTIR (`hasToken`), não do valor — senão cada refresh recriava o canal.
   useEffect(() => {
-    if (!userId || !accessToken) {
+    if (accessToken) supabase.realtime.setAuth(accessToken);
+  }, [accessToken]);
+  const hasToken = !!accessToken;
+
+  useEffect(() => {
+    if (!userId || !hasToken) {
       logger.debug('[Realtime:Notificacoes] Aguardando userData e session...');
       return;
     }
@@ -48,7 +55,6 @@ export function useNotificationRealtime({
 
     logger.info('[Realtime:Notificacoes] Criando subscription para:', userId);
 
-    supabase.realtime.setAuth(accessToken);
     isSubscribed.current = true;
 
     const channelName = nomeDeCanalUnico(`notificacoes-${userId}`);
@@ -112,5 +118,5 @@ export function useNotificationRealtime({
         channelRef.current = null;
       }
     };
-  }, [userId, accessToken]);
+  }, [userId, hasToken]);
 }

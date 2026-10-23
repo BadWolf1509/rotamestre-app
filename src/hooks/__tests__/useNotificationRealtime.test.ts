@@ -192,6 +192,22 @@ describe('useNotificationRealtime', () => {
       // Should still be 1 (isSubscribed ref prevents duplicate)
       expect(supabase.channel).toHaveBeenCalledTimes(1);
     });
+
+    it('refresh do token NÃO recria o canal; só atualiza o setAuth', () => {
+      const { rerender } = renderHook(
+        (props) => useNotificationRealtime(props),
+        { initialProps: defaultProps },
+      );
+      const { supabase } = require('@/lib/supabase');
+
+      rerender({ ...defaultProps, accessToken: 'token-renovado' });
+
+      expect(supabase.channel).toHaveBeenCalledTimes(1);
+      expect(supabase.removeChannel).not.toHaveBeenCalled();
+      expect(supabase.realtime.setAuth).toHaveBeenLastCalledWith(
+        'token-renovado',
+      );
+    });
   });
 
   describe('Event handler callbacks', () => {

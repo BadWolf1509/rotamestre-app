@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
 import { notifyRoutePending } from '@/lib/notifications';
@@ -17,37 +17,69 @@ import { playNotificationSound } from '@/utils/notificationSound';
 
 interface UseRouteRealtimeOptions {
   motoristaId: string | undefined;
+  /** Rota na tela: as paradas são assinadas só dela (re-assina ao trocar). */
+  rotaId?: string;
   accessToken: string | undefined;
   loadActiveRoute: () => Promise<void>;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
 
+/**
+ * Assinaturas filtradas, sem DELETE nem `'*'`.
+ *
+ * - `rotas` só do motorista (`motorista_id=eq.<eu>`) e `paradas` só da rota na
+ *   tela (`rota_id=eq.<rota>`). Sem filtro, todo motorista recarregava a cada
+ *   mudança em qualquer loja.
+ * - Nada de DELETE: o realtime não aplica RLS a DELETE (ver PROJECT_CONTEXT) e
+ *   não filtra DELETE por coluna que não seja a chave. A remoção de parada pelo
+ *   gestor é seguida de UPDATE (reordenação das restantes e da rota), que chega
+ *   pelos canais filtrados; a rota apagada aparece na volta ao primeiro plano,
+ *   na reconexão, no polling ou no puxar-para-atualizar.
+ * - O canal não depende do VALOR do token (só de existir): o refresh do token
+ *   atualiza o `setAuth` sem recriar o canal.
+ */
 export function useRouteRealtimeSubscription({
   motoristaId,
+  rotaId,
   accessToken,
   loadActiveRoute,
 }: UseRouteRealtimeOptions) {
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isSubscribed = useRef(false);
   const reconnectAttempts = useRef(0);
+  const houveErroRef = useRef(false);
+
+  // Identidade de `loadActiveRoute` não deve recriar o canal.
+  const loadRef = useRef(loadActiveRoute);
+  useEffect(() => {
+    loadRef.current = loadActiveRoute;
+  }, [loadActiveRoute]);
+
+  // Token: o refresh só atualiza a autenticação do socket.
+  useEffect(() => {
+    if (accessToken) supabase.realtime.setAuth(accessToken);
+  }, [accessToken]);
+  const hasToken = !!accessToken;
+
+  // Volta do segundo plano: revalidação silenciosa (o socket pode ter caído
+  // e eventos perdidos não voltam).
+  useEffect(() => {
+    if (!motoristaId) return;
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') loadRef.current();
+    });
+    return () => sub.remove();
+  }, [motoristaId]);
 
   useEffect(() => {
     // Aguardar autenticação E motorista ID
-    if (!motoristaId || !accessToken) {
+    if (!motoristaId || !hasToken) {
       return;
     }
 
-    // Evitar reconexão desnecessária
-    if (isSubscribed.current) {
-      return;
-    }
-
-    // CRÍTICO: Configurar token ANTES de criar o canal
-    supabase.realtime.setAuth(accessToken);
-
-    isSubscribed.current = true;
+    reconnectAttempts.current = 0;
+    houveErroRef.current = false;
 
     // Função de debounce para evitar múltiplas chamadas
     const debouncedReload = () => {
@@ -55,11 +87,11 @@ export function useRouteRealtimeSubscription({
         clearTimeout(debounceTimer.current);
       }
       debounceTimer.current = setTimeout(() => {
-        loadActiveRoute();
+        loadRef.current();
       }, 500);
     };
 
-    const channel = supabase
+    let channel = supabase
       .channel(nomeDeCanalUnico(`motorista-routes-${motoristaId}`))
       .on(
         'postgres_changes',
@@ -98,65 +130,67 @@ export function useRouteRealtimeSubscription({
         () => {
           debouncedReload();
         },
-      )
-      // DELETE sem filtro (Replica Identity não está FULL)
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'rotas',
-        },
-        () => {
-          debouncedReload();
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'paradas',
-        },
-        () => {
-          debouncedReload();
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          isSubscribed.current = true;
-          reconnectAttempts.current = 0;
-          logger.info('[RouteStatus] Realtime conectado com sucesso');
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          reconnectAttempts.current += 1;
-          logger.warn('[RouteStatus] Realtime erro na conexão', {
-            status,
-            attempt: reconnectAttempts.current,
-            maxAttempts: MAX_RECONNECT_ATTEMPTS,
-          });
+      );
 
-          // NÃO chamar channel.subscribe() de novo: o Phoenix/Supabase lança
-          // "tried to join multiple times" se o mesmo channel for re-inscrito.
-          // O realtime-js já reconecta o socket automaticamente. Após esgotar
-          // as tentativas, caímos no polling como fallback.
-          if (
-            reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS &&
-            !pollIntervalRef.current
-          ) {
-            isSubscribed.current = false;
-            logger.error(
-              '[RouteStatus] Realtime máximo de tentativas atingido - usando polling',
-            );
-            // Fallback: recarregar dados manualmente a cada 30s
-            pollIntervalRef.current = setInterval(() => {
-              if (motoristaId) loadActiveRoute();
-            }, 30000);
-          }
+    if (rotaId) {
+      for (const evento of ['INSERT', 'UPDATE'] as const) {
+        channel = channel.on(
+          'postgres_changes',
+          {
+            event: evento,
+            schema: 'public',
+            table: 'paradas',
+            filter: `rota_id=eq.${rotaId}`,
+          },
+          () => {
+            debouncedReload();
+          },
+        );
+      }
+    }
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        reconnectAttempts.current = 0;
+        if (pollIntervalRef.current) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
         }
-      });
+        // Reconectou depois de erro: os eventos do intervalo se perderam.
+        if (houveErroRef.current) {
+          houveErroRef.current = false;
+          loadRef.current();
+        }
+        logger.info('[RouteStatus] Realtime conectado com sucesso');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        houveErroRef.current = true;
+        reconnectAttempts.current += 1;
+        logger.warn('[RouteStatus] Realtime erro na conexão', {
+          status,
+          attempt: reconnectAttempts.current,
+          maxAttempts: MAX_RECONNECT_ATTEMPTS,
+        });
+
+        // NÃO chamar channel.subscribe() de novo: o Phoenix/Supabase lança
+        // "tried to join multiple times" se o mesmo channel for re-inscrito.
+        // O realtime-js já reconecta o socket automaticamente. Após esgotar
+        // as tentativas, caímos no polling até o SUBSCRIBED voltar.
+        if (
+          reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS &&
+          !pollIntervalRef.current
+        ) {
+          logger.error(
+            '[RouteStatus] Realtime máximo de tentativas atingido - usando polling',
+          );
+          // Fallback: recarregar dados manualmente a cada 30s
+          pollIntervalRef.current = setInterval(() => {
+            loadRef.current();
+          }, 30000);
+        }
+      }
+    });
 
     return () => {
-      isSubscribed.current = false;
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
@@ -166,5 +200,5 @@ export function useRouteRealtimeSubscription({
       }
       supabase.removeChannel(channel);
     };
-  }, [loadActiveRoute, motoristaId, accessToken]);
+  }, [motoristaId, rotaId, hasToken]);
 }

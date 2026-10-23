@@ -10,7 +10,6 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useState,
   ReactNode,
 } from 'react';
 
@@ -30,7 +29,7 @@ import {
   getNextStop,
 } from './calculations';
 
-import type { ParadaData, RouteData, RouteStatusContextData } from './types';
+import type { RouteStatusContextData } from './types';
 
 const RouteStatusContext = createContext<RouteStatusContextData>(
   {} as RouteStatusContextData,
@@ -40,20 +39,17 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const { userData, loading: userLoading } = useUser();
   const { session } = useAuth();
   const motoristaId = userData?.id;
-  const [route, setRoute] = useState<RouteData | null>(null);
-  const [paradas, setParadas] = useState<ParadaData[]>([]);
-  const [pendingRoutesCount, setPendingRoutesCount] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  // Data loading
-  const loadActiveRoute = useLoadActiveRoute({
-    userLoading,
-    motoristaId,
-    setRoute,
-    setParadas,
-    setPendingRoutesCount,
-    setLoading,
-  });
+  // Data loading: o hook é dono do estado (erro preserva, recarga silenciosa)
+  const {
+    route,
+    paradas,
+    pendingRoutesCount,
+    loading,
+    error,
+    atualizadoEm,
+    loadActiveRoute,
+  } = useLoadActiveRoute({ userLoading, motoristaId });
 
   // Route actions (start, complete stop, skip, complete route)
   const { startRoute, completeStop, skipStop, completeRoute } = useRouteActions(
@@ -74,6 +70,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   // Realtime subscription
   useRouteRealtimeSubscription({
     motoristaId,
+    rotaId: route?.id,
     accessToken: session?.access_token,
     loadActiveRoute,
   });
@@ -93,6 +90,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       progress: getProgress(paradas),
       pendingRoutesCount,
       loading,
+      error,
+      atualizadoEm,
       refreshRoute: loadActiveRoute,
       startRoute,
       completeStop,
@@ -105,6 +104,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       paradas,
       pendingRoutesCount,
       loading,
+      error,
+      atualizadoEm,
       loadActiveRoute,
       startRoute,
       completeStop,

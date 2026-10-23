@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -281,6 +282,125 @@ describe('useRouteRealtimeSubscription', () => {
       expect(mockChannel.subscribe).toHaveBeenCalledTimes(1);
 
       unmount();
+    });
+  });
+
+  describe('canais filtrados (Onda C)', () => {
+    type Assinatura = { event: string; table: string; filter?: string };
+    const assinaturas = (): Assinatura[] =>
+      mockChannel.on.mock.calls.map((c: unknown[]) => c[1] as Assinatura);
+
+    it('paradas só da rota atual, rotas só do motorista, sem DELETE nem "*"', () => {
+      renderHook(() =>
+        useRouteRealtimeSubscription({ ...defaultProps, rotaId: 'rota-1' }),
+      );
+
+      const todas = assinaturas();
+      expect(todas.some((a) => a.event === 'DELETE' || a.event === '*')).toBe(
+        false,
+      );
+      const deParadas = todas.filter((a) => a.table === 'paradas');
+      expect(deParadas.length).toBeGreaterThan(0);
+      expect(deParadas.every((a) => a.filter === 'rota_id=eq.rota-1')).toBe(
+        true,
+      );
+      const deRotas = todas.filter((a) => a.table === 'rotas');
+      expect(
+        deRotas.every((a) => a.filter === 'motorista_id=eq.driver-1'),
+      ).toBe(true);
+    });
+
+    it('sem rota atual não assina paradas', () => {
+      renderHook(() => useRouteRealtimeSubscription(defaultProps));
+      expect(assinaturas().some((a) => a.table === 'paradas')).toBe(false);
+    });
+
+    it('troca de rota re-assina com o filtro da nova rota', () => {
+      const { rerender } = renderHook(
+        (props: { rotaId?: string }) =>
+          useRouteRealtimeSubscription({ ...defaultProps, ...props }),
+        { initialProps: { rotaId: 'rota-1' } },
+      );
+      const primeiro = mockChannel;
+      mockChannel = createMockChannel();
+
+      rerender({ rotaId: 'rota-2' });
+
+      expect(supabase.removeChannel).toHaveBeenCalledWith(primeiro);
+      const filtros = mockChannel.on.mock.calls
+        .map((c: unknown[]) => c[1] as Assinatura)
+        .filter((a) => a.table === 'paradas')
+        .map((a) => a.filter);
+      expect(filtros).toEqual(expect.arrayContaining(['rota_id=eq.rota-2']));
+    });
+
+    it('refresh do token NÃO recria o canal; só atualiza o setAuth', () => {
+      const { rerender } = renderHook(
+        (props: { accessToken: string }) =>
+          useRouteRealtimeSubscription({ ...defaultProps, ...props }),
+        { initialProps: { accessToken: 'token-abc' } },
+      );
+
+      rerender({ accessToken: 'token-novo' });
+
+      expect(supabase.channel).toHaveBeenCalledTimes(1);
+      expect(supabase.removeChannel).not.toHaveBeenCalled();
+      expect(supabase.realtime.setAuth).toHaveBeenLastCalledWith('token-novo');
+    });
+  });
+
+  describe('revalidação (Onda C)', () => {
+    it('volta do segundo plano recarrega a rota', () => {
+      let ouvinte: ((s: AppStateStatus) => void) | undefined;
+      const spy = jest
+        .spyOn(AppState, 'addEventListener')
+        .mockImplementation((_tipo, cb) => {
+          ouvinte = cb as (s: AppStateStatus) => void;
+          return { remove: jest.fn() } as never;
+        });
+      const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
+      renderHook(() =>
+        useRouteRealtimeSubscription({ ...defaultProps, loadActiveRoute }),
+      );
+      loadActiveRoute.mockClear();
+
+      ouvinte?.('active');
+
+      expect(loadActiveRoute).toHaveBeenCalledTimes(1);
+      // Sem mockRestore: o original do preset volta sem `remove` e quebra a
+      // desmontagem dos testes seguintes.
+      spy.mockImplementation(() => ({ remove: jest.fn() }) as never);
+    });
+
+    it('reconectar depois de erro recarrega e desliga o polling', () => {
+      const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
+      mockChannel.subscribe = jest.fn((cb?: SubscribeCallback) => {
+        if (cb) (mockChannel as any)._subscribeCallback = cb;
+        return mockChannel;
+      });
+      renderHook(() =>
+        useRouteRealtimeSubscription({ ...defaultProps, loadActiveRoute }),
+      );
+      const cb = (mockChannel as any)._subscribeCallback as SubscribeCallback;
+      cb('CHANNEL_ERROR');
+      cb('CHANNEL_ERROR');
+      cb('CHANNEL_ERROR'); // liga o polling
+      loadActiveRoute.mockClear();
+
+      cb('SUBSCRIBED');
+      expect(loadActiveRoute).toHaveBeenCalledTimes(1);
+
+      loadActiveRoute.mockClear();
+      jest.advanceTimersByTime(60000);
+      expect(loadActiveRoute).not.toHaveBeenCalled();
+    });
+
+    it('o SUBSCRIBED da primeira conexão não recarrega (a carga inicial já faz)', () => {
+      const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
+      renderHook(() =>
+        useRouteRealtimeSubscription({ ...defaultProps, loadActiveRoute }),
+      );
+      expect(loadActiveRoute).not.toHaveBeenCalled();
     });
   });
 });
