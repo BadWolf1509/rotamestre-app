@@ -3,6 +3,7 @@ import React from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
+import * as offline from '@/lib/offline';
 
 import CameraUpload from '../CameraUpload';
 
@@ -747,6 +748,60 @@ describe('CameraUpload Component', () => {
         get: () => originalPlatform,
         configurable: true,
       });
+    });
+
+    it('parada indisponível: não diz "erro de conexão", e a foto fica guardada', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [{ uri: 'test-uri' }],
+      });
+      const indisponivel = new Error('parada fora de alcance');
+      indisponivel.name = 'ParadaIndisponivelError';
+      mockUploadELinkFotoParada.mockRejectedValue(indisponivel);
+      const fila = jest
+        .spyOn(offline, 'queuePhotoUpload')
+        .mockResolvedValue(undefined as never);
+      jest.spyOn(offline, 'isOnline').mockResolvedValue(true);
+
+      const originalPlatform = Platform.OS;
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+
+      try {
+        const { getByText } = render(<CameraUpload {...defaultProps} />);
+        fireEvent.press(getByText('📸 Adicionar Foto do Comprovante'));
+        await act(async () => {
+          const opcoes = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2];
+          await opcoes?.find((o: any) => /galeria/i.test(o.text))?.onPress?.();
+        });
+        await waitFor(() => {
+          expect(getByText('📤 Enviar Foto')).toBeTruthy();
+        });
+
+        fireEvent.press(getByText('📤 Enviar Foto'));
+
+        await waitFor(() => {
+          expect(fila).toHaveBeenCalled();
+          expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+            'Parada indisponível',
+            expect.stringContaining('não está mais disponível'),
+          );
+        });
+        expect(global.mockUseAlert.showWarning).not.toHaveBeenCalledWith(
+          'Erro de conexão',
+          expect.anything(),
+        );
+      } finally {
+        jest.restoreAllMocks();
+        jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+        jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+        Object.defineProperty(Platform, 'OS', {
+          get: () => originalPlatform,
+          configurable: true,
+        });
+      }
     });
 
     it('deve mostrar alert ao tentar upload sem imagem selecionada', async () => {

@@ -302,10 +302,19 @@ export default function CameraUpload({
         try {
           await queuePhotoUpload(unidadeId, rotaId, paradaId, selectedImage);
 
-          showWarning(
-            'Erro de conexão',
-            'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.',
-          );
+          // Comparação por nome (não instanceof): o erro vem de lib/storage e
+          // o mock dos testes não exporta a classe.
+          if ((error as Error | null)?.name === 'ParadaIndisponivelError') {
+            showWarning(
+              'Parada indisponível',
+              'Esta parada não está mais disponível; a foto ficou guardada e será registrada para a loja.',
+            );
+          } else {
+            showWarning(
+              'Erro de conexão',
+              'Não foi possível enviar a foto agora. Ela será enviada automaticamente quando a conexão for restaurada.',
+            );
+          }
 
           setPendingSync(true);
           setOfflinePhotoPath(selectedImage);

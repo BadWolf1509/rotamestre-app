@@ -20,7 +20,8 @@ const caminhoSonda = join(
 );
 const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
+const ler = (p: string) =>
+  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
 const sql = ler(caminhoDb);
 const semComentarios = (texto: string) =>
   texto

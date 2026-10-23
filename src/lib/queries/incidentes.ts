@@ -100,8 +100,11 @@ export interface IncidenteUpdate {
  */
 export interface FetchIncidentesOptions {
   motoristasIds: string[];
-  /** Só os incidentes gravados nesta loja (`incidentes.unidade_id`). */
-  unidadeId?: string;
+  /**
+   * Só os incidentes gravados nesta loja (`incidentes.unidade_id`).
+   * Obrigatório: sem ele a consulta cairia em todas as lojas que a RLS deixa ver.
+   */
+  unidadeId: string;
   status?: IncidenteStatus;
   categoria?: IncidenteCategoria;
   limit?: number;

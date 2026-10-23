@@ -174,13 +174,24 @@ export function useIncidentesModals({
       setMotoristaSelecionado({ id: motoristaId, nome: motoristaNome });
       setIncidentesMotorista([]);
       setShowHistoricoMotoristaModal(true);
+
+      // Fail-closed: sem a loja, o filtro cairia em todas as lojas que a RLS
+      // deixa ver (motorista que atende duas lojas). Melhor lista vazia.
+      if (!unidadeId) {
+        logger.warn(
+          '[useIncidentesModals] Histórico sem unidadeId; nada buscado',
+          { motoristaId },
+        );
+        return;
+      }
+
       setHistoricoLoading(true);
 
       // Só os incidentes desta loja: motorista que atende duas lojas tem
       // histórico nas duas, e o da outra não é deste gestor.
       const result = await fetchIncidentesForGestor({
         motoristasIds: [motoristaId],
-        unidadeId: unidadeId ?? undefined,
+        unidadeId,
       });
       if (result.success) {
         setIncidentesMotorista(result.data);

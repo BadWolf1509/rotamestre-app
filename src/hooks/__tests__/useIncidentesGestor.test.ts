@@ -762,21 +762,8 @@ describe('useIncidentesGestor', () => {
       expect(mockInInc).not.toHaveBeenCalled();
     });
 
-    it('loja sem incidentes: lista vazia', async () => {
-      mockFrom.mockImplementation((table: string) => {
-        if (table === 'usuario_unidades') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: () => ({
-              eq: () => ({
-                eq: jest.fn().mockResolvedValue({
-                  data: [],
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+    it('consulta da loja volta vazia: lista vazia, sem tocar em usuario_unidades', async () => {
+      mockFrom.mockImplementation(() => {
         return {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
@@ -793,6 +780,7 @@ describe('useIncidentesGestor', () => {
       });
 
       expect(result.current.incidentes).toEqual([]);
+      expect(mockFrom).not.toHaveBeenCalledWith('usuario_unidades');
     });
 
     it('deve mostrar toast de erro quando query falha', async () => {
