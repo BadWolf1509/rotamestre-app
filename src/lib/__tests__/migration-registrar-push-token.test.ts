@@ -70,7 +70,11 @@ describe('migration registrar_push_token', () => {
   it('tem rollback, sonda e entrada pendente no MIGRATIONS.md', () => {
     expect(sql).toMatch(/-- ROLLBACK:/);
     expect(sql).toMatch(/RAISE EXCEPTION 'SONDA/);
-    const doc = readFileSync(join(RAIZ, 'database', 'MIGRATIONS.md'), 'utf8');
+    // Checkout no Windows vem com CRLF; o índice guarda LF.
+    const doc = readFileSync(
+      join(RAIZ, 'database', 'MIGRATIONS.md'),
+      'utf8',
+    ).replace(/\r\n/g, '\n');
     expect(doc).toMatch(
       new RegExp(`### ⏳ [^\\n]*\\n+\\*\\*Arquivo:\\*\\* \`${ARQUIVO}\``),
     );
