@@ -1,7 +1,8 @@
 import { Session, User } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-import { lerSessao } from '../lib/auth/sessao';
+import { lerSessao, PRAZO_LEITURA_SESSAO_MS } from '../lib/auth/sessao';
+import { obterSessaoComTimeout } from '../lib/auth/sessaoComTimeout';
 import { lerUltimoUsuario } from '../lib/auth/ultimoUsuario';
 import { cleanExpiredCache } from '../lib/cache';
 import { logger } from '../lib/logger';
@@ -35,23 +36,54 @@ export function useAuth() {
   const [offline, setOffline] = useState(false);
   const [usuarioOfflineId, setUsuarioOfflineId] = useState<string | null>(null);
   const lastUserId = useRef<string | null>(null);
+  // Geração da última escrita de estado de sessão. `aplicarSessao` espera o
+  // AsyncStorage; se nesse meio-tempo chega um evento do auth (ex.:
+  // TOKEN_REFRESHED quando a rede volta), a aplicação velha ("offline, sem
+  // sessão") não pode sobrescrever a nova. Contador em vez de reler a sessão
+  // depois do await: reler é outra ida à rede e ainda teria a mesma janela.
+  const geracao = useRef(0);
 
+  /** Aplica uma leitura de sessão; false se um evento mais novo venceu. */
   const aplicarSessao = useCallback(
-    async (estado: { session: Session | null; offline: boolean }) => {
+    async (estado: {
+      session: Session | null;
+      offline: boolean;
+    }): Promise<boolean> => {
+      const minha = ++geracao.current;
       const idOffline = estado.offline ? await lerUltimoUsuario() : null;
+      if (minha !== geracao.current) return false;
       setSession(estado.session);
       setUser(estado.session?.user ?? null);
       setOffline(estado.offline);
       setUsuarioOfflineId(idOffline);
+      return true;
     },
     [],
   );
 
+  /**
+   * Lê a sessão com prazo. Rede de uma barra pode levar ~30 s, com os layouts
+   * presos em "Verificando autenticação"; prazo esgotado NÃO é "deslogado" —
+   * vira modo offline (último usuário + perfil conhecido), nunca login.
+   */
+  const lerSessaoComPrazo = useCallback(async () => {
+    const estado = await obterSessaoComTimeout(
+      lerSessao,
+      PRAZO_LEITURA_SESSAO_MS,
+      () =>
+        logger.warn(
+          '[useAuth] Sessão não respondeu no prazo — modo offline',
+          PRAZO_LEITURA_SESSAO_MS,
+        ),
+    );
+    return estado ?? { session: null, offline: true };
+  }, []);
+
   /** Relê a sessão (botão "Tentar novamente" sem sessão). */
   const recarregarSessao = useCallback(async () => {
     if (!isSupabaseConfigured) return;
-    await aplicarSessao(await lerSessao());
-  }, [aplicarSessao]);
+    await aplicarSessao(await lerSessaoComPrazo());
+  }, [aplicarSessao, lerSessaoComPrazo]);
 
   useEffect(() => {
     // For E2E/CI: Check mock session first
@@ -66,9 +98,10 @@ export function useAuth() {
     }
 
     // Get initial session
-    lerSessao().then(async (estado) => {
-      await aplicarSessao(estado);
-      lastUserId.current = estado.session?.user?.id ?? null;
+    lerSessaoComPrazo().then(async (estado) => {
+      if (await aplicarSessao(estado)) {
+        lastUserId.current = estado.session?.user?.id ?? null;
+      }
       setLoading(false);
 
       // ✅ Limpar cache expirado na inicialização
@@ -80,6 +113,8 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      // Evento mais novo que qualquer leitura em curso: ela é descartada.
+      geracao.current++;
       setSession(session);
       setUser(session?.user ?? null);
       // Sessão de volta (TOKEN_REFRESHED/SIGNED_IN quando a rede volta) ou
@@ -112,7 +147,7 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, [aplicarSessao]);
+  }, [aplicarSessao, lerSessaoComPrazo]);
 
   // Logout: `authService.signOut` (src/lib/auth.ts), o único caminho.
   return {

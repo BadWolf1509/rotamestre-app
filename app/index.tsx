@@ -10,6 +10,7 @@ import {
   apagarPerfilConhecido,
   lerPerfilConhecido,
 } from '@/lib/auth/perfilConhecido';
+import { PRAZO_LEITURA_SESSAO_MS } from '@/lib/auth/sessao';
 import { obterSessaoComTimeout } from '@/lib/auth/sessaoComTimeout';
 import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { logger } from '@/lib/logger';
@@ -84,10 +85,9 @@ function IndexContent() {
       // See: https://github.com/supabase/supabase/issues/35754
       // Estourar o prazo NÃO é "deslogado": sem resposta não dá para afirmar
       // nada, e mandar ao login tirava do app quem só estava sem sinal.
-      const SESSION_TIMEOUT = 10000; // 10 seconds (increased for slow emulators)
       const estado = await obterSessaoComTimeout(
         () => authService.lerSessao(),
-        SESSION_TIMEOUT,
+        PRAZO_LEITURA_SESSAO_MS,
         () =>
           logger.warn(
             '⏱️ Sessão não respondeu no prazo — tratando como offline',

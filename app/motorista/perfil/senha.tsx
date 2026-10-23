@@ -1,3 +1,4 @@
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -7,6 +8,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { authService } from '@/lib/auth';
+import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
+import { isNetworkError } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -62,8 +65,32 @@ export default function AlterarSenha() {
 
       try {
         await authService.signIn(session.user.email, senhaAtual);
-      } catch {
-        throw new Error('Senha atual incorreta');
+      } catch (erroLogin) {
+        // Antes, toda falha aqui virava "Senha atual incorreta". Três casos:
+        // - `FalhaAoCarregarPerfil`: a senha foi ACEITA (a sessão foi criada);
+        //   só o perfil não carregou, e a troca não depende dele → segue.
+        // - sem rede: não deu para conferir — dizer "incorreta" levava a
+        //   pessoa a duvidar da senha certa.
+        // - o resto (credencial recusada): aí sim, senha atual incorreta.
+        if (!(erroLogin instanceof FalhaAoCarregarPerfil)) {
+          const semRede =
+            isAuthRetryableFetchError(erroLogin) ||
+            erroLogin instanceof TypeError ||
+            isNetworkError(erroLogin);
+          logger.warn('[AlterarSenha] Senha atual não conferida', erroLogin);
+          if (semRede) {
+            showWarning(
+              'Sem conexão',
+              'Não foi possível conferir sua senha atual. Verifique a conexão e tente de novo.',
+            );
+          } else {
+            showWarning(
+              'Senha atual incorreta',
+              'Confira a senha atual e tente de novo.',
+            );
+          }
+          return;
+        }
       }
 
       await authService.updatePassword(novaSenha);

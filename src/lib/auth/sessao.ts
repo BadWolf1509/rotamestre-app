@@ -18,6 +18,13 @@ import { supabase } from '../supabase';
 
 import type { Session } from '@supabase/supabase-js';
 
+/**
+ * Prazo para ler a sessão (index e useAuth). Sem ele o app trava quando o
+ * Supabase não responde (github.com/supabase/supabase/issues/35754); estourar
+ * o prazo é tratado como offline, nunca como logout.
+ */
+export const PRAZO_LEITURA_SESSAO_MS = 10_000;
+
 export interface EstadoSessao {
   session: Session | null;
   /** Sem sessão por falta de rede (a sessão segue guardada), não por logout. */

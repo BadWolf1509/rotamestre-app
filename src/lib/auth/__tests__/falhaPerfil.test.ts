@@ -18,6 +18,7 @@ describe('classificarFalhaPerfil', () => {
   it.each([
     ['sem resposta (status 0, falha do fetch)', postgrest(), 0],
     ['timeout (408)', postgrest(), 408],
+    ['limite de requisições (429)', postgrest(), 429],
     ['token vencido (401)', postgrest(), 401],
     ['JWT expirado (PGRST301)', postgrest('PGRST301'), 401],
     ['erro do servidor (500)', postgrest(), 500],

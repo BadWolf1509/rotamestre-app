@@ -8,8 +8,9 @@
  * diferente de "não tem".
  *
  * Transitória: sem resposta (status 0, exceção do fetch, refresh de sessão
- * sem rede), timeout (408), token vencido (401 / PGRST301), 5xx, e busca sem
- * sessão (sairia anônima; ver `exigirSessaoDe`). O resto — 4xx de schema ou
+ * sem rede), timeout (408), limite de requisições (429), token vencido (401 /
+ * PGRST301), 5xx, e busca sem sessão (sairia anônima; ver `exigirSessaoDe`).
+ * O resto — 4xx de schema ou
  * permissão (400, 403/42501, 406…) e erro sem status — é defeito.
  */
 import { isAuthRetryableFetchError } from '@supabase/supabase-js';
@@ -38,7 +39,13 @@ export class FalhaAoCarregarPerfil extends Error {
 }
 
 function statusTransitorio(status: number): boolean {
-  return status === 0 || status === 408 || status === 401 || status >= 500;
+  return (
+    status === 0 ||
+    status === 408 ||
+    status === 401 ||
+    status === 429 ||
+    status >= 500
+  );
 }
 
 export function classificarFalhaPerfil(

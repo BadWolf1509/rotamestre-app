@@ -287,5 +287,58 @@ describe('useAuth', () => {
       );
       expect(result.current.offline).toBe(false);
     });
+
+    // Rede de uma barra: o getSession pode levar ~30 s, e os layouts ficavam
+    // esse tempo todo em "Verificando autenticação". Prazo esgotado não é
+    // "deslogado": vira modo offline (nunca login).
+    it('getSession sem resposta em 10 s: modo offline com o último usuário', async () => {
+      jest.useFakeTimers();
+      try {
+        (supabase.auth.getSession as jest.Mock).mockReturnValue(
+          new Promise(() => {}),
+        );
+
+        const { result } = renderHook(() => useAuth());
+        expect(result.current.loading).toBe(true);
+
+        await act(async () => {
+          jest.advanceTimersByTime(10_000);
+        });
+
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.user).toBeNull();
+        expect(result.current.offline).toBe(true);
+        expect(result.current.usuarioOfflineId).toBe('m1');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    // Ordem real: getSession volta offline → enquanto o AsyncStorage lê o
+    // último usuário, a rede volta e chega TOKEN_REFRESHED com sessão → a
+    // leitura termina. A aplicação velha não pode sobrescrever a sessão nova.
+    it('TOKEN_REFRESHED durante a leitura do último usuário não é sobrescrito', async () => {
+      let liberarLeitura!: (id: string) => void;
+      (lerUltimoUsuario as jest.Mock).mockReturnValue(
+        new Promise((r) => {
+          liberarLeitura = r;
+        }),
+      );
+
+      const { result } = renderHook(() => useAuth());
+      await waitFor(() => expect(lerUltimoUsuario).toHaveBeenCalled());
+
+      await act(async () => {
+        authCallback('TOKEN_REFRESHED', mockSession);
+      });
+      await act(async () => {
+        liberarLeitura('m1');
+      });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.user).toEqual(mockSession.user);
+      expect(result.current.offline).toBe(false);
+      expect(result.current.usuarioOfflineId).toBeNull();
+    });
   });
 });
