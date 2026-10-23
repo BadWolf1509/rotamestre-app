@@ -34,6 +34,11 @@ import {
   resumoDoTicket,
   tokenDeveSerLimpo,
 } from './expoTicket.ts';
+import {
+  apagarTokenMorto,
+  lerTokensDaConta,
+  tokenNoFormatoExpo,
+} from './tokensDaConta.ts';
 import { chaveSecreta } from '../_shared/chaves.ts';
 import { requirePushSecret } from '../_shared/cronAuth.ts';
 
@@ -187,29 +192,28 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Tokens da conta (Migration 45): um por aparelho, em push_tokens. A
-    // coluna usuarios.push_token fica sempre vazia.
-    const { data: linhas, error: tokensError } = await supabase
-      .from('push_tokens')
-      .select('token')
-      .eq('usuario_id', usuario_id);
+    // Tokens da conta (Migration 45): um por aparelho, em push_tokens. Sem a
+    // migration aplicada, cai na coluna antiga (ver tokensDaConta.ts).
+    const {
+      tokens,
+      origem,
+      erro: tokensErro,
+    } = await lerTokensDaConta(supabase, usuario_id);
 
-    if (tokensError) {
-      console.error('[send-push] Erro ao buscar tokens:', tokensError.message);
+    if (tokensErro) {
+      console.error('[send-push] Erro ao buscar tokens:', tokensErro);
       await logPushAttempt(supabase, {
         notificacao_id,
         usuario_id,
         push_token: null,
         status: 'failed',
-        error_message: `Erro ao buscar tokens: ${tokensError.message}`,
+        error_message: `Erro ao buscar tokens: ${tokensErro}`,
       });
       return new Response(JSON.stringify({ error: 'Token lookup failed' }), {
         status: 500,
         headers,
       });
     }
-
-    const tokens = (linhas ?? []).map((l: { token: string }) => l.token);
 
     if (tokens.length === 0) {
       console.log(`[send-push] Usuário ${usuario_id} sem token registrado`);
@@ -238,7 +242,7 @@ Deno.serve(async (req: Request) => {
     // único, e cada token morto se limpa sozinho.
     for (const token of tokens) {
       // Validar formato do token Expo
-      if (!token.startsWith('ExponentPushToken[')) {
+      if (!tokenNoFormatoExpo(token)) {
         console.error(
           `[send-push] Token fora do formato Expo (usuário ${usuario_id}):`,
           mascararToken(token),
@@ -300,15 +304,16 @@ Deno.serve(async (req: Request) => {
       // a cada notificação. Só se ainda for desta conta — o aparelho pode ter
       // passado a outra conta enquanto este envio estava no ar.
       if (tokenDeveSerLimpo(ticket)) {
-        const { error: limparError } = await supabase
-          .from('push_tokens')
-          .delete()
-          .eq('token', token)
-          .eq('usuario_id', usuario_id);
-        if (limparError) {
+        const limparErro = await apagarTokenMorto(
+          supabase,
+          usuario_id,
+          token,
+          origem,
+        );
+        if (limparErro) {
           console.error(
             `[send-push] Falha ao limpar token morto (usuário ${usuario_id}):`,
-            limparError.message,
+            limparErro,
           );
         } else {
           console.log(

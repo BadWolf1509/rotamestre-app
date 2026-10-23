@@ -23,8 +23,10 @@
 --    O DELETE do dono é o logout das versões novas do app.
 --
 -- 2. `gravar_push_token(usuario, token)` (DEFINER, sem EXECUTE para a API) é
---    a única porta de escrita: valida o formato, trava pelo token, faz upsert
---    trocando o dono e corta os aparelhos além dos 5 mais recentes.
+--    a única porta de escrita: com sessão, só grava para a própria conta
+--    (42501); valida o formato (ExponentPushToken[...] e ExpoPushToken[...]),
+--    trava pelo token, faz upsert trocando o dono e corta os aparelhos além
+--    dos 5 mais recentes (clock_timestamp, desempate pelo token).
 --    `registrar_push_token(p_token)` (Migration 39) passa a gravar por ela e
 --    não toca mais em `usuarios.push_token`.
 --
@@ -51,8 +53,9 @@
 -- 5. Leitores: `notify_push_on_insert` (sem gatilho ligado em 23/10/2026,
 --    mantida coerente) passa a olhar `push_tokens`. A Edge Function
 --    `send-push-notification` lê de `push_tokens` e envia a todos os aparelhos
---    da conta — PUBLICAR A FUNÇÃO JUNTO COM ESTA MIGRATION (com a função velha,
---    o push para de chegar: ela lê a coluna, agora vazia).
+--    da conta — PUBLICAR A FUNÇÃO ANTES DESTA MIGRATION: sem a tabela ela cai
+--    na coluna antiga; a função velha, depois da migration, leria a coluna
+--    vazia e o push pararia de chegar.
 --
 -- 6. `push_notification_logs`: o token já gravado vira os 6 últimos caracteres
 --    (o formato de `mascararToken` da função) e o token que a Expo devolve na
@@ -73,6 +76,25 @@
 -- ============================================================================
 
 BEGIN;
+
+-- Se algum lock demorar (usuarios é lida em toda requisição do app), a
+-- migration falha inteira em 5 s em vez de enfileirar a API atrás dela.
+-- Rodar de novo num horário calmo.
+SET LOCAL lock_timeout = '5s';
+
+-- ---------------------------------------------------------------------------
+-- 6. Logs de push sem o token inteiro (primeiro: os ~1.656 UPDATEs não tocam
+--    em usuarios e não devem rodar com o lock da FK e do ALTER TABLE abaixo)
+-- ---------------------------------------------------------------------------
+UPDATE public.push_notification_logs SET push_token = '…' || right(push_token, 6) WHERE push_token IS NOT NULL AND push_token NOT LIKE '…%';
+
+UPDATE public.push_notification_logs
+   SET error_message = regexp_replace(error_message, 'Expo(nent)?PushToken\[[^]]+\]', '…', 'g')
+ WHERE error_message ~ 'Expo(nent)?PushToken\[';
+
+UPDATE public.push_notification_logs
+   SET response = regexp_replace(response::text, 'Expo(nent)?PushToken\[[^]"]+\]', '…', 'g')::jsonb
+ WHERE response::text ~ 'Expo(nent)?PushToken\[';
 
 -- ---------------------------------------------------------------------------
 -- 1. Tabela
@@ -111,7 +133,17 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_uid uuid := auth.uid();
 BEGIN
+  -- Defesa em profundidade: a função não tem EXECUTE para a API, mas se
+  -- algum dia for chamada com sessão (outra função DEFINER, grant por
+  -- engano), só grava para a própria conta. Service role chega sem uid.
+  IF v_uid IS NOT NULL AND v_uid <> p_usuario THEN
+    RAISE EXCEPTION 'O token de push só pode ser gravado pela própria conta.'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF p_token IS NULL
      OR length(p_token) > 200
      OR p_token !~ '^Expo(nent)?PushToken\[[^]]+\]$' THEN
@@ -123,20 +155,23 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(p_token));
 
   -- O aparelho é de uma conta por vez: quem tinha este token o perde.
+  -- clock_timestamp(), não now(): now() é o mesmo na transação inteira, e
+  -- dois registros na mesma transação empatariam no corte abaixo.
   INSERT INTO public.push_tokens (token, usuario_id, atualizado_em)
-  VALUES (p_token, p_usuario, now())
+  VALUES (p_token, p_usuario, clock_timestamp())
   ON CONFLICT (token) DO UPDATE
     SET usuario_id = EXCLUDED.usuario_id,
         atualizado_em = EXCLUDED.atualizado_em;
 
   -- Até 5 aparelhos por conta: sem isso, uma conta poderia acumular tokens
-  -- e cada notificação dela viraria um envio por token.
+  -- e cada notificação dela viraria um envio por token. Não é fronteira de
+  -- segurança. O token desempata quando o horário empata (backfill).
   DELETE FROM public.push_tokens
    WHERE usuario_id = p_usuario
      AND token NOT IN (
        SELECT token FROM public.push_tokens
         WHERE usuario_id = p_usuario
-        ORDER BY atualizado_em DESC
+        ORDER BY atualizado_em DESC, token
         LIMIT 5
      );
 END;
@@ -259,19 +294,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
--- ---------------------------------------------------------------------------
--- 6. Logs de push sem o token inteiro
--- ---------------------------------------------------------------------------
-UPDATE public.push_notification_logs SET push_token = '…' || right(push_token, 6) WHERE push_token IS NOT NULL AND push_token NOT LIKE '…%';
-
-UPDATE public.push_notification_logs
-   SET error_message = regexp_replace(error_message, 'Expo(nent)?PushToken\[[^]]+\]', '…', 'g')
- WHERE error_message ~ 'Expo(nent)?PushToken\[';
-
-UPDATE public.push_notification_logs
-   SET response = regexp_replace(response::text, 'Expo(nent)?PushToken\[[^]"]+\]', '…', 'g')::jsonb
- WHERE response::text ~ 'Expo(nent)?PushToken\[';
 
 -- ---------------------------------------------------------------------------
 -- 7. UPDATE de usuarios só nas colunas que o app escreve

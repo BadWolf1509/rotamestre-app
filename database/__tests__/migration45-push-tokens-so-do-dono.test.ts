@@ -129,14 +129,29 @@ describe('Migration 45: gravação só por função do servidor', () => {
       /p_token !~ '\^Expo\(nent\)\?PushToken\\\[\[\^\]\]\+\\\]\$'/,
     );
     expect(helper).toMatch(/pg_advisory_xact_lock\(hashtext\(p_token\)\)/);
+    // clock_timestamp(): now() é o mesmo na transação inteira, e dois
+    // registros na mesma transação empatariam no corte dos 5.
     expect(normaliza(helper)).toMatch(
-      /INSERT INTO public\.push_tokens \(token, usuario_id, atualizado_em\) VALUES \(p_token, p_usuario, now\(\)\) ON CONFLICT \(token\) DO UPDATE SET usuario_id = EXCLUDED\.usuario_id, atualizado_em = EXCLUDED\.atualizado_em;/,
+      /INSERT INTO public\.push_tokens \(token, usuario_id, atualizado_em\) VALUES \(p_token, p_usuario, clock_timestamp\(\)\) ON CONFLICT \(token\) DO UPDATE SET usuario_id = EXCLUDED\.usuario_id, atualizado_em = EXCLUDED\.atualizado_em;/,
+    );
+    expect(helper).not.toMatch(/now\(\)/);
+  });
+
+  it('o helper limita os aparelhos por conta, com desempate determinístico', () => {
+    expect(normaliza(helper)).toMatch(
+      /DELETE FROM public\.push_tokens WHERE usuario_id = p_usuario AND token NOT IN \( SELECT token FROM public\.push_tokens WHERE usuario_id = p_usuario ORDER BY atualizado_em DESC, token LIMIT 5 \);/,
     );
   });
 
-  it('o helper limita os aparelhos por conta (sem fan-out ilimitado)', () => {
-    expect(normaliza(helper)).toMatch(
-      /DELETE FROM public\.push_tokens WHERE usuario_id = p_usuario AND token NOT IN \( SELECT token FROM public\.push_tokens WHERE usuario_id = p_usuario ORDER BY atualizado_em DESC LIMIT 5 \);/,
+  it('o helper recusa gravar para outra conta quando há sessão (defesa em profundidade)', () => {
+    const corpo = normaliza(helper);
+    expect(corpo).toMatch(/^DECLARE v_uid uuid := auth\.uid\(\); BEGIN/);
+    expect(corpo).toMatch(
+      /IF v_uid IS NOT NULL AND v_uid <> p_usuario THEN RAISE EXCEPTION '[^']+' USING ERRCODE = '42501'; END IF;/,
+    );
+    // vem antes de qualquer escrita
+    expect(corpo.indexOf('v_uid <> p_usuario')).toBeLessThan(
+      corpo.indexOf('INSERT INTO'),
     );
   });
 
@@ -219,6 +234,25 @@ describe('Migration 45: logs de push sem o token inteiro', () => {
       /UPDATE public\.push_notification_logs SET push_token = '…' \|\| right\(push_token, 6\) WHERE push_token IS NOT NULL AND push_token NOT LIKE '…%';/,
     );
   });
+
+  // Os ~1.656 UPDATEs dos logs não podem rodar segurando o lock que o
+  // CREATE TABLE (FK para usuarios) e o ALTER TABLE usuarios pegam.
+  it('a máscara dos logs roda antes de tocar em usuarios', () => {
+    const mascara = exec.indexOf('UPDATE public.push_notification_logs');
+    const tabela = exec.indexOf('CREATE TABLE public.push_tokens');
+    expect(mascara).toBeGreaterThan(-1);
+    expect(tabela).toBeGreaterThan(-1);
+    const ultimaMascara = exec.lastIndexOf(
+      'UPDATE public.push_notification_logs',
+    );
+    expect(ultimaMascara).toBeLessThan(tabela);
+  });
+});
+
+describe('Migration 45: lock em usuarios', () => {
+  it('lock_timeout local logo no começo: não fila a API atrás da migration', () => {
+    expect(exec).toMatch(/^BEGIN; SET LOCAL lock_timeout = '5s';/);
+  });
 });
 
 describe('Migration 45: UPDATE de usuarios só nas colunas que o app escreve', () => {
@@ -255,6 +289,38 @@ describe('Migration 45: sonda', () => {
     expect(sondaExec).toMatch(
       /RAISE EXCEPTION 'SONDA M45 \(desfeita\):%', r; END \$\$;$/,
     );
+  });
+
+  it('o caso 7 (gestor grava token na linha do motorista) EXIGE 42501', () => {
+    const i = sondaExec.indexOf(
+      'UPDATE public.usuarios SET push_token = v_tok_g WHERE id = v_m;',
+    );
+    expect(i).toBeGreaterThan(-1);
+    const bloco = sondaExec.slice(i, sondaExec.indexOf('END;', i));
+    expect(bloco).toMatch(
+      /WHEN insufficient_privilege THEN r := r \|\| ' \| 7 OK/,
+    );
+    expect(bloco).not.toMatch(/7 OK: G não alcança/);
+  });
+
+  it('o limite confere QUAIS ficaram (lotes 3 a 7), não só a contagem', () => {
+    expect(sondaExec).toMatch(
+      /array_agg\(token ORDER BY token\) INTO v_restantes FROM public\.push_tokens WHERE usuario_id = v_m/,
+    );
+    expect(sondaExec).toMatch(/generate_series\(3, 7\)/);
+  });
+
+  it.each([
+    ['A1', 'gravar_push_token chamado por authenticated'],
+    ['A2', 'mover_push_token_para_tabela chamado direto'],
+    ['B', 'UPDATEs legítimos do próprio usuário'],
+    ['C1', 'UPDATE de id'],
+    ['C2', 'UPDATE de created_at'],
+    ['D', 'gestor atualiza nome/telefone/email do motorista'],
+    ['E', 'service_role grava token na linha de M'],
+    ['F', 'RPC de conta sem linha em usuarios'],
+  ])('cobre o caso %s (%s)', (caso) => {
+    expect(sondaExec).toContain(`' | ${caso} OK`);
   });
 
   it('só apaga o que ela mesma cria (o token próprio, pela policy do dono)', () => {

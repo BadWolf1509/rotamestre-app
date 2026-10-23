@@ -18,15 +18,26 @@
 --   5. G não apaga o token de M (a RLS filtra: 0 linhas)
 --   6. versão antiga: M grava por UPDATE direto em usuarios → vai para
 --      push_tokens e a coluna fica NULL
---   7. G grava token na linha de M por UPDATE direto → 42501, nada gravado
+--   7. G grava token na linha de M por UPDATE direto → EXIGE 42501 (a RLS
+--      deixa o gestor alcançar a linha; quem recusa é o gatilho), nada gravado
 --   8. G registra pela RPC o token do aparelho de M (o aparelho passou a G)
 --      → o token troca de dono; M o perde
 --   9. INFO: logout do 1.14.3 (UPDATE ... WHERE push_token = token) não casa
 --      linha nenhuma; o token de M continua
 --  10. logout novo: M apaga o próprio token de push_tokens (1 linha)
---  11. limite: M registra 7 aparelhos → ficam os 5 mais recentes
+--  11. limite: M registra 7 aparelhos → ficam exatamente os lotes 3 a 7
 --  12. RPC sem auth.uid() → 42501; formato inválido → 22023 (RPC e UPDATE)
 --  13. anon não lê push_tokens nem executa a RPC
+--   A. authenticated sem EXECUTE em gravar_push_token (A1) e na função do
+--      gatilho (A2); com EXECUTE e sessão de M, o helper recusa gravar para
+--      G (A3) → 42501
+--   B. o próprio usuário segue atualizando ultimo_login, nome, telefone,
+--      foto_url, primeira_senha, unidade_id e updated_at
+--   C. UPDATE de id (C1) e de created_at (C2) → 42501
+--   D. o gestor da loja edita nome, telefone e e-mail do motorista
+--   E. service_role grava token (formato ExpoPushToken) na linha de M → vai
+--      para push_tokens e a coluna fica NULL
+--   F. RPC de conta sem linha em usuarios → 42501
 --  14. M não reativa a própria conta (UPDATE de `ativo` sem grant)
 -- ============================================================================
 DO $$
@@ -39,6 +50,10 @@ DECLARE
   v_tok_m text;
   v_tok_m2 text;
   v_tok_g text;
+  v_tok_e text;
+  v_sem uuid := gen_random_uuid();    -- conta no Auth sem linha em usuarios
+  v_restantes text[];
+  v_esperados text[];
   v_dono uuid;
   v_col text;
   v_n int;
@@ -47,13 +62,15 @@ BEGIN
   v_tok_m := 'ExponentPushToken[sonda-m45-m-' || v_sufixo || ']';
   v_tok_m2 := 'ExponentPushToken[sonda-m45-m2-' || v_sufixo || ']';
   v_tok_g := 'ExponentPushToken[sonda-m45-g-' || v_sufixo || ']';
+  v_tok_e := 'ExpoPushToken[sonda-m45-e-' || v_sufixo || ']';
 
   -- ---------------------------------------------------------------------------
   -- Cenário (como postgres)
   -- ---------------------------------------------------------------------------
   INSERT INTO auth.users (id, email, aud, role) VALUES
     (v_m, 'sonda-m45-m-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
-    (v_g, 'sonda-m45-g-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
+    (v_g, 'sonda-m45-g-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
+    (v_sem, 'sonda-m45-sem-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
 
   INSERT INTO public.unidades (id, nome, cidade) VALUES (v_u, 'Sonda M45', 'Sonda');
 
@@ -173,9 +190,9 @@ BEGIN
     SET LOCAL ROLE authenticated;
     UPDATE public.usuarios SET push_token = v_tok_g WHERE id = v_m;
     GET DIAGNOSTICS v_n = ROW_COUNT;
-    r := r || CASE WHEN v_n = 0
-      THEN ' | 7 OK: G não alcança a linha de M (RLS, 0 linhas)'
-      ELSE ' | 7 FALHOU: G gravou token na linha de M' END;
+    -- A RLS de UPDATE deixa o gestor alcançar a linha do motorista da loja:
+    -- quem tem de recusar é o gatilho. 0 linhas aqui seria cenário errado.
+    r := r || ' | 7 FALHOU: sem 42501 (' || v_n || ' linha(s))';
   EXCEPTION
     WHEN insufficient_privilege THEN r := r || ' | 7 OK: G recusado (42501)';
     WHEN OTHERS THEN r := r || ' | 7 FALHOU: erro inesperado (' || SQLERRM || ')';
@@ -257,10 +274,15 @@ BEGIN
   END;
   RESET ROLE;
 
-  SELECT count(*) INTO v_n FROM public.push_tokens WHERE usuario_id = v_m;
-  r := r || CASE WHEN v_n = 5
-    THEN ' | 11 OK: 7 registros, ficam 5 aparelhos'
-    ELSE ' | 11 FALHOU: ficaram ' || v_n END;
+  -- Ficam exatamente os 5 mais recentes (lotes 3 a 7), não só 5 quaisquer.
+  SELECT array_agg(token ORDER BY token) INTO v_restantes FROM public.push_tokens WHERE usuario_id = v_m;
+  SELECT array_agg(t ORDER BY t) INTO v_esperados
+    FROM (SELECT 'ExponentPushToken[sonda-m45-lote-' || g || '-' || v_sufixo || ']' AS t
+            FROM generate_series(3, 7) AS g) e;
+  r := r || CASE WHEN v_restantes IS NOT DISTINCT FROM v_esperados
+    THEN ' | 11 OK: 7 registros, ficam os lotes 3 a 7'
+    ELSE ' | 11 FALHOU: ficaram ' || COALESCE(array_length(v_restantes, 1), 0)
+         || ' (esperado: lotes 3 a 7)' END;
 
   -- ---------------------------------------------------------------------------
   -- 12. Sem sessão e formato inválido
@@ -319,6 +341,155 @@ BEGIN
   EXCEPTION
     WHEN insufficient_privilege THEN r := r || ' | 13b OK: anon sem EXECUTE';
     WHEN OTHERS THEN r := r || ' | 13b FALHOU: erro inesperado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- A. As funções internas não abrem porta
+  -- ---------------------------------------------------------------------------
+  -- A1. authenticated chama gravar_push_token para outra conta: sem EXECUTE.
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    PERFORM public.gravar_push_token(v_g, v_tok_g);
+    r := r || ' | A1 FALHOU: authenticated executou gravar_push_token';
+  EXCEPTION
+    WHEN insufficient_privilege THEN r := r || ' | A1 OK: authenticated sem EXECUTE em gravar_push_token (42501)';
+    WHEN OTHERS THEN r := r || ' | A1 FALHOU: erro inesperado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- A2. authenticated chama a função do gatilho direto: sem EXECUTE.
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    PERFORM public.mover_push_token_para_tabela();
+    r := r || ' | A2 FALHOU: authenticated executou mover_push_token_para_tabela';
+  EXCEPTION
+    WHEN insufficient_privilege THEN r := r || ' | A2 OK: authenticated sem EXECUTE em mover_push_token_para_tabela (42501)';
+    WHEN OTHERS THEN r := r || ' | A2 FALHOU: erro inesperado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- A3. Mesmo com EXECUTE (aqui como postgres), com sessão de M não grava
+  -- para G: a checagem de auth.uid() dentro do helper.
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    PERFORM public.gravar_push_token(v_g, v_tok_g);
+    r := r || ' | A3 FALHOU: helper gravou para outra conta com sessão de M';
+  EXCEPTION
+    WHEN insufficient_privilege THEN r := r || ' | A3 OK: helper recusa outra conta com sessão (42501)';
+    WHEN OTHERS THEN r := r || ' | A3 FALHOU: erro inesperado (' || SQLERRM || ')';
+  END;
+
+  -- ---------------------------------------------------------------------------
+  -- B. UPDATEs legítimos do próprio usuário seguem funcionando
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    UPDATE public.usuarios
+       SET ultimo_login = now(),
+           nome = 'Sonda motorista (B)',
+           telefone = '83' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'),
+           foto_url = 'perfis/sonda-m45-' || v_sufixo || '.jpg',
+           primeira_senha = false,
+           unidade_id = v_u,
+           updated_at = now()
+     WHERE id = v_m;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    r := r || CASE WHEN v_n = 1
+      THEN ' | B OK: o próprio usuário atualiza ultimo_login, nome, telefone, foto_url, primeira_senha, unidade_id e updated_at'
+      ELSE ' | B FALHOU: ' || v_n || ' linha(s)' END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | B FALHOU: UPDATE legítimo recusado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- C. id e created_at não se alteram pela API
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    UPDATE public.usuarios SET id = gen_random_uuid() WHERE id = v_m;
+    r := r || ' | C1 FALHOU: UPDATE de id aceito';
+  EXCEPTION
+    WHEN insufficient_privilege THEN r := r || ' | C1 OK: UPDATE de id recusado (42501)';
+    WHEN OTHERS THEN r := r || ' | C1 FALHOU: erro inesperado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    UPDATE public.usuarios SET created_at = now() - interval '1 year' WHERE id = v_m;
+    r := r || ' | C2 FALHOU: UPDATE de created_at aceito';
+  EXCEPTION
+    WHEN insufficient_privilege THEN r := r || ' | C2 OK: UPDATE de created_at recusado (42501)';
+    WHEN OTHERS THEN r := r || ' | C2 FALHOU: erro inesperado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- D. O gestor da loja edita nome, telefone e e-mail do motorista
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_g, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    UPDATE public.usuarios
+       SET nome = 'Sonda motorista (D)',
+           telefone = '83' || lpad((floor(random() * 1e9))::bigint::text, 9, '0'),
+           email = 'sonda-m45-d-' || v_sufixo || '@example.invalid'
+     WHERE id = v_m;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    r := r || CASE WHEN v_n = 1
+      THEN ' | D OK: gestor atualiza nome, telefone e e-mail do motorista'
+      ELSE ' | D FALHOU: ' || v_n || ' linha(s)' END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | D FALHOU: edição do gestor recusada (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- E. service_role grava token na linha de M: vai para push_tokens
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('role', 'service_role')::text, true);
+    SET LOCAL ROLE service_role;
+    UPDATE public.usuarios SET push_token = v_tok_e WHERE id = v_m;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | E FALHOU: UPDATE do service_role recusado (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  SELECT usuario_id INTO v_dono FROM public.push_tokens WHERE token = v_tok_e;
+  SELECT push_token INTO v_col FROM public.usuarios WHERE id = v_m;
+  r := r || CASE WHEN v_dono = v_m AND v_col IS NULL
+    THEN ' | E OK: token do service_role (ExpoPushToken) movido para push_tokens; coluna NULL'
+    ELSE ' | E FALHOU: dono=' || COALESCE(v_dono::text, 'NULL')
+         || ' coluna=' || COALESCE(v_col, 'NULL') END;
+
+  -- ---------------------------------------------------------------------------
+  -- F. Conta sem linha em usuarios: a RPC recusa
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_sem, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    PERFORM public.registrar_push_token(v_tok_g);
+    r := r || ' | F FALHOU: RPC aceitou conta sem perfil';
+  EXCEPTION
+    WHEN insufficient_privilege THEN r := r || ' | F OK: RPC de conta sem perfil → 42501';
+    WHEN OTHERS THEN r := r || ' | F FALHOU: erro inesperado (' || SQLERRM || ')';
   END;
   RESET ROLE;
 

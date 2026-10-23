@@ -17,25 +17,32 @@ describe('send-push-notification: ticket da Expo', () => {
     expect(fonte).not.toMatch(/data\?\.\[0\]/);
   });
 
-  it('apaga o token morto de push_tokens, e só se ainda for do mesmo dono', () => {
+  it('limpa o token morto pela função testada, na origem de onde ele veio', () => {
     const i = fonte.indexOf('tokenDeveSerLimpo(ticket)');
     expect(i).toBeGreaterThan(-1);
-    const trecho = fonte.slice(i, i + 600);
-    expect(trecho).toMatch(/\.from\('push_tokens'\)\s*\.delete\(\)/);
-    expect(trecho).toMatch(/\.eq\('token',\s*token\)/);
-    expect(trecho).toMatch(/\.eq\('usuario_id',\s*usuario_id\)/);
+    const trecho = fonte.slice(i, i + 400);
+    expect(trecho).toMatch(
+      /apagarTokenMorto\(\s*supabase,\s*usuario_id,\s*token,\s*origem,?\s*\)/,
+    );
   });
 });
 
 // Migration 45: o token mora em push_tokens (vários por conta, um por
-// aparelho); a coluna usuarios.push_token fica sempre vazia.
+// aparelho); a coluna usuarios.push_token fica sempre vazia. Até a migration
+// ser aplicada, a leitura cai na coluna (tokensDaConta.ts, testado à parte).
 describe('send-push-notification: tokens de push_tokens', () => {
-  it('lê os tokens da tabela do dono, não da coluna de usuarios', () => {
+  it('lê os tokens pela função testada (com o fallback), não direto', () => {
     expect(fonte).toMatch(
-      /\.from\('push_tokens'\)\s*\.select\('token'\)\s*\.eq\('usuario_id',\s*usuario_id\)/,
+      /import\s*\{[^}]*lerTokensDaConta[^}]*\}\s*from\s*'\.\/tokensDaConta\.ts'/,
     );
-    expect(fonte).not.toMatch(/select\('push_token/);
-    expect(fonte).not.toMatch(/usuario\.push_token/);
+    expect(fonte).toMatch(/await lerTokensDaConta\(supabase,\s*usuario_id\)/);
+    expect(fonte).not.toMatch(/\.from\('push_tokens'\)/);
+    expect(fonte).not.toMatch(/\.from\('usuarios'\)/);
+  });
+
+  it('confere o formato pela função testada (ExponentPushToken e ExpoPushToken)', () => {
+    expect(fonte).toMatch(/!tokenNoFormatoExpo\(token\)/);
+    expect(fonte).not.toMatch(/startsWith\('Expo/);
   });
 
   it('envia para cada aparelho da conta', () => {
