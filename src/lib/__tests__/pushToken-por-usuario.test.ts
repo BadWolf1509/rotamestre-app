@@ -117,13 +117,15 @@ describe('registerPushToken: token guardado por conta', () => {
     );
   });
 
-  it('não regrava quando o token e a conta são os mesmos', async () => {
+  // Antes: "não regrava quando o token e a conta são os mesmos". Esse atalho
+  // saiu: o reenvio a cada abertura mantém o registro do aparelho atualizado e
+  // o limite de aparelhos por uso recente (ver pushToken-reenvia-ao-abrir).
+  it('regrava mesmo quando o token e a conta são os mesmos', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
 
     await expect(registerPushToken('A')).resolves.toBe(true);
 
-    expect(mockRpc).toEqual([]);
-    expect(setItem).not.toHaveBeenCalled();
+    expect(mockRpc).toEqual([['registrar_push_token', { p_token: TOKEN }]]);
   });
 
   it('formato antigo (só o token, sem dono) grava de novo', async () => {

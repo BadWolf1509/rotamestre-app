@@ -350,6 +350,55 @@ async function lerTokenGuardado(): Promise<TokenGuardado | null> {
 }
 
 /**
+ * Intervalo mínimo entre reenvios na volta ao primeiro plano. 12 h: o limite
+ * de aparelhos ordena por uso recente em escala de dias, então uma chamada a
+ * cada volta ao app (dezenas por dia de um motorista em rota) só gastaria API.
+ * A abertura a frio (processo novo) sempre reenvia, sem esperar o intervalo.
+ */
+export const INTERVALO_MINIMO_REENVIO_PUSH_MS = 12 * 60 * 60 * 1000;
+
+let ultimoEnvioDePush: { userId: string; em: number } | null = null;
+
+/** Só para testes: esquece o último envio, como num processo novo. */
+export function reiniciarControleDeReenvioDePush(): void {
+  ultimoEnvioDePush = null;
+}
+
+/**
+ * Reenvia o registro do aparelho para a conta da SESSÃO atual (nunca para um
+ * id recebido de fora). Silenciosa: sem sessão, sem permissão ou sem rede só
+ * devolve `false` e tenta de novo na próxima abertura.
+ *
+ * - `forcar`: ignora o intervalo (abertura do app).
+ * - Só CONSULTA a permissão; nunca abre o diálogo por causa de um reenvio.
+ * - Troca de conta não espera o intervalo.
+ */
+export async function atualizarRegistroDePush(
+  opcoes: { forcar?: boolean } = {},
+): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
+  try {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user?.id;
+    if (!userId) return false;
+
+    const recente =
+      ultimoEnvioDePush?.userId === userId &&
+      Date.now() - ultimoEnvioDePush.em < INTERVALO_MINIMO_REENVIO_PUSH_MS;
+    if (recente && !opcoes.forcar) return false;
+
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return false;
+
+    return await registerPushToken(userId);
+  } catch (error) {
+    logger.warn('[Push] Falha ao reenviar registro do aparelho', error);
+    return false;
+  }
+}
+
+/**
  * Registra o push token no banco (tabela `push_tokens`, pela RPC)
  * Deve ser chamado após o login do usuário
  */
@@ -362,12 +411,9 @@ export async function registerPushToken(userId: string): Promise<boolean> {
       return false;
     }
 
-    // Só pula o banco se o token já foi gravado para ESTA conta: com duas
-    // contas no mesmo aparelho, o token é igual e a segunda nunca o gravava.
-    const guardado = await lerTokenGuardado();
-    if (guardado?.token === token && guardado.userId === userId) {
-      return true;
-    }
+    // Sem atalho "já gravei": cada chamada vai ao banco, para manter o
+    // registro do aparelho atualizado e o limite de aparelhos por conta
+    // ordenado por uso recente. O espaçamento fica em `atualizarRegistroDePush`.
 
     // Pela RPC (Migration `20261023010000`): grava o token na conta logada e
     // o tira de qualquer OUTRA conta. Um aparelho é de uma conta por vez — se
@@ -388,11 +434,14 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     }
 
     if (error) {
-      logger.error('[Push] Erro ao salvar token', error);
+      // Não-crítico: sem rede, a próxima abertura do app tenta de novo.
+      logger.warn('[Push] Erro ao salvar token', error);
       return false;
     }
 
-    // Salvar token e dono localmente para comparação futura
+    ultimoEnvioDePush = { userId, em: Date.now() };
+
+    // Salvar token e dono localmente (o logout apaga o token deste aparelho)
     await AsyncStorage.setItem(
       PUSH_TOKEN_KEY,
       JSON.stringify({ token, userId } satisfies TokenGuardado),
