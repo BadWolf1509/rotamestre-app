@@ -183,6 +183,76 @@ describe('ParadaCard', () => {
     });
   });
 
+  // Concluir e Pular só existiam no gesto de deslizar: quem não sabia do
+  // gesto (ou com a dica escondida) não achava como concluir a entrega.
+  describe('Concluir e Pular sempre visíveis', () => {
+    it('parada aberta com rota em andamento mostra os dois botões, sem gesto', () => {
+      const onConcluir = jest.fn();
+      const onPular = jest.fn();
+      const { getByLabelText } = render(
+        <ParadaCard
+          {...defaultProps}
+          onConcluir={onConcluir}
+          onPular={onPular}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Concluir parada 1'));
+      expect(onConcluir).toHaveBeenCalledWith(mockParadaPendente);
+      fireEvent.press(getByLabelText('Pular parada 1'));
+      expect(onPular).toHaveBeenCalledWith(mockParadaPendente);
+    });
+
+    it('rota não iniciada ou parada resolvida: sem Concluir/Pular', () => {
+      const { queryByLabelText, rerender } = render(
+        <ParadaCard {...defaultProps} rotaEmAndamento={false} />,
+      );
+      expect(queryByLabelText('Concluir parada 1')).toBeNull();
+
+      rerender(<ParadaCard {...defaultProps} parada={mockParadaConcluida} />);
+      expect(queryByLabelText('Concluir parada 2')).toBeNull();
+      expect(queryByLabelText('Pular parada 2')).toBeNull();
+    });
+
+    it('com fonte 2.0 os rótulos têm teto de escala e a linha quebra em vez de cortar', () => {
+      const { getByText, getByTestId } = render(
+        <ParadaCard {...defaultProps} />,
+      );
+      for (const rotulo of ['Concluir', 'Pular']) {
+        const texto = getByText(rotulo);
+        expect(texto.props.maxFontSizeMultiplier).toBeLessThanOrEqual(1.3);
+        expect(texto.props.numberOfLines).toBeUndefined();
+      }
+      expect(
+        StyleSheet.flatten(getByTestId('acoes-concluir-pular').props.style)
+          .flexWrap,
+      ).toBe('wrap');
+    });
+
+    it('enquanto conclui ou pula, os botões ficam desabilitados', () => {
+      const { getByLabelText } = render(
+        <ParadaCard {...defaultProps} concluindo />,
+      );
+      expect(
+        getByLabelText('Concluir parada 1').props.accessibilityState,
+      ).toMatchObject({ disabled: true });
+    });
+  });
+
+  describe('Envio pendente (registrada sem internet)', () => {
+    it('mostra o selo e esconde o Retomar, que desfaria a ação ainda na fila', () => {
+      const { getByText, queryByText } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={mockParadaPulada}
+          envioPendente
+        />,
+      );
+      expect(getByText('Aguardando envio')).toBeTruthy();
+      expect(queryByText('Retomar Parada')).toBeNull();
+    });
+  });
+
   describe('Botão Retomar', () => {
     it('deve mostrar botão Retomar para parada pulada', () => {
       const { getByText } = render(

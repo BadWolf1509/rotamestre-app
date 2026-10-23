@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { AvisoBateriaRestrita } from '@/components/motorista/home/AvisoBateriaRestrita';
 import { AvisoRastreamentoSegundoPlano } from '@/components/motorista/home/AvisoRastreamentoSegundoPlano';
+import { AvisosDaFilaDeParadas } from '@/components/motorista/home/AvisosDaFilaDeParadas';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
 import {
@@ -613,6 +614,10 @@ function MotoristaInicioContent() {
             testID="aviso-sem-conexao"
           />
         )}
+
+        {/* Concluir/pular feitos sem internet: o que falta subir e o que o
+            servidor recusou por conflito (filaAcoesParada.ts) */}
+        <AvisosDaFilaDeParadas />
 
         {/* Main Card (skeleton enquanto não há dado) */}
         {estadoDaCarga === 'carregando' ? (

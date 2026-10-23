@@ -38,6 +38,8 @@ export interface ParadaCardProps {
   retomando?: boolean;
   isProxima?: boolean;
   variant?: 'default' | 'summary';
+  /** Concluída/pulada sem internet, ainda na fila do aparelho. */
+  envioPendente?: boolean;
 }
 
 // Tipo info helper
@@ -51,11 +53,23 @@ export interface TipoInfo {
 export function getTipoInfo(tipo: ParadaTipo): TipoInfo {
   switch (tipo) {
     case 'entrega':
-      return { label: 'Entrega', icon: 'cube-outline', badgeStyleKey: 'tipoBadgeEntrega' };
+      return {
+        label: 'Entrega',
+        icon: 'cube-outline',
+        badgeStyleKey: 'tipoBadgeEntrega',
+      };
     case 'retirada':
-      return { label: 'Retirada', icon: 'download-outline', badgeStyleKey: 'tipoBadgeRetirada' };
+      return {
+        label: 'Retirada',
+        icon: 'download-outline',
+        badgeStyleKey: 'tipoBadgeRetirada',
+      };
     default:
-      return { label: 'Origem', icon: 'flag-outline', badgeStyleKey: 'tipoBadgeOrigem' };
+      return {
+        label: 'Origem',
+        icon: 'flag-outline',
+        badgeStyleKey: 'tipoBadgeOrigem',
+      };
   }
 }
 
@@ -64,7 +78,7 @@ export function getStatusBadgeText(
   isConcluida: boolean,
   isPulada: boolean,
   isEmAndamento: boolean,
-  isSummary: boolean
+  isSummary: boolean,
 ): string {
   if (isSummary) {
     if (isConcluida) return 'Concluída';
@@ -83,7 +97,7 @@ export function getStatusBadgeText(
 export function getStatusLabel(
   isConcluida: boolean,
   isPulada: boolean,
-  isEmAndamento: boolean
+  isEmAndamento: boolean,
 ): string {
   if (isConcluida) return 'concluída';
   if (isPulada) return 'pulada';
@@ -92,7 +106,9 @@ export function getStatusLabel(
 }
 
 // Format completion time
-export function formatCompletionTime(concluidaEm: string | undefined): string | null {
+export function formatCompletionTime(
+  concluidaEm: string | undefined,
+): string | null {
   if (!concluidaEm) return null;
 
   const dataConclusao = new Date(concluidaEm);

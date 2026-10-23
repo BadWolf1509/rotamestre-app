@@ -90,6 +90,84 @@ export const RetomarButton = memo(function RetomarButton({
   );
 });
 
+interface ConcluirPularActionsProps {
+  ordem: number;
+  onConcluir: () => void;
+  onPular: () => void;
+  ocupado: boolean;
+}
+
+/**
+ * Concluir e Pular à vista. Até aqui só existiam no gesto de deslizar, que
+ * nada na tela ensinava depois da primeira vez. "Concluir" segue abrindo o
+ * StopCompletionFlow (o comprovante) — quem decide é `onConcluir`.
+ */
+export const ConcluirPularActions = memo(function ConcluirPularActions({
+  ordem,
+  onConcluir,
+  onPular,
+  ocupado,
+}: ConcluirPularActionsProps) {
+  const { theme } = useUnistyles();
+
+  return (
+    <View style={styles.acoesConcluirPular} testID="acoes-concluir-pular">
+      <TouchableOpacity
+        style={[styles.botaoConcluir, ocupado && styles.botaoDesabilitado]}
+        onPress={onConcluir}
+        disabled={ocupado}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Concluir parada ${ordem}`}
+        accessibilityState={{ disabled: ocupado }}
+      >
+        <Ionicons
+          name="checkmark-circle"
+          size={20}
+          color={theme.colors.white}
+        />
+        <Text style={styles.botaoConcluirTexto} maxFontSizeMultiplier={1.3}>
+          Concluir
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.botaoPular, ocupado && styles.botaoDesabilitado]}
+        onPress={onPular}
+        disabled={ocupado}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Pular parada ${ordem}`}
+        accessibilityState={{ disabled: ocupado }}
+      >
+        <Ionicons
+          name="arrow-forward-circle-outline"
+          size={20}
+          color={theme.colors.warningDark}
+        />
+        <Text style={styles.botaoPularTexto} maxFontSizeMultiplier={1.3}>
+          Pular
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+export const SeloEnvioPendente = memo(function SeloEnvioPendente() {
+  const { theme } = useUnistyles();
+  return (
+    <View style={styles.seloEnvioPendente} testID="selo-envio-pendente">
+      <Ionicons
+        name="cloud-upload-outline"
+        size={14}
+        color={theme.colors.info}
+      />
+      <Text style={styles.seloEnvioPendenteTexto} maxFontSizeMultiplier={1.3}>
+        Aguardando envio
+      </Text>
+    </View>
+  );
+});
+
 export const SwipeHint = memo(function SwipeHint() {
   const { theme } = useUnistyles();
 
