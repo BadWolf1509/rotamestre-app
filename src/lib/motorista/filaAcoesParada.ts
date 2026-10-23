@@ -22,10 +22,10 @@
  *   sessão dessa pessoa, para nunca registrar entrega em nome de outra.
  * - **Ordem preservada.** Envio em ordem de criação; falha de rede para o
  *   lote (o resto espera a próxima vez). A foto é enviada ANTES, no mesmo
- *   ciclo de sincronização (`setupOfflineSync`): a conclusão não referencia o
- *   arquivo — `foto_url` é ligada pelo próprio upload — então a ordem garante
- *   que o comprovante sobe primeiro, sem que um upload preso bloqueie a
- *   entrega para sempre.
+ *   ciclo (`solicitarEnvioFila` em `src/lib/offline.ts`), e não depende do
+ *   destino da ação: descartada a conclusão, a foto ainda sobe — ligada na
+ *   parada quando pode, senão registrada em `logs` para o gestor
+ *   (`subirFotoDaFilaOffline`). Comprovante nunca sai do aparelho sem subir.
  *
  * O acesso ao banco entra por uma porta (`PortaParadas`): os testes usam um
  * banco em memória com as mesmas regras, e o app usa `portaParadasSupabase`.
@@ -173,7 +173,17 @@ export async function enfileirarAcaoParada(acao: AcaoParada): Promise<void> {
   await emSerie(async () => {
     const fila = await lerLista<AcaoParada>(CHAVE_FILA);
     // A primeira decisão sobre a parada vale: a tela já a mostra resolvida.
-    if (fila.some((a) => a.paradaId === acao.paradaId)) return;
+    // Por conta: a ação de outra pessoa para a mesma parada (rota passada a
+    // esta conta no mesmo aparelho) vai ser descartada no envio dela, e não
+    // pode engolir a desta.
+    if (
+      fila.some(
+        (a) =>
+          a.paradaId === acao.paradaId && a.motoristaId === acao.motoristaId,
+      )
+    ) {
+      return;
+    }
     fila.push(acao);
     await gravarLista(CHAVE_FILA, fila);
   });

@@ -210,7 +210,12 @@ describe('Storage Functions', () => {
   describe('salvarFotoParada', () => {
     it('deve salvar foto_url com sucesso', async () => {
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+        eq: jest.fn().mockReturnValue({
+          // `.select` devolve a linha alterada (0 linhas = não ligou).
+          select: jest
+            .fn()
+            .mockResolvedValue({ data: [{ id: 'p' }], error: null }),
+        }),
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -225,7 +230,12 @@ describe('Storage Functions', () => {
 
     it('deve retornar false quando update falha', async () => {
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: new Error('Update failed') }),
+        eq: jest.fn().mockReturnValue({
+          select: jest.fn().mockResolvedValue({
+            data: null,
+            error: new Error('Update failed'),
+          }),
+        }),
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -239,7 +249,12 @@ describe('Storage Functions', () => {
     });
 
     it('deve usar filtro eq com parada ID correto', async () => {
-      const mockEq = jest.fn().mockResolvedValue({ error: null });
+      const mockEq = jest.fn().mockReturnValue({
+        // `.select` devolve a linha alterada (0 linhas = não ligou).
+        select: jest
+          .fn()
+          .mockResolvedValue({ data: [{ id: 'p' }], error: null }),
+      });
       const mockUpdate = jest.fn().mockReturnValue({
         eq: mockEq,
       });
@@ -270,7 +285,12 @@ describe('Storage Functions', () => {
 
       // Mock salvar
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+        eq: jest.fn().mockReturnValue({
+          // `.select` devolve a linha alterada (0 linhas = não ligou).
+          select: jest
+            .fn()
+            .mockResolvedValue({ data: [{ id: 'p' }], error: null }),
+        }),
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -329,7 +349,12 @@ describe('Storage Functions', () => {
 
       // Mock salvar com erro
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: new Error('Update failed') }),
+        eq: jest.fn().mockReturnValue({
+          select: jest.fn().mockResolvedValue({
+            data: null,
+            error: new Error('Update failed'),
+          }),
+        }),
       });
 
       (supabase.from as jest.Mock).mockReturnValue({
@@ -428,7 +453,12 @@ describe('Storage Functions', () => {
       });
 
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+        eq: jest.fn().mockReturnValue({
+          // `.select` devolve a linha alterada (0 linhas = não ligou).
+          select: jest
+            .fn()
+            .mockResolvedValue({ data: [{ id: 'p' }], error: null }),
+        }),
       });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
@@ -488,7 +518,12 @@ describe('Storage Functions', () => {
       });
 
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+        eq: jest.fn().mockReturnValue({
+          // `.select` devolve a linha alterada (0 linhas = não ligou).
+          select: jest
+            .fn()
+            .mockResolvedValue({ data: [{ id: 'p' }], error: null }),
+        }),
       });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({
@@ -578,7 +613,12 @@ describe('Storage Functions', () => {
       });
 
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+        eq: jest.fn().mockReturnValue({
+          // `.select` devolve a linha alterada (0 linhas = não ligou).
+          select: jest
+            .fn()
+            .mockResolvedValue({ data: [{ id: 'p' }], error: null }),
+        }),
       });
 
       (supabase.storage.from as jest.Mock).mockReturnValue({

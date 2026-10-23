@@ -15,7 +15,10 @@ import {
   getBuildNumber,
   getPlatformName,
 } from '@/lib/appVersion';
-import { chavesParaLimparNoCache } from '@/lib/limpezaDeCache';
+import {
+  chavesParaLimparNoCache,
+  MENSAGEM_LIMPAR_CACHE,
+} from '@/lib/limpezaDeCache';
 import { logger } from '@/lib/logger';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
@@ -72,8 +75,7 @@ export default function ConfiguracoesScreen() {
   async function handleClearCache() {
     const confirmed = await showConfirm({
       title: 'Limpar Cache',
-      message:
-        'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
+      message: MENSAGEM_LIMPAR_CACHE,
       confirmText: 'Limpar',
       cancelText: 'Cancelar',
       type: 'danger',

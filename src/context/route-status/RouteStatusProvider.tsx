@@ -149,6 +149,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       paradasComEnvioPendente,
       avisosDeEnvio: filaDeAcoes.descartes,
       dispensarAvisosDeEnvio: filaDeAcoes.dispensarDescartes,
+      acoesDeOutraConta: filaDeAcoes.acoesDeOutraConta,
+      dispensarAvisoOutraConta: filaDeAcoes.dispensarAvisoOutraConta,
     }),
     [
       route,
@@ -166,6 +168,8 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
       paradasComEnvioPendente,
       filaDeAcoes.descartes,
       filaDeAcoes.dispensarDescartes,
+      filaDeAcoes.acoesDeOutraConta,
+      filaDeAcoes.dispensarAvisoOutraConta,
     ],
   );
 

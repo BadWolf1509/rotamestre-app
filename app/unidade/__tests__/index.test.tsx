@@ -186,6 +186,16 @@ function usuariosQueryBuilder() {
  *   telefone         → placeholder '(00) 00000-0000'
  *   nome             → placeholder 'Nome da unidade'
  */
+/**
+ * A tela também chama `listar_motoristas_unidade` (contagem da equipe, mesma
+ * fonte da Equipe); os testes de salvamento olham só a RPC de salvar.
+ */
+function chamadasDeSalvar() {
+  return (mockSupabase.rpc as jest.Mock).mock.calls.filter(
+    ([nome]) => nome === 'atualizar_unidade',
+  );
+}
+
 async function entrarEmEdicao() {
   fireEvent.press(await screen.findByText('✏️ Editar Informações'));
 }
@@ -203,6 +213,7 @@ describe('tela Minha Unidade', () => {
     // read properties of undefined" ao encadear .select(), caem no catch,
     // e `nome` nunca é preenchido — handleSave bloquearia antes da RPC e
     // `mockSupabase.rpc` nunca seria chamado em nenhum dos testes abaixo.
+    mockSupabase.rpc = jest.fn().mockResolvedValue({ data: [], error: null });
     (mockSupabase.from as jest.Mock).mockImplementation((table: string) =>
       table === 'unidades' ? unidadesQueryBuilder() : usuariosQueryBuilder(),
     );
@@ -236,8 +247,8 @@ describe('tela Minha Unidade', () => {
     );
     await salvar();
 
-    await waitFor(() => expect(mockSupabase.rpc).toHaveBeenCalled());
-    const payload = (mockSupabase.rpc as jest.Mock).mock.calls[0][1];
+    await waitFor(() => expect(chamadasDeSalvar()).toHaveLength(1));
+    const payload = chamadasDeSalvar()[0][1];
 
     // Estas colunas não têm caminho pela RPC. Se alguém as acrescentar ao
     // payload, a proteção estrutural vira teatro.
@@ -259,7 +270,7 @@ describe('tela Minha Unidade', () => {
     await salvar();
 
     // O bug desta spec: antes, 0 linhas afetadas virava "sucesso".
-    await waitFor(() => expect(mockSupabase.rpc).toHaveBeenCalled());
+    await waitFor(() => expect(chamadasDeSalvar()).toHaveLength(1));
     expect(screen.queryByText(/atualizados com sucesso/i)).toBeNull();
   });
 
@@ -274,8 +285,8 @@ describe('tela Minha Unidade', () => {
     );
     await salvar();
 
-    await waitFor(() => expect(mockSupabase.rpc).toHaveBeenCalled());
-    const payload = (mockSupabase.rpc as jest.Mock).mock.calls[0][1];
+    await waitFor(() => expect(chamadasDeSalvar()).toHaveLength(1));
+    const payload = chamadasDeSalvar()[0][1];
 
     // Nulos fazem a RPC preservar a sede. Enviar string vazia a apagaria.
     expect(payload.p_sede_latitude).toBeNull();
@@ -296,7 +307,7 @@ describe('tela Minha Unidade', () => {
     // Sem coordenadas, a RPC ignoraria a sede em silêncio (v_atualiza_sede
     // = false) e o resto do formulário salvaria normalmente — o toast de
     // sucesso esconderia que a sede antiga continua valendo.
-    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    expect(chamadasDeSalvar()).toHaveLength(0);
     expect(screen.queryByText(/atualizados com sucesso/i)).toBeNull();
     expect(global.mockUseAlert.showWarning).toHaveBeenCalled();
   });

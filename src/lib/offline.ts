@@ -7,7 +7,7 @@ import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
 import { sincronizarFilaAcoesParada } from './motorista/filaAcoesParada';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
-import { uploadELinkFotoParada } from './storage';
+import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
 const OFFLINE_QUEUE_KEY = '@rotamestre:offline_queue';
@@ -305,27 +305,29 @@ export async function processOfflinePhotos(): Promise<{
         // O indice pode ter sido criado por uma versao antiga que usava o
         // `usuarios.unidade_id` legado. Resolva novamente pela rota no retry:
         // alem de recuperar filas antigas, isto mantem o prefixo do Storage
-        // alinhado com a mesma unidade que autoriza a parada via RLS.
+        // alinhado com a mesma unidade que autoriza a parada via RLS. Rota
+        // invisivel (passada a outro motorista) ou sem loja: vale a loja
+        // gravada na captura — a foto ainda sobe, para nao se perder.
         const { data: rota, error: rotaError } = await supabase
           .from('rotas')
           .select('unidade_id')
           .eq('id', photo.rotaId)
           .maybeSingle();
+        if (rotaError) throw rotaError;
+        const unidadeId = rota?.unidade_id ?? photo.unidadeId;
 
-        if (rotaError || !rota?.unidade_id) {
-          throw rotaError ?? new Error('Unidade da rota nao encontrada');
-        }
+        // Comprovante nunca sai do aparelho sem destino confirmado: ligado na
+        // parada, ou registrado em `logs` para o gestor (subirFotoDaFilaOffline).
+        // A conclusao descartada na fila nao muda isso.
+        const destino = await subirFotoDaFilaOffline({
+          unidadeId,
+          rotaId: photo.rotaId,
+          paradaId: photo.paradaId,
+          fotoUri: photo.localPath,
+          usuarioId: usuarioAtual,
+        });
 
-        // Fazer upload
-        const uploaded = await uploadELinkFotoParada(
-          rota.unidade_id,
-          photo.rotaId,
-          photo.paradaId,
-          photo.localPath,
-        );
-
-        if (uploaded) {
-          // Limpar arquivo local e índice
+        if (destino) {
           await deleteLocalPhoto(photo.localPath);
           await removeFromPhotosIndex(photo.paradaId, photo.localPath);
           success++;
@@ -656,7 +658,9 @@ let pedirEnvioDeNovo = false;
 
 /**
  * Ponto ÚNICO de envio do que ficou guardado no aparelho: fotos de
- * comprovante PRIMEIRO, depois as ações de parada (concluir/pular).
+ * comprovante PRIMEIRO, depois as ações de parada (concluir/pular). A foto
+ * não depende do destino da ação: mesmo com a conclusão descartada ela sobe
+ * (ligada na parada ou registrada em `logs`, `subirFotoDaFilaOffline`).
  *
  * Chamado na volta da rede, ao abrir o app, ao voltar ao primeiro plano, no
  * puxar para atualizar, depois de cada ação online e antes de finalizar a

@@ -62,4 +62,64 @@ describe('AvisosDaFilaDeParadas', () => {
     fireEvent.press(getByLabelText('Fechar alerta'));
     expect(dispensar).toHaveBeenCalled();
   });
+
+  it('conclusão descartada: diz o que acontece com a foto do comprovante', () => {
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      avisosDeEnvio: [descarte('p7', 'rota_encerrada')],
+    };
+    const { getByText } = render(<AvisosDaFilaDeParadas />);
+    const texto = getByText(/A foto do comprovante, se houver/).props
+      .children as string;
+    // Não promete o que não existe: entrega garantida ou tela do gestor.
+    expect(texto).toMatch(
+      /continua guardada e é enviada assim que for possível; se não puder ser ligada à parada, fica registrada para a loja recuperar com o suporte\./,
+    );
+    expect(texto).not.toMatch(/fica com o gestor|não se perde/);
+  });
+
+  it('pulo descartado não fala de foto (pulo não tem comprovante)', () => {
+    const pulo = descarte('p8', 'rota_encerrada');
+    pulo.acao.tipo = 'pular';
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      avisosDeEnvio: [pulo],
+    };
+    const { queryByText } = render(<AvisosDaFilaDeParadas />);
+    expect(queryByText(/foto do comprovante/)).toBeNull();
+  });
+
+  it('ações de outra conta no aparelho: aviso discreto, só o número, dispensável', () => {
+    const dispensar = jest.fn();
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      acoesDeOutraConta: 3,
+      dispensarAvisoOutraConta: dispensar,
+    };
+    const { getByTestId, getByText, getByLabelText } = render(
+      <AvisosDaFilaDeParadas />,
+    );
+    expect(getByTestId('aviso-acoes-outra-conta')).toBeTruthy();
+    expect(
+      getByText(/Há 3 ações de outra conta guardadas neste aparelho/),
+    ).toBeTruthy();
+    expect(getByText(/sobem quando essa conta entrar/)).toBeTruthy();
+    fireEvent.press(getByLabelText('Fechar alerta'));
+    expect(dispensar).toHaveBeenCalled();
+  });
+
+  it('uma ação de outra conta: singular', () => {
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      acoesDeOutraConta: 1,
+    };
+    const { getByText } = render(<AvisosDaFilaDeParadas />);
+    expect(
+      getByText(/Há 1 ação de outra conta guardada neste aparelho/),
+    ).toBeTruthy();
+  });
 });

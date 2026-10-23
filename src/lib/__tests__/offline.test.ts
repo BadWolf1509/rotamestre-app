@@ -77,9 +77,9 @@ jest.mock('expo-file-system/legacy', () => ({
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-// Mock storage (uploadELinkFotoParada)
+// Mock storage (subirFotoDaFilaOffline)
 jest.mock('../storage', () => ({
-  uploadELinkFotoParada: jest.fn(),
+  subirFotoDaFilaOffline: jest.fn(),
 }));
 
 // Mock logger
@@ -98,8 +98,8 @@ const FileSystem = require('expo-file-system/legacy') as Record<
   jest.Mock
 >;
 
-const { uploadELinkFotoParada } = require('../storage') as {
-  uploadELinkFotoParada: jest.Mock;
+const { subirFotoDaFilaOffline } = require('../storage') as {
+  subirFotoDaFilaOffline: jest.Mock;
 };
 
 const mockNetInfo = NetInfo as jest.Mocked<typeof NetInfo>;
@@ -672,7 +672,7 @@ describe('offline', () => {
 
       // First photo: file exists, upload succeeds
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockResolvedValueOnce(
+      subirFotoDaFilaOffline.mockResolvedValueOnce(
         'https://storage.url/photo.jpg',
       );
       // deleteLocalPhoto → getInfoAsync
@@ -683,7 +683,7 @@ describe('offline', () => {
 
       // Second photo (parada-1_222): file exists, upload succeeds
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockResolvedValueOnce(
+      subirFotoDaFilaOffline.mockResolvedValueOnce(
         'https://storage.url/photo2.jpg',
       );
       // deleteLocalPhoto → getInfoAsync
@@ -700,7 +700,7 @@ describe('offline', () => {
 
       // Third photo (parada-2_333): file exists, upload succeeds
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockResolvedValueOnce(
+      subirFotoDaFilaOffline.mockResolvedValueOnce(
         'https://storage.url/photo3.jpg',
       );
       // deleteLocalPhoto → getInfoAsync
@@ -787,7 +787,7 @@ describe('offline', () => {
 
       // Third photo: file exists, upload succeeds
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockResolvedValueOnce(
+      subirFotoDaFilaOffline.mockResolvedValueOnce(
         'https://storage.url/photo.jpg',
       );
       // deleteLocalPhoto
@@ -1118,7 +1118,7 @@ describe('offline', () => {
 
       const result = await processOfflinePhotos();
       expect(result).toEqual({ success: 0, failed: 0 });
-      expect(uploadELinkFotoParada).not.toHaveBeenCalled();
+      expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
     });
 
     it('deve retornar {success:0, failed:0} sem fotos no índice', async () => {
@@ -1156,7 +1156,7 @@ describe('offline', () => {
       // File exists
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
       // Upload succeeds
-      uploadELinkFotoParada.mockResolvedValueOnce(
+      subirFotoDaFilaOffline.mockResolvedValueOnce(
         'https://storage.url/photo.jpg',
       );
       // removeFromPhotosIndex → getOfflinePhotosIndex
@@ -1170,11 +1170,13 @@ describe('offline', () => {
       expect(result).toEqual({ success: 1, failed: 0 });
 
       // Should have uploaded
-      expect(uploadELinkFotoParada).toHaveBeenCalledWith(
-        'u1',
-        'r1',
-        'parada-1',
-        '/mock/documents/offline_photos/parada-1_123.jpg',
+      expect(subirFotoDaFilaOffline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          unidadeId: 'u1',
+          rotaId: 'r1',
+          paradaId: 'parada-1',
+          fotoUri: '/mock/documents/offline_photos/parada-1_123.jpg',
+        }),
       );
 
       // Should have cleaned up
@@ -1203,16 +1205,18 @@ describe('offline', () => {
       FileSystem.getInfoAsync
         .mockResolvedValueOnce({ exists: true })
         .mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockResolvedValueOnce(true);
+      subirFotoDaFilaOffline.mockResolvedValueOnce(true);
 
       const result = await processOfflinePhotos();
 
       expect(result).toEqual({ success: 1, failed: 0 });
-      expect(uploadELinkFotoParada).toHaveBeenCalledWith(
-        'u1',
-        'r1',
-        'parada-1',
-        '/mock/path/photo.jpg',
+      expect(subirFotoDaFilaOffline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          unidadeId: 'u1',
+          rotaId: 'r1',
+          paradaId: 'parada-1',
+          fotoUri: '/mock/path/photo.jpg',
+        }),
       );
     });
 
@@ -1237,7 +1241,7 @@ describe('offline', () => {
       );
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
       // Upload returns null (failure)
-      uploadELinkFotoParada.mockResolvedValueOnce(null);
+      subirFotoDaFilaOffline.mockResolvedValueOnce(null);
 
       const result = await processOfflinePhotos();
       expect(result).toEqual({ success: 0, failed: 1 });
@@ -1273,7 +1277,7 @@ describe('offline', () => {
       const result = await processOfflinePhotos();
       // Not counted as success or failure — just skipped
       expect(result).toEqual({ success: 0, failed: 0 });
-      expect(uploadELinkFotoParada).not.toHaveBeenCalled();
+      expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
     });
 
     it('should not process photos concurrently', async () => {
@@ -1378,11 +1382,11 @@ describe('offline', () => {
 
       // First photo: file exists, upload throws
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockRejectedValueOnce(new Error('network error'));
+      subirFotoDaFilaOffline.mockRejectedValueOnce(new Error('network error'));
 
       // Second photo: file exists, upload succeeds
       FileSystem.getInfoAsync.mockResolvedValueOnce({ exists: true });
-      uploadELinkFotoParada.mockResolvedValueOnce(
+      subirFotoDaFilaOffline.mockResolvedValueOnce(
         'https://storage.url/photo2.jpg',
       );
       // removeFromPhotosIndex → getOfflinePhotosIndex

@@ -21,21 +21,18 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import {
+  carregarEquipeDaLoja,
+  ehGestorPrincipalDaLoja,
+  resumoDaEquipe,
+  type MembroDaEquipe,
+} from '@/lib/gestor/equipeDaLoja';
 import { logger } from '@/lib/logger';
 import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
-interface Membro {
-  id: string;
-  nome: string;
-  email: string;
-  papel: 'gestor' | 'motorista';
-  is_gestor_principal: boolean;
-  ativo: boolean;
-  created_at: string;
-  foto_url: string | null;
-}
+type Membro = MembroDaEquipe;
 
 export default function EquipeScreen() {
   const router = useRouter();
@@ -80,48 +77,10 @@ export default function EquipeScreen() {
       if (!cargaInicialFeitaRef.current) {
         setLoading(true);
       }
-      // Mesma fonte da tela Motoristas: o vínculo (`usuario_unidades`), não
-      // `usuarios.unidade_id`. Motoristas pela RPC (inclui quem está inativo
-      // só nesta loja); gestores pelo vínculo ativo com a loja.
-      const [motoristasRes, gestoresRes] = await Promise.all([
-        supabase.rpc('listar_motoristas_unidade', { p_unidade_id: unidadeId }),
-        supabase
-          .from('usuario_unidades')
-          .select(
-            'usuarios(id, nome, email, papel, is_gestor_principal, ativo, created_at, foto_url)',
-          )
-          .eq('unidade_id', unidadeId)
-          .eq('papel', 'gestor')
-          .eq('ativo', true),
-      ]);
-
-      if (motoristasRes.error) throw motoristasRes.error;
-      if (gestoresRes.error) throw gestoresRes.error;
-
-      type LinhaMotorista = Omit<Membro, 'papel' | 'is_gestor_principal'>;
-      const motoristas: Membro[] = (
-        (motoristasRes.data ?? []) as LinhaMotorista[]
-      ).map((m) => ({
-        id: m.id,
-        nome: m.nome,
-        email: m.email,
-        papel: 'motorista',
-        is_gestor_principal: false,
-        ativo: m.ativo,
-        created_at: m.created_at,
-        foto_url: m.foto_url,
-      }));
-      const gestores: Membro[] = (
-        (gestoresRes.data ?? []) as unknown as { usuarios: Membro | null }[]
-      )
-        .map((v) => v.usuarios)
-        .filter((u): u is Membro => !!u);
-
-      setMembros(
-        [...gestores, ...motoristas].sort((a, b) =>
-          b.created_at.localeCompare(a.created_at),
-        ),
-      );
+      // Mesma fonte da tela Motoristas e do número da Minha Unidade
+      // (`carregarEquipeDaLoja`): o vínculo com a loja, não
+      // `usuarios.unidade_id`.
+      setMembros(await carregarEquipeDaLoja(unidadeId));
     } catch (error) {
       logger.error('Erro ao carregar membros', error);
       showToast('Erro ao carregar equipe', 'error', 4000);
@@ -219,9 +178,9 @@ export default function EquipeScreen() {
     return papel === 'gestor' ? 'Gestor' : 'Motorista';
   }
 
-  const isGestorPrincipal = userData?.is_gestor_principal === true;
-  const ativos = membros.filter((m) => m.ativo).length;
-  const inativos = membros.filter((m) => !m.ativo).length;
+  // Principal DESTA loja, não o flag global (ver `ehGestorPrincipalDaLoja`).
+  const isGestorPrincipal = ehGestorPrincipalDaLoja(userData, unidadeAtiva);
+  const { ativos, inativos } = resumoDaEquipe(membros);
 
   const statsSection = (
     <View style={styles.statsContainer}>

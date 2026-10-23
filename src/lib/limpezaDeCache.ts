@@ -13,6 +13,14 @@
  * conta no aparelho), e quem limpa cache quer resolver outro problema. A
  * preservação não tem esse beco e não perde comprovante.
  */
+/**
+ * Texto do diálogo de "Limpar Cache" (motorista e gestor): diz o que a
+ * limpeza preserva de verdade — a sessão (não precisa entrar de novo) e o
+ * que ainda não subiu.
+ */
+export const MENSAGEM_LIMPAR_CACHE =
+  'Isso remove dados temporários do app. Sua sessão, as entregas e as fotos que ainda não foram enviadas são mantidas. Deseja continuar?';
+
 const PREFIXOS_PRESERVADOS = [
   '@rotamestre:fila_',
   '@rotamestre:offline_photos_index',
