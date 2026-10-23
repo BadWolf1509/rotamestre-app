@@ -64,7 +64,8 @@ export interface Usuario {
   is_gestor_principal?: boolean;
   foto_url?: string | null;
 
-  // Push notifications (migration 20251220)
+  // Push notifications (migration 20251220). Sempre NULL desde a Migration 45
+  // (`20261024020000`): o token mora em `push_tokens`, visível só ao dono.
   push_token?: string | null;
 
   // Dados da unidade quando faz join com select('*, unidades(*)')

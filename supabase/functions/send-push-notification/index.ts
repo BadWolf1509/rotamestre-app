@@ -187,29 +187,31 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Buscar push token do usuário
-    const { data: usuario, error: userError } = await supabase
-      .from('usuarios')
-      .select('push_token, nome')
-      .eq('id', usuario_id)
-      .single();
+    // Tokens da conta (Migration 45): um por aparelho, em push_tokens. A
+    // coluna usuarios.push_token fica sempre vazia.
+    const { data: linhas, error: tokensError } = await supabase
+      .from('push_tokens')
+      .select('token')
+      .eq('usuario_id', usuario_id);
 
-    if (userError) {
-      console.error('[send-push] Erro ao buscar usuário:', userError);
+    if (tokensError) {
+      console.error('[send-push] Erro ao buscar tokens:', tokensError.message);
       await logPushAttempt(supabase, {
         notificacao_id,
         usuario_id,
         push_token: null,
         status: 'failed',
-        error_message: `Erro ao buscar usuário: ${userError.message}`,
+        error_message: `Erro ao buscar tokens: ${tokensError.message}`,
       });
-      return new Response(
-        JSON.stringify({ error: 'User not found', details: userError }),
-        { status: 404, headers },
-      );
+      return new Response(JSON.stringify({ error: 'Token lookup failed' }), {
+        status: 500,
+        headers,
+      });
     }
 
-    if (!usuario.push_token) {
+    const tokens = (linhas ?? []).map((l: { token: string }) => l.token);
+
+    if (tokens.length === 0) {
       console.log(`[send-push] Usuário ${usuario_id} sem token registrado`);
       await logPushAttempt(supabase, {
         notificacao_id,
@@ -228,88 +230,114 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Validar formato do token Expo
-    if (!usuario.push_token.startsWith('ExponentPushToken[')) {
-      console.error(
-        `[send-push] Token fora do formato Expo (usuário ${usuario_id}):`,
-        mascararToken(usuario.push_token),
-      );
+    const ticketIds: string[] = [];
+    let algumEnviado = false;
+    let ultimoErro: string | null = null;
+
+    // Um envio por aparelho: a leitura do ticket (expoTicket.ts) é a do envio
+    // único, e cada token morto se limpa sozinho.
+    for (const token of tokens) {
+      // Validar formato do token Expo
+      if (!token.startsWith('ExponentPushToken[')) {
+        console.error(
+          `[send-push] Token fora do formato Expo (usuário ${usuario_id}):`,
+          mascararToken(token),
+        );
+        await logPushAttempt(supabase, {
+          notificacao_id,
+          usuario_id,
+          push_token: token,
+          status: 'failed',
+          error_message: 'Token não é um Expo Push Token válido',
+        });
+        ultimoErro = 'Invalid push token format';
+        continue;
+      }
+
+      // Montar mensagem push
+      const pushMessage: ExpoPushMessage = {
+        to: token,
+        title: titulo,
+        body: mensagem,
+        data,
+        sound: 'default',
+        priority: NOTIFICATION_PRIORITY[tipo] || 'normal',
+        channelId: tipo === 'sos_acionado' ? 'emergencia' : 'default',
+        ttl: 86400, // 24 horas
+      };
+
+      console.log('[send-push] Enviando para Expo:', {
+        notificacao_id,
+        usuario_id,
+        tipo,
+        token: mascararToken(token),
+      });
+
+      // Enviar para Expo Push Service
+      const expoPushResponse = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pushMessage),
+      });
+
+      const expoPushResult = await expoPushResponse.json();
+
+      // Envio único: a Expo devolve `data` como objeto (ver expoTicket.ts).
+      const ticket = extrairTicket(expoPushResult);
+      const success = ticket.status === 'ok';
+      console.log('[send-push] Resposta Expo:', {
+        notificacao_id,
+        usuario_id,
+        http: expoPushResponse.status,
+        ...resumoDoTicket(ticket),
+      });
+
+      // Token morto (app desinstalado): sai do banco para não falhar de novo
+      // a cada notificação. Só se ainda for desta conta — o aparelho pode ter
+      // passado a outra conta enquanto este envio estava no ar.
+      if (tokenDeveSerLimpo(ticket)) {
+        const { error: limparError } = await supabase
+          .from('push_tokens')
+          .delete()
+          .eq('token', token)
+          .eq('usuario_id', usuario_id);
+        if (limparError) {
+          console.error(
+            `[send-push] Falha ao limpar token morto (usuário ${usuario_id}):`,
+            limparError.message,
+          );
+        } else {
+          console.log(
+            `[send-push] Token morto removido (usuário ${usuario_id})`,
+          );
+        }
+      }
+
+      if (success) {
+        algumEnviado = true;
+        if (ticket.id) ticketIds.push(ticket.id);
+      } else {
+        ultimoErro = ticket.details?.error ?? 'Falha no envio';
+      }
+
+      // Log do resultado. Resumo e código de erro, nunca a resposta crua nem
+      // a `message` da Expo: no DeviceNotRegistered elas trazem o token.
       await logPushAttempt(supabase, {
         notificacao_id,
         usuario_id,
-        push_token: usuario.push_token,
-        status: 'failed',
-        error_message: 'Token não é um Expo Push Token válido',
+        push_token: token,
+        status: success ? 'sent' : 'failed',
+        response: resumoDoTicket(ticket),
+        error_message: ticket.details?.error ?? (success ? null : 'erro'),
       });
-      return new Response(
-        JSON.stringify({ error: 'Invalid push token format' }),
-        { status: 400, headers },
-      );
     }
 
-    // Montar mensagem push
-    const pushMessage: ExpoPushMessage = {
-      to: usuario.push_token,
-      title: titulo,
-      body: mensagem,
-      data,
-      sound: 'default',
-      priority: NOTIFICATION_PRIORITY[tipo] || 'normal',
-      channelId: tipo === 'sos_acionado' ? 'emergencia' : 'default',
-      ttl: 86400, // 24 horas
-    };
-
-    console.log('[send-push] Enviando para Expo:', {
-      notificacao_id,
-      usuario_id,
-      tipo,
-      token: mascararToken(usuario.push_token),
-    });
-
-    // Enviar para Expo Push Service
-    const expoPushResponse = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(pushMessage),
-    });
-
-    const expoPushResult = await expoPushResponse.json();
-
-    // Envio único: a Expo devolve `data` como objeto (ver expoTicket.ts).
-    const ticket = extrairTicket(expoPushResult);
-    const success = ticket.status === 'ok';
-    console.log('[send-push] Resposta Expo:', {
-      notificacao_id,
-      usuario_id,
-      http: expoPushResponse.status,
-      ...resumoDoTicket(ticket),
-    });
-
-    // Token morto (app desinstalado): sai do banco para não falhar de novo a
-    // cada notificação. Só se ainda for o mesmo — o aparelho pode ter
-    // registrado um novo enquanto este envio estava no ar.
-    if (tokenDeveSerLimpo(ticket)) {
-      const { error: limparError } = await supabase
-        .from('usuarios')
-        .update({ push_token: null })
-        .eq('id', usuario_id)
-        .eq('push_token', usuario.push_token);
-      if (limparError) {
-        console.error(
-          `[send-push] Falha ao limpar token morto (usuário ${usuario_id}):`,
-          limparError.message,
-        );
-      } else {
-        console.log(`[send-push] Token morto removido (usuário ${usuario_id})`);
-      }
-    }
-
-    // Atualizar notificação como enviada
-    if (notificacao_id && success) {
+    // Atualizar notificação como enviada (chegou a pelo menos um aparelho)
+    if (notificacao_id && algumEnviado) {
       await supabase
         .from('notificacoes')
         .update({
@@ -319,23 +347,15 @@ Deno.serve(async (req: Request) => {
         .eq('id', notificacao_id);
     }
 
-    // Log do resultado
-    await logPushAttempt(supabase, {
-      notificacao_id,
-      usuario_id,
-      push_token: usuario.push_token,
-      status: success ? 'sent' : 'failed',
-      response: expoPushResult,
-      error_message: ticket.message || ticket.details?.error || null,
-    });
-
     return new Response(
       JSON.stringify({
-        success,
-        ticket_id: ticket.id,
-        message: success
+        success: algumEnviado,
+        ticket_id: ticketIds[0] ?? null,
+        ticket_ids: ticketIds,
+        aparelhos: tokens.length,
+        message: algumEnviado
           ? 'Push notification enviado'
-          : (ticket.details?.error ?? 'Falha no envio'),
+          : (ultimoErro ?? 'Falha no envio'),
       }),
       { headers },
     );
@@ -367,7 +387,8 @@ async function logPushAttempt(
     await supabase.from('push_notification_logs').insert({
       notificacao_id: data.notificacao_id,
       usuario_id: data.usuario_id,
-      push_token: data.push_token,
+      // Só os 6 últimos: o token inteiro bastaria para tomar o aparelho.
+      push_token: data.push_token ? mascararToken(data.push_token) : null,
       status: data.status,
       response: data.response || null,
       error_message: data.error_message || null,

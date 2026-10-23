@@ -350,7 +350,7 @@ async function lerTokenGuardado(): Promise<TokenGuardado | null> {
 }
 
 /**
- * Registra o push token no banco de dados (tabela usuarios)
+ * Registra o push token no banco (tabela `push_tokens`, pela RPC)
  * Deve ser chamado após o login do usuário
  */
 export async function registerPushToken(userId: string): Promise<boolean> {
@@ -408,9 +408,8 @@ export async function registerPushToken(userId: string): Promise<boolean> {
  * Remove o push token do banco de dados (logout).
  *
  * Precisa rodar com a sessão AINDA viva (antes do `auth.signOut`): sem ela o
- * UPDATE vai anônimo e a RLS filtra 0 linhas, sem erro. Só limpa se o banco
- * ainda tiver o token deste aparelho — a coluna é uma por usuário, e sair no
- * aparelho A não pode apagar o token que o aparelho B gravou depois.
+ * DELETE vai anônimo e a RLS filtra 0 linhas, sem erro. Apaga só o token
+ * deste aparelho — sair no aparelho A não pode desligar o push do aparelho B.
  */
 export async function unregisterPushToken(
   userId: string | undefined,
@@ -429,13 +428,27 @@ export async function unregisterPushToken(
     // registra pela RPC, que tira o token da conta que saiu.
     if (!userId) return false;
 
+    // Desde a Migration `20261024020000` o token mora em `push_tokens` (um
+    // por aparelho; a RLS só deixa o dono ver e apagar) e a coluna
+    // `usuarios.push_token` fica sempre vazia. Apaga só o deste aparelho: os
+    // outros aparelhos da conta seguem recebendo.
+    let { error } = await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('token', guardado.token);
+
+    // PGRST205 = a tabela não existe no banco (migration ainda não aplicada):
+    // cai no UPDATE antigo da coluna, para não depender da ordem de deploy.
+    if (error?.code === 'PGRST205') {
+      ({ error } = await supabase
+        .from('usuarios')
+        .update({ push_token: null })
+        .eq('id', userId)
+        .eq('push_token', guardado.token));
+    }
+
     // O PostgREST devolve `{ error }` sem lançar (offline, por exemplo): só
     // esquece o token local quando o banco de fato limpou.
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ push_token: null })
-      .eq('id', userId)
-      .eq('push_token', guardado.token);
     if (error) {
       logger.warn('[Push] Erro ao limpar token no banco', error);
       return false;
