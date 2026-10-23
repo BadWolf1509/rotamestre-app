@@ -8,6 +8,23 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Varredura e correções de 22–23/10/2026
+
+- **#629 — push e logout:** o ticket da Expo passou a ser verificado; o token de push pertence a uma conta só, registrado pela RPC `registrar_push_token`; o logout apaga o token do banco e limpa o estado local do aparelho.
+- **#630 — carregamento da rota (motorista):** erro de carga não apaga a rota já na tela; recarga silenciosa; revalidação a cada 90 s; finalizar rota pela RPC `finalizar_rota` (rota e chegada numa transação).
+- **#631 — gestor (12 itens):** exclusão de rota condicionada ao status, com gatilho no banco; contadores e o cartão "Hoje" corrigidos; incidentes filtrados por loja; sino de notificações no mobile; exportar por modal; aviso quando a carga falha.
+- **#633 — endurecimento (Migration 38):** `usuarios`, fotos de perfil/incidente, `incidentes` e grants; erros genéricos nas Edge Functions; workflows do GitHub só com leitura; funções Google sem uso removidas; PostGIS desligado.
+- **#634 — Migration 42:** incidente visível ao gestor só na loja da rota.
+- **#635 — motorista (Onda E):** fila offline de concluir/pular, botões Concluir/Pular sempre à vista e permissão de câmera consultada antes de pedir.
+- **Migrations 38–42 aplicadas em 23/10/2026.**
+
+**Lições:**
+
+- Rode a sonda transacional **junto** com a migration, numa transação só: o `RAISE EXCEPTION` final desfaz as duas e prova a migration antes de aplicar.
+- O MCP aceita `ALTER POLICY` e `CREATE OR REPLACE TRIGGER`; troque `DROP` + `CREATE TRIGGER` por `CREATE OR REPLACE`.
+- `apply_migration` registra com timestamp próprio; alinhe a versão registrada ao nome do arquivo.
+- Entradas no fim do `MIGRATIONS.md` conflitam em todo rebase paralelo (as 38–42 chegaram fora de ordem e foram reordenadas).
+
 ## Retenção, fonte 2.0, mini-mapa e fim do PiP (22/10/2026)
 
 - **#625 — Migration 37:** `limpar_localizacoes_antigas(p_dias default 90)` (SECURITY DEFINER, só `service_role`, piso de 30 dias) apaga posições de rotas `concluida`/`cancelada`/`nao_executada` com `rotas.data` mais antiga que 90 dias; a `expire-routes` a chama depois da expiração e devolve `localizacoes_apagadas`. Saiu a `cleanup_old_locations()` legada (apagaria tudo com mais de 24 h). Sonda no SQL Editor: 12.885 de 67.204 linhas, nenhuma de rota ativa nem dos últimos 90 dias. O MCP recusa `DELETE` mesmo em transação desfeita.

@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 21/10/2026.
+> Documento de entrada para novas sessões. Atualizado em 23/10/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -51,6 +51,11 @@ para outra coisa.
 
 - **21.** **Vínculo multi-loja: travado; falta o convite aceito pelo motorista.** Em 20/10/2026 o vínculo pelo e-mail saiu (qualquer gestor puxava o motorista de outra empresa, também direto pelo PostgREST), a `criar-motorista` deixou de apagar conta do Auth, e o gestor não mexe mais na pessoa de quem atende outra loja (Migration 31). **Migration e função publicadas só depois do merge — confira `supabase migration list` e a versão da função antes de dar por aplicado.** Novo vínculo entre lojas hoje é pelo suporte (service role). Próximo passo, ainda não aprovado: convite pendente que o motorista aceita no app (precisa de release).<br>_Quem:_ gestor (aprovar o desenho do convite) · _Detalhe:_ `supabase/functions/criar-motorista/index.ts`, `database/MIGRATIONS.md` (Migration 31)
 - **22.** **Sobras do incidente da `service_role` (22/10/2026).** As Migrations 33–36 fecharam a parte do banco (push entre empresas, destino do incidente, todos os gestores da loja, `get_gestor_principal` apagada). Falta: (a) o **painel administrativo** (outro projeto) roda com `service_role` e precisa trocar para a chave secreta nova — e lá vale um grep por `get_gestor_principal` e `cleanup_old_locations`, que não existem mais (Migrations 36 e 37); (b) opcional: `git filter-repo` para tirar a chave morta do histórico.<br>_Quem:_ gestor · _Detalhe:_ armadilha "Chaves do Supabase"; [HISTORICO.md](HISTORICO.md), 22/10/2026
+
+- **23.** **Release 1.14.3 e validação em aparelho da fila offline.** Release 1.14.3: leva o cliente novo da busca de endereço; há uma publicação de Edge Functions que só pode acontecer depois de o release estar distribuído (detalhe fora do repositório). A fila offline de concluir/pular (#635) só foi testada em Jest; falta no aparelho: modo avião, sinal fraco, limpar o cache com ação pendente, fonte do sistema 2.0 a 360 dp e câmera já concedida sem piscar a tela de permissão.<br>_Quem:_ gestor (release, aparelho) · _Detalhe:_ [HISTORICO.md](HISTORICO.md), 22–23/10/2026
+- **24.** **Pendências conhecidas da fila offline (nenhuma bloqueia):** (a) aviso de ações de outra conta que ficaram no aparelho; (b) atomicidade de `avancarProxima` (duas escritas); (c) foto órfã no storage quando a ação é descartada; (d) sonda do UPDATE condicional que a fila usa para não regredir status.<br>_Quem:_ qualquer sessão · _Detalhe:_ `src/lib/offline.ts`
+- **25.** **Gravar `unidade_id` no incidente.** Hoje o gestor enxerga o incidente pela loja da `rota_id` (Migration 42); incidente sem rota (ou cuja rota foi apagada) segue a regra antiga e aparece a todas as lojas do motorista. Com a coluna própria a visibilidade deixa de depender da rota.<br>_Quem:_ qualquer sessão (migration + cliente) · _Detalhe:_ `database/MIGRATIONS.md` (Migration 42)
+- **26.** **Pequenos adiados do gestor (varredura de 23/10):** `isGestorPrincipal` é global, não por loja; contagem de membros diverge da lista da Equipe; performance do motorista soma todas as lojas; incidente sem rota aparece a todas as lojas do motorista.<br>_Quem:_ qualquer sessão · _Detalhe:_ [HISTORICO.md](HISTORICO.md), 22–23/10/2026
 
 **Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
 de 08, 15, 17 e 25/08 foram para [HISTORICO.md](HISTORICO.md) em 25/08 — eram
@@ -319,6 +324,7 @@ estatísticas"` — o corte é a dica de rolagem. Já foi reportado como defeito
   movimento do marcador, sem recarregar. Antes disso o marcador congelava depois
   da carga inicial — ver a armadilha de publicação de realtime.
 - iOS: configuração versionada, sem build (pend. 5).
+- Banco: migrations até a **42** aplicadas (23/10/2026). Edge Functions publicadas em 23/10: `send-push-notification`, `criar-motorista`, `expire-routes`, `remind-routes`. `google-directions` e `google-distance-matrix` foram despublicadas e saíram do repositório.
 
 ## Identidades e serviços
 

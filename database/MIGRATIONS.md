@@ -1632,84 +1632,6 @@ recusado. Sintaxe validada com o parser do Postgres (libpg-query).
 termina em `RAISE`): B registra o token que está num motorista A de loja onde B
 não é gestor → A fica sem token, B com ele; token fora do formato é recusado.
 
-### ✅ Migration 42: incidentes visíveis ao gestor só na loja da rota
-
-**Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **✅
-aplicada em 23/10/2026 via `apply_migration`** (o MCP aceita `ALTER POLICY`),
-versão alinhada ao arquivo em `schema_migrations`. Antes, a migration e a sonda
-rodaram numa transação só, desfeita pelo `RAISE`: os 17 casos OK.
-
-**Por quê.** `incidentes_select` e `incidentes_update` liberavam ao gestor todo
-incidente de motorista com vínculo ativo numa loja dele. Com motorista que
-atende duas lojas (Migration 31), o gestor de uma loja via e alterava os
-incidentes das rotas da outra — e a foto deles, porque o ramo `incidentes/` da
-policy "fotos-entrega select" depende da visibilidade do incidente. A
-`incidentes_delete_optimized` já filtrava pela loja da rota.
-
-**O que faz.** `ALTER POLICY` nas duas (nomes mantidos, `public` →
-`authenticated`), com a mesma expressão em USING e WITH CHECK: o próprio
-motorista; incidente com rota → gestor ativo da loja da rota; incidente sem rota
-→ a regra antiga (vínculo do motorista). O WITH CHECK impede o gestor de mover
-o incidente para a rota de outra loja (o gatilho da Migration 38 só exige que a
-rota seja do motorista). A policy de fotos não muda: herda a restrição.
-
-**Incidente sem rota.** Medido em 23/10/2026: 3 de 26 (2 abertos), todos de
-27/12/2025 e de motoristas com 2 lojas ativas — continuam visíveis aos gestores
-das duas lojas. Escondê-los do gestor (só o motorista veria) deixaria incidente
-sem ninguém para resolver: o app grava incidente sem rota (`useIncidentSubmit`).
-A correção completa é gravar a loja no próprio incidente (`unidade_id`
-preenchida por gatilho a partir da rota, ou da única loja ativa do motorista),
-que sobrevive ao `ON DELETE SET NULL` da rota — pendente. Até lá, o
-`rota_id` pode virar NULL depois do fato (rota apagada, ou o próprio gestor da
-loja ou o motorista zerando o campo; o gatilho da Migration 38 aceita NULL), e o
-incidente volta à regra antiga — visível também à outra loja do motorista
-(achado do `rls-policy-reviewer`). Não é leitura cruzada espontânea: exige ação
-de quem já tinha acesso ao incidente.
-
-**App.** Nada depende de ver incidente de rota de outra loja:
-`useIncidentesGestor` e o contador do dashboard filtram por motoristas da loja
-ativa e passam a receber só os da loja; a timeline da rota consulta por
-`rota_id`. Fica de fora (não é de segurança): um gestor de duas lojas, com a
-loja A aberta, ainda vê na lista os incidentes das rotas da loja B do mesmo
-motorista, porque o filtro do app é por motorista e não pela loja da rota.
-
-**Verificação.** Guarda estática `database/__tests__/migration42-incidentes-por-loja.test.ts`;
-sonda transacional `database/sondas/20261023120000_sonda_migration42.sql` (cenário
-próprio: lojas A/B/C, motorista em A e B; 11 casos, termina em `RAISE`). O
-roteiro de conferência só com SELECT está no fim da migration.
-
-### ✅ Migration 41: rota em andamento não se apaga
-
-**Arquivo:** `20261023110000_rota_em_andamento_nao_se_apaga.sql` · **✅ aplicada
-em 23/10/2026 via `apply_migration`** (gatilho com `CREATE OR REPLACE TRIGGER`,
-sem `DROP TRIGGER`), versão alinhada em `schema_migrations`. A sonda tem
-`DELETE` e rodou pelo SQL Editor: os 4 casos OK (em andamento bloqueado com a
-sentinela, pendente apagado, cascata sem usuário passa, sem EXECUTE para
-`authenticated`/`anon`).
-
-**Por quê.** A política `rotas_delete` deixa o gestor ativo da loja apagar
-qualquer rota dela, inclusive a que um motorista está fazendo — e o DELETE leva
-em cascata paradas, registros de comprovante, notificações e posições. O
-dashboard desktop fazia isso até o PR #631. O app agora reconsulta o status e
-condiciona o DELETE, mas só no cliente.
-
-**O que faz.** Gatilho `BEFORE DELETE` em `rotas`
-(`recusa_apagar_rota_em_andamento`, SECURITY DEFINER, `search_path ''`, sem
-EXECUTE para PUBLIC/anon/authenticated) que recusa com a sentinela
-`ROTA_EM_ANDAMENTO` (P0001) quando `OLD.status = 'em_andamento'` e há usuário
-(`auth.uid()` não nulo). Sem usuário — service_role, SQL Editor, e a cascata de
-`unidades` (que só acontece por service_role: `unidades` não tem política de
-DELETE) — segue livre. O app traduz a sentinela em `errorMapping`
-(`ROUTE_IN_PROGRESS`) e em `excluirRota`.
-
-**Alternativa descartada:** `status <> 'em_andamento'` na política. A RLS recusa
-DELETE sem erro (0 linhas), e trocar política exige DROP POLICY.
-
-**Sonda** (bloco `DO` que cria função e gatilho, monta unidade e rotas próprias
-e termina em `RAISE`): autenticado apagando rota em andamento é recusado com a
-sentinela; autenticado apaga pendente (1 linha); sem usuário, a cascata da
-unidade apaga a rota em andamento; `authenticated`/`anon` sem EXECUTE.
-
 ### ✅ Migration 40: RPC `finalizar_rota` (rota e chegada numa transação)
 
 **Arquivo:** `20261023100000_finalizar_rota_rpc.sql` · **✅ aplicada em
@@ -1756,3 +1678,81 @@ parada pendente → recusa; outro motorista → recusa; `anon` → sem permissã
 pendente → conclui (rota e chegada); 2ª chamada do dono → sucesso sem novo aviso
 nem log; rota cancelada → recusa. Conta avisos `rota_concluida` e logs
 `motorista_concluiu_rota`/`parada_concluida` depois da 1ª e da 2ª chamada.
+
+### ✅ Migration 41: rota em andamento não se apaga
+
+**Arquivo:** `20261023110000_rota_em_andamento_nao_se_apaga.sql` · **✅ aplicada
+em 23/10/2026 via `apply_migration`** (gatilho com `CREATE OR REPLACE TRIGGER`,
+sem `DROP TRIGGER`), versão alinhada em `schema_migrations`. A sonda tem
+`DELETE` e rodou pelo SQL Editor: os 4 casos OK (em andamento bloqueado com a
+sentinela, pendente apagado, cascata sem usuário passa, sem EXECUTE para
+`authenticated`/`anon`).
+
+**Por quê.** A política `rotas_delete` deixa o gestor ativo da loja apagar
+qualquer rota dela, inclusive a que um motorista está fazendo — e o DELETE leva
+em cascata paradas, registros de comprovante, notificações e posições. O
+dashboard desktop fazia isso até o PR #631. O app agora reconsulta o status e
+condiciona o DELETE, mas só no cliente.
+
+**O que faz.** Gatilho `BEFORE DELETE` em `rotas`
+(`recusa_apagar_rota_em_andamento`, SECURITY DEFINER, `search_path ''`, sem
+EXECUTE para PUBLIC/anon/authenticated) que recusa com a sentinela
+`ROTA_EM_ANDAMENTO` (P0001) quando `OLD.status = 'em_andamento'` e há usuário
+(`auth.uid()` não nulo). Sem usuário — service_role, SQL Editor, e a cascata de
+`unidades` (que só acontece por service_role: `unidades` não tem política de
+DELETE) — segue livre. O app traduz a sentinela em `errorMapping`
+(`ROUTE_IN_PROGRESS`) e em `excluirRota`.
+
+**Alternativa descartada:** `status <> 'em_andamento'` na política. A RLS recusa
+DELETE sem erro (0 linhas), e trocar política exige DROP POLICY.
+
+**Sonda** (bloco `DO` que cria função e gatilho, monta unidade e rotas próprias
+e termina em `RAISE`): autenticado apagando rota em andamento é recusado com a
+sentinela; autenticado apaga pendente (1 linha); sem usuário, a cascata da
+unidade apaga a rota em andamento; `authenticated`/`anon` sem EXECUTE.
+
+### ✅ Migration 42: incidentes visíveis ao gestor só na loja da rota
+
+**Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **✅
+aplicada em 23/10/2026 via `apply_migration`** (o MCP aceita `ALTER POLICY`),
+versão alinhada ao arquivo em `schema_migrations`. Antes, a migration e a sonda
+rodaram numa transação só, desfeita pelo `RAISE`: os 17 casos OK.
+
+**Por quê.** `incidentes_select` e `incidentes_update` liberavam ao gestor todo
+incidente de motorista com vínculo ativo numa loja dele. Com motorista que
+atende duas lojas (Migration 31), o gestor de uma loja via e alterava os
+incidentes das rotas da outra — e a foto deles, porque o ramo `incidentes/` da
+policy "fotos-entrega select" depende da visibilidade do incidente. A
+`incidentes_delete_optimized` já filtrava pela loja da rota.
+
+**O que faz.** `ALTER POLICY` nas duas (nomes mantidos, `public` →
+`authenticated`), com a mesma expressão em USING e WITH CHECK: o próprio
+motorista; incidente com rota → gestor ativo da loja da rota; incidente sem rota
+→ a regra antiga (vínculo do motorista). O WITH CHECK impede o gestor de mover
+o incidente para a rota de outra loja (o gatilho da Migration 38 só exige que a
+rota seja do motorista). A policy de fotos não muda: herda a restrição.
+
+**Incidente sem rota.** Medido em 23/10/2026: 3 de 26 (2 abertos), todos de
+27/12/2025 e de motoristas com 2 lojas ativas — continuam visíveis aos gestores
+das duas lojas. Escondê-los do gestor (só o motorista veria) deixaria incidente
+sem ninguém para resolver: o app grava incidente sem rota (`useIncidentSubmit`).
+A correção completa é gravar a loja no próprio incidente (`unidade_id`
+preenchida por gatilho a partir da rota, ou da única loja ativa do motorista),
+que sobrevive ao `ON DELETE SET NULL` da rota — pendente. Até lá, o
+`rota_id` pode virar NULL depois do fato (rota apagada, ou o próprio gestor da
+loja ou o motorista zerando o campo; o gatilho da Migration 38 aceita NULL), e o
+incidente volta à regra antiga — visível também à outra loja do motorista
+(achado do `rls-policy-reviewer`). Não é leitura cruzada espontânea: exige ação
+de quem já tinha acesso ao incidente.
+
+**App.** Nada depende de ver incidente de rota de outra loja:
+`useIncidentesGestor` e o contador do dashboard filtram por motoristas da loja
+ativa e passam a receber só os da loja; a timeline da rota consulta por
+`rota_id`. Fica de fora (não é de segurança): um gestor de duas lojas, com a
+loja A aberta, ainda vê na lista os incidentes das rotas da loja B do mesmo
+motorista, porque o filtro do app é por motorista e não pela loja da rota.
+
+**Verificação.** Guarda estática `database/__tests__/migration42-incidentes-por-loja.test.ts`;
+sonda transacional `database/sondas/20261023120000_sonda_migration42.sql` (cenário
+próprio: lojas A/B/C, motorista em A e B; 11 casos, termina em `RAISE`). O
+roteiro de conferência só com SELECT está no fim da migration.
