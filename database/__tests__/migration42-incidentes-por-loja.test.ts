@@ -160,7 +160,8 @@ describe('Migration 42: incidentes visíveis só na loja da rota', () => {
 
   it('está documentada como pendente no MIGRATIONS.md', () => {
     const doc = ler(caminhoDoc);
-    expect(doc).toMatch(/### ⏳ Migration 42:/);
+    // ⏳ a aplicar ou ✅ aplicada: a entrada existe nos dois estados.
+    expect(doc).toMatch(/### (⏳|✅) Migration 42:/);
     expect(doc).toContain(ARQUIVO);
   });
 });

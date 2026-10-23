@@ -1534,11 +1534,12 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
-### ⏳ Migration 42: incidentes visíveis ao gestor só na loja da rota
+### ✅ Migration 42: incidentes visíveis ao gestor só na loja da rota
 
-**Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **⏳ a
-aplicar pelo SQL Editor**. Depois de aplicada, rodar a sonda e inserir a linha
-em `schema_migrations` com a versão `20261023120000`, como nas anteriores.
+**Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **✅
+aplicada em 23/10/2026 via `apply_migration`** (o MCP aceita `ALTER POLICY`),
+versão alinhada ao arquivo em `schema_migrations`. Antes, a migration e a sonda
+rodaram numa transação só, desfeita pelo `RAISE`: os 17 casos OK.
 
 **Por quê.** `incidentes_select` e `incidentes_update` liberavam ao gestor todo
 incidente de motorista com vínculo ativo numa loja dele. Com motorista que
