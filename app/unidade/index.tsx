@@ -26,6 +26,11 @@ import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { nomeEstadoParaUF } from '@/lib/estados';
+import {
+  carregarEquipeDaLoja,
+  ehGestorPrincipalDaLoja,
+  resumoDaEquipe,
+} from '@/lib/gestor/equipeDaLoja';
 import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { cleanPhone, formatPhone } from '@/lib/phone';
@@ -77,7 +82,7 @@ export default function UnidadeScreen() {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [membrosCount, setMembrosCount] = useState(0);
+  const [equipe, setEquipe] = useState({ total: 0, ativos: 0, inativos: 0 });
 
   // Form state
   const [nome, setNome] = useState('');
@@ -144,20 +149,14 @@ export default function UnidadeScreen() {
   const loadMembrosCount = useCallback(async () => {
     const unidadeId = unidadeAtiva;
     if (!unidadeId) {
-      setMembrosCount(0);
+      setEquipe({ total: 0, ativos: 0, inativos: 0 });
       return;
     }
 
     try {
-      // Pelo vínculo com a loja (como a Equipe), não `usuarios.unidade_id`.
-      const { count, error } = await supabase
-        .from('usuario_unidades')
-        .select('usuario_id', { count: 'exact', head: true })
-        .eq('unidade_id', unidadeId)
-        .eq('ativo', true);
-
-      if (error) throw error;
-      setMembrosCount(count || 0);
+      // A MESMA fonte da tela Equipe (vínculo com a loja, incluindo motorista
+      // inativo só nesta loja): os dois números não podem divergir.
+      setEquipe(resumoDaEquipe(await carregarEquipeDaLoja(unidadeId)));
     } catch (error) {
       logger.error('Erro ao contar membros', error);
     }
@@ -307,7 +306,8 @@ export default function UnidadeScreen() {
     setEditMode(false);
   }
 
-  const isGestorPrincipal = userData?.is_gestor_principal === true;
+  // Principal DESTA loja, não o flag global (ver `ehGestorPrincipalDaLoja`).
+  const isGestorPrincipal = ehGestorPrincipalDaLoja(userData, unidadeAtiva);
   // Editar os dados é diferente de ser o titular. `is_gestor_principal` é
   // false para todos os gestores hoje, então gatear a edição por ele esconde
   // o botão de todo mundo. O gate da UI é conveniência — quem decide de fato
@@ -335,7 +335,11 @@ export default function UnidadeScreen() {
       {/* Info Card - Membros */}
       <View style={styles.infoCard}>
         <Text style={styles.infoLabel}>Membros da Equipe</Text>
-        <Text style={styles.infoValue}>{membrosCount}</Text>
+        {/* Total = o "Total" da Equipe; ativos/inativos dizem o que entra. */}
+        <Text style={styles.infoValue}>{equipe.total}</Text>
+        <Text style={styles.infoDetalhe}>
+          {`${equipe.ativos} ${equipe.ativos === 1 ? 'ativo' : 'ativos'} · ${equipe.inativos} ${equipe.inativos === 1 ? 'inativo' : 'inativos'}`}
+        </Text>
         <TouchableOpacity
           style={styles.linkButton}
           onPress={() => router.push('/unidade/equipe')}
@@ -769,6 +773,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography['3xl'],
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.primary,
+    marginBottom: theme.spacing.xs,
+  },
+  infoDetalhe: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray500,
     marginBottom: theme.spacing.md,
   },
   linkButton: {

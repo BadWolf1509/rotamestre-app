@@ -11,13 +11,21 @@ import EquipeScreen from '../equipe';
 // O gestor está com a loja "loja-ativa" aberta; o `usuarios.unidade_id`
 // legado aponta para outra. A Equipe tem de seguir a loja ATIVA, como o
 // resto do app (useUnidadeAtiva).
+// O flag `is_gestor_principal` vale no slot de `usuarios.unidade_id` (é o
+// que `transferir_gestao_principal` exige): principal da loja-ativa aqui.
 const GESTOR_PRINCIPAL = {
   id: 'gestor-1',
   nome: 'Gestor Principal',
-  unidade_id: 'loja-legada',
+  unidade_id: 'loja-ativa',
   is_gestor_principal: true,
   foto_url: null,
 };
+// O mesmo flag, mas a loja dele é outra: na loja-ativa ele é gestor comum.
+const PRINCIPAL_DE_OUTRA_LOJA = {
+  ...GESTOR_PRINCIPAL,
+  unidade_id: 'loja-legada',
+};
+let mockUsuario: Record<string, unknown> = GESTOR_PRINCIPAL;
 
 const MOTORISTAS = [
   {
@@ -39,6 +47,7 @@ const GESTORES = [
       email: 'principal@exemplo.com',
       papel: 'gestor',
       is_gestor_principal: true,
+      unidade_id: 'loja-ativa',
       ativo: true,
       created_at: '2026-07-01T00:00:00Z',
       foto_url: null,
@@ -50,7 +59,9 @@ const GESTORES = [
       nome: 'Outra Gestora',
       email: 'outra@exemplo.com',
       papel: 'gestor',
-      is_gestor_principal: false,
+      // Principal, mas de OUTRA loja: aqui não ganha a estrela.
+      is_gestor_principal: true,
+      unidade_id: 'loja-legada',
       ativo: true,
       created_at: '2026-07-02T00:00:00Z',
       foto_url: null,
@@ -59,7 +70,7 @@ const GESTORES = [
 ];
 
 jest.mock('@/hooks/useUser', () => ({
-  useUser: () => ({ userData: GESTOR_PRINCIPAL, loading: false }),
+  useUser: () => ({ userData: mockUsuario, loading: false }),
 }));
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
   useUnidadeAtiva: () => ({ unidadeAtiva: 'loja-ativa', loading: false }),
@@ -118,10 +129,12 @@ describe('EquipeScreen', () => {
     jest.clearAllMocks();
     mockCargas = 0;
     mockResolverSegundaCarga = null;
+    mockUsuario = GESTOR_PRINCIPAL;
     global.mockUseAlert.showConfirm.mockResolvedValue(true);
   });
 
   it('lista a equipe da loja ATIVA (motoristas pela RPC, gestores pelo vínculo)', async () => {
+    mockUsuario = PRINCIPAL_DE_OUTRA_LOJA;
     render(<EquipeScreen />);
 
     expect(await screen.findByText('Motorista Um')).toBeTruthy();
@@ -134,6 +147,23 @@ describe('EquipeScreen', () => {
       'unidade_id',
       'loja-legada',
     );
+  });
+
+  it('principal de OUTRA loja não ganha as ações de principal nesta', async () => {
+    mockUsuario = PRINCIPAL_DE_OUTRA_LOJA;
+    render(<EquipeScreen />);
+
+    expect(await screen.findByText('Motorista Um')).toBeTruthy();
+    expect(screen.queryByText('Desativar')).toBeNull();
+    expect(screen.queryByText('Transferir Gestao Principal')).toBeNull();
+  });
+
+  it('principal desta loja vê transferir; a estrela só vai para o principal daqui', async () => {
+    render(<EquipeScreen />);
+
+    expect(await screen.findByText('Outra Gestora')).toBeTruthy();
+    expect(screen.getByText('Transferir Gestao Principal')).toBeTruthy();
+    expect(screen.getAllByText('⭐')).toHaveLength(1);
   });
 
   it('não oferece desativar outro gestor (a RLS recusaria em silêncio)', async () => {

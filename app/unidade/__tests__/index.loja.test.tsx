@@ -133,7 +133,10 @@ describe('Minha Unidade — troca de loja', () => {
     );
     fireEvent.press(screen.getByText('Salvar'));
 
-    await waitFor(() => expect(mockRpc).toHaveBeenCalled());
-    expect(mockRpc.mock.calls[0][1]).toMatchObject({ p_unidade_id: 'loja-b' });
+    // Só a RPC de salvar: a tela também lista a equipe por RPC.
+    const salvar = () =>
+      mockRpc.mock.calls.filter(([nome]) => nome === 'atualizar_unidade');
+    await waitFor(() => expect(salvar()).toHaveLength(1));
+    expect(salvar()[0][1]).toMatchObject({ p_unidade_id: 'loja-b' });
   });
 });
