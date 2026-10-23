@@ -27,6 +27,25 @@ interface OfflinePhotoData {
   paradaId: string;
   originalUri: string;
   savedAt: string;
+  /**
+   * Quem tirou a foto. A fila sobrevive ao logout (não pode perder
+   * comprovante), então a foto só sobe com a sessão desta pessoa. Ausente em
+   * fotos enfileiradas por versões antigas: essas sobem com a sessão atual.
+   */
+  userId?: string;
+}
+
+/** Id de quem está logado neste aparelho, ou null sem sessão. */
+async function usuarioDaSessao(): Promise<string | null> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.user?.id ?? null;
+  } catch (error) {
+    logger.warn('[Offline] Falha ao ler a sessão', error);
+    return null;
+  }
 }
 
 interface OfflineData {
@@ -85,6 +104,7 @@ export async function savePhotoOffline(
     to: localPath,
   });
 
+  const userId = await usuarioDaSessao();
   const photoData: OfflinePhotoData = {
     localPath,
     unidadeId,
@@ -92,6 +112,7 @@ export async function savePhotoOffline(
     paradaId,
     originalUri: photoUri,
     savedAt: new Date().toISOString(),
+    ...(userId ? { userId } : {}),
   };
 
   // Salvar índice de fotos offline
@@ -212,11 +233,19 @@ export async function processOfflinePhotos(): Promise<{
       return { success: 0, failed: 0 };
     }
 
+    // Sem sessão o upload cairia na RLS; com a sessão de OUTRA pessoa
+    // subiria o comprovante em nome dela. Em ambos os casos a foto espera.
+    const usuarioAtual = await usuarioDaSessao();
+    if (!usuarioAtual) {
+      return { success: 0, failed: 0 };
+    }
+
     const index = await getOfflinePhotosIndex();
     let success = 0;
     let failed = 0;
 
     for (const photo of index) {
+      if (photo.userId && photo.userId !== usuarioAtual) continue;
       try {
         // Verificar se arquivo ainda existe
         if (Platform.OS !== 'web') {

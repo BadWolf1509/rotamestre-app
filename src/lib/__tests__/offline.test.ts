@@ -39,6 +39,15 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 // Mock Supabase
 jest.mock('../supabase', () => ({
   supabase: {
+    // Fila de fotos só sobe com sessão (ver offline-fotos-por-usuario.test.ts)
+    auth: {
+      getSession: jest.fn(() =>
+        Promise.resolve({
+          data: { session: { user: { id: 'user-1' } } },
+          error: null,
+        }),
+      ),
+    },
     from: jest.fn(() => ({
       update: jest.fn(() => ({
         eq: jest.fn(() => Promise.resolve({ error: null })),
