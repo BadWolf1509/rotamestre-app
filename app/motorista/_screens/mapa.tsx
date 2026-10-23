@@ -5,19 +5,25 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
+import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
+import type { MotivoSkip } from '@/constants/skipReasons';
 import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
+import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
-import { agruparPorLocal } from '@/lib/motorista/visitaNoLocal';
+import {
+  agruparPorLocal,
+  paradasDaVisita,
+} from '@/lib/motorista/visitaNoLocal';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 function MapaMotoristaContent() {
   const { theme } = useUnistyles();
-  const { showWarning, AlertDialog } = useAlert();
+  const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
 
   // Usar contexto como fonte única de dados (com realtime automático)
   const {
@@ -28,6 +34,7 @@ function MapaMotoristaContent() {
     atualizadoEm,
     routeStatus,
     refreshRoute,
+    skipStop,
   } = useRouteStatus();
 
   // Estados locais de UI apenas
@@ -35,6 +42,9 @@ function MapaMotoristaContent() {
   const [bottomSheetVisible, setBottomSheetVisible] = useState(false);
   const [paradaParaConcluir, setParadaParaConcluir] =
     useState<ParadaData | null>(null);
+  const [paradaParaPular, setParadaParaPular] = useState<ParadaData | null>(
+    null,
+  );
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'pendente' | 'em_andamento' | 'concluida'
   >('all');
@@ -132,6 +142,42 @@ function MapaMotoristaContent() {
     },
     [route?.status, paradas, showWarning, sequencia],
   );
+
+  // Pular pela aba Mapa: o mesmo motivo estruturado e a mesma ação
+  // (`skipStop`, com a fila offline) da Início e da aba Paradas. Antes o
+  // sheet só tinha "Concluir", e pular exigia trocar de aba.
+  const pularVisita = usePuloDaVisita({
+    paradas,
+    skipStop,
+    showSuccess,
+    showError,
+  });
+
+  const handleSkip = useCallback(
+    (parada: { id: string }) => {
+      if (route?.status !== 'em_andamento') {
+        showWarning(
+          'Rota não iniciada',
+          'Você precisa iniciar a rota antes de pular paradas.',
+        );
+        return;
+      }
+      const completa = paradas.find((p) => p.id === parada.id);
+      if (completa) setParadaParaPular(completa);
+    },
+    [route?.status, paradas, showWarning],
+  );
+
+  const handleConfirmSkip = async (
+    motivo: MotivoSkip,
+    observacoes?: string,
+    incluirOutros?: boolean,
+  ) => {
+    const parada = paradaParaPular;
+    if (!parada) return;
+    setParadaParaPular(null);
+    await pularVisita(parada, motivo, observacoes, incluirOutros);
+  };
 
   // Spinner só na primeira carga. `completeStop` recarrega a rota e liga o
   // `loading` no meio da conclusão: trocar a tela aqui desmontava o
@@ -318,7 +364,21 @@ function MapaMotoristaContent() {
         visible={bottomSheetVisible}
         onClose={handleCloseBottomSheet}
         onMarkComplete={handleMarkComplete}
+        onSkip={handleSkip}
       />
+
+      {paradaParaPular && (
+        <SkipReasonModal
+          visible
+          parada={paradaParaPular}
+          outrosServicosNoLocal={paradasDaVisita(
+            paradas,
+            paradaParaPular,
+          ).slice(1)}
+          onConfirm={handleConfirmSkip}
+          onCancel={() => setParadaParaPular(null)}
+        />
+      )}
 
       <StopCompletionFlow
         parada={paradaParaConcluir}

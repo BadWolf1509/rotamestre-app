@@ -41,6 +41,8 @@ interface ParadaBottomSheetProps {
   onClose: () => void;
   onNavigate?: (parada: Parada) => void;
   onMarkComplete?: (parada: Parada) => void | Promise<void>;
+  /** Abre o motivo do pulo (SkipReasonModal) na tela que monta o sheet. */
+  onSkip?: (parada: Parada) => void;
   onViewDetails?: (parada: Parada) => void;
 }
 
@@ -51,6 +53,7 @@ export function ParadaBottomSheet({
   onClose,
   onNavigate,
   onMarkComplete,
+  onSkip,
   onViewDetails,
 }: ParadaBottomSheetProps) {
   const { theme } = useUnistyles();
@@ -202,8 +205,8 @@ export function ParadaBottomSheet({
         </View>
       )}
 
-      {/* Botões de ação */}
-      <View style={styles.actions}>
+      {/* Botões de ação: até cinco; a linha quebra com fonte grande */}
+      <View style={styles.actions} testID="acoes-parada-sheet">
         {/* Botão de navegar - só mostra se tiver coordenadas */}
         {parada.latitude && parada.longitude && (
           <TouchableOpacity
@@ -221,7 +224,9 @@ export function ParadaBottomSheet({
             >
               <Ionicons name="navigate" size={20} color={theme.colors.white} />
             </View>
-            <Text style={styles.actionText}>Navegar</Text>
+            <Text style={styles.actionText} maxFontSizeMultiplier={1.3}>
+              Navegar
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -250,7 +255,40 @@ export function ParadaBottomSheet({
                   color={theme.colors.white}
                 />
               </View>
-              <Text style={styles.actionText}>Concluir</Text>
+              <Text style={styles.actionText} maxFontSizeMultiplier={1.3}>
+                Concluir
+              </Text>
+            </TouchableOpacity>
+          )}
+
+        {/* Pular: antes só existia na Início e na aba Paradas */}
+        {(parada.status === 'pendente' || parada.status === 'em_andamento') &&
+          onSkip && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => {
+                onSkip(parada);
+                onClose();
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Pular parada ${parada.ordem}`}
+            >
+              <View
+                style={[
+                  styles.actionIcon,
+                  { backgroundColor: theme.colors.warning },
+                ]}
+              >
+                <Ionicons
+                  name="arrow-forward"
+                  size={20}
+                  color={theme.colors.white}
+                />
+              </View>
+              <Text style={styles.actionText} maxFontSizeMultiplier={1.3}>
+                Pular
+              </Text>
             </TouchableOpacity>
           )}
 
@@ -276,7 +314,9 @@ export function ParadaBottomSheet({
             >
               <Ionicons name="call" size={20} color={theme.colors.white} />
             </View>
-            <Text style={styles.actionText}>Ligar</Text>
+            <Text style={styles.actionText} maxFontSizeMultiplier={1.3}>
+              Ligar
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -304,7 +344,9 @@ export function ParadaBottomSheet({
                 color={theme.colors.white}
               />
             </View>
-            <Text style={styles.actionText}>Detalhes</Text>
+            <Text style={styles.actionText} maxFontSizeMultiplier={1.3}>
+              Detalhes
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -394,14 +436,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
-    gap: theme.spacing['4'],
+    rowGap: theme.spacing['3'],
+    columnGap: theme.spacing['2'],
     paddingTop: theme.spacing['2'],
   },
   actionButton: {
     alignItems: 'center',
     gap: theme.spacing['2'],
-    flex: 1,
+    flexGrow: 1,
+    // Cinco ações a 360 dp não cabem com fonte 2.0: abaixo disto, quebra.
+    minWidth: 64,
   },
   actionIcon: {
     width: 48,
@@ -411,6 +457,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
   },
   actionText: {
+    textAlign: 'center',
     fontSize: theme.typography.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.text,

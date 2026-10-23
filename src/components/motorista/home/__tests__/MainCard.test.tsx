@@ -614,6 +614,59 @@ describe('MainCard', () => {
     expect(toJSON()).toBeTruthy();
   });
 
+  // Na Início, Concluir e Pular só existiam no gesto de deslizar o card, e a
+  // dica do gesto some depois das primeiras vezes (useSwipeHint).
+  describe('Concluir e Pular à vista', () => {
+    const parada = {
+      id: 'e',
+      endereco: 'Rua X, 1',
+      ordem: 3,
+      tipo: 'entrega',
+      status: 'em_andamento',
+      latitude: -7.1,
+      longitude: -34.8,
+    };
+    const base = {
+      ...defaultProps,
+      state: 'active' as const,
+      route: { id: 'rota-1', status: 'em_andamento' },
+      paradas: [parada],
+      currentStop: parada,
+    };
+
+    it('botões visíveis chamam concluir e pular, sem depender do gesto', () => {
+      const onSwipeRight = jest.fn();
+      const onSwipeLeft = jest.fn();
+      const { getByLabelText } = render(
+        <MainCard
+          {...base}
+          onSwipeRight={onSwipeRight}
+          onSwipeLeft={onSwipeLeft}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      expect(onSwipeRight).toHaveBeenCalled();
+      fireEvent.press(getByLabelText('Pular parada 3'));
+      expect(onSwipeLeft).toHaveBeenCalled();
+    });
+
+    it('com fonte 2.0 os rótulos têm teto de escala e a linha quebra', () => {
+      const { getByText, getByTestId } = render(
+        <MainCard {...base} onSwipeRight={jest.fn()} onSwipeLeft={jest.fn()} />,
+      );
+      for (const rotulo of ['Concluir', 'Pular']) {
+        expect(
+          getByText(rotulo).props.maxFontSizeMultiplier,
+        ).toBeLessThanOrEqual(1.3);
+      }
+      expect(
+        StyleSheet.flatten(getByTestId('acoes-parada-atual').props.style)
+          .flexWrap,
+      ).toBe('wrap');
+    });
+  });
+
   describe('com a fonte do sistema em 2.0', () => {
     const parada = {
       id: 'e',

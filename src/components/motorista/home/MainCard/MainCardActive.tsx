@@ -5,8 +5,8 @@
  * Used in both 'active' (route in progress) and 'last-stop' (final delivery) states.
  *
  * Features:
- * - Swipe left to skip stop
- * - Swipe right to complete stop
+ * - Botões Concluir e Pular sempre visíveis
+ * - Swipe left to skip stop / swipe right to complete (atalho)
  * - Shows distance/duration to current stop
  * - Displays next stop preview
  * - Expiration warning for time-sensitive deliveries
@@ -257,6 +257,69 @@ export const MainCardActive = memo(function MainCardActive({
                 </Text>
               </>
             )}
+          </View>
+
+          {/* Concluir / Pular à vista. O gesto de deslizar continua como
+              atalho, mas a dica dele some depois das primeiras vezes — e
+              sem ela não havia como achar as ações. "Concluir" abre o
+              StopCompletionFlow (comprovante), via onSwipeRight. */}
+          <View style={styles.acoesParadaAtual} testID="acoes-parada-atual">
+            <TouchableOpacity
+              style={[
+                styles.botaoAcaoParada,
+                { backgroundColor: theme.colors.success },
+              ]}
+              onPress={() => {
+                void onSwipeRight?.();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Concluir parada ${currentStop.ordem}`}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={theme.colors.white}
+              />
+              <Text
+                maxFontSizeMultiplier={1.3}
+                style={[
+                  styles.botaoAcaoParadaTexto,
+                  { color: theme.colors.white },
+                ]}
+              >
+                Concluir
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.botaoAcaoParada,
+                styles.botaoAcaoParadaSecundario,
+                {
+                  backgroundColor: theme.colors.warningBg,
+                  borderColor: theme.colors.warning,
+                },
+              ]}
+              onPress={() => {
+                void onSwipeLeft?.();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Pular parada ${currentStop.ordem}`}
+            >
+              <Ionicons
+                name="arrow-forward-circle-outline"
+                size={20}
+                color={theme.colors.warningDark}
+              />
+              <Text
+                maxFontSizeMultiplier={1.3}
+                style={[
+                  styles.botaoAcaoParadaTexto,
+                  { color: theme.colors.warningDark },
+                ]}
+              >
+                Pular
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Indicador de swipe inteligente */}

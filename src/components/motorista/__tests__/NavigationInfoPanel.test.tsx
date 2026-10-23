@@ -7,7 +7,7 @@
  * mesmas que "Abrir no Google Maps" já tinha desde o #579.
  */
 
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
 
@@ -65,6 +65,20 @@ describe('NavigationInfoPanel – botões de ação', () => {
       expect(StyleSheet.flatten(texto.props.style).flexShrink).toBe(1);
     },
   );
+
+  // A 360 dp, três botões numa linha davam ~60 dp de texto a cada um: com a
+  // fonte do sistema em 2.0, "Concluir" virava "Con…". O Concluir — a ação
+  // que importa — ganha a linha inteira; Pular e o app externo dividem a de
+  // baixo.
+  it('Concluir ocupa a própria linha; Pular e o app externo ficam na de baixo', () => {
+    const tela = renderizar();
+    const secundarias = within(tela.getByTestId('acoes-navegacao-secundarias'));
+
+    expect(secundarias.getByText('Pular')).toBeTruthy();
+    expect(secundarias.getByText('Abrir no Google Maps')).toBeTruthy();
+    expect(secundarias.queryByText('Concluir')).toBeNull();
+    expect(tela.getByText('Concluir')).toBeTruthy();
+  });
 
   it('o botão tem respiro lateral, para o rótulo não encostar na borda', () => {
     const texto = renderizar().getByText('Concluir');
