@@ -1534,11 +1534,14 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
-### ⏳ Migration 41: rota em andamento não se apaga
+### ✅ Migration 41: rota em andamento não se apaga
 
-**Arquivo:** `20261023110000_rota_em_andamento_nao_se_apaga.sql` · **⏳ não
-aplicada.** Tem `DELETE` na sonda, então a aplicação e a sonda vão pelo SQL
-Editor.
+**Arquivo:** `20261023110000_rota_em_andamento_nao_se_apaga.sql` · **✅ aplicada
+em 23/10/2026 via `apply_migration`** (gatilho com `CREATE OR REPLACE TRIGGER`,
+sem `DROP TRIGGER`), versão alinhada em `schema_migrations`. A sonda tem
+`DELETE` e rodou pelo SQL Editor: os 4 casos OK (em andamento bloqueado com a
+sentinela, pendente apagado, cascata sem usuário passa, sem EXECUTE para
+`authenticated`/`anon`).
 
 **Por quê.** A política `rotas_delete` deixa o gestor ativo da loja apagar
 qualquer rota dela, inclusive a que um motorista está fazendo — e o DELETE leva

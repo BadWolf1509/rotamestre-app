@@ -52,8 +52,8 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.recusa_apagar_rota_em_andamento() FROM PUBLIC, anon, authenticated;
 
-DROP TRIGGER IF EXISTS trg_recusa_apagar_rota_em_andamento ON public.rotas;
-CREATE TRIGGER trg_recusa_apagar_rota_em_andamento
+-- CREATE OR REPLACE (PG14+) em vez de DROP + CREATE: idempotente sem DROP TRIGGER.
+CREATE OR REPLACE TRIGGER trg_recusa_apagar_rota_em_andamento
   BEFORE DELETE ON public.rotas
   FOR EACH ROW
   EXECUTE FUNCTION public.recusa_apagar_rota_em_andamento();
