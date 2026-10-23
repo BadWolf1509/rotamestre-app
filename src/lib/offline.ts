@@ -716,10 +716,13 @@ export function setupOfflineSync(): () => void {
     if (!userId) return;
     void (async () => {
       await gravarUltimoUsuario(userId);
-      if (evento === 'SIGNED_IN') await adotarFotosSemDono(userId);
-      if (evento === 'SIGNED_IN' && (await getPendingPhotosCount()) > 0) {
-        const r = await processOfflinePhotos();
-        if (r.success > 0) await notifySyncComplete(0, r.success);
+      if (evento !== 'SIGNED_IN') return;
+      // Adoção ANTES do envio: as fotos adotadas entram na contagem de
+      // pendentes e sobem antes das ações de parada (solicitarEnvioFila).
+      await adotarFotosSemDono(userId);
+      const r = await solicitarEnvioFila();
+      if (r.fotos > 0 || r.acoes > 0) {
+        await notifySyncComplete(r.acoes, r.fotos);
       }
     })().catch((error) =>
       logger.warn('[Offline] Falha ao sincronizar fotos no login', error),

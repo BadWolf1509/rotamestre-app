@@ -30,6 +30,24 @@ describe('chavesParaLimparNoCache', () => {
     expect(apagar.sort()).toEqual([...DESCARTAVEIS].sort());
   });
 
+  it('a limpeza do logout (#629) também não apaga a fila de ações nem os avisos', () => {
+    const { CHAVES_DA_CONTA, PREFIXOS_DA_CONTA } = jest.requireActual(
+      '../auth/limparEstadoLocal',
+    );
+    for (const chave of [
+      '@rotamestre:fila_acoes_parada',
+      '@rotamestre:fila_acoes_parada_descartes',
+      '@rotamestre:offline_photos_index',
+    ]) {
+      expect(CHAVES_DA_CONTA).not.toContain(chave);
+      expect(
+        (PREFIXOS_DA_CONTA as readonly string[]).some((p) =>
+          chave.startsWith(p),
+        ),
+      ).toBe(false);
+    }
+  });
+
   it.each([
     'app/motorista/perfil/configuracoes.tsx',
     'app/gestor/configuracoes.tsx',

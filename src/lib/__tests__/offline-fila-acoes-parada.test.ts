@@ -20,7 +20,7 @@ jest.mock('@react-native-community/netinfo', () => ({
     isConnected: true,
     isInternetReachable: true,
   })),
-  addEventListener: jest.fn(),
+  addEventListener: jest.fn(() => jest.fn()),
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => {
@@ -43,8 +43,22 @@ jest.mock('expo-file-system/legacy', () => ({
   deleteAsync: jest.fn(async () => undefined),
 }));
 
+const mockOuvintesAuth: ((
+  evento: string,
+  sessao: { user: { id: string } } | null,
+) => void)[] = [];
+
 jest.mock('../supabase', () => ({
   supabase: {
+    auth: {
+      getSession: jest.fn(async () => ({
+        data: { session: { user: { id: 'mot-1' } } },
+      })),
+      onAuthStateChange: jest.fn((fn) => {
+        mockOuvintesAuth.push(fn);
+        return { data: { subscription: { unsubscribe: jest.fn() } } };
+      }),
+    },
     from: jest.fn(() => ({
       select: () => ({
         eq: () => ({
@@ -181,4 +195,13 @@ describe('solicitarEnvioFila (ponto único de envio)', () => {
     await solicitarEnvioFila();
     expect(ordem).toEqual([]);
   });
+});
+
+it('ao entrar (SIGNED_IN), adota/sobe as fotos e depois envia as ações de parada', async () => {
+  const parar = setupOfflineSync();
+  mockOuvintesAuth.at(-1)?.('SIGNED_IN', { user: { id: 'mot-1' } });
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(ordem).toEqual(['foto', 'acoes']);
+  parar();
 });
