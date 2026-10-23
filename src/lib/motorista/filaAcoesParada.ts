@@ -247,6 +247,40 @@ export function ehErroDeSessao(erro: unknown): boolean {
 }
 
 /**
+ * Recusa DEFINITIVA do servidor — a única que conta tentativa (e, no limite,
+ * descarta a ação). Allowlist: código de Postgres (SQLSTATE, 5 caracteres)
+ * ou do PostgREST (`PGRST…`) que não seja de sessão, ou status 4xx que não
+ * seja 401/408/429. Todo o resto — 5xx (502/503/504 chegam sem `code`, às
+ * vezes com HTML no lugar do JSON), 408, 429, erro sem código — é "o servidor
+ * não respondeu direito": a ação espera, sem contar.
+ *
+ * POR QUE ALLOWLIST DE DEFINITIVOS, e não uma lista de transitórios: errar
+ * para o lado da allowlist deixa uma ação esperando (visível como pendente,
+ * reenviada a cada gatilho); errar para o outro lado descarta uma entrega
+ * numa queda de poucos minutos do servidor. O primeiro erro é recuperável.
+ */
+export function ehErroDefinitivo(erro: unknown): boolean {
+  if (!erro || typeof erro !== 'object') return false;
+  if (ehErroDeSessao(erro)) return false;
+  const e = erro as { code?: string; status?: number };
+  if (
+    typeof e.code === 'string' &&
+    (/^PGRST\d+$/.test(e.code) || /^[0-9A-Z]{5}$/.test(e.code))
+  ) {
+    return true;
+  }
+  if (
+    typeof e.status === 'number' &&
+    e.status >= 400 &&
+    e.status < 500 &&
+    ![401, 408, 429].includes(e.status)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * A requisição não chegou (ou a resposta não voltou): sem rede, rede que não
  * responde (timeout do `fetchComTimeout`, `AbortError`) ou `fetch` recusado.
  * Erro com código do Postgres/PostgREST é resposta do servidor — não é isto.
@@ -415,8 +449,9 @@ export async function processarFilaAcoesParada({
         enviadas++;
         if (r.tipo === 'aplicada') rotasAlteradas.add(acao.rotaId);
       } catch (error) {
-        // Rede caiu de novo ou sessão vencida: não é recusa da ação.
-        if (ehFalhaDeEnvio(error) || ehErroDeSessao(error)) return true;
+        // Rede, sessão, 5xx/408/429 ou erro sem código: não é recusa da
+        // ação. Só a recusa definitiva conta tentativa (ehErroDefinitivo).
+        if (!ehErroDefinitivo(error)) return true;
         logger.warn('[FilaParada] Servidor recusou a ação', error);
         const tentativas = await contarTentativa(acao.id);
         if (tentativas >= MAX_TENTATIVAS) {

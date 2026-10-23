@@ -10,8 +10,7 @@ import { logger } from '@/lib/logger';
 import {
   aplicarAcaoParada,
   criarAcaoParada,
-  ehErroDeSessao,
-  ehFalhaDeEnvio,
+  ehErroDefinitivo,
   enfileirarAcaoParada,
   lerFilaAcoesParada,
   portaParadasSupabase,
@@ -26,6 +25,9 @@ import {
   stopBackgroundTracking,
   requestAndStartTracking,
 } from '@/services/unifiedLocationTracking';
+
+/** Quanto o Finalizar espera o envio da fila antes de recusar. */
+export const TETO_ENVIO_AO_FINALIZAR_MS = 20_000;
 
 interface UseRouteActionsOptions {
   route: RouteData | null;
@@ -144,8 +146,9 @@ export function useRouteActions({
     try {
       resultado = await aplicarAcaoParada(acao, portaParadas);
     } catch (error) {
-      // Sem resposta (rede) ou sessão vencida: guarda e envia depois.
-      if (ehFalhaDeEnvio(error) || ehErroDeSessao(error)) {
+      // Só recusa definitiva aparece como erro. Rede, sessão vencida, 5xx,
+      // 408/429 ou resposta sem código: guarda e envia depois.
+      if (!ehErroDefinitivo(error)) {
         await enfileirarAcaoParada(acao);
         return 'na_fila';
       }
@@ -277,7 +280,16 @@ export function useRouteActions({
       (await lerFilaAcoesParada()).filter((a) => a.rotaId === route.id).length;
     let naFila = await contarNaFila();
     if (naFila > 0) {
-      await solicitarEnvioFila();
+      // Com teto: o envio pode incluir foto (até minutos em rede ruim), e o
+      // botão não pode ficar girando. Estourou, recusa com a pendência.
+      let teto: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        solicitarEnvioFila(),
+        new Promise((r) => {
+          teto = setTimeout(r, TETO_ENVIO_AO_FINALIZAR_MS);
+        }),
+      ]);
+      clearTimeout(teto);
       naFila = await contarNaFila();
     }
     if (naFila > 0) {

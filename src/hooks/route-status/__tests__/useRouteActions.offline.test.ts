@@ -230,6 +230,46 @@ describe('revisão 1', () => {
   });
 });
 
+describe('revisão 2', () => {
+  it('online com 503 sem código (servidor fora): vai para a fila, não vira erro', async () => {
+    const banco = criarBancoFake();
+    banco.falharCom({
+      code: '',
+      message: '<html>503 Service Unavailable</html>',
+    });
+    const { completeStop } = setup(banco.porta);
+    await expect(completeStop('p1')).resolves.toBe('na_fila');
+  });
+
+  it('Finalizar com pendência: envio que não termina em 20 s recusa com a mensagem de pendência', async () => {
+    jest.useFakeTimers();
+    try {
+      const banco = criarBancoFake();
+      await enfileirarAcaoParada(
+        criarAcaoParada({
+          tipo: 'concluir',
+          paradaId: 'p1',
+          rotaId: 'route-1',
+          motoristaId: 'user-1',
+          em: '2026-10-23T12:00:00.000Z',
+        }),
+      );
+      mockSolicitarEnvioFila.mockImplementation(() => new Promise(() => {}));
+      const { completeRoute } = setup(banco.porta, [
+        { ...paradas[0], status: 'concluida' },
+      ]);
+
+      const resultado = completeRoute().catch((e) => e);
+      await jest.advanceTimersByTimeAsync(20_000);
+      const erro = await resultado;
+
+      expect(getErrorMessage(erro).code).toBe('ROUTE_SENDS_PENDING');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
 describe('skipStop sem rede', () => {
   it('offline: guarda motivo e observações na fila', async () => {
     ficarOffline();

@@ -504,6 +504,56 @@ describe('revisão 1: estado divergente, sessão e reagendamento', () => {
   });
 });
 
+describe('revisão 2: só erro DEFINITIVO conta tentativa', () => {
+  async function rodarVezes(banco: ReturnType<typeof cenario>, vezes: number) {
+    for (let i = 0; i < vezes; i++) {
+      await processarFilaAcoesParada({
+        usuarioAtual: 'mot-1',
+        porta: banco.porta,
+      });
+    }
+  }
+
+  it.each([
+    ['502 sem code', { code: '', message: 'Bad Gateway' }],
+    [
+      '503 com HTML',
+      {
+        message:
+          '<html><body>503 Service Temporarily Unavailable</body></html>',
+      },
+    ],
+    ['504 com status', { status: 504, message: 'Gateway Timeout' }],
+    ['429', { status: 429, message: 'Too Many Requests' }],
+    ['408', { status: 408, message: 'Request Timeout' }],
+  ])('%s: espera, não conta tentativa nem descarta', async (_nome, erro) => {
+    const banco = cenario();
+    await enfileirarAcaoParada(concluirP1());
+    banco.falharCom(Object.assign(new Error(erro.message), erro));
+    await rodarVezes(banco, MAX_TENTATIVAS + 2);
+    const fila = await lerFilaAcoesParada();
+    expect(fila).toHaveLength(1);
+    expect(fila[0].tentativas).toBe(0);
+    expect(await lerDescartesDaFila('mot-1')).toEqual([]);
+  });
+
+  it.each([
+    ['23514 (check violation)', { code: '23514', message: 'check violation' }],
+    ['42501 (permissão)', { code: '42501', message: 'permission denied' }],
+    ['PGRST116', { code: 'PGRST116', message: 'no rows' }],
+    ['400 com status', { status: 400, message: 'Bad Request' }],
+  ])('%s: definitivo, conta e descarta no limite', async (_nome, erro) => {
+    const banco = cenario();
+    await enfileirarAcaoParada(concluirP1());
+    banco.falharCom(Object.assign(new Error(erro.message), erro));
+    await rodarVezes(banco, MAX_TENTATIVAS);
+    expect(await lerFilaAcoesParada()).toEqual([]);
+    expect((await lerDescartesDaFila('mot-1'))[0].motivo).toBe(
+      'falha_persistente',
+    );
+  });
+});
+
 describe('sobreporAcoesPendentes (o que a tela mostra enquanto não sobe)', () => {
   const base = [
     { id: 'p1', status: 'em_andamento', ordem: 1 },
