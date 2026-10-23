@@ -13,6 +13,7 @@ import { Platform } from 'react-native';
 import { defaultTheme } from '@/utils/styles';
 
 import { logger } from './logger';
+import { pedirPermissao } from './permissoes';
 import { supabase } from './supabase';
 
 const NOTIFICATION_SETTINGS_KEY = '@rotamestre:notification_settings';
@@ -283,7 +284,9 @@ export function addNotificationResponseListener(
  * Obtém o Expo Push Token do dispositivo
  * Requer que o app esteja rodando em um dispositivo físico
  */
-export async function getExpoPushToken(): Promise<string | null> {
+export async function getExpoPushToken(
+  opcoes: { pedirPermissao?: boolean } = {},
+): Promise<string | null> {
   // Push tokens não funcionam na web
   if (Platform.OS === 'web') {
     return null;
@@ -295,17 +298,14 @@ export async function getExpoPushToken(): Promise<string | null> {
   }
 
   try {
-    // Verificar permissões primeiro
-    const { status: existingStatus } =
-      await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    // Consulta antes de pedir (`pedirPermissao` só abre o diálogo do sistema
+    // quando falta). Com `pedirPermissao: false` (reenvio ao abrir o app) só
+    // consulta: nunca abre diálogo por causa de uma atualização de registro.
+    const { concedida } = await pedirPermissaoDoSistema(
+      opcoes.pedirPermissao ?? true,
+    );
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
+    if (!concedida) {
       return null;
     }
 
@@ -320,8 +320,42 @@ export async function getExpoPushToken(): Promise<string | null> {
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     return tokenData.data;
   } catch (error) {
-    logger.error('[Push] Erro ao obter push token', error);
+    registrarFalhaDePush('[Push] Erro ao obter push token', error);
     return null;
+  }
+}
+
+/**
+ * Consulta a permissão e, só se `pedir`, pede quando falta. Usa `pedirPermissao`
+ * de `permissoes.ts` (consulta primeiro; o `request` abre a activity de
+ * permissão do Android mesmo já concedida).
+ */
+async function pedirPermissaoDoSistema(
+  pedir: boolean,
+): Promise<{ concedida: boolean }> {
+  if (pedir) {
+    return pedirPermissao(
+      () => Notifications.requestPermissionsAsync(),
+      () => Notifications.getPermissionsAsync(),
+    );
+  }
+  const { status } = await Notifications.getPermissionsAsync();
+  return { concedida: status === 'granted' };
+}
+
+const PADRAO_FALHA_DE_REDE =
+  /network|fetch|timeout|timed out|offline|internet|econn|enotfound|unreachable/i;
+
+/**
+ * Falha de rede é esperada (a próxima abertura tenta de novo): `warn`. O
+ * resto (configuração, SDK) continua `error`.
+ */
+function registrarFalhaDePush(mensagem: string, error: unknown): void {
+  const texto = error instanceof Error ? error.message : String(error);
+  if (PADRAO_FALHA_DE_REDE.test(texto)) {
+    logger.warn(mensagem, error);
+  } else {
+    logger.error(mensagem, error);
   }
 }
 
@@ -350,23 +384,93 @@ async function lerTokenGuardado(): Promise<TokenGuardado | null> {
 }
 
 /**
- * Registra o push token no banco (tabela `push_tokens`, pela RPC)
- * Deve ser chamado após o login do usuário
+ * Intervalo mínimo entre reenvios na volta ao primeiro plano. 12 h: o limite
+ * de aparelhos ordena por uso recente em escala de dias, então uma chamada a
+ * cada volta ao app (dezenas por dia de um motorista em rota) só gastaria API.
+ * A abertura a frio (processo novo) sempre reenvia, sem esperar o intervalo.
  */
-export async function registerPushToken(userId: string): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
+export const INTERVALO_MINIMO_REENVIO_PUSH_MS = 12 * 60 * 60 * 1000;
 
+/**
+ * Recuo curto depois de uma tentativa que falhou (sem rede, por exemplo), à
+ * parte das 12 h: sem ele, cada volta ao app offline repetiria a obtenção do
+ * token. A abertura (`forcar`) ignora o recuo.
+ */
+export const RECUO_APOS_FALHA_PUSH_MS = 5 * 60 * 1000;
+
+let ultimoEnvioDePush: { userId: string; em: number } | null = null;
+let recuoDePushAte = 0;
+// Sobe a cada logout: uma tentativa que começou antes dele se descarta, sem
+// gravar estado local nem contar como enviada.
+let geracaoDeSessao = 0;
+let registroEmVoo: {
+  userId: string;
+  /** O voo pode abrir o diálogo de permissão (login), ou só consulta (reenvio). */
+  pede: boolean;
+  promessa: Promise<boolean>;
+} | null = null;
+
+/** Só para testes: esquece o controle de reenvio, como num processo novo. */
+export function reiniciarControleDeReenvioDePush(): void {
+  ultimoEnvioDePush = null;
+  recuoDePushAte = 0;
+  registroEmVoo = null;
+}
+
+/**
+ * A tentativa que começou na geração `geracao` para `userId` ainda vale?
+ * Vale se nenhum logout aconteceu e a sessão atual ainda é dessa conta.
+ */
+async function aindaVale(userId: string, geracao: number): Promise<boolean> {
+  if (geracao !== geracaoDeSessao) return false;
+  const { data } = await supabase.auth.getSession();
+  return geracao === geracaoDeSessao && data?.session?.user?.id === userId;
+}
+
+/**
+ * Chamadas simultâneas para a mesma conta dividem uma só viagem ao banco —
+ * desde que o voo em curso faça pelo menos o que a nova chamada precisa. Um
+ * reenvio (só consulta a permissão) em voo NÃO atende o login (que pode ter de
+ * pedi-la): o login espera o voo acabar e inicia o seu. Escolhido em vez de
+ * pôr `pedir` na chave, que deixaria dois voos paralelos para a mesma conta
+ * (RPC duplicada e gravações do estado local disputando).
+ */
+async function emUnicoVoo(
+  userId: string,
+  pedirPermissaoAoUsuario: boolean,
+  executar: (geracao: number) => Promise<boolean>,
+): Promise<boolean> {
+  const atual = registroEmVoo;
+  if (atual?.userId === userId) {
+    if (atual.pede || !pedirPermissaoAoUsuario) return atual.promessa;
+    await atual.promessa;
+    // Quem acordou junto se junta ao voo que o primeiro iniciou.
+    return emUnicoVoo(userId, pedirPermissaoAoUsuario, executar);
+  }
+
+  const promessa: Promise<boolean> = executar(geracaoDeSessao).finally(() => {
+    if (registroEmVoo?.promessa === promessa) registroEmVoo = null;
+  });
+  registroEmVoo = { userId, pede: pedirPermissaoAoUsuario, promessa };
+  return promessa;
+}
+
+async function registrarNoBanco(
+  userId: string,
+  pedirPermissaoAoUsuario: boolean,
+  geracao: number,
+): Promise<boolean> {
   try {
-    const token = await getExpoPushToken();
+    const token = await getExpoPushToken({
+      pedirPermissao: pedirPermissaoAoUsuario,
+    });
     if (!token) {
       return false;
     }
 
-    // Só pula o banco se o token já foi gravado para ESTA conta: com duas
-    // contas no mesmo aparelho, o token é igual e a segunda nunca o gravava.
-    const guardado = await lerTokenGuardado();
-    if (guardado?.token === token && guardado.userId === userId) {
-      return true;
+    // Logout ou troca de conta durante a espera: descarta, sem gravar.
+    if (!(await aindaVale(userId, geracao))) {
+      return false;
     }
 
     // Pela RPC (Migration `20261023010000`): grava o token na conta logada e
@@ -388,20 +492,83 @@ export async function registerPushToken(userId: string): Promise<boolean> {
     }
 
     if (error) {
-      logger.error('[Push] Erro ao salvar token', error);
+      // Não-crítico: sem rede, a próxima abertura do app tenta de novo.
+      logger.warn('[Push] Erro ao salvar token', error);
       return false;
     }
 
-    // Salvar token e dono localmente para comparação futura
+    // De novo antes de gravar o estado local: o logout pode ter rodado durante
+    // a RPC. Nenhum `await` entre esta conferência e as atribuições.
+    if (!(await aindaVale(userId, geracao)) || geracao !== geracaoDeSessao) {
+      return false;
+    }
+    ultimoEnvioDePush = { userId, em: Date.now() };
+
+    // Salvar token e dono localmente (o logout apaga o token deste aparelho)
     await AsyncStorage.setItem(
       PUSH_TOKEN_KEY,
       JSON.stringify({ token, userId } satisfies TokenGuardado),
     );
     return true;
   } catch (error) {
-    logger.error('[Push] Erro ao registrar token', error);
+    registrarFalhaDePush('[Push] Erro ao registrar token', error);
     return false;
   }
+}
+
+/**
+ * Reenvia o registro do aparelho para a conta da SESSÃO atual (nunca para um
+ * id recebido de fora). Silenciosa: sem sessão, sem permissão ou sem rede só
+ * devolve `false` e tenta de novo na próxima abertura.
+ *
+ * - `forcar`: ignora o intervalo e o recuo (abertura do app).
+ * - Só CONSULTA a permissão; nunca abre o diálogo por causa de um reenvio.
+ * - Troca de conta não espera o intervalo.
+ */
+export async function atualizarRegistroDePush(
+  opcoes: { forcar?: boolean } = {},
+): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
+  const geracao = geracaoDeSessao;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const userId = data?.session?.user?.id;
+    if (!userId) return false;
+
+    if (!opcoes.forcar && registroEmVoo?.userId !== userId) {
+      if (Date.now() < recuoDePushAte) return false;
+      if (
+        ultimoEnvioDePush?.userId === userId &&
+        Date.now() - ultimoEnvioDePush.em < INTERVALO_MINIMO_REENVIO_PUSH_MS
+      ) {
+        return false;
+      }
+    }
+
+    const enviado = await emUnicoVoo(userId, false, (g) =>
+      registrarNoBanco(userId, false, g),
+    );
+    if (enviado) {
+      recuoDePushAte = 0;
+    } else if (geracao === geracaoDeSessao) {
+      recuoDePushAte = Date.now() + RECUO_APOS_FALHA_PUSH_MS;
+    }
+    return enviado;
+  } catch (error) {
+    logger.warn('[Push] Falha ao reenviar registro do aparelho', error);
+    return false;
+  }
+}
+
+/**
+ * Registra o push token no banco (tabela `push_tokens`, pela RPC)
+ * Deve ser chamado após o login do usuário (pode pedir a permissão).
+ */
+export async function registerPushToken(userId: string): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
+  return emUnicoVoo(userId, true, (g) => registrarNoBanco(userId, true, g));
 }
 
 /**
@@ -415,6 +582,14 @@ export async function unregisterPushToken(
   userId: string | undefined,
 ): Promise<boolean> {
   if (Platform.OS === 'web') return true;
+
+  // Antes de qualquer espera, inclusive no caminho offline: invalida o reenvio
+  // em voo e esquece o último envio, para que ele não grave estado de uma
+  // sessão que acabou nem faça a próxima conta parecer "enviada há pouco".
+  geracaoDeSessao += 1;
+  ultimoEnvioDePush = null;
+  recuoDePushAte = 0;
+  registroEmVoo = null;
 
   try {
     const guardado = await lerTokenGuardado();

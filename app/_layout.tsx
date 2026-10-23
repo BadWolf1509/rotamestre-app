@@ -18,6 +18,7 @@ import Toast from 'react-native-toast-message';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
+import { useManterPushTokenAtualizado } from '@/hooks/useManterPushTokenAtualizado';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
@@ -113,6 +114,9 @@ function detectE2EEnvironment(): boolean {
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
+
+  // Reenvia o registro do aparelho (push) ao abrir e ao voltar ao app.
+  useManterPushTokenAtualizado();
 
   // Check E2E at render time - this is intentionally evaluated during render
   // because in CI, the module loads before the browser navigates to ?e2e=true
