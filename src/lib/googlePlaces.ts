@@ -8,18 +8,19 @@
  * @see https://developers.google.com/maps/documentation/places/web-service/usage-and-billing
  */
 
-import { CACHE_TTL, getCache, setCache } from "@/lib/cache";
-import { logger } from "@/lib/logger";
+import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
+import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 
-import type { PlaceSuggestion } from "./google-shared";
-import type { Coordenadas, EnderecoGeocodificado } from "../types/endereco";
+import type { PlaceSuggestion } from './google-shared';
+import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 const REQUEST_TIMEOUT = 10000; // 10 segundos (Edge Functions podem ser mais lentas)
 
 // URLs das Edge Functions
@@ -64,12 +65,27 @@ interface EdgeFunctionPlaceDetailsResponse {
  */
 export interface GooglePlaceSuggestion extends PlaceSuggestion {
   coordinates?: Coordenadas;
-  source: "google";
+  source: 'google';
 }
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Token que identifica quem busca: o JWT da sessão do usuário; sem sessão
+ * (ou se ela não puder ser lida), a chave publishable, como antes. Assim a
+ * busca segue funcionando em qualquer tela, logado ou não.
+ */
+async function tokenDeAutorizacao(): Promise<string> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? SUPABASE_ANON_KEY;
+  } catch (error) {
+    logger.warn('[GooglePlaces] Falha ao ler a sessão', error);
+    return SUPABASE_ANON_KEY;
+  }
+}
 
 /**
  * Faz request POST com timeout para Edge Functions
@@ -83,11 +99,22 @@ async function fetchEdgeFunction<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    // A leitura da sessão corre sob o mesmo prazo da requisição.
+    const token = await Promise.race([
+      tokenDeAutorizacao(),
+      new Promise<never>((_, rejeitar) => {
+        controller.signal.addEventListener('abort', () => {
+          const abortado = new Error('Aborted');
+          abortado.name = 'AbortError';
+          rejeitar(abortado);
+        });
+      }),
+    ]);
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
         apikey: SUPABASE_ANON_KEY,
       },
       body: JSON.stringify(body),
@@ -97,7 +124,7 @@ async function fetchEdgeFunction<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      logger.warn("[GooglePlaces] Edge Function error", {
+      logger.warn('[GooglePlaces] Edge Function error', {
         status: response.status,
       });
       return null;
@@ -106,10 +133,10 @@ async function fetchEdgeFunction<T>(
     return (await response.json()) as T;
   } catch (error) {
     clearTimeout(timeoutId);
-    if ((error as Error).name === "AbortError") {
-      logger.warn("[GooglePlaces] Request timeout");
+    if ((error as Error).name === 'AbortError') {
+      logger.warn('[GooglePlaces] Request timeout');
     } else {
-      logger.error("[GooglePlaces] Fetch error", error);
+      logger.error('[GooglePlaces] Fetch error', error);
     }
     return null;
   }
@@ -144,7 +171,7 @@ export const googlePlacesService = {
     locationBias?: Coordenadas,
   ): Promise<GooglePlaceSuggestion[]> {
     if (!this.isAvailable()) {
-      logger.warn("[GooglePlaces] Supabase não configurado");
+      logger.warn('[GooglePlaces] Supabase não configurado');
       return [];
     }
 
@@ -156,13 +183,13 @@ export const googlePlacesService = {
     const normalizedInput = input.toLowerCase().trim();
     const biasKey = locationBias
       ? `_${locationBias.latitude.toFixed(2)}_${locationBias.longitude.toFixed(2)}`
-      : "";
+      : '';
     const cacheKey = `google_autocomplete_${normalizedInput}${biasKey}`;
 
     // Verificar cache
     const cached = await getCache<GooglePlaceSuggestion[]>(cacheKey);
     if (cached) {
-      logger.info("[GooglePlaces] Cache hit", { input: normalizedInput });
+      logger.info('[GooglePlaces] Cache hit', { input: normalizedInput });
       return cached;
     }
 
@@ -177,7 +204,7 @@ export const googlePlacesService = {
       }
 
       if (data.error) {
-        logger.warn("[GooglePlaces] API error", {
+        logger.warn('[GooglePlaces] API error', {
           error: data.error,
           status: data.status,
         });
@@ -190,9 +217,9 @@ export const googlePlacesService = {
           description: p.description,
           structured_formatting: {
             main_text: p.structured_formatting.main_text,
-            secondary_text: p.structured_formatting.secondary_text || "",
+            secondary_text: p.structured_formatting.secondary_text || '',
           },
-          source: "google" as const,
+          source: 'google' as const,
         }),
       );
 
@@ -201,12 +228,12 @@ export const googlePlacesService = {
         await setCache(cacheKey, suggestions, CACHE_TTL.AUTOCOMPLETE);
       }
 
-      logger.info("[GooglePlaces] Autocomplete success", {
+      logger.info('[GooglePlaces] Autocomplete success', {
         count: suggestions.length,
       });
       return suggestions;
     } catch (error) {
-      logger.error("[GooglePlaces] Erro no autocomplete", error);
+      logger.error('[GooglePlaces] Erro no autocomplete', error);
       return [];
     }
   },
@@ -223,7 +250,7 @@ export const googlePlacesService = {
     sessionToken?: string,
   ): Promise<EnderecoGeocodificado | null> {
     if (!this.isAvailable()) {
-      logger.warn("[GooglePlaces] Supabase não configurado");
+      logger.warn('[GooglePlaces] Supabase não configurado');
       return null;
     }
 
@@ -233,7 +260,7 @@ export const googlePlacesService = {
     // Verificar cache
     const cached = await getCache<EnderecoGeocodificado>(cacheKey);
     if (cached) {
-      logger.info("[GooglePlaces] Cache hit for place details", { placeId });
+      logger.info('[GooglePlaces] Cache hit for place details', { placeId });
       return cached;
     }
 
@@ -248,7 +275,7 @@ export const googlePlacesService = {
       }
 
       if (data.error) {
-        logger.warn("[GooglePlaces] Place details error", {
+        logger.warn('[GooglePlaces] Place details error', {
           error: data.error,
           status: data.status,
         });
@@ -269,10 +296,10 @@ export const googlePlacesService = {
       // Salvar no cache (30 minutos)
       await setCache(cacheKey, endereco, CACHE_TTL.GEOCODING);
 
-      logger.info("[GooglePlaces] Place details success", { placeId });
+      logger.info('[GooglePlaces] Place details success', { placeId });
       return endereco;
     } catch (error) {
-      logger.error("[GooglePlaces] Erro ao obter detalhes", error);
+      logger.error('[GooglePlaces] Erro ao obter detalhes', error);
       return null;
     }
   },
