@@ -72,6 +72,34 @@ describe('Migration 38: endurecimento', () => {
     expect(executavel).toMatch(/p\.rota_id = NEW\.rota_id/);
   });
 
+  it('d) o gatilho tolera o ON DELETE SET NULL das FKs (apagar rota/parada não é bloqueado)', () => {
+    const corpo = executavel.slice(
+      executavel.indexOf(
+        'CREATE OR REPLACE FUNCTION public.incidentes_confere_rota_parada()',
+      ),
+      executavel.indexOf('CREATE TRIGGER incidentes_confere_rota_parada'),
+    );
+    // Cada campo só é conferido quando muda no UPDATE...
+    expect(corpo).toMatch(
+      /v_rota_mudou\s*:=\s*NEW\.rota_id IS DISTINCT FROM OLD\.rota_id/,
+    );
+    expect(corpo).toMatch(
+      /v_parada_mudou\s*:=\s*NEW\.parada_id IS DISTINCT FROM OLD\.parada_id/,
+    );
+    // ...rota que vira NULL não obriga a reconferir a parada (SET NULL da rota
+    // antes do da parada deixaria rota NULL + parada preenchida)...
+    expect(corpo).toMatch(
+      /NEW\.rota_id IS DISTINCT FROM OLD\.rota_id AND NEW\.rota_id IS NOT NULL/,
+    );
+    // ...e só se confere o que ficou preenchido: desligar nunca é recusado.
+    expect(corpo).toMatch(
+      /IF v_rota_mudou AND NEW\.rota_id IS NOT NULL AND NOT EXISTS/,
+    );
+    expect(corpo).toMatch(
+      /IF v_parada_mudou AND NEW\.parada_id IS NOT NULL AND NOT EXISTS/,
+    );
+  });
+
   it('e) helpers de RLS: sem EXECUTE para anon/PUBLIC, e as policies que os chamam só para authenticated', () => {
     for (const fn of [
       'current_user_is_gestor_of_unidade(uuid)',
@@ -117,9 +145,47 @@ describe('Migration 38: endurecimento', () => {
     );
   });
 
-  it('tem sonda transacional que termina desfazendo tudo', () => {
+  describe('sonda transacional', () => {
     const sonda = ler(caminhoSonda);
-    expect(sonda).toMatch(/RAISE EXCEPTION 'SONDA/);
-    expect(sonda).toMatch(/SET LOCAL ROLE authenticated/);
+
+    it('termina SEMPRE em RAISE EXCEPTION (desfaz tudo)', () => {
+      expect(sonda).toMatch(/SET LOCAL ROLE authenticated/);
+      // O RAISE final é a última instrução do bloco, fora de qualquer IF.
+      expect(sonda).toMatch(
+        /\n {2}RAISE EXCEPTION 'SONDA M38[^;]*;\nEND\n\$\$;\s*$/,
+      );
+    });
+
+    it('W6: prova o DROP POLICY por pg_policies, não só o REVOKE', () => {
+      expect(sonda).toMatch(
+        /FROM pg_policies[\s\S]*tablename = 'usuarios'[\s\S]*cmd = 'INSERT'/,
+      );
+    });
+
+    it('W5: gestor ausente vira SKIP', () => {
+      expect(sonda).toMatch(/v_gestor IS NULL[\s\S]*SKIP/);
+    });
+
+    it('W2: controles positivos de leitura (própria foto e gestor da loja)', () => {
+      expect(sonda).toMatch(/2c /);
+      expect(sonda).toMatch(/2d /);
+      expect(sonda).toMatch(/3c /);
+    });
+
+    it('W3: 4a/4b distinguem o gatilho da RLS pela mensagem', () => {
+      expect(sonda).toMatch(/SQLERRM LIKE '%não é deste motorista%'/);
+      expect(sonda).toMatch(/SQLERRM LIKE '%não pertence à rota%'/);
+    });
+
+    it('W4: blocos de leitura não derrubam o resumo', () => {
+      expect(sonda).toMatch(/' \| 2 ERRO: ' \|\| SQLERRM/);
+      expect(sonda).toMatch(/' \| 3 ERRO: ' \|\| SQLERRM/);
+    });
+
+    it('W7: UPDATE do gestor e DELETE da rota com incidente não são bloqueados', () => {
+      expect(sonda).toMatch(/4d /);
+      expect(sonda).toMatch(/4e /);
+      expect(sonda).toMatch(/DELETE FROM public\.rotas/);
+    });
   });
 });

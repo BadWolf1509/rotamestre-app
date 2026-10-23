@@ -1563,7 +1563,9 @@ desligá-lo no painel (Database → Extensions). (c) A policy de SELECT das foto
 a exigir que a linha que referencia o objeto seja do dono do objeto (`usuarios.id` /
 `incidentes.motorista_id` = `owner`/`owner_id`). (d) Gatilho
 `incidentes_confere_rota_parada`: rota do próprio motorista, parada da própria rota;
-no UPDATE só confere se a ligação mudou. (e) As 4 policies que chamam os helpers
+no UPDATE cada ligação só é conferida se mudou, e virar NULL nunca é recusado (o
+`ON DELETE SET NULL` das duas FKs, em ordem não garantida, não bloqueia apagar a
+rota — achado do `rls-policy-reviewer`). (e) As 4 policies que chamam os helpers
 passam de `public` para `authenticated` (anon segue com 0 linhas, em vez de
 "permission denied"), e o EXECUTE dos 5 helpers sai de `PUBLIC`/`anon`; views sem
 escrita; índice `idx_rascunhos_rota_unidade_id`.

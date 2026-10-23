@@ -43,9 +43,12 @@
 --   d) incidentes: o INSERT aceitava `rota_id`/`parada_id` de qualquer rota,
 --      de qualquer empresa (a policy só exige `motorista_id = auth.uid()`).
 --      Gatilho BEFORE INSERT/UPDATE: rota NULL ou do próprio motorista do
---      incidente; parada NULL ou da rota do incidente. No UPDATE só confere se
---      um dos três campos mudou — a rota pode ser reatribuída depois, e o gestor
---      continua podendo resolver o incidente antigo. Medido em 23/10/2026: 0
+--      incidente; parada NULL ou da rota do incidente. No UPDATE cada ligação
+--      só é conferida se mudou — a rota pode ser reatribuída depois, e o gestor
+--      continua podendo resolver o incidente antigo — e virar NULL nunca é
+--      recusado, para o ON DELETE SET NULL das FKs não bloquear o DELETE da
+--      rota/parada (a ordem dos dois SET NULL não é garantida; achado do
+--      rls-policy-reviewer). Medido em 23/10/2026: 0
 --      incidentes com rota de outro motorista, 0 com parada fora da rota.
 --
 --   e) grants: EXECUTE dos helpers de RLS sai de PUBLIC/anon (fica com
@@ -141,18 +144,26 @@ RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
-AS $$
+DECLARE
+  v_rota_mudou boolean := true;
+  v_parada_mudou boolean := true;
 BEGIN
-  -- No UPDATE, só confere quando a ligação muda: a rota pode ser reatribuída
-  -- a outro motorista depois, e o incidente antigo continua editável.
-  IF TG_OP = 'UPDATE'
-     AND NEW.rota_id IS NOT DISTINCT FROM OLD.rota_id
-     AND NEW.parada_id IS NOT DISTINCT FROM OLD.parada_id
-     AND NEW.motorista_id IS NOT DISTINCT FROM OLD.motorista_id THEN
-    RETURN NEW;
+  -- No UPDATE, cada ligação só é conferida quando muda: a rota pode ser
+  -- reatribuída a outro motorista depois, e o incidente antigo continua
+  -- editável. E desligar (virar NULL) nunca é recusado: apagar a rota ou a
+  -- parada dispara o ON DELETE SET NULL das FKs, em ordem não garantida — se o
+  -- SET NULL da rota vier antes do da parada, a linha passa por rota NULL +
+  -- parada preenchida, e recusar ali bloquearia o DELETE da rota.
+  -- Rota que muda para NULL não obriga a reconferir a parada; parada que muda
+  -- para outro valor é conferida contra a rota (NULL recusa).
+  IF TG_OP = 'UPDATE' THEN
+    v_rota_mudou := NEW.rota_id IS DISTINCT FROM OLD.rota_id
+                    OR NEW.motorista_id IS DISTINCT FROM OLD.motorista_id;
+    v_parada_mudou := NEW.parada_id IS DISTINCT FROM OLD.parada_id
+                      OR (NEW.rota_id IS DISTINCT FROM OLD.rota_id AND NEW.rota_id IS NOT NULL);
   END IF;
 
-  IF NEW.rota_id IS NOT NULL AND NOT EXISTS (
+  IF v_rota_mudou AND NEW.rota_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.rotas r
     WHERE r.id = NEW.rota_id
       AND r.motorista_id = NEW.motorista_id
@@ -161,7 +172,7 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  IF NEW.parada_id IS NOT NULL AND NOT EXISTS (
+  IF v_parada_mudou AND NEW.parada_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.paradas p
     WHERE p.id = NEW.parada_id
       AND p.rota_id = NEW.rota_id
