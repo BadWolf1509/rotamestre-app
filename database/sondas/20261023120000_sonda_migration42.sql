@@ -10,7 +10,7 @@
 -- notificações que os gatilhos criarem e a fila do pg_net, que só é lida
 -- depois do commit. Leia o resultado na mensagem "SONDA M42 (desfeita): ...".
 -- Esperado: todas as linhas com OK. Rodada ANTES da migration, os casos 2, 3,
--- 5 e 10a saem FALHOU (é a falha que ela fecha).
+-- 5, 6b e 10a saem FALHOU (é a falha que ela fecha).
 --
 --   1. gestor de A vê o incidente da rota de A
 --   2. gestor de A NÃO vê o incidente da rota de B

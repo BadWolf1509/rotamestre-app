@@ -1560,7 +1560,12 @@ das duas lojas. Escondê-los do gestor (só o motorista veria) deixaria incident
 sem ninguém para resolver: o app grava incidente sem rota (`useIncidentSubmit`).
 A correção completa é gravar a loja no próprio incidente (`unidade_id`
 preenchida por gatilho a partir da rota, ou da única loja ativa do motorista),
-que sobrevive ao `ON DELETE SET NULL` da rota — pendente.
+que sobrevive ao `ON DELETE SET NULL` da rota — pendente. Até lá, o
+`rota_id` pode virar NULL depois do fato (rota apagada, ou o próprio gestor da
+loja ou o motorista zerando o campo; o gatilho da Migration 38 aceita NULL), e o
+incidente volta à regra antiga — visível também à outra loja do motorista
+(achado do `rls-policy-reviewer`). Não é leitura cruzada espontânea: exige ação
+de quem já tinha acesso ao incidente.
 
 **App.** Nada depende de ver incidente de rota de outra loja:
 `useIncidentesGestor` e o contador do dashboard filtram por motoristas da loja
