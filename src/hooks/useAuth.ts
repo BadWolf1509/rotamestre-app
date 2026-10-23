@@ -1,6 +1,8 @@
 import { Session, User } from '@supabase/supabase-js';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 
+import { lerSessao } from '../lib/auth/sessao';
+import { lerUltimoUsuario } from '../lib/auth/ultimoUsuario';
 import { cleanExpiredCache } from '../lib/cache';
 import { logger } from '../lib/logger';
 import { registerPushToken } from '../lib/notifications';
@@ -26,7 +28,30 @@ export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Sem sessão por falta de rede (token vencido + refresh sem rede): a sessão
+  // segue no storage e a pessoa NÃO está deslogada. `usuarioOfflineId` é o
+  // último usuário do aparelho (só o dono; o perfil vem do perfil conhecido).
+  // Ver src/lib/auth/sessao.ts.
+  const [offline, setOffline] = useState(false);
+  const [usuarioOfflineId, setUsuarioOfflineId] = useState<string | null>(null);
   const lastUserId = useRef<string | null>(null);
+
+  const aplicarSessao = useCallback(
+    async (estado: { session: Session | null; offline: boolean }) => {
+      const idOffline = estado.offline ? await lerUltimoUsuario() : null;
+      setSession(estado.session);
+      setUser(estado.session?.user ?? null);
+      setOffline(estado.offline);
+      setUsuarioOfflineId(idOffline);
+    },
+    [],
+  );
+
+  /** Relê a sessão (botão "Tentar novamente" sem sessão). */
+  const recarregarSessao = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    await aplicarSessao(await lerSessao());
+  }, [aplicarSessao]);
 
   useEffect(() => {
     // For E2E/CI: Check mock session first
@@ -41,10 +66,9 @@ export function useAuth() {
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      lastUserId.current = session?.user?.id ?? null;
+    lerSessao().then(async (estado) => {
+      await aplicarSessao(estado);
+      lastUserId.current = estado.session?.user?.id ?? null;
       setLoading(false);
 
       // ✅ Limpar cache expirado na inicialização
@@ -58,6 +82,14 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      // Sessão de volta (TOKEN_REFRESHED/SIGNED_IN quando a rede volta) ou
+      // logout de verdade (SIGNED_OUT, inclusive sessão revogada) encerram o
+      // modo offline. O INITIAL_SESSION null da MESMA falha de refresh não:
+      // quem decide offline é a leitura com o erro, em `lerSessao`.
+      if (session || event === 'SIGNED_OUT') {
+        setOffline(false);
+        setUsuarioOfflineId(null);
+      }
 
       // Registro do token de push (não bloqueia; push é opcional e não pode
       // afetar o fluxo de auth). A REMOÇÃO não mora aqui: o SIGNED_OUT chega
@@ -80,12 +112,15 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [aplicarSessao]);
 
   // Logout: `authService.signOut` (src/lib/auth.ts), o único caminho.
   return {
     session,
     user,
     loading,
+    offline,
+    usuarioOfflineId,
+    recarregarSessao,
   };
 }

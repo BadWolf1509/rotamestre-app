@@ -1,8 +1,8 @@
 import { useRouter, useSegments, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from './useAuth';
-import { useUser } from './useUser';
+import { useUser, type PerfilIndisponivel } from './useUser';
 import { logger } from '../lib/logger';
 
 type RequiredRole = 'gestor' | 'motorista' | 'any';
@@ -31,10 +31,47 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const { role = 'any', redirectTo = '/auth/login' } = options;
   const router = useRouter();
   const segments = useSegments();
-  const { user, loading: authLoading } = useAuth();
-  const { userData, loading: userLoading, semConexao, refresh } = useUser();
+  const {
+    user,
+    loading: authLoading,
+    offline = false,
+    usuarioOfflineId = null,
+    recarregarSessao,
+  } = useAuth();
+  const {
+    userData,
+    loading: userLoading,
+    perfilIndisponivel: motivoDoUseUser = null,
+    refresh,
+  } = useUser();
   const [isReady, setIsReady] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [tentando, setTentando] = useState(false);
+  // Um aviso por episódio, não um por execução do efeito (M4).
+  const avisouIndisponivel = useRef(false);
+
+  // Offline sem nem o último usuário: não há de quem buscar perfil.
+  const offlineSemDono = !user && offline && !usuarioOfflineId;
+  const perfilIndisponivel: PerfilIndisponivel = userData
+    ? null
+    : offlineSemDono
+      ? 'conexao'
+      : motivoDoUseUser;
+
+  /**
+   * Sem sessão, relê a sessão: se o refresh der certo, o useAuth ganha `user`
+   * e o useUser recarrega sozinho. Com sessão, refaz a busca do perfil — que
+   * exige sessão antes e não cai no "0 linhas anônimas = sem perfil".
+   */
+  const tentarNovamente = useCallback(async () => {
+    setTentando(true);
+    try {
+      if (!user) await recarregarSessao?.();
+      else await refresh();
+    } finally {
+      setTentando(false);
+    }
+  }, [user, recarregarSessao, refresh]);
 
   useEffect(() => {
     // Aguardar carregamento do auth
@@ -50,8 +87,27 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       return;
     }
 
-    // Verificar autenticação
-    if (!user) {
+    // Sem perfil para decidir — busca falhou sem perfil conhecido, ou a
+    // sessão está offline sem dono. Não é "sem perfil" nem "deslogado"; o
+    // login não resolveria (a sessão segue guardada e o login também precisa
+    // de rede). O layout mostra `PerfilIndisponivelScreen`.
+    if (perfilIndisponivel && (offlineSemDono || !userLoading)) {
+      if (!avisouIndisponivel.current) {
+        avisouIndisponivel.current = true;
+        logger.warn(
+          '[Auth] Perfil indisponível. Sem redirecionar.',
+          perfilIndisponivel,
+        );
+      }
+      setIsReady(true);
+      setIsAuthorized(false);
+      return;
+    }
+    avisouIndisponivel.current = false;
+
+    // Verificar autenticação. Offline com o último usuário não é "deslogado":
+    // segue, e o useUser responde com o perfil conhecido dele.
+    if (!user && !usuarioOfflineId) {
       setIsReady(true);
       setIsAuthorized(false);
       router.replace(redirectTo);
@@ -61,19 +117,6 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     // Se user existe mas userData ainda está carregando, aguardar
     // Isso evita race condition após login quando useUser ainda não carregou
     if (userLoading) {
-      return;
-    }
-
-    // A busca do perfil falhou e o aparelho não conhece perfil desta conta:
-    // não é "sem perfil" nem "deslogado". O login não resolveria (a sessão é
-    // válida e o login também precisa de rede) — o layout mostra
-    // `SemConexaoScreen` e a pessoa tenta de novo.
-    if (!userData && semConexao) {
-      logger.warn(
-        '[Auth] Perfil indisponível (sem conexão). Sem redirecionar.',
-      );
-      setIsReady(true);
-      setIsAuthorized(false);
       return;
     }
 
@@ -123,8 +166,10 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     authLoading,
     userLoading,
     user,
+    usuarioOfflineId,
+    offlineSemDono,
     userData,
-    semConexao,
+    perfilIndisponivel,
     role,
     redirectTo,
     router,
@@ -140,9 +185,10 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     userData,
     /** Indica se ainda está carregando */
     isLoading: authLoading || userLoading,
-    /** Busca do perfil falhou sem perfil conhecido: mostre `SemConexaoScreen`. */
-    semConexao: !userData && semConexao,
-    /** Refaz a busca do perfil (botão "Tentar novamente"). */
-    tentarNovamente: refresh,
+    /** Sem perfil para decidir: mostre `PerfilIndisponivelScreen` com o motivo. */
+    perfilIndisponivel,
+    /** "Tentar novamente" em curso (carregando no botão). */
+    tentando,
+    tentarNovamente,
   };
 }

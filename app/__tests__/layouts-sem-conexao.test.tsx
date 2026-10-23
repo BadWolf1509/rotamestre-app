@@ -13,12 +13,14 @@ import PerfilLayout from '../perfil/_layout';
 import UnidadeLayout from '../unidade/_layout';
 
 const mockTentarNovamente = jest.fn();
+let mockMotivo: 'conexao' | 'erro' = 'conexao';
 jest.mock('@/hooks/useRequireAuth', () => ({
   useRequireAuth: () => ({
     isReady: true,
     isAuthorized: false,
     userData: null,
-    semConexao: true,
+    perfilIndisponivel: mockMotivo,
+    tentando: false,
     tentarNovamente: mockTentarNovamente,
   }),
 }));
@@ -55,7 +57,10 @@ describe.each([
   ['perfil', PerfilLayout],
   ['unidade', UnidadeLayout],
 ])('layout %s sem conexão e sem perfil conhecido', (_nome, Layout) => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMotivo = 'conexao';
+  });
 
   it('mostra "Sem conexão" com "Tentar novamente"', () => {
     render(<Layout />);
@@ -63,5 +68,15 @@ describe.each([
     expect(screen.getByText('Sem conexão')).toBeTruthy();
     fireEvent.press(screen.getByText('Tentar novamente'));
     expect(mockTentarNovamente).toHaveBeenCalled();
+  });
+
+  it('erro de verdade (não é rede) diz que o perfil não carregou', () => {
+    mockMotivo = 'erro';
+    render(<Layout />);
+
+    expect(
+      screen.getByText('Não foi possível carregar seu perfil'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Sem conexão')).toBeNull();
   });
 });

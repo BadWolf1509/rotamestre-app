@@ -1,5 +1,17 @@
 // Mock do Supabase Client para testes
 
+// Erros e type guards do auth são lógica pura, não rede: vêm da biblioteca
+// real. `isAuthRetryableFetchError` é o que separa "offline" de "deslogado"
+// (src/lib/auth/sessao.ts); um stub aqui faria os testes passarem com a
+// classificação errada.
+const real = jest.requireActual('@supabase/supabase-js');
+export const AuthError = real.AuthError;
+export const AuthApiError = real.AuthApiError;
+export const AuthRetryableFetchError = real.AuthRetryableFetchError;
+export const isAuthError = real.isAuthError;
+export const isAuthApiError = real.isAuthApiError;
+export const isAuthRetryableFetchError = real.isAuthRetryableFetchError;
+
 export const mockSupabaseClient = {
   auth: {
     signInWithPassword: jest.fn(),

@@ -3,7 +3,7 @@ import { Stack, Slot, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { SemConexaoScreen } from '@/components/auth/SemConexaoScreen';
+import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { RouteStatusProvider } from '@/context/RouteStatusContext';
@@ -12,9 +12,13 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
 export default function MotoristaLayout() {
-  const { isReady, isAuthorized, semConexao, tentarNovamente } = useRequireAuth(
-    { role: 'motorista' },
-  );
+  const {
+    isReady,
+    isAuthorized,
+    perfilIndisponivel,
+    tentando,
+    tentarNovamente,
+  } = useRequireAuth({ role: 'motorista' });
   const { isDesktop } = useResponsive();
 
   // Aguardar verificação de autenticação
@@ -24,8 +28,14 @@ export default function MotoristaLayout() {
 
   // Sem perfil para decidir (busca falhou, nenhum perfil conhecido): sem
   // redirect — ver useRequireAuth.
-  if (semConexao) {
-    return <SemConexaoScreen onTentarNovamente={tentarNovamente} />;
+  if (perfilIndisponivel) {
+    return (
+      <PerfilIndisponivelScreen
+        motivo={perfilIndisponivel}
+        tentando={tentando}
+        onTentarNovamente={tentarNovamente}
+      />
+    );
   }
 
   // Se não autorizado, retorna null (redirect já aconteceu)

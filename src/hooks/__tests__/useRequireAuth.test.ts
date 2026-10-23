@@ -3,7 +3,7 @@
  * Hook para proteger rotas que requerem autenticação
  */
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useRequireAuth } from '../useRequireAuth';
 
@@ -21,25 +21,31 @@ jest.mock('expo-router', () => ({
 // Mock useAuth
 let mockUser: any = { id: 'user-1' };
 let mockAuthLoading = false;
+let mockOffline = false;
+let mockUsuarioOfflineId: string | null = null;
+const mockRecarregarSessao = jest.fn();
 
 jest.mock('../useAuth', () => ({
   useAuth: () => ({
     user: mockUser,
     loading: mockAuthLoading,
+    offline: mockOffline,
+    usuarioOfflineId: mockUsuarioOfflineId,
+    recarregarSessao: mockRecarregarSessao,
   }),
 }));
 
 // Mock useUser
 let mockUserData: any = { id: 'user-1', nome: 'Test User', papel: 'gestor' };
 let mockUserLoading = false;
-let mockSemConexao = false;
+let mockPerfilIndisponivel: 'conexao' | 'erro' | null = null;
 const mockRefresh = jest.fn();
 
 jest.mock('../useUser', () => ({
   useUser: () => ({
     userData: mockUserData,
     loading: mockUserLoading,
-    semConexao: mockSemConexao,
+    perfilIndisponivel: mockPerfilIndisponivel,
     refresh: mockRefresh,
   }),
 }));
@@ -51,7 +57,11 @@ describe('useRequireAuth', () => {
     mockAuthLoading = false;
     mockUserData = { id: 'user-1', nome: 'Test User', papel: 'gestor' };
     mockUserLoading = false;
-    mockSemConexao = false;
+    mockPerfilIndisponivel = null;
+    mockOffline = false;
+    mockUsuarioOfflineId = null;
+    mockRefresh.mockResolvedValue(undefined);
+    mockRecarregarSessao.mockResolvedValue(undefined);
     mockUseSegments.mockReturnValue(['gestor']);
   });
 
@@ -249,34 +259,128 @@ describe('useRequireAuth', () => {
     });
   });
 
-  // Offline sem nenhum perfil conhecido: ir ao login não resolve (a sessão é
-  // válida e o login também precisa de rede) e ainda tira a pessoa do app.
-  describe('busca do perfil falhou sem perfil conhecido', () => {
+  // Offline sem perfil para decidir: ir ao login não resolve (a sessão pode
+  // ser válida e o login também precisa de rede) e ainda tira a pessoa do app.
+  describe('perfil indisponível', () => {
     beforeEach(() => {
       mockUserData = null;
-      mockSemConexao = true;
+      mockPerfilIndisponivel = 'conexao';
       mockUseSegments.mockReturnValue(['motorista']);
     });
 
-    it('não redireciona e sinaliza semConexao', async () => {
+    it('não redireciona e sinaliza o motivo', async () => {
       const { result } = renderHook(() =>
         useRequireAuth({ role: 'motorista' }),
       );
 
       await waitFor(() => expect(result.current.isReady).toBe(true));
       expect(result.current.isAuthorized).toBe(false);
-      expect(result.current.semConexao).toBe(true);
+      expect(result.current.perfilIndisponivel).toBe('conexao');
       expect(mockReplace).not.toHaveBeenCalled();
     });
 
-    it('tentarNovamente refaz a busca do perfil', async () => {
+    it('erro de verdade passa o motivo "erro" adiante, sem redirect', async () => {
+      mockPerfilIndisponivel = 'erro';
       const { result } = renderHook(() =>
         useRequireAuth({ role: 'motorista' }),
       );
 
       await waitFor(() => expect(result.current.isReady).toBe(true));
-      result.current.tentarNovamente();
+      expect(result.current.perfilIndisponivel).toBe('erro');
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('tentarNovamente com sessão refaz a busca e expõe "tentando"', async () => {
+      let terminar!: () => void;
+      mockRefresh.mockReturnValue(
+        new Promise<void>((r) => {
+          terminar = r;
+        }),
+      );
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+
+      act(() => {
+        void result.current.tentarNovamente();
+      });
+      await waitFor(() => expect(result.current.tentando).toBe(true));
       expect(mockRefresh).toHaveBeenCalled();
+
+      await act(async () => terminar());
+      await waitFor(() => expect(result.current.tentando).toBe(false));
+    });
+
+    // M4: o efeito roda a cada mudança de dependência; o aviso é por episódio.
+    it('não repete o aviso "Perfil indisponível" a cada execução do efeito', async () => {
+      const { logger } = require('../../lib/logger');
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const { result, rerender } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+
+      mockUseSegments.mockReturnValue(['motorista', 'outra']);
+      rerender({});
+      mockUseSegments.mockReturnValue(['motorista']);
+      rerender({});
+
+      const avisos = warn.mock.calls.filter((c) =>
+        String(c[0]).includes('Perfil indisponível'),
+      );
+      expect(avisos).toHaveLength(1);
+      warn.mockRestore();
+    });
+  });
+
+  // auth-js: token vencido + refresh sem rede → useAuth sem `user`, mas
+  // `offline` com o último usuário do aparelho. Não é "deslogado".
+  describe('sessão offline (token vencido sem rede)', () => {
+    beforeEach(() => {
+      mockUser = null;
+      mockOffline = true;
+      mockUseSegments.mockReturnValue(['motorista']);
+    });
+
+    it('com o perfil conhecido carregado pelo useUser, autoriza sem redirect', async () => {
+      mockUsuarioOfflineId = 'm1';
+      mockUserData = { id: 'm1', papel: 'motorista' };
+
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      expect(result.current.isAuthorized).toBe(true);
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('sem último usuário: "Sem conexão", nunca login', async () => {
+      mockUsuarioOfflineId = null;
+      mockUserData = null;
+
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      expect(result.current.perfilIndisponivel).toBe('conexao');
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('tentarNovamente sem sessão relê a sessão', async () => {
+      mockUsuarioOfflineId = null;
+      mockUserData = null;
+      const { result } = renderHook(() =>
+        useRequireAuth({ role: 'motorista' }),
+      );
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+
+      await act(async () => {
+        await result.current.tentarNovamente();
+      });
+      expect(mockRecarregarSessao).toHaveBeenCalled();
     });
   });
 });

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
+import { classificarFalhaPerfil } from '../lib/auth/falhaPerfil';
 import {
   apagarPerfilConhecido,
   gravarPerfilConhecido,
   lerPerfilConhecido,
 } from '../lib/auth/perfilConhecido';
+import { exigirSessaoDe } from '../lib/auth/sessao';
 import {
   getCache,
   setCache,
@@ -20,15 +22,26 @@ import { onProfileUpdate } from '../lib/profileEvents';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
+/**
+ * Por que o perfil não está disponível, quando `userData` é null sem ser
+ * "sem perfil": 'conexao' = falha transitória sem perfil conhecido; 'erro' =
+ * falha de verdade (4xx de schema/permissão), que não usa perfil velho.
+ */
+export type PerfilIndisponivel = 'conexao' | 'erro' | null;
+
 export function useUser() {
-  const { user, loading: authLoading } = useAuth();
-  const userId = user?.id ?? null;
+  const { user, loading: authLoading, usuarioOfflineId = null } = useAuth();
+  // Offline (token vencido sem rede) não há `user`, mas há o dono do aparelho:
+  // o perfil dele vem do perfil conhecido (a busca falha sem sessão).
+  const userId = user?.id ?? usuarioOfflineId ?? null;
+  // Muda quando a sessão volta: recarrega sozinho com a busca fresca.
+  const sessaoAtiva = !!user;
   const [userData, setUserData] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
   const [fromCache, setFromCache] = useState(false);
-  // A busca falhou e não há perfil conhecido desta conta para responder.
-  // Distingue "não deu para saber" de "não tem perfil" (userData null em ambos).
-  const [semConexao, setSemConexao] = useState(false);
+  const [perfilIndisponivel, setPerfilIndisponivel] =
+    useState<PerfilIndisponivel>(null);
+  const userIdRef = useRef<string | null>(userId);
   const fetchingRef = useRef(false);
   const mountedRef = useRef(true);
   const userDataRef = useRef<Usuario | null>(null);
@@ -80,6 +93,10 @@ export function useUser() {
       } as Usuario;
     }
 
+    // Sem sessão a query sai anônima e a RLS devolve 0 linhas, lidas como
+    // "sem perfil" — ver `exigirSessaoDe`. Falha transitória, então.
+    await exigirSessaoDe(userId);
+
     const { data, error } = await supabase
       .from('usuarios')
       .select(
@@ -107,14 +124,21 @@ export function useUser() {
         '[useUser] Query completa falhou, tentando fallback simples',
         error,
       );
-      const { data: basicData, error: basicError } = await supabase
+      const {
+        data: basicData,
+        error: basicError,
+        status: basicStatus,
+      } = await supabase
         .from('usuarios')
         .select('*, unidades(*)')
         .eq('id', userId)
         .maybeSingle();
 
-      if (basicError) throw basicError;
-      if (!basicData) return null;
+      if (basicError) throw classificarFalhaPerfil(basicError, basicStatus);
+      if (!basicData) {
+        await exigirSessaoDe(userId); // o null só vale autenticado
+        return null;
+      }
 
       return {
         ...basicData,
@@ -126,6 +150,8 @@ export function useUser() {
     // existe no Auth mas o perfil ainda vai nascer na RPC. `.maybeSingle()`
     // devolve isso como data:null/error:null em vez do 406 + PGRST116 que o
     // `.single()` produzia — e que o catch de loadUserData registrava como erro.
+    // Mas só vale autenticado: a sessão pode ter caído durante a busca.
+    if (!data) await exigirSessaoDe(userId);
     return data;
   }, [userId]);
 
@@ -136,7 +162,7 @@ export function useUser() {
 
       if (!userId) {
         setUserData(null);
-        setSemConexao(false);
+        setPerfilIndisponivel(null);
         setLoading(false);
         return;
       }
@@ -166,11 +192,14 @@ export function useUser() {
 
         // 2. Buscar dados frescos (valida que a sessão Supabase está funcionando)
         const freshData = await fetchUserData();
+        // A conta mudou (logout, troca) durante a busca: a resposta é de quem
+        // saiu e não pode virar estado nem perfil conhecido.
+        if (userIdRef.current !== userId) return;
 
         if (freshData && mountedRef.current) {
           setUserData(freshData);
           setFromCache(false);
-          setSemConexao(false);
+          setPerfilIndisponivel(null);
           await setCache(cacheKey, freshData, CACHE_TTL.USER_DATA);
           await gravarPerfilConhecido(freshData);
         } else if (!freshData && mountedRef.current) {
@@ -179,21 +208,34 @@ export function useUser() {
           // deixe um perfil antigo em cache responder por ele.
           setUserData(null);
           setFromCache(false);
-          setSemConexao(false);
+          setPerfilIndisponivel(null);
           await clearCache(cacheKey);
           await apagarPerfilConhecido(userId);
         }
       } catch (error) {
-        // Falha de rede/servidor não é "sem perfil": stale-if-error. O cache de
-        // 5 min pode já ter vencido (processo morto na câmera, offline), então
-        // o último perfil conhecido da conta responde. Sem ele, `semConexao`,
-        // e o portão mostra a tela de reconexão em vez de mandar ao login.
-        logger.error('Error loading user data:', error);
-        const conhecido = exibido ?? (await lerPerfilConhecido(userId));
-        if (mountedRef.current) {
+        // Falha não é "sem perfil": stale-if-error. O que já está na tela
+        // (cache de 5 min, mesma conta) segue valendo. O perfil conhecido, que
+        // não expira, só responde por falha TRANSITÓRIA (rede, 5xx, token):
+        // 4xx de schema/permissão é defeito e não pode ficar escondido atrás
+        // de um perfil velho para sempre.
+        const falha = classificarFalhaPerfil(error);
+        if (falha.transitoria) {
+          logger.warn(
+            `[useUser] Perfil indisponível (transitório; status=${falha.status}, code=${falha.code})`,
+            falha.causa ?? falha,
+          );
+        } else {
+          logger.error('Error loading user data:', error);
+        }
+        const conhecido =
+          exibido ??
+          (falha.transitoria ? await lerPerfilConhecido(userId) : null);
+        if (mountedRef.current && userIdRef.current === userId) {
           setUserData(conhecido);
           setFromCache(conhecido !== null);
-          setSemConexao(conhecido === null);
+          setPerfilIndisponivel(
+            conhecido ? null : falha.transitoria ? 'conexao' : 'erro',
+          );
         }
       } finally {
         if (mountedRef.current) {
@@ -202,13 +244,19 @@ export function useUser() {
         fetchingRef.current = false;
       }
     },
-    [authLoading, userId, fetchUserData],
+    // `sessaoAtiva`: offline → online recarrega sem esperar o "Tentar novamente".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [authLoading, userId, sessaoAtiva, fetchUserData],
   );
 
   // Sincronizar ref com state para evitar stale closure
   useEffect(() => {
     userDataRef.current = userData;
   }, [userData]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   // Carregar dados quando userId ou authLoading mudar
   useEffect(() => {
@@ -268,7 +316,7 @@ export function useUser() {
     userData,
     loading: authLoading || loading, // ✅ Inclui authLoading para evitar queries prematuras
     fromCache, // ✅ Indica se dados vieram do cache
-    semConexao,
+    perfilIndisponivel,
     isGestor: userData?.papel === 'gestor',
     isMotorista: userData?.papel === 'motorista',
     unidade: userData?.unidades,
