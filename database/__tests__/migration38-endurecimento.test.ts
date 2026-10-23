@@ -17,7 +17,10 @@ const caminhoSonda = join(
   '20261023000000_sonda_migration38.sql',
 );
 
-const ler = (p: string) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
+// Normaliza CRLF: num checkout do Windows com autocrlf os arquivos vêm com \r\n
+// e as regex de fim de bloco (\nEND\n$$;) erravam sem o SQL ter mudado.
+const ler = (p: string) =>
+  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
 const sql = ler(caminhoDb);
 // Só o que roda: tira comentários de linha (o bloco ROLLBACK é comentado).
 const executavel = sql
