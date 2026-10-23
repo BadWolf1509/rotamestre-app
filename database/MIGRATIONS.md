@@ -1534,6 +1534,52 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
+### ✅ Migration 42: incidentes visíveis ao gestor só na loja da rota
+
+**Arquivo:** `20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql` · **✅
+aplicada em 23/10/2026 via `apply_migration`** (o MCP aceita `ALTER POLICY`),
+versão alinhada ao arquivo em `schema_migrations`. Antes, a migration e a sonda
+rodaram numa transação só, desfeita pelo `RAISE`: os 17 casos OK.
+
+**Por quê.** `incidentes_select` e `incidentes_update` liberavam ao gestor todo
+incidente de motorista com vínculo ativo numa loja dele. Com motorista que
+atende duas lojas (Migration 31), o gestor de uma loja via e alterava os
+incidentes das rotas da outra — e a foto deles, porque o ramo `incidentes/` da
+policy "fotos-entrega select" depende da visibilidade do incidente. A
+`incidentes_delete_optimized` já filtrava pela loja da rota.
+
+**O que faz.** `ALTER POLICY` nas duas (nomes mantidos, `public` →
+`authenticated`), com a mesma expressão em USING e WITH CHECK: o próprio
+motorista; incidente com rota → gestor ativo da loja da rota; incidente sem rota
+→ a regra antiga (vínculo do motorista). O WITH CHECK impede o gestor de mover
+o incidente para a rota de outra loja (o gatilho da Migration 38 só exige que a
+rota seja do motorista). A policy de fotos não muda: herda a restrição.
+
+**Incidente sem rota.** Medido em 23/10/2026: 3 de 26 (2 abertos), todos de
+27/12/2025 e de motoristas com 2 lojas ativas — continuam visíveis aos gestores
+das duas lojas. Escondê-los do gestor (só o motorista veria) deixaria incidente
+sem ninguém para resolver: o app grava incidente sem rota (`useIncidentSubmit`).
+A correção completa é gravar a loja no próprio incidente (`unidade_id`
+preenchida por gatilho a partir da rota, ou da única loja ativa do motorista),
+que sobrevive ao `ON DELETE SET NULL` da rota — pendente. Até lá, o
+`rota_id` pode virar NULL depois do fato (rota apagada, ou o próprio gestor da
+loja ou o motorista zerando o campo; o gatilho da Migration 38 aceita NULL), e o
+incidente volta à regra antiga — visível também à outra loja do motorista
+(achado do `rls-policy-reviewer`). Não é leitura cruzada espontânea: exige ação
+de quem já tinha acesso ao incidente.
+
+**App.** Nada depende de ver incidente de rota de outra loja:
+`useIncidentesGestor` e o contador do dashboard filtram por motoristas da loja
+ativa e passam a receber só os da loja; a timeline da rota consulta por
+`rota_id`. Fica de fora (não é de segurança): um gestor de duas lojas, com a
+loja A aberta, ainda vê na lista os incidentes das rotas da loja B do mesmo
+motorista, porque o filtro do app é por motorista e não pela loja da rota.
+
+**Verificação.** Guarda estática `database/__tests__/migration42-incidentes-por-loja.test.ts`;
+sonda transacional `database/sondas/20261023120000_sonda_migration42.sql` (cenário
+próprio: lojas A/B/C, motorista em A e B; 11 casos, termina em `RAISE`). O
+roteiro de conferência só com SELECT está no fim da migration.
+
 ### ✅ Migration 41: rota em andamento não se apaga
 
 **Arquivo:** `20261023110000_rota_em_andamento_nao_se_apaga.sql` · **✅ aplicada
