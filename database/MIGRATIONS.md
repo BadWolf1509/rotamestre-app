@@ -1534,13 +1534,13 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
-### ⏳ Migration 40: RPC `finalizar_rota` (rota e chegada numa transação)
+### ✅ Migration 40: RPC `finalizar_rota` (rota e chegada numa transação)
 
-**Arquivo:** `20261023100000_finalizar_rota_rpc.sql` · **⏳ a aplicar ANTES do
-merge** do PR da Onda C (#630, carregamento da rota do motorista): o app desta
-versão finaliza a rota só por esta RPC. Só `CREATE OR REPLACE FUNCTION` +
-`REVOKE`/`GRANT` (o `REVOKE` pode exigir o SQL Editor; nesse caso, registrar a
-versão em `schema_migrations` depois, como nas Migrations 31–37). O número 40
+**Arquivo:** `20261023100000_finalizar_rota_rpc.sql` · **✅ aplicada em
+23/10/2026 via `apply_migration`, antes do merge** do PR da Onda C (#630,
+carregamento da rota do motorista), com a versão alinhada ao arquivo em
+`schema_migrations`. Sonda rodada antes: os 6 casos como esperado e as contagens
+de aviso/log iguais após a 2ª chamada (idempotente). O número 40
 segue a ordem de aplicação (38 e 39 são de outras ondas); o prefixo do arquivo
 não muda.
 
