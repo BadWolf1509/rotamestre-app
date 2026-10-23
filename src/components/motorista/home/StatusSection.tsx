@@ -15,30 +15,66 @@ interface StatusSectionProps {
   completedStops?: number;
   totalStops?: number;
   timeElapsed?: string;
+  /**
+   * Sobrepõe o rótulo do status enquanto não há dado em que confiar: a carga
+   * inicial ainda em curso, ou falha de conexão antes da primeira carga. Sem
+   * isto o badge dizia "Sem rota" a quem está no meio da rota.
+   */
+  estadoDaCarga?: 'carregando' | 'sem-conexao';
   testID?: string;
 }
 
+const configDaCarga: Record<
+  NonNullable<StatusSectionProps['estadoDaCarga']>,
+  { icon: IconName; label: string; colorKey: 'gray500'; bgColorKey: 'gray100' }
+> = {
+  carregando: {
+    icon: 'sync-outline',
+    label: 'Carregando',
+    colorKey: 'gray500',
+    bgColorKey: 'gray100',
+  },
+  'sem-conexao': {
+    icon: 'cloud-offline-outline',
+    label: 'Sem conexão',
+    colorKey: 'gray500',
+    bgColorKey: 'gray100',
+  },
+};
+
 // Configuração visual por status
 // WCAG AA: 4.5:1 para texto normal, 3:1 para texto grande
-const statusConfig: Record<RouteStatus, {
-  icon: IconName;
-  label: string;
-  colorKey: 'success' | 'successDark' | 'warning' | 'warningText' | 'primary' | 'gray500' | 'info' | 'white';
-  bgColorKey: 'successBg' | 'warningBg' | 'primaryLight' | 'gray100' | 'infoBg';
-}> = {
+const statusConfig: Record<
+  RouteStatus,
+  {
+    icon: IconName;
+    label: string;
+    colorKey:
+      | 'success'
+      | 'successDark'
+      | 'warning'
+      | 'warningText'
+      | 'primary'
+      | 'gray500'
+      | 'info'
+      | 'white';
+    bgColorKey:
+      'successBg' | 'warningBg' | 'primaryLight' | 'gray100' | 'infoBg';
+  }
+> = {
   'no-route': {
     icon: 'cafe-outline',
     label: 'Sem rota',
     colorKey: 'gray500',
     bgColorKey: 'gray100',
   },
-  'pending': {
+  pending: {
     icon: 'time-outline',
     label: 'Rota pendente',
     colorKey: 'warningText', // contraste 5.1:1 em warningBg
     bgColorKey: 'warningBg',
   },
-  'active': {
+  active: {
     icon: 'navigate',
     label: 'Em rota',
     colorKey: 'successDark', // contraste 5.9:1 em successBg
@@ -56,7 +92,7 @@ const statusConfig: Record<RouteStatus, {
     colorKey: 'successDark', // contraste 5.9:1 em successBg
     bgColorKey: 'successBg',
   },
-  'completed': {
+  completed: {
     icon: 'trophy',
     label: 'Rota concluída',
     colorKey: 'info', // contraste menor, badge informativo
@@ -70,10 +106,13 @@ export function StatusSection({
   completedStops = 0,
   totalStops = 0,
   timeElapsed,
+  estadoDaCarga,
   testID,
 }: StatusSectionProps) {
   const { theme } = useUnistyles();
-  const config = statusConfig[routeStatus];
+  const config = estadoDaCarga
+    ? configDaCarga[estadoDaCarga]
+    : statusConfig[routeStatus];
 
   // Saudação baseada na hora
   const getGreeting = () => {
@@ -99,19 +138,23 @@ export function StatusSection({
         {/* Status badge + connectivity */}
         <View style={styles.rightContainer}>
           <ConnectivityIndicator />
-          <View style={[
-            styles.statusBadge,
-            { backgroundColor: theme.colors[config.bgColorKey] }
-          ]}>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: theme.colors[config.bgColorKey] },
+            ]}
+          >
             <Ionicons
               name={config.icon}
               size={14}
               color={theme.colors[config.colorKey]}
             />
-            <Text style={[
-              styles.statusText,
-              { color: theme.colors[config.colorKey] }
-            ]}>
+            <Text
+              style={[
+                styles.statusText,
+                { color: theme.colors[config.colorKey] },
+              ]}
+            >
               {config.label}
             </Text>
           </View>
@@ -119,29 +162,32 @@ export function StatusSection({
       </View>
 
       {/* Progress indicator (only when active) */}
-      {(routeStatus === 'active' || routeStatus === 'last-stop') && totalStops > 0 && (
-        <View style={styles.progressRow}>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${(completedStops / totalStops) * 100}%`,
-                  backgroundColor: routeStatus === 'last-stop'
-                    ? theme.colors.primaryLight
-                    : theme.colors.success
-                }
-              ]}
-            />
+      {!estadoDaCarga &&
+        (routeStatus === 'active' || routeStatus === 'last-stop') &&
+        totalStops > 0 && (
+          <View style={styles.progressRow}>
+            <View style={styles.progressBar}>
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${(completedStops / totalStops) * 100}%`,
+                    backgroundColor:
+                      routeStatus === 'last-stop'
+                        ? theme.colors.primaryLight
+                        : theme.colors.success,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {completedStops}/{totalStops}
+            </Text>
+            {timeElapsed && (
+              <Text style={styles.timeText}>· {timeElapsed}</Text>
+            )}
           </View>
-          <Text style={styles.progressText}>
-            {completedStops}/{totalStops}
-          </Text>
-          {timeElapsed && (
-            <Text style={styles.timeText}>· {timeElapsed}</Text>
-          )}
-        </View>
-      )}
+        )}
     </View>
   );
 }

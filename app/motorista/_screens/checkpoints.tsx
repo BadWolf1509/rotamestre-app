@@ -305,7 +305,10 @@ export default function CheckpointsMotorista() {
 
   let content: ReactNode;
 
-  if (loading) {
+  // Skeleton só na primeira carga. Recarga é silenciosa: trocar a lista por
+  // skeleton a cada atualização (realtime, polling, ação) piscava a tela e
+  // desmontava o que estivesse aberto dentro dela. Mesmo critério da aba Mapa.
+  if (loading && paradas.length === 0) {
     content = (
       <View style={styles.container as ViewStyle}>
         {/* Skeleton Header */}
@@ -478,8 +481,19 @@ export default function CheckpointsMotorista() {
             </View>
           }
         />
+      </View>
+    );
+  }
 
-        {/* Incident Report Wizard */}
+  // Na web, GestureHandlerRootView pode bloquear scroll - usar View simples
+  const Container = Platform.OS === 'web' ? View : GestureHandlerRootView;
+
+  return (
+    <Container style={styles.container as ViewStyle}>
+      <ErrorBoundary>
+        {content}
+
+        {/* Fora do `content`: o wizard não pode ser desmontado pelo skeleton */}
         {showIncidentWizard && selectedParadaForIncident && route && (
           <IncidentReportWizard
             visible={showIncidentWizard}
@@ -497,17 +511,6 @@ export default function CheckpointsMotorista() {
             endereco={selectedParadaForIncident.endereco}
           />
         )}
-      </View>
-    );
-  }
-
-  // Na web, GestureHandlerRootView pode bloquear scroll - usar View simples
-  const Container = Platform.OS === 'web' ? View : GestureHandlerRootView;
-
-  return (
-    <Container style={styles.container as ViewStyle}>
-      <ErrorBoundary>
-        {content}
 
         {/* Modal de Conclusão de Parada (com foto) */}
         <StopCompletionFlow
