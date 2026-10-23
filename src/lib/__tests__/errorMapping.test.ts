@@ -220,6 +220,20 @@ describe('errorMapping', () => {
       });
     });
 
+    describe('ROTA_EM_ANDAMENTO', () => {
+      it('explica que rota em andamento não se exclui (Migration 41)', () => {
+        const resultado = getErrorMessage({
+          code: 'P0001',
+          message:
+            'ROTA_EM_ANDAMENTO: a rota está em andamento e não pode ser excluída.',
+        });
+
+        expect(resultado.code).toBe('ROUTE_IN_PROGRESS');
+        expect(resultado.message).toMatch(/em andamento/);
+        expect(resultado.message).not.toMatch(/ROTA_EM_ANDAMENTO/);
+      });
+    });
+
     describe('SEM_PERMISSAO', () => {
       it('orienta a falta de permissão em vez de mandar contatar o suporte', () => {
         const resultado = getErrorMessage({ message: 'SEM_PERMISSAO' });

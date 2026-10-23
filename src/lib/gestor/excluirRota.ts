@@ -18,11 +18,16 @@
  *    INSERT: o trigger `prevent_duplicate_log` descarta, sem erro, o log com
  *    mesmo rota_id + evento + usuário nos últimos 5 s — com rota_id nulo, a
  *    2ª de duas exclusões seguidas do mesmo gestor sumiria do histórico.
- * 3. DELETE condicionado a `status <> 'em_andamento'` (fecha a janela entre
- *    a consulta e o DELETE, caso o motorista inicie a rota nesse meio tempo)
- *    com `.select('id')`: zero linhas é falha (RLS, rota iniciada), não
- *    sucesso. Nesse caso grava `rota_exclusao_falhou` para o log do passo 2
- *    não ficar mentindo sozinho.
+ * 3. DELETE condicionado a `status <> 'em_andamento'` (fecha, do lado do
+ *    cliente, a janela entre a consulta e o DELETE, caso o motorista inicie a
+ *    rota nesse meio tempo) com `.select('id')`: zero linhas é falha (RLS,
+ *    rota iniciada), não sucesso — reconsulta para dizer qual. Nesse caso
+ *    grava `rota_exclusao_falhou` para o log do passo 2 não ficar mentindo.
+ *
+ * A trava DO BANCO é o gatilho da Migration 41 (`recusa_apagar_rota_em_
+ * andamento`), que recusa com a sentinela `ROTA_EM_ANDAMENTO` qualquer DELETE
+ * de rota em andamento por usuário — inclusive de outro cliente. Os passos 1 e
+ * 3 acima são só do cliente; a sentinela vira `ExclusaoRotaError` aqui.
  */
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -105,6 +110,18 @@ export async function excluirRota({
     .select('id');
 
   if (erroDelete || (apagadas?.length ?? 0) === 0) {
+    // Zero linhas sem erro: a rota pode ter sido iniciada depois da consulta
+    // (o `.neq` a deixou de fora) — reconsulta para explicar certo.
+    let iniciadaNoMeioTempo = false;
+    if (!erroDelete) {
+      const { data: agora } = await supabase
+        .from('rotas')
+        .select('id, status, data, motorista_id')
+        .eq('id', rotaId)
+        .maybeSingle();
+      iniciadaNoMeioTempo = agora?.status === 'em_andamento';
+    }
+
     const { error: erroCompensacao } = await supabase.from('logs').insert({
       usuario_id: usuarioId,
       rota_id: rota.id,
@@ -117,15 +134,21 @@ export async function excluirRota({
         erroCompensacao,
       );
     }
+    if (erroDelete && /ROTA_EM_ANDAMENTO/.test(erroDelete.message ?? '')) {
+      throw new ExclusaoRotaError('em_andamento');
+    }
     if (erroDelete) throw erroDelete;
-    throw new ExclusaoRotaError('nao_excluida');
+    throw new ExclusaoRotaError(
+      iniciadaNoMeioTempo ? 'em_andamento' : 'nao_excluida',
+    );
   }
 }
 
 /**
- * Texto da confirmação. Rota concluída apaga, em cascata, as paradas e os
- * comprovantes de entrega (fotos, assinaturas): a confirmação diz isso com
- * todas as letras em vez de bloquear.
+ * Texto da confirmação. Rota concluída apaga, em cascata, as paradas — e com
+ * elas o vínculo com os comprovantes de entrega. Os arquivos das fotos ficam
+ * no Storage (o DELETE não apaga objetos), mas o app perde o caminho até eles;
+ * por isso o texto fala em "deixa de aparecer", não em "apaga as fotos".
  */
 export function textoConfirmacaoExclusao(rota: {
   status?: string | null;
@@ -147,7 +170,7 @@ export function textoConfirmacaoExclusao(rota: {
   if (rota.status === 'concluida') {
     return {
       titulo: 'Excluir rota concluída?',
-      mensagem: `Esta rota já foi concluída. Excluí-la apaga também todas as paradas e os comprovantes de entrega (fotos e registros) — eles não poderão ser recuperados.${corpoResumo}\n\nEsta ação não pode ser desfeita.`,
+      mensagem: `Esta rota já foi concluída. Excluí-la remove as paradas e os registros de entrega delas: os comprovantes de entrega deixam de aparecer no app e não poderão ser consultados depois.${corpoResumo}\n\nEsta ação não pode ser desfeita.`,
     };
   }
 

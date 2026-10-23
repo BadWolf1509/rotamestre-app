@@ -159,7 +159,7 @@ describe('DashboardDesktop — exclusão de rota', () => {
     expect(bancoFalso.rotas.some((r) => r.id === 'r-and')).toBe(true);
   });
 
-  it('rota concluída: a confirmação avisa que os comprovantes serão apagados', () => {
+  it('rota concluída: a confirmação avisa que os comprovantes deixam de aparecer', () => {
     const { getByTestId } = renderizar();
 
     fireEvent.press(getByTestId('delete-r-conc'));

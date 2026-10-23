@@ -31,14 +31,39 @@ export type LogFalso = {
 export const bancoFalso: {
   rotas: RotaFalsa[];
   logs: LogFalso[];
+  /** RLS recusando o DELETE: 0 linhas, sem erro. */
   falharDelete: boolean;
-} = { rotas: [], logs: [], falharDelete: false };
+  /** Erro devolvido pelo DELETE (ex.: rede, ou a sentinela da Migration 41). */
+  erroDelete: { code: string; message: string } | null;
+  /** INSERT em `logs` devolve erro. */
+  falharLog: boolean;
+  /** Roda depois de cada leitura de rota — simula a corrida (motorista
+   * iniciando a rota entre a consulta e o DELETE). */
+  aposConsultar: (() => void) | null;
+} = {
+  rotas: [],
+  logs: [],
+  falharDelete: false,
+  erroDelete: null,
+  falharLog: false,
+  aposConsultar: null,
+};
 
 export function resetarBancoFalso(rotas: RotaFalsa[]): void {
   bancoFalso.rotas = rotas.map((r) => ({ ...r }));
   bancoFalso.logs = [];
   bancoFalso.falharDelete = false;
+  bancoFalso.erroDelete = null;
+  bancoFalso.falharLog = false;
+  bancoFalso.aposConsultar = null;
 }
+
+/** Migration 41: DELETE de rota em andamento por usuário é recusado. */
+const SENTINELA_M41 = {
+  code: 'P0001',
+  message:
+    'ROTA_EM_ANDAMENTO: a rota está em andamento e não pode ser excluída.',
+};
 
 function rotasQuery() {
   const filtros: ((r: RotaFalsa) => boolean)[] = [];
@@ -59,10 +84,19 @@ function rotasQuery() {
     },
     maybeSingle: async () => {
       const achou = bancoFalso.rotas.filter((r) => filtros.every((f) => f(r)));
-      return { data: achou[0] ?? null, error: null };
+      const resultado = {
+        data: achou[0] ? { ...achou[0] } : null,
+        error: null,
+      };
+      bancoFalso.aposConsultar?.();
+      return resultado;
     },
     then: (resolve: (v: unknown) => void) => {
       if (modo !== 'delete') throw new Error('fake: select sem maybeSingle');
+      if (bancoFalso.erroDelete) {
+        resolve({ data: null, error: bancoFalso.erroDelete });
+        return;
+      }
       if (bancoFalso.falharDelete) {
         resolve({ data: [], error: null });
         return;
@@ -70,6 +104,10 @@ function rotasQuery() {
       const apagadas = bancoFalso.rotas.filter((r) =>
         filtros.every((f) => f(r)),
       );
+      if (apagadas.some((r) => r.status === 'em_andamento')) {
+        resolve({ data: null, error: SENTINELA_M41 });
+        return;
+      }
       bancoFalso.rotas = bancoFalso.rotas.filter((r) => !apagadas.includes(r));
       for (const log of bancoFalso.logs) {
         if (apagadas.some((a) => a.id === log.rota_id)) log.rota_id = null;
@@ -83,6 +121,9 @@ function rotasQuery() {
 function logsQuery() {
   return {
     insert: async (log: LogFalso) => {
+      if (bancoFalso.falharLog) {
+        return { error: { code: '500', message: 'falha ao gravar log' } };
+      }
       if (log.rota_id && !bancoFalso.rotas.some((r) => r.id === log.rota_id)) {
         return {
           error: { code: '23503', message: 'violates logs_rota_id_fkey' },

@@ -100,13 +100,77 @@ describe('excluirRota', () => {
   });
 });
 
+describe('excluirRota — corrida e falhas', () => {
+  it('motorista inicia a rota entre a consulta e o DELETE: recusa como em andamento e nada é apagado', async () => {
+    bancoFalso.aposConsultar = () => {
+      const r1 = bancoFalso.rotas.find((r) => r.id === 'r1');
+      if (r1) r1.status = 'em_andamento';
+    };
+
+    await expect(
+      excluirRota({ rotaId: 'r1', usuarioId: 'g1' }),
+    ).rejects.toMatchObject({ motivo: 'em_andamento' });
+
+    expect(bancoFalso.rotas.some((r) => r.id === 'r1')).toBe(true);
+    expect(bancoFalso.logs.map((l) => l.evento)).toEqual([
+      'rota_excluida',
+      'rota_exclusao_falhou',
+    ]);
+  });
+
+  it('sentinela ROTA_EM_ANDAMENTO do banco (Migration 41) vira mensagem amigável', async () => {
+    bancoFalso.erroDelete = {
+      code: 'P0001',
+      message:
+        'ROTA_EM_ANDAMENTO: a rota está em andamento e não pode ser excluída.',
+    };
+
+    const erro = await excluirRota({ rotaId: 'r1', usuarioId: 'g1' }).catch(
+      (e: unknown) => e,
+    );
+
+    expect(erro).toBeInstanceOf(ExclusaoRotaError);
+    expect((erro as ExclusaoRotaError).motivo).toBe('em_andamento');
+    expect((erro as Error).message).not.toMatch(/ROTA_EM_ANDAMENTO/);
+  });
+
+  it('DELETE com erro real (rede): repassa o erro e registra a falha no log', async () => {
+    const erroRede = { code: '', message: 'Failed to fetch' };
+    bancoFalso.erroDelete = erroRede;
+
+    await expect(excluirRota({ rotaId: 'r1', usuarioId: 'g1' })).rejects.toBe(
+      erroRede,
+    );
+
+    expect(bancoFalso.rotas.some((r) => r.id === 'r1')).toBe(true);
+    expect(bancoFalso.logs.map((l) => l.evento)).toEqual([
+      'rota_excluida',
+      'rota_exclusao_falhou',
+    ]);
+  });
+
+  it('falha ao gravar o log aborta a exclusão (sem rastro, sem DELETE)', async () => {
+    bancoFalso.falharLog = true;
+
+    await expect(
+      excluirRota({ rotaId: 'r1', usuarioId: 'g1' }),
+    ).rejects.toMatchObject({ message: 'falha ao gravar log' });
+
+    expect(bancoFalso.rotas.some((r) => r.id === 'r1')).toBe(true);
+  });
+});
+
 describe('textoConfirmacaoExclusao', () => {
-  it('rota concluída: avisa que apaga os comprovantes de entrega', () => {
+  it('rota concluída: avisa que perde paradas e comprovantes, sem prometer apagar as fotos', () => {
+    // As fotos ficam no Storage (o DELETE em cascata não apaga objetos);
+    // o que some é o registro das paradas e o vínculo com os comprovantes.
     const { titulo, mensagem } = textoConfirmacaoExclusao({
       status: 'concluida',
     });
     expect(titulo).toMatch(/concluída/);
     expect(mensagem).toMatch(/comprovantes de entrega/);
+    expect(mensagem).not.toMatch(/fotos e registros/);
+    expect(mensagem).not.toMatch(/apaga também todas/);
   });
 
   it('rota pendente: confirmação comum, sem falar de comprovante', () => {
