@@ -1537,11 +1537,15 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
-### ⏳ Migration 38: endurece `usuarios`, fotos de perfil/incidente, `incidentes` e grants
+### ✅ Migration 38: endurece `usuarios`, fotos de perfil/incidente, `incidentes` e grants
 
-**Arquivo:** `20261023000000_endurece_usuarios_storage_incidentes.sql` · **⏳ a
-aplicar pelo SQL Editor** (tem `DROP POLICY`, `ALTER POLICY` e `REVOKE`, que o MCP
-recusa) e registrar depois em `schema_migrations` com a versão `20261023000000`.
+**Arquivo:** `20261023000000_endurece_usuarios_storage_incidentes.sql` · **✅
+aplicada pelo SQL Editor em 23/10/2026** (tem `DROP POLICY`, `ALTER POLICY` e
+`REVOKE`, que o MCP recusa) e registrada depois em `schema_migrations` com a versão
+`20261023000000`. Sonda: todas as linhas OK (2c = SKIP, sem atacante com foto
+própria). Conferência pós-aplicação: 8/9 como esperado; o `REVOKE` em
+`spatial_ref_sys` não teve efeito, como previsto — resolvido desligando o PostGIS no
+painel.
 
 **Por quê.** Auditoria de segurança de 22/10/2026:
 (a) a policy `usuarios_insert_optimized` deixava qualquer gestor ativo criar perfil
