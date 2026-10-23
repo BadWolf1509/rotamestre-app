@@ -110,6 +110,23 @@ describe('useFilaAcoesParada', () => {
     await waitFor(() => expect(result.current.acoesDeOutraConta).toBe(2));
   });
 
+  it('trocar de conta zera a dispensa do aviso de outra conta', async () => {
+    await enfileirarAcaoParada(acao('p8', 'terceira'));
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string }) => useFilaAcoesParada(id),
+      { initialProps: { id: 'mot-1' } },
+    );
+    await waitFor(() => expect(result.current.acoesDeOutraConta).toBe(1));
+    act(() => {
+      result.current.dispensarAvisoOutraConta();
+    });
+    expect(result.current.acoesDeOutraConta).toBe(0);
+
+    rerender({ id: 'mot-2' });
+
+    await waitFor(() => expect(result.current.acoesDeOutraConta).toBe(1));
+  });
+
   it('dispensar o aviso não apaga as ações da outra conta', async () => {
     await enfileirarAcaoParada(acao('p8', 'outra-conta'));
     const { result } = renderHook(() => useFilaAcoesParada('mot-1'));

@@ -13,6 +13,8 @@
  * sem atualizar aqui quebra o teste.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 import { clearAllCache } from '../cache';
 import { logger } from '../logger';
@@ -67,21 +69,29 @@ const CHAVE_DESCARTES_ACOES = '@rotamestre:fila_acoes_parada_descartes'; // idem
 const CHAVE_INDICE_FOTOS = '@rotamestre:offline_photos_index'; // src/lib/offline.ts
 
 type ComDono = { motoristaId?: string };
-type FotoComDono = { userId?: string; semDono?: boolean };
+type FotoComDono = { userId?: string; semDono?: boolean; localPath?: string };
 
 /**
  * Excluir a conta apaga tudo do aparelho, MENOS as pendências de OUTRAS
  * contas: concluir/pular feitos sem rede (e seus avisos) e as fotos de
  * comprovante que ainda não subiram. Elas sobem quando a dona entrar; um
- * `AsyncStorage.clear()` cru as perderia sem aviso. Foto sem dono conhecido
- * (`semDono`) também fica — pode ser de qualquer um.
+ * `AsyncStorage.clear()` cru as perderia sem aviso.
+ *
+ * Fotos: as de quem sai são apagadas de vez — índice E arquivo (a conta não
+ * existe mais; o comprovante não tem para onde subir). Ficam as de outra
+ * conta, as `semDono` e as legadas sem dono gravado: estas, como em
+ * `fotoEDe` (`src/lib/offline.ts`), podem ser de qualquer um.
+ *
+ * `usuarioId` null (a sessão não respondeu a tempo): não dá para saber o que
+ * é de quem sai, então TODAS as pendências ficam — sobra lixo, não se perde
+ * comprovante alheio.
  *
  * POR QUE GUARDAR E REGRAVAR (e não apagar chave a chave): o resto do
  * aparelho deve mesmo sumir numa exclusão; só estas três chaves misturam
  * dados de várias contas, e é só delas que se tira o que é de quem sai.
  */
 export async function limparAparelhoAoExcluirConta(
-  usuarioId: string,
+  usuarioId: string | null,
 ): Promise<void> {
   const lerLista = async <T>(chave: string): Promise<T[]> => {
     try {
@@ -92,16 +102,18 @@ export async function limparAparelhoAoExcluirConta(
       return [];
     }
   };
+  const deQuemSai = (dono: string | undefined) =>
+    usuarioId !== null && dono === usuarioId;
 
   const acoes = (await lerLista<ComDono>(CHAVE_FILA_ACOES)).filter(
-    (a) => a.motoristaId !== usuarioId,
+    (a) => !deQuemSai(a.motoristaId),
   );
   const descartes = (
     await lerLista<{ acao?: ComDono }>(CHAVE_DESCARTES_ACOES)
-  ).filter((d) => d.acao?.motoristaId !== usuarioId);
-  const fotos = (await lerLista<FotoComDono>(CHAVE_INDICE_FOTOS)).filter(
-    (f) => f.semDono || (f.userId !== undefined && f.userId !== usuarioId),
-  );
+  ).filter((d) => !deQuemSai(d.acao?.motoristaId));
+  const todasAsFotos = await lerLista<FotoComDono>(CHAVE_INDICE_FOTOS);
+  const fotos = todasAsFotos.filter((f) => !deQuemSai(f.userId));
+  const fotosDeQuemSai = todasAsFotos.filter((f) => deQuemSai(f.userId));
 
   await AsyncStorage.clear();
 
@@ -113,6 +125,17 @@ export async function limparAparelhoAoExcluirConta(
   for (const [chave, lista] of guardar) {
     if (lista.length > 0) {
       await AsyncStorage.setItem(chave, JSON.stringify(lista));
+    }
+  }
+
+  if (Platform.OS === 'web') return; // web não guarda arquivo de foto
+  for (const f of fotosDeQuemSai) {
+    if (!f.localPath) continue;
+    try {
+      await FileSystem.deleteAsync(f.localPath, { idempotent: true });
+    } catch (error) {
+      // Não crítico: a conta já foi excluída; sobra um arquivo órfão.
+      logger.warn('[ExcluirConta] Falha ao apagar foto local', error);
     }
   }
 }

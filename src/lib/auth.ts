@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
@@ -23,6 +22,9 @@ import type { Session } from '@supabase/supabase-js';
  * `registrar_push_token`, que tira o token da conta que saiu.
  */
 export const PRAZO_LIMPEZA_PUSH_MS = 4000;
+
+/** Prazo para ler quem sai, na exclusão de conta (antes da chamada de rede). */
+export const PRAZO_SESSAO_EXCLUSAO_MS = 4000;
 
 async function limparPushDestaConta(): Promise<void> {
   const {
@@ -187,10 +189,18 @@ export const authService = {
   async deleteAccount() {
     // Quem sai, lido antes: depois do signOut a sessão some, e é por esse id
     // que as pendências de OUTRAS contas no aparelho são poupadas.
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const usuarioId = session?.user?.id;
+    // Com prazo: sem resposta, segue com null e a limpeza poupa todas as
+    // pendências (não dá para saber de quem são).
+    const sessao = await obterSessaoComTimeout(
+      () => supabase.auth.getSession(),
+      PRAZO_SESSAO_EXCLUSAO_MS,
+      () =>
+        logger.warn(
+          '[ExcluirConta] Sessão não respondeu no prazo',
+          PRAZO_SESSAO_EXCLUSAO_MS,
+        ),
+    );
+    const usuarioId = sessao?.data?.session?.user?.id ?? null;
 
     const { data, error } = await supabase.functions.invoke('delete-account', {
       method: 'POST',
@@ -204,11 +214,7 @@ export const authService = {
     // A conta já não existe no servidor. Limpa a sessão local sem depender de
     // outra chamada de rede e remove caches que possam conter dados pessoais.
     await supabase.auth.signOut({ scope: 'local' });
-    if (usuarioId) {
-      await limparAparelhoAoExcluirConta(usuarioId);
-    } else {
-      await AsyncStorage.clear();
-    }
+    await limparAparelhoAoExcluirConta(usuarioId);
     setMockSession(null, null);
 
     return data as {

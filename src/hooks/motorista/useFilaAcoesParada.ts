@@ -26,7 +26,11 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
   const [acoes, setAcoes] = useState<AcaoParada[]>([]);
   const [descartes, setDescartes] = useState<DescarteDeAcao[]>([]);
   const [deOutraConta, setDeOutraConta] = useState(0);
-  const [dispensadoEm, setDispensadoEm] = useState<number | null>(null);
+  // A dispensa vale para a conta que dispensou: trocar de conta a zera.
+  const [dispensa, setDispensa] = useState<{
+    motoristaId: string | null | undefined;
+    contagem: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!motoristaId) {
@@ -61,10 +65,13 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
   }, [motoristaId]);
 
   const dispensarAvisoOutraConta = useCallback(() => {
-    setDispensadoEm(deOutraConta);
-  }, [deOutraConta]);
+    setDispensa({ motoristaId, contagem: deOutraConta });
+  }, [deOutraConta, motoristaId]);
 
-  const acoesDeOutraConta = deOutraConta === dispensadoEm ? 0 : deOutraConta;
+  const acoesDeOutraConta =
+    dispensa?.motoristaId === motoristaId && dispensa.contagem === deOutraConta
+      ? 0
+      : deOutraConta;
 
   return {
     acoes,
