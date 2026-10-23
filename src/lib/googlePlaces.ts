@@ -10,6 +10,7 @@
 
 import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
 import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 
 import type { PlaceSuggestion } from './google-shared';
 import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
@@ -72,6 +73,21 @@ export interface GooglePlaceSuggestion extends PlaceSuggestion {
 // ============================================================================
 
 /**
+ * Token que identifica quem busca: o JWT da sessão do usuário; sem sessão
+ * (ou se ela não puder ser lida), a chave publishable, como antes. Assim a
+ * busca segue funcionando em qualquer tela, logado ou não.
+ */
+async function tokenDeAutorizacao(): Promise<string> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? SUPABASE_ANON_KEY;
+  } catch (error) {
+    logger.warn('[GooglePlaces] Falha ao ler a sessão', error);
+    return SUPABASE_ANON_KEY;
+  }
+}
+
+/**
  * Faz request POST com timeout para Edge Functions
  */
 async function fetchEdgeFunction<T>(
@@ -83,11 +99,22 @@ async function fetchEdgeFunction<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    // A leitura da sessão corre sob o mesmo prazo da requisição.
+    const token = await Promise.race([
+      tokenDeAutorizacao(),
+      new Promise<never>((_, rejeitar) => {
+        controller.signal.addEventListener('abort', () => {
+          const abortado = new Error('Aborted');
+          abortado.name = 'AbortError';
+          rejeitar(abortado);
+        });
+      }),
+    ]);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${token}`,
         apikey: SUPABASE_ANON_KEY,
       },
       body: JSON.stringify(body),

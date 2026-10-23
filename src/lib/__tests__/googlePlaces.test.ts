@@ -22,6 +22,14 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+// Sessão do Supabase: o Bearer leva o JWT da sessão do usuário; sem sessão
+// (ou se a leitura falhar), a chave publishable.
+jest.mock('@/lib/supabase', () => ({
+  supabase: { auth: { getSession: jest.fn() } },
+}));
+const MOCK_JWT = 'jwt-da-sessao-do-usuario';
+let getSession: jest.Mock;
+
 // Mock global.fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
@@ -47,6 +55,11 @@ function loadModule() {
   getCache = cacheModule.getCache;
   setCache = cacheModule.setCache;
   logger = require('@/lib/logger').logger;
+  getSession = require('@/lib/supabase').supabase.auth.getSession;
+  getSession.mockResolvedValue({
+    data: { session: { access_token: MOCK_JWT } },
+    error: null,
+  });
 
   const mod = require('../googlePlaces');
   googlePlacesService = mod.googlePlacesService;
@@ -227,7 +240,63 @@ describe('googlePlacesService', () => {
       expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('passes auth headers and body to fetch', async () => {
+    it('sem sessão, cai para a chave publishable e a busca segue funcionando', async () => {
+      getSession.mockResolvedValue({ data: { session: null }, error: null });
+      mockFetchResponse(makeAutocompleteResponse());
+
+      const results =
+        await googlePlacesService.autocompleteAddress('Rua Augusta');
+
+      expect(results).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${MOCK_URL}/functions/v1/google-places-autocomplete`,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${MOCK_KEY}`,
+            apikey: MOCK_KEY,
+          }),
+        }),
+      );
+    });
+
+    it('getSession travado não escapa do timeout: devolve vazio sem chamar fetch', async () => {
+      jest.useFakeTimers();
+      try {
+        getSession.mockReturnValue(new Promise(() => {}));
+
+        const pendente = googlePlacesService.autocompleteAddress('Rua Augusta');
+        await jest.advanceTimersByTimeAsync(10000);
+        const results = await pendente;
+
+        expect(results).toEqual([]);
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(logger.warn).toHaveBeenCalledWith(
+          '[GooglePlaces] Request timeout',
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('se ler a sessão falhar, cai para a chave publishable', async () => {
+      getSession.mockRejectedValue(new Error('storage indisponível'));
+      mockFetchResponse(makeAutocompleteResponse());
+
+      const results =
+        await googlePlacesService.autocompleteAddress('Rua Augusta');
+
+      expect(results).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${MOCK_KEY}`,
+          }),
+        }),
+      );
+    });
+
+    it('passes auth headers and body to fetch (JWT da sessão, não a chave publishable)', async () => {
       mockFetchResponse(makeAutocompleteResponse());
 
       await googlePlacesService.autocompleteAddress(
@@ -240,7 +309,7 @@ describe('googlePlacesService', () => {
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            Authorization: `Bearer ${MOCK_KEY}`,
+            Authorization: `Bearer ${MOCK_JWT}`,
             apikey: MOCK_KEY,
             'Content-Type': 'application/json',
           }),
@@ -298,6 +367,38 @@ describe('googlePlacesService', () => {
   });
 
   describe('getPlaceDetails', () => {
+    it('sem sessão, cai para a chave publishable e devolve o endereço', async () => {
+      getSession.mockResolvedValue({ data: { session: null }, error: null });
+      mockFetchResponse(makePlaceDetailsResponse());
+
+      const result = await googlePlacesService.getPlaceDetails('place_123');
+
+      expect(result).not.toBeNull();
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${MOCK_URL}/functions/v1/google-place-details`,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${MOCK_KEY}`,
+          }),
+        }),
+      );
+    });
+
+    it('envia o JWT da sessão', async () => {
+      mockFetchResponse(makePlaceDetailsResponse());
+
+      await googlePlacesService.getPlaceDetails('place_123');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `${MOCK_URL}/functions/v1/google-place-details`,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: `Bearer ${MOCK_JWT}`,
+          }),
+        }),
+      );
+    });
+
     it('returns geocoded address on success', async () => {
       mockFetchResponse(makePlaceDetailsResponse());
 
