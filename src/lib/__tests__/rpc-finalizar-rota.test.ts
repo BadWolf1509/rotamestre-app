@@ -52,6 +52,18 @@ describe('finalizar_rota: mensagens para o motorista', () => {
     });
     expect(r.title).toMatch(/paradas pendentes/i);
   });
+
+  // A recusa vale para cancelada, pendente, não executada: o texto não pode
+  // afirmar uma causa ("encerrada pelo gestor ou expirou") que talvez não seja.
+  it('"não está em andamento" é neutro quanto à causa', () => {
+    const r = getErrorMessage({
+      message:
+        mensagens.find((m) => m.startsWith('ROTA_NAO_EM_ANDAMENTO')) ?? '',
+    });
+    expect(r.code).toBe('ROUTE_NOT_IN_PROGRESS');
+    expect(r.message).toMatch(/não está mais em andamento/i);
+    expect(r.message).not.toMatch(/gestor|expirou/i);
+  });
 });
 
 describe('finalizar_rota: propriedades do SQL', () => {
@@ -65,12 +77,32 @@ describe('finalizar_rota: propriedades do SQL', () => {
     expect(ramoIdempotente).toBeLessThan(recusaDeStatus);
   });
 
-  it('trava as paradas da rota antes de contar as pendentes', () => {
+  it('trava as paradas da rota (NO KEY UPDATE) antes de contar as pendentes', () => {
     const trava = corpo.search(
-      /FROM\s+public\.paradas[\s\S]{0,120}?FOR\s+UPDATE/,
+      /FROM\s+public\.paradas[\s\S]{0,120}?FOR\s+NO\s+KEY\s+UPDATE/,
     );
     const contagem = corpo.indexOf('count(*)');
     expect(trava).toBeGreaterThan(-1);
     expect(trava).toBeLessThan(contagem);
+  });
+
+  // `inserir_parada` faz INSERT em paradas, que pega FOR KEY SHARE na rota
+  // pela FK. FOR UPDATE conflita com KEY SHARE (deadlock gestor-insere x
+  // motorista-finaliza); FOR NO KEY UPDATE não conflita e basta, porque
+  // nenhuma chave muda.
+  it('nenhuma trava FOR UPDATE simples (só NO KEY UPDATE)', () => {
+    expect(corpo).not.toMatch(/FOR\s+UPDATE/);
+  });
+
+  it('trava só a rota do próprio motorista (dono no WHERE, NO KEY UPDATE)', () => {
+    expect(corpo).toMatch(
+      /FROM\s+public\.rotas\s+r\s+WHERE\s+r\.id\s*=\s*p_rota_id\s+AND\s+r\.motorista_id\s*=\s*auth\.uid\(\)\s+FOR\s+NO\s+KEY\s+UPDATE/,
+    );
+  });
+
+  it('"não existe" e "não é sua" caem no mesmo ramo (NOT FOUND)', () => {
+    expect(corpo).toMatch(
+      /IF\s+NOT\s+FOUND\s+THEN\s+RAISE\s+EXCEPTION\s+'ROTA_NAO_ENCONTRADA/,
+    );
   });
 });

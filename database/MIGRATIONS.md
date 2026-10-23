@@ -1552,10 +1552,11 @@ UPDATE: uma falha deixava a rota em andamento sem rastreamento.
 
 **O que faz.** `finalizar_rota(p_rota_id uuid)`, SECURITY DEFINER,
 `search_path = public`, EXECUTE só para `authenticated` (REVOKE de PUBLIC/anon).
-Confere que quem chama é o motorista da rota e trava a rota (`FOR UPDATE`). Rota
+Trava só a rota do próprio motorista (dono no `WHERE`, `FOR NO KEY UPDATE`):
+"não existe" e "não é sua" caem no mesmo `NOT FOUND` → `ROTA_NAO_ENCONTRADA`. Rota
 já `concluida` do próprio motorista retorna **sem erro** (idempotente: a resposta
 da 1ª chamada pode se perder com sinal ruim e o motorista toca de novo). Fora
-isso, exige `em_andamento`; trava as paradas da rota (`FOR UPDATE`) e só então
+isso, exige `em_andamento`; trava as paradas da rota (`FOR NO KEY UPDATE`) e só então
 conta as reais (`is_checkpoint` verdadeiro ou nulo) `pendente`/`em_andamento`;
 conclui o checkpoint de chegada (maior `ordem` com `is_checkpoint = false`) e a
 rota (`concluida_em = now()`). Cada recusa começa por uma sentinela
@@ -1569,7 +1570,10 @@ chama a RPC e só depois para o rastreamento.
 Ela serializa com reabertura de parada (UPDATE) e com `inserir_parada`, que
 sempre move o checkpoint de chegada antes de inserir; um INSERT direto em
 `paradas` (sem a RPC) ao mesmo tempo ainda passaria — fechar isso exige mexer em
-`inserir_parada`/policy de INSERT, fora desta migration.
+`inserir_parada`/policy de INSERT, fora desta migration. As travas são `FOR NO
+KEY UPDATE`, nunca `FOR UPDATE`: o INSERT de `inserir_parada` pega `FOR KEY SHARE`
+na rota pela FK, e `FOR UPDATE` conflitaria com ele (deadlock gestor-insere x
+motorista-finaliza, apontado pelo `rls-policy-reviewer`); nenhuma chave muda aqui.
 
 **Verificação.** Sonda transacional (desfeita) a rodar antes de aplicar: rota com
 parada pendente → recusa; outro motorista → recusa; `anon` → sem permissão; sem

@@ -147,7 +147,7 @@ const ERROR_PATTERNS: Array<{
     result: {
       title: 'Rota não está em andamento',
       message:
-        'Esta rota foi encerrada pelo gestor ou expirou. Puxe a tela para atualizar.',
+        'Esta rota não está mais em andamento. Puxe a tela para atualizar.',
       type: 'warning',
       code: 'ROUTE_NOT_IN_PROGRESS',
     },

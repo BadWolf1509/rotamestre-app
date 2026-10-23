@@ -10,13 +10,20 @@
 -- em transação (armadilha do PROJECT_CONTEXT).
 --
 -- finalizar_rota(p_rota_id):
---   1. quem chama é o motorista da rota (auth.uid());
---   2. a rota está 'em_andamento' (trava a linha: FOR UPDATE). Se já está
+--   1. quem chama é o motorista da rota: o dono está no WHERE do SELECT que
+--      trava a rota, então só a rota própria é travada, e "não existe" e "não
+--      é sua" caem no mesmo NOT FOUND (ROTA_NAO_ENCONTRADA, sem revelar rota
+--      alheia);
+--   2. a rota está 'em_andamento' (trava a linha: FOR NO KEY UPDATE). Se já está
 --      'concluida', retorna SEM erro: a resposta da 1ª chamada pode se perder
 --      com sinal ruim, e o novo toque não pode virar "erro inesperado";
---   2b. trava as paradas da rota (FOR UPDATE) antes de contar: uma parada
+--   2b. trava as paradas da rota (FOR NO KEY UPDATE) antes de contar: uma parada
 --      reaberta ou inserida (inserir_parada mexe na chegada) ao mesmo tempo
 --      espera esta transação, e a contagem seguinte já a vê;
+--   As travas são FOR NO KEY UPDATE, nunca FOR UPDATE: o INSERT em paradas de
+--   inserir_parada pega FOR KEY SHARE na rota pela FK, e FOR UPDATE conflita
+--   com KEY SHARE (deadlock gestor-insere x motorista-finaliza). NO KEY UPDATE
+--   não conflita com KEY SHARE e basta, porque nenhuma chave muda aqui;
 --   3. nenhuma parada REAL (is_checkpoint verdadeiro ou nulo, a convenção do
 --      app `p.is_checkpoint !== false` e de notify_rota_concluida) está
 --      'pendente' ou 'em_andamento';
@@ -43,7 +50,6 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_motorista_id uuid;
   v_status text;
   v_pendentes integer;
   v_chegada_id uuid;
@@ -54,14 +60,16 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  SELECT r.motorista_id, r.status
-    INTO v_motorista_id, v_status
+  -- O dono no WHERE: só a rota própria é travada, e "não existe" e "não é
+  -- sua" caem no mesmo NOT FOUND (não revela rota alheia).
+  SELECT r.status
+    INTO v_status
     FROM public.rotas r
    WHERE r.id = p_rota_id
-   FOR UPDATE;
+     AND r.motorista_id = auth.uid()
+     FOR NO KEY UPDATE;
 
-  -- Mesma mensagem para "não existe" e "não é sua": não revela rota alheia.
-  IF NOT FOUND OR v_motorista_id IS DISTINCT FROM auth.uid() THEN
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'ROTA_NAO_ENCONTRADA: rota não encontrada para este motorista.'
       USING ERRCODE = '42501';
   END IF;
@@ -79,7 +87,7 @@ BEGIN
   PERFORM 1
      FROM public.paradas p
     WHERE p.rota_id = p_rota_id
-      FOR UPDATE;
+      FOR NO KEY UPDATE;
 
   SELECT count(*)
     INTO v_pendentes
