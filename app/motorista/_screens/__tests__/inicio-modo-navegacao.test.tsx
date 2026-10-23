@@ -152,13 +152,9 @@ jest.mock('@/components/motorista/home/MainCard', () => {
 
 // Stubs sem papel no teste.
 jest.mock('@/components/motorista/home/MiniMap', () => {
-  const { Pressable: P, Text: T } = jest.requireActual('react-native');
+  const { Text: T } = jest.requireActual('react-native');
   return {
-    MiniMap: (props: { onOpenPiP?: () => void }) => (
-      <P onPress={props.onOpenPiP}>
-        <T>abrir-mapa-flutuante</T>
-      </P>
-    ),
+    MiniMap: () => <T>mini-mapa</T>,
   };
 });
 jest.mock('@/components/motorista/home/QuickActions', () => ({
@@ -173,17 +169,6 @@ jest.mock('@/components/motorista/home/StatusSection', () => ({
 jest.mock('@/components/motorista/OptimizationAlert', () => ({
   OptimizationAlert: () => null,
 }));
-jest.mock('@/components/motorista/PictureInPictureMap', () => {
-  const { Pressable: P, Text: T } = jest.requireActual('react-native');
-  return {
-    PictureInPictureMap: (props: { visible: boolean; onExpand: () => void }) =>
-      props.visible ? (
-        <P onPress={props.onExpand}>
-          <T>pip-abrir-navegacao-completa</T>
-        </P>
-      ) : null,
-  };
-});
 jest.mock('@/components/IncidentReportWizard', () => ({
   IncidentReportWizard: () => null,
 }));
@@ -260,14 +245,13 @@ describe('Início do motorista — ações dentro do modo navegação', () => {
 });
 
 /**
- * O "Abrir navegação completa" do mapa flutuante (mini-mapa → "Abrir mapa
- * flutuante" → expandir) é outra porta para o modo navegação. Até 03/10/2026
- * ela ligava o modo SEM consultar o "Navegar com": o motorista que o
- * desligou (a contenção pedida na 1.12.6, cuja chegada concluía a parada sem
- * foto) ainda caía no modo por aqui. A decisão tem de ser a mesma do
- * "Navegar" — e mora num lugar só.
+ * O "Navegar" decide pelo "Navegar com" entre o modo navegação e o app
+ * externo, numa porta só (`handleNavigateToStop`). Até 03/10/2026 o mapa
+ * flutuante (PiP, removido depois) ligava o modo SEM consultar a preferência:
+ * o motorista que a desligou ainda caía no modo por ali. Toda porta nova para
+ * a navegação tem de passar pela mesma função.
  */
-describe('Início do motorista — mapa flutuante respeita o "Navegar com"', () => {
+describe('Início do motorista — "Navegar" respeita o "Navegar com"', () => {
   beforeEach(() => {
     mockAbrirNavegacao.mockClear();
   });
@@ -276,35 +260,11 @@ describe('Início do motorista — mapa flutuante respeita o "Navegar com"', () 
     mockNavegarCom = 'mapa';
   });
 
-  async function abrirNavegacaoCompletaPeloMapaFlutuante(
-    getByText: (t: string) => unknown,
-    findByText: (t: string) => Promise<unknown>,
-  ) {
-    fireEvent.press(getByText('abrir-mapa-flutuante') as never);
-    fireEvent.press(
-      (await findByText('pip-abrir-navegacao-completa')) as never,
-    );
-  }
-
-  it('externo: abre o app externo e NÃO entra no modo navegação', async () => {
-    mockNavegarCom = 'externo';
-    const { getByText, findByText, queryByText } = render(<MotoristaInicio />);
-
-    await abrirNavegacaoCompletaPeloMapaFlutuante(getByText, findByText);
-
-    await waitFor(() => {
-      expect(mockAbrirNavegacao).toHaveBeenCalledWith(
-        expect.objectContaining({ endereco: 'Rua A, 1' }),
-      );
-    });
-    expect(queryByText('modo-navegacao')).toBeNull();
-  });
-
-  it('mapa: entra no modo navegação', async () => {
+  it('mapa pelo botão Navegar: entra no modo navegação', async () => {
     mockNavegarCom = 'mapa';
     const { getByText, findByText } = render(<MotoristaInicio />);
 
-    await abrirNavegacaoCompletaPeloMapaFlutuante(getByText, findByText);
+    fireEvent.press(getByText('navegar'));
 
     expect(await findByText('modo-navegacao')).toBeTruthy();
     expect(mockAbrirNavegacao).not.toHaveBeenCalled();

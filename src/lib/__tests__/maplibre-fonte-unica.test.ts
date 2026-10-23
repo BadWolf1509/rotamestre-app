@@ -35,7 +35,6 @@ const COMPONENTES_NATIVOS = [
   'src/components/MapaMobile.tsx',
   'src/components/motorista/home/MiniMap.tsx',
   'src/components/motorista/NavigationMode.tsx',
-  'src/components/motorista/PictureInPictureMap.tsx',
 ];
 
 const COMPONENTES_WEB = [

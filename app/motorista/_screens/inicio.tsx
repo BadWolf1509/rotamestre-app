@@ -19,7 +19,6 @@ import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
-import { PictureInPictureMap } from '@/components/motorista/PictureInPictureMap';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import {
@@ -645,7 +644,6 @@ function MotoristaInicioContent() {
               expanded={modals.miniMapExpanded}
               onToggleExpand={modals.toggleMiniMap}
               onOpenFullMap={() => router.push('/motorista/mapa')}
-              onOpenPiP={modals.openPiPMap}
               route={route}
               testID="motorista-mini-map"
             />
@@ -687,50 +685,6 @@ function MotoristaInicioContent() {
           rotaId={route?.id}
           motoristaId={userData?.id || ''}
           endereco={currentStop?.endereco}
-        />
-      )}
-
-      {(routeStatus === 'pending' ||
-        routeStatus === 'active' ||
-        routeStatus === 'last-stop') && (
-        <PictureInPictureMap
-          visible={modals.showPiPMap}
-          userLocation={location}
-          destination={(() => {
-            // Usar currentStop se disponível
-            if (currentStop) {
-              return {
-                latitude: currentStop.latitude,
-                longitude: currentStop.longitude,
-                address: currentStop.endereco,
-              };
-            }
-            // Fallback: encontrar primeira parada real (não checkpoint)
-            // is_checkpoint === false significa que É checkpoint (partida/chegada da unidade)
-            const primeiraParadaReal = paradas.find(
-              (p) => p.is_checkpoint !== false,
-            );
-            if (primeiraParadaReal) {
-              return {
-                latitude: primeiraParadaReal.latitude,
-                longitude: primeiraParadaReal.longitude,
-                address: primeiraParadaReal.endereco,
-              };
-            }
-            return null;
-          })()}
-          onClose={modals.closePiPMap}
-          onExpand={() => {
-            modals.closePiPMap();
-            if (routeStatus !== 'pending') {
-              // Mesma decisão do "Navegar": o "Navegar com" escolhe entre
-              // o modo navegação e o app externo. Ligar o modo direto aqui fazia
-              // o motorista que o desligou cair nele mesmo assim.
-              handleNavigateToStop();
-            } else {
-              router.push('/motorista/mapa');
-            }
-          }}
         />
       )}
 

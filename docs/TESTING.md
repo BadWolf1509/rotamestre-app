@@ -9,8 +9,7 @@ Este documento descreve a arquitetura de testes, padrões e convenções utiliza
 (era 312/5729 em 24/07)
 **Threshold de cobertura:** 73% lines (última medição ~74%)
 
-O comando agregado `npm run validate` passou integralmente nesse snapshot. O
-timer de animação de `PictureInPictureMap` foi corrigido e cancelado no cleanup.
+O comando agregado `npm run validate` passou integralmente nesse snapshot.
 
 ### Executando testes
 
