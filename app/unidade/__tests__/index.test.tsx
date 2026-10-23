@@ -138,7 +138,7 @@ const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 // na RPC quando o campo está vazio. sede_endereco null é o cenário "unidade
 // sem sede cadastrada" usado no teste de preservação.
 const UNIDADE_MOCK = {
-  id: 'unidade-1',
+  id: 'unidade-ativa', // a linha é a da loja ATIVA (o que `.eq('id', ativa)` devolve)
   nome: 'Unidade Teste',
   cnpj: '12345678000199',
   telefone: '11999998888',

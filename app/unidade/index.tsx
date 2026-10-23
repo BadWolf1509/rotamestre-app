@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -101,8 +101,13 @@ export default function UnidadeScreen() {
     sedeEndereco.trim() !== (unidade?.sede_endereco ?? '').trim();
   const sedePrecisaConfirmacao = sedeFoiAlterada && !sedeTemCoordenadas;
 
+  // Guarda de sequência: ao trocar de loja com a carga anterior em voo, só
+  // a resposta da carga MAIS RECENTE escreve no formulário.
+  const cargaUnidadeRef = useRef(0);
+
   const loadUnidade = useCallback(async () => {
     const unidadeId = unidadeAtiva;
+    const minhaCarga = ++cargaUnidadeRef.current;
     if (!unidadeId) {
       setUnidade(null);
       setLoading(false);
@@ -117,6 +122,7 @@ export default function UnidadeScreen() {
         .eq('id', unidadeId)
         .single();
 
+      if (minhaCarga !== cargaUnidadeRef.current) return;
       if (error) throw error;
 
       setUnidade(data);
@@ -131,7 +137,7 @@ export default function UnidadeScreen() {
       logger.error('Erro ao carregar unidade', error);
       showToast('Erro ao carregar dados da unidade', 'error', 4000);
     } finally {
-      setLoading(false);
+      if (minhaCarga === cargaUnidadeRef.current) setLoading(false);
     }
   }, [showToast, unidadeAtiva]);
 
@@ -182,11 +188,21 @@ export default function UnidadeScreen() {
       return;
     }
 
+    // O formulário tem de ser o da loja ABERTA: se a troca de loja ainda não
+    // terminou de carregar, salvar gravaria os campos de uma loja na outra.
+    if (!unidadeAtiva || unidade?.id !== unidadeAtiva) {
+      showWarning(
+        'Aguarde',
+        'Os dados da loja aberta ainda estão carregando. Tente de novo em instantes.',
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
       const { error } = await supabase.rpc('atualizar_unidade', {
-        p_unidade_id: unidade!.id,
+        p_unidade_id: unidadeAtiva,
         p_nome: nome.trim(),
         p_telefone: cleanPhone(telefone),
         p_endereco: endereco.trim(),
