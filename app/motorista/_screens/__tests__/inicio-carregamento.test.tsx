@@ -28,7 +28,14 @@ const mockCtx: {
   loading: boolean;
   error: Error | null;
   atualizadoEm: number | null;
-} = { route: null, loading: false, error: null, atualizadoEm: null };
+  pendentes: Set<string>;
+} = {
+  route: null,
+  loading: false,
+  error: null,
+  atualizadoEm: null,
+  pendentes: new Set(),
+};
 
 const mockShowSuccess = jest.fn();
 const mockShowError = jest.fn();
@@ -56,6 +63,7 @@ jest.mock('@/context/RouteStatusContext', () => ({
     loading: mockCtx.loading,
     error: mockCtx.error,
     atualizadoEm: mockCtx.atualizadoEm,
+    paradasComEnvioPendente: mockCtx.pendentes,
     refreshRoute: jest.fn(),
     startRoute: jest.fn(),
     completeStop: jest.fn(),
@@ -224,6 +232,14 @@ describe('Início — carga e conexão', () => {
     mockCtx.loading = false;
     mockCtx.error = null;
     mockCtx.atualizadoEm = null;
+    mockCtx.pendentes = new Set();
+  });
+
+  it('parada registrada sem internet: a Início avisa que ela aguarda envio', () => {
+    mockCtx.route = ROTA;
+    mockCtx.pendentes = new Set(['parada-1']);
+    const { getByTestId } = render(<MotoristaInicio />);
+    expect(getByTestId('aviso-envio-pendente')).toBeTruthy();
   });
 
   it('carregando sem rota mostra skeleton e rótulo neutro, nunca "Sem rota"', () => {

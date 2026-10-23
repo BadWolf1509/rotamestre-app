@@ -1,4 +1,4 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { act, render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -612,6 +612,91 @@ describe('MainCard', () => {
 
     // Deve renderizar o card mas sem conteúdo ativo
     expect(toJSON()).toBeTruthy();
+  });
+
+  // Na Início, Concluir e Pular só existiam no gesto de deslizar o card, e a
+  // dica do gesto some depois das primeiras vezes (useSwipeHint).
+  describe('Concluir e Pular à vista', () => {
+    const parada = {
+      id: 'e',
+      endereco: 'Rua X, 1',
+      ordem: 3,
+      tipo: 'entrega',
+      status: 'em_andamento',
+      latitude: -7.1,
+      longitude: -34.8,
+    };
+    const base = {
+      ...defaultProps,
+      state: 'active' as const,
+      route: { id: 'rota-1', status: 'em_andamento' },
+      paradas: [parada],
+      currentStop: parada,
+    };
+
+    it('botões visíveis chamam concluir e pular, sem depender do gesto', async () => {
+      const onSwipeRight = jest.fn();
+      const onSwipeLeft = jest.fn();
+      const { getByLabelText } = render(
+        <MainCard
+          {...base}
+          onSwipeRight={onSwipeRight}
+          onSwipeLeft={onSwipeLeft}
+        />,
+      );
+
+      await act(async () => {
+        fireEvent.press(getByLabelText('Concluir parada 3'));
+      });
+      expect(onSwipeRight).toHaveBeenCalled();
+      fireEvent.press(getByLabelText('Pular parada 3'));
+      expect(onSwipeLeft).toHaveBeenCalled();
+    });
+
+    it('toque duplo em Concluir não abre o fluxo duas vezes', async () => {
+      let liberar: () => void = () => undefined;
+      const onSwipeRight = jest.fn(
+        () =>
+          new Promise<void>((r) => {
+            liberar = r;
+          }),
+      );
+      const { getByLabelText } = render(
+        <MainCard
+          {...base}
+          onSwipeRight={onSwipeRight}
+          onSwipeLeft={jest.fn()}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      expect(onSwipeRight).toHaveBeenCalledTimes(1);
+      expect(
+        getByLabelText('Concluir parada 3').props.accessibilityState,
+      ).toMatchObject({ disabled: true });
+
+      await act(async () => {
+        liberar();
+      });
+      fireEvent.press(getByLabelText('Concluir parada 3'));
+      expect(onSwipeRight).toHaveBeenCalledTimes(2);
+    });
+
+    it('com fonte 2.0 os rótulos têm teto de escala e a linha quebra', () => {
+      const { getByText, getByTestId } = render(
+        <MainCard {...base} onSwipeRight={jest.fn()} onSwipeLeft={jest.fn()} />,
+      );
+      for (const rotulo of ['Concluir', 'Pular']) {
+        expect(
+          getByText(rotulo).props.maxFontSizeMultiplier,
+        ).toBeLessThanOrEqual(1.3);
+      }
+      expect(
+        StyleSheet.flatten(getByTestId('acoes-parada-atual').props.style)
+          .flexWrap,
+      ).toBe('wrap');
+    });
   });
 
   describe('com a fonte do sistema em 2.0', () => {

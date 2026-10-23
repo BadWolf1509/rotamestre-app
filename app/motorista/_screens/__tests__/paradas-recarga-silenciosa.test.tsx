@@ -39,6 +39,7 @@ let mockRota: { id: string; status: string; unidade_id: string } | null = {
   unidade_id: 'u-1',
 };
 let mockErro: Error | null = null;
+let mockPendentes = new Set<string>();
 
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
@@ -50,6 +51,7 @@ jest.mock('@/context/RouteStatusContext', () => ({
     routeStatus: mockRota ? 'active' : 'no-route',
     refreshRoute: mockRefreshRoute,
     skipStop: (...a: unknown[]) => mockSkipStop(...a),
+    paradasComEnvioPendente: mockPendentes,
   }),
 }));
 
@@ -89,8 +91,10 @@ jest.mock('@/components/motorista/ParadaCard', () => {
       onConcluir: (p: unknown) => void;
       onPular: (p: unknown) => void;
       onReportar: (p: unknown) => void;
+      envioPendente?: boolean;
     }) => (
       <>
+        {props.envioPendente ? <T>{`pendente:${props.parada.id}`}</T> : null}
         <P onPress={() => props.onReportar(props.parada)}>
           <T>{`reportar:${props.parada.id}`}</T>
         </P>
@@ -166,6 +170,14 @@ describe('aba Paradas — recarga silenciosa', () => {
     mockParadasDoContexto = mockParadas;
     mockRota = { id: 'rota-1', status: 'em_andamento', unidade_id: 'u-1' };
     mockErro = null;
+    mockPendentes = new Set();
+  });
+
+  it('parada registrada sem internet chega ao card como envio pendente', () => {
+    mockPendentes = new Set(['p4']);
+    const { getByText, queryByText } = render(<CheckpointsMotorista />);
+    expect(getByText('pendente:p4')).toBeTruthy();
+    expect(queryByText('pendente:p3')).toBeNull();
   });
 
   // Sem sinal ao abrir o app: a aba dizia "Nenhuma rota ativa" ao motorista

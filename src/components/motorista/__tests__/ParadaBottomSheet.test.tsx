@@ -386,6 +386,65 @@ describe('ParadaBottomSheet', () => {
     });
   });
 
+  // A aba Mapa concluía, mas não pulava: o motorista tinha de trocar de aba.
+  describe('Botão Pular', () => {
+    it('parada aberta: Pular chama onSkip e fecha o sheet', () => {
+      const onSkip = jest.fn();
+      const { getByLabelText } = render(
+        <ParadaBottomSheet
+          parada={mockParada}
+          visible={true}
+          onClose={mockOnClose}
+          onMarkComplete={mockOnMarkComplete}
+          onSkip={onSkip}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Pular parada 1'));
+      expect(onSkip).toHaveBeenCalledWith(mockParada);
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('parada concluída: sem Pular', () => {
+      const { queryByLabelText } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, status: 'concluida' }}
+          visible={true}
+          onClose={mockOnClose}
+          onSkip={jest.fn()}
+        />,
+      );
+      expect(queryByLabelText('Pular parada 1')).toBeNull();
+    });
+
+    it('com cinco ações e fonte 2.0, a linha quebra e os rótulos têm teto', () => {
+      const { getByText, getByTestId } = render(
+        <ParadaBottomSheet
+          parada={{ ...mockParada, telefone: '83999990000' }}
+          visible={true}
+          onClose={mockOnClose}
+          onMarkComplete={mockOnMarkComplete}
+          onSkip={jest.fn()}
+          onViewDetails={mockOnViewDetails}
+        />,
+      );
+      expect(getByTestId('acoes-parada-sheet').props.style).toEqual(
+        expect.objectContaining({ flexWrap: 'wrap' }),
+      );
+      for (const rotulo of [
+        'Navegar',
+        'Concluir',
+        'Pular',
+        'Ligar',
+        'Detalhes',
+      ]) {
+        expect(
+          getByText(rotulo).props.maxFontSizeMultiplier,
+        ).toBeLessThanOrEqual(1.3);
+      }
+    });
+  });
+
   describe('Botão Detalhes', () => {
     it('deve mostrar botão detalhes quando callback fornecido', () => {
       const { getByText } = render(

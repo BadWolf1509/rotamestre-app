@@ -354,6 +354,34 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.sm,
     marginTop: theme.spacing.sm,
   },
+  // Concluir / Pular da parada atual: quebram de linha com fonte grande em
+  // vez de cortar o rótulo; 48 dp de alvo de toque.
+  acoesParadaAtual: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+  },
+  botaoAcaoParada: {
+    flexGrow: 1,
+    flexBasis: 120,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+  },
+  botaoAcaoParadaSecundario: {
+    borderWidth: 1,
+  },
+  botaoAcaoParadaTexto: {
+    flexShrink: 1,
+    textAlign: 'center',
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
   swipeHint: {
     flexDirection: 'row',
     alignItems: 'center',

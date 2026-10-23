@@ -5,8 +5,8 @@
  * Used in both 'active' (route in progress) and 'last-stop' (final delivery) states.
  *
  * Features:
- * - Swipe left to skip stop
- * - Swipe right to complete stop
+ * - Botões Concluir e Pular sempre visíveis
+ * - Swipe left to skip stop / swipe right to complete (atalho)
  * - Shows distance/duration to current stop
  * - Displays next stop preview
  * - Expiration warning for time-sensitive deliveries
@@ -18,7 +18,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 
 import { SwipeableRow } from '@/components/SwipeableRow';
@@ -70,6 +70,22 @@ export const MainCardActive = memo(function MainCardActive({
   onPress,
 }: MainCardActiveProps) {
   const { theme } = useUnistyles();
+
+  // Toque duplo nos botões não pode abrir o fluxo (ou o motivo) duas vezes:
+  // a ref barra o segundo toque no mesmo instante; o estado desabilita.
+  const ocupadoRef = useRef(false);
+  const [ocupado, setOcupado] = useState(false);
+  const acionar = async (acao?: () => void | Promise<void>) => {
+    if (!acao || ocupadoRef.current) return;
+    ocupadoRef.current = true;
+    setOcupado(true);
+    try {
+      await acao();
+    } finally {
+      ocupadoRef.current = false;
+      setOcupado(false);
+    }
+  };
 
   // Memoize paradas reais para evitar recálculo a cada render
   const paradasReais = useMemo(() => filterRealStops(paradas), [paradas]);
@@ -257,6 +273,73 @@ export const MainCardActive = memo(function MainCardActive({
                 </Text>
               </>
             )}
+          </View>
+
+          {/* Concluir / Pular à vista. O gesto de deslizar continua como
+              atalho, mas a dica dele some depois das primeiras vezes — e
+              sem ela não havia como achar as ações. "Concluir" abre o
+              StopCompletionFlow (comprovante), via onSwipeRight. */}
+          <View style={styles.acoesParadaAtual} testID="acoes-parada-atual">
+            <TouchableOpacity
+              style={[
+                styles.botaoAcaoParada,
+                { backgroundColor: theme.colors.success },
+              ]}
+              onPress={() => {
+                void acionar(onSwipeRight);
+              }}
+              disabled={ocupado}
+              accessibilityRole="button"
+              accessibilityLabel={`Concluir parada ${currentStop.ordem}`}
+              accessibilityState={{ disabled: ocupado }}
+            >
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={theme.colors.white}
+              />
+              <Text
+                maxFontSizeMultiplier={1.3}
+                style={[
+                  styles.botaoAcaoParadaTexto,
+                  { color: theme.colors.white },
+                ]}
+              >
+                Concluir
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.botaoAcaoParada,
+                styles.botaoAcaoParadaSecundario,
+                {
+                  backgroundColor: theme.colors.warningBg,
+                  borderColor: theme.colors.warning,
+                },
+              ]}
+              onPress={() => {
+                void acionar(onSwipeLeft);
+              }}
+              disabled={ocupado}
+              accessibilityRole="button"
+              accessibilityLabel={`Pular parada ${currentStop.ordem}`}
+              accessibilityState={{ disabled: ocupado }}
+            >
+              <Ionicons
+                name="arrow-forward-circle-outline"
+                size={20}
+                color={theme.colors.warningDark}
+              />
+              <Text
+                maxFontSizeMultiplier={1.3}
+                style={[
+                  styles.botaoAcaoParadaTexto,
+                  { color: theme.colors.warningDark },
+                ]}
+              >
+                Pular
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Indicador de swipe inteligente */}

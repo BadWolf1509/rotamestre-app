@@ -15,6 +15,16 @@ import type { UserProfile } from '../types';
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(),
   requestMediaLibraryPermissionsAsync: jest.fn(),
+  // Consulta antes do pedido (pedirPermissao): "ainda não perguntado", para
+  // os testes abaixo exercitarem o pedido.
+  getCameraPermissionsAsync: jest.fn(async () => ({
+    status: 'undetermined',
+    canAskAgain: true,
+  })),
+  getMediaLibraryPermissionsAsync: jest.fn(async () => ({
+    status: 'undetermined',
+    canAskAgain: true,
+  })),
   launchCameraAsync: jest.fn(),
   launchImageLibraryAsync: jest.fn(),
 }));

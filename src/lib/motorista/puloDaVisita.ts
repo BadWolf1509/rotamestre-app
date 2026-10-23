@@ -21,25 +21,29 @@ export interface FalhaNoPulo {
 export interface ResultadoDoPulo {
   pulados: ParadaData[];
   falha: FalhaNoPulo | null;
+  /** Algum pulo ficou guardado no aparelho, sem rede (fila de ações). */
+  naFila?: true;
 }
 
 export async function pularEmSequencia(
   alvos: ParadaData[],
-  pular: (parada: ParadaData) => Promise<void>,
+  pular: (parada: ParadaData) => Promise<unknown>,
 ): Promise<ResultadoDoPulo> {
   const pulados: ParadaData[] = [];
+  let naFila = false;
   for (let i = 0; i < alvos.length; i++) {
     try {
-      await pular(alvos[i]);
+      if ((await pular(alvos[i])) === 'na_fila') naFila = true;
       pulados.push(alvos[i]);
     } catch (erro: unknown) {
       return {
         pulados,
         falha: { parada: alvos[i], erro, naoTentadas: alvos.slice(i + 1) },
+        ...(naFila ? { naFila: true as const } : {}),
       };
     }
   }
-  return { pulados, falha: null };
+  return { pulados, falha: null, ...(naFila ? { naFila: true as const } : {}) };
 }
 
 function descrever(paradas: ParadaData[]): string {

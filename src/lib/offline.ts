@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
+import { sincronizarFilaAcoesParada } from './motorista/filaAcoesParada';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { uploadELinkFotoParada } from './storage';
 import { supabase } from './supabase';
@@ -253,6 +254,8 @@ export async function queuePhotoUpload(
  * Prevents double uploads when setupOfflineSync fires twice (e.g., rapid connectivity toggles).
  */
 let isProcessingPhotos = false;
+/** Envio de fotos em curso, para quem precisa esperar por ele (ações). */
+let fotosEmCurso: Promise<void> | null = null;
 
 /**
  * Processa uploads de fotos pendentes
@@ -266,6 +269,10 @@ export async function processOfflinePhotos(): Promise<{
   }
 
   isProcessingPhotos = true;
+  let terminarFotos: () => void = () => undefined;
+  fotosEmCurso = new Promise<void>((r) => {
+    terminarFotos = r;
+  });
   try {
     const online = await isOnline();
     if (!online) {
@@ -334,6 +341,8 @@ export async function processOfflinePhotos(): Promise<{
     return { success, failed };
   } finally {
     isProcessingPhotos = false;
+    fotosEmCurso = null;
+    terminarFotos();
   }
 }
 
@@ -633,6 +642,61 @@ export async function getOfflineQueueSize(): Promise<number> {
 export function _resetProcessingLocks(): void {
   isProcessingPhotos = false;
   isProcessingQueue = false;
+  fotosEmCurso = null;
+  envioEmCurso = null;
+  pedirEnvioDeNovo = false;
+}
+
+// ============================================================================
+// ENVIO DO QUE FICOU NO APARELHO (fotos + ações de parada)
+// ============================================================================
+
+let envioEmCurso: Promise<{ fotos: number; acoes: number }> | null = null;
+let pedirEnvioDeNovo = false;
+
+/**
+ * Ponto ÚNICO de envio do que ficou guardado no aparelho: fotos de
+ * comprovante PRIMEIRO, depois as ações de parada (concluir/pular).
+ *
+ * Chamado na volta da rede, ao abrir o app, ao voltar ao primeiro plano, no
+ * puxar para atualizar, depois de cada ação online e antes de finalizar a
+ * rota. A ação pode ter ido para a fila com o NetInfo dizendo "conectado"
+ * (sinal fraco, timeout) — aí não há mudança de rede para disparar o envio, e
+ * por isso os outros gatilhos existem.
+ *
+ * Coalescência: pedidos durante um envio não rodam em paralelo; marcam uma
+ * rodada extra ao final. Se as fotos já estiverem subindo por outro caminho,
+ * espera por elas antes das ações.
+ */
+export function solicitarEnvioFila(): Promise<{
+  fotos: number;
+  acoes: number;
+}> {
+  if (envioEmCurso) {
+    pedirEnvioDeNovo = true;
+    return envioEmCurso;
+  }
+  envioEmCurso = (async () => {
+    let fotos = 0;
+    let acoes = 0;
+    try {
+      do {
+        pedirEnvioDeNovo = false;
+        if (!(await isOnline())) break;
+        if (fotosEmCurso) await fotosEmCurso;
+        if ((await getPendingPhotosCount()) > 0) {
+          fotos += (await processOfflinePhotos()).success;
+        }
+        acoes += (await sincronizarFilaAcoesParada()).enviadas;
+      } while (pedirEnvioDeNovo);
+    } catch (error) {
+      logger.warn('[Offline] Falha ao enviar o que ficou no aparelho', error);
+    } finally {
+      envioEmCurso = null;
+    }
+    return { fotos, acoes };
+  })();
+  return envioEmCurso;
 }
 
 // Variável para controlar se já notificou offline nesta sessão
@@ -652,10 +716,13 @@ export function setupOfflineSync(): () => void {
     if (!userId) return;
     void (async () => {
       await gravarUltimoUsuario(userId);
-      if (evento === 'SIGNED_IN') await adotarFotosSemDono(userId);
-      if (evento === 'SIGNED_IN' && (await getPendingPhotosCount()) > 0) {
-        const r = await processOfflinePhotos();
-        if (r.success > 0) await notifySyncComplete(0, r.success);
+      if (evento !== 'SIGNED_IN') return;
+      // Adoção ANTES do envio: as fotos adotadas entram na contagem de
+      // pendentes e sobem antes das ações de parada (solicitarEnvioFila).
+      await adotarFotosSemDono(userId);
+      const r = await solicitarEnvioFila();
+      if (r.fotos > 0 || r.acoes > 0) {
+        await notifySyncComplete(r.acoes, r.fotos);
       }
     })().catch((error) =>
       logger.warn('[Offline] Falha ao sincronizar fotos no login', error),
@@ -676,14 +743,11 @@ export function setupOfflineSync(): () => void {
         actionsSuccess = result.success;
       }
 
-      // Processar fotos pendentes (separadamente para melhor tracking)
-      const photosCount = await getPendingPhotosCount();
-      let photosSuccess = 0;
-
-      if (photosCount > 0) {
-        const photoResult = await processOfflinePhotos();
-        photosSuccess = photoResult.success;
-      }
+      // Fotos e depois concluir/pular guardados sem rede: o comprovante sobe
+      // antes da ação que o gestor vê (solicitarEnvioFila).
+      const envio = await solicitarEnvioFila();
+      const photosSuccess = envio.fotos;
+      actionsSuccess += envio.acoes;
 
       // Notificar se houve sincronização
       if (actionsSuccess > 0 || photosSuccess > 0) {

@@ -1,33 +1,34 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState, useEffect } from "react";
-import { View, ScrollView, TouchableOpacity, Switch } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useEffect } from 'react';
+import { View, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ThemeSettings } from "@/components/ThemeSettings";
-import { MobileCard, Text } from "@/design-system";
-import { useAlert } from "@/hooks/useAlert";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ThemeSettings } from '@/components/ThemeSettings';
+import { MobileCard, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import {
   getAppVersion,
   getBuildNumber,
   getPlatformName,
-} from "@/lib/appVersion";
-import { StyleSheet, type Theme, useUnistyles } from "@/utils/styles";
+} from '@/lib/appVersion';
+import { chavesParaLimparNoCache } from '@/lib/limpezaDeCache';
+import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 // Storage keys
 const STORAGE_KEYS = {
-  NOTIFICATIONS_ENABLED: "@rotamestre:gestor:notifications_enabled",
-  INCIDENT_ALERTS: "@rotamestre:gestor:incident_alerts",
-  ROUTE_UPDATES: "@rotamestre:gestor:route_updates",
-  DAILY_SUMMARY: "@rotamestre:gestor:daily_summary",
-  DASHBOARD_AUTO_REFRESH: "@rotamestre:gestor:dashboard_auto_refresh",
-  EXPORT_FORMAT: "@rotamestre:gestor:export_format",
+  NOTIFICATIONS_ENABLED: '@rotamestre:gestor:notifications_enabled',
+  INCIDENT_ALERTS: '@rotamestre:gestor:incident_alerts',
+  ROUTE_UPDATES: '@rotamestre:gestor:route_updates',
+  DAILY_SUMMARY: '@rotamestre:gestor:daily_summary',
+  DASHBOARD_AUTO_REFRESH: '@rotamestre:gestor:dashboard_auto_refresh',
+  EXPORT_FORMAT: '@rotamestre:gestor:export_format',
 };
 
-type ExportFormat = "csv";
+type ExportFormat = 'csv';
 
 const EXPORT_OPTIONS: { value: ExportFormat; label: string; icon: string }[] = [
-  { value: "csv", label: "CSV (Excel)", icon: "📊" },
+  { value: 'csv', label: 'CSV (Excel)', icon: '📊' },
 ];
 
 export default function ConfiguracoesGestorScreen() {
@@ -40,7 +41,7 @@ export default function ConfiguracoesGestorScreen() {
   const [routeUpdates, setRouteUpdates] = useState(true);
   const [dailySummary, setDailySummary] = useState(true);
   const [dashboardAutoRefresh, setDashboardAutoRefresh] = useState(true);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>("csv");
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('csv');
   const [loading, setLoading] = useState(true);
   const [cacheSize, setCacheSize] = useState<string | null>(null);
 
@@ -59,12 +60,12 @@ export default function ConfiguracoesGestorScreen() {
           ]);
 
         if (notifications !== null)
-          setNotificationsEnabled(notifications === "true");
-        if (incidents !== null) setIncidentAlerts(incidents === "true");
-        if (routes !== null) setRouteUpdates(routes === "true");
-        if (summary !== null) setDailySummary(summary === "true");
+          setNotificationsEnabled(notifications === 'true');
+        if (incidents !== null) setIncidentAlerts(incidents === 'true');
+        if (routes !== null) setRouteUpdates(routes === 'true');
+        if (summary !== null) setDailySummary(summary === 'true');
         if (autoRefresh !== null)
-          setDashboardAutoRefresh(autoRefresh === "true");
+          setDashboardAutoRefresh(autoRefresh === 'true');
         if (format) setExportFormat(format as ExportFormat);
 
         // Estimate cache size
@@ -136,34 +137,33 @@ export default function ConfiguracoesGestorScreen() {
       setExportFormat(value);
     } catch {
       showError({
-        title: "Erro",
-        message: "Não foi possível salvar a preferência.",
+        title: 'Erro',
+        message: 'Não foi possível salvar a preferência.',
       });
     }
   }
 
   async function handleClearCache() {
     const confirmed = await showConfirm({
-      title: "Limpar Cache",
+      title: 'Limpar Cache',
       message:
-        "Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?",
-      confirmText: "Limpar",
-      cancelText: "Cancelar",
-      type: "danger",
+        'Isso irá remover dados temporários do app. Você precisará fazer login novamente. Deseja continuar?',
+      confirmText: 'Limpar',
+      cancelText: 'Cancelar',
+      type: 'danger',
     });
 
     if (!confirmed) return;
 
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const keysToRemove = keys.filter(
-        (k) => !k.includes("supabase") && !k.includes("auth"),
-      );
+      // Preserva sessão, fila de ações offline e fotos pendentes.
+      const keysToRemove = chavesParaLimparNoCache(keys);
       await Promise.all(keysToRemove.map((k) => AsyncStorage.removeItem(k)));
-      setCacheSize("0 itens");
-      showSuccess("Sucesso", "Cache limpo com sucesso!");
+      setCacheSize('0 itens');
+      showSuccess('Sucesso', 'Cache limpo com sucesso!');
     } catch {
-      showError({ title: "Erro", message: "Não foi possível limpar o cache." });
+      showError({ title: 'Erro', message: 'Não foi possível limpar o cache.' });
     }
   }
 
@@ -197,7 +197,7 @@ export default function ConfiguracoesGestorScreen() {
               onValueChange={toggleNotifications}
               trackColor={{
                 false: theme.colors.gray300,
-                true: theme.colors.primary + "60",
+                true: theme.colors.primary + '60',
               }}
               thumbColor={
                 notificationsEnabled
@@ -219,7 +219,7 @@ export default function ConfiguracoesGestorScreen() {
               onValueChange={toggleIncidentAlerts}
               trackColor={{
                 false: theme.colors.gray300,
-                true: theme.colors.primary + "60",
+                true: theme.colors.primary + '60',
               }}
               thumbColor={
                 incidentAlerts ? theme.colors.primary : theme.colors.gray400
@@ -240,7 +240,7 @@ export default function ConfiguracoesGestorScreen() {
               onValueChange={toggleRouteUpdates}
               trackColor={{
                 false: theme.colors.gray300,
-                true: theme.colors.primary + "60",
+                true: theme.colors.primary + '60',
               }}
               thumbColor={
                 routeUpdates ? theme.colors.primary : theme.colors.gray400
@@ -261,7 +261,7 @@ export default function ConfiguracoesGestorScreen() {
               onValueChange={toggleDailySummary}
               trackColor={{
                 false: theme.colors.gray300,
-                true: theme.colors.primary + "60",
+                true: theme.colors.primary + '60',
               }}
               thumbColor={
                 dailySummary ? theme.colors.primary : theme.colors.gray400
@@ -285,7 +285,7 @@ export default function ConfiguracoesGestorScreen() {
               onValueChange={toggleDashboardAutoRefresh}
               trackColor={{
                 false: theme.colors.gray300,
-                true: theme.colors.primary + "60",
+                true: theme.colors.primary + '60',
               }}
               thumbColor={
                 dashboardAutoRefresh
@@ -343,7 +343,7 @@ export default function ConfiguracoesGestorScreen() {
             <View style={styles.settingInfo}>
               <Text style={styles.settingLabel}>Limpar Cache</Text>
               <Text style={styles.settingSubtext}>
-                Cache atual: {cacheSize || "Calculando..."}
+                Cache atual: {cacheSize || 'Calculando...'}
               </Text>
             </View>
             <Text style={styles.settingAction}>Limpar</Text>
@@ -380,8 +380,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: theme.colors.gray50,
   },
   loadingText: {
@@ -401,8 +401,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing.sm,
   },
   navOption: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: theme.spacing.md,
     backgroundColor: theme.colors.gray50,
     borderRadius: theme.borderRadius.md,
@@ -410,7 +410,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
   },
   navOptionActive: {
-    backgroundColor: theme.colors.primary + "10",
+    backgroundColor: theme.colors.primary + '10',
     borderColor: theme.colors.primary,
   },
   navOptionIcon: {
@@ -432,8 +432,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansBold,
   },
   settingRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
@@ -460,8 +460,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.error,
   },
   aboutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
@@ -479,6 +479,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   footer: {
-    height: theme.spacing["3xl"],
+    height: theme.spacing['3xl'],
   },
 }));

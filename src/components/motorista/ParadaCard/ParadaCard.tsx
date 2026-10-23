@@ -12,7 +12,13 @@ import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './ParadaCard.styles';
 import { getStatusLabel, type ParadaCardProps } from './ParadaCard.types';
-import { PrimaryActions, RetomarButton, SwipeHint } from './ParadaCardActions';
+import {
+  ConcluirPularActions,
+  PrimaryActions,
+  RetomarButton,
+  SeloEnvioPendente,
+  SwipeHint,
+} from './ParadaCardActions';
 import { ParadaCardAddress } from './ParadaCardAddress';
 import { ParadaCardDetails } from './ParadaCardDetails';
 import { ParadaCardHeader } from './ParadaCardHeader';
@@ -31,6 +37,7 @@ export const ParadaCard = memo<ParadaCardProps>(
     retomando = false,
     isProxima = false,
     variant = 'default',
+    envioPendente = false,
   }) => {
     const { theme } = useUnistyles();
     const isSummary = variant === 'summary';
@@ -219,8 +226,22 @@ export const ParadaCard = memo<ParadaCardProps>(
               />
             )}
 
-            {/* Retomar button for skipped cards */}
-            {!isSummary && isPulada && (
+            {/* Concluir/Pular à vista; o gesto continua como atalho */}
+            {canSwipe && (
+              <ConcluirPularActions
+                ordem={parada.ordem}
+                onConcluir={handleConcluir}
+                onPular={handlePular}
+                ocupado={concluindo || pulando}
+              />
+            )}
+
+            {/* Registrada sem internet: ainda não chegou ao banco */}
+            {!isSummary && envioPendente && <SeloEnvioPendente />}
+
+            {/* Retomar button for skipped cards. Com o pulo ainda na fila,
+                retomar agora seria desfeito quando a fila subisse. */}
+            {!isSummary && isPulada && !envioPendente && (
               <RetomarButton onRetomar={handleRetomar} retomando={retomando} />
             )}
 
@@ -241,6 +262,7 @@ export const ParadaCard = memo<ParadaCardProps>(
       prevProps.retomando === nextProps.retomando &&
       prevProps.rotaEmAndamento === nextProps.rotaEmAndamento &&
       prevProps.isProxima === nextProps.isProxima &&
+      prevProps.envioPendente === nextProps.envioPendente &&
       prevProps.variant === nextProps.variant
     );
   },

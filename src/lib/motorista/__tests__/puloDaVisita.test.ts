@@ -20,6 +20,21 @@ describe('pularEmSequencia', () => {
     expect(r).toEqual({ pulados: [entrega, retirada], falha: null });
   });
 
+  it('sem rede: avisa que algum pulo ficou guardado no aparelho', async () => {
+    const pular = jest
+      .fn()
+      .mockResolvedValueOnce('enviada')
+      .mockResolvedValueOnce('na_fila');
+
+    const r = await pularEmSequencia([entrega, retirada], pular);
+
+    expect(r).toEqual({
+      pulados: [entrega, retirada],
+      falha: null,
+      naFila: true,
+    });
+  });
+
   it('para na primeira falha e diz o que foi, o que falhou e o que sobrou', async () => {
     const erro = new Error('rede');
     const pular = jest

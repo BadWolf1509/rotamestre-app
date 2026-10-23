@@ -220,8 +220,9 @@ function IncidentReportWizardComponent({
   }, [currentStep]);
 
   const takePhoto = useCallback(async () => {
-    const permissao = await pedirPermissao(() =>
-      ImagePicker.requestCameraPermissionsAsync(),
+    const permissao = await pedirPermissao(
+      () => ImagePicker.requestCameraPermissionsAsync(),
+      () => ImagePicker.getCameraPermissionsAsync(),
     );
     if (!permissao.concedida) {
       await oferecerSaidaParaConfiguracoes(
@@ -273,8 +274,9 @@ function IncidentReportWizardComponent({
   ]);
 
   const pickImage = useCallback(async () => {
-    const permissao = await pedirPermissao(() =>
-      ImagePicker.requestMediaLibraryPermissionsAsync(),
+    const permissao = await pedirPermissao(
+      () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+      () => ImagePicker.getMediaLibraryPermissionsAsync(),
     );
     if (!permissao.concedida) {
       await oferecerSaidaParaConfiguracoes(

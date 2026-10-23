@@ -220,48 +220,13 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
         )}
       </View>
 
-      {/* Action Buttons */}
+      {/* Action Buttons. Concluir na linha inteira: a 360 dp, três botões
+          lado a lado davam ~60 dp de texto a cada um e, com a fonte do
+          sistema em 2.0, "Concluir" saía cortado. Pular e o app externo
+          dividem a linha de baixo. */}
       <View style={styles.actions}>
         <Animated.View
-          style={{ flex: 1, transform: [{ scale: buttonScaleAnims.skip }] }}
-        >
-          <TouchableOpacity
-            style={[styles.actionButton, styles.skipButton]}
-            onPress={onSkip}
-            onPressIn={() => onAnimateButtonPress('skip', true)}
-            onPressOut={() => onAnimateButtonPress('skip', false)}
-            activeOpacity={1}
-          >
-            <Ionicons
-              name="arrow-forward-circle-outline"
-              size={20}
-              color={theme.colors.warning}
-            />
-            <Text style={styles.skipButtonText} numberOfLines={1}>
-              Pular
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View
-          style={{ flex: 1, transform: [{ scale: buttonScaleAnims.maps }] }}
-        >
-          <TouchableOpacity
-            style={[styles.actionButton, styles.mapsButton]}
-            onPress={onOpenInMaps}
-            onPressIn={() => onAnimateButtonPress('maps', true)}
-            onPressOut={() => onAnimateButtonPress('maps', false)}
-            activeOpacity={1}
-          >
-            <Ionicons name="navigate" size={20} color={theme.colors.white} />
-            <Text style={styles.mapsButtonText} numberOfLines={1}>
-              {rotuloAppExterno}
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View
-          style={{ flex: 1, transform: [{ scale: buttonScaleAnims.complete }] }}
+          style={{ transform: [{ scale: buttonScaleAnims.complete }] }}
         >
           <TouchableOpacity
             style={[styles.actionButton, styles.completeButton]}
@@ -269,17 +234,72 @@ export const NavigationInfoPanel = React.memo(function NavigationInfoPanel({
             onPressIn={() => onAnimateButtonPress('complete', true)}
             onPressOut={() => onAnimateButtonPress('complete', false)}
             activeOpacity={1}
+            accessibilityRole="button"
           >
             <Ionicons
               name="checkmark-circle"
               size={20}
               color={theme.colors.white}
             />
-            <Text style={styles.completeButtonText} numberOfLines={1}>
+            <Text
+              style={styles.completeButtonText}
+              numberOfLines={1}
+              maxFontSizeMultiplier={1.3}
+            >
               Concluir
             </Text>
           </TouchableOpacity>
         </Animated.View>
+
+        <View style={styles.actionsRow} testID="acoes-navegacao-secundarias">
+          <Animated.View
+            style={{ flex: 1, transform: [{ scale: buttonScaleAnims.skip }] }}
+          >
+            <TouchableOpacity
+              style={[styles.actionButton, styles.skipButton]}
+              onPress={onSkip}
+              onPressIn={() => onAnimateButtonPress('skip', true)}
+              onPressOut={() => onAnimateButtonPress('skip', false)}
+              activeOpacity={1}
+              accessibilityRole="button"
+            >
+              <Ionicons
+                name="arrow-forward-circle-outline"
+                size={20}
+                color={theme.colors.warning}
+              />
+              <Text
+                style={styles.skipButtonText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={1.3}
+              >
+                Pular
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            style={{ flex: 1, transform: [{ scale: buttonScaleAnims.maps }] }}
+          >
+            <TouchableOpacity
+              style={[styles.actionButton, styles.mapsButton]}
+              onPress={onOpenInMaps}
+              onPressIn={() => onAnimateButtonPress('maps', true)}
+              onPressOut={() => onAnimateButtonPress('maps', false)}
+              activeOpacity={1}
+              accessibilityRole="button"
+            >
+              <Ionicons name="navigate" size={20} color={theme.colors.white} />
+              <Text
+                style={styles.mapsButtonText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={1.3}
+              >
+                {rotuloAppExterno}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       </View>
     </>
   );
@@ -459,12 +479,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.secondaryDark,
   },
   actions: {
-    flexDirection: 'row',
     gap: theme.spacing.sm,
     paddingTop: theme.spacing.lg,
   },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
   actionButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

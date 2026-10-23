@@ -50,6 +50,7 @@ export default function CheckpointsMotorista() {
     routeStatus,
     refreshRoute,
     skipStop,
+    paradasComEnvioPendente,
   } = useRouteStatus();
 
   // Estados locais de UI apenas
@@ -270,6 +271,7 @@ export default function CheckpointsMotorista() {
         pulando={pulandoParada === item.id}
         retomando={retomandoParada === item.id}
         isProxima={item.id === proximaParadaId}
+        envioPendente={paradasComEnvioPendente?.has(item.id) ?? false}
       />
     ),
     [
@@ -278,6 +280,7 @@ export default function CheckpointsMotorista() {
       retomandoParada,
       route?.status,
       proximaParadaId,
+      paradasComEnvioPendente,
       concluirParada,
       pularParada,
       retomarParada,

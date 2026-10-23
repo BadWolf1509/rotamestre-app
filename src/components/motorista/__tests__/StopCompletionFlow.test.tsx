@@ -475,6 +475,29 @@ describe('StopCompletionFlow', () => {
       });
     });
 
+    it('sem rede (na_fila): o sucesso avisa que a conclusão ficou salva para envio', async () => {
+      Platform.OS = 'android' as typeof Platform.OS;
+      mockCompleteStop.mockResolvedValueOnce('na_fila');
+
+      const { getByTestId, getByText } = render(
+        <StopCompletionFlow {...defaultProps} />,
+      );
+
+      fireEvent.press(getByTestId('simulate-upload-success'));
+      await waitFor(() => {
+        expect(getByText('Concluir')).toBeTruthy();
+      });
+      fireEvent.press(getByText('Concluir'));
+
+      await waitFor(() => {
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalledWith(
+          'Parada salva',
+          expect.stringContaining('quando o sinal voltar'),
+          expect.any(Function),
+        );
+      });
+    });
+
     it('deve chamar onSuccess após conclusão bem-sucedida', async () => {
       Platform.OS = 'web' as typeof Platform.OS;
       const onSuccess = jest.fn();

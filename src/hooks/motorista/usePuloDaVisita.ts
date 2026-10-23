@@ -10,6 +10,7 @@ import { useCallback } from 'react';
 import { SKIP_REASON_LABELS, type MotivoSkip } from '@/constants/skipReasons';
 import type { ParadaData } from '@/context/route-status/types';
 import { getErrorMessage } from '@/lib/errorMapping';
+import { AVISO_ENVIO_PENDENTE } from '@/lib/motorista/filaAcoesParada';
 import {
   avisoDeFalhaNoPulo,
   pularEmSequencia,
@@ -23,7 +24,7 @@ interface Params {
     paradaId: string,
     motivo: MotivoSkip,
     observacoes?: string,
-  ) => Promise<void>;
+  ) => Promise<unknown>;
   showSuccess: (title: string, message: string) => void;
   showError: (errorOrOptions: unknown) => void;
 }
@@ -51,7 +52,10 @@ export function usePuloDaVisita({
       if (!falha) {
         showSuccess(
           alvos.length > 1 ? 'Paradas Puladas' : 'Parada Pulada',
-          SKIP_REASON_LABELS[motivo],
+          resultado.naFila
+            ? `${SKIP_REASON_LABELS[motivo]}
+${AVISO_ENVIO_PENDENTE}`
+            : SKIP_REASON_LABELS[motivo],
         );
       } else if (alvos.length > 1) {
         // Com vários serviços, o erro genérico não diz o que já foi pulado.

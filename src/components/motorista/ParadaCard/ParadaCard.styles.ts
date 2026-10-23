@@ -296,6 +296,74 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     textShadow: textShadow(0, 1, 2, theme.colors.black, 0.3),
   },
 
+  // Concluir / Pular visíveis (o gesto continua como atalho). A linha quebra
+  // com fonte grande em vez de cortar o rótulo; 48 dp de alvo de toque.
+  acoesConcluirPular: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
+  },
+  botaoConcluir: {
+    flexGrow: 2,
+    flexBasis: 140,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.success,
+  },
+  botaoConcluirTexto: {
+    flexShrink: 1,
+    textAlign: 'center',
+    color: theme.colors.white,
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  botaoPular: {
+    flexGrow: 1,
+    flexBasis: 100,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.warningBg,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
+  botaoPularTexto: {
+    flexShrink: 1,
+    textAlign: 'center',
+    color: theme.colors.warningDark,
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  seloEnvioPendente: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.infoBg,
+  },
+  seloEnvioPendenteTexto: {
+    color: theme.colors.info,
+    fontSize: theme.typography.fontSize.xs,
+    fontFamily: theme.typography.fontSansSemiBold,
+  },
+  botaoDesabilitado: {
+    opacity: 0.6,
+  },
+
   // Swipe hint
   swipeHint: {
     flexDirection: 'row',

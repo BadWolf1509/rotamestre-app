@@ -1,6 +1,14 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { render, waitFor, act, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { Text, Pressable } from 'react-native';
+import { AppState, Text, Pressable } from 'react-native';
+
+import {
+  _resetFilaAcoesParada,
+  criarAcaoParada,
+  enfileirarAcaoParada,
+} from '@/lib/motorista/filaAcoesParada';
 
 import {
   RouteStatusProvider,
@@ -77,7 +85,29 @@ jest.mock('@/lib/supabase', () => {
         if (tableName === 'rotas') {
           return Promise.resolve({ data: mockRotasConcluidas, error: null });
         }
+        // Leitura da parada pela fila de ações (`portaParadasSupabase`).
+        if (tableName === 'paradas' && _currentFilter?.column === 'id') {
+          const parada = (mockParadasData ?? []).find(
+            (p) => p.id === _currentFilter?.value,
+          );
+          const rota = (mockRotasData ?? [])[0];
+          return Promise.resolve({
+            data: parada
+              ? {
+                  status: parada.status,
+                  rota_id: rota?.id ?? 'rota-1',
+                  rotas: rota
+                    ? { status: rota.status, motorista_id: 'motorista-1' }
+                    : null,
+                }
+              : null,
+            error: null,
+          });
+        }
         return Promise.resolve({ data: null, error: null });
+      }),
+      returns: jest.fn(function (this: unknown) {
+        return this;
       }),
       update: jest.fn((data: any) => {
         updateData = data;
@@ -88,7 +118,24 @@ jest.mock('@/lib/supabase', () => {
               data: updateData,
               filter: { column, value },
             });
-            return Promise.resolve({ data: null, error: mockUpdateError });
+            // O "banco" passa a refletir o UPDATE (a próxima leitura vê).
+            if (tableName === 'paradas' && !mockUpdateError) {
+              const alvo = (mockParadasData ?? []).find((p) => p.id === value);
+              if (alvo && updateData.status) alvo.status = updateData.status;
+            }
+            const resposta = { data: null, error: mockUpdateError };
+            return {
+              then: (resolve: any, reject: any) =>
+                Promise.resolve(resposta).then(resolve, reject),
+              eq: () => Promise.resolve(resposta),
+              in: () => ({
+                select: () =>
+                  Promise.resolve({
+                    data: mockUpdateError ? null : [{ id: value }],
+                    error: mockUpdateError,
+                  }),
+              }),
+            };
           }),
         };
       }),
@@ -130,6 +177,12 @@ jest.mock('@/lib/supabase', () => {
       }),
       channel: mockChannel,
       removeChannel: jest.fn(),
+      // A fila de ações só envia com a sessão do dono.
+      auth: {
+        getSession: jest.fn(async () => ({
+          data: { session: { user: { id: 'motorista-1' } } },
+        })),
+      },
       realtime: {
         setAuth: jest.fn(),
       },
@@ -1246,6 +1299,181 @@ describe('RouteStatusContext', () => {
   });
 });
 
+describe('RouteStatusContext com ações na fila offline', () => {
+  const memoria = new Map<string, string>();
+
+  function EnvioPendente() {
+    const { paradasComEnvioPendente, progress } = useRouteStatus();
+    return (
+      <>
+        <Text testID="pendentes">
+          {[...(paradasComEnvioPendente ?? [])].join(',') || 'nenhuma'}
+        </Text>
+        <Text testID="concluidas">{progress.completed}</Text>
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    memoria.clear();
+    _resetFilaAcoesParada();
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(
+      async (k: string) => memoria.get(k) ?? null,
+    );
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(
+      async (k: string, v: string) => {
+        memoria.set(k, v);
+      },
+    );
+    mockRotasData = [createMockRoute({ status: 'em_andamento' })];
+    mockParadasData = [
+      createMockParada({ id: 'parada-1', ordem: 1, status: 'em_andamento' }),
+      createMockParada({ id: 'parada-2', ordem: 2, status: 'pendente' }),
+    ];
+    mockUpdateCalls.length = 0;
+  });
+
+  afterAll(() => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(() =>
+      Promise.resolve(null),
+    );
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(() =>
+      Promise.resolve(null),
+    );
+  });
+
+  async function enfileirarConclusaoDaParada1() {
+    await enfileirarAcaoParada(
+      criarAcaoParada({
+        tipo: 'concluir',
+        paradaId: 'parada-1',
+        rotaId: 'rota-1',
+        motoristaId: 'motorista-1',
+        em: '2026-10-23T12:00:00.000Z',
+      }),
+    );
+  }
+
+  it('sem rede: a parada guardada aparece concluída e marcada como envio pendente', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+    await enfileirarConclusaoDaParada1();
+
+    const { getByTestId } = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('parada-1');
+    });
+    expect(getByTestId('concluidas').props.children).toBe(1);
+    expect(mockUpdateCalls).toHaveLength(0);
+  });
+
+  // Ação que foi para a fila com o NetInfo "conectado" (timeout em sinal
+  // fraco) não tem mudança de rede para dispará-la: estes gatilhos cobrem.
+  function ficarOffline() {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+  }
+  function ficarOnline() {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+  }
+  const enviouParada1 = () =>
+    mockUpdateCalls.some(
+      (c) => c.filter.value === 'parada-1' && c.data.status === 'concluida',
+    );
+
+  it('voltar ao primeiro plano envia a fila', async () => {
+    // Embrulha o addEventListener de verdade (sem trocar o retorno), só para
+    // poder disparar o 'active' depois.
+    const ouvintes: ((estado: string) => void)[] = [];
+    const original = AppState.addEventListener;
+    AppState.addEventListener = ((tipo: 'change', fn: (e: string) => void) => {
+      ouvintes.push(fn);
+      return original.call(AppState, tipo, fn as never);
+    }) as typeof AppState.addEventListener;
+    ficarOffline();
+    await enfileirarConclusaoDaParada1();
+    const { getByTestId, unmount } = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('parada-1');
+    });
+    expect(enviouParada1()).toBe(false);
+
+    ficarOnline();
+    await act(async () => {
+      ouvintes.forEach((fn) => fn('active'));
+    });
+
+    await waitFor(() => expect(enviouParada1()).toBe(true));
+    unmount();
+    AppState.addEventListener = original;
+  });
+
+  it('puxar para atualizar envia a fila', async () => {
+    ficarOffline();
+    await enfileirarConclusaoDaParada1();
+    let atualizar: () => Promise<void> = async () => undefined;
+    function Captura() {
+      atualizar = useRouteStatus().refreshRoute;
+      return null;
+    }
+    render(
+      <RouteStatusProvider>
+        <Captura />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => expect(mockRotasData).toBeTruthy());
+
+    ficarOnline();
+    await act(async () => {
+      await atualizar();
+    });
+
+    await waitFor(() => expect(enviouParada1()).toBe(true));
+  });
+
+  it('com rede ao abrir: envia a fila para o banco e tira o selo', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+    await enfileirarConclusaoDaParada1();
+
+    const { getByTestId } = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        mockUpdateCalls.find(
+          (c) => c.filter.value === 'parada-1' && c.data.status === 'concluida',
+        ),
+      ).toBeDefined();
+    });
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('nenhuma');
+    });
+  });
+});
+
 describe('RouteStatusContext actions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -1510,7 +1738,15 @@ describe('RouteStatusContext actions', () => {
         (c) => c.table === 'paradas' && c.data.status === 'concluida',
       );
       expect(paradaUpdate).toBeDefined();
-      expect(paradaUpdate?.data.foto_url).toBe('https://foto.url/test.jpg');
+      expect(paradaUpdate?.filter.value).toBe('parada-1');
+      // A URL legada vai num UPDATE próprio: a conclusão passa pela fila de
+      // ações, que só grava status/horário.
+      const fotoUpdate = mockUpdateCalls.find(
+        (c) => c.table === 'paradas' && c.data.foto_url,
+      );
+      expect(fotoUpdate?.data).toEqual({
+        foto_url: 'https://foto.url/test.jpg',
+      });
     });
 
     it('deve marcar proxima parada como em_andamento', async () => {
