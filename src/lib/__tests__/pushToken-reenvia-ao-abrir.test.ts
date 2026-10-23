@@ -373,3 +373,93 @@ describe('sair da conta no meio do reenvio', () => {
     expect(mockRpc).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('voo único: quem pede permissão não se junta a quem só consulta', () => {
+  it('reenvio em voo + login com permissão indefinida: o diálogo aparece uma vez', async () => {
+    const consulta = adiavel<{ status: string }>();
+    getPermissionsAsync
+      .mockReturnValueOnce(consulta.promessa)
+      .mockResolvedValue({ status: 'undetermined' });
+    requestPermissionsAsync.mockResolvedValue({ status: 'granted' });
+
+    const reenvio = atualizarRegistroDePush({ forcar: true });
+    await drenar();
+    const login = registerPushToken('A');
+    consulta.resolver({ status: 'undetermined' });
+
+    await expect(reenvio).resolves.toBe(false);
+    await expect(login).resolves.toBe(true);
+    expect(requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('dois logins esperando o mesmo reenvio dividem o voo seguinte', async () => {
+    const consulta = adiavel<{ status: string }>();
+    getPermissionsAsync
+      .mockReturnValueOnce(consulta.promessa)
+      .mockResolvedValue({ status: 'granted' });
+
+    const reenvio = atualizarRegistroDePush({ forcar: true });
+    await drenar();
+    const l1 = registerPushToken('A');
+    const l2 = registerPushToken('A');
+    consulta.resolver({ status: 'undetermined' });
+
+    await Promise.all([reenvio, l1, l2]);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('o reenvio se junta a um voo que já pede permissão', async () => {
+    const rpc = adiavel<{ data: null; error: null }>();
+    mockRpc.mockReturnValue(rpc.promessa);
+
+    const login = registerPushToken('A');
+    await drenar();
+    const reenvio = atualizarRegistroDePush({ forcar: false });
+    await drenar();
+    rpc.resolver({ data: null, error: null });
+
+    await expect(Promise.all([login, reenvio])).resolves.toEqual([true, true]);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('voo único: contas diferentes', () => {
+  it('A em voo, depois B: B não recebe o resultado de A e o fim de A não apaga o voo de B', async () => {
+    const rpcA = adiavel<{ data: null; error: null }>();
+    const rpcB = adiavel<{ data: null; error: null }>();
+    mockRpc
+      .mockReturnValueOnce(rpcA.promessa)
+      .mockReturnValueOnce(rpcB.promessa);
+
+    const a = registerPushToken('A');
+    await drenar();
+    sessaoDe('B');
+    const b = registerPushToken('B');
+    await drenar();
+
+    // A termina primeiro, mas a sessão já é de B: descarta.
+    rpcA.resolver({ data: null, error: null });
+    await expect(a).resolves.toBe(false);
+
+    // O voo de B continua registrado: outra chamada de B se junta a ele.
+    const b2 = registerPushToken('B');
+    await drenar();
+    rpcB.resolver({ data: null, error: null });
+
+    await expect(Promise.all([b, b2])).resolves.toEqual([true, true]);
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('recuo ativo não impede o registro do login de uma conta nova', async () => {
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    getExpoPushTokenAsync.mockRejectedValueOnce(
+      new Error('Network request failed'),
+    );
+    await atualizarRegistroDePush({ forcar: true }); // falha: arma o recuo
+
+    sessaoDe('B');
+    await expect(registerPushToken('B')).resolves.toBe(true);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+});

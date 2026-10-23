@@ -403,7 +403,12 @@ let recuoDePushAte = 0;
 // Sobe a cada logout: uma tentativa que começou antes dele se descarta, sem
 // gravar estado local nem contar como enviada.
 let geracaoDeSessao = 0;
-let registroEmVoo: { userId: string; promessa: Promise<boolean> } | null = null;
+let registroEmVoo: {
+  userId: string;
+  /** O voo pode abrir o diálogo de permissão (login), ou só consulta (reenvio). */
+  pede: boolean;
+  promessa: Promise<boolean>;
+} | null = null;
 
 /** Só para testes: esquece o controle de reenvio, como num processo novo. */
 export function reiniciarControleDeReenvioDePush(): void {
@@ -422,17 +427,31 @@ async function aindaVale(userId: string, geracao: number): Promise<boolean> {
   return geracao === geracaoDeSessao && data?.session?.user?.id === userId;
 }
 
-/** Chamadas simultâneas para a mesma conta dividem uma só viagem ao banco. */
-function emUnicoVoo(
+/**
+ * Chamadas simultâneas para a mesma conta dividem uma só viagem ao banco —
+ * desde que o voo em curso faça pelo menos o que a nova chamada precisa. Um
+ * reenvio (só consulta a permissão) em voo NÃO atende o login (que pode ter de
+ * pedi-la): o login espera o voo acabar e inicia o seu. Escolhido em vez de
+ * pôr `pedir` na chave, que deixaria dois voos paralelos para a mesma conta
+ * (RPC duplicada e gravações do estado local disputando).
+ */
+async function emUnicoVoo(
   userId: string,
+  pedirPermissaoAoUsuario: boolean,
   executar: (geracao: number) => Promise<boolean>,
 ): Promise<boolean> {
-  if (registroEmVoo?.userId === userId) return registroEmVoo.promessa;
+  const atual = registroEmVoo;
+  if (atual?.userId === userId) {
+    if (atual.pede || !pedirPermissaoAoUsuario) return atual.promessa;
+    await atual.promessa;
+    // Quem acordou junto se junta ao voo que o primeiro iniciou.
+    return emUnicoVoo(userId, pedirPermissaoAoUsuario, executar);
+  }
 
   const promessa: Promise<boolean> = executar(geracaoDeSessao).finally(() => {
     if (registroEmVoo?.promessa === promessa) registroEmVoo = null;
   });
-  registroEmVoo = { userId, promessa };
+  registroEmVoo = { userId, pede: pedirPermissaoAoUsuario, promessa };
   return promessa;
 }
 
@@ -527,7 +546,7 @@ export async function atualizarRegistroDePush(
       }
     }
 
-    const enviado = await emUnicoVoo(userId, (g) =>
+    const enviado = await emUnicoVoo(userId, false, (g) =>
       registrarNoBanco(userId, false, g),
     );
     if (enviado) {
@@ -549,7 +568,7 @@ export async function atualizarRegistroDePush(
 export async function registerPushToken(userId: string): Promise<boolean> {
   if (Platform.OS === 'web') return false;
 
-  return emUnicoVoo(userId, (g) => registrarNoBanco(userId, true, g));
+  return emUnicoVoo(userId, true, (g) => registrarNoBanco(userId, true, g));
 }
 
 /**
