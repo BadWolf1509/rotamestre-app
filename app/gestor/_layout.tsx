@@ -4,6 +4,7 @@ import { ColorValue, Pressable, View } from 'react-native';
 
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -90,6 +91,13 @@ function GestorStack() {
         },
         animation: 'slide_from_right',
         headerLeft: ({ tintColor }) => renderMenuButton(tintColor),
+        // O sino só existia no DesktopPageLayout: abaixo de 1024px o gestor
+        // não tinha como ver notificação nenhuma.
+        headerRight: () => (
+          <View style={{ paddingRight: 8, paddingVertical: 4 }}>
+            <NotificationBell variant="mobile" />
+          </View>
+        ),
       }}
     >
       <Stack.Screen

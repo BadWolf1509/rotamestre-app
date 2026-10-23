@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { View, TouchableOpacity, RefreshControl } from 'react-native';
 
 import { AnimatedListItem } from '@/components/AnimatedListItem';
+import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -46,6 +47,8 @@ export function DashboardDesktop({
   rotas,
   loading,
   refreshing,
+  erroCarga,
+  dadosDe,
   onRefresh,
   userData, // Receber userData como prop ao invés de usar useUser
   filters,
@@ -189,6 +192,14 @@ export function DashboardDesktop({
         }}
       >
         <View style={styles.content}>
+          {erroCarga ? (
+            <AvisoErroCarga
+              mensagem={erroCarga}
+              dadosDe={dadosDe}
+              onTentarNovamente={onRefresh}
+            />
+          ) : null}
+
           <View style={styles.statsRow} testID="gestor-dashboard-stats">
             <AnimatedListItem index={0} style={styles.statCard}>
               <StatsCard
