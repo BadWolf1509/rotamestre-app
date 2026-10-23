@@ -737,3 +737,87 @@ describe('Permissão de localização ao abrir a navegação', () => {
     );
   });
 });
+
+/**
+ * Troca de parada não reinicia o serviço de localização.
+ *
+ * POR QUE EXISTE. O efeito que liga a navegação dependia do `startNavigation`,
+ * que dependia dos OBJETOS das paradas: cada recarga da rota (realtime,
+ * polling) e cada parada concluída paravam e religavam o serviço em primeiro
+ * plano — e o `startTracking` ainda pedia permissão, com o motorista dirigindo.
+ */
+describe('Serviço de localização ao trocar de parada', () => {
+  const LocationTrackingService = jest.requireMock(
+    '@/services/locationTracking',
+  ).default;
+
+  const parada = (id: string, status = 'pendente') => ({
+    id,
+    endereco: `Rua ${id}`,
+    latitude: -23.56,
+    longitude: -46.64,
+    ordem: 1,
+    status,
+    tipo: 'entrega',
+  });
+
+  const base = {
+    nextStop: null,
+    paradas: [],
+    rotaId: 'rota-1',
+    onComplete: jest.fn(),
+    onSkip: jest.fn(),
+    onExit: jest.fn(),
+  };
+
+  beforeEach(() => {
+    LocationTrackingService.startTracking.mockClear();
+    LocationTrackingService.stopTracking.mockClear();
+  });
+
+  it('recarga com a MESMA parada (objeto novo) não reinicia nada', async () => {
+    const { rerender, findByTestId } = render(
+      <NavigationMode {...base} currentStop={parada('p1')} />,
+    );
+    await findByTestId('map-view');
+    expect(LocationTrackingService.startTracking).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <NavigationMode {...base} currentStop={parada('p1', 'em_andamento')} />,
+    );
+    await act(async () => {});
+
+    expect(LocationTrackingService.startTracking).toHaveBeenCalledTimes(1);
+    expect(LocationTrackingService.stopTracking).not.toHaveBeenCalled();
+  });
+
+  it('parada nova troca o alvo sem parar o serviço', async () => {
+    const { rerender, findByTestId } = render(
+      <NavigationMode {...base} currentStop={parada('p1')} />,
+    );
+    await findByTestId('map-view');
+
+    rerender(<NavigationMode {...base} currentStop={parada('p2')} />);
+    await waitFor(() =>
+      expect(LocationTrackingService.startTracking).toHaveBeenCalledTimes(2),
+    );
+
+    expect(LocationTrackingService.startTracking).toHaveBeenLastCalledWith(
+      'rota-1',
+      'p2',
+      undefined,
+    );
+    expect(LocationTrackingService.stopTracking).not.toHaveBeenCalled();
+  });
+
+  it('sair da navegação para o serviço', async () => {
+    const { unmount, findByTestId } = render(
+      <NavigationMode {...base} currentStop={parada('p1')} />,
+    );
+    await findByTestId('map-view');
+
+    unmount();
+
+    expect(LocationTrackingService.stopTracking).toHaveBeenCalledTimes(1);
+  });
+});

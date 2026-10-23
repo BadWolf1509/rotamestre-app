@@ -515,4 +515,47 @@ describe('useNavigationModeLogic', () => {
       expect(result.current.isNearDestination).toBe(false);
     });
   });
+
+  // A recarga da rota entrega objetos novos para a mesma parada. Se o
+  // `startNavigation` mudasse de identidade, o efeito do NavigationMode
+  // pararia e reiniciaria o serviço de localização a cada recarga.
+  describe('identidade do startNavigation', () => {
+    it('não muda quando a parada atual vem como objeto novo com o mesmo id', () => {
+      const { result, rerender } = renderHook(
+        (props: { stop: typeof mockCurrentStop }) =>
+          useNavigationModeLogic({
+            currentStop: props.stop,
+            nextStop: { ...mockParadaBase, id: 'parada-2' },
+            paradas: mockParadas,
+            rotaId: 'rota-123',
+          }),
+        { initialProps: { stop: { ...mockCurrentStop } } },
+      );
+      const antes = result.current.startNavigation;
+
+      rerender({
+        stop: { ...mockCurrentStop, status: 'em_andamento' as never },
+      });
+
+      expect(result.current.startNavigation).toBe(antes);
+    });
+
+    it('muda quando a parada atual troca de id', () => {
+      const { result, rerender } = renderHook(
+        (props: { stop: typeof mockCurrentStop }) =>
+          useNavigationModeLogic({
+            currentStop: props.stop,
+            nextStop: null,
+            paradas: mockParadas,
+            rotaId: 'rota-123',
+          }),
+        { initialProps: { stop: { ...mockCurrentStop } } },
+      );
+      const antes = result.current.startNavigation;
+
+      rerender({ stop: { ...mockCurrentStop, id: 'parada-2' } });
+
+      expect(result.current.startNavigation).not.toBe(antes);
+    });
+  });
 });

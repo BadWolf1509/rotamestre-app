@@ -171,18 +171,22 @@ export function useNavigationModeLogic({
   }, []);
 
   /**
-   * Start location tracking service
+   * Liga o serviço de localização (ou só troca o alvo, se já ligado).
+   * Depende dos IDS, não dos objetos: a recarga da rota entrega objetos novos
+   * para a mesma parada, e a identidade nova reiniciava o serviço.
    */
+  const currentStopId = currentStop?.id;
+  const nextStopId = nextStop?.id;
   const startNavigation = useCallback(async () => {
-    if (!currentStop || !rotaId) return;
+    if (!currentStopId || !rotaId) return;
 
     const tracking = await LocationTrackingService.startTracking(
       rotaId,
-      currentStop.id,
-      nextStop?.id,
+      currentStopId,
+      nextStopId,
     );
     setIsTracking(tracking);
-  }, [currentStop, nextStop, rotaId]);
+  }, [currentStopId, nextStopId, rotaId]);
 
   /**
    * Stop location tracking service
