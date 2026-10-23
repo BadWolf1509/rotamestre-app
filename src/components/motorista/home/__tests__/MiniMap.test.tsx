@@ -627,6 +627,62 @@ describe('MiniMap', () => {
     it('com "reduzir movimento" ligado, não há pulso', async () => {
       expect(await comPulso(true)).not.toHaveBeenCalled();
     });
+
+    const comOuvinte = () => {
+      let ouvinte: ((valor: boolean) => void) | undefined;
+      const remove = jest.fn();
+      jest
+        .spyOn(AccessibilityInfo, 'addEventListener')
+        .mockImplementation((evento, handler) => {
+          if (evento === 'reduceMotionChanged') {
+            ouvinte = handler as (valor: boolean) => void;
+          }
+          return { remove } as never;
+        });
+      return { avisar: (valor: boolean) => ouvinte?.(valor), remove };
+    };
+
+    it('ligar a opção depois de montar para o pulso', async () => {
+      const { avisar } = comOuvinte();
+      const stop = jest.fn();
+      jest
+        .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+        .mockResolvedValue(false);
+      const start = jest.fn();
+      jest
+        .spyOn(Animated, 'loop')
+        .mockReturnValue({ start, stop, reset: jest.fn() });
+
+      render(
+        <MiniMap
+          {...defaultProps}
+          userLocation={{ latitude: -23.55, longitude: -46.63 }}
+        />,
+      );
+      await act(async () => {});
+      expect(start).toHaveBeenCalledTimes(1);
+      expect(stop).not.toHaveBeenCalled();
+
+      act(() => avisar(true));
+
+      expect(stop).toHaveBeenCalledTimes(1);
+      expect(start).toHaveBeenCalledTimes(1);
+    });
+
+    it('remove o ouvinte de "reduzir movimento" ao desmontar', async () => {
+      const { remove } = comOuvinte();
+      jest
+        .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+        .mockResolvedValue(false);
+
+      const { unmount } = render(<MiniMap {...defaultProps} />);
+      await act(async () => {});
+      expect(remove).not.toHaveBeenCalled();
+
+      unmount();
+
+      expect(remove).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Map properties', () => {

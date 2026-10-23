@@ -44,14 +44,15 @@ test.describe('Motorista Route Execution E2E Tests', () => {
         /Bom dia|Boa tarde|Boa noite/i,
       );
 
-      // O rodapé do mini-mapa resume a rota ("1 restantes • 5,7 km total").
-      // A distância em pt-BR é afirmada de forma ESTRITA na tabela da Gestão de
-      // Rotas; aqui não dá, porque há um ramo de fallback que arredonda para
-      // inteiro e sai sem vírgula (`MiniMap.tsx:482`).
+      // O chip do mini-mapa resume a rota: "1 parada restante • 5,7 km no
+      // total" ou "N paradas restantes • ...". O texto vem de `textoDoChip`
+      // (`miniMapCompartilhado.ts`), e a distância passa sempre por
+      // `formatarDecimal` (uma casa, vírgula). A parte da distância só aparece
+      // quando a rota tem distância; a do motorista de teste tem.
       const miniMapa = page.getByTestId('motorista-mini-map');
       await expect(miniMapa).toBeVisible({ timeout: 20000 });
-      await expect(miniMapa).toHaveText(/restantes/i);
-      await expect(miniMapa).toHaveText(/km total/i);
+      await expect(miniMapa).toHaveText(/parada(s)? restante/i);
+      await expect(miniMapa).toHaveText(/\d+(,\d+)? km no total/i);
     });
 
     test('should show route status indicators', async ({ page }) => {

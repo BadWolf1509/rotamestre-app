@@ -51,6 +51,7 @@ jest.mock('maplibre-gl', () => {
         mockMapa.handlers.set(evento, handler);
       }),
       remove: jest.fn(),
+      resize: jest.fn(),
       fitBounds: jest.fn(),
       setCenter: jest.fn(),
       setZoom: jest.fn(),
@@ -177,6 +178,23 @@ describe('MiniMap.web', () => {
       ).toBeGreaterThan(camera);
     });
 
+    it('ao expandir, redimensiona o mapa antes de enquadrar', async () => {
+      // Sem resize, o fitBounds usa a altura antiga do canvas e a rota fica
+      // enquadrada na metade de cima do mapa expandido.
+      const { rerender } = await renderizarCarregado({ expanded: false });
+      mapa().resize.mockClear();
+      mapa().fitBounds.mockClear();
+
+      rerender(elemento({ expanded: true }));
+      await act(async () => {});
+
+      expect(mapa().resize).toHaveBeenCalled();
+      expect(mapa().fitBounds).toHaveBeenCalled();
+      expect(mapa().resize.mock.invocationCallOrder[0]).toBeLessThan(
+        mapa().fitBounds.mock.invocationCallOrder[0],
+      );
+    });
+
     it('remove o mapa ao desmontar', async () => {
       const { unmount } = await renderizarCarregado();
       unmount();
@@ -201,14 +219,44 @@ describe('MiniMap.web', () => {
       expect(aviso).toHaveBeenCalled();
     });
 
-    it('erro antes do load (estilo, worker) mostra o fallback', async () => {
-      const { getByText } = await renderizar();
+    it.each([
+      ['tile', { sourceId: 'openmaptiles', tile: {}, error: new Error('404') }],
+      ['fonte sem tile', { sourceId: 'openmaptiles', error: new Error('x') }],
+      ['sprite', { error: new Error('Could not load sprite.json') }],
+      ['glifo', { error: new Error('glyphs 0-255.pbf failed') }],
+      ['imagem', { error: new Error('Could not load image') }],
+    ])(
+      'erro de %s antes do load não derruba o mapa, só avisa',
+      async (_tipo, evento) => {
+        const aviso = jest.spyOn(logger, 'warn');
+        const { queryByText, queryByTestId } = await renderizar({
+          testID: 'mini',
+        });
+
+        act(() => {
+          mockMapa.handlers.get('error')?.(evento);
+        });
+
+        expect(queryByText('Ver rota no Google Maps')).toBeNull();
+        expect(queryByTestId('mini')).toBeTruthy();
+        expect(mapa().remove).not.toHaveBeenCalled();
+        expect(aviso).toHaveBeenCalled();
+      },
+    );
+
+    it('erro genérico antes do load (estilo, worker) mostra o fallback e remove a instância', async () => {
+      const { getByText, unmount } = await renderizar();
 
       act(() => {
         mockMapa.handlers.get('error')?.({ error: new Error('style') });
       });
 
       expect(getByText('Ver rota no Google Maps')).toBeTruthy();
+      expect(mapa().remove).toHaveBeenCalledTimes(1);
+
+      // O desmonte não remove de novo a instância já descartada.
+      unmount();
+      expect(mapa().remove).toHaveBeenCalledTimes(1);
     });
 
     it('fallback sem parada pendente não oferece rota, só a mensagem', async () => {
@@ -253,19 +301,21 @@ describe('MiniMap.web', () => {
       expect(doUsuario).toBeTruthy();
     });
 
-    it('não põe marcador em coordenada inválida, mas aceita zero', async () => {
+    it('não põe marcador em coordenada inválida nem em (0,0), mas aceita zero numa só', async () => {
       await renderizarCarregado({
         paradas: [
-          { ...PARADAS[0], latitude: 0, longitude: 0 },
+          { ...PARADAS[0], latitude: 0 },
           { ...PARADAS[1], latitude: NaN },
           PARADAS[2],
+          { ...PARADAS[2], id: 'p3', ordem: 3, latitude: 0, longitude: 0 },
         ],
       });
 
       const posicoes = mockMapa.marcadores.flatMap((m) =>
         m.setLngLat.mock.calls.map(([lngLat]) => lngLat as number[]),
       );
-      expect(posicoes).toContainEqual([0, 0]);
+      expect(posicoes).toContainEqual([-46.6, 0]);
+      expect(posicoes).not.toContainEqual([0, 0]);
       expect(posicoes).toContainEqual([-46.7, -23.6]);
       expect(posicoes.flat().every(Number.isFinite)).toBe(true);
     });

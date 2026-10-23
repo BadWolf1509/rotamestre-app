@@ -4,7 +4,8 @@
  * Só o que falta fazer: paradas não concluídas e não puladas, com coordenada
  * válida e sem os checkpoints da unidade (partida/chegada, `is_checkpoint
  * === false`). Sem `origin`, o Google parte da localização de quem abre.
- * O link aceita poucos waypoints; ficam os mais próximos na ordem da rota.
+ * O link aceita poucos waypoints: abre só as próximas paradas, em sequência
+ * (8 waypoints + destino), sem pular nenhuma do meio.
  */
 
 import { temCoordenadaValida } from './coordenadaValida';
@@ -35,14 +36,13 @@ export function montarUrlRotaGoogleMaps(
     )
     .sort((a, b) => a.ordem - b.ordem);
 
-  const destino = pendentes[pendentes.length - 1];
+  // Janela contínua: as próximas pendentes na ordem, a última vira destino.
+  // Destino = última pendente com waypoints = primeiras pularia as do meio.
+  const janela = pendentes.slice(0, MAX_WAYPOINTS_GOOGLE_MAPS + 1);
+  const destino = janela[janela.length - 1];
   if (!destino) return null;
 
-  const waypoints = pendentes
-    .slice(0, -1)
-    .slice(0, MAX_WAYPOINTS_GOOGLE_MAPS)
-    .map(ponto)
-    .join('|');
+  const waypoints = janela.slice(0, -1).map(ponto).join('%7C');
 
   return (
     `https://www.google.com/maps/dir/?api=1&destination=${ponto(destino)}` +

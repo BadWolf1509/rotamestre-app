@@ -64,6 +64,24 @@ interface MiniMapProps {
   testID?: string;
 }
 
+
+/**
+ * Erro do maplibre que não impede o mapa: falha de um tile/fonte (o evento
+ * traz `sourceId` ou `tile`) ou de sprite, glifo ou imagem do estilo.
+ */
+function erroNaoFatalDoMapa(e: unknown): boolean {
+  const evento = (e ?? {}) as {
+    sourceId?: unknown;
+    tile?: unknown;
+    error?: { message?: unknown };
+  };
+  if (evento.sourceId !== undefined || evento.tile !== undefined) return true;
+  const mensagem = evento.error?.message;
+  return (
+    typeof mensagem === 'string' && /sprite|glyph|image|\.pbf/i.test(mensagem)
+  );
+}
+
 export function MiniMap({
   paradas,
   userLocation,
@@ -352,13 +370,22 @@ export function MiniMap({
         });
 
         mapInstance.on('error', (e) => {
-          // Depois do load, erro é de tile/glifo/sprite: o mapa segue de pé.
-          if (carregou) {
-            logger.warn('[MiniMap.web] Erro do mapa após carregar:', e);
+          // Tile, sprite, glifo ou imagem faltando não impedem o mapa, antes
+          // ou depois do load; depois do load, nada mais é fatal.
+          if (carregou || erroNaoFatalDoMapa(e)) {
+            logger.warn('[MiniMap.web] Erro não fatal do mapa:', e);
             return;
           }
-          // Antes do load (estilo, worker), o mapa não vai aparecer.
+          // Antes do load (estilo, worker), o mapa não vai aparecer: descarta
+          // a instância e mostra o fallback.
           logger.error('[MiniMap.web] Map error:', e);
+          if (removeMissingImageHandler) {
+            removeMissingImageHandler();
+            removeMissingImageHandler = null;
+          }
+          mapInstance?.remove();
+          mapInstance = null;
+          mapRef.current = null;
           setMapError('Erro ao carregar mapa');
         });
       } catch (error) {
@@ -390,6 +417,10 @@ export function MiniMap({
   // Fit bounds when map is ready and coordinates change
   useEffect(() => {
     if (!mapRef.current || !mapReady || coordsForBounds.length === 0) return;
+
+    // Ao expandir/recolher, o container muda de altura mas o canvas guarda a
+    // antiga: sem resize, o enquadramento sai calculado no tamanho velho.
+    mapRef.current.resize();
 
     if (coordsForBounds.length === 1) {
       mapRef.current.setCenter([

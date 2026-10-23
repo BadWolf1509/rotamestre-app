@@ -54,28 +54,38 @@ describe('montarUrlRotaGoogleMaps', () => {
     expect(q.get('waypoints')).toBe('-23.01,-46.01');
   });
 
-  it('ignora coordenada inválida, mas aceita zero', () => {
+  it('ignora coordenada inválida e o par (0,0), mas aceita zero numa só', () => {
     const q = parametros(
       montarUrlRotaGoogleMaps([
         parada(1, { latitude: NaN }),
         parada(2, { latitude: 0, longitude: 0 }),
         parada(3, { latitude: -100 }),
+        parada(4, { latitude: 0 }),
       ]),
     );
 
-    expect(q.get('destination')).toBe('0,0');
+    expect(q.get('destination')).toBe('0,-46.04');
     expect(q.get('waypoints')).toBeNull();
   });
 
-  it('limita a 8 waypoints, mantendo os mais próximos na ordem', () => {
+  it('com mais de 9 pendentes, abre uma janela contínua: 8 waypoints e o destino é a 9ª, sem pular nenhuma', () => {
+    // Destino = última pendente com waypoints = 8 primeiras faria 1→…→8→12 e
+    // sumiria com 9, 10 e 11. A janela leva às próximas 9 em sequência.
     const paradas = Array.from({ length: 12 }, (_, i) => parada(i + 1));
     const q = parametros(montarUrlRotaGoogleMaps(paradas));
     const waypoints = (q.get('waypoints') as string).split('|');
 
-    expect(waypoints).toHaveLength(8);
-    expect(waypoints[0]).toBe('-23.01,-46.01');
-    expect(waypoints[7]).toBe('-23.08,-46.08');
-    expect(q.get('destination')).toBe('-23.12,-46.12');
+    expect(waypoints).toEqual(
+      Array.from({ length: 8 }, (_, i) => `-23.0${i + 1},-46.0${i + 1}`),
+    );
+    expect(q.get('destination')).toBe('-23.09,-46.09');
+  });
+
+  it('codifica o separador dos waypoints como %7C', () => {
+    const url = montarUrlRotaGoogleMaps([parada(1), parada(2), parada(3)]);
+
+    expect(url).toContain('waypoints=-23.01,-46.01%7C-23.02,-46.02&');
+    expect(url).not.toContain('|');
   });
 
   it('uma única pendente: só destino, sem waypoints', () => {
