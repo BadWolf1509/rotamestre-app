@@ -1,6 +1,6 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 
 import { MiniMap } from '../MiniMap';
 
@@ -77,17 +77,36 @@ jest.mock('@expo/vector-icons', () => ({
   Ionicons: 'Ionicons',
 }));
 
-// Mock useRouteDirections hook
+// Mock useRouteDirections hook (estado trocável por teste)
+const mockDirecoes = {
+  routeCoordinates: [] as Array<{ latitude: number; longitude: number }>,
+  routeInfo: null as null | { distanceMeters: number; durationSeconds: number },
+  isLoading: false,
+  error: null as string | null,
+};
 jest.mock('@/hooks/useRouteDirections', () => ({
   useRouteDirections: () => ({
-    routeCoordinates: [],
-    routeInfo: null,
-    isLoading: false,
-    error: null,
+    ...mockDirecoes,
     refetch: jest.fn(),
     isFromCache: false,
   }),
 }));
+
+/** Marcadores do mapa (o mock do <Marker> recebe a posição em `lngLat`). */
+const posicoesDosMarcadores = (
+  tela: ReturnType<typeof render>,
+): Array<[number, number]> =>
+  tela
+    .UNSAFE_getAllByProps({ testID: 'marker' })
+    // Só o nó host: o composto do mock repete as mesmas props
+    .filter((no) => typeof no.type === 'string' && no.props.lngLat)
+    .map((no) => no.props.lngLat as [number, number]);
+
+const coordenadaOk = ([lng, lat]: [number, number]) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  Math.abs(lat) <= 90 &&
+  Math.abs(lng) <= 180;
 
 describe('MiniMap', () => {
   const defaultProps = {
@@ -113,6 +132,10 @@ describe('MiniMap', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDirecoes.routeCoordinates = [];
+    mockDirecoes.routeInfo = null;
+    mockDirecoes.isLoading = false;
+    mockDirecoes.error = null;
   });
 
   describe('Rendering', () => {
@@ -264,7 +287,7 @@ describe('MiniMap', () => {
         <MiniMap {...defaultProps} onOpenFullMap={onOpenFullMap} />,
       );
 
-      const mapContainer = getByLabelText(/Mapa da rota/);
+      const mapContainer = getByLabelText('Abrir mapa completo');
       fireEvent.press(mapContainer);
 
       expect(onOpenFullMap).toHaveBeenCalledTimes(1);
@@ -362,13 +385,23 @@ describe('MiniMap', () => {
           ordem: 2,
           endereco: 'Válida',
         },
+        {
+          id: 'p3',
+          latitude: -23.57,
+          longitude: NaN,
+          status: 'concluida',
+          ordem: 3,
+          endereco: 'Concluída inválida',
+        },
       ];
 
-      const { getByTestId } = render(
-        <MiniMap {...defaultProps} paradas={paradas} />,
-      );
+      const tela = render(<MiniMap {...defaultProps} paradas={paradas} />);
 
-      expect(getByTestId('map-view')).toBeTruthy();
+      expect(tela.queryByText('1')).toBeNull();
+      expect(tela.getByText('2')).toBeTruthy();
+      const posicoes = posicoesDosMarcadores(tela);
+      expect(posicoes).toHaveLength(1);
+      expect(posicoes.every(coordenadaOk)).toBe(true);
     });
 
     it('deve ignorar paradas com coordenadas fora do range', () => {
@@ -399,11 +432,12 @@ describe('MiniMap', () => {
         },
       ];
 
-      const { getByTestId } = render(
-        <MiniMap {...defaultProps} paradas={paradas} />,
-      );
+      const tela = render(<MiniMap {...defaultProps} paradas={paradas} />);
 
-      expect(getByTestId('map-view')).toBeTruthy();
+      expect(tela.queryByText('1')).toBeNull();
+      expect(tela.queryByText('2')).toBeNull();
+      expect(tela.getByText('3')).toBeTruthy();
+      expect(posicoesDosMarcadores(tela).every(coordenadaOk)).toBe(true);
     });
   });
 
@@ -439,58 +473,111 @@ describe('MiniMap', () => {
   });
 
   describe('Info Box', () => {
+    const pendente = (id: string, ordem: number) => ({
+      id,
+      latitude: -23.55 - ordem / 100,
+      longitude: -46.63,
+      status: 'pendente',
+      ordem,
+      endereco: `Rua ${id}`,
+    });
+
     it('deve mostrar contagem de paradas restantes (não concluídas/puladas)', () => {
       const paradas = [
-        {
-          id: 'p1',
-          latitude: -23.55,
-          longitude: -46.63,
-          status: 'pendente',
-          ordem: 1,
-          endereco: 'Rua A',
-        },
-        {
-          id: 'p2',
-          latitude: -23.56,
-          longitude: -46.64,
-          status: 'pendente',
-          ordem: 2,
-          endereco: 'Rua B',
-        },
-        {
-          id: 'p3',
-          latitude: -23.57,
-          longitude: -46.65,
-          status: 'concluida',
-          ordem: 3,
-          endereco: 'Rua C',
-        },
-        {
-          id: 'p4',
-          latitude: -23.58,
-          longitude: -46.66,
-          status: 'pulada',
-          ordem: 4,
-          endereco: 'Rua D',
-        },
+        pendente('p1', 1),
+        pendente('p2', 2),
+        { ...pendente('p3', 3), status: 'concluida' },
+        { ...pendente('p4', 4), status: 'pulada' },
       ];
 
       const { getByText } = render(
         <MiniMap {...defaultProps} paradas={paradas} />,
       );
 
-      // Deve mostrar "2 restantes" (apenas restantes: pendente, em_andamento - excluindo concluída e pulada)
-      expect(getByText(/2 restantes/)).toBeTruthy();
+      expect(getByText('2 paradas restantes')).toBeTruthy();
+    });
+
+    it('carregando: mostra "Calculando..."', () => {
+      mockDirecoes.isLoading = true;
+      const { getByText } = render(<MiniMap paradas={[pendente('p1', 1)]} />);
+
+      expect(getByText('Calculando...')).toBeTruthy();
+    });
+
+    it('com routeInfo: singular e distância da rota inteira', () => {
+      mockDirecoes.routeInfo = { distanceMeters: 12345, durationSeconds: 60 };
+      const { getByText } = render(<MiniMap paradas={[pendente('p1', 1)]} />);
+
+      expect(getByText('1 parada restante • 12,3 km no total')).toBeTruthy();
+    });
+
+    it('sem routeInfo: usa distancia_total (km) com vírgula decimal', () => {
+      const { getByText } = render(
+        <MiniMap
+          paradas={[pendente('p1', 1), pendente('p2', 2)]}
+          route={{ id: 'r1', distancia_total: 15.46 }}
+        />,
+      );
+
+      expect(getByText('2 paradas restantes • 15,5 km no total')).toBeTruthy();
+    });
+
+    it('erro sem geometria: avisa "trajeto indisponível"', () => {
+      mockDirecoes.error = 'falhou';
+      const { getByText } = render(
+        <MiniMap paradas={[pendente('p1', 1), pendente('p2', 2)]} />,
+      );
+
+      expect(
+        getByText('2 paradas restantes • trajeto indisponível'),
+      ).toBeTruthy();
+    });
+  });
+
+  describe('Fonte do sistema', () => {
+    const noMesmoLocal = (id: string, ordem: number) => ({
+      id,
+      latitude: -23.55,
+      longitude: -46.63,
+      status: 'pendente',
+      ordem,
+      endereco: 'A',
+    });
+
+    it('número do pino e chip limitam a ampliação e ficam numa linha', () => {
+      const { getByText } = render(
+        <MiniMap paradas={[noMesmoLocal('p1', 10), noMesmoLocal('p2', 11)]} />,
+      );
+
+      for (const texto of [
+        getByText('10+11'),
+        getByText(/paradas restantes/),
+      ]) {
+        expect(texto.props.maxFontSizeMultiplier).toBe(1.3);
+        expect(texto.props.numberOfLines).toBe(1);
+      }
+    });
+
+    it('pino tem largura mínima, não fixa, para caber "10+11"', () => {
+      const { getByText } = render(
+        <MiniMap paradas={[noMesmoLocal('p1', 10), noMesmoLocal('p2', 11)]} />,
+      );
+
+      let no = getByText('10+11').parent;
+      while (no && no.props.testID !== 'marker') no = no.parent;
+      const estilo = StyleSheet.flatten(no?.props.style);
+      expect(estilo.width).toBeUndefined();
+      expect(estilo.minWidth).toBeGreaterThanOrEqual(28);
     });
   });
 
   describe('Accessibility', () => {
-    it('deve ter label de acessibilidade no container do mapa', () => {
+    it('o toque abre o mapa completo, e o rótulo diz isso', () => {
       const { getByLabelText } = render(<MiniMap {...defaultProps} />);
 
-      expect(
-        getByLabelText(/Mapa da rota com \d+ paradas restantes/),
-      ).toBeTruthy();
+      const mapa = getByLabelText('Abrir mapa completo');
+      expect(mapa.props.accessibilityHint).toMatch(/1 parada restante/);
+      expect(mapa.props.accessibilityHint).not.toMatch(/expandir/i);
     });
 
     it('deve ter labels nos botões de controle', () => {
@@ -508,6 +595,37 @@ describe('MiniMap', () => {
 
       const expandButton = getByLabelText(/Expandir mapa|Minimizar mapa/);
       expect(expandButton.props.accessibilityRole).toBe('button');
+    });
+  });
+
+  describe('Reduzir movimento', () => {
+    const comPulso = async (reduzir: boolean) => {
+      jest
+        .spyOn(AccessibilityInfo, 'isReduceMotionEnabled')
+        .mockResolvedValue(reduzir);
+      const start = jest.fn();
+      jest
+        .spyOn(Animated, 'loop')
+        .mockReturnValue({ start, stop: jest.fn(), reset: jest.fn() });
+
+      render(
+        <MiniMap
+          {...defaultProps}
+          userLocation={{ latitude: -23.55, longitude: -46.63 }}
+        />,
+      );
+      await act(async () => {});
+      return start;
+    };
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('sem a opção ligada, o ponto do motorista pulsa', async () => {
+      expect(await comPulso(false)).toHaveBeenCalled();
+    });
+
+    it('com "reduzir movimento" ligado, não há pulso', async () => {
+      expect(await comPulso(true)).not.toHaveBeenCalled();
     });
   });
 

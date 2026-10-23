@@ -12,6 +12,7 @@
 import { act, render } from '@testing-library/react-native';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { logger } from '@/lib/logger';
 
@@ -143,8 +144,16 @@ async function renderizarCarregado(props: Props = {}) {
 
 const mapa = () => mockMapa.instancias[mockMapa.instancias.length - 1];
 
+// O mock global não é __esModule: requireMock devolve o objeto que o
+// componente usa, para o spy pegar.
+const estilos = jest.requireMock<{
+  useUnistyles: () => { theme: { colors: Record<string, string> } };
+}>('@/utils/styles');
+const base = estilos.useUnistyles();
+
 describe('MiniMap.web', () => {
   beforeEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
     mockMapa.handlers.clear();
     mockMapa.instancias = [];
@@ -242,6 +251,78 @@ describe('MiniMap.web', () => {
         ),
       );
       expect(doUsuario).toBeTruthy();
+    });
+
+    it('não põe marcador em coordenada inválida, mas aceita zero', async () => {
+      await renderizarCarregado({
+        paradas: [
+          { ...PARADAS[0], latitude: 0, longitude: 0 },
+          { ...PARADAS[1], latitude: NaN },
+          PARADAS[2],
+        ],
+      });
+
+      const posicoes = mockMapa.marcadores.flatMap((m) =>
+        m.setLngLat.mock.calls.map(([lngLat]) => lngLat as number[]),
+      );
+      expect(posicoes).toContainEqual([0, 0]);
+      expect(posicoes).toContainEqual([-46.7, -23.6]);
+      expect(posicoes.flat().every(Number.isFinite)).toBe(true);
+    });
+
+    it('no tema escuro, borda e número dos pinos seguem brancos', async () => {
+      const escuro = {
+        ...base.theme,
+        colors: { ...base.theme.colors, white: '#1a2029', black: '#f9fafb' },
+      };
+      jest
+        .spyOn(estilos, 'useUnistyles')
+        .mockImplementation(() => ({ ...base, theme: escuro }) as never);
+
+      await renderizarCarregado();
+
+      const pino = (
+        MockMarker.mock.calls.find(
+          ([opcoes]) =>
+            (opcoes as { element: HTMLElement }).element.textContent === '1',
+        )?.[0] as { element: HTMLElement }
+      ).element;
+      expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(
+        pino.style.borderColor,
+      );
+      expect(['#ffffff', 'rgb(255, 255, 255)']).toContain(pino.style.color);
+      // Largura mínima, para caber "10+11"
+      expect(pino.style.width).toBe('');
+      expect(pino.style.minWidth).not.toBe('');
+    });
+  });
+
+  describe('chip e acessibilidade', () => {
+    it('chip no singular/plural, numa linha e com fonte limitada', async () => {
+      const { getByText } = await renderizarCarregado();
+
+      const chip = getByText('2 paradas restantes');
+      expect(chip.props.numberOfLines).toBe(1);
+      expect(chip.props.maxFontSizeMultiplier).toBe(1.3);
+    });
+
+    it('o toque abre o mapa completo, e o rótulo diz isso', async () => {
+      const { getByLabelText } = await renderizarCarregado();
+
+      const area = getByLabelText('Abrir mapa completo');
+      expect(area.props.accessibilityHint).toMatch(/2 paradas restantes/);
+    });
+
+    it('botão de expandir tem 44×44', async () => {
+      const { getByLabelText } = await renderizarCarregado({
+        onToggleExpand: jest.fn(),
+      });
+
+      const estilo = StyleSheet.flatten(
+        getByLabelText('Expandir mapa').props.style,
+      );
+      expect(estilo.width).toBeGreaterThanOrEqual(44);
+      expect(estilo.height).toBeGreaterThanOrEqual(44);
     });
   });
 });

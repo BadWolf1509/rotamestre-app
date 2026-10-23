@@ -18,9 +18,9 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useRouteDirections } from '@/hooks/useRouteDirections';
-import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
+import { temCoordenadaValida } from '@/lib/motorista/coordenadaValida';
 import { montarPinosDoMiniMap } from '@/lib/motorista/pinosPorLocal';
 import { montarUrlRotaGoogleMaps } from '@/lib/motorista/urlRotaGoogleMaps';
 import {
@@ -29,6 +29,13 @@ import {
 } from '@/lib/openFreeMapStyle';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+import {
+  CORES_SOBRE_O_MAPA,
+  MAX_FONTE_SOBRE_O_MAPA,
+  rotuloParadasRestantes,
+  textoDoChip,
+} from './miniMapCompartilhado';
 
 interface Parada {
   id: string;
@@ -57,17 +64,6 @@ interface MiniMapProps {
   testID?: string;
 }
 
-/**
- * Verifica se as coordenadas estão em range válido
- */
-const isValidCoordinate = (lat: number, lng: number): boolean =>
-  !isNaN(lat) &&
-  !isNaN(lng) &&
-  lat >= -90 &&
-  lat <= 90 &&
-  lng >= -180 &&
-  lng <= 180;
-
 export function MiniMap({
   paradas,
   userLocation,
@@ -87,14 +83,6 @@ export function MiniMap({
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
 
-  // Extrair cores do theme para ref estável (evita recriação de markers a cada mudança de tema)
-  const themeColorsRef = useRef(theme.colors);
-  const themeBorderRadiusRef = useRef(theme.borderRadius);
-  useEffect(() => {
-    themeColorsRef.current = theme.colors;
-    themeBorderRadiusRef.current = theme.borderRadius;
-  }, [theme.colors, theme.borderRadius]);
-
   // Injetar CSS de animação de pulso para o marker do usuário
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -111,6 +99,9 @@ export function MiniMap({
       }
       .minimap-user-marker-pulse {
         animation: minimap-pulse 2s ease-in-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .minimap-user-marker-pulse { animation: none; }
       }
     `;
     document.head.appendChild(style);
@@ -135,29 +126,26 @@ export function MiniMap({
       ),
     [paradas],
   );
-  // Um pino por local: entrega + retirada no mesmo ponto saem como "2+3"
+  // Um pino por local: entrega + retirada no mesmo ponto saem como "2+3".
+  // A contagem do chip segue com todas as restantes; pino só com coordenada.
   const pinosRestantes = useMemo(
-    () => montarPinosDoMiniMap(paradasRestantes),
+    () => montarPinosDoMiniMap(paradasRestantes.filter(temCoordenadaValida)),
     [paradasRestantes],
   );
   const paradasConcluidas = useMemo(
     () =>
       paradas.filter(
-        (p) => p.status === 'concluida' && p.is_checkpoint !== false,
+        (p) =>
+          p.status === 'concluida' &&
+          p.is_checkpoint !== false &&
+          temCoordenadaValida(p),
       ),
     [paradas],
   );
 
   // Todas as paradas com coordenadas válidas (para centralização)
   const todasParadasComCoord = useMemo(
-    () =>
-      paradas.filter(
-        (p) =>
-          p.latitude &&
-          p.longitude &&
-          !isNaN(p.latitude) &&
-          !isNaN(p.longitude),
-      ),
+    () => paradas.filter(temCoordenadaValida),
     [paradas],
   );
 
@@ -204,7 +192,7 @@ export function MiniMap({
       (p) =>
         p.status !== 'concluida' &&
         p.status !== 'pulada' &&
-        isValidCoordinate(p.latitude, p.longitude),
+        temCoordenadaValida(p),
     );
     return restantes.map((p) => ({
       latitude: p.latitude,
@@ -258,17 +246,15 @@ export function MiniMap({
   }, [coordsForBounds]);
 
   // Create marker element helpers
+  // Cores fixas: o mapa é sempre claro, e o tema escuro inverteria o branco.
   const createUserMarkerElement = useCallback(() => {
-    const colors = themeColorsRef.current;
-    const borderRadius = themeBorderRadiusRef.current;
-
     const outer = document.createElement('div');
     outer.className = 'minimap-user-marker-pulse';
     outer.style.cssText = `
       width: 24px;
       height: 24px;
       border-radius: 12px;
-      background: ${withOpacity(colors.info, 0.2)};
+      background: ${withOpacity(CORES_SOBRE_O_MAPA.usuario, 0.2)};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -278,9 +264,9 @@ export function MiniMap({
     inner.style.cssText = `
       width: 12px;
       height: 12px;
-      border-radius: ${borderRadius.xs}px;
-      background: ${colors.info};
-      border: 2px solid ${colors.white};
+      border-radius: 6px;
+      background: ${CORES_SOBRE_O_MAPA.usuario};
+      border: 2px solid ${CORES_SOBRE_O_MAPA.branco};
       box-sizing: border-box;
     `;
 
@@ -296,19 +282,20 @@ export function MiniMap({
       opacity?: number;
       isNext?: boolean;
     }) => {
-      const colors = themeColorsRef.current;
-
+      // Largura mínima, não fixa: "10+11" alarga o pino em vez de cortar
       const el = document.createElement('div');
       el.style.cssText = `
-      width: ${options.size}px;
+      min-width: ${options.size}px;
       height: ${options.size}px;
+      padding: 0 4px;
+      white-space: nowrap;
       border-radius: ${options.size / 2}px;
       background: ${options.backgroundColor};
-      border: ${options.isNext ? '3px' : '2px'} solid ${colors.white};
+      border: ${options.isNext ? '3px' : '2px'} solid ${CORES_SOBRE_O_MAPA.branco};
       display: flex;
       align-items: center;
       justify-content: center;
-      color: ${colors.white};
+      color: ${CORES_SOBRE_O_MAPA.branco};
       font-size: 12px;
       font-weight: 700;
       box-sizing: border-box;
@@ -440,8 +427,6 @@ export function MiniMap({
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
-    const colors = themeColorsRef.current;
-
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
@@ -449,7 +434,7 @@ export function MiniMap({
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
           size: 20,
-          backgroundColor: colors.success,
+          backgroundColor: CORES_SOBRE_O_MAPA.concluida,
           opacity: 0.5,
         }),
       })
@@ -462,7 +447,9 @@ export function MiniMap({
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
           size: isNext ? 34 : 28,
-          backgroundColor: isNext ? colors.warning : colors.gray500,
+          backgroundColor: isNext
+            ? CORES_SOBRE_O_MAPA.proxima
+            : CORES_SOBRE_O_MAPA.pendente,
           text: rotulo,
           isNext,
         }),
@@ -476,7 +463,7 @@ export function MiniMap({
       const marker = new maplibregl.Marker({
         element: createStopMarkerElement({
           size: 20,
-          backgroundColor: colors.primary,
+          backgroundColor: CORES_SOBRE_O_MAPA.marca,
         }),
       })
         .setLngLat([checkpoint.longitude, checkpoint.latitude])
@@ -556,12 +543,12 @@ export function MiniMap({
         'line-cap': 'round',
       },
       paint: {
-        'line-color': theme.colors.primary,
+        'line-color': CORES_SOBRE_O_MAPA.marca,
         'line-width': 3,
         'line-opacity': 0.8,
       },
     });
-  }, [mapReady, routeCoordinates, theme.colors.primary]);
+  }, [mapReady, routeCoordinates]);
 
   // Rota no Google Maps para o fallback: só o que falta fazer
   const urlGoogleMaps = useMemo(
@@ -583,6 +570,15 @@ export function MiniMap({
       openGoogleMaps();
     }
   }, [onOpenFullMap, openGoogleMaps]);
+
+  const restantesTexto = rotuloParadasRestantes(paradasRestantes.length);
+  const chip = textoDoChip({
+    restantes: paradasRestantes.length,
+    distanciaKm: routeInfo
+      ? routeInfo.distanceMeters / 1000
+      : (route?.distancia_total ?? null),
+    trajetoIndisponivel: Boolean(routeError) && routeCoordinates.length < 2,
+  });
 
   // Estado de erro
   if (mapError && !urlGoogleMaps) {
@@ -645,8 +641,11 @@ export function MiniMap({
       <Pressable
         style={[styles.mapContainer, { height: expectedHeight }]}
         onPress={handleMapClick}
-        accessibilityLabel={`Mapa da rota com ${paradasRestantes.length} paradas restantes. Toque para expandir`}
-        accessibilityRole="link"
+        accessibilityLabel={
+          onOpenFullMap ? 'Abrir mapa completo' : 'Abrir rota no Google Maps'
+        }
+        accessibilityHint={`Mapa da rota. ${restantesTexto}`}
+        accessibilityRole="button"
       >
         <div
           ref={mapContainerRef}
@@ -666,23 +665,28 @@ export function MiniMap({
 
         {/* Overlay com informações */}
         <View style={styles.overlay}>
-          <View style={styles.infoBox}>
+          <View style={styles.infoBox} testID="mini-mapa-chip">
             {isLoadingRoute ? (
               <View style={styles.infoBoxLoading}>
-                <ActivityIndicator size="small" color={theme.colors.white} />
-                <Text style={styles.infoText}>Calculando...</Text>
+                <ActivityIndicator
+                  size="small"
+                  color={CORES_SOBRE_O_MAPA.branco}
+                />
+                <Text
+                  style={styles.infoText}
+                  numberOfLines={1}
+                  maxFontSizeMultiplier={MAX_FONTE_SOBRE_O_MAPA}
+                >
+                  Calculando...
+                </Text>
               </View>
             ) : (
-              <Text style={styles.infoText}>
-                {paradasRestantes.length} restantes
-                {routeInfo
-                  ? ` • ${formatarDecimal(routeInfo.distanceMeters / 1000)} km total`
-                  : route?.distancia_total
-                    ? ` • ${Math.round(route.distancia_total)} km total`
-                    : ''}
-                {routeError && routeCoordinates.length < 2
-                  ? ' • trajeto indisponível'
-                  : ''}
+              <Text
+                style={styles.infoText}
+                numberOfLines={1}
+                maxFontSizeMultiplier={MAX_FONTE_SOBRE_O_MAPA}
+              >
+                {chip}
               </Text>
             )}
           </View>
@@ -703,7 +707,7 @@ export function MiniMap({
                 <Ionicons
                   name={expanded ? 'contract' : 'expand'}
                   size={20}
-                  color={theme.colors.white}
+                  color={CORES_SOBRE_O_MAPA.branco}
                 />
               </TouchableOpacity>
             )}
@@ -766,7 +770,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing['2'],
   },
   infoBox: {
-    backgroundColor: withOpacity(theme.colors.primary, 0.9),
+    flexShrink: 1,
+    backgroundColor: withOpacity(CORES_SOBRE_O_MAPA.marca, 0.9),
     paddingHorizontal: theme.spacing['3'],
     paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.xs,
@@ -777,7 +782,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing['1.5'],
   },
   infoText: {
-    color: theme.colors.white,
+    color: CORES_SOBRE_O_MAPA.branco,
     fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
   },
@@ -786,9 +791,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing['2'],
   },
   expandButton: {
-    backgroundColor: withOpacity(theme.colors.black, 0.5),
-    width: 32,
-    height: 32,
+    backgroundColor: withOpacity(CORES_SOBRE_O_MAPA.sombra, 0.5),
+    // Alvo de toque mínimo de 44×44
+    width: 44,
+    height: 44,
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
