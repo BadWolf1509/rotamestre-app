@@ -1534,6 +1534,38 @@ rodou no SQL Editor (bloco `DO` que cria a função, mede e termina em `RAISE`):
 pendente/em andamento 2.803 → 2.803 e dos últimos 90 dias 54.319 → 54.319
 (intocadas); `p_dias = 7` barrado pelo piso.
 
+### ✅ Migration 41: rota em andamento não se apaga
+
+**Arquivo:** `20261023110000_rota_em_andamento_nao_se_apaga.sql` · **✅ aplicada
+em 23/10/2026 via `apply_migration`** (gatilho com `CREATE OR REPLACE TRIGGER`,
+sem `DROP TRIGGER`), versão alinhada em `schema_migrations`. A sonda tem
+`DELETE` e rodou pelo SQL Editor: os 4 casos OK (em andamento bloqueado com a
+sentinela, pendente apagado, cascata sem usuário passa, sem EXECUTE para
+`authenticated`/`anon`).
+
+**Por quê.** A política `rotas_delete` deixa o gestor ativo da loja apagar
+qualquer rota dela, inclusive a que um motorista está fazendo — e o DELETE leva
+em cascata paradas, registros de comprovante, notificações e posições. O
+dashboard desktop fazia isso até o PR #631. O app agora reconsulta o status e
+condiciona o DELETE, mas só no cliente.
+
+**O que faz.** Gatilho `BEFORE DELETE` em `rotas`
+(`recusa_apagar_rota_em_andamento`, SECURITY DEFINER, `search_path ''`, sem
+EXECUTE para PUBLIC/anon/authenticated) que recusa com a sentinela
+`ROTA_EM_ANDAMENTO` (P0001) quando `OLD.status = 'em_andamento'` e há usuário
+(`auth.uid()` não nulo). Sem usuário — service_role, SQL Editor, e a cascata de
+`unidades` (que só acontece por service_role: `unidades` não tem política de
+DELETE) — segue livre. O app traduz a sentinela em `errorMapping`
+(`ROUTE_IN_PROGRESS`) e em `excluirRota`.
+
+**Alternativa descartada:** `status <> 'em_andamento'` na política. A RLS recusa
+DELETE sem erro (0 linhas), e trocar política exige DROP POLICY.
+
+**Sonda** (bloco `DO` que cria função e gatilho, monta unidade e rotas próprias
+e termina em `RAISE`): autenticado apagando rota em andamento é recusado com a
+sentinela; autenticado apaga pendente (1 linha); sem usuário, a cascata da
+unidade apaga a rota em andamento; `authenticated`/`anon` sem EXECUTE.
+
 ### ✅ Migration 40: RPC `finalizar_rota` (rota e chegada numa transação)
 
 **Arquivo:** `20261023100000_finalizar_rota_rpc.sql` · **✅ aplicada em

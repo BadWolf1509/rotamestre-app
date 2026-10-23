@@ -13,6 +13,7 @@ import {
 
 import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { EmptyState } from '@/components/EmptyState';
+import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { Text, Toast } from '@/design-system';
@@ -54,6 +55,8 @@ export function DashboardMobile({
   rotas,
   loading,
   refreshing,
+  erroCarga,
+  dadosDe,
   onRefresh,
   userData,
   filters,
@@ -180,6 +183,16 @@ export function DashboardMobile({
           </View>
         </View>
 
+        {erroCarga ? (
+          <View style={styles.avisoErroCarga}>
+            <AvisoErroCarga
+              mensagem={erroCarga}
+              dadosDe={dadosDe}
+              onTentarNovamente={onRefresh}
+            />
+          </View>
+        ) : null}
+
         {/* Phase 1: Horizontal Scroll Stats Strip */}
         <ScrollView
           horizontal
@@ -236,7 +249,11 @@ export function DashboardMobile({
               activeOpacity={0.8}
             >
               <StatsCard
-                value={stats.incidentesAbertos || 0}
+                value={
+                  stats.incidentesAbertos === null
+                    ? '—'
+                    : stats.incidentesAbertos || 0
+                }
                 label="Incidentes Abertos"
                 backgroundColor={theme.colors.kpiIncidentes}
                 icon="warning-outline"
@@ -410,23 +427,28 @@ export function DashboardMobile({
       handleNovaEntregaPress,
       handleMotoristasPress,
       handleGestaoRotasPress,
+      erroCarga,
+      dadosDe,
+      onRefresh,
     ],
   );
 
   // Empty state quando não há rotas
+  // Com erro de carga, "nenhuma rota" seria mentira: o aviso no topo diz.
   const ListEmptyComponent = useMemo(
-    () => (
-      <View style={styles.emptyStateContainer}>
-        <EmptyState
-          icon="map-outline"
-          title="Nenhuma rota cadastrada hoje"
-          description="Crie sua primeira rota de entrega para começar"
-          actionLabel="Nova Rota de Entrega"
-          onActionPress={handleNovaEntregaPress}
-        />
-      </View>
-    ),
-    [handleNovaEntregaPress],
+    () =>
+      erroCarga ? null : (
+        <View style={styles.emptyStateContainer}>
+          <EmptyState
+            icon="map-outline"
+            title="Nenhuma rota cadastrada hoje"
+            description="Crie sua primeira rota de entrega para começar"
+            actionLabel="Nova Rota de Entrega"
+            onActionPress={handleNovaEntregaPress}
+          />
+        </View>
+      ),
+    [handleNovaEntregaPress, erroCarga],
   );
 
   // Footer com espaço extra para o FAB não cobrir conteúdo
@@ -495,6 +517,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  avisoErroCarga: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
   loadingContainer: {
     flex: 1,

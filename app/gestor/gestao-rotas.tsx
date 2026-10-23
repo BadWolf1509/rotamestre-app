@@ -25,11 +25,11 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DataTable,
@@ -42,6 +42,8 @@ import {
   MobileCard,
   MobileEmptyState,
   MobileLoading,
+  Modal,
+  Button,
   StatusBadge,
   Toast,
 } from '@/design-system';
@@ -84,10 +86,13 @@ export default function GestaoRotas() {
   const {
     rotasFiltradas,
     loading,
+    erroCarga,
+    dadosDe,
+    loadRotas,
     filtroStatus,
     searchQuery,
     showConfirmModal,
-    rotaToDelete,
+    confirmacaoExclusao,
     userData,
     setFiltroStatus,
     setSearchQuery,
@@ -107,8 +112,19 @@ export default function GestaoRotas() {
     defaultStatusColor: theme.colors.gray500,
   });
 
-  // Export dropdown state (desktop only — mobile uses Alert)
+  // Export dropdown state (desktop). Abaixo de 1024px: Modal com as opções —
+  // `Alert.alert` com botões é no-op no react-native-web.
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [mostrarOpcoesExportar, setMostrarOpcoesExportar] = useState(false);
+
+  // Erro de carga: aviso no topo; com dados anteriores, o selo diz de quando.
+  const avisoErroCarga = erroCarga ? (
+    <AvisoErroCarga
+      mensagem={erroCarga}
+      dadosDe={dadosDe}
+      onTentarNovamente={loadRotas}
+    />
+  ) : null;
   const exportMenuRef = useRef<View>(null);
 
   // Desktop header menu
@@ -352,6 +368,8 @@ export default function GestaoRotas() {
           loading={loading}
           loadingText="Carregando rotas..."
         >
+          {avisoErroCarga}
+
           {/* Filtros */}
           <DesktopCard
             title="Filtros"
@@ -420,17 +438,19 @@ export default function GestaoRotas() {
                 skeletonRows={10}
                 onSort={handleSort}
                 emptyState={
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateText}>📋</Text>
-                    <Text style={styles.emptyStateTitle}>
-                      Nenhuma rota encontrada
-                    </Text>
-                    <Text style={styles.emptyStateSubtitle}>
-                      {filtroStatus !== 'todas'
-                        ? 'Tente alterar os filtros'
-                        : 'Crie sua primeira rota de entrega'}
-                    </Text>
-                  </View>
+                  erroCarga ? null : (
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyStateText}>📋</Text>
+                      <Text style={styles.emptyStateTitle}>
+                        Nenhuma rota encontrada
+                      </Text>
+                      <Text style={styles.emptyStateSubtitle}>
+                        {filtroStatus !== 'todas'
+                          ? 'Tente alterar os filtros'
+                          : 'Crie sua primeira rota de entrega'}
+                      </Text>
+                    </View>
+                  )
                 }
               />
             </DesktopCard>
@@ -441,8 +461,8 @@ export default function GestaoRotas() {
         <Dialog
           visible={showConfirmModal}
           variant="confirm"
-          title="Excluir Rota"
-          message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+          title={confirmacaoExclusao.titulo}
+          message={confirmacaoExclusao.mensagem}
           confirmText="Excluir"
           cancelText="Cancelar"
           type="danger"
@@ -477,6 +497,8 @@ export default function GestaoRotas() {
         }}
       >
         <View style={styles.content}>
+          {avisoErroCarga}
+
           {/* Info e Filtros */}
           <MobileCard
             title="Filtros"
@@ -526,19 +548,7 @@ export default function GestaoRotas() {
             <View style={styles.mobileActionsRow}>
               <TouchableOpacity
                 style={styles.mobileActionButtonSecondary}
-                onPress={() =>
-                  Alert.alert('Exportar Rotas', 'Escolha o formato:', [
-                    {
-                      text: 'CSV',
-                      onPress: exportarParaCSV,
-                    },
-                    {
-                      text: 'Excel (XLSX)',
-                      onPress: exportarParaXLSX,
-                    },
-                    { text: 'Cancelar', style: 'cancel' },
-                  ])
-                }
+                onPress={() => setMostrarOpcoesExportar(true)}
                 accessibilityRole="button"
                 accessibilityLabel="Abrir menu de exportação"
               >
@@ -572,34 +582,69 @@ export default function GestaoRotas() {
             skeletonRows={10}
             onSort={handleSort}
             emptyState={
-              <MobileEmptyState
-                icon="📋"
-                title="Nenhuma rota encontrada"
-                subtitle={
-                  filtroStatus !== 'todas'
-                    ? 'Tente alterar os filtros'
-                    : 'Crie sua primeira rota de entrega'
-                }
-                actionLabel={
-                  filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined
-                }
-                onAction={
-                  filtroStatus === 'todas'
-                    ? () => router.push('/gestor/nova-entrega')
-                    : undefined
-                }
-              />
+              erroCarga ? null : (
+                <MobileEmptyState
+                  icon="📋"
+                  title="Nenhuma rota encontrada"
+                  subtitle={
+                    filtroStatus !== 'todas'
+                      ? 'Tente alterar os filtros'
+                      : 'Crie sua primeira rota de entrega'
+                  }
+                  actionLabel={
+                    filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined
+                  }
+                  onAction={
+                    filtroStatus === 'todas'
+                      ? () => router.push('/gestor/nova-entrega')
+                      : undefined
+                  }
+                />
+              )
             }
           />
         </View>
       </ScrollView>
 
+      {/* Opções de exportação - Mobile/Tablet */}
+      <Modal
+        visible={mostrarOpcoesExportar}
+        onClose={() => setMostrarOpcoesExportar(false)}
+        title="Exportar Rotas"
+        size="small"
+      >
+        <View style={styles.opcoesExportar}>
+          <Text style={styles.opcoesExportarTexto}>Escolha o formato:</Text>
+          <Button
+            title="CSV"
+            variant="outline"
+            onPress={() => {
+              setMostrarOpcoesExportar(false);
+              exportarParaCSV();
+            }}
+          />
+          <Button
+            title="Excel (XLSX)"
+            variant="outline"
+            onPress={() => {
+              setMostrarOpcoesExportar(false);
+              exportarParaXLSX();
+            }}
+          />
+          <Button
+            title="Cancelar"
+            variant="ghost"
+            onPress={() => setMostrarOpcoesExportar(false)}
+          />
+        </View>
+      </Modal>
+
       {/* Modal de Confirmação de Exclusão - Mobile */}
       <Dialog
         visible={showConfirmModal}
         variant="confirm"
-        title="Confirmar Exclusão"
-        message={`Tem certeza que deseja excluir esta rota?\n\nMotorista: ${rotaToDelete?.motorista_nome || 'Sem motorista'}\nParadas: ${rotaToDelete?.paradas_count || 0}\nStatus: ${rotaToDelete?.status ? getStatusLabel(rotaToDelete.status) : '-'}\n\nEsta ação não pode ser desfeita.`}
+        title={confirmacaoExclusao.titulo}
+        message={confirmacaoExclusao.mensagem}
         confirmText="Excluir"
         cancelText="Cancelar"
         type="danger"

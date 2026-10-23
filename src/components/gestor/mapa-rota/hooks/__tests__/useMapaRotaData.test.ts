@@ -51,10 +51,6 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
 }));
 
-jest.mock('@/lib/routeUtils', () => ({
-  normalizarOrdemParadas: jest.fn(),
-}));
-
 const rotaRow = {
   id: 'rota-1',
   data: '2026-08-05',

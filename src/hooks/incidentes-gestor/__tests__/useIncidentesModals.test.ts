@@ -25,11 +25,20 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+// Linhas que o UPDATE "afeta": a RLS de `incidentes` recusa em silêncio
+// (0 linhas, sem erro) quando o motorista não é desta loja.
+let mockLinhasAfetadas: { id: string }[] = [{ id: 'inc-1' }];
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(() => ({
       update: jest.fn(() => ({
-        eq: jest.fn(() => Promise.resolve({ error: null })),
+        eq: jest.fn(() => {
+          const resultado = { data: mockLinhasAfetadas, error: null };
+          return {
+            select: () => Promise.resolve(resultado),
+            then: (r: (v: unknown) => void) => r({ error: null }),
+          };
+        }),
       })),
     })),
   },
@@ -247,6 +256,51 @@ describe('useIncidentesModals', () => {
       });
 
       expect(result.current.observacoes).toBe('New observation');
+    });
+
+    it('UPDATE que não altera nenhuma linha (RLS) mostra erro, não sucesso', async () => {
+      mockLinhasAfetadas = [];
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        }),
+      );
+
+      act(() => result.current.handleAlterarStatus(mockIncidente));
+      await act(async () => {
+        await result.current.confirmarAlterarStatus();
+      });
+
+      expect(mockShowToast).not.toHaveBeenCalledWith(
+        'Status atualizado com sucesso',
+        'success',
+      );
+      expect(mockShowToast).toHaveBeenCalledWith(
+        expect.stringMatching(/não foi atualizado/i),
+        'error',
+      );
+      mockLinhasAfetadas = [{ id: 'inc-1' }];
+    });
+
+    it('UPDATE que altera a linha confirma o sucesso', async () => {
+      mockLinhasAfetadas = [{ id: 'inc-1' }];
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        }),
+      );
+
+      act(() => result.current.handleAlterarStatus(mockIncidente));
+      await act(async () => {
+        await result.current.confirmarAlterarStatus();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Status atualizado com sucesso',
+        'success',
+      );
     });
 
     it('setShowAlterarStatusModal works', () => {

@@ -508,6 +508,19 @@ const _mockIncidente3: Incidente = {
 
 const mockVinculacoes = [{ usuario_id: 'mot-1' }, { usuario_id: 'mot-2' }];
 
+// O hook faz duas consultas em `incidentes`: as da loja da rota
+// (rotas!inner) e as sem rota (`.is('rota_id', null)`). Nestes mocks a 1ª
+// devolve os dados do teste; a 2ª, aberta pelo `.is`, volta vazia.
+function mockConsultaSemRotaVazia() {
+  const consulta: Record<string, unknown> = {
+    then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
+  };
+  for (const m of ['in', 'eq', 'order', 'select']) {
+    consulta[m] = () => consulta;
+  }
+  return consulta;
+}
+
 const mockIncidentesFromDB = [
   {
     id: 'inc-1',
@@ -766,6 +779,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({ data: [], error: null }),
         };
       });
@@ -798,6 +812,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({
             data: null,
             error: { message: 'Database error' },
@@ -843,6 +858,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({
             data: [
               { ...mockIncidentesFromDB[0], status: 'aberto' },
@@ -901,6 +917,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({ data: [], error: null }),
         };
       });
@@ -946,6 +963,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({
             data: [
               {
@@ -1029,6 +1047,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({
             data: [...manyMotoristas, ...extraIncidentes],
             error: null,
@@ -1124,8 +1143,13 @@ describe('useIncidentesGestor', () => {
 
   describe('confirmarAlterarStatus', () => {
     it('deve atualizar status do incidente com sucesso', async () => {
+      // `.select('id')` devolve a linha alterada (sem ela, 0 linhas = RLS).
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+        eq: jest.fn().mockReturnValue({
+          select: jest
+            .fn()
+            .mockResolvedValue({ data: [{ id: 'inc-1' }], error: null }),
+        }),
       });
 
       mockFrom.mockImplementation((table: string) => {
@@ -1135,6 +1159,7 @@ describe('useIncidentesGestor', () => {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             in: jest.fn().mockReturnThis(),
+            is: () => mockConsultaSemRotaVazia(),
             order: jest.fn().mockResolvedValue({ data: [], error: null }),
           };
         }
@@ -1197,14 +1222,21 @@ describe('useIncidentesGestor', () => {
         await result.current.confirmarAlterarStatus();
       });
 
-      // Nao deve ter chamado update
-      expect(mockFrom).not.toHaveBeenCalledWith('incidentes');
+      // Nao deve ter atualizado nada (a carga inicial também lê
+      // `incidentes`, então o sinal é a ausência do toast de sucesso)
+      expect(mockShowToast).not.toHaveBeenCalledWith(
+        'Status atualizado com sucesso',
+        'success',
+      );
     });
 
     it('deve mostrar toast de erro quando update falha', async () => {
       const mockUpdate = jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({
-          error: { message: 'Update failed' },
+        eq: jest.fn().mockReturnValue({
+          select: jest.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Update failed' },
+          }),
         }),
       });
 
@@ -1215,6 +1247,7 @@ describe('useIncidentesGestor', () => {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             in: jest.fn().mockReturnThis(),
+            is: () => mockConsultaSemRotaVazia(),
             order: jest.fn().mockResolvedValue({ data: [], error: null }),
           };
         }
@@ -1463,6 +1496,7 @@ describe('useIncidentesGestor', () => {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           in: jest.fn().mockReturnThis(),
+          is: () => mockConsultaSemRotaVazia(),
           order: jest.fn().mockResolvedValue({
             data: mockIncidentesFromDB,
             error: null,

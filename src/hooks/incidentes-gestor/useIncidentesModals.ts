@@ -123,7 +123,7 @@ export function useIncidentesModals({
     try {
       setAtualizando(true);
 
-      const { error } = await supabase
+      const { data: alteradas, error } = await supabase
         .from('incidentes')
         .update({
           status: novoStatus,
@@ -133,9 +133,20 @@ export function useIncidentesModals({
             resolvido_em: new Date().toISOString(),
           }),
         })
-        .eq('id', incidenteSelecionado.id);
+        .eq('id', incidenteSelecionado.id)
+        .select('id');
 
       if (error) throw error;
+      // A RLS recusa UPDATE sem erro (0 linhas) — por exemplo, motorista
+      // que não tem mais vínculo ativo com esta loja. Sem esta conferência a
+      // tela dizia "atualizado" e o status ficava o mesmo.
+      if ((alteradas?.length ?? 0) === 0) {
+        showToast(
+          'O status não foi atualizado: este incidente não pode ser alterado por você. Atualize a lista.',
+          'error',
+        );
+        return;
+      }
 
       showToast('Status atualizado com sucesso', 'success');
       setShowAlterarStatusModal(false);

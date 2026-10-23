@@ -30,6 +30,12 @@ jest.mock('@/hooks/useUser', () => ({
   }),
 }));
 
+// A loja ABERTA difere do `usuarios.unidade_id` legado: a tela tem de
+// seguir a ativa (useUnidadeAtiva), como o resto do app.
+jest.mock('@/hooks/useUnidadeAtiva', () => ({
+  useUnidadeAtiva: () => ({ unidadeAtiva: 'unidade-ativa', loading: false }),
+}));
+
 // Força o branch mobile: os seletores abaixo (texto 'Salvar', botão
 // '✏️ Editar Informações') só existem nesse branch — o desktop usa
 // 'Salvar alterações' dentro de `actions` do DesktopPageLayout.
@@ -132,7 +138,7 @@ const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 // na RPC quando o campo está vazio. sede_endereco null é o cenário "unidade
 // sem sede cadastrada" usado no teste de preservação.
 const UNIDADE_MOCK = {
-  id: 'unidade-1',
+  id: 'unidade-ativa', // a linha é a da loja ATIVA (o que `.eq('id', ativa)` devolve)
   nome: 'Unidade Teste',
   cnpj: '12345678000199',
   telefone: '11999998888',
@@ -143,22 +149,34 @@ const UNIDADE_MOCK = {
   sede_endereco: null,
 };
 
+const mockEqUnidades = jest.fn();
+const mockEqMembros = jest.fn();
+
 function unidadesQueryBuilder() {
-  return {
+  const builder = {
     select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
+    eq: jest.fn((col: string, val: unknown) => {
+      mockEqUnidades(col, val);
+      return builder;
+    }),
     single: jest.fn().mockResolvedValue({ data: UNIDADE_MOCK, error: null }),
   };
+  return builder;
 }
 
 // loadMembrosCount encerra a cadeia em .eq() (select com count:'exact',
 // head:true não usa .single()) — o builder precisa resolver aqui, não
 // encadear mais.
 function usuariosQueryBuilder() {
-  return {
+  const builder = {
     select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockResolvedValue({ count: 3, error: null }),
+    eq: jest.fn((col: string, val: unknown) => {
+      mockEqMembros(col, val);
+      return builder;
+    }),
+    then: (resolve: (v: unknown) => void) => resolve({ count: 3, error: null }),
   };
+  return builder;
 }
 
 /**
@@ -188,6 +206,16 @@ describe('tela Minha Unidade', () => {
     (mockSupabase.from as jest.Mock).mockImplementation((table: string) =>
       table === 'unidades' ? unidadesQueryBuilder() : usuariosQueryBuilder(),
     );
+  });
+
+  it('carrega a loja ATIVA e conta os membros pelo vínculo com ela', async () => {
+    render(<UnidadeScreen />);
+
+    expect(await screen.findByText('✏️ Editar Informações')).toBeTruthy();
+    expect(mockEqUnidades).toHaveBeenCalledWith('id', 'unidade-ativa');
+    expect(mockEqUnidades).not.toHaveBeenCalledWith('id', 'unidade-1');
+    expect(mockSupabase.from).toHaveBeenCalledWith('usuario_unidades');
+    expect(mockEqMembros).toHaveBeenCalledWith('unidade_id', 'unidade-ativa');
   });
 
   it('mostra o botão de editar para gestor (hoje some para todos)', async () => {

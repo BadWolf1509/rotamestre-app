@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { View, TouchableOpacity, RefreshControl } from 'react-native';
 
 import { AnimatedListItem } from '@/components/AnimatedListItem';
+import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -16,8 +17,13 @@ import {
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { formatarDecimal } from '@/lib/formatNumber';
+import {
+  excluirRota,
+  ExclusaoRotaError,
+  MENSAGEM_ROTA_EM_ANDAMENTO,
+  textoConfirmacaoExclusao,
+} from '@/lib/gestor/excluirRota';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { RotasTable } from './RotasTable';
@@ -41,6 +47,8 @@ export function DashboardDesktop({
   rotas,
   loading,
   refreshing,
+  erroCarga,
+  dadosDe,
   onRefresh,
   userData, // Receber userData como prop ao invés de usar useUser
   filters,
@@ -82,32 +90,62 @@ export function DashboardDesktop({
     userImageUrl: userData?.foto_url,
   });
 
+  // Rota escolhida para excluir (o status vem da lista; `excluirRota`
+  // reconsulta antes de apagar).
+  const rotaParaExcluir = rotaToDelete
+    ? rotas.find((r) => r.id === rotaToDelete)
+    : undefined;
+  const confirmacao = textoConfirmacaoExclusao({
+    status: rotaParaExcluir?.status,
+    motoristaNome: rotaParaExcluir?.motorista_nome,
+    paradasCount: rotaParaExcluir?.total_paradas,
+  });
+
   // Memoize delete handler para evitar re-render do RotasTable
-  const handleDeleteRota = useCallback((rotaId: string) => {
-    // Usar ConfirmModal em todas as plataformas para UX consistente
-    setRotaToDelete(rotaId);
-    setShowConfirmModal(true);
-  }, []);
+  const handleDeleteRota = useCallback(
+    (rotaId: string) => {
+      const rota = rotas.find((r) => r.id === rotaId);
+      // Atalho de UX: a lista já sabe que está em andamento. `excluirRota`
+      // reconsulta o status; a trava no banco é o gatilho da Migration 41.
+      if (rota?.status === 'em_andamento') {
+        showToast(MENSAGEM_ROTA_EM_ANDAMENTO, 'error');
+        return;
+      }
+      setRotaToDelete(rotaId);
+      setShowConfirmModal(true);
+    },
+    [rotas, showToast],
+  );
 
   // Memoize execute delete
   const executeDelete = useCallback(
     async (rotaId: string) => {
+      if (!userData?.id) {
+        showToast('Erro de autenticação. Faça login novamente.', 'error');
+        return;
+      }
+      const rota = rotas.find((r) => r.id === rotaId);
       try {
-        const { error } = await supabase
-          .from('rotas')
-          .delete()
-          .eq('id', rotaId);
-
-        if (error) throw error;
+        await excluirRota({
+          rotaId,
+          usuarioId: userData.id,
+          motoristaNome: rota?.motorista_nome,
+          paradasCount: rota?.total_paradas,
+        });
 
         showToast('Rota excluída com sucesso', 'success');
         onRefresh();
       } catch (error) {
+        if (error instanceof ExclusaoRotaError) {
+          showToast(error.message, 'error');
+          onRefresh();
+          return;
+        }
         logger.error('Erro ao excluir rota:', error);
         showToast('Erro ao excluir a rota', 'error');
       }
     },
-    [showToast, onRefresh],
+    [showToast, onRefresh, rotas, userData?.id],
   );
 
   // Memoize confirm handler
@@ -154,6 +192,14 @@ export function DashboardDesktop({
         }}
       >
         <View style={styles.content}>
+          {erroCarga ? (
+            <AvisoErroCarga
+              mensagem={erroCarga}
+              dadosDe={dadosDe}
+              onTentarNovamente={onRefresh}
+            />
+          ) : null}
+
           <View style={styles.statsRow} testID="gestor-dashboard-stats">
             <AnimatedListItem index={0} style={styles.statCard}>
               <StatsCard
@@ -189,7 +235,11 @@ export function DashboardDesktop({
                 activeOpacity={0.8}
               >
                 <StatsCard
-                  value={stats.incidentesAbertos || 0}
+                  value={
+                    stats.incidentesAbertos === null
+                      ? '—'
+                      : stats.incidentesAbertos || 0
+                  }
                   label="Incidentes Abertos"
                   backgroundColor={theme.colors.kpiIncidentes}
                 />
@@ -244,8 +294,8 @@ export function DashboardDesktop({
       <Dialog
         visible={showConfirmModal}
         variant="confirm"
-        title="Excluir Rota"
-        message="Tem certeza que deseja excluir esta rota? Esta ação não pode ser desfeita."
+        title={confirmacao.titulo}
+        message={confirmacao.mensagem}
         confirmText="Excluir"
         cancelText="Cancelar"
         type="danger"

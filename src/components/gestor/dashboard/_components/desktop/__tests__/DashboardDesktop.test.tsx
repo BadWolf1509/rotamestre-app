@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 
 import { DashboardDesktop } from '../DashboardDesktop';
@@ -248,6 +248,35 @@ describe('DashboardDesktop', () => {
       render(<DashboardDesktop {...defaultProps} />);
 
       expect(typeof defaultProps.onRefresh).toBe('function');
+    });
+  });
+  describe('Incidentes indisponíveis', () => {
+    it('contagem nula aparece como "—", não 0', () => {
+      const { getByTestId } = render(
+        <DashboardDesktop
+          {...(defaultProps as any)}
+          stats={{ ...defaultProps.stats, incidentesAbertos: null }}
+        />,
+      );
+      expect(getByTestId('stats-Incidentes Abertos')).toHaveTextContent(/—/);
+    });
+  });
+
+  describe('Erro de carga', () => {
+    it('mostra o aviso e "Tentar novamente" chama onRefresh', () => {
+      const onRefresh = jest.fn();
+      const { getByText } = render(
+        <DashboardDesktop
+          {...(defaultProps as any)}
+          onRefresh={onRefresh}
+          erroCarga="Não foi possível carregar o painel."
+          dadosDe={null}
+        />,
+      );
+
+      expect(getByText(/Não foi possível carregar o painel/)).toBeTruthy();
+      fireEvent.press(getByText('Tentar novamente'));
+      expect(onRefresh).toHaveBeenCalledTimes(1);
     });
   });
 });

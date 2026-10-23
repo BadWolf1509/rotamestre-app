@@ -30,8 +30,8 @@ export interface Rota {
    * `nao_executada` em `StatusRota` — o compilador não tinha como reclamar.
    *
    * O tipo é uma **afirmação** sobre o que o Supabase devolve, não uma
-   * garantia: `src/lib/queries/rotas.ts` faz `rota.status as StatusRota` sobre
-   * string crua do Postgres. Por isso quem consome mantém fallback de runtime —
+   * garantia: o select devolve string crua do Postgres e a tipagem só a
+   * afirma. Por isso quem consome mantém fallback de runtime —
    * ver `getStatusBadgeVariant` e `formatStatusLabel` em `RouteInfoHeader.tsx`.
    */
   status: StatusRota;

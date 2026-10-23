@@ -25,8 +25,8 @@ interface RouteInfoHeaderProps {
  * o compilador cego para status faltando na union.
  *
  * O fallback cinza no fim **fica**. O tipo é uma afirmação sobre o que vem do
- * Supabase, não garantia — `queries/rotas.ts` faz `as StatusRota` sobre string
- * crua do Postgres. Se o CHECK do banco ganhar um valor novo antes de este tipo
+ * Supabase, não garantia — o select devolve string crua do Postgres e a
+ * tipagem só a afirma. Se o CHECK do banco ganhar um valor novo antes de este tipo
  * acompanhar, a badge degrada para cinza em vez de quebrar a tela.
  */
 function getStatusBadgeVariant(theme: Theme, status?: StatusRota) {

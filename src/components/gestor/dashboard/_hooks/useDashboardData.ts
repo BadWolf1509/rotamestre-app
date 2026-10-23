@@ -12,7 +12,8 @@ export interface Stats {
   emAndamento: number;
   concluidas: number;
   distanciaTotal: number;
-  incidentesAbertos?: number;
+  /** null = indisponível (a contagem falhou); a tela mostra "—". */
+  incidentesAbertos?: number | null;
 }
 
 export interface TodayStats {
@@ -50,6 +51,10 @@ export interface DashboardData {
   rotas: RotaResumo[];
   loading: boolean;
   refreshing: boolean;
+  /** Erro da última carga (null = ok). */
+  erroCarga: string | null;
+  /** Com erro e dados anteriores na tela: de quando são (epoch ms). */
+  dadosDe: number | null;
   onRefresh: () => Promise<void>;
   userData: any;
 }
@@ -169,6 +174,13 @@ export function useDashboardData(
   options: UseDashboardDataOptions = {},
 ): DashboardData {
   const { filters } = options;
+  // Filtros por VALOR (primitivos), não pela identidade do objeto: quem
+  // chama com `{ status }` literal criaria um objeto novo a cada render, e
+  // como toda carga nova agora roda, isso viraria recarga em laço.
+  const dataInicioStr = formatDateToISO(filters?.dataInicio);
+  const dataFimStr = formatDateToISO(filters?.dataFim);
+  const filtroStatus = filters?.status ?? null;
+  const filtroMotoristaId = filters?.motoristaId ?? null;
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
   const unidadeId = unidadeAtiva;
@@ -193,9 +205,16 @@ export function useDashboardData(
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [erroCarga, setErroCarga] = useState<string | null>(null);
+  const [dadosDe, setDadosDe] = useState<number | null>(null);
+  const ultimaCargaOkRef = useRef<number | null>(null);
 
   // Refs para controle de execução
-  const loadingRef = useRef(false);
+  // Contador de requisição: toda carga nova roda (troca de filtro/unidade com
+  // outra em voo não é mais descartada) e só a MAIS RECENTE escreve no
+  // estado — a resposta velha que chega depois é ignorada. Antes, um
+  // `loadingRef` fazia a nova carga simplesmente não rodar.
+  const requisicaoRef = useRef(0);
   const mountedRef = useRef(true);
   // `loading` desmonta a página inteira: DesktopPageLayout e DashboardMobile
   // retornam só o spinner quando ele é true. Por isso ele vale apenas para a
@@ -208,10 +227,11 @@ export function useDashboardData(
   // ============================================================================
   const fetchDashboardData = useCallback(
     async (isRefresh = false) => {
-      // Prevenir execução duplicada ou em componente desmontado
-      if (loadingRef.current || !mountedRef.current) return;
+      if (!mountedRef.current) return;
 
-      loadingRef.current = true;
+      const minhaRequisicao = ++requisicaoRef.current;
+      const vigente = () =>
+        mountedRef.current && minhaRequisicao === requisicaoRef.current;
 
       // Se não há unidade, limpar dados
       if (!unidadeId) {
@@ -227,7 +247,6 @@ export function useDashboardData(
           setLoading(false);
           setRefreshing(false);
         }
-        loadingRef.current = false;
         return;
       }
 
@@ -245,7 +264,7 @@ export function useDashboardData(
           logger.warn('[Dashboard] Mocking data for E2E/CI');
           await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate delay
 
-          if (!mountedRef.current) return;
+          if (!vigente()) return;
 
           const mockRotas: RotaResumo[] = [
             {
@@ -302,9 +321,6 @@ export function useDashboardData(
             },
           });
 
-          setLoading(false);
-          setRefreshing(false);
-          loadingRef.current = false;
           return;
         }
 
@@ -330,28 +346,25 @@ export function useDashboardData(
           .eq('unidade_id', unidadeId);
 
         // Aplicar filtros de data
-        const dataInicioStr = formatDateToISO(filters?.dataInicio);
-        const dataFimStr = formatDateToISO(filters?.dataFim);
-
-        if (dataInicioStr) {
-          query = query.gte('data', dataInicioStr);
+        if (!dataInicioStr && !dataFimStr) {
+          // Por padrão, só as rotas de HOJE. Era `gte(hoje)` sem limite
+          // superior: "hoje" incluía as rotas já agendadas para amanhã.
+          query = query.eq('data', hoje);
         } else {
-          // Por padrão, mostrar apenas rotas de hoje
-          query = query.gte('data', hoje);
-        }
-
-        if (dataFimStr) {
-          query = query.lte('data', dataFimStr);
+          query = query.gte('data', dataInicioStr ?? hoje);
+          if (dataFimStr) {
+            query = query.lte('data', dataFimStr);
+          }
         }
 
         // Aplicar filtro de status
-        if (filters?.status) {
-          query = query.eq('status', filters.status);
+        if (filtroStatus) {
+          query = query.eq('status', filtroStatus);
         }
 
         // Aplicar filtro de motorista
-        if (filters?.motoristaId) {
-          query = query.eq('motorista_id', filters.motoristaId);
+        if (filtroMotoristaId) {
+          query = query.eq('motorista_id', filtroMotoristaId);
         }
 
         query = query.order('created_at', { ascending: false });
@@ -359,7 +372,7 @@ export function useDashboardData(
         const { data: rotasData, error: rotasError } = await query;
 
         if (rotasError) throw rotasError;
-        if (!mountedRef.current) return;
+        if (!vigente()) return;
 
         // Processar rotas com paradas (já vieram no JOIN)
         const rotasComDetalhes = processarRotasComParadas(rotasData || []);
@@ -369,24 +382,57 @@ export function useDashboardData(
         // =====================================================================
         // BUSCAR INCIDENTES ABERTOS (em paralelo com outras queries)
         // =====================================================================
+        // Pela LOJA DA ROTA, não pelos motoristas da loja: motorista que
+        // atende duas lojas levava os incidentes da outra loja junto.
+        // Incidente sem rota não tem loja própria — esse conta pelo vínculo
+        // do motorista com esta loja.
         const incidentesPromise = (async () => {
-          const { data: vinculacoes } = await supabase
-            .from('usuario_unidades')
-            .select('usuario_id')
-            .eq('unidade_id', unidadeId)
-            .eq('papel', 'motorista')
-            .eq('ativo', true);
+          const [daLoja, vinculos] = await Promise.all([
+            supabase
+              .from('incidentes')
+              .select('id, rotas!inner(unidade_id)', {
+                count: 'exact',
+                head: true,
+              })
+              .eq('rotas.unidade_id', unidadeId)
+              .eq('status', 'aberto'),
+            supabase
+              .from('usuario_unidades')
+              .select('usuario_id')
+              .eq('unidade_id', unidadeId)
+              .eq('papel', 'motorista')
+              .eq('ativo', true),
+          ]);
+          // Erro em qualquer parte vira INDISPONÍVEL (null), nunca 0: "0
+          // incidentes abertos" é uma afirmação, e seria falsa.
+          if (daLoja.error || vinculos.error) {
+            logger.warn(
+              '[Dashboard] contagem de incidentes indisponível',
+              daLoja.error ?? vinculos.error,
+            );
+            return null;
+          }
 
-          if (!vinculacoes?.length) return 0;
+          let semRota = 0;
+          const motoristasIds = (vinculos.data ?? []).map((v) => v.usuario_id);
+          if (motoristasIds.length > 0) {
+            const { count, error } = await supabase
+              .from('incidentes')
+              .select('id', { count: 'exact', head: true })
+              .is('rota_id', null)
+              .in('motorista_id', motoristasIds)
+              .eq('status', 'aberto');
+            if (error) {
+              logger.warn(
+                '[Dashboard] incidentes sem rota indisponíveis',
+                error,
+              );
+              return null;
+            }
+            semRota = count || 0;
+          }
 
-          const motoristasIds = vinculacoes.map((v) => v.usuario_id);
-          const { count } = await supabase
-            .from('incidentes')
-            .select('*', { count: 'exact', head: true })
-            .in('motorista_id', motoristasIds)
-            .eq('status', 'aberto');
-
-          return count || 0;
+          return (daLoja.count || 0) + semRota;
         })();
 
         // =====================================================================
@@ -396,7 +442,7 @@ export function useDashboardData(
           .from('rotas')
           .select('id')
           .eq('unidade_id', unidadeId)
-          .gte('data', hoje);
+          .eq('data', hoje);
 
         // =====================================================================
         // BUSCAR KPIS (semana e mês) - apenas no load inicial, não no refresh
@@ -413,14 +459,16 @@ export function useDashboardData(
               'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
             )
             .eq('unidade_id', unidadeId)
-            .gte('data', toLocalISODate(inicioSemana)),
+            .gte('data', toLocalISODate(inicioSemana))
+            .lte('data', hoje),
           supabase
             .from('rotas')
             .select(
               'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
             )
             .eq('unidade_id', unidadeId)
-            .gte('data', toLocalISODate(inicioMes)),
+            .gte('data', toLocalISODate(inicioMes))
+            .lte('data', hoje),
         ]);
 
         // Executar queries em paralelo
@@ -430,7 +478,7 @@ export function useDashboardData(
           kpisPromise,
         ]);
 
-        if (!mountedRef.current) return;
+        if (!vigente()) return;
 
         // Calcular estatísticas
         const statsData: Stats = {
@@ -481,20 +529,29 @@ export function useDashboardData(
           paradasConcluidas,
           motoristaDestaque: encontrarMotoristaDestaque(rotasMesData),
         });
+        setErroCarga(null);
+        setDadosDe(null);
+        ultimaCargaOkRef.current = Date.now();
       } catch (error) {
         logger.error('Erro ao carregar dashboard:', error);
+        if (vigente()) {
+          // Os dados anteriores (se houver) ficam na tela, com o horário.
+          setErroCarga('Não foi possível carregar o painel.');
+          setDadosDe(ultimaCargaOkRef.current);
+        }
       } finally {
-        // Marca fora do `if (mountedRef)`: a tentativa aconteceu, então a
-        // próxima passagem é recarga, não carga inicial.
+        // Marca fora do `if`: a tentativa aconteceu, então a próxima
+        // passagem é recarga, não carga inicial.
         cargaInicialFeitaRef.current = true;
-        if (mountedRef.current) {
+        // Só a carga mais recente encerra os indicadores: a velha que
+        // termina depois não pode apagar o "atualizando" da nova.
+        if (vigente()) {
           setLoading(false);
           setRefreshing(false);
         }
-        loadingRef.current = false;
       }
     },
-    [unidadeId, filters],
+    [unidadeId, dataInicioStr, dataFimStr, filtroStatus, filtroMotoristaId],
   );
 
   // ============================================================================
@@ -511,16 +568,14 @@ export function useDashboardData(
 
   // Carregar dados quando unidadeId ou filters mudam
   useEffect(() => {
-    if (!loadingRef.current) {
-      fetchDashboardData(false);
-    }
+    fetchDashboardData(false);
   }, [fetchDashboardData]);
 
   // Realtime: Escutar mudanças em rotas e paradas
   useRealtimeRoutes({
     enabled: !!unidadeId,
     onRouteUpdate: () => {
-      if (!loadingRef.current && mountedRef.current) {
+      if (mountedRef.current) {
         fetchDashboardData(true);
       }
     },
@@ -545,7 +600,10 @@ export function useDashboardData(
         emAndamento: 0,
         concluidas: 0,
         distanciaTotal: 0,
-        incidentesAbertos: stats.incidentesAbertos || 0,
+        incidentesAbertos:
+          stats.incidentesAbertos === null
+            ? null
+            : stats.incidentesAbertos || 0,
       };
     }
 
@@ -554,7 +612,8 @@ export function useDashboardData(
       emAndamento: rotas.filter((r) => r.status === 'em_andamento').length,
       concluidas: rotas.filter((r) => r.status === 'concluida').length,
       distanciaTotal: rotas.reduce((sum, r) => sum + r.distancia_total, 0),
-      incidentesAbertos: stats.incidentesAbertos || 0,
+      incidentesAbertos:
+        stats.incidentesAbertos === null ? null : stats.incidentesAbertos || 0,
     };
   }, [rotas, stats.incidentesAbertos]);
 
@@ -569,6 +628,8 @@ export function useDashboardData(
     rotas,
     loading,
     refreshing,
+    erroCarga,
+    dadosDe,
     onRefresh,
     userData,
   };

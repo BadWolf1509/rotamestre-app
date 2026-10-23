@@ -125,26 +125,11 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
     try {
       setLoading(true);
 
-      const { data: vinculacoes } = await supabase
-        .from('usuario_unidades')
-        .select('usuario_id')
-        .eq('unidade_id', unidadeAtiva)
-        .eq('papel', 'motorista')
-        .eq('ativo', true);
-
-      const motoristas = vinculacoes?.map((v) => ({ id: v.usuario_id })) || [];
-
-      if (!motoristas || motoristas.length === 0) {
-        setIncidentes([]);
-        return;
-      }
-
-      const motoristasIds = motoristas.map((m) => m.id);
-
-      let query = supabase
-        .from('incidentes')
-        .select(
-          `
+      // Recorte pela LOJA DA ROTA (rotas!inner + unidade_id), não pelos
+      // motoristas da loja: motorista que atende duas lojas levava para
+      // esta loja os incidentes das rotas da outra. Incidente sem rota não
+      // tem loja própria — esse vem pelo vínculo do motorista com a loja.
+      const campos = `
           id,
           categoria,
           descricao,
@@ -155,23 +140,54 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
           observacoes_gestao,
           motorista_id,
           motorista:usuarios!motorista_id (nome),
-          rota:rotas (id, data),
-          parada:paradas (endereco)
-        `,
-        )
-        .in('motorista_id', motoristasIds)
+          parada:paradas (endereco)`;
+
+      let queryDaLoja = supabase
+        .from('incidentes')
+        .select(`${campos}, rota:rotas!inner (id, data, unidade_id)`)
+        .eq('rota.unidade_id', unidadeAtiva)
         .order('created_at', { ascending: false });
 
+      const { data: vinculacoes, error: erroVinculos } = await supabase
+        .from('usuario_unidades')
+        .select('usuario_id')
+        .eq('unidade_id', unidadeAtiva)
+        .eq('papel', 'motorista')
+        .eq('ativo', true);
+      if (erroVinculos) throw erroVinculos;
+
+      const motoristasIds = (vinculacoes ?? []).map((v) => v.usuario_id);
+
+      let querySemRota =
+        motoristasIds.length > 0
+          ? supabase
+              .from('incidentes')
+              .select(`${campos}, rota:rotas (id, data)`)
+              .is('rota_id', null)
+              .in('motorista_id', motoristasIds)
+              .order('created_at', { ascending: false })
+          : null;
+
       if (filtroStatus !== 'todos') {
-        query = query.eq('status', filtroStatus);
+        queryDaLoja = queryDaLoja.eq('status', filtroStatus);
+        querySemRota = querySemRota?.eq('status', filtroStatus) ?? null;
       }
       if (filtroCategoria !== 'todos') {
-        query = query.eq('categoria', filtroCategoria);
+        queryDaLoja = queryDaLoja.eq('categoria', filtroCategoria);
+        querySemRota = querySemRota?.eq('categoria', filtroCategoria) ?? null;
       }
 
-      const { data, error } = await query;
+      const [daLoja, semRota] = await Promise.all([
+        queryDaLoja,
+        querySemRota ?? Promise.resolve({ data: [], error: null }),
+      ]);
 
-      if (error) throw error;
+      if (daLoja.error) throw daLoja.error;
+      if (semRota.error) throw semRota.error;
+
+      const data = [...(daLoja.data ?? []), ...(semRota.data ?? [])].sort(
+        (x, y) => (x.created_at < y.created_at ? 1 : -1),
+      );
 
       const incidentesFormatados = (data || []).map((inc: any) => ({
         id: inc.id,

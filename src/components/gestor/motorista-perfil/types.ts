@@ -22,7 +22,8 @@ export interface MotoristaPerformance {
   rotas_em_andamento: number;
   rotas_nao_executadas: number;
   rotas_canceladas: number;
-  taxa_execucao: number;
+  /** null = sem base (motorista sem linha na view). */
+  taxa_execucao: number | null;
   distancia_total_km: number | null;
   tempo_medio_minutos: number | null;
 }

@@ -179,6 +179,18 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    // Sentinela do gatilho da Migration 41 (recusa_apagar_rota_em_andamento):
+    // gestor tentou excluir rota que um motorista está fazendo.
+    pattern: /ROTA_EM_ANDAMENTO/,
+    result: {
+      title: 'Rota em andamento',
+      message:
+        'Não é possível excluir uma rota em andamento. Aguarde a conclusão ou cancele a rota primeiro.',
+      type: 'warning',
+      code: 'ROUTE_IN_PROGRESS',
+    },
+  },
+  {
     // Sentinela da RPC atualizar_unidade: levantada quando quem chama não é
     // gestor ativo daquela unidade. Mensagem específica para deixar claro que
     // é falta de permissão, não erro genérico.

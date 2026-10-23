@@ -6,10 +6,10 @@
  *
  * Usage:
  * ```typescript
- * import { rotasQueries, paradasQueries, usuariosQueries } from '@/lib/queries';
+ * import { paradasQueries, usuariosQueries } from '@/lib/queries';
  *
- * // Fetch rotas with stats
- * const result = await rotasQueries.fetchRotasWithStats({ unidadeId });
+ * // Fetch paradas of a route
+ * const result = await paradasQueries.fetchParadasByRota(rotaId);
  * if (result.success) {
  *   console.log(result.data);
  * } else {
@@ -32,18 +32,6 @@ export {
   PARADA_SELECT_FIELDS,
   USUARIO_SELECT_FIELDS,
 } from './queryClient';
-
-// Rotas queries
-export * as rotasQueries from './rotas';
-export type {
-  RotaDB,
-  ParadaDB,
-  RotaWithRelations,
-  RotaListItem,
-  FetchRotasOptions,
-  RotaInsert,
-  RotaUpdate,
-} from './rotas';
 
 // Paradas queries
 export * as paradasQueries from './paradas';
@@ -81,21 +69,6 @@ export type { LogEntry, LogDB, LogEvent } from './logs';
 export { LOG_EVENTS } from './logs';
 
 // Re-export individual functions for direct imports
-export {
-  // Rotas
-  fetchRotasWithStats,
-  fetchRotaDetalhada,
-  fetchRotasAtivasMotorista,
-  fetchRotaWithCache,
-  createRota,
-  updateRotaStatus,
-  updateRota,
-  deleteRota,
-  assignMotoristaToRota,
-  fetchRotasKPIs,
-  logRotaAction,
-} from './rotas';
-
 export {
   // Paradas
   fetchParadasByRota,
@@ -145,6 +118,6 @@ export {
   // Logs (centralized logging utilities)
   logAction,
   logUserAction,
-  // Note: logRotaAction and logParadaAction are also available in rotas.ts and paradas.ts
+  // Note: logRotaAction and logParadaAction are also available in paradas.ts
   // Use logsQueries.logRotaAction or logsQueries.logParadaAction for the centralized versions
 } from './logs';

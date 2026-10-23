@@ -247,6 +247,9 @@ function setupMocks(
   const mockParadasQuery = {
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
     abortSignal: jest.fn().mockResolvedValue({
       data: paradasData,
       error: paradasError,
@@ -344,12 +347,13 @@ describe('useGestaoRotas', () => {
         cachedData: null,
       });
 
-      renderHook(() => useGestaoRotas(defaultOptions));
+      // Erro de carga é estado da tela (com "Tentar novamente"), não
+      // Alert.alert — que é no-op no react-native-web.
+      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Não foi possível carregar as rotas',
+        expect(result.current.erroCarga).toBe(
+          'Não foi possível carregar as rotas.',
         );
       });
     });
@@ -397,6 +401,7 @@ describe('useGestaoRotas', () => {
       });
 
       expect(Alert.alert).not.toHaveBeenCalled();
+      expect(result.current.erroCarga).toBeNull();
     });
 
     // Guarda a distinção feita em queryClient.ts: o NOSSO próprio timeout de
@@ -417,12 +422,13 @@ describe('useGestaoRotas', () => {
         cachedData: null,
       });
 
-      renderHook(() => useGestaoRotas(defaultOptions));
+      // Erro de carga é estado da tela (com "Tentar novamente"), não
+      // Alert.alert — que é no-op no react-native-web.
+      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
 
       await waitFor(() => {
-        expect(Alert.alert).toHaveBeenCalledWith(
-          'Erro',
-          'Não foi possível carregar as rotas',
+        expect(result.current.erroCarga).toBe(
+          'Não foi possível carregar as rotas.',
         );
       });
     });
@@ -647,6 +653,9 @@ describe('useGestaoRotas', () => {
           return {
             select: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
+            in: jest.fn().mockReturnThis(),
+            order: jest.fn().mockReturnThis(),
+            range: jest.fn().mockReturnThis(),
             abortSignal: jest
               .fn()
               .mockResolvedValue({ data: mockParadas, error: null }),
@@ -698,7 +707,7 @@ describe('useGestaoRotas', () => {
       });
 
       expect(Alert.alert).toHaveBeenCalledWith(
-        'Confirmar Exclusão',
+        'Excluir Rota',
         expect.stringContaining('Tem certeza que deseja excluir esta rota?'),
         expect.arrayContaining([
           expect.objectContaining({ text: 'Cancelar' }),

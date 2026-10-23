@@ -3,11 +3,11 @@
  * Extraídos para melhor manutenibilidade
  */
 
-import { StyleSheet, type Theme } from "@/utils/styles";
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 export const styles = StyleSheet.create((theme: Theme) => ({
   tableSection: {
-    marginTop: theme.spacing["2xl"],
+    marginTop: theme.spacing['2xl'],
   },
   scrollView: {
     flex: 1,
@@ -17,8 +17,8 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.lg,
     maxWidth: theme.layout.containerMaxWidth,
-    marginHorizontal: "auto",
-    width: "100%",
+    marginHorizontal: 'auto',
+    width: '100%',
   },
   searchContainer: {
     marginBottom: theme.spacing.lg,
@@ -47,17 +47,17 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.lg,
   },
   filtrosButtons: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: theme.spacing.md,
   },
   emptyState: {
-    alignItems: "center",
-    paddingVertical: theme.spacing["3xl"],
+    alignItems: 'center',
+    paddingVertical: theme.spacing['3xl'],
   },
   emptyStateText: {
     fontSize: 48,
-    marginBottom: theme.spacing["2xl"],
+    marginBottom: theme.spacing['2xl'],
   },
   emptyStateTitle: {
     fontSize: theme.typography.lg,
@@ -70,15 +70,15 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray500,
   },
   headerStats: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: theme.spacing.xl,
   },
   headerStat: {
-    alignItems: "flex-end",
+    alignItems: 'flex-end',
   },
   headerStatValue: {
-    fontSize: theme.typography["2xl"],
+    fontSize: theme.typography['2xl'],
     fontFamily: theme.typography.fontSansBold,
     color: theme.colors.gray900,
   },
@@ -93,15 +93,15 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray500,
   },
   cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: theme.spacing.lg,
   },
   cardHeaderButtons: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.md,
   },
   cardHeaderButtonPrimary: {
@@ -130,8 +130,15 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.sm,
     color: theme.colors.gray900,
   },
+  opcoesExportar: {
+    gap: theme.spacing.md,
+  },
+  opcoesExportarTexto: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+  },
   mobileActionsRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: theme.spacing.md,
     marginTop: theme.spacing.lg,
   },
@@ -140,7 +147,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.primary,
     paddingVertical: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
-    alignItems: "center",
+    alignItems: 'center',
   },
   mobileActionButtonPrimaryText: {
     color: theme.colors.white,
@@ -154,7 +161,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
-    alignItems: "center",
+    alignItems: 'center',
   },
   mobileActionButtonSecondaryText: {
     color: theme.colors.gray700,

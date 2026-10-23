@@ -276,4 +276,44 @@ describe('PerformanceKPIs', () => {
       expect(getByText('hourglass')).toBeTruthy();
     });
   });
+
+  describe('Taxa de execução sem base', () => {
+    // A view devolve 100.0 quando não há rota concluída nem não executada,
+    // e não devolve linha para motorista inativo — a tela mostrava "100%"
+    // inventado. Sem base, a taxa é "—".
+    it('taxa nula (motorista sem linha na view) mostra "—"', () => {
+      const { getByText, queryByText } = render(
+        <PerformanceKPIs
+          performance={{ ...mockPerformance, taxa_execucao: null }}
+        />,
+      );
+      expect(getByText('—')).toBeTruthy();
+      expect(queryByText('100%')).toBeNull();
+    });
+
+    it('100% sem nenhuma rota concluída ou não executada mostra "—"', () => {
+      const { getByText, queryByText } = render(
+        <PerformanceKPIs
+          performance={{
+            ...mockPerformance,
+            total_rotas: 3,
+            rotas_concluidas: 0,
+            rotas_nao_executadas: 0,
+            taxa_execucao: 100,
+          }}
+        />,
+      );
+      expect(getByText('—')).toBeTruthy();
+      expect(queryByText('100%')).toBeNull();
+    });
+
+    it('taxa fracionária sai com vírgula', () => {
+      const { getByText } = render(
+        <PerformanceKPIs
+          performance={{ ...mockPerformance, taxa_execucao: 87.5 }}
+        />,
+      );
+      expect(getByText('87,5%')).toBeTruthy();
+    });
+  });
 });
