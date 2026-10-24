@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { contarEntregasAbertas } from './entregasAbertas';
+
 /**
  * Garante que o motorista de E2E tenha uma rota cujo mapa monta.
  *
@@ -170,7 +172,7 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   // então ninguém consertava e o vermelho reaparecia em PR sem relação.
   const { data: paradas, error: erroParadas } = await supabase
     .from('paradas')
-    .select('id, status')
+    .select('id, status, is_checkpoint')
     .eq('rota_id', rota.id);
 
   if (erroParadas) {
@@ -183,7 +185,9 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
     );
   }
 
-  const pendentesAntes = paradas.filter((p) => p.status === 'pendente').length;
+  // Só as ENTREGAS (`is_checkpoint=true`): partida e chegada ficam `pendente`
+  // numa rota de entregas todas concluídas e enganavam este critério.
+  const pendentesAntes = contarEntregasAbertas(paradas);
 
   // A ROTA TAMBÉM PRECISA SER COERENTE, não só ativa. Até 19/10/2026 a
   // restauração tocava `status` e `data` e deixava `iniciada_em`/`concluida_em`
