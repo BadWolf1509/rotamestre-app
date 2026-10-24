@@ -11,8 +11,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { passwordSchema } from '@/lib/schemas';
 import { supabase } from '@/lib/supabase';
-import { isPasswordValid } from '@/utils/passwordValidation';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import type { User } from '@supabase/supabase-js';
@@ -53,11 +53,11 @@ function FirstPasswordContent() {
       return;
     }
 
-    if (!isPasswordValid(newPassword)) {
-      showWarning(
-        'Senha Fraca',
-        'A senha não atende aos requisitos mínimos de segurança. Por favor, crie uma senha mais forte.',
-      );
+    // Regra única (a do cadastro, da redefinição e da troca): `passwordSchema`.
+    // O `isPasswordValid` daqui aceitava 12+ caracteres sem caractere especial.
+    const regra = passwordSchema.safeParse(newPassword);
+    if (!regra.success) {
+      showWarning('Senha Fraca', regra.error.issues[0].message);
       return;
     }
 
@@ -97,15 +97,17 @@ function FirstPasswordContent() {
         return;
       }
 
-      // Atualizar senha no Supabase Auth
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (updateError) {
+      // Pela authService, que também encerra as OUTRAS sessões: quem conhecia
+      // a senha temporária (o gestor que criou a conta) não segue logado. A
+      // sessão desta tela é um login normal, então `scope: 'others'` mantém ela.
+      try {
+        await authService.updatePassword(newPassword);
+      } catch (updateError) {
+        const mensagem =
+          updateError instanceof Error ? updateError.message : '';
         if (
-          updateError.message.includes('should be different') ||
-          updateError.message.includes('same')
+          mensagem.includes('should be different') ||
+          mensagem.includes('same')
         ) {
           showWarning(
             'Senha Inválida',
@@ -116,7 +118,7 @@ function FirstPasswordContent() {
         }
 
         logger.error('Erro ao atualizar senha', updateError);
-        throw new Error(updateError.message || 'Erro ao atualizar senha');
+        throw new Error(mensagem || 'Erro ao atualizar senha');
       }
 
       // Marcar primeira_senha como false

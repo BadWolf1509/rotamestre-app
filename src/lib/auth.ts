@@ -347,7 +347,7 @@ export const authService = {
   /**
    * Atualiza a senha e encerra as OUTRAS sessões da conta.
    *
-   * É o caminho único das três telas (troca do gestor, troca do motorista e
+   * É o caminho único das quatro telas (troca do gestor, troca do motorista, primeira senha e
    * redefinição por e-mail): quem tinha a senha antiga num aparelho perdido
    * não pode seguir logado depois da troca. Ficar aqui, e não em cada tela,
    * impede que uma tela futura esqueça.
