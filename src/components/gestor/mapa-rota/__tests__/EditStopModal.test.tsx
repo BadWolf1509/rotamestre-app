@@ -537,7 +537,13 @@ describe('EditStopModal', () => {
           ? {
               update: (valores: Record<string, unknown>) =>
                 Object.keys(valores).join() === 'vinculo_parada_id'
-                  ? { in: jest.fn().mockResolvedValue({ error: null }) }
+                  ? {
+                      in: jest.fn().mockReturnValue({
+                        select: jest
+                          .fn()
+                          .mockResolvedValue({ data: [{ id: 'ent-1' }], error: null }),
+                      }),
+                    }
                   : update(valores),
             }
           : { insert: jest.fn().mockResolvedValue({ error: null }) },

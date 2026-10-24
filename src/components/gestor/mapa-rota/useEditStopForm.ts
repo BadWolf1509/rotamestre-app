@@ -48,7 +48,11 @@ export interface UseEditStopFormParams {
   rotaId: string;
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
-  onSave: (result: { routeRecalculationFailed: boolean }) => void;
+  onSave: (result: {
+    routeRecalculationFailed: boolean;
+    /** Só presente (true) quando o vínculo das entregas dependentes não foi solto. */
+    vinculoNaoDesfeito?: boolean;
+  }) => void;
   /** O banco mostrou que a tela estava velha (parada já finalizada): recarregue. */
   onDesatualizada?: () => void;
   usuarioId?: string;
@@ -295,20 +299,26 @@ export function useEditStopForm({
         }
 
         // A retirada virou entrega: as entregas que dependiam dela perdem o
-        // vínculo (confirmado acima). Falha aqui não desfaz a edição, mas fica
-        // no log: o vínculo ficaria apontando para uma entrega.
+        // vínculo (confirmado acima), num UPDATE só (com `in`). Ele não é atômico com
+        // o UPDATE do tipo (seria preciso uma RPC): se falhar, ou não afetar
+        // linha nenhuma (RLS), o vínculo ficaria apontando para uma entrega, e
+        // o gestor não pode ver só sucesso. A edição vale; o aviso segue em
+        // onSave e vira toast.
+        let vinculoNaoDesfeito = false;
         if (dependentes.length > 0) {
-          const { error: vinculoError } = await supabase
+          const { data: soltas, error: vinculoError } = await supabase
             .from('paradas')
             .update({ vinculo_parada_id: null })
             .in(
               'id',
               dependentes.map((d) => d.id),
-            );
-          if (vinculoError) {
+            )
+            .select('id');
+          if (vinculoError || !soltas || soltas.length === 0) {
+            vinculoNaoDesfeito = true;
             logger.error(
               'Falha ao soltar o vínculo das entregas',
-              vinculoError,
+              vinculoError ?? new Error('UPDATE sem linhas afetadas'),
             );
           }
         }
@@ -390,7 +400,10 @@ export function useEditStopForm({
           });
         }
 
-        onSave({ routeRecalculationFailed: recalcFailed });
+        onSave({
+          routeRecalculationFailed: recalcFailed,
+          ...(vinculoNaoDesfeito ? { vinculoNaoDesfeito: true } : {}),
+        });
       } catch (err) {
         logger.error('Erro ao salvar parada:', err);
         setError('Erro ao salvar parada. Tente novamente.');

@@ -118,7 +118,10 @@ interface UseMapaRotaHandlersResult {
   handleConfirmRemoveStop: () => Promise<void>;
   clearParadaToRemove: () => void;
   handleEditStop: (parada: Parada) => void;
-  handleEditStopSave: (routeRecalculationFailed?: boolean) => Promise<void>;
+  handleEditStopSave: (
+    routeRecalculationFailed?: boolean,
+    vinculoNaoDesfeito?: boolean,
+  ) => Promise<void>;
   clearParadaToEdit: () => void;
   handleAddStopSave: (routeRecalculationFailed?: boolean) => Promise<void>;
   handleReorderParadas: (newOrder: Parada[]) => Promise<void>;
@@ -484,14 +487,24 @@ export function useMapaRotaHandlers({
   }, []);
 
   const handleEditStopSave = useCallback(
-    async (routeRecalculationFailed = false) => {
+    async (routeRecalculationFailed = false, vinculoNaoDesfeito = false) => {
       setParadaToEdit(null);
-      showToast(
-        routeRecalculationFailed
-          ? 'Parada atualizada. O trajeto será recalculado ao carregar o mapa.'
-          : 'Parada atualizada com sucesso',
-        routeRecalculationFailed ? 'info' : 'success',
-      );
+      if (vinculoNaoDesfeito) {
+        // A edição valeu, mas as entregas dela ainda apontam para a parada que
+        // deixou de ser retirada: o gestor precisa saber.
+        showToast(
+          'Parada atualizada, mas o vínculo das entregas dela não foi totalmente desfeito. Confira a ordem entre retirada e entregas.',
+          'error',
+          6000,
+        );
+      } else {
+        showToast(
+          routeRecalculationFailed
+            ? 'Parada atualizada. O trajeto será recalculado ao carregar o mapa.'
+            : 'Parada atualizada com sucesso',
+          routeRecalculationFailed ? 'info' : 'success',
+        );
+      }
       await loadRotaEParadas();
     },
     [loadRotaEParadas, showToast],

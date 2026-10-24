@@ -507,8 +507,14 @@ export default function MapaRota() {
             enderecoUnidade={enderecoUnidade}
             allParadas={paradasReais}
             onDesatualizada={recarregarSilencioso}
-            onSave={async ({ routeRecalculationFailed }) => {
-              await handleEditStopSave(routeRecalculationFailed);
+            onSave={async ({
+              routeRecalculationFailed,
+              vinculoNaoDesfeito,
+            }) => {
+              await handleEditStopSave(
+                routeRecalculationFailed,
+                vinculoNaoDesfeito,
+              );
               modals.closeEditStopModal();
             }}
             onCancel={() => {

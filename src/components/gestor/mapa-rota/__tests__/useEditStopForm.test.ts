@@ -257,10 +257,13 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
   };
 
   let updates: { valores: Record<string, unknown>; ids?: unknown }[];
+  // Resposta do UPDATE que solta o vínculo das entregas dependentes.
+  let resultadoDependentes: { data: unknown; error: unknown };
 
   beforeEach(() => {
     jest.clearAllMocks();
     updates = [];
+    resultadoDependentes = { data: [{ id: 'e1' }], error: null };
     mockRecalcular.mockResolvedValue({ success: true });
     mockNotificar.mockResolvedValue({ success: true });
     mockMarcarOtimizacao.mockResolvedValue(true);
@@ -278,7 +281,9 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
             return {
               in: (_col: string, ids: unknown) => {
                 registro.ids = ids;
-                return Promise.resolve({ error: null });
+                return {
+                  select: () => Promise.resolve(resultadoDependentes),
+                };
               },
             };
           }
@@ -334,6 +339,50 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
     });
     expect(result.current.confirmacaoVinculo).toBeNull();
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  async function confirmarRetiradaVirandoEntrega() {
+    const hook = montar({
+      parada: retirada,
+      allParadas: [retirada, entrega],
+    });
+    act(() => hook.result.current.form.setValue('tipo', 'entrega'));
+    await act(async () => {
+      await hook.result.current.handleSave();
+    });
+    await act(async () => {
+      await hook.result.current.confirmarSalvarComVinculo();
+    });
+    return hook;
+  }
+
+  it('vínculo das entregas solto com sucesso: onSave sem o aviso de vínculo', async () => {
+    const { onSave } = await confirmarRetiradaVirandoEntrega();
+
+    expect(onSave).toHaveBeenCalledWith({ routeRecalculationFailed: false });
+  });
+
+  it('o UPDATE que solta o vínculo falhou: a edição vale, mas onSave avisa que o vínculo não foi desfeito', async () => {
+    resultadoDependentes = { data: null, error: { message: 'queda' } };
+
+    const { onSave } = await confirmarRetiradaVirandoEntrega();
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({
+      routeRecalculationFailed: false,
+      vinculoNaoDesfeito: true,
+    });
+  });
+
+  it('o UPDATE do vínculo não afetou linha nenhuma (RLS): também avisa', async () => {
+    resultadoDependentes = { data: [], error: null };
+
+    const { onSave } = await confirmarRetiradaVirandoEntrega();
+
+    expect(onSave).toHaveBeenCalledWith({
+      routeRecalculationFailed: false,
+      vinculoNaoDesfeito: true,
+    });
   });
 
   it('voltar da confirmação: não grava e fecha o aviso', async () => {

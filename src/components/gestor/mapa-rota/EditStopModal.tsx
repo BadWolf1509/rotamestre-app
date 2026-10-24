@@ -45,7 +45,11 @@ export interface EditStopModalProps {
   rotaId: string;
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
-  onSave: (result: { routeRecalculationFailed: boolean }) => void;
+  onSave: (result: {
+    routeRecalculationFailed: boolean;
+    /** Só presente (true) quando o vínculo das entregas dependentes não foi solto. */
+    vinculoNaoDesfeito?: boolean;
+  }) => void;
   /** O banco mostrou que a tela estava velha (parada já finalizada): recarregue. */
   onDesatualizada?: () => void;
   onCancel: () => void;

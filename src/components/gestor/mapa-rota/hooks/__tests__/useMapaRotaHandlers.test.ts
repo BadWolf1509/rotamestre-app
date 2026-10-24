@@ -823,3 +823,35 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
     expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('useMapaRotaHandlers — salvar edição de parada', () => {
+  it('vínculo das entregas não desfeito: avisa o gestor em vez de mostrar só sucesso', async () => {
+    mockShowToast.mockClear();
+    const { result } = setup([makeParada('p1', 1)]);
+
+    await act(async () => {
+      await result.current.handleEditStopSave(false, true);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Parada atualizada, mas o vínculo das entregas dela não foi totalmente desfeito. Confira a ordem entre retirada e entregas.',
+      'error',
+      6000,
+    );
+  });
+
+  it('sem problema de vínculo: o toast de sucesso de sempre', async () => {
+    mockShowToast.mockClear();
+    const { result } = setup([makeParada('p1', 1)]);
+
+    await act(async () => {
+      await result.current.handleEditStopSave(false);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Parada atualizada com sucesso',
+      'success',
+    );
+  });
+});
