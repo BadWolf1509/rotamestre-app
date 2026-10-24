@@ -26,6 +26,7 @@ jobs:
   design-system-audit:
     name: Design System Drift Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     strategy:
       matrix:
@@ -74,6 +75,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       matrix:
@@ -128,6 +130,8 @@ jobs:
   visual-regression:
     name: Visual Regression
     runs-on: ubuntu-latest
+    # Build web + browsers + e2e (3 min medidos) + visual: folga larga, mas finita.
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -245,24 +249,40 @@ jobs:
         # congelando o mapa travado em "Carregando mapa..." sobreviveram desde
         # 09/01/2026 sem ninguém notar.
         #
-        # Depende de conta de teste. Sem os secrets configurados, o step avisa e
-        # sai sem falhar, em vez de quebrar o job de quem não os tem.
+        # Depende de conta de teste. Sem os secrets, o step FALHA (::error::),
+        # exceto para Dependabot e PR de fork, que nunca os recebem: ali ele
+        # avisa (::warning:: + resumo do job) e sai com 0.
         #
-        # ATENÇÃO: `Visual Regression (22.x)` JÁ É check exigido pela proteção
-        # da main (com `TypeScript & Linting` e `Run Tests (22.x)`) — conferido
-        # em 06/09/2026. Mas job obrigatório e verde NÃO prova que o mapa foi
-        # testado: o `exit 0` acima faz este step passar quando os secrets
-        # faltam. O ícone verde cobre as duas coisas; só o log distingue.
+        # Por que não marcar o job como `skipped` por `if:` (alternativa
+        # descartada): `secrets` não existe em `if:` de step, só via env de um
+        # job anterior; `Visual Regression (22.x)` é check exigido pela main e
+        # um job pulado conta como satisfeito, então secret apagado passaria
+        # verde sem aviso nenhum, pior que o `exit 0` com anotação. E pular o
+        # step só para bot/fork não resolve o caso humano, que é o que importa.
+        # Mesmo com o aviso, o verde de bot/fork não prova que o mapa foi
+        # testado; `gh workflow run test.yml --ref <branch>` roda com secrets.
         if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: |
-          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_GESTOR_EMAIL" ]; then
-            echo "::warning title=Mapa sem cobertura::Secrets E2E_* ausentes; os testes de mapa não rodaram. Configure E2E_MOTORISTA_EMAIL, E2E_MOTORISTA_PASSWORD, E2E_GESTOR_EMAIL e E2E_GESTOR_PASSWORD em Settings > Secrets."
-            echo '### :warning: Testes de mapa não executados (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_MOTORISTA_PASSWORD" ] || [ -z "$E2E_GESTOR_EMAIL" ] || [ -z "$E2E_GESTOR_PASSWORD" ]; then
+            echo '### :warning: Testes de mapa NÃO executados (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
+            # Só quem NUNCA recebe secrets pode pular: Dependabot (guarda os
+            # próprios secrets, separados) e PR de fork. Qualquer outro caso
+            # (PR de humano, push na main, dispatch) é secret apagado ou
+            # renomeado, e passar verde aqui esconderia o mapa sem teste.
+            if [ "$ACTOR" = 'dependabot[bot]' ] || { [ "$EVENT_NAME" = 'pull_request' ] && [ "$HEAD_REPO" != "$REPO" ]; }; then
+              echo "::warning title=Mapa sem cobertura::Secrets E2E_* indisponíveis para este autor ($ACTOR); os testes de mapa não rodaram. Rode 'gh workflow run test.yml --ref <branch>' para cobrir o mapa."
+              exit 0
+            fi
+            echo "::error title=Mapa sem cobertura::Secrets E2E_* ausentes. Configure E2E_MOTORISTA_EMAIL, E2E_MOTORISTA_PASSWORD, E2E_GESTOR_EMAIL e E2E_GESTOR_PASSWORD em Settings > Secrets."
+            exit 1
           fi
           npx playwright test e2e/visual-critical.e2e.ts --project=chromium -g "mapa"
           echo '### :white_check_mark: Testes de mapa executados' >> "$GITHUB_STEP_SUMMARY"
         env:
+          ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
           VISUAL_REGRESSION: '1'
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
@@ -287,19 +307,28 @@ jobs:
         # re-revisao de onda de correcao e validacao em aparelho. So o e2e
         # pegou — e ninguem soube, porque ele nao rodava aqui.
         #
-        # Sem os secrets E2E_*, avisa e sai sem falhar, para nao quebrar quem
-        # nao os tem. Mesmo compromisso do step de mapa acima, com a mesma
-        # ressalva: verde nao prova execucao, so o log distingue.
+        # Sem os secrets E2E_*: falha, exceto Dependabot e PR de fork (que
+        # nunca os recebem) — ali avisa e sai com 0. Mesma regra, e mesma
+        # justificativa contra `skipped`, do step de mapa acima.
         if: ${{ github.event.inputs.update_snapshots != 'true' }}
         run: |
-          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_GESTOR_EMAIL" ]; then
-            echo "::warning title=e2e nao executada::Secrets E2E_* ausentes."
-            echo '### :warning: Suite e2e nao executada (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_MOTORISTA_PASSWORD" ] || [ -z "$E2E_GESTOR_EMAIL" ] || [ -z "$E2E_GESTOR_PASSWORD" ]; then
+            echo '### :warning: Suite e2e NÃO executada (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
+            # Mesma regra do step de mapa: só Dependabot e PR de fork pulam.
+            if [ "$ACTOR" = 'dependabot[bot]' ] || { [ "$EVENT_NAME" = 'pull_request' ] && [ "$HEAD_REPO" != "$REPO" ]; }; then
+              echo "::warning title=e2e nao executada::Secrets E2E_* indisponíveis para este autor ($ACTOR). Rode 'gh workflow run test.yml --ref <branch>' para cobrir."
+              exit 0
+            fi
+            echo "::error title=e2e nao executada::Secrets E2E_* ausentes. Configure-os em Settings > Secrets."
+            exit 1
           fi
           npx playwright test --project=chromium
           echo '### :white_check_mark: Suite e2e completa executada' >> "$GITHUB_STEP_SUMMARY"
         env:
+          ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
@@ -309,7 +338,11 @@ jobs:
 
       - name: Update visual regression snapshots
         if: ${{ github.event.inputs.update_snapshots == 'true' }}
-        run: npx playwright test --update-snapshots || true
+        # Sem `|| true`: o Playwright sai com 0 quando só os snapshots mudam
+        # (é o que --update-snapshots faz); exit != 0 aqui é teste quebrado de
+        # verdade e não deve virar verde. O upload abaixo tem `always()`, então
+        # os PNGs gerados são guardados mesmo se este step falhar.
+        run: npx playwright test --update-snapshots
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
