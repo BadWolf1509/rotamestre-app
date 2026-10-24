@@ -159,6 +159,30 @@ export type DestinoDaPosicao = 'enviada' | 'na_fila' | 'perdida';
 // Armazenamento (sempre em série)
 // ---------------------------------------------------------------------------
 
+/**
+ * Geração da fila: muda a cada logout (`invalidarPosicoesEmVoo`).
+ *
+ * POR QUE EXISTE. Com sinal fraco, o insert de uma posição pode estar no ar
+ * quando o logout limpa o aparelho e só falhar por rede depois. A limpeza
+ * (`multiRemove` em `limparEstadoLocalDoUsuario`) não passa pela fila em
+ * série, e conferir contexto ou último usuário antes de gravar deixa uma
+ * janela assíncrona — e o contexto de rastreamento é do aparelho, não sai no
+ * logout. Cada operação guarda a geração em que começou; `gravar` compara de
+ * forma síncrona logo antes de emitir a escrita. Ou o logout já trocou a
+ * geração (a escrita é descartada), ou a escrita sai antes do `multiRemove`,
+ * que a apaga em seguida (o AsyncStorage executa na ordem).
+ */
+let geracao = 0;
+
+/**
+ * Descarta tudo o que está em voo na fila: nenhuma operação começada antes
+ * desta chamada grava mais nada. Chamada pelo logout ANTES de apagar as
+ * chaves da conta.
+ */
+export function invalidarPosicoesEmVoo(): void {
+  geracao++;
+}
+
 let cadeia: Promise<unknown> = Promise.resolve();
 
 /** Executa `fn` depois de toda leitura-escrita anterior da fila. */
@@ -178,8 +202,16 @@ async function ler(): Promise<Registro | null> {
   }
 }
 
-/** false = o AsyncStorage recusou; o que estava para gravar não ficou. */
-async function gravar(registro: Registro): Promise<boolean> {
+/**
+ * false = não gravou: a geração mudou desde `geracaoDeOrigem` (houve logout)
+ * ou o AsyncStorage recusou.
+ */
+async function gravar(
+  registro: Registro,
+  geracaoDeOrigem: number,
+): Promise<boolean> {
+  // Síncrono até emitir a escrita: nada pode trocar a geração no meio.
+  if (geracaoDeOrigem !== geracao) return false;
   try {
     if (registro.posicoes.length === 0) {
       await AsyncStorage.removeItem(CHAVE_FILA_POSICOES);
@@ -233,7 +265,10 @@ async function aindaEhDoAparelho(motoristaId: string): Promise<boolean> {
  * false = não ficou guardada (sem rastreamento nem sessão do motorista, ou o
  * AsyncStorage recusou a gravação).
  */
-function guardar(linha: LinhaGuardada): Promise<boolean> {
+function guardar(
+  linha: LinhaGuardada,
+  geracaoDeOrigem: number,
+): Promise<boolean> {
   return emSerie(async () => {
     if (!(await aindaEhDoAparelho(linha.motorista_id))) return false;
     const atual = await ler();
@@ -256,7 +291,7 @@ function guardar(linha: LinhaGuardada): Promise<boolean> {
       }
     }
 
-    return gravar(registro);
+    return gravar(registro, geracaoDeOrigem);
   });
 }
 
@@ -265,7 +300,8 @@ function descartarFilaDeOutraConta(motoristaId: string): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
     if (atual && atual.userId !== motoristaId) {
-      await gravar({ ...atual, posicoes: [] });
+      // Só apaga: não há o que vazar de uma geração antiga.
+      await gravar({ ...atual, posicoes: [] }, geracao);
     }
   });
 }
@@ -277,17 +313,24 @@ const chaveDa = (p: PosicaoGuardada) =>
  * Tira da fila as posições do lote. Por identidade, não por posição na
  * lista: enquanto o lote estava no ar, o teto pode ter cortado o começo.
  */
-function remover(motoristaId: string, lote: PosicaoGuardada[]): Promise<void> {
+function remover(
+  motoristaId: string,
+  lote: PosicaoGuardada[],
+  geracaoDeOrigem: number,
+): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
     if (!atual || atual.userId !== motoristaId) return;
     const saem = new Set(lote.map(chaveDa));
     const posicoes = atual.posicoes.filter((p) => !saem.has(chaveDa(p)));
-    await gravar({
-      userId: atual.userId,
-      posicoes,
-      estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
-    });
+    await gravar(
+      {
+        userId: atual.userId,
+        posicoes,
+        estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
+      },
+      geracaoDeOrigem,
+    );
   });
 }
 
@@ -299,6 +342,7 @@ function marcarTentativa(
   motoristaId: string,
   lote: PosicaoGuardada[],
   error: unknown,
+  geracaoDeOrigem: number,
 ): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
@@ -324,11 +368,14 @@ function marcarTentativa(
         { rota_id: lote[0].rota_id, quantidade: esgotadas, error },
       );
     }
-    await gravar({
-      userId: atual.userId,
-      posicoes,
-      estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
-    });
+    await gravar(
+      {
+        userId: atual.userId,
+        posicoes,
+        estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
+      },
+      geracaoDeOrigem,
+    );
   });
 }
 
@@ -372,6 +419,7 @@ async function enviarFila(
   motoristaId: string,
   rotulo: string,
 ): Promise<boolean> {
+  const geracaoDoEnvio = geracao;
   // Rotas cujo lote o servidor recusou neste envio: ficam para o próximo.
   const recusadas = new Set<string>();
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
@@ -396,7 +444,7 @@ async function enviarFila(
       // para separar. O lote fica e conta uma tentativa (até
       // `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
       logarFalha(rotulo, error);
-      await marcarTentativa(motoristaId, lote, error);
+      await marcarTentativa(motoristaId, lote, error, geracaoDoEnvio);
       recusadas.add(lote[0].rota_id);
       continue;
     }
@@ -411,7 +459,7 @@ async function enviarFila(
         },
       );
     }
-    await remover(motoristaId, lote);
+    await remover(motoristaId, lote, geracaoDoEnvio);
   }
   return false;
 }
@@ -448,6 +496,8 @@ export async function registrarPosicao(
   capturadaEm: number,
   rotulo: string,
 ): Promise<DestinoDaPosicao> {
+  // Antes de qualquer espera: o logout no meio do insert invalida esta.
+  const geracaoDaPosicao = geracao;
   try {
     const linha = comHorario(posicao, capturadaEm);
     const fila = await emSerie(ler);
@@ -460,12 +510,12 @@ export async function registrarPosicao(
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
       if (!isNetworkError(error)) return 'perdida';
-      return (await guardar(linha)) ? 'na_fila' : 'perdida';
+      return (await guardar(linha, geracaoDaPosicao)) ? 'na_fila' : 'perdida';
     }
 
     // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a
     // remoção do lote também falharia e o mesmo lote subiria de novo.
-    if (!(await guardar(linha))) return 'perdida';
+    if (!(await guardar(linha, geracaoDaPosicao))) return 'perdida';
     const esvaziou = await esvaziarFila(posicao.motorista_id, rotulo);
     return esvaziou ? 'enviada' : 'na_fila';
   } catch (error) {

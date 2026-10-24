@@ -7,6 +7,7 @@ import {
   CHAVE_FILA_POSICOES,
   MAX_TENTATIVAS_POSICAO,
   TETO_FILA_POSICOES,
+  invalidarPosicoesEmVoo,
   registrarPosicao,
   type Posicao,
 } from '../filaPosicoes';
@@ -489,6 +490,33 @@ describe('filaPosicoes', () => {
 
   it('o logout apaga a fila', () => {
     expect(CHAVES_DA_CONTA).toContain(CHAVE_FILA_POSICOES);
+  });
+
+  // Sinal fraco: o insert ainda está no ar quando o logout limpa o aparelho,
+  // e só depois falha por rede. A limpeza não passa pela fila em série; sem a
+  // geração, `guardar` regravaria a fila com as posições da conta que saiu.
+  it('insert pendurado que falha por rede depois do logout não recria a fila', async () => {
+    let falhar: () => void = () => {};
+    mockInsert.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          falhar = () => resolve({ error: ERRO_DE_REDE });
+        }),
+    );
+
+    const emVoo = registrarPosicao(posicao(), minuto(1), ROTULO);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+
+    // Logout: a limpeza invalida as posições em voo e apaga as chaves da
+    // conta. O contexto de rastreamento é do aparelho e fica.
+    invalidarPosicoesEmVoo();
+    memoria.delete(CHAVE_FILA_POSICOES);
+    memoria.delete(CHAVE_ULTIMO_USUARIO);
+    falhar();
+
+    expect(await emVoo).toBe('perdida');
+    expect(filaGuardada()).toBeNull();
   });
 
   // Corrida com o logout: a posição que estava no ar quando o motorista saiu

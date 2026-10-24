@@ -18,6 +18,7 @@ import { Platform } from 'react-native';
 
 import { clearAllCache } from '../cache';
 import { logger } from '../logger';
+import { invalidarPosicoesEmVoo } from '../motorista/filaPosicoes';
 import { limparCacheOtimizacao } from '../route-optimization/cache';
 
 /** Chaves exatas com dado da conta. */
@@ -40,6 +41,7 @@ export const PREFIXOS_DA_CONTA = [
 ] as const;
 
 export async function limparEstadoLocalDoUsuario(): Promise<void> {
+  invalidarPosicoesEmVoo(); // insert de GPS em voo não regrava a fila depois
   // Caches com camada em memória: só as funções do próprio módulo zeram o Map.
   // `clearAllCache` cobre as chaves `@cache_*` e já engole a própria falha.
   await clearAllCache();
@@ -96,6 +98,7 @@ type FotoComDono = { userId?: string; semDono?: boolean; localPath?: string };
 export async function limparAparelhoAoExcluirConta(
   usuarioId: string | null,
 ): Promise<void> {
+  invalidarPosicoesEmVoo(); // insert de GPS em voo não regrava a fila depois
   const lerLista = async <T>(chave: string): Promise<T[]> => {
     try {
       const bruto = await AsyncStorage.getItem(chave);
