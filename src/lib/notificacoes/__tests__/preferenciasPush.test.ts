@@ -30,7 +30,9 @@ type Linha = PreferenciasNotificacao & { usuario_id: string };
 let banco: Map<string, Linha>;
 let disco: Map<string, string>;
 let falhaSelect: { message: string } | null;
-let falhaUpsert: { message: string } | null;
+// status 0 = o fetch falhou (é o que o postgrest-js devolve sem resposta);
+// com status HTTP, o servidor respondeu e recusou.
+let falhaUpsert: { message: string; code?: string; status?: number } | null;
 let upserts: Array<Record<string, unknown>>;
 
 function ligarDubles() {
@@ -52,7 +54,11 @@ function ligarDubles() {
         opcoes: { onConflict: string },
       ) => {
         upserts.push({ ...valores, onConflict: opcoes.onConflict });
-        if (falhaUpsert) return { error: falhaUpsert };
+        if (falhaUpsert)
+          return {
+            error: { message: falhaUpsert.message, code: falhaUpsert.code },
+            status: falhaUpsert.status ?? 0,
+          };
         const { atualizado_em: _ignorado, ...linha } = valores;
         banco.set(valores.usuario_id, linha);
         return { error: null };
@@ -122,9 +128,39 @@ describe('salvarPreferencias', () => {
 
     await expect(salvarPreferencias('u1', nova)).resolves.toEqual({
       sincronizado: false,
+      motivo: 'sem_rede',
     });
 
     await expect(lerPreferenciasLocais('u1')).resolves.toEqual(nova);
+  });
+
+  // Revisão (Minor 3): só falha de rede é "sem conexão"; recusa do servidor
+  // (tabela ausente, RLS) tem motivo próprio, e a escolha segue pendente.
+  it('recusa do servidor: motivo "recusado", e a escolha fica pendente', async () => {
+    falhaUpsert = { message: 'permission denied', code: '42501', status: 403 };
+    const nova = { ...PREFERENCIAS_PADRAO, rotas: false };
+
+    await expect(salvarPreferencias('u1', nova)).resolves.toEqual({
+      sincronizado: false,
+      motivo: 'recusado',
+    });
+    await expect(lerPreferenciasLocais('u1')).resolves.toEqual(nova);
+
+    falhaUpsert = null;
+    await sincronizarPreferencias('u1');
+    expect(banco.get('u1')).toEqual(linha('u1', { rotas: false }));
+  });
+
+  it('exceção do fetch (sem resposta): motivo "sem_rede"', async () => {
+    (supabase.from as jest.Mock).mockImplementation(() => ({
+      upsert: async () => {
+        throw new TypeError('Network request failed');
+      },
+    }));
+
+    await expect(
+      salvarPreferencias('u1', { ...PREFERENCIAS_PADRAO, rotas: false }),
+    ).resolves.toEqual({ sincronizado: false, motivo: 'sem_rede' });
   });
 
   it('sem rede confirmada: nem tenta o servidor', async () => {
@@ -132,7 +168,7 @@ describe('salvarPreferencias', () => {
 
     await expect(
       salvarPreferencias('u1', { ...PREFERENCIAS_PADRAO, rotas: false }),
-    ).resolves.toEqual({ sincronizado: false });
+    ).resolves.toEqual({ sincronizado: false, motivo: 'sem_rede' });
     expect(upserts).toHaveLength(0);
   });
 

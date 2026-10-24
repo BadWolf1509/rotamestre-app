@@ -54,6 +54,33 @@ describe('send-push-notification: preferência de push', () => {
     expect(ateDecisao).not.toMatch(/return\b/);
   });
 
+  // Revisão (Minor 1): o SOS não espera a consulta da preferência, que não
+  // tem prazo próprio — decide pelo tipo antes de consultar.
+  it('o SOS pula a leitura da preferência', () => {
+    expect(fonte).toMatch(
+      /import\s*\{[^}]*categoriaDoTipo[^}]*\}\s*from\s*'\.\/preferenciaDePush\.ts'/,
+    );
+    expect(fonte).toMatch(/const ehSos = categoriaDoTipo\(tipo\) === 'sos';/);
+    expect(fonte).toMatch(
+      /ehSos\s*\?\s*\{\s*preferencia:\s*null,\s*erro:\s*null\s*\}\s*:\s*await lerPreferenciaDePush\(/,
+    );
+  });
+
+  // Revisão (Minor 2): a policy `push_notification_logs_select_scoped` mostra
+  // ao gestor da loja as linhas COM notificacao_id. A linha do push calado
+  // sai sem ele (o id vai em `response`, para o admin), e o gestor não
+  // descobre pelo log que o motorista desligou o push.
+  it('a linha do push calado não fica visível ao gestor', () => {
+    const i = fonte.indexOf('if (!decisao.envia)');
+    const trecho = fonte.slice(i, i + 900);
+    const log = trecho.slice(trecho.indexOf('logPushAttempt('));
+    expect(log).toMatch(/notificacao_id:\s*null,/);
+    expect(log).toMatch(
+      /response:\s*\{\s*notificacao_id,\s*motivo:\s*decisao\.motivo\s*\}/,
+    );
+    expect(log).not.toMatch(/error_message:/);
+  });
+
   it('o status do log aceita "skipped"', () => {
     expect(fonte).toMatch(
       /status:\s*'sent'\s*\|\s*'failed'\s*\|\s*'no_token'\s*\|\s*'skipped'/,

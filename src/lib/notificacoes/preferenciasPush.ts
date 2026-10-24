@@ -24,14 +24,36 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { classificarFalhaPerfil } from '@/lib/auth/falhaPerfil';
 import { logger } from '@/lib/logger';
 import { semRedeConfirmada } from '@/lib/semRede';
 import { supabase } from '@/lib/supabase';
 import type { PreferenciasNotificacao } from '@/types/notifications';
 
-/** Aviso das telas quando a escolha ficou só no aparelho. */
+/** Aviso das telas quando a escolha ficou só no aparelho por falta de rede. */
 export const AVISO_PREFERENCIA_SEM_REDE =
   'Sem conexão. A preferência ficou salva e vale assim que a conexão voltar.';
+
+/** Aviso quando o servidor respondeu e recusou (tabela ausente, permissão). */
+export const AVISO_PREFERENCIA_RECUSADA =
+  'O servidor recusou a preferência. Ela ficou salva neste aparelho e será enviada de novo na próxima vez que você abrir esta tela.';
+
+/** Por que a escolha ficou só no aparelho. */
+export type MotivoNaoSincronizado = 'sem_rede' | 'recusado';
+
+export type ResultadoDaGravacao =
+  | { sincronizado: true }
+  | { sincronizado: false; motivo: MotivoNaoSincronizado };
+
+/** O toast que a tela mostra para o resultado (null = nada a dizer). */
+export function avisoDaGravacao(
+  resultado: ResultadoDaGravacao,
+): { mensagem: string; tipo: 'info' | 'error' } | null {
+  if (resultado.sincronizado) return null;
+  return resultado.motivo === 'recusado'
+    ? { mensagem: AVISO_PREFERENCIA_RECUSADA, tipo: 'error' }
+    : { mensagem: AVISO_PREFERENCIA_SEM_REDE, tipo: 'info' };
+}
 
 export const PREFERENCIAS_PADRAO: PreferenciasNotificacao = {
   push_ativo: true,
@@ -139,13 +161,18 @@ async function apagarLegado(): Promise<void> {
   );
 }
 
+// Rede × recusa pelo status HTTP (`classificarFalhaPerfil`: status 0, 408,
+// 429, 5xx e exceção do fetch são transitórios), não pela mensagem do erro,
+// que muda com a plataforma (`isNetworkError` adivinha pelo texto).
 async function enviarAoServidor(
   uid: string,
   preferencias: PreferenciasNotificacao,
-): Promise<boolean> {
-  if (await semRedeConfirmada()) return false;
+): Promise<ResultadoDaGravacao> {
+  if (await semRedeConfirmada()) {
+    return { sincronizado: false, motivo: 'sem_rede' };
+  }
   try {
-    const { error } = await supabase.from(TABELA).upsert(
+    const { error, status } = await supabase.from(TABELA).upsert(
       {
         usuario_id: uid,
         ...preferencias,
@@ -154,13 +181,26 @@ async function enviarAoServidor(
       { onConflict: 'usuario_id' },
     );
     if (error) {
-      logger.warn('[PreferenciasPush] Servidor recusou a gravação', error);
-      return false;
+      const transitoria = classificarFalhaPerfil(error, status).transitoria;
+      logger.warn(
+        transitoria
+          ? '[PreferenciasPush] Sem resposta do servidor ao gravar'
+          : '[PreferenciasPush] Servidor recusou a gravação',
+        error,
+      );
+      return {
+        sincronizado: false,
+        motivo: transitoria ? 'sem_rede' : 'recusado',
+      };
     }
-    return true;
+    return { sincronizado: true };
   } catch (error) {
-    logger.warn('[PreferenciasPush] Falha de rede ao gravar', error);
-    return false;
+    const transitoria = classificarFalhaPerfil(error).transitoria;
+    logger.warn('[PreferenciasPush] Falha ao gravar', error);
+    return {
+      sincronizado: false,
+      motivo: transitoria ? 'sem_rede' : 'recusado',
+    };
   }
 }
 
@@ -184,15 +224,17 @@ export async function lerPreferenciasLocais(
 export async function salvarPreferencias(
   uid: string,
   preferencias: PreferenciasNotificacao,
-): Promise<{ sincronizado: boolean }> {
+): Promise<ResultadoDaGravacao> {
   await gravarDisco(chaveCopia(uid), JSON.stringify(preferencias));
-  const ok = await enviarAoServidor(uid, preferencias);
-  if (ok) {
+  const resultado = await enviarAoServidor(uid, preferencias);
+  if (resultado.sincronizado) {
     await apagarDisco(chavePendente(uid));
   } else {
+    // Recusa também fica pendente: a mais provável é a tabela ainda não
+    // existir (app antes da Migration 47), e ela passa sozinha.
     await gravarDisco(chavePendente(uid), '1');
   }
-  return { sincronizado: ok };
+  return resultado;
 }
 
 /**

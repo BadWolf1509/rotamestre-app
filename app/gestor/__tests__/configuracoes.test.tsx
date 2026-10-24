@@ -42,7 +42,9 @@ jest.mock('@/hooks/useToast', () => ({
 
 let banco: Map<string, Record<string, unknown>>;
 let disco: Map<string, string>;
-let falhaUpsert: { message: string } | null;
+// status 0 = o fetch falhou (é o que o postgrest-js devolve sem resposta);
+// com status HTTP, o servidor respondeu e recusou.
+let falhaUpsert: { message: string; code?: string; status?: number } | null;
 let upserts: Array<Record<string, unknown>>;
 
 beforeEach(() => {
@@ -64,7 +66,11 @@ beforeEach(() => {
     }),
     upsert: async (valores: Record<string, unknown>) => {
       upserts.push(valores);
-      if (falhaUpsert) return { error: falhaUpsert };
+      if (falhaUpsert)
+        return {
+          error: { message: falhaUpsert.message, code: falhaUpsert.code },
+          status: falhaUpsert.status ?? 0,
+        };
       banco.set(valores.usuario_id as string, valores);
       return { error: null };
     },

@@ -44,8 +44,14 @@ jest.mock('@/hooks/useToast', () => ({
 
 let banco: Map<string, Record<string, unknown>>;
 let disco: Map<string, string>;
-let falhaUpsert: { message: string } | null;
+// status 0 = o fetch falhou (é o que o postgrest-js devolve sem resposta);
+// com status HTTP, o servidor respondeu e recusou.
+let falhaUpsert: { message: string; code?: string; status?: number } | null;
 let upserts: Array<Record<string, unknown>>;
+// Leitura do servidor presa até o teste soltar (rede lenta): responde com o
+// que o banco tinha quando a leitura FOI FEITA, como o servidor real.
+let leituraPresa: boolean;
+let soltarLeitura: () => void;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -53,20 +59,29 @@ beforeEach(() => {
   disco = new Map();
   falhaUpsert = null;
   upserts = [];
+  leituraPresa = false;
+  soltarLeitura = () => {};
   const { logger } = require('@/lib/logger');
   jest.spyOn(logger, 'warn').mockImplementation(() => {});
   (supabase.from as jest.Mock).mockImplementation(() => ({
     select: () => ({
       eq: (_c: string, uid: string) => ({
-        maybeSingle: async () => ({
-          data: banco.get(uid) ?? null,
-          error: null,
-        }),
+        maybeSingle: () => {
+          const resposta = { data: banco.get(uid) ?? null, error: null };
+          if (!leituraPresa) return Promise.resolve(resposta);
+          return new Promise((r) => {
+            soltarLeitura = () => r(resposta);
+          });
+        },
       }),
     }),
     upsert: async (valores: Record<string, unknown>) => {
       upserts.push(valores);
-      if (falhaUpsert) return { error: falhaUpsert };
+      if (falhaUpsert)
+        return {
+          error: { message: falhaUpsert.message, code: falhaUpsert.code },
+          status: falhaUpsert.status ?? 0,
+        };
       banco.set(valores.usuario_id as string, valores);
       return { error: null };
     },
@@ -131,6 +146,23 @@ describe('Configurações do motorista: Notificações Push', () => {
     );
   });
 
+  it('servidor recusa: a tela diz que foi recusado, não "sem conexão"', async () => {
+    falhaUpsert = { message: 'permission denied', code: '42501', status: 403 };
+    render(<ConfiguracoesScreen />);
+    const sw = await interruptor();
+
+    await act(async () => {
+      fireEvent(sw, 'valueChange', false);
+    });
+
+    expect((await interruptor()).props.value).toBe(false);
+    await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+    const [mensagem, tipo] = mockShowToast.mock.calls[0];
+    expect(mensagem).toMatch(/recus/i);
+    expect(mensagem).not.toMatch(/sem conexão/i);
+    expect(tipo).toBe('error');
+  });
+
   it('rede pendurada (gravação sem resposta): o interruptor não espera', async () => {
     render(<ConfiguracoesScreen />);
     const sw = await interruptor();
@@ -169,6 +201,62 @@ describe('Configurações do motorista: Notificações Push', () => {
     });
 
     expect((await interruptor()).props.value).toBe(false);
+  });
+
+  // Revisão da task 7 (Important 1): a sincronização gravava, fora da fila, o
+  // valor lido no começo — por cima do toque, na cópia e (com legado ou
+  // pendência) no servidor, com a tela mostrando o toque.
+  const COPIA = '@rotamestre:preferencias_push:m1';
+
+  it('toque durante a 1ª sincronização com legado: o servidor e a cópia ficam com o toque', async () => {
+    disco.set('@rotamestre:notifications_enabled', 'false');
+    leituraPresa = true;
+    render(<ConfiguracoesScreen />);
+    const sw = await interruptor();
+    expect(sw.props.value).toBe(false);
+
+    await act(async () => {
+      fireEvent(sw, 'valueChange', true);
+    });
+    await act(async () => {
+      soltarLeitura();
+    });
+
+    await waitFor(() =>
+      expect(upserts[upserts.length - 1]).toMatchObject({ push_ativo: true }),
+    );
+    expect(banco.get('m1')).toMatchObject({ push_ativo: true });
+    expect(JSON.parse(disco.get(COPIA) ?? '{}')).toMatchObject({
+      push_ativo: true,
+    });
+    expect((await interruptor()).props.value).toBe(true);
+  });
+
+  it('toque durante a sincronização com linha no servidor: a cópia fica com o toque', async () => {
+    banco.set('m1', {
+      usuario_id: 'm1',
+      push_ativo: true,
+      incidentes: true,
+      rotas: true,
+      resumo_diario: true,
+    });
+    leituraPresa = true;
+    render(<ConfiguracoesScreen />);
+    const sw = await interruptor();
+
+    await act(async () => {
+      fireEvent(sw, 'valueChange', false);
+    });
+    await act(async () => {
+      soltarLeitura();
+    });
+
+    await waitFor(() =>
+      expect(JSON.parse(disco.get(COPIA) ?? '{}')).toMatchObject({
+        push_ativo: false,
+      }),
+    );
+    expect(banco.get('m1')).toMatchObject({ push_ativo: false });
   });
 
   it('o valor antigo do aparelho migra para o banco', async () => {

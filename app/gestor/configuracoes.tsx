@@ -18,7 +18,7 @@ import {
   chavesParaLimparNoCache,
   MENSAGEM_LIMPAR_CACHE,
 } from '@/lib/limpezaDeCache';
-import { AVISO_PREFERENCIA_SEM_REDE } from '@/lib/notificacoes/preferenciasPush';
+import { avisoDaGravacao } from '@/lib/notificacoes/preferenciasPush';
 import type { PreferenciasNotificacao } from '@/types/notifications';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
@@ -87,8 +87,8 @@ export default function ConfiguracoesGestorScreen() {
     campo: keyof PreferenciasNotificacao,
     value: boolean,
   ) {
-    const { sincronizado } = await alterarPreferencia(campo, value);
-    if (!sincronizado) showToast(AVISO_PREFERENCIA_SEM_REDE, 'info', 5000);
+    const aviso = avisoDaGravacao(await alterarPreferencia(campo, value));
+    if (aviso) showToast(aviso.mensagem, aviso.tipo, 5000);
   }
   const toggleNotifications = (v: boolean) => alternar('push_ativo', v);
   const toggleIncidentAlerts = (v: boolean) => alternar('incidentes', v);

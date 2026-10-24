@@ -34,7 +34,11 @@ import {
   resumoDoTicket,
   tokenDeveSerLimpo,
 } from './expoTicket.ts';
-import { decidirEnvio, lerPreferenciaDePush } from './preferenciaDePush.ts';
+import {
+  categoriaDoTipo,
+  decidirEnvio,
+  lerPreferenciaDePush,
+} from './preferenciaDePush.ts';
 import {
   apagarTokenMorto,
   lerTokensDaConta,
@@ -196,10 +200,11 @@ Deno.serve(async (req: Request) => {
     // Preferência de push da conta (Migration 47). O SOS sempre passa; sem
     // linha vale tudo ligado; consulta que falha (inclusive a tabela ainda
     // não existir) ENVIA — o aviso importa mais (ver preferenciaDePush.ts).
-    const { preferencia, erro: preferenciaErro } = await lerPreferenciaDePush(
-      supabase,
-      usuario_id,
-    );
+    // O SOS nem consulta: a leitura não tem prazo próprio e ele não espera.
+    const ehSos = categoriaDoTipo(tipo) === 'sos';
+    const { preferencia, erro: preferenciaErro } = ehSos
+      ? { preferencia: null, erro: null }
+      : await lerPreferenciaDePush(supabase, usuario_id);
     if (preferenciaErro) {
       console.warn(
         `[send-push] Preferência não lida (usuário ${usuario_id}); enviando:`,
@@ -215,12 +220,16 @@ Deno.serve(async (req: Request) => {
       console.log(
         `[send-push] Usuário ${usuario_id} desligou este push (${decisao.motivo}), tipo '${tipo}'`,
       );
+      // Sem notificacao_id na coluna: a policy de push_notification_logs
+      // mostra ao gestor da loja as linhas com ele, e a preferência do
+      // motorista é só dele (Migration 47). O id vai em `response`, que só o
+      // admin (chave secreta) lê.
       await logPushAttempt(supabase, {
-        notificacao_id,
+        notificacao_id: null,
         usuario_id,
         push_token: null,
         status: 'skipped',
-        error_message: `Preferência do usuário: ${decisao.motivo}`,
+        response: { notificacao_id, motivo: decisao.motivo },
       });
       return new Response(
         JSON.stringify({

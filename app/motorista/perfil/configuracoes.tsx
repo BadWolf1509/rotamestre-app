@@ -22,7 +22,7 @@ import {
   MENSAGEM_LIMPAR_CACHE,
 } from '@/lib/limpezaDeCache';
 import { logger } from '@/lib/logger';
-import { AVISO_PREFERENCIA_SEM_REDE } from '@/lib/notificacoes/preferenciasPush';
+import { avisoDaGravacao } from '@/lib/notificacoes/preferenciasPush';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 export default function ConfiguracoesScreen() {
@@ -60,8 +60,10 @@ export default function ConfiguracoesScreen() {
   // Muda na hora; a gravação corre por trás. Sem rede, a escolha fica no
   // aparelho e sobe depois — a tela só avisa.
   async function toggleNotifications(value: boolean) {
-    const { sincronizado } = await alterarPreferencia('push_ativo', value);
-    if (!sincronizado) showToast(AVISO_PREFERENCIA_SEM_REDE, 'info', 5000);
+    const aviso = avisoDaGravacao(
+      await alterarPreferencia('push_ativo', value),
+    );
+    if (aviso) showToast(aviso.mensagem, aviso.tipo, 5000);
   }
 
   async function handleClearCache() {
