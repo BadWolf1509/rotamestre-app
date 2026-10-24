@@ -13,7 +13,9 @@
 import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 
 import { FalhaAoCarregarPerfil } from './falhaPerfil';
+import { obterSessaoComTimeout } from './sessaoComTimeout';
 import { logger } from '../logger';
+import { semRedeConfirmada } from '../semRede';
 import { supabase } from '../supabase';
 
 import type { Session } from '@supabase/supabase-js';
@@ -31,7 +33,27 @@ export interface EstadoSessao {
   offline: boolean;
 }
 
-export async function lerSessao(): Promise<EstadoSessao> {
+const OFFLINE: EstadoSessao = { session: null, offline: true };
+
+/**
+ * Leitura em curso, compartilhada. O prazo é DELA, não de quem chama.
+ *
+ * POR QUE. Reaberto sem rede com o token vencido, o getSession fica preso no
+ * refresh do auth-js (~25 s de recuo exponencial). Cada um esperava o seu
+ * prazo pelo MESMO getSession: o index 10 s, depois o useAuth do layout mais
+ * 10 s, e o `exigirSessaoDe` do useUser sem prazo nenhum — 20–30 s em
+ * "Verificando autenticação". Agora quem chega no meio divide o prazo que já
+ * corre, e quem chega depois de ele estourar, com o getSession ainda preso,
+ * recebe offline na hora (perguntar de novo só entraria na mesma fila do
+ * auth-js). Quando o getSession enfim responde, a vaga fica livre e a próxima
+ * leitura pergunta de novo.
+ */
+let leituraEmCurso: Promise<EstadoSessao> | null = null;
+
+async function consultarSessao(): Promise<EstadoSessao> {
+  // Sem rede confirmada (modo avião): não há o que esperar. O auth-js nem é
+  // consultado — ele só responderia depois de desistir do refresh.
+  if (await semRedeConfirmada()) return OFFLINE;
   try {
     const { data, error } = await supabase.auth.getSession();
     const session = data?.session ?? null;
@@ -42,8 +64,43 @@ export async function lerSessao(): Promise<EstadoSessao> {
   } catch (error) {
     // `getSession` não costuma lançar; se lançar, não dá para afirmar logout.
     logger.warn('[Auth] getSession lançou; tratando como offline', error);
-    return { session: null, offline: true };
+    return OFFLINE;
   }
+}
+
+/**
+ * Sessão, ou offline. Nunca demora mais que `PRAZO_LEITURA_SESSAO_MS`; prazo
+ * esgotado é offline, nunca logout.
+ */
+export function lerSessao(): Promise<EstadoSessao> {
+  if (leituraEmCurso) return leituraEmCurso;
+
+  const consulta = consultarSessao();
+  const leitura = obterSessaoComTimeout(
+    () => consulta,
+    PRAZO_LEITURA_SESSAO_MS,
+    () =>
+      logger.warn(
+        '[Auth] Sessão não respondeu no prazo — modo offline',
+        PRAZO_LEITURA_SESSAO_MS,
+      ),
+  ).then((estado) => estado ?? OFFLINE);
+
+  leituraEmCurso = leitura;
+  // A vaga só se libera quando a CONSULTA termina (não o prazo).
+  void consulta.finally(() => {
+    if (leituraEmCurso === leitura) leituraEmCurso = null;
+  });
+  return leitura;
+}
+
+/**
+ * Um evento do auth (login, TOKEN_REFRESHED, logout) é mais novo que qualquer
+ * leitura em curso: a próxima pergunta de novo, em vez de herdar o "offline"
+ * de uma leitura que estourou o prazo com o getSession velho ainda preso.
+ */
+export function descartarLeituraEmCurso(): void {
+  leituraEmCurso = null;
 }
 
 /**

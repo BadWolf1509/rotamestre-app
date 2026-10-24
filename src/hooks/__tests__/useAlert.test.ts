@@ -161,6 +161,23 @@ describe('useAlert', () => {
       // Instead, we verify the promise was created
       expect(confirmPromise!).toBeInstanceOf(Promise);
     });
+
+    it('repassa o ícone próprio ao Dialog', () => {
+      const { result } = renderHook(() => useAlert());
+
+      act(() => {
+        void result.current.showConfirm({
+          title: 'Sair',
+          message: 'Deseja sair?',
+          type: 'danger',
+          icon: 'log-out-outline',
+        });
+      });
+
+      expect(
+        (result.current.AlertDialog?.props as { icon?: string }).icon,
+      ).toBe('log-out-outline');
+    });
   });
 
   describe('showDestructive', () => {

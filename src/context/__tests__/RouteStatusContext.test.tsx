@@ -46,6 +46,8 @@ let mockRotasData: any[] | null = null;
 let mockRotasConcluidas: any | null = null;
 let mockParadasData: any[] | null = null;
 let mockUpdateError: any = null;
+// Leitura de `rotas` falhando como sem rede (o fetch do cliente devolve erro).
+let mockLeituraSemRede = false;
 
 // Track rpc calls (finalizar_rota)
 const mockRpcCalls: { fn: string; args: unknown }[] = [];
@@ -154,7 +156,12 @@ jest.mock('@/lib/supabase', () => {
     // Override for async/await pattern
     Object.defineProperty(methods, 'then', {
       value: (resolve: any) => {
-        if (tableName === 'rotas') {
+        if (tableName === 'rotas' && mockLeituraSemRede) {
+          resolve({
+            data: null,
+            error: { message: 'TypeError: Network request failed' },
+          });
+        } else if (tableName === 'rotas') {
           resolve({ data: mockRotasData, error: null });
         } else if (tableName === 'paradas') {
           resolve({ data: mockParadasData, error: null });
@@ -1332,9 +1339,33 @@ describe('RouteStatusContext com ações na fila offline', () => {
       createMockParada({ id: 'parada-2', ordem: 2, status: 'pendente' }),
     ];
     mockUpdateCalls.length = 0;
+    mockLeituraSemRede = false;
+    // O `clearAllMocks` não desfaz o valor do NetInfo: sem isto, o "sem rede"
+    // de um teste vazava para o seguinte.
+    ficarOnline();
   });
 
+  /**
+   * Uma sessão anterior carregou com rede e guardou a rota no aparelho. Sem
+   * rede confirmada (NetInfo `isConnected === false`) a carga nem consulta o
+   * banco e usa esse retrato — o banco falso respondendo "sem rede" não é um
+   * cenário real.
+   */
+  async function guardarRotaComRede() {
+    ficarOnline();
+    const anterior = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(memoria.has('@rotamestre:rota_guardada')).toBe(true);
+    });
+    anterior.unmount();
+  }
+
   afterAll(() => {
+    mockLeituraSemRede = false;
     (AsyncStorage.getItem as jest.Mock).mockImplementation(() =>
       Promise.resolve(null),
     );
@@ -1356,6 +1387,7 @@ describe('RouteStatusContext com ações na fila offline', () => {
   }
 
   it('sem rede: a parada guardada aparece concluída e marcada como envio pendente', async () => {
+    await guardarRotaComRede();
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
       isConnected: false,
       isInternetReachable: false,
@@ -1373,6 +1405,58 @@ describe('RouteStatusContext com ações na fila offline', () => {
     });
     expect(getByTestId('concluidas').props.children).toBe(1);
     expect(mockUpdateCalls).toHaveLength(0);
+  });
+
+  it('reaberto do zero sem rede: rota guardada na tela, com a fila por cima', async () => {
+    // Sessão anterior (outro processo): carregou com rede e guardou a rota.
+    const primeira = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(memoria.has('@rotamestre:rota_guardada')).toBe(true);
+    });
+    primeira.unmount();
+
+    // Sem rede: concluiu a parada 1 (fila), e o processo morreu.
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+    await enfileirarConclusaoDaParada1();
+    _resetFilaAcoesParada(); // memória do processo novo: só o disco sobra
+    mockLeituraSemRede = true;
+
+    function RotaNaTela() {
+      const { route, paradas, error, atualizadoEm } = useRouteStatus();
+      return (
+        <>
+          <Text testID="rota">{route?.id ?? 'nenhuma'}</Text>
+          <Text testID="parada-1">
+            {paradas.find((p) => p.id === 'parada-1')?.status ?? '-'}
+          </Text>
+          <Text testID="dados-de">
+            {error && atualizadoEm !== null ? 'com-hora' : 'sem-hora'}
+          </Text>
+        </>
+      );
+    }
+    const { getByTestId } = render(
+      <RouteStatusProvider>
+        <RotaNaTela />
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('rota').props.children).toBe('rota-1');
+    });
+    expect(getByTestId('dados-de').props.children).toBe('com-hora');
+    await waitFor(() => {
+      expect(getByTestId('parada-1').props.children).toBe('concluida');
+    });
+    expect(getByTestId('pendentes').props.children).toBe('parada-1');
   });
 
   // Ação que foi para a fila com o NetInfo "conectado" (timeout em sinal
@@ -1403,6 +1487,7 @@ describe('RouteStatusContext com ações na fila offline', () => {
       ouvintes.push(fn);
       return original.call(AppState, tipo, fn as never);
     }) as typeof AppState.addEventListener;
+    await guardarRotaComRede();
     ficarOffline();
     await enfileirarConclusaoDaParada1();
     const { getByTestId, unmount } = render(
@@ -1446,6 +1531,60 @@ describe('RouteStatusContext com ações na fila offline', () => {
     });
 
     await waitFor(() => expect(enviouParada1()).toBe(true));
+  });
+
+  // A fila esvazia (enviada) e a recarga que viria confirmar falha (sinal
+  // fraco: o UPDATE passou, a leitura não). A parada não pode voltar a
+  // "pendente" — nem na tela, nem no retrato que reabre o app sem rede.
+  it('fila enviada e recarga falhando: a parada segue concluída na memória e no retrato', async () => {
+    await guardarRotaComRede();
+    ficarOffline();
+    await enfileirarConclusaoDaParada1();
+    function Parada1() {
+      const { paradas } = useRouteStatus();
+      return (
+        <Text testID="parada-1">
+          {paradas.find((p) => p.id === 'parada-1')?.status ?? '-'}
+        </Text>
+      );
+    }
+    let atualizar: () => Promise<void> = async () => undefined;
+    function Captura() {
+      atualizar = useRouteStatus().refreshRoute;
+      return null;
+    }
+    const { getByTestId } = render(
+      <RouteStatusProvider>
+        <Parada1 />
+        <EnvioPendente />
+        <Captura />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('parada-1');
+    });
+
+    // Volta a rede para o envio, mas toda leitura da rota falha.
+    ficarOnline();
+    mockLeituraSemRede = true;
+    await act(async () => {
+      await atualizar();
+    });
+    await waitFor(() => expect(enviouParada1()).toBe(true));
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('nenhuma');
+    });
+
+    expect(getByTestId('parada-1').props.children).toBe('concluida');
+    await waitFor(() => {
+      const registro = JSON.parse(
+        memoria.get('@rotamestre:rota_guardada') ?? '{}',
+      );
+      const guardada = registro.retrato.paradas.find(
+        (p: ParadaData) => p.id === 'parada-1',
+      );
+      expect(guardada.status).toBe('concluida');
+    });
   });
 
   it('com rede ao abrir: envia a fila para o banco e tira o selo', async () => {

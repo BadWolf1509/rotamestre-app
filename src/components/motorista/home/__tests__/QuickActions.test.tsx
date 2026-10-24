@@ -481,6 +481,36 @@ describe('FloatingActionButton', () => {
       expect(label.props.maxFontSizeMultiplier).toBeGreaterThanOrEqual(1);
     });
 
+    // Moto g15, 1.14.4, font_scale 2.0: "Finalizar" encostava na borda do
+    // círculo de 64 dp. Com rótulo, o botão passa a ser uma pílula que cresce.
+    it.each(['Iniciar', 'Navegar', 'Finalizar', 'Detalhes', 'Histórico'])(
+      'o botão com "%s" cresce com o rótulo em vez de ter largura fixa',
+      (rotulo) => {
+        const { UNSAFE_getByType, getByText } = render(
+          <FloatingActionButton
+            icon="navigate"
+            color="#4CAF50"
+            onPress={mockOnPress}
+            label={rotulo}
+          />,
+        );
+        const estilo = StyleSheet.flatten(
+          UNSAFE_getByType(TouchableOpacity).props.style,
+        );
+
+        expect(estilo.width).toBeUndefined();
+        expect(estilo.minWidth).toBe(64);
+        expect(estilo.paddingHorizontal).toBeGreaterThanOrEqual(12);
+        expect(
+          getByText(rotulo).props.maxFontSizeMultiplier,
+        ).toBeLessThanOrEqual(1.3);
+      },
+    );
+
+    it('o espaço sob o FAB deixa folga de pelo menos 24 dp do botão', () => {
+      expect(ESPACO_SOB_O_FAB).toBeGreaterThanOrEqual(16 + 64 + 24);
+    });
+
     it('não deve renderizar label quando undefined', () => {
       const { queryByText } = render(
         <FloatingActionButton

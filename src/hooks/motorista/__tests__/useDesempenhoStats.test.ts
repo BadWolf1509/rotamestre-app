@@ -479,7 +479,7 @@ describe('useDesempenhoStats', () => {
       });
 
       expect(result.current.error).toBe(
-        'Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.',
+        'Não foi possível carregar suas estatísticas. Puxe para baixo para tentar novamente.',
       );
       expect(result.current.stats).toBeNull();
       expect(logger.error).toHaveBeenCalled();
@@ -510,7 +510,7 @@ describe('useDesempenhoStats', () => {
       });
 
       expect(result.current.error).toBe(
-        'Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.',
+        'Não foi possível carregar suas estatísticas. Puxe para baixo para tentar novamente.',
       );
       expect(result.current.stats).toBeNull();
     });

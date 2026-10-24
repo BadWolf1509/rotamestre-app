@@ -240,6 +240,23 @@ export function sobreporAcoesPendentes<
   return { paradas: sobrepostas, pendentes };
 }
 
+/**
+ * Ações que saíram da fila porque SUBIRAM: estavam em `anteriores`, não estão
+ * em `atuais` e não foram descartadas. Quem mostra a rota as aplica no estado
+ * base (memória e retrato guardado), porque a sobreposição some junto com a
+ * fila — e, se a recarga que confirmaria falhar, a parada voltaria a
+ * "pendente" (revisão final da 1.14.5, Minor 3).
+ */
+export function acoesQueSubiram(
+  anteriores: AcaoParada[],
+  atuais: AcaoParada[],
+  descartes: DescarteDeAcao[],
+): AcaoParada[] {
+  const ficaram = new Set(atuais.map((a) => a.id));
+  const descartadas = new Set(descartes.map((d) => d.acao.id));
+  return anteriores.filter((a) => !ficaram.has(a.id) && !descartadas.has(a.id));
+}
+
 // ---------------------------------------------------------------------------
 // Classificação de erro
 // ---------------------------------------------------------------------------

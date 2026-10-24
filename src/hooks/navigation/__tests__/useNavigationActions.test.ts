@@ -149,6 +149,8 @@ describe('useNavigationActions', () => {
         expect.objectContaining({
           title: 'Sair da Navegação',
           type: 'danger',
+          // Lixeira (ícone padrão de 'danger') diz "apagar"; aqui é sair.
+          icon: 'log-out-outline',
         }),
       );
       expect(options.stopNavigation).toHaveBeenCalled();

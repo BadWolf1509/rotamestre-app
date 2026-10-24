@@ -252,13 +252,35 @@ describe('Início — carga e conexão', () => {
   });
 
   it('erro com rota preservada: rota na tela e aviso com a hora dos dados', () => {
-    mockCtx.route = ROTA;
-    mockCtx.error = new Error('Network request failed');
-    mockCtx.atualizadoEm = new Date(2026, 9, 22, 14, 5).getTime();
-    const { getByText } = render(<MotoristaInicio />);
+    // Dados de hoje: só a hora. O relógio é fixado no mesmo dia dos dados.
+    jest.useFakeTimers({ now: new Date(2026, 9, 22, 15, 0) });
+    try {
+      mockCtx.route = ROTA;
+      mockCtx.error = new Error('Network request failed');
+      mockCtx.atualizadoEm = new Date(2026, 9, 22, 14, 5).getTime();
+      const { getByText } = render(<MotoristaInicio />);
 
-    expect(getByText('main-card:active')).toBeTruthy();
-    expect(getByText(/Sem conexão — dados de 14:05/)).toBeTruthy();
+      expect(getByText('main-card:active')).toBeTruthy();
+      expect(getByText('Sem conexão — dados de 14:05')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('dados de outro dia: o aviso mostra a data junto da hora', () => {
+    // O retrato não expira: a rota de ontem, aberta offline, não pode
+    // parecer de hoje (revisão final da 1.14.5, Minor 6).
+    jest.useFakeTimers({ now: new Date(2026, 9, 24, 7, 30) });
+    try {
+      mockCtx.route = ROTA;
+      mockCtx.error = new Error('Network request failed');
+      mockCtx.atualizadoEm = new Date(2026, 9, 23, 18, 40).getTime();
+      const { getByText } = render(<MotoristaInicio />);
+
+      expect(getByText(/Sem conexão — dados de 23\/10 às 18:40/)).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('erro sem nunca ter carregado: "Sem conexão", não "Sem rota"', () => {
@@ -273,5 +295,68 @@ describe('Início — carga e conexão', () => {
     const { getByText, queryByTestId } = render(<MotoristaInicio />);
     expect(getByText('main-card:no-route')).toBeTruthy();
     expect(queryByTestId('motorista-inicio-carregando')).toBeNull();
+  });
+});
+
+describe('Início — o cartão da parada não muda de lugar com o estado da conexão', () => {
+  // POR QUE EXISTE. No aparelho (24/10/2026) a faixa "Sem conexão — dados de
+  // HH:MM" entrava um instante depois, acima do cartão, e o empurrava ~140 px
+  // para baixo: o toque em "Concluir" caía no botão de distância e abria o modo
+  // navegação. O RNTL não mede layout; o que fixa a posição é a ESTRUTURA —
+  // tudo que vem antes do cartão tem de ser igual com e sem os avisos de
+  // conexão e de fila, então eles só podem aparecer depois dele.
+  type No = {
+    type?: string;
+    props?: Record<string, unknown>;
+    children?: unknown;
+  };
+
+  function antesDoCartao(arvore: unknown): {
+    ids: string[];
+    viuCartao: boolean;
+  } {
+    const ids: string[] = [];
+    let viuCartao = false;
+    const visitar = (no: unknown) => {
+      if (viuCartao || no == null) return;
+      if (typeof no === 'string') {
+        if (no.startsWith('main-card:')) viuCartao = true;
+        return;
+      }
+      if (Array.isArray(no)) return no.forEach(visitar);
+      const n = no as No;
+      const id = n.props?.testID;
+      if (typeof id === 'string') ids.push(id);
+      visitar(n.children);
+    };
+    visitar(arvore);
+    return { ids, viuCartao };
+  }
+
+  beforeEach(() => {
+    mockCtx.route = ROTA;
+    mockCtx.loading = false;
+    mockCtx.error = null;
+    mockCtx.atualizadoEm = null;
+    mockCtx.pendentes = new Set();
+  });
+
+  it('com a faixa de "sem conexão" e a de fila, nada novo aparece acima do cartão', () => {
+    const online = render(<MotoristaInicio />);
+    const antesOnline = antesDoCartao(online.toJSON());
+    online.unmount();
+
+    mockCtx.error = new Error('Network request failed');
+    mockCtx.atualizadoEm = new Date(2026, 9, 22, 14, 5).getTime();
+    mockCtx.pendentes = new Set(['parada-1']);
+    const offline = render(<MotoristaInicio />);
+    const antesOffline = antesDoCartao(offline.toJSON());
+
+    expect(antesOnline.viuCartao).toBe(true);
+    expect(antesOffline.viuCartao).toBe(true);
+    expect(antesOffline.ids).toEqual(antesOnline.ids);
+    // E os avisos existem: o teste não passa por tê-los perdido.
+    expect(offline.getByTestId('aviso-sem-conexao')).toBeTruthy();
+    expect(offline.getByTestId('aviso-envio-pendente')).toBeTruthy();
   });
 });

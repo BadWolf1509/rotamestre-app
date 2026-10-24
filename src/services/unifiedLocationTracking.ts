@@ -15,9 +15,10 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
+import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { pedirPermissao } from '@/lib/permissoes';
-import { supabase } from '@/lib/supabase';
 import { defaultTheme } from '@/utils/styles';
 
 // ========================================
@@ -98,22 +99,24 @@ async function saveLocationToDatabase(
 
     const context: TrackingContext = JSON.parse(contextStr);
 
-    const { error } = await supabase.from('motorista_locations').insert({
-      motorista_id: context.motoristaId,
-      rota_id: context.rotaId,
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-      velocidade: location.coords.speed ? location.coords.speed * 3.6 : null, // m/s -> km/h
-      precisao: location.coords.accuracy,
-      heading: location.coords.heading,
-      fonte, // Identificar origem do update
-    });
-
-    if (error) {
-      logger.error('[LocationTracking] Erro ao salvar', error);
-    }
+    // Sem rede, a posição fica guardada no aparelho e sobe em lote com a
+    // próxima que conseguir enviar (`filaPosicoes`).
+    await registrarPosicao(
+      {
+        motorista_id: context.motoristaId,
+        rota_id: context.rotaId,
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        velocidade: location.coords.speed ? location.coords.speed * 3.6 : null, // m/s -> km/h
+        precisao: location.coords.accuracy,
+        heading: location.coords.heading,
+        fonte, // Identificar origem do update
+      },
+      location.timestamp,
+      '[LocationTracking] Erro ao salvar',
+    );
   } catch (err) {
-    logger.error('[LocationTracking] Erro', err);
+    logarFalha('[LocationTracking] Erro', err);
   }
 }
 

@@ -806,6 +806,8 @@ describe('Serviço de localização ao trocar de parada', () => {
       'rota-1',
       'p2',
       undefined,
+      // O destino vai junto: sem rede, o serviço não busca a parada.
+      { latitude: -23.56, longitude: -46.64, endereco: 'Rua p2' },
     );
     expect(LocationTrackingService.stopTracking).not.toHaveBeenCalled();
   });

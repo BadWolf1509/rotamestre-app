@@ -4,7 +4,8 @@
 import type { IconName } from '@/types/icons';
 
 export type DialogVariant = 'alert' | 'confirm' | 'destructive';
-export type DialogType = 'default' | 'error' | 'success' | 'warning' | 'danger' | 'info';
+export type DialogType =
+  'default' | 'error' | 'success' | 'warning' | 'danger' | 'info';
 
 export interface DialogProps {
   /** Visibilidade do dialog */
@@ -17,6 +18,8 @@ export interface DialogProps {
   variant?: DialogVariant;
   /** Tipo visual (cor do ícone/botão) */
   type?: DialogType;
+  /** Ícone próprio; vence o do `type` (ex.: sair, em vez da lixeira do 'danger') */
+  icon?: IconName;
   /** Texto do botão de confirmação */
   confirmText?: string;
   /** Texto do botão de cancelar (apenas variant="confirm"|"destructive") */

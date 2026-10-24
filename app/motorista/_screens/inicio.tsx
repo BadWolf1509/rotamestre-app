@@ -45,7 +45,7 @@ import {
 } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
-import { formatTimeBR } from '@/lib/dateUtils';
+import { formatarMomentoDosDados } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import {
   chegouPelaParadaAnterior,
@@ -597,28 +597,6 @@ function MotoristaInicioContent() {
           estadoDaCarga={estadoDaCarga}
         />
 
-        {/* Recarga falhou: os dados ficam, com a hora em que foram lidos */}
-        {error && atualizadoEm !== null && (
-          <AlertInline
-            type="warning"
-            title={`Sem conexão — dados de ${formatTimeBR(new Date(atualizadoEm).toISOString())}`}
-            message="Puxe para atualizar quando o sinal voltar."
-            testID="aviso-sem-conexao"
-          />
-        )}
-        {estadoDaCarga === 'sem-conexao' && (
-          <AlertInline
-            type="warning"
-            title="Sem conexão"
-            message="Não foi possível carregar a sua rota. Puxe para tentar de novo."
-            testID="aviso-sem-conexao"
-          />
-        )}
-
-        {/* Concluir/pular feitos sem internet: o que falta subir e o que o
-            servidor recusou por conflito (filaAcoesParada.ts) */}
-        <AvisosDaFilaDeParadas />
-
         {/* Main Card (skeleton enquanto não há dado) */}
         {estadoDaCarga === 'carregando' ? (
           <View testID="motorista-inicio-carregando">
@@ -640,6 +618,33 @@ function MotoristaInicioContent() {
             testID="motorista-main-card"
           />
         )}
+
+        {/* Avisos de conexão e de fila ficam ABAIXO do cartão, nunca acima: a
+            faixa chega depois (a rede cai com o app aberto) e, acima, empurrava
+            o cartão ~140 px sob o dedo — o toque em "Concluir" caía no botão
+            de distância e abria o modo navegação. Abaixo, o que se move é o
+            que não tem botão de ação. Fixado em inicio-carregamento.test.tsx. */}
+        {/* Recarga falhou: os dados ficam, com a hora em que foram lidos */}
+        {error && atualizadoEm !== null && (
+          <AlertInline
+            type="warning"
+            title={`Sem conexão — dados de ${formatarMomentoDosDados(atualizadoEm)}`}
+            message="Puxe para atualizar quando o sinal voltar."
+            testID="aviso-sem-conexao"
+          />
+        )}
+        {estadoDaCarga === 'sem-conexao' && (
+          <AlertInline
+            type="warning"
+            title="Sem conexão"
+            message="Não foi possível carregar a sua rota. Puxe para tentar de novo."
+            testID="aviso-sem-conexao"
+          />
+        )}
+
+        {/* Concluir/pular feitos sem internet: o que falta subir e o que o
+            servidor recusou por conflito (filaAcoesParada.ts) */}
+        <AvisosDaFilaDeParadas />
 
         {avisoDeLocalizacaoVisivel && (
           <AlertInline

@@ -51,7 +51,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Text, Pressable, Platform } from 'react-native';
 
-import { useDialogState, useDialogBackdropHandler } from '@/hooks/useDialogState';
+import {
+  useDialogState,
+  useDialogBackdropHandler,
+} from '@/hooks/useDialogState';
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -65,7 +68,11 @@ import type { DialogProps, DialogType } from './Dialog.types';
 // Lazy import for dialog styles to avoid module-level side effects in tests
 let dialogStylesInjected = false;
 function ensureDialogStyles() {
-  if (!dialogStylesInjected && Platform.OS === 'web' && typeof document !== 'undefined') {
+  if (
+    !dialogStylesInjected &&
+    Platform.OS === 'web' &&
+    typeof document !== 'undefined'
+  ) {
     const { injectDialogStyles } = require('@/utils/dialog-styles');
     injectDialogStyles();
     dialogStylesInjected = true;
@@ -73,7 +80,10 @@ function ensureDialogStyles() {
 }
 
 /** Get color based on dialog type */
-function getTypeColor(type: DialogType, theme: ReturnType<typeof useUnistyles>['theme']): string {
+function getTypeColor(
+  type: DialogType,
+  theme: ReturnType<typeof useUnistyles>['theme'],
+): string {
   switch (type) {
     case 'success':
       return theme.colors.success;
@@ -95,6 +105,7 @@ export function Dialog({
   message,
   variant = 'alert',
   type = 'default',
+  icon,
   confirmText,
   cancelText = 'Cancelar',
   onConfirm,
@@ -134,7 +145,8 @@ export function Dialog({
     ? confirmInput.toUpperCase() === destructiveConfirmText.toUpperCase()
     : true;
 
-  const isConfirmDisabled = loading || (variant === 'destructive' && !isDestructiveConfirmValid);
+  const isConfirmDisabled =
+    loading || (variant === 'destructive' && !isDestructiveConfirmValid);
 
   // ============================================
   // WEB: Use DialogWeb component
@@ -147,6 +159,7 @@ export function Dialog({
         message={message}
         variant={variant}
         type={type}
+        icon={icon}
         confirmText={finalConfirmText}
         cancelText={cancelText}
         onConfirm={onConfirm}
@@ -179,12 +192,20 @@ export function Dialog({
       statusBarTranslucent
       presentationStyle="overFullScreen"
     >
-      <Pressable style={styles.overlay} onPress={variant === 'destructive' ? undefined : handleClose}>
-        <Pressable style={styles.container} onPress={(e) => e?.stopPropagation?.()} testID="confirm-dialog">
+      <Pressable
+        style={styles.overlay}
+        onPress={variant === 'destructive' ? undefined : handleClose}
+      >
+        <Pressable
+          style={styles.container}
+          onPress={(e) => e?.stopPropagation?.()}
+          testID="confirm-dialog"
+        >
           {/* Icon */}
           <DialogIcon
             variant={variant}
             type={type}
+            icon={icon}
             iconColor={iconColor}
             iconBgColor={iconBgColor}
             style={styles.iconContainer}

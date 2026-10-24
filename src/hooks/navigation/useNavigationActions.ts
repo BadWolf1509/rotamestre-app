@@ -10,6 +10,7 @@ import { useCallback } from 'react';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { abrirNavegacao } from '@/lib/navigation';
+import type { IconName } from '@/types/icons';
 
 interface UseNavigationActionsOptions {
   currentStop: ParadaData;
@@ -21,6 +22,7 @@ interface UseNavigationActionsOptions {
     confirmText: string;
     cancelText: string;
     type?: 'danger' | 'warning';
+    icon?: IconName;
   }) => Promise<boolean>;
   stopNavigation: () => Promise<void>;
   onComplete: () => void;
@@ -83,6 +85,8 @@ export function useNavigationActions({
       confirmText: 'Sair',
       cancelText: 'Cancelar',
       type: 'danger',
+      // Lixeira (padrão do 'danger') diz "apagar"; sair da navegação não apaga nada.
+      icon: 'log-out-outline',
     });
     if (confirmed) {
       await stopNavigation();

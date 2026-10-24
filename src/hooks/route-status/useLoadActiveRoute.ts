@@ -18,6 +18,13 @@
  *    ligar `loading` trocava a aba Paradas por skeleton e desmontava modais.
  *    E as paradas que não mudaram (id + updated_at) mantêm a identidade, para
  *    não disparar efeitos a cada recarga.
+ *
+ * E uma quinta (1.14.5): **o processo morre, a rota não.** Cada carga
+ * bem-sucedida guarda o retrato no aparelho, por conta
+ * (`src/lib/motorista/rotaGuardada.ts`). Reaberto do zero sem rede, a busca
+ * falha sem nada em memória: aí vale o retrato, com `atualizadoEm` = hora em
+ * que ele foi lido do banco ("Sem conexão — dados de HH:MM"). Busca que
+ * responde sempre vence e regrava, inclusive "sem rota".
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -28,7 +35,17 @@ import type {
   RotaQueryRow,
   RouteData,
 } from '@/context/route-status/types';
-import { logger } from '@/lib/logger';
+import { logarFalha } from '@/lib/logarFalha';
+import {
+  sobreporAcoesPendentes,
+  type AcaoParada,
+} from '@/lib/motorista/filaAcoesParada';
+import {
+  aplicarAcoesNaRotaGuardada,
+  gravarRotaGuardada,
+  lerRotaGuardada,
+} from '@/lib/motorista/rotaGuardada';
+import { semRedeConfirmada } from '@/lib/semRede';
 import { supabase } from '@/lib/supabase';
 
 interface UseLoadActiveRouteOptions {
@@ -47,6 +64,14 @@ export interface EstadoDaRotaAtiva {
   /** Epoch (ms) da última carga bem-sucedida; null se nunca carregou. */
   atualizadoEm: number | null;
   loadActiveRoute: () => Promise<void>;
+  /**
+   * Ações de parada que já subiram (a fila esvaziou) entram no estado base
+   * (memória e retrato guardado), até uma carga fresca trazer o banco.
+   */
+  aplicarAcoesEnviadas: (
+    acoes: AcaoParada[],
+    rotaId: string | null | undefined,
+  ) => void;
 }
 
 const CAMPOS_DA_ROTA = `
@@ -62,6 +87,8 @@ const CAMPOS_DA_ROTA = `
   data,
   unidades (nome)
 `;
+
+const SEM_REDE = 'Sem conexão com a internet';
 
 type Snapshot = {
   route: RouteData | null;
@@ -180,6 +207,10 @@ export function useLoadActiveRoute({
 
   // Guarda de sequência: só a resposta da chamada mais recente é aplicada.
   const ultimaChamadaRef = useRef(0);
+  // Conta cujos dados estão em memória (busca fresca ou retrato guardado).
+  // Com dado em memória, uma falha só o marca como velho (regra 1); o retrato
+  // do disco só entra quando a memória está vazia para esta conta.
+  const carregadoParaRef = useRef<string | null>(null);
 
   const loadActiveRoute = useCallback(async () => {
     const chamada = ++ultimaChamadaRef.current;
@@ -187,19 +218,28 @@ export function useLoadActiveRoute({
     // Aguardar carregamento completo do userData antes de fazer queries
     if (userLoading || !motoristaId) {
       if (!userLoading && !motoristaId) {
+        carregadoParaRef.current = null;
         setRoute(null);
         setParadas([]);
         setPendingRoutesCount(0);
         setError(null);
+        setAtualizadoEm(null);
         setLoading(false);
       }
       return;
     }
 
     try {
+      // Sem rede confirmada (modo avião), a busca só falharia depois de o
+      // supabase-js esperar o refresh preso e do timeout de 15 s do cliente:
+      // falha já, e o retrato guardado entra na hora. NetInfo "conectado" não
+      // prova rede — aí a busca segue e o guardado só entra se ela falhar.
+      if (await semRedeConfirmada()) throw new Error(SEM_REDE);
       const snapshot = await buscarSnapshot(motoristaId);
       if (chamada !== ultimaChamadaRef.current) return;
 
+      const agora = Date.now();
+      carregadoParaRef.current = motoristaId;
       // Tudo no mesmo tick: o React agrupa, e a tela nunca vê rota nova com
       // paradas velhas.
       setRoute(snapshot.route);
@@ -208,17 +248,55 @@ export function useLoadActiveRoute({
       );
       setPendingRoutesCount(snapshot.pendingRoutesCount);
       setError(null);
-      setAtualizadoEm(Date.now());
+      setAtualizadoEm(agora);
+      // Sem await: a tela não espera o disco. `gravarRotaGuardada` não lança.
+      void gravarRotaGuardada(motoristaId, { ...snapshot, guardadoEm: agora });
     } catch (erro) {
       if (chamada !== ultimaChamadaRef.current) return;
       // Crítico, mas com fallback: o estado anterior fica na tela, marcado
       // como desatualizado pelo `error`.
-      logger.error('[RouteStatus] Erro ao carregar rota', erro);
+      // Falha de rede (inclusive o `SEM_REDE` daqui) é esperada: vira warn.
+      logarFalha('[RouteStatus] Erro ao carregar rota', erro);
+
+      // Memória sem dado desta conta (reaberto do zero, ou dado de outra
+      // conta): vale o retrato guardado; sem retrato, nada — nunca o que
+      // estava na memória para outra conta. Qualquer falha conta, não só
+      // "rede": é a mesma regra 1 de quem tem o dado em memória, e classificar
+      // a mensagem do erro seria frágil.
+      if (carregadoParaRef.current !== motoristaId) {
+        const guardado = await lerRotaGuardada(motoristaId);
+        if (chamada !== ultimaChamadaRef.current) return;
+        carregadoParaRef.current = guardado ? motoristaId : null;
+        setRoute(guardado?.route ?? null);
+        setParadas((anteriores) =>
+          guardado
+            ? guardado.paradas
+            : anteriores.length === 0
+              ? anteriores
+              : [],
+        );
+        setPendingRoutesCount(guardado?.pendingRoutesCount ?? 0);
+        setAtualizadoEm(guardado?.guardadoEm ?? null);
+      }
       setError(comoErro(erro));
     } finally {
       if (chamada === ultimaChamadaRef.current) setLoading(false);
     }
   }, [userLoading, motoristaId]);
+
+  // Sem tocar em `error`/`atualizadoEm`: os dados continuam sendo os daquela
+  // hora, só sem a volta a "pendente" de uma ação que o banco já aceitou.
+  const aplicarAcoesEnviadas = useCallback(
+    (acoes: AcaoParada[], rotaId: string | null | undefined) => {
+      if (!motoristaId || acoes.length === 0) return;
+      setParadas(
+        (anteriores) =>
+          sobreporAcoesPendentes(anteriores, acoes, rotaId).paradas,
+      );
+      void aplicarAcoesNaRotaGuardada(motoristaId, acoes);
+    },
+    [motoristaId],
+  );
 
   return {
     route,
@@ -228,5 +306,6 @@ export function useLoadActiveRoute({
     error,
     atualizadoEm,
     loadActiveRoute,
+    aplicarAcoesEnviadas,
   };
 }

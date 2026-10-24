@@ -246,9 +246,10 @@ const FAB_TAMANHO = 64;
 
 /**
  * `paddingBottom` que a tela com o FAB precisa no fim do scroll para o último
- * conteúdo poder subir acima do botão, com 16 dp de folga.
+ * conteúdo poder subir acima do botão, com 24 dp de folga (16 deixava o fim do cartão colado no botão com a
+ * fonte em 2.0).
  */
-export const ESPACO_SOB_O_FAB = FAB_DISTANCIA_DO_FUNDO + FAB_TAMANHO + 16;
+export const ESPACO_SOB_O_FAB = FAB_DISTANCIA_DO_FUNDO + FAB_TAMANHO + 24;
 
 interface FloatingActionButtonProps {
   icon: IconName;
@@ -391,8 +392,11 @@ const fabStyles = StyleSheet.create((theme: Theme) => ({
     position: 'absolute',
     bottom: FAB_DISTANCIA_DO_FUNDO,
     right: theme.spacing['5'],
-    width: FAB_TAMANHO,
+    // Pílula: sem largura fixa, o botão cresce com o rótulo. No círculo de
+    // 64 dp, "Finalizar" encostava na borda com a fonte do sistema em 2.0.
+    minWidth: FAB_TAMANHO,
     height: FAB_TAMANHO,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',

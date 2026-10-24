@@ -177,16 +177,36 @@ export function useNavigationModeLogic({
    */
   const currentStopId = currentStop?.id;
   const nextStopId = nextStop?.id;
+  // Coordenadas como primitivos: a recarga entrega objeto novo para a mesma
+  // parada, e só a mudança real do destino deve religar o alvo.
+  const currentStopLat = currentStop?.latitude;
+  const currentStopLng = currentStop?.longitude;
+  const currentStopEndereco = currentStop?.endereco;
   const startNavigation = useCallback(async () => {
     if (!currentStopId || !rotaId) return;
 
+    // O destino vai junto: sem rede o serviço não consegue buscar a parada.
     const tracking = await LocationTrackingService.startTracking(
       rotaId,
       currentStopId,
       nextStopId,
+      currentStopLat != null && currentStopLng != null
+        ? {
+            latitude: currentStopLat,
+            longitude: currentStopLng,
+            endereco: currentStopEndereco,
+          }
+        : undefined,
     );
     setIsTracking(tracking);
-  }, [currentStopId, nextStopId, rotaId]);
+  }, [
+    currentStopId,
+    nextStopId,
+    rotaId,
+    currentStopLat,
+    currentStopLng,
+    currentStopEndereco,
+  ]);
 
   /**
    * Stop location tracking service

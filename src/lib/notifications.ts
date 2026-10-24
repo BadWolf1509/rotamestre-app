@@ -140,7 +140,7 @@ export async function notifyRoutePending(unidadeNome: string): Promise<void> {
 
   await sendLocalNotification(
     'Rota Pendente',
-    `Voce tem uma rota pendente para ${unidadeNome}. Toque para iniciar.`,
+    `Você tem uma rota pendente para ${unidadeNome}. Toque para iniciar.`,
     { type: 'route_pending' },
   );
 }
@@ -156,8 +156,8 @@ export async function notifyRouteComplete(
   if (!settings.routeComplete) return;
 
   await sendLocalNotification(
-    'Rota Concluida!',
-    `Parabens! Voce completou ${totalParadas} entregas em ${tempoTotal}.`,
+    'Rota Concluída!',
+    `Parabéns! Você completou ${totalParadas} entregas em ${tempoTotal}.`,
     { type: 'route_complete' },
   );
 }
@@ -171,7 +171,7 @@ export async function notifyOfflineMode(): Promise<void> {
 
   await sendLocalNotification(
     'Modo Offline',
-    'Voce esta sem conexao. As acoes serao sincronizadas quando a conexao for restaurada.',
+    'Você está sem conexão. As ações serão sincronizadas quando a conexão for restaurada.',
     { type: 'offline_mode' },
   );
 }
@@ -220,7 +220,7 @@ export async function scheduleRouteReminder(): Promise<string | null> {
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Bom dia!',
-        body: 'Verifique se voce tem rotas pendentes para hoje.',
+        body: 'Verifique se você tem rotas pendentes para hoje.',
         data: { type: 'daily_reminder' },
         sound: true,
       },
