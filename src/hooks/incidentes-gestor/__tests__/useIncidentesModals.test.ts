@@ -96,6 +96,7 @@ describe('useIncidentesModals', () => {
     it('returns correct initial values', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -125,6 +126,7 @@ describe('useIncidentesModals', () => {
     it('handleVerDetalhes opens modal with incidente', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -143,6 +145,7 @@ describe('useIncidentesModals', () => {
     it('handleFotoLoad sets loading to false', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -159,6 +162,7 @@ describe('useIncidentesModals', () => {
     it('handleFotoError sets error state', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -175,6 +179,7 @@ describe('useIncidentesModals', () => {
     it('handleFotoRetry resets photo state for a new attempt', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -192,6 +197,7 @@ describe('useIncidentesModals', () => {
     it('setShowDetalhesModal works', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -215,6 +221,7 @@ describe('useIncidentesModals', () => {
     it('handleAlterarStatus opens modal with incidente data', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -233,6 +240,7 @@ describe('useIncidentesModals', () => {
     it('setNovoStatus updates status', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -248,6 +256,7 @@ describe('useIncidentesModals', () => {
     it('setObservacoes updates observacoes', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -264,6 +273,7 @@ describe('useIncidentesModals', () => {
       mockLinhasAfetadas = [];
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -289,6 +299,7 @@ describe('useIncidentesModals', () => {
       mockLinhasAfetadas = [{ id: 'inc-1' }];
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -308,6 +319,7 @@ describe('useIncidentesModals', () => {
     it('setShowAlterarStatusModal works', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -335,6 +347,7 @@ describe('useIncidentesModals', () => {
 
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
           unidadeId: 'loja-1',
@@ -357,6 +370,7 @@ describe('useIncidentesModals', () => {
     it('sem unidadeId não busca (fail-closed): lista vazia e aviso no log', async () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
         }),
@@ -383,6 +397,7 @@ describe('useIncidentesModals', () => {
 
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
           unidadeId: 'loja-1',
@@ -414,6 +429,7 @@ describe('useIncidentesModals', () => {
 
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
           unidadeId: 'loja-1',
@@ -449,6 +465,7 @@ describe('useIncidentesModals', () => {
 
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
           unidadeId: 'loja-1',
@@ -478,6 +495,7 @@ describe('useIncidentesModals', () => {
 
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
           unidadeId: 'loja-1',
@@ -505,6 +523,7 @@ describe('useIncidentesModals', () => {
     it('setShowHistoricoMotoristaModal works', () => {
       const { result } = renderHook(() =>
         useIncidentesModals({
+          showToast: mockShowToast,
           incidentes: mockIncidentes,
           onStatusUpdate: mockOnStatusUpdate,
           unidadeId: 'loja-1',

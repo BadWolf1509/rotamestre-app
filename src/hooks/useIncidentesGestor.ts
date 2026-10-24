@@ -207,6 +207,8 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
     incidentes,
     unidadeId: unidadeAtiva,
     onStatusUpdate: fetchIncidentes,
+    // A tela renderiza o toast desta instância (toastState/hideToast).
+    showToast,
   });
 
   return {
