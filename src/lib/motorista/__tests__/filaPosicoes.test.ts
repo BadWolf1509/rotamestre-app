@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 
 import {
   CHAVE_FILA_POSICOES,
+  MAX_TENTATIVAS_POSICAO,
   TETO_FILA_POSICOES,
   registrarPosicao,
   type Posicao,
@@ -285,6 +286,92 @@ describe('filaPosicoes', () => {
       .map((l) => l.latitude);
     expect(latitudes.sort()).toEqual([1, 2, 3]);
     expect(filaGuardada()).toBeNull();
+  });
+
+  // Rodada 1: só recusa de DADO (FK, NOT NULL, CHECK, tipo) descarta o lote.
+  // O resto pode ser passageiro — e o caso mais provável vem justamente na
+  // volta de um período longo sem rede (token vencido, refresh que falhou).
+  describe('erro do lote que pode ser passageiro mantém a fila', () => {
+    it.each([
+      ['JWT expirado (PGRST301)', { code: 'PGRST301', message: 'JWT expired' }],
+      [
+        'RLS sem sessão (42501)',
+        {
+          code: '42501',
+          message:
+            'new row violates row-level security policy for table "motorista_locations"',
+        },
+      ],
+      [
+        '503 sem texto de rede',
+        { code: '', message: 'invalid response from upstream server' },
+      ],
+    ])('%s', async (_nome, erro) => {
+      semRede();
+      await registrarPosicao(posicao({ latitude: 1 }), minuto(1), ROTULO);
+      mockInsert.mockResolvedValue({ error: erro });
+
+      const destino = await registrarPosicao(
+        posicao({ latitude: 2 }),
+        minuto(2),
+        ROTULO,
+      );
+
+      expect(destino).toBe('na_fila');
+      expect(filaGuardada()?.posicoes.map((p) => p.latitude)).toEqual([1, 2]);
+
+      // E quando o banco volta a aceitar, o lote sobe como linha da tabela,
+      // sem nenhum campo de controle da fila.
+      mockInsert.mockClear();
+      comRede();
+      await registrarPosicao(posicao({ latitude: 3 }), minuto(3), ROTULO);
+      expect(lotesEnviados()).toEqual([
+        [
+          { ...posicao({ latitude: 1 }), timestamp: iso(1) },
+          { ...posicao({ latitude: 2 }), timestamp: iso(2) },
+          { ...posicao({ latitude: 3 }), timestamp: iso(3) },
+        ],
+      ]);
+      expect(filaGuardada()).toBeNull();
+    });
+  });
+
+  it('posição que esgota as tentativas sai da fila, com um logger.error por descarte', async () => {
+    semRede();
+    await registrarPosicao(posicao({ latitude: 0 }), minuto(0), ROTULO);
+    // Erro que nunca passa e que não sabemos classificar.
+    mockInsert.mockResolvedValue({
+      error: { code: '42501', message: 'permission denied' },
+    });
+
+    for (let i = 1; i <= MAX_TENTATIVAS_POSICAO; i++) {
+      await registrarPosicao(posicao({ latitude: i }), minuto(i), ROTULO);
+    }
+
+    // A 0 e a 1 foram tentadas MAX vezes (a 1 entrou na 1ª tentativa); as
+    // seguintes ainda têm tentativas sobrando.
+    const latitudes = filaGuardada()!.posicoes.map((p) => p.latitude);
+    expect(latitudes[0]).toBe(2);
+    expect(latitudes).toHaveLength(MAX_TENTATIVAS_POSICAO - 1);
+    const descartes = (logger.error as jest.Mock).mock.calls.filter(
+      ([mensagem]) => mensagem !== ROTULO,
+    );
+    expect(descartes).toHaveLength(1);
+  });
+
+  it('se o aparelho não consegue gravar a fila, a posição é dada como perdida', async () => {
+    semRede();
+    (AsyncStorage.setItem as jest.Mock).mockRejectedValue(
+      new Error('disco cheio'),
+    );
+
+    const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+    expect(destino).toBe('perdida');
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[FilaPosicoes] Falha ao gravar a fila de posições',
+      expect.any(Error),
+    );
   });
 
   it('o logout apaga a fila', () => {

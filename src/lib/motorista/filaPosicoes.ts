@@ -13,8 +13,8 @@
  *   o relógio do servidor (default `NOW()` da coluna `timestamp`).
  * - **Falha de rede:** a posição vai para o AsyncStorage com o horário em que
  *   foi CAPTURADA (`timestamp`), que é a única verdade para uma posição velha.
- * - **Falha que não é de rede** (RLS, FK de rota apagada): não entra na fila —
- *   reenviar daria o mesmo erro para sempre. Fica o `logger.error`.
+ * - **Falha que não é de rede, com a fila vazia:** a posição não entra na
+ *   fila (uma posição só, como antes desta fila). Fica o `logger.error`.
  * - **Fila com algo:** a posição nova entra no fim da fila e a fila inteira é
  *   enviada em lote, em ordem cronológica. A nova chega por último porque o
  *   marcador do gestor segue o último INSERT do realtime: enviar a fila depois
@@ -22,8 +22,18 @@
  *
  * Cada posição guardada leva o `rota_id` com que foi capturada e é enviada com
  * ele — são posições verdadeiras daquela rota, mesmo que ela já tenha sido
- * finalizada ou trocada. O lote é cortado por rota (sequências consecutivas):
- * se uma rota foi apagada, só o lote dela é recusado e descartado.
+ * finalizada ou trocada. O lote é cortado por rota (sequências consecutivas).
+ * Lote recusado:
+ *
+ * - **por rede:** fica, e o envio para até a próxima posição;
+ * - **por DADO** (`CODIGOS_RECUSA_DE_DADO`: FK de rota apagada, NOT NULL,
+ *   CHECK, tipo): descartado na hora, só o lote daquela rota;
+ * - **por qualquer outra coisa** (JWT vencido, RLS com a requisição saindo
+ *   anônima porque o refresh do token falhou, 5xx sem texto de rede): fica, e
+ *   cada posição conta uma tentativa; a que chega a `MAX_TENTATIVAS_POSICAO`
+ *   sai, com um `logger.error` por descarte. É justamente na volta de um longo
+ *   período sem rede que o token está vencido — descartar ali perderia a fila
+ *   inteira, que é o que esta fila existe para guardar.
  *
  * - **Por conta.** A fila guarda o dono; fila de outra conta é descartada sem
  *   envio (a RLS recusaria, e não é posição desta sessão). Apagada no logout
@@ -35,6 +45,22 @@
  * - **Voo único.** Duas posições quase juntas não enviam o mesmo lote duas
  *   vezes: o envio em andamento é compartilhado, e toda leitura-escrita do
  *   AsyncStorage passa por uma fila em série.
+ *
+ * LIMITES CONHECIDOS (aceitos para GPS: custam pontos repetidos ou uma
+ * posição, nunca a fila):
+ *
+ * - **A garantia do voo único é por contexto JS.** `cadeia` e `envioEmVoo`
+ *   vivem em memória. Com o app vivo (primeiro ou segundo plano), a task, o
+ *   hook e a navegação rodam no MESMO contexto e ficam serializados. A task só
+ *   roda num contexto headless separado quando o processo do app não está de
+ *   pé; a sobreposição real é a janela em que o motorista reabre o app com o
+ *   headless ainda enviando um lote. Risco baixo: no pior caso, uma posição
+ *   sobrescrita no ler-modificar-gravar (perdida) ou o mesmo lote inserido
+ *   duas vezes (o `remover` relê e filtra por identidade, então não perde).
+ * - **Timeout com o insert já gravado.** Em sinal fraco, o lote pode chegar ao
+ *   banco e a resposta não voltar: ele fica na fila e sobe de novo. A tabela
+ *   não tem chave natural para deduplicar — o trajeto ganha pontos repetidos,
+ *   não buracos.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -45,6 +71,34 @@ import { supabase } from '@/lib/supabase';
 
 export const CHAVE_FILA_POSICOES = '@rotamestre:fila_posicoes';
 export const TETO_FILA_POSICOES = 500;
+
+/**
+ * Tentativas de envio de uma posição guardada antes de desistir dela, quando
+ * o banco recusa com um erro que não sabemos classificar (nem rede, nem
+ * recusa de dado). Conta TENTATIVAS, não tempo: só há tentativa quando chega
+ * uma posição nova (a cada 5–30 s com a rota andando), e motorista parado
+ * não gasta nada. 60 tentativas cobrem de ~5 min (navegação, 5 s) a ~30 min
+ * (só a task), tempo de sobra para o supabase-js renovar um token vencido ou
+ * um gateway voltar de um 5xx. E um erro que nunca passa trava o envio da
+ * fila por no máximo 60 posições, não para sempre.
+ */
+export const MAX_TENTATIVAS_POSICAO = 60;
+
+/**
+ * Códigos do Postgres de recusa determinística de DADO: reenviar a mesma
+ * linha dá sempre o mesmo erro. 23503 (FK: rota apagada), 23502 (NOT NULL),
+ * 23514 (CHECK), 22P02 (texto que não converte para o tipo). Só estes
+ * descartam o lote na hora; qualquer outro erro (JWT vencido, RLS com a
+ * requisição saindo anônima, 5xx sem texto de rede) pode ser passageiro.
+ */
+const CODIGOS_RECUSA_DE_DADO = new Set(['23503', '23502', '23514', '22P02']);
+
+function ehRecusaDeDado(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return false;
+  }
+  return CODIGOS_RECUSA_DE_DADO.has(String(error.code));
+}
 
 /**
  * Rodadas de envio por voo. Cada rodada envia uma sequência de uma rota só;
@@ -65,8 +119,14 @@ export interface Posicao {
   fonte?: 'foreground' | 'background';
 }
 
-/** Posição guardada: a mesma linha, com o horário de captura. */
-type PosicaoGuardada = Posicao & { timestamp: string };
+/** Linha da tabela para uma posição guardada: com o horário de captura. */
+type LinhaGuardada = Posicao & { timestamp: string };
+
+/**
+ * Posição guardada: a linha e o controle da fila. `tentativas` (recusas que
+ * não são de rede nem de dado) nunca vai ao banco — ver `paraLinha`.
+ */
+type PosicaoGuardada = LinhaGuardada & { tentativas?: number };
 
 interface Registro {
   userId: string;
@@ -101,19 +161,23 @@ async function ler(): Promise<Registro | null> {
   }
 }
 
-async function gravar(registro: Registro): Promise<void> {
+/** false = o AsyncStorage recusou; o que estava para gravar não ficou. */
+async function gravar(registro: Registro): Promise<boolean> {
   try {
     if (registro.posicoes.length === 0) {
       await AsyncStorage.removeItem(CHAVE_FILA_POSICOES);
     } else {
       await AsyncStorage.setItem(CHAVE_FILA_POSICOES, JSON.stringify(registro));
     }
+    return true;
   } catch (error) {
     logger.warn('[FilaPosicoes] Falha ao gravar a fila de posições', error);
+    return false;
   }
 }
 
-function guardar(posicao: Posicao, capturadaEm: number): Promise<void> {
+/** false = não ficou guardada (o AsyncStorage recusou a gravação). */
+function guardar(posicao: Posicao, capturadaEm: number): Promise<boolean> {
   return emSerie(async () => {
     const atual = await ler();
     const registro: Registro =
@@ -138,7 +202,7 @@ function guardar(posicao: Posicao, capturadaEm: number): Promise<void> {
       }
     }
 
-    await gravar(registro);
+    return gravar(registro);
   });
 }
 
@@ -173,12 +237,58 @@ function remover(motoristaId: string, lote: PosicaoGuardada[]): Promise<void> {
   });
 }
 
+/**
+ * Conta mais uma tentativa recusada para as posições do lote; as que chegam a
+ * `MAX_TENTATIVAS_POSICAO` saem da fila, com um `logger.error` por descarte.
+ */
+function marcarTentativa(
+  motoristaId: string,
+  lote: PosicaoGuardada[],
+  error: unknown,
+): Promise<void> {
+  return emSerie(async () => {
+    const atual = await ler();
+    if (!atual || atual.userId !== motoristaId) return;
+    const tentadas = new Set(lote.map(chaveDa));
+    let esgotadas = 0;
+    const posicoes: PosicaoGuardada[] = [];
+    for (const p of atual.posicoes) {
+      if (!tentadas.has(chaveDa(p))) {
+        posicoes.push(p);
+        continue;
+      }
+      const tentativas = (p.tentativas ?? 0) + 1;
+      if (tentativas >= MAX_TENTATIVAS_POSICAO) {
+        esgotadas++;
+      } else {
+        posicoes.push({ ...p, tentativas });
+      }
+    }
+    if (esgotadas > 0) {
+      logger.error(
+        '[FilaPosicoes] Posições guardadas esgotaram as tentativas; descartadas',
+        { rota_id: lote[0].rota_id, quantidade: esgotadas, error },
+      );
+    }
+    await gravar({
+      userId: atual.userId,
+      posicoes,
+      estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
+    });
+  });
+}
+
+/** A linha que vai ao banco: sem o controle da fila. */
+function paraLinha({ tentativas: _tentativas, ...linha }: PosicaoGuardada) {
+  return linha;
+}
+
 // ---------------------------------------------------------------------------
 // Envio
 // ---------------------------------------------------------------------------
 
 async function inserir(
-  linhas: Posicao | PosicaoGuardada[],
+  linhas: Posicao | LinhaGuardada[],
 ): Promise<{ error: unknown }> {
   try {
     const { error } = await supabase.from('motorista_locations').insert(linhas);
@@ -195,7 +305,7 @@ function primeiroLote(posicoes: PosicaoGuardada[]): PosicaoGuardada[] {
   return fim === -1 ? posicoes : posicoes.slice(0, fim);
 }
 
-/** true = a fila esvaziou; false = parou por falta de rede. */
+/** true = a fila esvaziou; false = parou (sem rede ou recusa passageira). */
 async function enviarFila(
   motoristaId: string,
   rotulo: string,
@@ -209,13 +319,20 @@ async function enviarFila(
     }
 
     const lote = primeiroLote(fila.posicoes);
-    const { error } = await inserir(lote);
+    const { error } = await inserir(lote.map(paraLinha));
     if (error && isNetworkError(error)) {
       logarFalha(rotulo, error);
       return false;
     }
+    if (error && !ehRecusaDeDado(error)) {
+      // Pode ser passageiro (token vencido, 5xx): o lote fica, e a posição
+      // conta uma tentativa — até `MAX_TENTATIVAS_POSICAO`.
+      logarFalha(rotulo, error);
+      await marcarTentativa(motoristaId, lote, error);
+      return false;
+    }
     if (error) {
-      // Recusa definitiva (ex.: rota apagada): reenviar falharia para sempre.
+      // Recusa de dado (ex.: rota apagada): reenviar falharia para sempre.
       logger.error(
         '[FilaPosicoes] Banco recusou posições guardadas; descartadas',
         {
@@ -273,11 +390,12 @@ export async function registrarPosicao(
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
       if (!isNetworkError(error)) return 'perdida';
-      await guardar(posicao, capturadaEm);
-      return 'na_fila';
+      return (await guardar(posicao, capturadaEm)) ? 'na_fila' : 'perdida';
     }
 
-    await guardar(posicao, capturadaEm);
+    // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a
+    // remoção do lote também falharia e o mesmo lote subiria de novo.
+    if (!(await guardar(posicao, capturadaEm))) return 'perdida';
     const esvaziou = await esvaziarFila(posicao.motorista_id, rotulo);
     return esvaziou ? 'enviada' : 'na_fila';
   } catch (error) {
