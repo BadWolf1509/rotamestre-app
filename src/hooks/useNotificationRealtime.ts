@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { logger } from '@/lib/logger';
 import { nomeDeCanalUnico } from '@/lib/realtime';
@@ -15,6 +15,10 @@ interface UseNotificationRealtimeOptions {
 /**
  * Manages the Supabase Realtime subscription for notifications.
  * Handles INSERT and UPDATE events with proper cleanup.
+ *
+ * Devolve `conectado`: true só entre o SUBSCRIBED e a próxima queda (erro,
+ * timeout, fechamento ou troca de usuário). O provider liga o polling de
+ * reserva só quando ele é false (DP-5).
  */
 export function useNotificationRealtime({
   userId,
@@ -23,6 +27,7 @@ export function useNotificationRealtime({
   onUpdate,
 }: UseNotificationRealtimeOptions) {
   const isSubscribed = useRef(false);
+  const [conectado, setConectado] = useState(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Stable refs for callbacks (avoid re-subscribing on callback changes)
@@ -44,6 +49,7 @@ export function useNotificationRealtime({
 
   useEffect(() => {
     if (!userId || !hasToken) {
+      setConectado(false);
       logger.debug('[Realtime:Notificacoes] Aguardando userData e session...');
       return;
     }
@@ -56,6 +62,9 @@ export function useNotificationRealtime({
     logger.info('[Realtime:Notificacoes] Criando subscription para:', userId);
 
     isSubscribed.current = true;
+    // O `removeChannel` é assíncrono: o CLOSED do canal antigo pode chegar
+    // depois do SUBSCRIBED do novo (troca de conta) e derrubar o estado.
+    let canalAtual = true;
 
     const channelName = nomeDeCanalUnico(`notificacoes-${userId}`);
     const channel = supabase
@@ -87,6 +96,7 @@ export function useNotificationRealtime({
         },
       )
       .subscribe((status, err) => {
+        if (!canalAtual) return;
         logger.debug(
           '[Realtime:Notificacoes] Status:',
           status,
@@ -94,15 +104,17 @@ export function useNotificationRealtime({
         );
 
         if (status === 'SUBSCRIBED') {
+          setConectado(true);
           logger.info('[Realtime:Notificacoes] Conectado e ouvindo eventos');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setConectado(false);
           logger.warn(
-            '[Realtime:Notificacoes] Conexão falhou:',
+            '[Realtime:Notificacoes] Conexão falhou (polling ativo como fallback):',
             status,
-            '(polling ativo como fallback)',
           );
           isSubscribed.current = false;
         } else if (status === 'CLOSED') {
+          setConectado(false);
           logger.debug('[Realtime:Notificacoes] Canal fechado');
           isSubscribed.current = false;
         }
@@ -112,11 +124,15 @@ export function useNotificationRealtime({
 
     return () => {
       logger.debug('[Realtime:Notificacoes] Limpando subscription...');
+      canalAtual = false;
       isSubscribed.current = false;
+      setConectado(false);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
   }, [userId, hasToken]);
+
+  return { conectado };
 }
