@@ -25,6 +25,8 @@ on:
         options:
           - production
           - preview
+          # Dev client (APK debug): para iterar JS com Metro sem gastar a cota do EAS.
+          - development
 
 concurrency:
   group: eas-build-android-${{ inputs.profile }}
