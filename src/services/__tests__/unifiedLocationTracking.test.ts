@@ -647,6 +647,67 @@ describe('unifiedLocationTracking', () => {
       ]);
     });
   });
+  // MOT-2: o sistema pode entregar várias leituras num lote só (no iOS, a
+  // cada 30 s / 100 m). Gravar a mais antiga deixava o marcador do gestor
+  // atrás de onde o motorista já estava.
+  describe('task de segundo plano com várias leituras no lote', () => {
+    const leitura = (minuto: number, latitude: number) => ({
+      coords: {
+        latitude,
+        longitude: -34.8,
+        accuracy: 10,
+        speed: null,
+        heading: null,
+      },
+      timestamp: Date.UTC(2026, 9, 24, 12, minuto),
+    });
+
+    it.each([
+      ['em ordem', [leitura(1, -7.1), leitura(2, -7.2), leitura(3, -7.3)]],
+      ['fora de ordem', [leitura(1, -7.1), leitura(3, -7.3), leitura(2, -7.2)]],
+    ])('grava só a mais recente, com o horário dela (%s)', async (_n, lote) => {
+      const insert = jest.fn().mockResolvedValue({ error: null });
+      (supabase.from as jest.Mock).mockImplementation((tabela: string) =>
+        tabela === 'rotas'
+          ? {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: () =>
+                    Promise.resolve({
+                      data: {
+                        status: 'em_andamento',
+                        motorista_id: 'motorista-456',
+                      },
+                      error: null,
+                    }),
+                }),
+              }),
+            }
+          : { insert },
+      );
+      mockGetItem.mockImplementation(async (chave: string) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify(mockContext)
+          : null,
+      );
+
+      await tarefaDeSegundoPlano({ data: { locations: lote }, error: null });
+
+      expect(insert).toHaveBeenCalledTimes(1);
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          latitude: -7.3,
+          timestamp: '2026-10-24T12:03:00.000Z',
+          fonte: 'background',
+        }),
+      );
+      (supabase.from as jest.Mock).mockReset();
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ error: null }),
+      });
+    });
+  });
+
   // MOT-1: a task headless roda sem tela nenhuma. Rota concluída pela web,
   // por outro aparelho, pela expiração ou reatribuída seguia gravando
   // posições por até ~21 h. A task confere a rota do contexto e para.
