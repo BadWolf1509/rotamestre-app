@@ -19,9 +19,41 @@ jest.mock('@/lib/logger');
 // Supabase chain mock helpers
 // ---------------------------------------------------------------------------
 
-// Update chain: from(table).update(data).eq(col, val) -> { error }
+// Update chain: from(table).update(data).eq(col, val)[.eq(...)][.select(...)]
+// -> { error } / { data, error }. `mockUpdateEq` recebe o PRIMEIRO `.eq` de
+// cada UPDATE (uma chamada por UPDATE, na ordem) e devolve o resultado; os
+// filtros seguintes caem em `mockUpdateFiltro`. Com `.select()`, resultado
+// sem `data` e sem erro vira 1 linha afetada.
+type ResultadoUpdate = { data?: unknown; error: unknown };
 const mockUpdateEq = jest.fn();
-const mockUpdate = jest.fn(() => ({ eq: mockUpdateEq }));
+const mockUpdateFiltro = jest.fn();
+const mockUpdateSelect = jest.fn();
+function consultaUpdate(resultado: unknown): unknown {
+  const p = Promise.resolve(resultado as ResultadoUpdate);
+  return {
+    eq: (...args: unknown[]) => {
+      mockUpdateFiltro(...args);
+      return consultaUpdate(p);
+    },
+    select: (...args: unknown[]) => {
+      mockUpdateSelect(...args);
+      return consultaUpdate(
+        p.then((r) => ({
+          ...r,
+          data:
+            r.data !== undefined ? r.data : r.error ? null : [{ id: 'linha' }],
+        })),
+      );
+    },
+    then: (
+      ok: (r: ResultadoUpdate) => unknown,
+      falha: (e: unknown) => unknown,
+    ) => p.then(ok, falha),
+  };
+}
+const mockUpdate = jest.fn(() => ({
+  eq: (...args: unknown[]) => consultaUpdate(mockUpdateEq(...args)),
+}));
 
 // Select chain: from(table).select(cols).eq(col, val).order(col) -> { data }
 const mockSelectOrder = jest.fn();
@@ -234,6 +266,84 @@ describe('startRoute', () => {
 
     await startRoute();
 
+    expect(requestAndStartTracking).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// startRoute: o UPDATE só vale para rota pendente deste motorista (MOT-3)
+// ============================================================================
+
+/**
+ * A tela pode estar velha: o gestor cancelou, passou a rota a outro motorista
+ * ou ela já foi iniciada em outro aparelho. Antes o UPDATE ia só por `id`,
+ * sem conferir nada — reabria rota cancelada e mostrava "Rota iniciada" até
+ * quando a RLS recusava em silêncio (0 linhas, sem erro).
+ */
+describe('startRoute confere status e dono no UPDATE', () => {
+  it('filtra por status pendente e pelo motorista, e pede as linhas afetadas', async () => {
+    const { startRoute } = setup({ paradas: [makeParada()] });
+
+    await startRoute();
+
+    expect(mockUpdateEq).toHaveBeenNthCalledWith(1, 'id', 'route-1');
+    expect(mockUpdateFiltro).toHaveBeenCalledWith('status', 'pendente');
+    expect(mockUpdateFiltro).toHaveBeenCalledWith('motorista_id', 'user-1');
+    expect(mockUpdateSelect).toHaveBeenCalledWith('id');
+  });
+
+  it('0 linhas: recarrega a rota, avisa e NÃO liga o rastreamento nem mexe nas paradas', async () => {
+    (Platform as any).OS = 'android';
+    const checkpoint = makeParada({ id: 'cp', ordem: 0, is_checkpoint: false });
+    const { startRoute, loadActiveRoute } = setup({
+      paradas: [checkpoint, makeParada({ id: 'p1', ordem: 1 })],
+    });
+    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
+
+    const erro = await startRoute().catch((e) => e);
+
+    // A tela trata como erro: o "Rota Iniciada" da Início não aparece.
+    expect(getErrorMessage(erro).code).toBe('ROUTE_NOT_PENDING');
+    expect(loadActiveRoute).toHaveBeenCalledTimes(1);
+    // O contexto de rastreamento é gravado dentro do requestAndStartTracking.
+    expect(requestAndStartTracking).not.toHaveBeenCalled();
+    // Só o UPDATE da rota: nem partida concluída, nem parada em andamento.
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('0 linhas com recarga falhando: o aviso ainda chega', async () => {
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
+    loadActiveRoute.mockRejectedValueOnce(new Error('falha de rede'));
+    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
+
+    const erro = await startRoute().catch((e) => e);
+
+    expect(getErrorMessage(erro).code).toBe('ROUTE_NOT_PENDING');
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('recarregar'),
+      expect.any(Error),
+    );
+  });
+
+  // Sem rede o supabase-js NÃO lança: devolve `{ data: null, error }`. O
+  // caminho continua o de antes — erro de rede para a tela, sem fila e sem
+  // virar "rota mudou" (não houve resposta do servidor).
+  it('erro de rede segue o caminho de antes: relança o próprio erro, sem recarregar nem rastrear', async () => {
+    (Platform as any).OS = 'android';
+    const erroDeRede = {
+      message: 'TypeError: Network request failed',
+      details: '',
+      hint: '',
+      code: '',
+    };
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
+    mockUpdateEq.mockResolvedValueOnce({ data: null, error: erroDeRede });
+
+    const erro = await startRoute().catch((e) => e);
+
+    expect(erro).toBe(erroDeRede);
+    expect(getErrorMessage(erro).code).toBe('NETWORK_ERROR');
+    expect(loadActiveRoute).not.toHaveBeenCalled();
     expect(requestAndStartTracking).not.toHaveBeenCalled();
   });
 });

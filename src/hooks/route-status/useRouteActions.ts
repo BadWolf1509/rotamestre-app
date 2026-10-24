@@ -82,16 +82,40 @@ export function useRouteActions({
     try {
       const now = new Date().toISOString();
 
-      // 1. Atualizar status da rota
-      const { error } = await supabase
+      // 1. Atualizar status da rota — só se ainda estiver pendente e for
+      // deste motorista. A tela pode estar velha (gestor cancelou, passou a
+      // outro motorista, ou já iniciada em outro aparelho), e a RLS recusa
+      // com 0 linhas, sem erro. Erro de rede chega em `error` e segue como
+      // antes: vai para a tela (iniciar não entra na fila offline).
+      const { data: iniciadas, error } = await supabase
         .from('rotas')
         .update({
           status: 'em_andamento',
           iniciada_em: now,
         })
-        .eq('id', route.id);
+        .eq('id', route.id)
+        .eq('status', 'pendente')
+        .eq('motorista_id', userData.id)
+        .select('id');
 
       if (error) throw error;
+
+      if (!iniciadas || iniciadas.length === 0) {
+        // O servidor respondeu e nada mudou: sem "Rota iniciada", sem
+        // rastreamento (nem o contexto dele) e sem mexer nas paradas. A
+        // recarga traz o estado real; falhar nela não pode engolir o aviso.
+        try {
+          await loadActiveRoute();
+        } catch (erroRecarga) {
+          logger.warn(
+            '[RouteStatus] startRoute: falha ao recarregar a rota que mudou',
+            erroRecarga,
+          );
+        }
+        throw new Error(
+          'ROTA_NAO_PENDENTE: a rota não está mais pendente para este motorista',
+        );
+      }
 
       // 2. Marcar ponto de partida (ordem 0) como concluído
       const checkpointPartida = paradas.find(
