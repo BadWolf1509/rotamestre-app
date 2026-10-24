@@ -35,6 +35,7 @@ interface ToastState {
  * ```
  */
 export type ShowToast = ReturnType<typeof useToast>['showToast'];
+export type WithToast = ReturnType<typeof useToast>['withToast'];
 
 export function useToast() {
   const [toast, setToast] = useState<ToastState>({

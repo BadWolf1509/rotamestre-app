@@ -12,12 +12,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-import { supabase } from '@/lib/supabase';
+import {
+  criarPostgrestFalso,
+  type LinhaFalsa,
+} from '@/__tests__/helpers/postgrestFalso';
 
 import { useGestaoRotas } from '../useGestaoRotas';
 
+// PostgREST falso atrás do cliente real: aplica os filtros da URL e corta
+// em 1.000 linhas, como o max-rows do Supabase.
+let mockCliente: ReturnType<typeof criarPostgrestFalso>['cliente'];
+
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: jest.fn() },
+  supabase: { from: (t: string) => mockCliente.from(t) },
   isSupabaseConfigured: true,
 }));
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -37,71 +44,19 @@ jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 
-const MAX_ROWS = 1000;
-
-type Parada = {
-  id: string;
-  rota_id: string;
-  status: string;
-  is_checkpoint: boolean;
+const ROTA_1: LinhaFalsa = {
+  id: 'rota-1',
+  unidade_id: 'unidade-1',
+  data: '2026-10-22',
+  status: 'pendente',
+  distancia_total: 1,
+  iniciada_em: null,
+  concluida_em: null,
+  motorista_id: 'm1',
+  usuarios: { id: 'm1', nome: 'Ana' },
 };
 
-/** Builder "thenable" que filtra como o PostgREST e corta em 1.000 linhas. */
-function paradasQuery(todas: Parada[], erro: unknown = null) {
-  const filtros: ((p: Parada) => boolean)[] = [];
-  let faixa: [number, number] | null = null;
-  const api = {
-    select: () => api,
-    eq: () => api, // filtro por rotas.unidade_id: todas são da unidade
-    in: (col: keyof Parada, valores: string[]) => {
-      filtros.push((p) => valores.includes(p[col] as string));
-      return api;
-    },
-    order: () => api,
-    range: (de: number, ate: number) => {
-      faixa = [de, ate];
-      return api;
-    },
-    abortSignal: () => api,
-    then: (resolve: (v: unknown) => void) => {
-      if (erro) return resolve({ data: null, error: erro });
-      let linhas = todas.filter((p) => filtros.every((f) => f(p)));
-      if (faixa) linhas = linhas.slice(faixa[0], faixa[1] + 1);
-      resolve({ data: linhas.slice(0, MAX_ROWS), error: null });
-    },
-  };
-  return api;
-}
-
-function rotasQuery(erro: unknown = null) {
-  const api = {
-    select: () => api,
-    eq: () => api,
-    order: () => api,
-    limit: () => api,
-    abortSignal: async () =>
-      erro
-        ? { data: null, error: erro }
-        : {
-            data: [
-              {
-                id: 'rota-1',
-                data: '2026-10-22',
-                status: 'pendente',
-                distancia_total: 1,
-                iniciada_em: null,
-                concluida_em: null,
-                motorista_id: 'm1',
-                usuarios: { id: 'm1', nome: 'Ana' },
-              },
-            ],
-            error: null,
-          },
-  };
-  return api;
-}
-
-function paradasDaUnidade(): Parada[] {
+function paradasDaUnidade(): LinhaFalsa[] {
   // 1.500 paradas de rotas antigas que NÃO estão na lista (vêm primeiro),
   // depois as 5 da rota-1 (2 concluídas).
   const antigas = Array.from({ length: 1500 }, (_, i) => ({
@@ -119,21 +74,30 @@ function paradasDaUnidade(): Parada[] {
   return [...antigas, ...daRota1];
 }
 
-const opcoes = { statusColorMap: {} as never, defaultStatusColor: 'x' };
+const opcoes = {
+  statusColorMap: {} as never,
+  defaultStatusColor: 'x',
+  showToast: jest.fn(),
+  withToast: jest.fn() as never,
+};
+
+const ERRO = { message: 'falhou', code: '500' };
 
 function configurar({
-  erroRotas = null as unknown,
-  erroParadas = null as unknown,
+  erroRotas = false,
+  erroParadas = false,
   cache = null as null | { data: unknown[]; timestamp: number },
 } = {}) {
   (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
     cache ? JSON.stringify(cache) : null,
   );
-  (supabase.from as jest.Mock).mockImplementation((tabela: string) =>
-    tabela === 'paradas'
-      ? paradasQuery(paradasDaUnidade(), erroParadas)
-      : rotasQuery(erroRotas),
-  );
+  const falso = criarPostgrestFalso({
+    rotas: [ROTA_1],
+    paradas: paradasDaUnidade(),
+  });
+  if (erroRotas) falso.falhas.rotas = ERRO;
+  if (erroParadas) falso.falhas.paradas = ERRO;
+  mockCliente = falso.cliente;
 }
 
 beforeEach(() => jest.clearAllMocks());
@@ -151,7 +115,7 @@ describe('useGestaoRotas — contadores de paradas', () => {
   });
 
   it('falha ao buscar paradas não vira "0 paradas": vira erro de carga', async () => {
-    configurar({ erroParadas: { message: 'falhou', code: '500' } });
+    configurar({ erroParadas: true });
     const { result } = renderHook(() => useGestaoRotas(opcoes));
 
     await waitFor(() => expect(result.current.erroCarga).toBeTruthy());
@@ -161,7 +125,7 @@ describe('useGestaoRotas — contadores de paradas', () => {
 
 describe('useGestaoRotas — erro de carga', () => {
   it('sem cache: expõe erroCarga, e "tentar novamente" recarrega e limpa o erro', async () => {
-    configurar({ erroRotas: { message: 'rede', code: '' } });
+    configurar({ erroRotas: true });
     const { result } = renderHook(() => useGestaoRotas(opcoes));
 
     await waitFor(() => expect(result.current.erroCarga).toBeTruthy());
@@ -179,7 +143,7 @@ describe('useGestaoRotas — erro de carga', () => {
   it('com cache: mantém as rotas do cache e diz de quando são', async () => {
     const horarioDoCache = new Date(2026, 9, 22, 9, 41).getTime();
     configurar({
-      erroRotas: { message: 'rede', code: '' },
+      erroRotas: true,
       cache: {
         data: [
           {

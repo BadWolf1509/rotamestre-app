@@ -5,6 +5,9 @@
  *   react-native-web: o botão não fazia nada no navegador do celular/tablet.
  *   Agora abre um Modal do design system com as opções.
  * - Erro de carga aparece na tela, com "Tentar novamente".
+ * - Loja com mais de 100 rotas: a lista diz quantas mostra de quantas e
+ *   oferece "Carregar mais" (antes cortava em 100 sem aviso). A exportação
+ *   mostra o progresso da busca de todas as páginas.
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
@@ -14,6 +17,7 @@ import GestaoRotas from '../gestao-rotas';
 const mockExportarCSV = jest.fn();
 const mockExportarXLSX = jest.fn();
 const mockLoadRotas = jest.fn();
+const mockCarregarMais = jest.fn();
 let mockEstadoHook: Record<string, unknown> = {};
 
 jest.mock('@/hooks/useGestaoRotas', () => ({
@@ -37,10 +41,14 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
     exportarParaCSV: mockExportarCSV,
     exportarParaXLSX: mockExportarXLSX,
     loadRotas: mockLoadRotas,
+    carregarMais: mockCarregarMais,
+    total: 0,
+    temMais: false,
+    carregandoMais: false,
+    contagens: null,
+    exportacao: null,
     getStatusLabel: (s: string) => s,
     getStatusColor: () => 'x',
-    toastState: { visible: false, message: '', type: 'info' },
-    hideToast: jest.fn(),
     handleSort: jest.fn(),
     ...mockEstadoHook,
   }),
@@ -83,4 +91,57 @@ describe('GestaoRotas (mobile/tablet)', () => {
     fireEvent.press(screen.getByText('Tentar novamente'));
     expect(mockLoadRotas).toHaveBeenCalledTimes(1);
   });
+
+  it('mais de 100 rotas: diz quantas mostra de quantas e "Carregar mais" pede a próxima página', () => {
+    mockEstadoHook = {
+      rotasFiltradas: rotasFalsas(100),
+      total: 437,
+      temMais: true,
+    };
+    render(<GestaoRotas />);
+
+    expect(screen.getByText(/Mostrando 100 de 437 rotas/)).toBeTruthy();
+    expect(screen.getByText(/437 rota\(s\) encontrada\(s\)/)).toBeTruthy();
+    fireEvent.press(screen.getByTestId('gestao-rotas-carregar-mais'));
+    expect(mockCarregarMais).toHaveBeenCalledTimes(1);
+  });
+
+  it('com todas as rotas na lista não há aviso nem "Carregar mais"', () => {
+    mockEstadoHook = {
+      rotasFiltradas: rotasFalsas(3),
+      total: 3,
+      temMais: false,
+    };
+    render(<GestaoRotas />);
+
+    expect(screen.queryByText(/Mostrando/)).toBeNull();
+    expect(screen.queryByTestId('gestao-rotas-carregar-mais')).toBeNull();
+  });
+
+  it('exportação em andamento mostra o progresso e trava um segundo pedido', () => {
+    mockEstadoHook = {
+      rotasFiltradas: rotasFalsas(100),
+      total: 2345,
+      temMais: true,
+      exportacao: { formato: 'csv', carregadas: 1000, total: 2345 },
+    };
+    render(<GestaoRotas />);
+
+    expect(
+      screen.getByText(/Preparando a exportação: 1000 de 2345 rotas/),
+    ).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Abrir menu de exportação'));
+    expect(screen.queryByText('Excel (XLSX)')).toBeNull();
+  });
 });
+
+function rotasFalsas(n: number) {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `r${i}`,
+    data: '2026-10-01',
+    status: 'pendente',
+    motorista_nome: 'Ana',
+    paradas_count: 1,
+    paradas_concluidas: 0,
+  }));
+}
