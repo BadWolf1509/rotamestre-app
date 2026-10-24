@@ -65,7 +65,7 @@ async function pararRastreamentoDaConta(): Promise<void> {
   }
 }
 
-const FALLBACK_WEB_BASE_URL ='https://app.rotamestre.tec.br';
+const FALLBACK_WEB_BASE_URL = 'https://app.rotamestre.tec.br';
 
 /** Base pública do app web. Fonte canônica: app.config.js → extra.baseUrl */
 function getWebBaseUrl(): string {

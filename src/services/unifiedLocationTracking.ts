@@ -305,10 +305,17 @@ export async function stopBackgroundTracking(): Promise<void> {
     if (isTracking) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
-    taskConfirmadaNesteProcesso = false;
-    await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
   } catch (err) {
     logger.error('[LocationTracking] Erro ao parar', err);
+  } finally {
+    // Mesmo se parar a task falhar: o contexto é o que diz DE QUEM é a
+    // posição, e uma task que sobrou não pode seguir com o de quem saiu.
+    taskConfirmadaNesteProcesso = false;
+    try {
+      await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
+    } catch (err) {
+      logger.error('[LocationTracking] Erro ao apagar o contexto', err);
+    }
   }
 }
 

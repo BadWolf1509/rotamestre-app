@@ -405,6 +405,15 @@ describe('unifiedLocationTracking', () => {
       expect(mockRemoveItem).toHaveBeenCalled();
     });
 
+    it('remove o contexto mesmo quando parar a task falha (a task não segue com contexto de quem saiu)', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValueOnce(true);
+      mockStopLocationUpdates.mockRejectedValueOnce(new Error('falha ao parar'));
+
+      await expect(stopBackgroundTracking()).resolves.toBeUndefined();
+
+      expect(mockRemoveItem).toHaveBeenCalledWith('@rotamestre:tracking_context');
+    });
+
     it('deve apenas remover contexto se não está rastreando', async () => {
       mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
 

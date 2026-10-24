@@ -57,7 +57,6 @@ import { limparEstadoLocalDoUsuario } from '../auth/limparEstadoLocal';
 import { cancelRouteReminder, unregisterPushToken } from '../notifications';
 import { supabase } from '../supabase';
 
-
 const auth = supabase.auth as jest.Mocked<typeof supabase.auth>;
 
 beforeEach(() => {

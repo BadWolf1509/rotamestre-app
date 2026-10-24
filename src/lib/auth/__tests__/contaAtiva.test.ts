@@ -5,7 +5,7 @@
  * transformar o modo offline da 1.14.4 em bloqueio.
  */
 import { supabase } from '../../supabase';
-import { contaEstaAtiva } from '../contaAtiva';
+import { contaEstaAtiva, PRAZO_CONTA_ATIVA_MS } from '../contaAtiva';
 
 jest.mock('../../logger', () => ({
   logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -75,5 +75,41 @@ describe('contaEstaAtiva', () => {
   it('resposta sem lista não bloqueia', async () => {
     vinculos({ data: null });
     await expect(contaEstaAtiva(motorista)).resolves.toBe(true);
+  });
+
+  describe('com a consulta pendurada (sinal fraco)', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    function consultaPendurada() {
+      const eq = jest.fn(() => new Promise(() => {}));
+      mockFrom.mockReturnValue({ select: jest.fn().mockReturnValue({ eq }) });
+    }
+
+    it('o prazo é curto (2–6 s)', () => {
+      expect(PRAZO_CONTA_ATIVA_MS).toBeGreaterThanOrEqual(2000);
+      expect(PRAZO_CONTA_ATIVA_MS).toBeLessThanOrEqual(6000);
+    });
+
+    it('ao vencer o prazo a conta entra (falha aberta) e não segura a abertura', async () => {
+      consultaPendurada();
+      let resultado: boolean | undefined;
+      const p = contaEstaAtiva(motorista).then((r) => {
+        resultado = r;
+      });
+
+      await jest.advanceTimersByTimeAsync(PRAZO_CONTA_ATIVA_MS - 1);
+      expect(resultado).toBeUndefined();
+
+      await jest.advanceTimersByTimeAsync(1);
+      await p;
+      expect(resultado).toBe(true);
+    });
+
+    it('resposta dentro do prazo vale e não deixa timer pendente', async () => {
+      vinculos({ data: [{ ativo: false }] });
+      await expect(contaEstaAtiva(motorista)).resolves.toBe(false);
+      expect(jest.getTimerCount()).toBe(0);
+    });
   });
 });

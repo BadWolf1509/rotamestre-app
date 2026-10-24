@@ -22,7 +22,7 @@ export default function MotoristaLayout() {
   } = useRequireAuth({ role: 'motorista' });
   const { isDesktop } = useResponsive();
   // Lembrete diário "Bom dia!": só do motorista autorizado neste layout.
-  useLembreteDiario(isReady && isAuthorized);
+  useLembreteDiario(isReady && isAuthorized ? 'motorista' : null);
 
   // Aguardar verificação de autenticação
   if (!isReady) {
