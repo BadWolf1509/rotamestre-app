@@ -126,18 +126,21 @@ jest.mock('@/lib/supabase', () => {
               if (alvo && updateData.status) alvo.status = updateData.status;
             }
             const resposta = { data: null, error: mockUpdateError };
-            return {
+            // Filtros encadeados (`.eq().eq()…`) e `.select()` com as linhas
+            // afetadas: o startRoute condiciona o UPDATE e confere as linhas.
+            const linhas = () =>
+              Promise.resolve({
+                data: mockUpdateError ? null : [{ id: value }],
+                error: mockUpdateError,
+              });
+            const encadeado = (): any => ({
               then: (resolve: any, reject: any) =>
                 Promise.resolve(resposta).then(resolve, reject),
-              eq: () => Promise.resolve(resposta),
-              in: () => ({
-                select: () =>
-                  Promise.resolve({
-                    data: mockUpdateError ? null : [{ id: value }],
-                    error: mockUpdateError,
-                  }),
-              }),
-            };
+              eq: () => encadeado(),
+              select: linhas,
+              in: () => ({ select: linhas }),
+            });
+            return encadeado();
           }),
         };
       }),
