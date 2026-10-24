@@ -136,7 +136,7 @@ function FirstPasswordContent() {
 
       const successMessage =
         `Bem-vindo ao Rota Mestre, ${profile.nome}! ` +
-        `Voce sera redirecionado para sua area de ${papelNome}.`;
+        `Você será redirecionado para sua área de ${papelNome}.`;
 
       showSuccess('Senha Definida com Sucesso!', successMessage, () =>
         router.replace(targetRoute),
@@ -178,8 +178,8 @@ function FirstPasswordContent() {
                 Defina sua Senha
               </Text>
               <Text tone="muted" style={styles.subtitle}>
-                Por seguranca, voce precisa criar uma nova senha antes de
-                continuar. Esta senha sera usada para acessar o aplicativo.
+                Por segurança, você precisa criar uma nova senha antes de
+                continuar. Esta senha será usada para acessar o aplicativo.
               </Text>
             </View>
 
@@ -217,7 +217,7 @@ function FirstPasswordContent() {
               />
               {confirmPassword && newPassword !== confirmPassword && (
                 <Text tone="error" style={styles.errorText}>
-                  As senhas nao coincidem
+                  As senhas não coincidem
                 </Text>
               )}
             </View>
@@ -251,7 +251,7 @@ function FirstPasswordContent() {
 
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
-                Dica: Use uma senha unica que voce nao usa em outros sites.
+                Dica: Use uma senha única que você não usa em outros sites.
               </Text>
             </View>
           </Card>

@@ -139,7 +139,7 @@ export function useDesempenhoStats(
       logger.error('Erro ao carregar estatisticas:', err);
       setStats(null);
       setError(
-        'Nao foi possivel carregar suas estatisticas. Puxe para baixo para tentar novamente.',
+        'Não foi possível carregar suas estatísticas. Puxe para baixo para tentar novamente.',
       );
     } finally {
       setLoading(false);

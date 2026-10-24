@@ -31,7 +31,7 @@ export function validarVinculos(paradas: ParadaParaOtimizar[]): string[] {
       const vinculada = paradas.find((p) => p.id === parada.vinculo_parada_id);
       if (vinculada && vinculada.tipo !== 'retirada') {
         erros.push(
-          `"${parada.endereco}" deve estar vinculada a uma retirada, nao a ${vinculada.tipo}`,
+          `"${parada.endereco}" deve estar vinculada a uma retirada, não a ${vinculada.tipo}`,
         );
       }
     }
@@ -67,7 +67,7 @@ export function validarRotaParaOtimizacao(
     );
   } else if (paradas.length > WAYPOINTS_RECOMENDADO) {
     avisos.push(
-      `Rota com ${paradas.length} paradas esta proxima do limite de ${MAX_WAYPOINTS}. ` +
+      `Rota com ${paradas.length} paradas está próxima do limite de ${MAX_WAYPOINTS}. ` +
         `Considere dividir em rotas menores para melhor performance.`,
     );
   }
@@ -77,7 +77,7 @@ export function validarRotaParaOtimizacao(
 
   paradas.forEach((p) => {
     if (!p.latitude || !p.longitude) {
-      erros.push(`Parada "${p.endereco}" nao tem coordenadas validas`);
+      erros.push(`Parada "${p.endereco}" não tem coordenadas válidas`);
     }
   });
 

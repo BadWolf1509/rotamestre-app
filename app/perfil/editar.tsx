@@ -92,8 +92,8 @@ export default function EditarPerfilGestor() {
   async function handleSave() {
     if (!nome.trim()) {
       showAlert({
-        title: 'Campo obrigatorio',
-        message: 'O nome e obrigatorio.',
+        title: 'Campo obrigatório',
+        message: 'O nome é obrigatório.',
         type: 'error',
       });
       return;
@@ -133,7 +133,10 @@ export default function EditarPerfilGestor() {
       });
     } catch (error: unknown) {
       logger.error('Erro ao salvar perfil', error);
-      const message = error instanceof Error ? error.message : 'Não foi possível salvar as alterações.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível salvar as alterações.';
       showAlert({
         title: 'Erro ao salvar',
         message,
@@ -225,82 +228,84 @@ export default function EditarPerfilGestor() {
 
   return (
     <ErrorBoundary>
-    <View style={styles(theme).container}>
-      <ScrollView
-        style={styles(theme).scrollView}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
-      >
-        <View style={styles(theme).header}>
-          <View style={styles(theme).headerContent}>
-            <Text style={styles(theme).headerSubtitle}>
-              Atualize suas informacoes pessoais
-            </Text>
+      <View style={styles(theme).container}>
+        <ScrollView
+          style={styles(theme).scrollView}
+          contentContainerStyle={{
+            paddingBottom: Math.max(20, insets.bottom + 20),
+          }}
+        >
+          <View style={styles(theme).header}>
+            <View style={styles(theme).headerContent}>
+              <Text style={styles(theme).headerSubtitle}>
+                Atualize suas informacoes pessoais
+              </Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles(theme).form}>
-          <Input
-            label="Nome Completo"
-            required
-            placeholder="Digite seu nome completo"
-            value={nome}
-            onChangeText={setNome}
-            autoCapitalize="words"
-            autoCorrect={false}
-            maxLength={100}
-          />
-
-          <Input
-            label="Email"
-            value={usuario?.email || ''}
-            editable={false}
-            helperText="O email nao pode ser alterado"
-          />
-
-          <Input
-            label="Telefone"
-            placeholder="(11) 99999-9999"
-            value={telefone}
-            onChangeText={(text) => setTelefone(formatPhone(text))}
-            keyboardType="phone-pad"
-            maxLength={15}
-            helperText="Formato: (11) 99999-9999"
-          />
-
-          <View style={styles(theme).buttonsContainer}>
-            <Button
-              title="Cancelar"
-              variant="outline"
-              onPress={() => router.push('/perfil')}
-              disabled={saving}
-              style={styles(theme).buttonSecondary}
+          <View style={styles(theme).form}>
+            <Input
+              label="Nome Completo"
+              required
+              placeholder="Digite seu nome completo"
+              value={nome}
+              onChangeText={setNome}
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={100}
             />
 
-            <Button
-              title="Salvar"
-              variant="secondary"
-              onPress={handleSave}
-              loading={saving}
-              disabled={saving || !nome.trim()}
-              style={styles(theme).buttonPrimary}
+            <Input
+              label="Email"
+              value={usuario?.email || ''}
+              editable={false}
+              helperText="O e-mail não pode ser alterado"
             />
-          </View>
-        </View>
-      </ScrollView>
 
-      <Dialog
-        visible={alertConfig.visible}
-        variant="alert"
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        confirmText={alertConfig.confirmText}
-        onConfirm={() => {
-          hideAlert();
-          alertConfig.onConfirm?.();
-        }}
-      />
-    </View>
+            <Input
+              label="Telefone"
+              placeholder="(11) 99999-9999"
+              value={telefone}
+              onChangeText={(text) => setTelefone(formatPhone(text))}
+              keyboardType="phone-pad"
+              maxLength={15}
+              helperText="Formato: (11) 99999-9999"
+            />
+
+            <View style={styles(theme).buttonsContainer}>
+              <Button
+                title="Cancelar"
+                variant="outline"
+                onPress={() => router.push('/perfil')}
+                disabled={saving}
+                style={styles(theme).buttonSecondary}
+              />
+
+              <Button
+                title="Salvar"
+                variant="secondary"
+                onPress={handleSave}
+                loading={saving}
+                disabled={saving || !nome.trim()}
+                style={styles(theme).buttonPrimary}
+              />
+            </View>
+          </View>
+        </ScrollView>
+
+        <Dialog
+          visible={alertConfig.visible}
+          variant="alert"
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          confirmText={alertConfig.confirmText}
+          onConfirm={() => {
+            hideAlert();
+            alertConfig.onConfirm?.();
+          }}
+        />
+      </View>
     </ErrorBoundary>
   );
 }
