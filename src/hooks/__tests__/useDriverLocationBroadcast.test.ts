@@ -1127,6 +1127,13 @@ describe('useDriverLocationBroadcast', () => {
         error: { message: 'TypeError: Network request failed' },
       });
       const avisoSpy = jest.spyOn(logger, 'warn').mockImplementation();
+      // O contexto que `getTrackingContext` devolve mora nesta chave; a fila
+      // só guarda com o rastreamento (ou a sessão) do mesmo motorista.
+      (AsyncStorage.getItem as jest.Mock).mockImplementation(async (chave) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify({ motoristaId: 'motorista-123', rotaId: 'rota-123' })
+          : null,
+      );
 
       renderHook(() =>
         useDriverLocationBroadcast({
@@ -1172,6 +1179,9 @@ describe('useDriverLocationBroadcast', () => {
         }),
       ]);
       avisoSpy.mockRestore();
+      (AsyncStorage.getItem as jest.Mock).mockImplementation(() =>
+        Promise.resolve(null),
+      );
     });
 
     it('deve tratar erro ao iniciar tracking', async () => {
