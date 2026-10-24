@@ -20,7 +20,32 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Sessão lida quando não há contexto de rastreamento do motorista.
+const mockLerSessao = jest.fn();
+jest.mock('@/lib/auth/sessao', () => ({
+  lerSessao: () => mockLerSessao(),
+}));
+
 const memoria = new Map<string, string>();
+
+const CHAVE_CONTEXTO = '@rotamestre:tracking_context';
+
+/** Contexto de rastreamento gravado pela task, com o motorista dado. */
+function contextoDe(motoristaId: string | null) {
+  if (motoristaId === null) {
+    memoria.delete(CHAVE_CONTEXTO);
+    return;
+  }
+  memoria.set(
+    CHAVE_CONTEXTO,
+    JSON.stringify({
+      rotaId: 'rota-a',
+      motoristaId,
+      motoristaNome: 'Motorista',
+      startedAt: '2026-10-24T12:00:00Z',
+    }),
+  );
+}
 
 const ERRO_DE_REDE = { message: 'TypeError: Network request failed' };
 const ERRO_DEFINITIVO = {
@@ -87,6 +112,8 @@ beforeEach(() => {
     },
   );
   comRede();
+  contextoDe('m1');
+  mockLerSessao.mockResolvedValue({ session: null, offline: false });
 });
 
 describe('filaPosicoes', () => {
@@ -230,6 +257,7 @@ describe('filaPosicoes', () => {
 
   it('fila de outra conta é descartada, nunca enviada', async () => {
     semRede();
+    contextoDe('outra');
     await registrarPosicao(
       posicao({ motorista_id: 'outra' }),
       minuto(1),
@@ -237,6 +265,7 @@ describe('filaPosicoes', () => {
     );
     mockInsert.mockClear();
     comRede();
+    contextoDe('m1');
 
     await registrarPosicao(posicao({ motorista_id: 'm1' }), minuto(2), ROTULO);
 
@@ -248,11 +277,13 @@ describe('filaPosicoes', () => {
 
   it('sem rede, a posição de outra conta substitui a fila antiga', async () => {
     semRede();
+    contextoDe('outra');
     await registrarPosicao(
       posicao({ motorista_id: 'outra' }),
       minuto(1),
       ROTULO,
     );
+    contextoDe('m1');
 
     await registrarPosicao(posicao({ motorista_id: 'm1' }), minuto(2), ROTULO);
 
@@ -420,5 +451,63 @@ describe('filaPosicoes', () => {
 
   it('o logout apaga a fila', () => {
     expect(CHAVES_DA_CONTA).toContain(CHAVE_FILA_POSICOES);
+  });
+
+  // Corrida com o logout: a posição que estava no ar quando o motorista saiu
+  // falha por rede depois da limpeza e recriaria a fila no aparelho.
+  describe('só guarda com contexto de rastreamento ou sessão do motorista', () => {
+    it('sem contexto nem sessão, a posição em voo não recria a fila', async () => {
+      semRede();
+      contextoDe(null);
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('contexto de outro motorista não conta', async () => {
+      semRede();
+      contextoDe('outra');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('sessão "offline" (sem sessão confirmada) não conta', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('sem contexto, a sessão do próprio motorista basta (navegação, broadcast)', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({
+        session: { user: { id: 'm1' } },
+        offline: false,
+      });
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('na_fila');
+      expect(filaGuardada()?.posicoes).toHaveLength(1);
+    });
+
+    it('com o contexto do motorista, guarda sem consultar a sessão', async () => {
+      semRede();
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('na_fila');
+      expect(mockLerSessao).not.toHaveBeenCalled();
+    });
   });
 });

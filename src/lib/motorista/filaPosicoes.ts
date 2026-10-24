@@ -41,8 +41,14 @@
  *   perderia a fila inteira, que é o que esta fila existe para guardar.
  *
  * - **Por conta.** A fila guarda o dono; fila de outra conta é descartada sem
- *   envio (a RLS recusaria, e não é posição desta sessão). Apagada no logout
- *   (`CHAVES_DA_CONTA` em `src/lib/auth/limparEstadoLocal.ts`).
+ *   envio (o servidor recusaria, e não é posição desta sessão). Apagada no
+ *   logout (`CHAVES_DA_CONTA` em `src/lib/auth/limparEstadoLocal.ts`).
+ * - **Só com rastreamento ou sessão do motorista.** Nada entra na fila sem o
+ *   contexto de rastreamento daquele `motorista_id` ou, na falta dele, a
+ *   sessão dele confirmada. Fecha a corrida com o logout: a posição que
+ *   estava no ar quando o motorista saiu falharia por rede depois da limpeza
+ *   e recriaria a fila. Conferido dentro da fila em série, logo antes de
+ *   gravar, para a janela ser a menor possível.
  * - **Teto de `TETO_FILA_POSICOES`.** Estourou: saem as mais antigas, com um
  *   `logger.warn` por estouro (não por posição), até a fila voltar a caber.
  * - **Sem React.** Roda na task headless do `expo-task-manager`; o gatilho do
@@ -69,10 +75,13 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { lerSessao } from '@/lib/auth/sessao';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+
+import { motoristaDoContexto } from './contextoRastreamento';
 
 export const CHAVE_FILA_POSICOES = '@rotamestre:fila_posicoes';
 export const TETO_FILA_POSICOES = 500;
@@ -192,9 +201,26 @@ function comHorario(posicao: Posicao, capturadaEm: number): LinhaGuardada {
   return { ...posicao, timestamp: new Date(horario).toISOString() };
 }
 
-/** false = não ficou guardada (o AsyncStorage recusou a gravação). */
+/**
+ * Ainda há rastreamento ou sessão de `motoristaId` neste aparelho. O contexto
+ * vem primeiro: é leitura local, e é ele que existe no caso comum da fila (sem
+ * rede, com o token vencido, a sessão não se confirma). A sessão cobre quem
+ * grava sem contexto (navegação, broadcast). Sessão "offline" não conta:
+ * depois do logout sem rede ela também volta assim.
+ */
+async function aindaEhDoAparelho(motoristaId: string): Promise<boolean> {
+  if ((await motoristaDoContexto()) === motoristaId) return true;
+  const { session } = await lerSessao();
+  return session?.user?.id === motoristaId;
+}
+
+/**
+ * false = não ficou guardada (sem rastreamento nem sessão do motorista, ou o
+ * AsyncStorage recusou a gravação).
+ */
 function guardar(linha: LinhaGuardada): Promise<boolean> {
   return emSerie(async () => {
+    if (!(await aindaEhDoAparelho(linha.motorista_id))) return false;
     const atual = await ler();
     const registro: Registro =
       atual?.userId === linha.motorista_id

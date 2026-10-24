@@ -18,6 +18,7 @@ import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { lerSessao } from '@/lib/auth/sessao';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { CHAVE_CONTEXTO_RASTREAMENTO } from '@/lib/motorista/contextoRastreamento';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
@@ -27,7 +28,7 @@ import { defaultTheme } from '@/utils/styles';
 // CONSTANTES
 // ========================================
 const BACKGROUND_LOCATION_TASK = 'rotamestre-background-location';
-const TRACKING_CONTEXT_KEY = '@rotamestre:tracking_context';
+const TRACKING_CONTEXT_KEY = CHAVE_CONTEXTO_RASTREAMENTO;
 
 // Configurações de tracking
 const CONFIG = {
