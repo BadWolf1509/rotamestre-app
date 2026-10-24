@@ -2,6 +2,8 @@ import { SESSAO_MOTORISTA } from './fixtures/sessoes';
 import { test, expect } from './fixtures/test-fixtures';
 import { MotoristaPage } from './pages/motorista.page';
 
+import type { Page } from '@playwright/test';
+
 test.describe('Motorista Navigation E2E Tests', () => {
   let motoristaPage: MotoristaPage;
 
@@ -23,11 +25,9 @@ test.describe('Motorista Navigation E2E Tests', () => {
       await expect(motoristaPage.tabBar).toBeVisible({ timeout: 10000 });
     });
 
-    test('should show all 4 tabs', async ({ page }) => {
-      await page.waitForTimeout(2000); // Wait for tabs to render
-
-      // Check each tab exists
-      await expect(motoristaPage.inicioTab).toBeVisible();
+    test('should show all 4 tabs', async () => {
+      // Check each tab exists (toBeVisible espera a barra renderizar)
+      await expect(motoristaPage.inicioTab).toBeVisible({ timeout: 15000 });
       await expect(motoristaPage.paradasTab).toBeVisible();
       await expect(motoristaPage.mapaTab).toBeVisible();
       await expect(motoristaPage.historicoTab).toBeVisible();
@@ -68,11 +68,9 @@ test.describe('Motorista Navigation E2E Tests', () => {
     test('should return to Inicio tab', async ({ page }) => {
       // First navigate away - use getByRole for tab elements
       await motoristaPage.navigateToHistorico();
-      await page.waitForTimeout(1000);
 
       // Then back to inicio
       await motoristaPage.navigateToInicio();
-      await page.waitForTimeout(1000);
 
       await expect(page).toHaveURL(/.*motorista.*/);
       // URL não é prova de render: a tela de erro mora na mesma URL. A âncora
@@ -96,103 +94,60 @@ test.describe('Motorista Navigation E2E Tests', () => {
   test.describe('Drawer Menu', () => {
     test.use({ viewport: { width: 375, height: 667 } }); // Mobile viewport
 
+    // O drawer abre pelo botão de menu do cabeçalho (page object). Sem o
+    // botão o teste FALHA: antes, um if (visível) o deixava passar vazio.
+    const drawerLocator = (page: Page) =>
+      page
+        .locator('[data-testid="drawer-menu"], [role="dialog"], .drawer-menu')
+        .first();
+
     test('should open drawer menu from header', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      await expect(motoristaPage.menuButton).toBeVisible({ timeout: 30000 });
+      await motoristaPage.menuButton.click();
 
-      // Look for menu button (hamburger icon)
-      const menuButton = page
-        .locator('[data-testid="menu-button"]')
-        .or(page.locator('[aria-label*="menu"]'))
-        .or(
-          page
-            .locator('button')
-            .filter({ has: page.locator('svg, [class*="icon"]') })
-            .first(),
-        );
-
-      if (await menuButton.isVisible()) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        // Drawer should be visible
-        const drawer = page.locator(
-          '[data-testid="drawer-menu"], [role="dialog"], .drawer-menu',
-        );
-        await expect(drawer).toBeVisible({ timeout: 5000 });
-      }
+      await expect(drawerLocator(page)).toBeVisible({ timeout: 5000 });
     });
 
     test('should show profile info in drawer', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      await expect(motoristaPage.menuButton).toBeVisible({ timeout: 30000 });
+      await motoristaPage.menuButton.click();
 
-      const menuButton = page
-        .locator('[data-testid="menu-button"]')
-        .or(page.locator('[aria-label*="menu"]').first());
-
-      if (await menuButton.isVisible()) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        // Should show user profile information
-        const drawer = page.locator(
-          '[data-testid="drawer-menu"], [role="dialog"], .drawer-menu',
-        );
-        if (await drawer.isVisible()) {
-          const drawerText = await drawer.textContent();
-          expect(drawerText).toBeTruthy();
-        }
-      }
+      // O drawer precisa trazer o perfil (itens do menu), não só existir.
+      const drawer = drawerLocator(page);
+      await expect(drawer).toBeVisible({ timeout: 5000 });
+      await expect(drawer).toContainText('Meu Perfil');
     });
 
     test('should have logout option in drawer', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      await expect(motoristaPage.menuButton).toBeVisible({ timeout: 30000 });
+      await motoristaPage.menuButton.click();
 
-      const menuButton = page
-        .locator('[data-testid="menu-button"]')
-        .or(page.locator('[aria-label*="menu"]').first());
-
-      if (await menuButton.isVisible()) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        const logoutButton = page.getByText(/sair/i);
-        await expect(logoutButton).toBeVisible({ timeout: 5000 });
-      }
+      await expect(drawerLocator(page).getByText(/sair/i).first()).toBeVisible({
+        timeout: 5000,
+      });
     });
   });
 
   test.describe('Logout Flow', () => {
     test('should logout successfully', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      await expect(motoristaPage.menuButton).toBeVisible({ timeout: 30000 });
+      await motoristaPage.menuButton.click();
 
-      // Try to find and click logout
-      const menuButton = page
-        .locator('[data-testid="menu-button"]')
-        .or(page.locator('[aria-label*="menu"]').first());
+      const logoutButton = page.getByText(/sair/i).first();
+      await expect(logoutButton).toBeVisible({ timeout: 5000 });
+      await logoutButton.click();
 
-      if (await menuButton.isVisible()) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        const logoutButton = page.getByText(/sair/i);
-        if (await logoutButton.isVisible()) {
-          await logoutButton.click();
-
-          // May need to confirm
-          const confirmButton = page.getByRole('button', {
-            name: /confirmar|sair|sim/i,
-          });
-          if (
-            await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)
-          ) {
-            await confirmButton.click();
-          }
-
-          // Should redirect to login
-          await page.waitForURL(/.*auth.*login.*/, { timeout: 10000 });
-          await expect(page).toHaveURL(/.*auth.*login.*/);
-        }
+      // A confirmação é opcional por desenho do app (pode haver diálogo):
+      // clica só se aparecer, mas o redirecionamento é exigido de qualquer forma.
+      const confirmButton = page.getByRole('button', {
+        name: /confirmar|sair|sim/i,
+      });
+      if (await confirmButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await confirmButton.click();
       }
+
+      await page.waitForURL(/.*auth.*login.*/, { timeout: 10000 });
+      await expect(page).toHaveURL(/.*auth.*login.*/);
     });
   });
 });

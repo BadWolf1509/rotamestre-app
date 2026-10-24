@@ -2,6 +2,8 @@ import { SESSAO_MOTORISTA } from './fixtures/sessoes';
 import { test, expect } from './fixtures/test-fixtures';
 import { MotoristaPage } from './pages/motorista.page';
 
+import type { Locator, Page } from '@playwright/test';
+
 /**
  * E2E Tests for Motorista Drawer Menu
  * Tests the restructured drawer menu with new items:
@@ -17,6 +19,9 @@ import { MotoristaPage } from './pages/motorista.page';
  * - Minha Unidade (low value)
  * - Alterar Senha (consolidated into Meu Perfil)
  * - Meu Perfil (duplicate in footer - removed)
+ *
+ * Todo passo é uma asserção: o botão do menu e o drawer precisam existir,
+ * senão o teste falha (antes, um `if (visível)` silencioso deixava passar).
  */
 test.describe('Motorista Drawer Menu E2E Tests', () => {
   let motoristaPage: MotoristaPage;
@@ -30,177 +35,91 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
     await motoristaPage.goto();
   });
 
+  /** Abre o drawer e espera o conteúdo do menu carregar (perfil/itens). */
+  async function abrirDrawer(page: Page): Promise<Locator> {
+    await expect(motoristaPage.menuButton).toBeVisible({ timeout: 30000 });
+    await motoristaPage.menuButton.click();
+    const drawer = page.locator('[role="dialog"], .drawer').first();
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText('Meu Perfil');
+    return drawer;
+  }
+
   test.describe('Menu Items Display', () => {
     test('should display new menu items', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      await expect(menuButton).toBeVisible();
-      await menuButton.click();
-      await page.waitForTimeout(1000);
-
-      const drawer = page.locator('[role="dialog"], .drawer').first();
-      await expect(drawer).toBeVisible();
-
-      // Should show new menu items (wait for profile/menu to load)
-      await expect(drawer).toContainText('Meu Perfil');
       await expect(drawer).toContainText('Meu Desempenho');
       await expect(drawer).toContainText('Falar com Gestor');
       await expect(drawer).toContainText(/SOS/);
     });
 
     test('should NOT show Resumo da Rota item', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      // abrirDrawer já espera o menu carregar: sem isso o not.toContainText
+      // passaria com o drawer ainda vazio.
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        const drawerContent = await page
-          .locator('[role="dialog"], .drawer')
-          .textContent();
-
-        // Should NOT show Resumo da Rota
-        const hasResumo = drawerContent?.includes('Resumo da Rota');
-        expect(hasResumo).toBeFalsy();
-      }
+      await expect(drawer).not.toContainText('Resumo da Rota');
     });
 
     test('should NOT show Minha Unidade item', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        // Should NOT show Minha Unidade (as separate menu item)
-        // Note: Unit info may still appear in header
-        const menuSection = page.locator(
-          '[role="dialog"] >> text=Minha Unidade',
-        );
-        const hasMinhauUnidadeMenuItem = (await menuSection.count()) > 0;
-
-        // The unit info should be in header, not as a menu item
-        expect(hasMinhauUnidadeMenuItem).toBeFalsy();
-      }
+      // A unidade pode aparecer no cabeçalho, mas não como item de menu.
+      await expect(drawer.getByText('Minha Unidade')).toHaveCount(0);
     });
 
     test('should NOT show duplicate Meu Perfil in footer', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        // Count Meu Perfil occurrences
-        const perfilItems = page.getByText('Meu Perfil', { exact: true });
-        const count = await perfilItems.count();
-
-        // Should only have one "Meu Perfil" (in menu section, not in footer)
-        expect(count).toBeLessThanOrEqual(1);
-      }
+      // Exatamente um "Meu Perfil" (na seção de menu, não no rodapé)
+      await expect(drawer.getByText('Meu Perfil', { exact: true })).toHaveCount(
+        1,
+      );
     });
 
     test('should show SOS item with danger styling', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        // Look for SOS menu item
-        const sosItem = page.getByText(/SOS|Emergência/i).first();
-        const isVisible = await sosItem.isVisible().catch(() => false);
-
-        expect(isVisible).toBeTruthy();
-      }
+      await expect(drawer.getByText(/SOS|Emergência/i).first()).toBeVisible();
     });
   });
 
   test.describe('SOS Screen Navigation', () => {
     test('should navigate to SOS screen', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
+      await drawer
+        .getByText(/SOS|Emergência/i)
+        .first()
+        .click();
 
-        // Click SOS item
-        const sosItem = page.getByText(/SOS|Emergência/i).first();
-        if (await sosItem.isVisible().catch(() => false)) {
-          await sosItem.click();
-          await page.waitForTimeout(2000);
-
-          // Should be on SOS page
-          const bodyText = await page.locator('body').textContent();
-          const hasSosContent =
-            bodyText?.includes('SOS') ||
-            bodyText?.includes('Emergência') ||
-            bodyText?.includes('ACIONAR') ||
-            bodyText?.includes('190') ||
-            bodyText?.includes('192') ||
-            bodyText?.includes('193');
-
-          expect(hasSosContent).toBeTruthy();
-        }
-      }
+      await expect(page).toHaveURL(/\/motorista\/sos/);
+      await expect(
+        page.getByText('ACIONAR SOS', { exact: true }).first(),
+      ).toBeVisible({ timeout: 20000 });
     });
 
     test('should display emergency contact options on SOS screen', async ({
       page,
     }) => {
-      // Navigate directly to SOS page
       await page.goto('/motorista/sos');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show emergency contacts
-      const hasEmergencyContacts =
-        bodyText?.includes('190') || // Polícia
-        bodyText?.includes('192') || // SAMU
-        bodyText?.includes('193') || // Bombeiros
-        bodyText?.includes('Polícia') ||
-        bodyText?.includes('SAMU') ||
-        bodyText?.includes('Bombeiros');
-
-      expect(hasEmergencyContacts).toBeTruthy();
+      // Contatos de emergência: Polícia 190, SAMU 192, Bombeiros 193
+      await expect(page.locator('body')).toContainText(
+        /190|192|193|Polícia|SAMU|Bombeiros/,
+        { timeout: 20000 },
+      );
     });
 
     test('should have large emergency button on SOS screen', async ({
       page,
     }) => {
       await page.goto('/motorista/sos');
-      await page.waitForTimeout(3000);
 
-      // Page should contain SOS-related content (header title or body text)
-      const bodyText = await page.locator('body').textContent();
-      const hasSosContent =
-        bodyText?.includes('SOS') || bodyText?.includes('Emergência');
-      expect(hasSosContent).toBeTruthy();
+      await expect(page.locator('body')).toContainText(/SOS|Emergência/, {
+        timeout: 20000,
+      });
 
       // Should have the main SOS button
       const sosButton = page.getByText('ACIONAR SOS', { exact: true }).first();
@@ -210,61 +129,27 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
   test.describe('Desempenho Screen Navigation', () => {
     test('should navigate to Desempenho screen', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
+      await drawer
+        .getByText(/Meu Desempenho|Desempenho/i)
+        .first()
+        .click();
 
-        const drawer = page.locator('[role="dialog"], .drawer').first();
-        await expect(drawer).toBeVisible();
-
-        // Click Desempenho item
-        const desempenhoItem = drawer
-          .getByText(/Meu Desempenho|Desempenho/i)
-          .first();
-        if (await desempenhoItem.isVisible().catch(() => false)) {
-          await desempenhoItem.click();
-          await page.waitForTimeout(2000);
-
-          const bodyText = await page.locator('body').textContent();
-          const hasDesempenhoContent =
-            bodyText?.includes('Desempenho') ||
-            bodyText?.includes('Taxa') ||
-            bodyText?.includes('Rotas') ||
-            bodyText?.includes('Concluídas') ||
-            bodyText?.includes('Estatísticas');
-
-          expect(hasDesempenhoContent).toBeTruthy();
-        }
-      }
+      await expect(page).toHaveURL(/\/motorista\/desempenho/);
     });
 
     test('should display statistics on Desempenho screen', async ({ page }) => {
       await page.goto('/motorista/desempenho');
-      await page.waitForTimeout(3000);
 
-      // Wait for loading to finish (if loading state exists)
-      const loadingState = page.getByText(/Carregando/i).first();
-      if (await loadingState.isVisible().catch(() => false)) {
-        await loadingState.waitFor({ state: 'hidden', timeout: 30000 });
-      }
-
-      const bodyText = await page.locator('body').textContent();
-      const hasEmpty =
-        bodyText?.includes('Sem dados') || bodyText?.includes('Nenhum');
-      const hasStats =
-        bodyText?.includes('Taxa') ||
-        bodyText?.includes('%') ||
-        bodyText?.includes('Km') ||
-        bodyText?.includes('Desempenho') ||
-        bodyText?.includes('Rotas');
-
-      expect(hasEmpty || hasStats).toBeTruthy();
+      // Espera o fim do carregamento e então exige estatística ou estado vazio.
+      await expect(page.getByText(/Carregando/i)).toHaveCount(0, {
+        timeout: 30000,
+      });
+      await expect(page.locator('body')).toContainText(
+        /Sem dados|Nenhum|Taxa|%|Km|Desempenho|Rotas/,
+        { timeout: 20000 },
+      );
     });
 
     test('should have period selector on Desempenho screen', async ({
@@ -272,8 +157,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
     }) => {
       await page.goto('/motorista/desempenho');
 
-      const loadingState = page.getByText(/Carregando/i).first();
-      await loadingState.waitFor({ state: 'hidden', timeout: 30000 });
+      await expect(page.getByText(/Carregando/i)).toHaveCount(0, {
+        timeout: 30000,
+      });
 
       const periodOption = page.getByText(/7 dias|30 dias/i).first();
       await expect(periodOption).toBeVisible({ timeout: 30000 });
@@ -282,185 +168,86 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
   test.describe('Ajuda Screen Navigation', () => {
     test('should navigate to Ajuda screen', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
+      await drawer.getByText(/Ajuda/i).first().click();
 
-        // Click Ajuda item
-        const ajudaItem = page.getByText(/Ajuda/i).first();
-        if (await ajudaItem.isVisible().catch(() => false)) {
-          await ajudaItem.click();
-          await page.waitForTimeout(2000);
-
-          const bodyText = await page.locator('body').textContent();
-          const hasAjudaContent =
-            bodyText?.includes('Ajuda') ||
-            bodyText?.includes('FAQ') ||
-            bodyText?.includes('Perguntas') ||
-            bodyText?.includes('Como');
-
-          expect(hasAjudaContent).toBeTruthy();
-        }
-      }
+      await expect(page).toHaveURL(/\/motorista\/ajuda/);
     });
 
     test('should display FAQ on Ajuda screen', async ({ page }) => {
       await page.goto('/motorista/ajuda');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show FAQ questions
-      const hasFAQ =
-        bodyText?.includes('Perguntas Frequentes') ||
-        bodyText?.includes('Como iniciar') ||
-        bodyText?.includes('Como marcar') ||
-        bodyText?.includes('Como tirar foto');
-
-      expect(hasFAQ).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /Perguntas Frequentes|Como iniciar|Como marcar|Como tirar foto/,
+        { timeout: 20000 },
+      );
     });
 
     test('should display support contact options on Ajuda screen', async ({
       page,
     }) => {
       await page.goto('/motorista/ajuda');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show contact options
-      const hasContactOptions =
-        bodyText?.includes('WhatsApp') ||
-        bodyText?.includes('Email') ||
-        bodyText?.includes('Telefone') ||
-        bodyText?.includes('Fale Conosco');
-
-      expect(hasContactOptions).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /WhatsApp|Email|Telefone|Fale Conosco/,
+        { timeout: 20000 },
+      );
     });
   });
 
   test.describe('Configurações Screen Navigation', () => {
     test('should navigate to Configurações screen', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
+      await drawer
+        .getByText(/Configurações/i)
+        .first()
+        .click();
 
-        // Click Configurações item
-        const configItem = page.getByText(/Configurações/i).first();
-        if (await configItem.isVisible().catch(() => false)) {
-          await configItem.click();
-          await page.waitForTimeout(2000);
-
-          const bodyText = await page.locator('body').textContent();
-          const hasConfigContent =
-            bodyText?.includes('Configurações') ||
-            bodyText?.includes('Navegação') ||
-            bodyText?.includes('Notificações') ||
-            bodyText?.includes('Waze') ||
-            bodyText?.includes('Google Maps');
-
-          expect(hasConfigContent).toBeTruthy();
-        }
-      }
+      await expect(page).toHaveURL(/\/motorista\/perfil\/configuracoes/);
     });
 
     test('should display navigation app options on Configurações screen', async ({
       page,
     }) => {
       await page.goto('/motorista/perfil/configuracoes');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show nav app options
-      const hasNavOptions =
-        bodyText?.includes('Navegação') ||
-        bodyText?.includes('Waze') ||
-        bodyText?.includes('Google Maps') ||
-        bodyText?.includes('Padrão');
-
-      expect(hasNavOptions).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /Navegação|Waze|Google Maps|Padrão/,
+        { timeout: 20000 },
+      );
     });
 
     test('should display notification settings on Configurações screen', async ({
       page,
     }) => {
       await page.goto('/motorista/perfil/configuracoes');
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show notification settings
-      const hasNotificationSettings =
-        bodyText?.includes('Notificações') ||
-        bodyText?.includes('Push') ||
-        bodyText?.includes('Som');
-
-      expect(hasNotificationSettings).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /Notificações|Push|Som/,
+        { timeout: 20000 },
+      );
     });
   });
 
   test.describe('Falar com Gestor Action', () => {
     test('should have Falar com Gestor menu item', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        const gestorItem = page.getByText(/Falar com Gestor|Gestor/i).first();
-        const isVisible = await gestorItem.isVisible().catch(() => false);
-
-        expect(isVisible).toBeTruthy();
-      }
+      await expect(
+        drawer.getByText(/Falar com Gestor|Gestor/i).first(),
+      ).toBeVisible();
     });
   });
 
   test.describe('Meu Perfil Navigation', () => {
     test('should navigate to Perfil screen from menu', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
+      await drawer.getByText('Meu Perfil', { exact: true }).click();
 
-        // Click Meu Perfil item
-        const perfilItem = page.getByText(/Meu Perfil/i).first();
-        if (await perfilItem.isVisible().catch(() => false)) {
-          await perfilItem.click();
-          await page.waitForTimeout(2000);
-
-          const bodyText = await page.locator('body').textContent();
-          const hasPerfilContent =
-            bodyText?.includes('Perfil') ||
-            bodyText?.includes('Informações Pessoais') ||
-            bodyText?.includes('Nome') ||
-            bodyText?.includes('Email') ||
-            bodyText?.includes('Segurança');
-
-          expect(hasPerfilContent).toBeTruthy();
-        }
-      }
+      await expect(page).toHaveURL(/\/motorista\/perfil/);
     });
 
     test('should have Alterar Senha accessible from Perfil', async ({
@@ -475,21 +262,9 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
 
   test.describe('Logout Functionality', () => {
     test('should have Sair button in drawer', async ({ page }) => {
-      await page.waitForTimeout(2000);
+      const drawer = await abrirDrawer(page);
 
-      // Open drawer menu
-      const menuButton = page
-        .locator('[data-testid="menu-button"], [aria-label*="menu"]')
-        .first();
-      if (await menuButton.isVisible().catch(() => false)) {
-        await menuButton.click();
-        await page.waitForTimeout(1000);
-
-        const sairButton = page.getByText(/Sair/i).first();
-        const isVisible = await sairButton.isVisible().catch(() => false);
-
-        expect(isVisible).toBeTruthy();
-      }
+      await expect(drawer.getByText(/Sair/i).first()).toBeVisible();
     });
   });
 });
