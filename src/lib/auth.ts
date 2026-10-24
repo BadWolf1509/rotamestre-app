@@ -321,12 +321,43 @@ export const authService = {
     if (error) throw error;
   },
 
-  // Atualizar senha
+  /**
+   * Atualiza a senha e encerra as OUTRAS sessões da conta.
+   *
+   * É o caminho único das três telas (troca do gestor, troca do motorista e
+   * redefinição por e-mail): quem tinha a senha antiga num aparelho perdido
+   * não pode seguir logado depois da troca. Ficar aqui, e não em cada tela,
+   * impede que uma tela futura esqueça.
+   *
+   * `scope: 'others'` é OUTRA coisa que o "Sair" (`signOut`): mantém a sessão
+   * deste aparelho e não passa por `signOut`, que pararia o rastreamento,
+   * cancelaria o lembrete e limparia o estado local de quem continua logado.
+   *
+   * Melhor esforço: a senha JÁ foi trocada neste ponto, então falhar ao
+   * encerrar as outras (rede, token) não pode fazer a troca parecer falha.
+   */
   async updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
     if (error) throw error;
+
+    try {
+      const { error: erroOutras } = await supabase.auth.signOut({
+        scope: 'others',
+      });
+      if (erroOutras) {
+        logger.warn(
+          '[Auth] Senha trocada, mas não encerrou as outras sessões',
+          erroOutras,
+        );
+      }
+    } catch (erroOutras) {
+      logger.warn(
+        '[Auth] Senha trocada, mas não encerrou as outras sessões',
+        erroOutras,
+      );
+    }
   },
 
   /**
