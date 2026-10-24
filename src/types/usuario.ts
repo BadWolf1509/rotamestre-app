@@ -8,7 +8,6 @@ export type TipoUsuario = 'gestor' | 'motorista';
 export interface UnidadeDB {
   id: string;
   nome: string;
-  cnpj?: string;
   cidade?: string;
   endereco?: string;
   telefone?: string | null;
@@ -68,7 +67,8 @@ export interface Usuario {
   // (`20261024020000`): o token mora em `push_tokens`, visível só ao dono.
   push_token?: string | null;
 
-  // Dados da unidade quando faz join com select('*, unidades(*)')
+  // Dados da unidade no join com as colunas de SELECT_UNIDADE_APP
+  // (`src/lib/queries/colunasUnidade.ts`)
   // LEGACY: Unidade ativa atual (cache)
   unidades?: UnidadeDB;
 

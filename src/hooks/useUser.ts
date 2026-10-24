@@ -19,6 +19,7 @@ import {
 import { logger } from '../lib/logger';
 import { initializePushNotifications } from '../lib/notifications';
 import { onProfileUpdate } from '../lib/profileEvents';
+import { SELECT_UNIDADE_APP } from '../lib/queries/colunasUnidade';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
@@ -102,7 +103,7 @@ export function useUser() {
       .select(
         `
         *,
-        unidades(*),
+        unidades(${SELECT_UNIDADE_APP}),
         usuario_unidades(
           id,
           usuario_id,
@@ -113,7 +114,7 @@ export function useUser() {
           created_at,
           unidades(id, nome, cidade, ativa)
         )
-      `,
+      ` as const,
       )
       .eq('id', userId)
       .maybeSingle();
@@ -130,7 +131,7 @@ export function useUser() {
         status: basicStatus,
       } = await supabase
         .from('usuarios')
-        .select('*, unidades(*)')
+        .select(`*, unidades(${SELECT_UNIDADE_APP})` as const)
         .eq('id', userId)
         .maybeSingle();
 

@@ -160,10 +160,13 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
   // Função principal para abrir contato com gestor
   const handleContactGestor = useCallback(async () => {
     try {
-      // Usar função RPC segura que bypassa RLS para motoristas
+      // RPC SECURITY DEFINER: devolve no máximo um gestor ativo da loja em que
+      // quem chama tem vínculo ativo, ou nenhuma linha (loja sem gestor ativo,
+      // conta sem loja ativa). Zero linhas é estado esperado, não erro: por
+      // isso `.maybeSingle()` — o `.single()` transformaria em 406 (PGRST116).
       const { data: gestorData, error } = await supabase
         .rpc('get_gestor_contato')
-        .single<GestorData>();
+        .maybeSingle<GestorData>();
 
       if (error) {
         logger.error('Erro ao buscar gestor:', error);
@@ -172,7 +175,10 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
       }
 
       if (!gestorData) {
-        Alert.alert('Erro', 'Gestor não encontrado para esta unidade');
+        Alert.alert(
+          'Nenhum gestor disponível',
+          'Não há gestor ativo cadastrado para a sua loja no momento. Procure a empresa por outro canal.'
+        );
         return;
       }
 
