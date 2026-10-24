@@ -238,3 +238,154 @@ describe('useEditStopForm: rota otimizada vira otimizada_alterada (G12)', () => 
     expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
   });
 });
+
+describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G7)', () => {
+  const retirada: Parada = {
+    ...parada,
+    id: 'r1',
+    tipo: 'retirada',
+    endereco: 'Rua da Coleta, 1',
+  };
+  const entrega: Parada = {
+    ...parada,
+    id: 'e1',
+    ordem: 2,
+    tipo: 'entrega',
+    endereco: 'Rua da Entrega, 2',
+    vinculo_parada_id: 'r1',
+  };
+
+  let updates: { valores: Record<string, unknown>; ids?: unknown }[];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    updates = [];
+    mockRecalcular.mockResolvedValue({ success: true });
+    mockNotificar.mockResolvedValue({ success: true });
+    mockMarcarOtimizacao.mockResolvedValue(true);
+    mockFrom.mockImplementation((tabela: string) => {
+      if (tabela !== 'paradas') {
+        return { insert: jest.fn().mockResolvedValue({ error: null }) };
+      }
+      return {
+        update: (valores: Record<string, unknown>) => {
+          const registro: { valores: Record<string, unknown>; ids?: unknown } =
+            { valores };
+          updates.push(registro);
+          // Só o vínculo: `.update({ vinculo_parada_id: null }).in('id', ids)`
+          if (Object.keys(valores).join() === 'vinculo_parada_id') {
+            return {
+              in: (_col: string, ids: unknown) => {
+                registro.ids = ids;
+                return Promise.resolve({ error: null });
+              },
+            };
+          }
+          return {
+            eq: () => ({
+              eq: () => ({
+                select: () => Promise.resolve({ data: [{ id: 'x' }], error: null }),
+              }),
+            }),
+          };
+        },
+      };
+    });
+  });
+
+  it('retirada com entrega vinculada virando entrega: pede confirmação e não grava nada ainda', async () => {
+    const { result, onSave } = montar({
+      parada: retirada,
+      allParadas: [retirada, entrega],
+    });
+
+    act(() => result.current.setTipo('entrega'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.confirmacaoVinculo).toContain('Rua da Entrega, 2');
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('confirmando: grava o tipo e solta o vínculo das entregas dependentes', async () => {
+    const { result, onSave } = montar({
+      parada: retirada,
+      allParadas: [retirada, entrega],
+    });
+
+    act(() => result.current.setTipo('entrega'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+    await act(async () => {
+      await result.current.confirmarSalvarComVinculo();
+    });
+
+    expect(updates[0].valores).toEqual(
+      expect.objectContaining({ tipo: 'entrega' }),
+    );
+    expect(updates[1]).toEqual({
+      valores: { vinculo_parada_id: null },
+      ids: ['e1'],
+    });
+    expect(result.current.confirmacaoVinculo).toBeNull();
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('voltar da confirmação: não grava e fecha o aviso', async () => {
+    const { result, onSave } = montar({
+      parada: retirada,
+      allParadas: [retirada, entrega],
+    });
+
+    act(() => result.current.setTipo('entrega'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+    act(() => result.current.cancelarConfirmacaoVinculo());
+
+    expect(result.current.confirmacaoVinculo).toBeNull();
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('entrega vinculada virando retirada: confirma e grava com o vínculo zerado', async () => {
+    const { result, onSave } = montar({
+      parada: entrega,
+      allParadas: [retirada, entrega],
+    });
+
+    act(() => result.current.setTipo('retirada'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+    expect(result.current.confirmacaoVinculo).toContain('Rua da Coleta, 1');
+
+    await act(async () => {
+      await result.current.confirmarSalvarComVinculo();
+    });
+
+    expect(updates[0].valores).toEqual(
+      expect.objectContaining({ tipo: 'retirada', vinculo_parada_id: null }),
+    );
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('retirada sem entrega vinculada virando entrega: salva direto, sem confirmação', async () => {
+    const { result, onSave } = montar({
+      parada: retirada,
+      allParadas: [retirada],
+    });
+
+    act(() => result.current.setTipo('entrega'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.confirmacaoVinculo).toBeNull();
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(updates).toHaveLength(1);
+  });
+});

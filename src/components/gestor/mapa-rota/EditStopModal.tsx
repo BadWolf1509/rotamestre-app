@@ -81,6 +81,9 @@ export function EditStopModal({
     handleAddressChange,
     handlePhoneChange,
     handleSave,
+    confirmarSalvarComVinculo,
+    cancelarConfirmacaoVinculo,
+    confirmacaoVinculo,
     coordinatesChanged,
     isSaving,
     error,
@@ -259,6 +262,42 @@ export function EditStopModal({
           />
         </View>
 
+        {/* Trocar o tipo solta o vínculo retirada -> entrega: confirma antes */}
+        {confirmacaoVinculo && (
+          <View style={styles.confirmacaoContainer} accessibilityRole="alert">
+            <Ionicons name="warning" size={16} color={theme.colors.warning} />
+            <View style={styles.confirmacaoCorpo}>
+              <Text style={styles.confirmacaoTexto}>{confirmacaoVinculo}</Text>
+              <View style={styles.confirmacaoAcoes}>
+                <TouchableOpacity
+                  style={styles.confirmacaoBotao}
+                  onPress={cancelarConfirmacaoVinculo}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.confirmacaoBotaoTexto}>Voltar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.confirmacaoBotao,
+                    styles.confirmacaoBotaoPrimario,
+                  ]}
+                  onPress={confirmarSalvarComVinculo}
+                  disabled={isSaving}
+                >
+                  <Text
+                    style={[
+                      styles.confirmacaoBotaoTexto,
+                      styles.confirmacaoBotaoTextoPrimario,
+                    ]}
+                  >
+                    Confirmar e salvar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Error message */}
         {error && (
           <View style={styles.errorContainer}>
@@ -276,6 +315,47 @@ export function EditStopModal({
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
+  confirmacaoContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.warningBg,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  confirmacaoCorpo: {
+    flex: 1,
+    gap: theme.spacing.sm,
+  },
+  confirmacaoTexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray700,
+  },
+  confirmacaoAcoes: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    justifyContent: 'flex-end',
+  },
+  confirmacaoBotao: {
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
+  confirmacaoBotaoPrimario: {
+    backgroundColor: theme.colors.warning,
+  },
+  confirmacaoBotaoTexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.warning,
+  },
+  confirmacaoBotaoTextoPrimario: {
+    color: theme.colors.white,
+  },
   field: {
     marginBottom: theme.spacing.lg,
   },

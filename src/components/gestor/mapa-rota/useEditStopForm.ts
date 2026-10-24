@@ -15,6 +15,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { getErrorMessage } from '@/lib/errorMapping';
 import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
+import {
+  avisoPerdaDeVinculoAoEditarTipo,
+  entregasQueDependemDe,
+} from '@/lib/gestor/vinculoParada';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
@@ -69,6 +73,10 @@ export function useEditStopForm({
   const [isSaving, setIsSaving] = useState(false);
   const [addressChanged, setAddressChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Trocar o tipo desfaz vínculo retirada -> entrega: o gestor confirma antes.
+  const [confirmacaoVinculo, setConfirmacaoVinculo] = useState<string | null>(
+    null,
+  );
 
   // Initialize form with parada data when modal opens
   useEffect(() => {
@@ -82,6 +90,7 @@ export function useEditStopForm({
       setTipo(parada.tipo);
       setAddressChanged(false);
       setError(null);
+      setConfirmacaoVinculo(null);
     }
   }, [visible, parada]);
 
@@ -129,185 +138,237 @@ export function useEditStopForm({
   }, []);
 
   // Save changes
-  const handleSave = useCallback(async () => {
-    if (!parada || !rotaId) return;
+  const salvar = useCallback(
+    async (vinculoConfirmado: boolean) => {
+      if (!parada || !rotaId) return;
 
-    // Validate
-    if (!endereco.trim()) {
-      setError('Endereço é obrigatório');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      setError(null);
-
-      // If address changed but no coordinates, try to geocode
-      let finalLatitude = latitude;
-      let finalLongitude = longitude;
-
-      if (
-        addressChanged &&
-        (typeof finalLatitude !== 'number' ||
-          !Number.isFinite(finalLatitude) ||
-          typeof finalLongitude !== 'number' ||
-          !Number.isFinite(finalLongitude))
-      ) {
-        // Usa Photon (gratuito!) em vez de Google Geocoding API
-        const geocoded = await photonService.geocodeAddress(endereco);
-        if (geocoded?.coordenadas) {
-          finalLatitude = geocoded.coordenadas.latitude;
-          finalLongitude = geocoded.coordenadas.longitude;
-        } else {
-          setError('Não foi possível encontrar as coordenadas do endereço');
-          return;
-        }
-      }
-
-      // Check if coordinates actually changed (more accurate than text comparison)
-      const coordinatesChanged =
-        finalLatitude !== parada.latitude ||
-        finalLongitude !== parada.longitude;
-
-      // Update parada in database. Condicionado a `pendente` e conferindo as
-      // linhas afetadas: a tela pode estar velha (o motorista concluiu a
-      // parada), e UPDATE de zero linhas não é sucesso. A trava de verdade é o
-      // gatilho da Migration 53 (PARADA_CONCLUIDA_IMUTAVEL), que vale para
-      // qualquer cliente.
-      const { data: atualizadas, error: updateError } = await supabase
-        .from('paradas')
-        .update({
-          endereco,
-          latitude: finalLatitude,
-          longitude: finalLongitude,
-          destinatario: destinatario || null,
-          telefone: telefone || null,
-          observacoes: observacoes || null,
-          tipo,
-        })
-        .eq('id', parada.id)
-        .eq('status', STATUS_PARADA_ALTERAVEL)
-        .select('id');
-
-      if (updateError) {
-        const conhecido = getErrorMessage(updateError);
-        if (
-          conhecido.code === 'STOP_COMPLETED_LOCKED' ||
-          conhecido.code === 'STOP_ALREADY_DONE'
-        ) {
-          setError(conhecido.message);
-          onDesatualizada?.();
-          return;
-        }
-        throw updateError;
-      }
-
-      if (!atualizadas || atualizadas.length === 0) {
-        setError(
-          'Esta parada não pode mais ser editada: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
-        );
-        onDesatualizada?.();
+      // Validate
+      if (!endereco.trim()) {
+        setError('Endereço é obrigatório');
         return;
       }
 
-      // Mudar o local ou o tipo desfaz a otimização, como reordenar. Só
-      // destinatário, telefone ou observações não mexem no trajeto.
-      if (coordinatesChanged || tipo !== parada.tipo) {
-        await marcarOtimizacaoAlterada(rotaId);
+      // Trocar o tipo solta o vínculo (da retirada para as entregas dela, ou da
+      // entrega para a retirada). O banco não avisa: pede confirmação antes.
+      const avisoVinculo = avisoPerdaDeVinculoAoEditarTipo(
+        allParadas,
+        parada,
+        tipo,
+      );
+      if (avisoVinculo && !vinculoConfirmado) {
+        setConfirmacaoVinculo(avisoVinculo);
+        return;
       }
+      const soltarProprioVinculo =
+        tipo === 'retirada' && !!parada.vinculo_parada_id;
+      const dependentes =
+        parada.tipo === 'retirada' && tipo === 'entrega'
+          ? entregasQueDependemDe(allParadas, parada.id)
+          : [];
 
-      // Only recalculate route if coordinates ACTUALLY changed
-      let recalcFailed = false;
-      if (coordinatesChanged) {
-        const updatedParadas = allParadas.map((p) =>
-          p.id === parada.id
-            ? { ...p, latitude: finalLatitude, longitude: finalLongitude }
-            : p,
-        );
+      try {
+        setIsSaving(true);
+        setError(null);
 
-        const recalcResult = await recalcularRota(
-          rotaId,
-          updatedParadas,
-          enderecoUnidade,
-        );
-        recalcFailed = !recalcResult.success;
-        if (recalcFailed) {
-          logger.warn(
-            'Recálculo de rota falhou após editar parada:',
-            recalcResult.error,
-          );
+        // If address changed but no coordinates, try to geocode
+        let finalLatitude = latitude;
+        let finalLongitude = longitude;
+
+        if (
+          addressChanged &&
+          (typeof finalLatitude !== 'number' ||
+            !Number.isFinite(finalLatitude) ||
+            typeof finalLongitude !== 'number' ||
+            !Number.isFinite(finalLongitude))
+        ) {
+          // Usa Photon (gratuito!) em vez de Google Geocoding API
+          const geocoded = await photonService.geocodeAddress(endereco);
+          if (geocoded?.coordenadas) {
+            finalLatitude = geocoded.coordenadas.latitude;
+            finalLongitude = geocoded.coordenadas.longitude;
+          } else {
+            setError('Não foi possível encontrar as coordenadas do endereço');
+            return;
+          }
         }
-      }
 
-      // Log the edit
-      if (usuarioId) {
-        await supabase.from('logs').insert({
-          usuario_id: usuarioId,
-          rota_id: rotaId,
-          evento: 'parada_editada',
-          detalhes: {
-            parada_id: parada.id,
-            campos_alterados: {
-              endereco: endereco !== parada.endereco,
-              destinatario: destinatario !== parada.destinatario,
-              telefone: telefone !== parada.telefone,
-              observacoes: observacoes !== parada.observacoes,
-              tipo: tipo !== parada.tipo,
+        // Check if coordinates actually changed (more accurate than text comparison)
+        const coordinatesChanged =
+          finalLatitude !== parada.latitude ||
+          finalLongitude !== parada.longitude;
+
+        // Update parada in database. Condicionado a `pendente` e conferindo as
+        // linhas afetadas: a tela pode estar velha (o motorista concluiu a
+        // parada), e UPDATE de zero linhas não é sucesso. A trava de verdade é o
+        // gatilho da Migration 53 (PARADA_CONCLUIDA_IMUTAVEL), que vale para
+        // qualquer cliente.
+        const { data: atualizadas, error: updateError } = await supabase
+          .from('paradas')
+          .update({
+            endereco,
+            latitude: finalLatitude,
+            longitude: finalLongitude,
+            destinatario: destinatario || null,
+            telefone: telefone || null,
+            observacoes: observacoes || null,
+            tipo,
+            ...(soltarProprioVinculo ? { vinculo_parada_id: null } : {}),
+          })
+          .eq('id', parada.id)
+          .eq('status', STATUS_PARADA_ALTERAVEL)
+          .select('id');
+
+        if (updateError) {
+          const conhecido = getErrorMessage(updateError);
+          if (
+            conhecido.code === 'STOP_COMPLETED_LOCKED' ||
+            conhecido.code === 'STOP_ALREADY_DONE'
+          ) {
+            setError(conhecido.message);
+            onDesatualizada?.();
+            return;
+          }
+          throw updateError;
+        }
+
+        if (!atualizadas || atualizadas.length === 0) {
+          setError(
+            'Esta parada não pode mais ser editada: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
+          );
+          onDesatualizada?.();
+          return;
+        }
+
+        // A retirada virou entrega: as entregas que dependiam dela perdem o
+        // vínculo (confirmado acima). Falha aqui não desfaz a edição, mas fica no
+        // log: o vínculo ficaria apontando para uma entrega.
+        if (dependentes.length > 0) {
+          const { error: vinculoError } = await supabase
+            .from('paradas')
+            .update({ vinculo_parada_id: null })
+            .in(
+              'id',
+              dependentes.map((d) => d.id),
+            );
+          if (vinculoError) {
+            logger.error(
+              'Falha ao soltar o vínculo das entregas',
+              vinculoError,
+            );
+          }
+        }
+
+        // Mudar o local ou o tipo desfaz a otimização, como reordenar. Só
+        // destinatário, telefone ou observações não mexem no trajeto.
+        if (coordinatesChanged || tipo !== parada.tipo) {
+          await marcarOtimizacaoAlterada(rotaId);
+        }
+
+        // Only recalculate route if coordinates ACTUALLY changed
+        let recalcFailed = false;
+        if (coordinatesChanged) {
+          const updatedParadas = allParadas.map((p) =>
+            p.id === parada.id
+              ? { ...p, latitude: finalLatitude, longitude: finalLongitude }
+              : p,
+          );
+
+          const recalcResult = await recalcularRota(
+            rotaId,
+            updatedParadas,
+            enderecoUnidade,
+          );
+          recalcFailed = !recalcResult.success;
+          if (recalcFailed) {
+            logger.warn(
+              'Recálculo de rota falhou após editar parada:',
+              recalcResult.error,
+            );
+          }
+        }
+
+        // Log the edit
+        if (usuarioId) {
+          await supabase.from('logs').insert({
+            usuario_id: usuarioId,
+            rota_id: rotaId,
+            evento: 'parada_editada',
+            detalhes: {
+              parada_id: parada.id,
+              campos_alterados: {
+                endereco: endereco !== parada.endereco,
+                destinatario: destinatario !== parada.destinatario,
+                telefone: telefone !== parada.telefone,
+                observacoes: observacoes !== parada.observacoes,
+                tipo: tipo !== parada.tipo,
+              },
+              coordenadas_alteradas: coordinatesChanged,
             },
-            coordenadas_alteradas: coordinatesChanged,
-          },
-        });
+          });
+        }
+
+        // Notify motorista about the edit (if assigned)
+        if (motoristaId) {
+          const camposEditados: string[] = [];
+          if (endereco !== parada.endereco) camposEditados.push('endereço');
+          if (destinatario !== parada.destinatario)
+            camposEditados.push('destinatário');
+          if (telefone !== parada.telefone) camposEditados.push('telefone');
+          if (tipo !== parada.tipo) camposEditados.push('tipo');
+
+          const mensagem =
+            camposEditados.length > 0
+              ? `Alterações: ${camposEditados.join(', ')}`
+              : 'Uma parada da sua rota foi editada';
+
+          await notificarMotoristaRotaEditada({
+            rotaId,
+            motoristaId,
+            tipo: 'rota_parada_editada',
+            titulo: '✏️ Parada editada',
+            mensagem,
+            paradaId: parada.id,
+          });
+        }
+
+        onSave({ routeRecalculationFailed: recalcFailed });
+      } catch (err) {
+        logger.error('Erro ao salvar parada:', err);
+        setError('Erro ao salvar parada. Tente novamente.');
+      } finally {
+        setIsSaving(false);
       }
+    },
+    [
+      parada,
+      rotaId,
+      endereco,
+      latitude,
+      longitude,
+      destinatario,
+      telefone,
+      observacoes,
+      tipo,
+      addressChanged, // Still needed for geocoding trigger
+      enderecoUnidade,
+      allParadas,
+      usuarioId,
+      motoristaId,
+      onSave,
+      onDesatualizada,
+    ],
+  );
 
-      // Notify motorista about the edit (if assigned)
-      if (motoristaId) {
-        const camposEditados: string[] = [];
-        if (endereco !== parada.endereco) camposEditados.push('endereço');
-        if (destinatario !== parada.destinatario)
-          camposEditados.push('destinatário');
-        if (telefone !== parada.telefone) camposEditados.push('telefone');
-        if (tipo !== parada.tipo) camposEditados.push('tipo');
+  const handleSave = useCallback(() => salvar(false), [salvar]);
 
-        const mensagem =
-          camposEditados.length > 0
-            ? `Alterações: ${camposEditados.join(', ')}`
-            : 'Uma parada da sua rota foi editada';
+  const confirmarSalvarComVinculo = useCallback(() => {
+    setConfirmacaoVinculo(null);
+    return salvar(true);
+  }, [salvar]);
 
-        await notificarMotoristaRotaEditada({
-          rotaId,
-          motoristaId,
-          tipo: 'rota_parada_editada',
-          titulo: '✏️ Parada editada',
-          mensagem,
-          paradaId: parada.id,
-        });
-      }
-
-      onSave({ routeRecalculationFailed: recalcFailed });
-    } catch (err) {
-      logger.error('Erro ao salvar parada:', err);
-      setError('Erro ao salvar parada. Tente novamente.');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    parada,
-    rotaId,
-    endereco,
-    latitude,
-    longitude,
-    destinatario,
-    telefone,
-    observacoes,
-    tipo,
-    addressChanged, // Still needed for geocoding trigger
-    enderecoUnidade,
-    allParadas,
-    usuarioId,
-    motoristaId,
-    onSave,
-    onDesatualizada,
-  ]);
+  const cancelarConfirmacaoVinculo = useCallback(() => {
+    setConfirmacaoVinculo(null);
+  }, []);
 
   return {
     // Form values
@@ -327,6 +388,8 @@ export function useEditStopForm({
     handleAddressChange,
     handlePhoneChange,
     handleSave,
+    confirmarSalvarComVinculo,
+    cancelarConfirmacaoVinculo,
 
     // Derived state
     coordinatesChanged,
@@ -335,5 +398,6 @@ export function useEditStopForm({
     // UI state
     isSaving,
     error,
+    confirmacaoVinculo,
   };
 }

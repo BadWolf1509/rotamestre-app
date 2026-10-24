@@ -475,4 +475,79 @@ describe('EditStopModal', () => {
       expect(input.props.value).toBe('Rua Diferente, 999');
     });
   });
+
+  describe('Vínculo retirada -> entrega ao trocar o tipo (G7)', () => {
+    const retirada = {
+      ...mockParada,
+      id: 'ret-1',
+      tipo: 'retirada' as const,
+      endereco: 'Rua da Coleta, 1',
+    };
+    const entregaVinculada = {
+      ...mockParada,
+      id: 'ent-1',
+      ordem: 2,
+      endereco: 'Rua da Entrega, 2',
+      vinculo_parada_id: 'ret-1',
+    };
+
+    it('mostra o aviso, não grava, e só salva depois de Confirmar', async () => {
+      const update = cadeiaUpdate({ data: [{ id: 'ret-1' }], error: null });
+      mockFrom.mockImplementation((tabela: string) =>
+        tabela === 'paradas'
+          ? {
+              update: (valores: Record<string, unknown>) =>
+                Object.keys(valores).join() === 'vinculo_parada_id'
+                  ? { in: jest.fn().mockResolvedValue({ error: null }) }
+                  : update(valores),
+            }
+          : { insert: jest.fn().mockResolvedValue({ error: null }) },
+      );
+      mockRecalcularRota.mockResolvedValue({ success: true });
+      mockNotificarMotorista.mockResolvedValue({ success: true });
+      const onSave = jest.fn();
+      const { getByText, queryByText, findByText } = render(
+        <EditStopModal
+          {...defaultProps}
+          parada={retirada}
+          allParadas={[retirada, entregaVinculada]}
+          onSave={onSave}
+        />,
+      );
+
+      fireEvent.press(getByText('Entrega'));
+      fireEvent.press(getByText('Salvar'));
+
+      expect(await findByText(/Rua da Entrega, 2/)).toBeTruthy();
+      expect(update).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+
+      fireEvent.press(getByText('Confirmar e salvar'));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(queryByText('Confirmar e salvar')).toBeNull();
+    });
+
+    it('Voltar fecha o aviso sem gravar', async () => {
+      mockFrom.mockImplementation(() => {
+        throw new Error('não devia gravar');
+      });
+      const { getByText, queryByText, findByText } = render(
+        <EditStopModal
+          {...defaultProps}
+          parada={retirada}
+          allParadas={[retirada, entregaVinculada]}
+        />,
+      );
+
+      fireEvent.press(getByText('Entrega'));
+      fireEvent.press(getByText('Salvar'));
+      await findByText('Confirmar e salvar');
+      fireEvent.press(getByText('Voltar'));
+
+      expect(queryByText('Confirmar e salvar')).toBeNull();
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+  });
 });
