@@ -2053,8 +2053,11 @@ CLAUDE.md), e outro GRANT por coluna (Migration 45), passando pelo gatilho
 (`preferenciaDePush.ts`): SOS sempre envia; push geral desligado cala o resto;
 com ele ligado, `incidente_reportado` obedece a `incidentes`, os tipos de rota
 e de parada a `rotas`, e `resumo_*` a `resumo_diario` (hoje nenhum gatilho cria
-tipo de resumo). Quem é calado fica em `push_notification_logs` com status
-`skipped`. O app (`src/lib/notificacoes/preferenciasPush.ts`) grava por upsert
+tipo de resumo). O SOS nem consulta a preferência. Quem é calado fica em
+`push_notification_logs` com status `skipped` e **sem `notificacao_id`** (o id
+e o motivo vão em `response`): a policy `push_notification_logs_select_scoped`
+mostra ao gestor só as linhas com `notificacao_id`, e a preferência é só do
+dono. O app (`src/lib/notificacoes/preferenciasPush.ts`) grava por upsert
 e guarda a última cópia e a pendência offline no aparelho; o valor antigo do
 AsyncStorage migra uma vez, só se a conta ainda não tiver linha.
 
