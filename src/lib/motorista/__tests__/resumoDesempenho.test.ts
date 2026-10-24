@@ -5,6 +5,7 @@
  * O fake do PostgREST abaixo aplica o corte de 1.000 linhas (max-rows do
  * Supabase): é ele que zerava contadores em silêncio nos hooks antigos.
  */
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -19,7 +20,6 @@ jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
 
-import { logger } from '@/lib/logger';
 
 const MAX_ROWS = 1000;
 

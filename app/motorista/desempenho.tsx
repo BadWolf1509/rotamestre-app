@@ -12,6 +12,7 @@ import { MobileCard, MobileLoading } from '@/design-system';
 import { useDesempenhoStats, type Periodo } from '@/hooks/motorista/useDesempenhoStats';
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 const PERIODOS: { value: Periodo; label: string }[] = [
@@ -121,7 +122,7 @@ export default function DesempenhoScreen() {
                   <View style={[styles.statIcon, { backgroundColor: theme.colors.blue100 }]}>
                     <Text style={styles.statIconText}>📏</Text>
                   </View>
-                  <Text style={styles.statValue}>{stats.totalKm.toFixed(0)}</Text>
+                  <Text style={styles.statValue}>{formatarDecimal(stats.totalKm, 0)}</Text>
                   <Text style={styles.statLabel}>Km rodados</Text>
                 </View>
               </View>
