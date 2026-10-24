@@ -19,6 +19,7 @@ import {
   requestAndStartTracking,
   garantirRastreamentoDaRota,
   POSICOES_ENTRE_CONFERENCIAS,
+  POSICOES_MINIMAS_ENTRE_CONFERENCIAS,
 } from '../unifiedLocationTracking';
 
 import type { TrackingContext } from '../unifiedLocationTracking';
@@ -830,6 +831,11 @@ describe('unifiedLocationTracking', () => {
     it('posição recusada pelo banco (ex.: 42501 da rota de outro) confere fora da contagem', async () => {
       await umaPosicao();
       expect(selectsDaRota).toBe(1);
+      // Respeita o espaçamento mínimo desde a última conferência.
+      for (let i = 2; i < POSICOES_MINIMAS_ENTRE_CONFERENCIAS + 1; i++) {
+        await umaPosicao();
+      }
+      expect(selectsDaRota).toBe(1);
 
       insertPadrao.mockResolvedValue({ error: recusaDeRls });
       rotaNoBanco = {
@@ -847,9 +853,58 @@ describe('unifiedLocationTracking', () => {
       await umaPosicao();
       insertPadrao.mockResolvedValue({ error: recusaDeRls });
 
-      await umaPosicao();
+      for (let i = 0; i < POSICOES_MINIMAS_ENTRE_CONFERENCIAS; i++) {
+        await umaPosicao();
+      }
 
       expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    // Sessão anônima permanente (refresh token revogado): toda posição é
+    // recusada. Sem espaçamento, cada uma fazia INSERT + SELECT + lerSessao.
+    it(`recusas seguidas conferem no máximo a cada ${POSICOES_MINIMAS_ENTRE_CONFERENCIAS} posições`, async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+      insertPadrao.mockResolvedValue({ error: recusaDeRls });
+
+      for (let i = 0; i < 2 * POSICOES_MINIMAS_ENTRE_CONFERENCIAS; i++) {
+        await umaPosicao();
+      }
+
+      expect(selectsDaRota).toBe(3);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    // A consulta saiu anônima (refresh falhou) e logo depois o token foi
+    // renovado: a sessão lida só DEPOIS confirmaria um vazio que não era
+    // resposta sobre este motorista.
+    it('rota que não aparece com a sessão renovada só depois do SELECT não para', async () => {
+      rotaNoBanco = { data: null, error: null };
+      // Sem sessão até o SELECT sair; renovada logo depois.
+      mockLerSessao.mockImplementation(async () =>
+        selectsDaRota === 0
+          ? { session: null, offline: true }
+          : { session: { user: { id: 'motorista-456' } }, offline: false },
+      );
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('rota que não aparece com a sessão perdida depois do SELECT não para', async () => {
+      rotaNoBanco = { data: null, error: null };
+      // Sessão boa até o SELECT; perdida logo depois (refresh falhou).
+      mockLerSessao.mockImplementation(async () =>
+        selectsDaRota === 0
+          ? { session: { user: { id: 'motorista-456' } }, offline: false }
+          : { session: null, offline: true },
+      );
+
+      await umaPosicao();
+
       expect(mockStopLocationUpdates).not.toHaveBeenCalled();
     });
   });

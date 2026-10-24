@@ -119,7 +119,11 @@ async function saveLocationToDatabase(
     );
 
     posicoesAteConferir--;
-    if (destino === 'perdida' || posicoesAteConferir <= 0) {
+    const desdeAUltima = POSICOES_ENTRE_CONFERENCIAS - posicoesAteConferir;
+    const recusaConfere =
+      destino === 'perdida' &&
+      desdeAUltima >= POSICOES_MINIMAS_ENTRE_CONFERENCIAS;
+    if (recusaConfere || posicoesAteConferir <= 0) {
       await conferirRotaDoContexto(context);
     }
   } catch (err) {
@@ -151,6 +155,24 @@ async function saveLocationToDatabase(
  * logo: é o caso da task restaurada horas depois do fim.
  */
 export const POSICOES_ENTRE_CONFERENCIAS = 20;
+
+/**
+ * Espaçamento mínimo, em posições, entre uma conferência e a próxima
+ * disparada por posição recusada (`perdida`).
+ *
+ * POR QUE EXISTE. Na sessão anônima permanente (refresh token revogado) toda
+ * posição é recusada, e a rota nunca é dada como acabada (a sessão não se
+ * confirma): sem espaçamento, cada posição fazia INSERT + SELECT +
+ * `lerSessao` até o app abrir.
+ *
+ * POR QUE 5. ~250 m, de 20 s a 2,5 min. Corta esse custo a um quinto e
+ * mantém a resposta ao 42501 de uma rota reatribuída em até 5 posições,
+ * quatro vezes antes da contagem de 20. Por TEMPO (ex.: 60 s) exigiria o
+ * relógio e mediria outra coisa que a contagem principal; 1 (sem
+ * espaçamento) é o defeito; 10 já se aproxima da contagem de 20 e o gatilho
+ * por recusa deixaria de valer a pena.
+ */
+export const POSICOES_MINIMAS_ENTRE_CONFERENCIAS = 5;
 
 /** Começa em 0: a primeira posição do processo confere. */
 let posicoesAteConferir = 0;
@@ -184,9 +206,17 @@ function conferirRotaDoContexto(context: TrackingContext): Promise<void> {
   return conferencia;
 }
 
+/** A sessão lida agora é a deste motorista. */
+async function sessaoDoMotorista(motoristaId: string): Promise<boolean> {
+  const { session } = await lerSessao();
+  return session?.user?.id === motoristaId;
+}
+
 /** true só com certeza de que a rota acabou ou não é mais deste motorista. */
 async function rotaDoContextoAcabou(context: TrackingContext): Promise<boolean> {
   try {
+    // Lida ANTES do SELECT também: ver o caso "sem linha" abaixo.
+    const sessaoAntes = await sessaoDoMotorista(context.motoristaId);
     const { data, error } = await supabase
       .from('rotas')
       .select('status, motorista_id')
@@ -206,9 +236,10 @@ async function rotaDoContextoAcabou(context: TrackingContext): Promise<boolean> 
     // Sem linha: rota apagada, ou reatribuída (a RLS de `rotas` esconde a
     // de outro motorista). Mas a consulta que sai anônima (refresh do token
     // falhou) também volta vazia, sem erro — só a sessão deste motorista
-    // confirmada torna o "vazio" uma resposta.
-    const { session } = await lerSessao();
-    return session?.user?.id === context.motoristaId;
+    // confirmada torna o "vazio" uma resposta. Antes E depois do SELECT: só
+    // depois, um token renovado logo após a consulta anônima confirmaria um
+    // vazio que não era resposta sobre este motorista.
+    return sessaoAntes && (await sessaoDoMotorista(context.motoristaId));
   } catch (err) {
     logarFalha('[LocationTracking] Falha ao conferir a rota rastreada', err);
     return false;
