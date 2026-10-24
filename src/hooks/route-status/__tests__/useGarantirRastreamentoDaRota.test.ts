@@ -20,6 +20,11 @@ jest.mock('@/services/unifiedLocationTracking', () => ({
   stopBackgroundTracking: () => mockParar(),
 }));
 
+const mockLerSessao = jest.fn();
+jest.mock('@/lib/auth/sessao', () => ({
+  lerSessao: () => mockLerSessao(),
+}));
+
 let ouvintesAppState: Array<(estado: string) => void> = [];
 
 function voltarAoPrimeiroPlano() {
@@ -60,6 +65,10 @@ describe('useGarantirRastreamentoDaRota', () => {
     mockGetContexto.mockResolvedValue(null);
     mockTaskAtiva.mockResolvedValue(false);
     mockParar.mockResolvedValue(undefined);
+    mockLerSessao.mockResolvedValue({
+      session: { user: { id: 'motorista-1' } },
+      offline: false,
+    });
   });
 
   it('garante o rastreamento ao abrir com rota própria em andamento', async () => {
@@ -313,6 +322,84 @@ describe('useGarantirRastreamentoDaRota', () => {
       );
 
       await waitFor(() => expect(mockTaskAtiva).toHaveBeenCalled());
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    // Token vencido + rede fraca: o refresh falha, a consulta sai com a
+    // chave publishable e a RLS devolve vazio SEM erro. "Sem rota" ali não
+    // é resposta do banco sobre este motorista.
+    it('sem rota e sem a sessão do motorista confirmada, não para (consulta anônima)', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockTaskAtiva.mockResolvedValue(true);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockLerSessao).toHaveBeenCalled());
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('sem rota e com a sessão de outra conta, não para', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockLerSessao.mockResolvedValue({
+        session: { user: { id: 'outra-conta' } },
+        offline: false,
+      });
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockLerSessao).toHaveBeenCalled());
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('não para se outra rota foi iniciada entre a leitura do contexto e o stop', async () => {
+      mockGetContexto
+        .mockResolvedValueOnce(contextoGravado)
+        .mockResolvedValue({ ...contextoGravado, rotaId: 'rota-nova' });
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: { ...rotaEmAndamento, status: 'concluida' },
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockGetContexto).toHaveBeenCalledTimes(2));
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('não para se o contexto apareceu (rota recém-iniciada) depois da leitura', async () => {
+      mockTaskAtiva.mockResolvedValue(true);
+      mockGetContexto
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue({ ...contextoGravado, rotaId: 'rota-nova' });
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: { ...rotaEmAndamento, status: 'pendente' },
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockGetContexto).toHaveBeenCalledTimes(2));
       await act(async () => {});
       expect(mockParar).not.toHaveBeenCalled();
     });

@@ -504,12 +504,16 @@ describe('RouteStatusContext', () => {
       const { getTrackingContext, stopBackgroundTracking } = jest.requireMock(
         '@/services/unifiedLocationTracking',
       );
-      getTrackingContext.mockResolvedValueOnce({
+      const contexto = {
         rotaId: 'rota-1',
         motoristaId: 'motorista-1',
         motoristaNome: 'Ana',
         startedAt: '2026-10-24T10:00:00Z',
-      });
+      };
+      // Lido duas vezes: antes de decidir e de novo logo antes do stop.
+      getTrackingContext
+        .mockResolvedValueOnce(contexto)
+        .mockResolvedValueOnce(contexto);
       // Concluída pela web há 30 min: chega pela consulta das concluídas
       mockRotasData = [];
       mockRotasConcluidas = createMockRoute({

@@ -18,13 +18,17 @@
  * banco e a rota fora de `em_andamento` (ou nenhuma rota), o rastreamento
  * para. Carga não confirmada (abrindo o app, ou a última consulta falhou —
  * sem rede) não decide nada: a rota pode estar andando, e parar ali apagaria
- * o contexto de uma rota viva. A task headless tem a sua própria conferência
+ * o contexto de uma rota viva. E "nenhuma rota" só vale com a sessão do
+ * motorista confirmada: com o token vencido e o refresh falhando, a consulta
+ * sai com a chave publishable e a RLS devolve vazio SEM erro — mesmo
+ * critério da task. A task headless tem a sua própria conferência
  * (`unifiedLocationTracking`), para quando a tela nem abre.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import type { RouteData } from '@/context/route-status/types';
+import { lerSessao } from '@/lib/auth/sessao';
 import { logger } from '@/lib/logger';
 import {
   garantirRastreamentoDaRota,
@@ -73,7 +77,12 @@ export function useGarantirRastreamentoDaRota({
   const motoristaNome = motorista?.nome;
   // Rota em andamento fica com a garantia (que troca o contexto de outra
   // rota pelo desta); fora dela, só a carga confirmada desliga.
-  const deveDesligar = Platform.OS !== 'web' && !ativa && cargaConfirmada;
+  const deveDesligar =
+    Platform.OS !== 'web' &&
+    !ativa &&
+    cargaConfirmada &&
+    route?.status !== 'em_andamento';
+  const semRota = !route;
 
   const montarContexto = useCallback(
     (): TrackingContext | null =>
@@ -92,7 +101,9 @@ export function useGarantirRastreamentoDaRota({
     const contexto = montarContexto();
     if (!contexto) {
       setAvisoVisivel(false);
-      if (deveDesligar) await desligarRastreamentoSobrando();
+      if (deveDesligar) {
+        await desligarRastreamentoSobrando({ semRota, motoristaId });
+      }
       return;
     }
     // A abertura e o `active` do AppState chegam juntos; duas conferências
@@ -110,7 +121,7 @@ export function useGarantirRastreamentoDaRota({
     } finally {
       emVooRef.current = false;
     }
-  }, [montarContexto, rotaId, deveDesligar]);
+  }, [montarContexto, rotaId, deveDesligar, semRota, motoristaId]);
 
   useEffect(() => {
     void verificar();
@@ -148,10 +159,28 @@ export function useGarantirRastreamentoDaRota({
  * Para o rastreamento se sobrou algo dele: o contexto gravado (a task grava
  * com ele) ou a task registrada sem contexto (a notificação "Em rota" ficaria
  * presa). Sem nada rodando, não chama o stop.
+ *
+ * `semRota`: a carga voltou vazia, a única resposta ambígua (ver o topo do
+ * arquivo) — exige a sessão deste motorista. Uma linha visível fora de
+ * `em_andamento` já é resposta autenticada.
  */
-async function desligarRastreamentoSobrando(): Promise<void> {
+async function desligarRastreamentoSobrando({
+  semRota,
+  motoristaId,
+}: {
+  semRota: boolean;
+  motoristaId: string | undefined;
+}): Promise<void> {
   const contexto = await getTrackingContext();
   if (!contexto && !(await isBackgroundTrackingActive())) return;
+  if (semRota) {
+    const { session } = await lerSessao();
+    if (!motoristaId || session?.user?.id !== motoristaId) return;
+  }
+  // O `startRoute` pode ter gravado o contexto de uma rota nova enquanto as
+  // leituras acima voavam: parar ali mataria a rota recém-iniciada.
+  const atual = await getTrackingContext();
+  if (atual?.rotaId !== contexto?.rotaId) return;
   logger.info(
     '[Rastreamento] Rota fora de andamento: desligando o rastreamento',
     contexto?.rotaId,
