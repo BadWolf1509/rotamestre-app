@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
+import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import {
   recalcularRota,
   notificarMotoristaRotaEditada,
@@ -85,8 +86,9 @@ async function paradasAposInsercao({
   return [...deslocadas, nova];
 }
 
-// Limite de paradas (Google API)
-const MAX_PARADAS = 23;
+// Fonte única do limite: o mesmo da Nova Entrega (OSRM próprio). O 23 antigo
+// era da Google Directions, já removida.
+const MAX_PARADAS = MAX_ROUTE_STOPS;
 
 export function useAddStopForm({
   visible,

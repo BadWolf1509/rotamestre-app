@@ -240,12 +240,20 @@ describe('AddStopModal', () => {
       expect(queryByTestId('desktop-modal')).toBeNull();
     });
 
-    it('deve exibir banner de aviso quando limite de paradas é atingido', () => {
+    it('deve exibir banner de aviso quando o limite da Nova Entrega (50) é atingido', () => {
       const { getByText } = render(
+        <AddStopModal {...defaultProps} currentParadasCount={50} />,
+      );
+
+      expect(getByText(/Limite de 50 paradas atingido/i)).toBeTruthy();
+    });
+
+    it('não bloqueia com 23 paradas: o limite de 23 era da Google Directions, já removida', () => {
+      const { queryByText } = render(
         <AddStopModal {...defaultProps} currentParadasCount={23} />,
       );
 
-      expect(getByText(/Limite de 23 paradas atingido/i)).toBeTruthy();
+      expect(queryByText(/Limite de .* paradas atingido/i)).toBeNull();
     });
 
     it('deve exibir opções de posição para paradas existentes', () => {
@@ -336,7 +344,7 @@ describe('AddStopModal', () => {
     });
 
     it('deve exibir erro quando limite de paradas é atingido', () => {
-      render(<AddStopModal {...defaultProps} currentParadasCount={23} />);
+      render(<AddStopModal {...defaultProps} currentParadasCount={50} />);
 
       expect(lastPrimaryButton?.disabled).toBe(true);
     });
