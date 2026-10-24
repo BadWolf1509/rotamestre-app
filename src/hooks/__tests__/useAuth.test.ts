@@ -422,6 +422,40 @@ describe('useAuth', () => {
       expect(result.current.usuarioOfflineId).toBeNull();
     });
 
+    // Revisão final da 1.14.5, Minor 1: o "offline" já foi decidido, mas o
+    // estado ainda não chegou à tela (a leitura do último usuário está em
+    // curso) quando o NetInfo avisa "conectado". Esse evento não pode se
+    // perder — senão o app fica offline com o token válido.
+    it('"conectado" logo depois de entrar em offline: sai do offline', async () => {
+      fetchNetInfo.mockResolvedValue({ isConnected: false, type: 'none' });
+      let liberarLeitura!: (id: string) => void;
+      (lerUltimoUsuario as jest.Mock).mockReturnValueOnce(
+        new Promise((r) => {
+          liberarLeitura = r;
+        }),
+      );
+      const { result } = renderHook(() => useAuth());
+      await waitFor(() => expect(lerUltimoUsuario).toHaveBeenCalled());
+
+      fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+      await act(async () => {
+        aoMudarRede({ isConnected: true });
+      });
+      await act(async () => {
+        liberarLeitura('m1');
+      });
+
+      await waitFor(() =>
+        expect(result.current.user).toEqual(mockSession.user),
+      );
+      expect(result.current.offline).toBe(false);
+      expect(result.current.usuarioOfflineId).toBeNull();
+    });
+
     it('rede "conectada" sem estar offline: não relê a sessão à toa', async () => {
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: mockSession },

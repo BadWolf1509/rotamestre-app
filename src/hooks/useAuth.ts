@@ -47,6 +47,12 @@ export function useAuth() {
   // sessão") não pode sobrescrever a nova. Contador em vez de reler a sessão
   // depois do await: reler é outra ida à rede e ainda teria a mesma janela.
   const geracao = useRef(0);
+  // Espelho síncrono de `offline` para o ouvinte do NetInfo. Gravado onde o
+  // estado é DECIDIDO, nunca num efeito pós-render: um "conectado" que chegue
+  // entre a decisão e o commit (a leitura do último usuário fica no meio) era
+  // ignorado, e o app ficava offline com o token válido (revisão final da
+  // 1.14.5, Minor 1).
+  const offlineRef = useRef(false);
 
   /** Aplica uma leitura de sessão; false se um evento mais novo venceu. */
   const aplicarSessao = useCallback(
@@ -55,6 +61,7 @@ export function useAuth() {
       offline: boolean;
     }): Promise<boolean> => {
       const minha = ++geracao.current;
+      offlineRef.current = estado.offline;
       const idOffline = estado.offline ? await lerUltimoUsuario() : null;
       if (minha !== geracao.current) return false;
       setSession(estado.session);
@@ -95,10 +102,6 @@ export function useAuth() {
   // para quem tem o token AINDA válido. Esse não tem renovação a fazer, então
   // o auth-js não emite TOKEN_REFRESHED quando a rede volta, e o app ficaria
   // no modo offline até o token chegar perto de vencer.
-  const offlineRef = useRef(false);
-  useEffect(() => {
-    offlineRef.current = offline;
-  }, [offline]);
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     const pararDeOuvir = NetInfo.addEventListener((estado) => {
@@ -153,6 +156,7 @@ export function useAuth() {
       if (session || event === 'SIGNED_OUT') {
         // A leitura estourada (getSession velho preso) não responde mais.
         descartarLeituraEmCurso();
+        offlineRef.current = false;
         setOffline(false);
         setUsuarioOfflineId(null);
       }
