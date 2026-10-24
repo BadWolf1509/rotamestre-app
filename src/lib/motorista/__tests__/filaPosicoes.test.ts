@@ -1,0 +1,293 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { CHAVES_DA_CONTA } from '@/lib/auth/limparEstadoLocal';
+import { logger } from '@/lib/logger';
+
+import {
+  CHAVE_FILA_POSICOES,
+  TETO_FILA_POSICOES,
+  registrarPosicao,
+  type Posicao,
+} from '../filaPosicoes';
+
+jest.mock('@/lib/logger');
+
+const mockInsert = jest.fn();
+jest.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: () => ({ insert: (linhas: unknown) => mockInsert(linhas) }),
+  },
+}));
+
+const memoria = new Map<string, string>();
+
+const ERRO_DE_REDE = { message: 'TypeError: Network request failed' };
+const ERRO_DEFINITIVO = {
+  code: '23503',
+  message: 'insert or update on table violates foreign key constraint',
+};
+
+const ROTULO = '[Teste] Erro ao salvar';
+
+function posicao(extra: Partial<Posicao> = {}): Posicao {
+  return {
+    motorista_id: 'm1',
+    rota_id: 'rota-a',
+    latitude: -7.1,
+    longitude: -34.8,
+    velocidade: null,
+    precisao: 10,
+    heading: null,
+    ...extra,
+  };
+}
+
+/** Horário de captura (epoch ms) de cada posição: 1, 2, 3… minutos. */
+const minuto = (n: number) => Date.UTC(2026, 9, 24, 12, n);
+const iso = (n: number) => new Date(minuto(n)).toISOString();
+
+function semRede() {
+  mockInsert.mockResolvedValue({ error: ERRO_DE_REDE });
+}
+
+function comRede() {
+  mockInsert.mockResolvedValue({ error: null });
+}
+
+function filaGuardada(): {
+  userId: string;
+  posicoes: Array<Posicao & { timestamp: string }>;
+} | null {
+  const bruto = memoria.get(CHAVE_FILA_POSICOES);
+  return bruto ? JSON.parse(bruto) : null;
+}
+
+/** Linhas enviadas em cada chamada de insert, sempre como lista. */
+function lotesEnviados(): Array<Array<Record<string, unknown>>> {
+  return mockInsert.mock.calls.map(([linhas]) =>
+    Array.isArray(linhas) ? linhas : [linhas],
+  );
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  memoria.clear();
+  (AsyncStorage.getItem as jest.Mock).mockImplementation(
+    async (k: string) => memoria.get(k) ?? null,
+  );
+  (AsyncStorage.setItem as jest.Mock).mockImplementation(
+    async (k: string, v: string) => {
+      memoria.set(k, v);
+    },
+  );
+  (AsyncStorage.removeItem as jest.Mock).mockImplementation(
+    async (k: string) => {
+      memoria.delete(k);
+    },
+  );
+  comRede();
+});
+
+describe('filaPosicoes', () => {
+  it('com rede e fila vazia, envia uma linha e não guarda nada', async () => {
+    const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+    expect(destino).toBe('enviada');
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    // Fila vazia: o horário fica com o relógio do servidor (default NOW()).
+    expect(mockInsert).toHaveBeenCalledWith(posicao());
+    expect(filaGuardada()).toBeNull();
+  });
+
+  it('sem rede, guarda a posição com o horário em que foi capturada', async () => {
+    semRede();
+
+    const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+    expect(destino).toBe('na_fila');
+    expect(filaGuardada()).toEqual({
+      userId: 'm1',
+      posicoes: [{ ...posicao(), timestamp: iso(1) }],
+      estourou: false,
+    });
+    expect(logger.warn).toHaveBeenCalledWith(ROTULO, ERRO_DE_REDE);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('quando a rede volta, envia a fila em lote junto com a posição nova e esvazia', async () => {
+    semRede();
+    await registrarPosicao(posicao({ latitude: 1 }), minuto(1), ROTULO);
+    await registrarPosicao(posicao({ latitude: 2 }), minuto(2), ROTULO);
+    mockInsert.mockClear();
+    comRede();
+
+    const destino = await registrarPosicao(
+      posicao({ latitude: 3 }),
+      minuto(3),
+      ROTULO,
+    );
+
+    expect(destino).toBe('enviada');
+    // Um lote só, em ordem cronológica: a posição nova chega por último, e o
+    // marcador do gestor (que segue o último INSERT) termina nela.
+    expect(lotesEnviados()).toEqual([
+      [
+        { ...posicao({ latitude: 1 }), timestamp: iso(1) },
+        { ...posicao({ latitude: 2 }), timestamp: iso(2) },
+        { ...posicao({ latitude: 3 }), timestamp: iso(3) },
+      ],
+    ]);
+    expect(filaGuardada()).toBeNull();
+  });
+
+  it('cada posição guardada vai com a rota em que foi capturada', async () => {
+    semRede();
+    await registrarPosicao(posicao({ rota_id: 'rota-a' }), minuto(1), ROTULO);
+    mockInsert.mockClear();
+    comRede();
+
+    await registrarPosicao(posicao({ rota_id: 'rota-b' }), minuto(2), ROTULO);
+
+    expect(lotesEnviados()).toEqual([
+      [{ ...posicao({ rota_id: 'rota-a' }), timestamp: iso(1) }],
+      [{ ...posicao({ rota_id: 'rota-b' }), timestamp: iso(2) }],
+    ]);
+    expect(filaGuardada()).toBeNull();
+  });
+
+  it('se o lote falha por rede, nada se perde', async () => {
+    semRede();
+    await registrarPosicao(posicao({ latitude: 1 }), minuto(1), ROTULO);
+
+    const destino = await registrarPosicao(
+      posicao({ latitude: 2 }),
+      minuto(2),
+      ROTULO,
+    );
+
+    expect(destino).toBe('na_fila');
+    expect(filaGuardada()?.posicoes.map((p) => p.latitude)).toEqual([1, 2]);
+  });
+
+  it('erro que não é de rede não entra na fila', async () => {
+    mockInsert.mockResolvedValue({ error: ERRO_DEFINITIVO });
+
+    const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+    expect(destino).toBe('perdida');
+    expect(filaGuardada()).toBeNull();
+    expect(logger.error).toHaveBeenCalledWith(ROTULO, ERRO_DEFINITIVO);
+  });
+
+  it('erro definitivo de uma rota descarta só o lote dela, e as outras seguem', async () => {
+    semRede();
+    await registrarPosicao(posicao({ rota_id: 'apagada' }), minuto(1), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'viva' }), minuto(2), ROTULO);
+    mockInsert.mockClear();
+    mockInsert.mockImplementation(async (linhas: Posicao[]) =>
+      linhas[0].rota_id === 'apagada'
+        ? { error: ERRO_DEFINITIVO }
+        : { error: null },
+    );
+
+    await registrarPosicao(posicao({ rota_id: 'viva' }), minuto(3), ROTULO);
+
+    expect(lotesEnviados().map((l) => l.length)).toEqual([1, 2]);
+    expect(filaGuardada()).toBeNull();
+    expect(logger.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('no teto, descarta as mais antigas e avisa uma vez por estouro', async () => {
+    semRede();
+    for (let i = 0; i < TETO_FILA_POSICOES + 3; i++) {
+      await registrarPosicao(posicao({ latitude: i }), minuto(i), ROTULO);
+    }
+
+    const guardadas = filaGuardada()!.posicoes;
+    expect(TETO_FILA_POSICOES).toBe(500);
+    expect(guardadas).toHaveLength(TETO_FILA_POSICOES);
+    expect(guardadas[0].latitude).toBe(3);
+    expect(guardadas[guardadas.length - 1].latitude).toBe(
+      TETO_FILA_POSICOES + 2,
+    );
+    const avisosDeTeto = (logger.warn as jest.Mock).mock.calls.filter(
+      ([mensagem]) => mensagem !== ROTULO,
+    );
+    expect(avisosDeTeto).toHaveLength(1);
+  });
+
+  it('fila de outra conta é descartada, nunca enviada', async () => {
+    semRede();
+    await registrarPosicao(
+      posicao({ motorista_id: 'outra' }),
+      minuto(1),
+      ROTULO,
+    );
+    mockInsert.mockClear();
+    comRede();
+
+    await registrarPosicao(posicao({ motorista_id: 'm1' }), minuto(2), ROTULO);
+
+    expect(lotesEnviados().flat()).toEqual([
+      expect.objectContaining({ motorista_id: 'm1' }),
+    ]);
+    expect(filaGuardada()).toBeNull();
+  });
+
+  it('sem rede, a posição de outra conta substitui a fila antiga', async () => {
+    semRede();
+    await registrarPosicao(
+      posicao({ motorista_id: 'outra' }),
+      minuto(1),
+      ROTULO,
+    );
+
+    await registrarPosicao(posicao({ motorista_id: 'm1' }), minuto(2), ROTULO);
+
+    expect(filaGuardada()?.userId).toBe('m1');
+    expect(filaGuardada()?.posicoes.map((p) => p.motorista_id)).toEqual(['m1']);
+  });
+
+  it('duas posições quase juntas não enviam o mesmo lote duas vezes', async () => {
+    semRede();
+    await registrarPosicao(posicao({ latitude: 1 }), minuto(1), ROTULO);
+    mockInsert.mockClear();
+    // Rede de volta, mas lenta: o primeiro lote ainda está no ar quando a
+    // segunda posição chega.
+    let liberar: () => void = () => {};
+    const lenta = new Promise<void>((r) => {
+      liberar = r;
+    });
+    mockInsert.mockImplementation(async () => {
+      await lenta;
+      return { error: null };
+    });
+
+    const primeira = registrarPosicao(
+      posicao({ latitude: 2 }),
+      minuto(2),
+      ROTULO,
+    );
+    const segunda = registrarPosicao(
+      posicao({ latitude: 3 }),
+      minuto(3),
+      ROTULO,
+    );
+    // Só libera a rede depois que as duas já passaram da leitura da fila e o
+    // primeiro lote está de fato no ar.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockInsert).toHaveBeenCalled();
+    liberar();
+    await Promise.all([primeira, segunda]);
+
+    const latitudes = lotesEnviados()
+      .flat()
+      .map((l) => l.latitude);
+    expect(latitudes.sort()).toEqual([1, 2, 3]);
+    expect(filaGuardada()).toBeNull();
+  });
+
+  it('o logout apaga a fila', () => {
+    expect(CHAVES_DA_CONTA).toContain(CHAVE_FILA_POSICOES);
+  });
+});

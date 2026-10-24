@@ -860,6 +860,37 @@ describe('LocationTrackingService', () => {
       mockFrom.mockImplementation(() => createChain());
     });
 
+    it('sem rede, guarda a posição na fila do aparelho com a rota e o horário', async () => {
+      setUpNavigationState();
+      const chain = createChain();
+      chain.insert = jest.fn().mockResolvedValue({
+        error: { message: 'TypeError: Network request failed' },
+      });
+      mockFrom.mockImplementation(() => chain);
+      const avisoSpy = jest.spyOn(logger, 'warn').mockImplementation();
+
+      await locationTrackingService.processLocationUpdate({
+        ...baseLocation,
+        latitude: -23.56,
+        longitude: -46.64,
+        timestamp: Date.UTC(2026, 9, 24, 12, 0),
+      });
+      avisoSpy.mockRestore();
+
+      const gravacaoNaFila = (
+        AsyncStorage.setItem as jest.Mock
+      ).mock.calls.find(([chave]) => chave === '@rotamestre:fila_posicoes');
+      expect(gravacaoNaFila).toBeDefined();
+      expect(JSON.parse(gravacaoNaFila![1]).posicoes).toEqual([
+        expect.objectContaining({
+          motorista_id: 'user-1',
+          rota_id: 'rota-1',
+          timestamp: '2026-10-24T12:00:00.000Z',
+        }),
+      ]);
+      mockFrom.mockImplementation(() => createChain());
+    });
+
     it('sem sessão, não envia a posição', async () => {
       setUpNavigationState();
       mockGetSession.mockResolvedValue({ data: { session: null } });

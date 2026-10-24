@@ -7,6 +7,7 @@ import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { supabase } from '@/lib/supabase';
 import {
   checkLocationPermissions,
@@ -375,21 +376,22 @@ class LocationTrackingService {
       const user = session?.user;
       if (!user) return;
 
-      // Inserir em motorista_locations para histórico e rastreamento em tempo real
-      const { error } = await supabase.from('motorista_locations').insert({
-        motorista_id: user.id,
-        rota_id: this.navigationState.rotaId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        velocidade: location.speed ? location.speed * 3.6 : null, // m/s para km/h
-        precisao: location.accuracy,
-        heading: location.heading,
-      });
-
-      if (error) {
-        // Sem rede é esperado: a próxima posição tenta de novo (warn).
-        logarFalha('[LocationTracking] Erro ao salvar localização', error);
-      }
+      // Inserir em motorista_locations para histórico e rastreamento em tempo
+      // real. Sem rede, a posição fica guardada no aparelho e sobe em lote com
+      // a próxima que conseguir enviar (`filaPosicoes`).
+      await registrarPosicao(
+        {
+          motorista_id: user.id,
+          rota_id: this.navigationState.rotaId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          velocidade: location.speed ? location.speed * 3.6 : null, // m/s para km/h
+          precisao: location.accuracy,
+          heading: location.heading ?? null,
+        },
+        location.timestamp,
+        '[LocationTracking] Erro ao salvar localização',
+      );
     } catch (error) {
       logarFalha('[LocationTracking] Error updating driver position', error);
     }

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 import { AppState, Platform } from 'react-native';
@@ -1107,6 +1108,69 @@ describe('useDriverLocationBroadcast', () => {
       );
 
       erroSpy.mockRestore();
+      avisoSpy.mockRestore();
+    });
+
+    it('sem rede, guarda a posição na fila do aparelho uma vez por intervalo', async () => {
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
+      mockWatchPositionAsync.mockImplementation(
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
+          locationCallback = callback;
+          return Promise.resolve({ remove: mockWatchPositionRemove });
+        },
+      );
+      mockInsert.mockResolvedValue({
+        error: { message: 'TypeError: Network request failed' },
+      });
+      const avisoSpy = jest.spyOn(logger, 'warn').mockImplementation();
+
+      renderHook(() =>
+        useDriverLocationBroadcast({
+          rotaId: 'rota-123',
+          motoristaId: 'motorista-123',
+          rotaStatus: 'em_andamento',
+        }),
+      );
+      await waitFor(() => {
+        expect(locationCallback).not.toBeNull();
+      });
+
+      const fix = (minuto: number): Location.LocationObject => ({
+        coords: {
+          latitude: -23.5505,
+          longitude: -46.6333,
+          accuracy: 10,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.UTC(2026, 9, 24, 12, minuto),
+      });
+      // Duas posições dentro do mesmo intervalo: a guardada conta como
+      // enviada, senão cada fix do GPS encheria a fila.
+      await act(async () => {
+        await locationCallback!(fix(0));
+      });
+      await act(async () => {
+        await locationCallback!(fix(1));
+      });
+
+      const gravacoes = (AsyncStorage.setItem as jest.Mock).mock.calls.filter(
+        ([chave]) => chave === '@rotamestre:fila_posicoes',
+      );
+      expect(gravacoes).toHaveLength(1);
+      expect(JSON.parse(gravacoes[0][1]).posicoes).toEqual([
+        expect.objectContaining({
+          rota_id: 'rota-123',
+          fonte: 'foreground',
+          timestamp: '2026-10-24T12:00:00.000Z',
+        }),
+      ]);
       avisoSpy.mockRestore();
     });
 

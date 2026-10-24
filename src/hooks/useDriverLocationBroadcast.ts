@@ -18,6 +18,7 @@ import { useLocationWatcher } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
 import { getTrackingContext } from '@/services/unifiedLocationTracking';
@@ -90,23 +91,28 @@ export function useDriverLocationBroadcast({
           finalMotoristaId = session.user.id;
         }
 
-        const { error } = await supabase.from('motorista_locations').insert({
-          motorista_id: finalMotoristaId,
-          rota_id: rotaId,
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          velocidade: location.coords.speed
-            ? location.coords.speed * 3.6
-            : null, // m/s -> km/h
-          precisao: location.coords.accuracy,
-          heading: location.coords.heading,
-          fonte: 'foreground', // Identificar que veio do hook (app aberto)
-        });
+        // Sem rede, a posição fica guardada no aparelho e sobe em lote com a
+        // próxima que conseguir enviar (`filaPosicoes`).
+        const destino = await registrarPosicao(
+          {
+            motorista_id: finalMotoristaId,
+            rota_id: rotaId,
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            velocidade: location.coords.speed
+              ? location.coords.speed * 3.6
+              : null, // m/s -> km/h
+            precisao: location.coords.accuracy,
+            heading: location.coords.heading,
+            fonte: 'foreground', // Identificar que veio do hook (app aberto)
+          },
+          location.timestamp,
+          '[LocationBroadcast] Erro ao enviar localização:',
+        );
 
-        if (error) {
-          // Sem rede é esperado (a próxima posição tenta de novo): warn.
-          logarFalha('[LocationBroadcast] Erro ao enviar localização:', error);
-        } else {
+        // Guardada conta como enviada: a fila já garante a entrega, e tentar
+        // de novo a cada fix do GPS só encheria a fila mais depressa.
+        if (destino !== 'perdida') {
           lastUpdateRef.current = now;
         }
       } catch (err) {

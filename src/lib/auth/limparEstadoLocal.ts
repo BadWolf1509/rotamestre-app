@@ -29,6 +29,7 @@ export const CHAVES_DA_CONTA = [
   '@rotamestre:ultimo_usuario', // src/lib/auth/ultimoUsuario.ts
   '@rotamestre:perfil_conhecido', // src/lib/auth/perfilConhecido.ts
   '@rotamestre:rota_guardada', // src/lib/motorista/rotaGuardada.ts
+  '@rotamestre:fila_posicoes', // src/lib/motorista/filaPosicoes.ts
 ] as const;
 
 /** Prefixos de chaves com dado da conta. */

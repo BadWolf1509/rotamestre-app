@@ -3,7 +3,10 @@
  * Serviço Unificado de Rastreamento de Localização
  */
 
+import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
+
+import { supabase } from '@/lib/supabase';
 
 import {
   requestLocationPermissions,
@@ -89,6 +92,10 @@ jest.mock('react-native', () => ({
     ),
   },
 }));
+
+// O corpo da task registrada no import do módulo (antes do `clearAllMocks`).
+const tarefaDeSegundoPlano = (TaskManager.defineTask as jest.Mock).mock
+  .calls[0][1] as (corpo: { data: unknown; error: unknown }) => Promise<void>;
 
 describe('unifiedLocationTracking', () => {
   const mockContext: TrackingContext = {
@@ -582,6 +589,54 @@ describe('unifiedLocationTracking', () => {
         expect.any(Array),
         expect.any(Object),
       );
+    });
+  });
+
+  // A task de segundo plano é o caminho que mais roda sem rede (app fechado,
+  // motorista na estrada): a posição que falha por rede fica no aparelho.
+  describe('task de segundo plano sem rede', () => {
+    it('guarda a posição na fila do aparelho em vez de perdê-la', async () => {
+      mockGetItem.mockImplementation(async (chave: string) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify(mockContext)
+          : null,
+      );
+      (supabase.from as jest.Mock).mockReturnValueOnce({
+        insert: jest.fn().mockResolvedValue({
+          error: { message: 'TypeError: Network request failed' },
+        }),
+      });
+
+      await tarefaDeSegundoPlano({
+        data: {
+          locations: [
+            {
+              coords: {
+                latitude: -7.1,
+                longitude: -34.8,
+                accuracy: 10,
+                speed: null,
+                heading: null,
+              },
+              timestamp: Date.UTC(2026, 9, 24, 12, 0),
+            },
+          ],
+        },
+        error: null,
+      });
+
+      const gravacaoNaFila = mockSetItem.mock.calls.find(
+        ([chave]) => chave === '@rotamestre:fila_posicoes',
+      );
+      expect(gravacaoNaFila).toBeDefined();
+      expect(JSON.parse(gravacaoNaFila![1]).posicoes).toEqual([
+        expect.objectContaining({
+          motorista_id: 'motorista-456',
+          rota_id: 'rota-123',
+          fonte: 'background',
+          timestamp: '2026-10-24T12:00:00.000Z',
+        }),
+      ]);
     });
   });
 });
