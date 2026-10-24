@@ -2,15 +2,17 @@
  * useEditStopForm - Hook para gerenciamento do formulário de editar parada
  *
  * Encapsula:
- * - Estados do formulário (endereço, tipo, destinatário, etc.)
+ * - Formulário (react-hook-form + Zod: `paradaModalSchema`)
  * - Inicialização com dados da parada
  * - Detecção de mudança de endereço (para feedback visual)
- * - Handlers de mudança
+ * - Confirmação ao trocar o tipo quando isso solta um vínculo retirada -> entrega
  * - Lógica de salvamento com geocoding, update e notificação
  * - Recálculo de rota apenas se coordenadas realmente mudaram
  */
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 
 import { getErrorMessage } from '@/lib/errorMapping';
 import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
@@ -26,6 +28,10 @@ import {
   recalcularRota,
   notificarMotoristaRotaEditada,
 } from '@/lib/routeUtils';
+import {
+  paradaModalSchema,
+  type ParadaModalFormData,
+} from '@/lib/schemas/parada';
 import { supabase } from '@/lib/supabase';
 import type { Coordenadas } from '@/types/endereco';
 
@@ -49,6 +55,36 @@ export interface UseEditStopFormParams {
   motoristaId?: string | null;
 }
 
+const MENSAGEM_SEM_COORDENADAS =
+  'Não foi possível encontrar as coordenadas do endereço';
+
+const VALORES_VAZIOS: ParadaModalFormData = {
+  endereco: '',
+  tipo: 'entrega',
+  destinatario: '',
+  telefone: '',
+  observacoes: '',
+  latitude: undefined,
+  longitude: undefined,
+};
+
+function valoresDaParada(parada: Parada | null): ParadaModalFormData {
+  if (!parada) return VALORES_VAZIOS;
+  return {
+    endereco: parada.endereco || '',
+    tipo: parada.tipo,
+    destinatario: parada.destinatario || '',
+    telefone: parada.telefone || '',
+    observacoes: parada.observacoes || '',
+    latitude: parada.latitude ?? undefined,
+    longitude: parada.longitude ?? undefined,
+  };
+}
+
+function coordenadaValida(valor: number | undefined): valor is number {
+  return typeof valor === 'number' && Number.isFinite(valor);
+}
+
 export function useEditStopForm({
   visible,
   parada,
@@ -60,18 +96,24 @@ export function useEditStopForm({
   usuarioId,
   motoristaId,
 }: UseEditStopFormParams) {
-  // Form state
-  const [endereco, setEndereco] = useState('');
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [destinatario, setDestinatario] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [observacoes, setObservacoes] = useState('');
-  const [tipo, setTipo] = useState<'entrega' | 'retirada'>('entrega');
+  const form = useForm<ParadaModalFormData>({
+    resolver: zodResolver(paradaModalSchema),
+    defaultValues: valoresDaParada(parada),
+  });
+  const {
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    setError: setFieldError,
+    clearErrors,
+    watch,
+    formState: { errors, isSubmitted },
+  } = form;
 
-  // UI state
+  // UI state (erro geral: parada finalizada, falha do servidor; os de campo
+  // vêm do Zod)
   const [isSaving, setIsSaving] = useState(false);
-  const [addressChanged, setAddressChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Trocar o tipo desfaz vínculo retirada -> entrega: o gestor confirma antes.
   const [confirmacaoVinculo, setConfirmacaoVinculo] = useState<string | null>(
@@ -81,72 +123,82 @@ export function useEditStopForm({
   // Initialize form with parada data when modal opens
   useEffect(() => {
     if (visible && parada) {
-      setEndereco(parada.endereco || '');
-      setLatitude(parada.latitude);
-      setLongitude(parada.longitude);
-      setDestinatario(parada.destinatario || '');
-      setTelefone(parada.telefone || '');
-      setObservacoes(parada.observacoes || '');
-      setTipo(parada.tipo);
-      setAddressChanged(false);
+      reset(valoresDaParada(parada));
       setError(null);
       setConfirmacaoVinculo(null);
     }
-  }, [visible, parada]);
+  }, [visible, parada, reset]);
+
+  const endereco = watch('endereco');
+  const latitude = watch('latitude');
+  const longitude = watch('longitude');
+  const destinatario = watch('destinatario');
+  const telefone = watch('telefone');
+  const observacoes = watch('observacoes');
 
   // Check if form has details filled
   const hasDetails = !!(destinatario || telefone || observacoes);
 
   // Check if coordinates changed (for UI feedback - shows recalculation warning)
   const coordinatesChanged = parada
-    ? latitude !== parada.latitude || longitude !== parada.longitude
+    ? (latitude ?? null) !== parada.latitude ||
+      (longitude ?? null) !== parada.longitude
     : false;
 
   // Handle address selection from autocomplete
   // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
   const handleAddressSelect = useCallback(
     (address: string, _placeId: string, coordinates?: Coordenadas) => {
-      setEndereco(address);
-      setAddressChanged(true);
+      setValue('endereco', address);
+      setValue('latitude', coordinates?.latitude);
+      setValue('longitude', coordinates?.longitude);
       setError(null);
-
-      // Photon retorna coordenadas diretamente no autocomplete
+      // Erro cruzado: a mensagem mora em `endereco` ("não achei as
+      // coordenadas"), mas a causa era lat/long, que acabaram de chegar.
+      // `setValue` não revalida e a revalidação assíncrona perde a corrida:
+      // sem isto o erro ficaria preso ao lado do selo de endereço válido.
       if (coordinates) {
-        setLatitude(coordinates.latitude);
-        setLongitude(coordinates.longitude);
+        clearErrors('endereco');
       }
     },
-    [],
+    [setValue, clearErrors],
   );
 
-  // Handle address text change (manual typing)
+  // Handle address text change (manual typing). Outro texto invalida as
+  // coordenadas (senão o endereço novo seria gravado com o ponto do antigo); o
+  // salvar geocodifica. Voltar ao texto original restaura o ponto original.
   const handleAddressChange = useCallback(
     (text: string) => {
-      setEndereco(text);
+      setValue('endereco', text, { shouldValidate: isSubmitted });
       setError(null);
-      // Mark as changed only if different from original
-      if (text !== parada?.endereco) {
-        setAddressChanged(true);
+      if (parada && text === parada.endereco) {
+        setValue('latitude', parada.latitude ?? undefined);
+        setValue('longitude', parada.longitude ?? undefined);
+      } else {
+        setValue('latitude', undefined);
+        setValue('longitude', undefined);
       }
     },
-    [parada?.endereco],
+    [setValue, isSubmitted, parada],
   );
 
   // Handle phone formatting
-  const handlePhoneChange = useCallback((text: string) => {
-    setTelefone(maskPhone(text));
-  }, []);
+  const handlePhoneChange = useCallback(
+    (text: string) => {
+      setValue('telefone', maskPhone(text), { shouldValidate: isSubmitted });
+    },
+    [setValue, isSubmitted],
+  );
 
   // Save changes
   const salvar = useCallback(
-    async (vinculoConfirmado: boolean) => {
+    async (valores: ParadaModalFormData, vinculoConfirmado: boolean) => {
       if (!parada || !rotaId) return;
 
-      // Validate
-      if (!endereco.trim()) {
-        setError('Endereço é obrigatório');
-        return;
-      }
+      const { endereco: enderecoNovo, tipo } = valores;
+      const destinatarioNovo = valores.destinatario ?? '';
+      const telefoneNovo = valores.telefone ?? '';
+      const observacoesNovas = valores.observacoes ?? '';
 
       // Trocar o tipo solta o vínculo (da retirada para as entregas dela, ou da
       // entrega para a retirada). O banco não avisa: pede confirmação antes.
@@ -170,32 +222,35 @@ export function useEditStopForm({
         setIsSaving(true);
         setError(null);
 
-        // If address changed but no coordinates, try to geocode
-        let finalLatitude = latitude;
-        let finalLongitude = longitude;
+        // Endereço trocado sem coordenadas (digitado, sem escolher sugestão):
+        // geocodifica. Endereço igual ao original mantém o ponto que a parada
+        // já tem, mesmo que seja nulo.
+        let finalLatitude = valores.latitude;
+        let finalLongitude = valores.longitude;
 
         if (
-          addressChanged &&
-          (typeof finalLatitude !== 'number' ||
-            !Number.isFinite(finalLatitude) ||
-            typeof finalLongitude !== 'number' ||
-            !Number.isFinite(finalLongitude))
+          enderecoNovo !== parada.endereco &&
+          (!coordenadaValida(finalLatitude) ||
+            !coordenadaValida(finalLongitude))
         ) {
           // Usa Photon (gratuito!) em vez de Google Geocoding API
-          const geocoded = await photonService.geocodeAddress(endereco);
+          const geocoded = await photonService.geocodeAddress(enderecoNovo);
           if (geocoded?.coordenadas) {
             finalLatitude = geocoded.coordenadas.latitude;
             finalLongitude = geocoded.coordenadas.longitude;
           } else {
-            setError('Não foi possível encontrar as coordenadas do endereço');
+            setFieldError('endereco', {
+              type: 'custom',
+              message: MENSAGEM_SEM_COORDENADAS,
+            });
             return;
           }
         }
 
         // Check if coordinates actually changed (more accurate than text comparison)
         const coordinatesChanged =
-          finalLatitude !== parada.latitude ||
-          finalLongitude !== parada.longitude;
+          (finalLatitude ?? null) !== parada.latitude ||
+          (finalLongitude ?? null) !== parada.longitude;
 
         // Update parada in database. Condicionado a `pendente` e conferindo as
         // linhas afetadas: a tela pode estar velha (o motorista concluiu a
@@ -205,12 +260,12 @@ export function useEditStopForm({
         const { data: atualizadas, error: updateError } = await supabase
           .from('paradas')
           .update({
-            endereco,
-            latitude: finalLatitude,
-            longitude: finalLongitude,
-            destinatario: destinatario || null,
-            telefone: telefone || null,
-            observacoes: observacoes || null,
+            endereco: enderecoNovo,
+            latitude: finalLatitude ?? null,
+            longitude: finalLongitude ?? null,
+            destinatario: destinatarioNovo || null,
+            telefone: telefoneNovo || null,
+            observacoes: observacoesNovas || null,
             tipo,
             ...(soltarProprioVinculo ? { vinculo_parada_id: null } : {}),
           })
@@ -240,8 +295,8 @@ export function useEditStopForm({
         }
 
         // A retirada virou entrega: as entregas que dependiam dela perdem o
-        // vínculo (confirmado acima). Falha aqui não desfaz a edição, mas fica no
-        // log: o vínculo ficaria apontando para uma entrega.
+        // vínculo (confirmado acima). Falha aqui não desfaz a edição, mas fica
+        // no log: o vínculo ficaria apontando para uma entrega.
         if (dependentes.length > 0) {
           const { error: vinculoError } = await supabase
             .from('paradas')
@@ -269,7 +324,11 @@ export function useEditStopForm({
         if (coordinatesChanged) {
           const updatedParadas = allParadas.map((p) =>
             p.id === parada.id
-              ? { ...p, latitude: finalLatitude, longitude: finalLongitude }
+              ? {
+                  ...p,
+                  latitude: finalLatitude ?? null,
+                  longitude: finalLongitude ?? null,
+                }
               : p,
           );
 
@@ -296,10 +355,10 @@ export function useEditStopForm({
             detalhes: {
               parada_id: parada.id,
               campos_alterados: {
-                endereco: endereco !== parada.endereco,
-                destinatario: destinatario !== parada.destinatario,
-                telefone: telefone !== parada.telefone,
-                observacoes: observacoes !== parada.observacoes,
+                endereco: enderecoNovo !== parada.endereco,
+                destinatario: destinatarioNovo !== parada.destinatario,
+                telefone: telefoneNovo !== parada.telefone,
+                observacoes: observacoesNovas !== parada.observacoes,
                 tipo: tipo !== parada.tipo,
               },
               coordenadas_alteradas: coordinatesChanged,
@@ -310,10 +369,10 @@ export function useEditStopForm({
         // Notify motorista about the edit (if assigned)
         if (motoristaId) {
           const camposEditados: string[] = [];
-          if (endereco !== parada.endereco) camposEditados.push('endereço');
-          if (destinatario !== parada.destinatario)
+          if (enderecoNovo !== parada.endereco) camposEditados.push('endereço');
+          if (destinatarioNovo !== parada.destinatario)
             camposEditados.push('destinatário');
-          if (telefone !== parada.telefone) camposEditados.push('telefone');
+          if (telefoneNovo !== parada.telefone) camposEditados.push('telefone');
           if (tipo !== parada.tipo) camposEditados.push('tipo');
 
           const mensagem =
@@ -342,14 +401,7 @@ export function useEditStopForm({
     [
       parada,
       rotaId,
-      endereco,
-      latitude,
-      longitude,
-      destinatario,
-      telefone,
-      observacoes,
-      tipo,
-      addressChanged, // Still needed for geocoding trigger
+      setFieldError,
       enderecoUnidade,
       allParadas,
       usuarioId,
@@ -359,29 +411,26 @@ export function useEditStopForm({
     ],
   );
 
-  const handleSave = useCallback(() => salvar(false), [salvar]);
+  const handleSave = useCallback(
+    () => handleSubmit((valores) => salvar(valores, false))(),
+    [handleSubmit, salvar],
+  );
 
   const confirmarSalvarComVinculo = useCallback(() => {
     setConfirmacaoVinculo(null);
-    return salvar(true);
-  }, [salvar]);
+    return handleSubmit((valores) => salvar(valores, true))();
+  }, [handleSubmit, salvar]);
 
   const cancelarConfirmacaoVinculo = useCallback(() => {
     setConfirmacaoVinculo(null);
   }, []);
 
   return {
-    // Form values
+    // Formulário (Controller nos modais)
+    form,
+    control,
+    errors,
     endereco,
-    destinatario,
-    telefone,
-    observacoes,
-    tipo,
-
-    // Setters
-    setDestinatario,
-    setObservacoes,
-    setTipo,
 
     // Handlers
     handleAddressSelect,

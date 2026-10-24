@@ -59,6 +59,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
     onChangeText,
     onSelectAddress,
     placeholder,
+    error,
   }: {
     value: string;
     onChangeText: (text: string) => void;
@@ -68,6 +69,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
       coordinates?: { latitude: number; longitude: number },
     ) => void;
     placeholder: string;
+    error?: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
     return (
@@ -89,6 +91,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         >
           <Text>Rua Teste, 123</Text>
         </TouchableOpacity>
+        {error ? <Text testID="address-error">{error}</Text> : null}
       </View>
     );
   },
@@ -333,13 +336,44 @@ describe('AddStopModal', () => {
   });
 
   describe('Validação', () => {
+    it('telefone incompleto mostra o erro abaixo do campo e não chama a RPC', async () => {
+      const { getByTestId, getByText, getByPlaceholderText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
+
+      fireEvent.press(getByTestId('address-suggestion'));
+      fireEvent.changeText(getByPlaceholderText('(00) 00000-0000'), '11999');
+      fireEvent.press(getByText('Adicionar'));
+
+      await waitFor(() => {
+        expect(
+          getByText('Telefone deve ter DDD e 10 ou 11 dígitos.'),
+        ).toBeTruthy();
+      });
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+
+    it('o erro de endereço aparece no próprio campo (erro de campo, não banner)', async () => {
+      const { getByTestId, getByText } = render(
+        <AddStopModal {...defaultProps} />,
+      );
+
+      fireEvent.press(getByText('Adicionar'));
+
+      await waitFor(() => {
+        expect(getByTestId('address-error').props.children).toBe(
+          'Informe um endereço válido.',
+        );
+      });
+    });
+
     it('deve exibir erro quando endereço está vazio', async () => {
       const { getByText } = render(<AddStopModal {...defaultProps} />);
 
       fireEvent.press(getByText('Adicionar'));
 
       await waitFor(() => {
-        expect(getByText('Endereço é obrigatório')).toBeTruthy();
+        expect(getByText('Informe um endereço válido.')).toBeTruthy();
       });
     });
 

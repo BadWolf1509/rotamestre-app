@@ -68,6 +68,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
     onChangeText,
     onSelectAddress,
     placeholder,
+    error,
   }: {
     value: string;
     onChangeText: (text: string) => void;
@@ -77,6 +78,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
       coordinates?: { latitude: number; longitude: number },
     ) => void;
     placeholder: string;
+    error?: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
     return (
@@ -98,6 +100,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         >
           <Text>Rua Nova, 456</Text>
         </TouchableOpacity>
+        {error ? <Text testID="address-error">{error}</Text> : null}
       </View>
     );
   },
@@ -453,6 +456,42 @@ describe('EditStopModal', () => {
       await waitFor(() => {
         // Deve chamar console.error
         expect(console.error).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Validação Zod (G14)', () => {
+    it('telefone incompleto: erro abaixo do campo, nada é gravado', async () => {
+      mockFrom.mockImplementation(() => {
+        throw new Error('não devia gravar');
+      });
+      const { getByText, getByPlaceholderText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
+
+      fireEvent.changeText(getByPlaceholderText('(00) 00000-0000'), '11999');
+      fireEvent.press(getByText('Salvar'));
+
+      await waitFor(() => {
+        expect(
+          getByText('Telefone deve ter DDD e 10 ou 11 dígitos.'),
+        ).toBeTruthy();
+      });
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it('endereço apagado: erro no próprio campo de endereço', async () => {
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
+
+      fireEvent.changeText(getByTestId('address-input'), '');
+      fireEvent.press(getByText('Salvar'));
+
+      await waitFor(() => {
+        expect(getByTestId('address-error').props.children).toBe(
+          'Informe um endereço válido.',
+        );
       });
     });
   });

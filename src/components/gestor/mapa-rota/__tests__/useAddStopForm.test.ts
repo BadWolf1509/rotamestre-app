@@ -21,7 +21,8 @@ jest.mock('@/lib/supabase', () => ({
 
 const mockMarcarOtimizacao = jest.fn();
 jest.mock('@/lib/gestor/otimizacaoRota', () => ({
-  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+  marcarOtimizacaoAlterada: (...args: unknown[]) =>
+    mockMarcarOtimizacao(...args),
 }));
 
 jest.mock('@/lib/photon', () => ({
@@ -234,5 +235,128 @@ describe('useAddStopForm: rota otimizada vira otimizada_alterada (G12)', () => {
     await inserirNaPosicao2();
 
     expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
+  });
+});
+
+describe('useAddStopForm: validação Zod e erro cruzado (G14)', () => {
+  const geocode = jest.requireMock('@/lib/photon').photonService
+    .geocodeAddress as jest.Mock;
+
+  function montar(count = 4) {
+    const onSave = jest.fn();
+    const hook = renderHook(() =>
+      useAddStopForm({
+        visible: true,
+        rotaId: 'rota-1',
+        enderecoUnidade: UNIDADE,
+        currentParadasCount: count,
+        allParadas: ANTES as never,
+        onSave,
+      }),
+    );
+    return { ...hook, onSave };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockMarcarOtimizacao.mockResolvedValue(true);
+    prepararBanco();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('endereço vazio: erro no campo, sem RPC', async () => {
+    const { result, onSave } = montar();
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.errors.endereco?.message).toBe(
+      'Informe um endereço válido.',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('telefone incompleto: erro no campo, sem RPC', async () => {
+    const { result } = montar();
+
+    act(() => {
+      result.current.handleAddressSelect('Rua Nova, 1', 'x', {
+        latitude: -7,
+        longitude: -34,
+      });
+      result.current.handlePhoneChange('1199');
+    });
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.errors.telefone?.message).toBe(
+      'Telefone deve ter DDD e 10 ou 11 dígitos.',
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('digitado sem sugestão e sem achar no geocoder: erro em endereco; escolher sugestão limpa (clearErrors)', async () => {
+    geocode.mockResolvedValue(null);
+    const { result } = montar();
+
+    act(() => result.current.handleAddressChange('Rua Fantasma, 123'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.errors.endereco?.message).toMatch(
+      /Não foi possível encontrar as coordenadas/,
+    );
+    expect(mockRpc).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleAddressSelect('Rua Real, 10', 'x', {
+        latitude: -7.3,
+        longitude: -34.7,
+      });
+    });
+    expect(result.current.errors.endereco).toBeUndefined();
+    expect(result.current.hasValidCoordinates).toBe(true);
+  });
+
+  it('digitar depois de escolher sugestão invalida o selo Validado', () => {
+    const { result } = montar();
+
+    act(() => {
+      result.current.handleAddressSelect('Rua Real, 10', 'x', {
+        latitude: -7.3,
+        longitude: -34.7,
+      });
+    });
+    expect(result.current.hasValidCoordinates).toBe(true);
+
+    act(() => result.current.handleAddressChange('Rua Real, 10 A'));
+    expect(result.current.hasValidCoordinates).toBe(false);
+  });
+
+  it('com 50 paradas o salvar recusa pelo limite único, sem RPC', async () => {
+    const { result } = montar(50);
+    act(() => {
+      result.current.handleAddressSelect('Rua Nova, 1', 'x', {
+        latitude: -7,
+        longitude: -34,
+      });
+    });
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.error).toBe('Limite de 50 paradas atingido');
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });

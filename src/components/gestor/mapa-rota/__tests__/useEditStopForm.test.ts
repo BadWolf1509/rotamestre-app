@@ -19,7 +19,8 @@ jest.mock('@/lib/supabase', () => ({
 
 const mockMarcarOtimizacao = jest.fn();
 jest.mock('@/lib/gestor/otimizacaoRota', () => ({
-  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+  marcarOtimizacaoAlterada: (...args: unknown[]) =>
+    mockMarcarOtimizacao(...args),
 }));
 
 jest.mock('@/lib/photon', () => ({
@@ -203,7 +204,7 @@ describe('useEditStopForm: rota otimizada vira otimizada_alterada (G12)', () => 
   it('mudou o tipo: marca', async () => {
     const { result } = montar();
 
-    act(() => result.current.setTipo('retirada'));
+    act(() => result.current.form.setValue('tipo', 'retirada'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -215,8 +216,8 @@ describe('useEditStopForm: rota otimizada vira otimizada_alterada (G12)', () => 
     const { result } = montar();
 
     act(() => {
-      result.current.setDestinatario('Bia');
-      result.current.setObservacoes('portão azul');
+      result.current.form.setValue('destinatario', 'Bia');
+      result.current.form.setValue('observacoes', 'portão azul');
     });
     await act(async () => {
       await result.current.handleSave();
@@ -230,7 +231,7 @@ describe('useEditStopForm: rota otimizada vira otimizada_alterada (G12)', () => 
     mockFrom.mockImplementation(() => ({ update: cadeia.update }));
     const { result } = montar();
 
-    act(() => result.current.setTipo('retirada'));
+    act(() => result.current.form.setValue('tipo', 'retirada'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -284,7 +285,8 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
           return {
             eq: () => ({
               eq: () => ({
-                select: () => Promise.resolve({ data: [{ id: 'x' }], error: null }),
+                select: () =>
+                  Promise.resolve({ data: [{ id: 'x' }], error: null }),
               }),
             }),
           };
@@ -299,7 +301,7 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
       allParadas: [retirada, entrega],
     });
 
-    act(() => result.current.setTipo('entrega'));
+    act(() => result.current.form.setValue('tipo', 'entrega'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -315,7 +317,7 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
       allParadas: [retirada, entrega],
     });
 
-    act(() => result.current.setTipo('entrega'));
+    act(() => result.current.form.setValue('tipo', 'entrega'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -340,7 +342,7 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
       allParadas: [retirada, entrega],
     });
 
-    act(() => result.current.setTipo('entrega'));
+    act(() => result.current.form.setValue('tipo', 'entrega'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -357,7 +359,7 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
       allParadas: [retirada, entrega],
     });
 
-    act(() => result.current.setTipo('retirada'));
+    act(() => result.current.form.setValue('tipo', 'retirada'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -379,7 +381,7 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
       allParadas: [retirada],
     });
 
-    act(() => result.current.setTipo('entrega'));
+    act(() => result.current.form.setValue('tipo', 'entrega'));
     await act(async () => {
       await result.current.handleSave();
     });
@@ -387,5 +389,106 @@ describe('useEditStopForm: trocar o tipo mexe no vínculo retirada -> entrega (G
     expect(result.current.confirmacaoVinculo).toBeNull();
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(updates).toHaveLength(1);
+  });
+});
+
+describe('useEditStopForm: validação Zod e erro cruzado (G14)', () => {
+  const geocode = jest.requireMock('@/lib/photon').photonService
+    .geocodeAddress as jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRecalcular.mockResolvedValue({ success: true });
+    mockNotificar.mockResolvedValue({ success: true });
+    mockMarcarOtimizacao.mockResolvedValue(true);
+    const cadeia = cadeiaUpdate({ data: [{ id: 'p1' }], error: null });
+    mockFrom.mockImplementation((tabela: string) =>
+      tabela === 'paradas'
+        ? { update: cadeia.update }
+        : { insert: jest.fn().mockResolvedValue({ error: null }) },
+    );
+  });
+
+  it('endereço apagado: erro no campo, e nada vai ao banco', async () => {
+    const { result, onSave } = montar();
+
+    act(() => result.current.handleAddressChange(''));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.errors.endereco?.message).toBe(
+      'Informe um endereço válido.',
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('telefone incompleto: erro no campo telefone', async () => {
+    const { result, onSave } = montar();
+
+    act(() => result.current.handlePhoneChange('11999'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.errors.telefone?.message).toBe(
+      'Telefone deve ter DDD e 10 ou 11 dígitos.',
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('digitar outro endereço zera as coordenadas; sem achar no geocoder, o erro mora em endereco', async () => {
+    geocode.mockResolvedValue(null);
+    const { result, onSave } = montar();
+
+    act(() => result.current.handleAddressChange('Rua Que Não Existe, 99'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(geocode).toHaveBeenCalledWith('Rua Que Não Existe, 99');
+    expect(result.current.errors.endereco?.message).toMatch(
+      /Não foi possível encontrar as coordenadas/,
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('escolher uma sugestão com coordenadas limpa o erro preso em endereco (clearErrors)', async () => {
+    geocode.mockResolvedValue(null);
+    const { result, onSave } = montar();
+
+    act(() => result.current.handleAddressChange('Rua Que Não Existe, 99'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+    expect(result.current.errors.endereco).toBeDefined();
+
+    act(() => {
+      result.current.handleAddressSelect('Rua Real, 10', 'x', {
+        latitude: -7.3,
+        longitude: -34.7,
+      });
+    });
+
+    expect(result.current.errors.endereco).toBeUndefined();
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('digitar de volta o endereço original restaura as coordenadas dele (não geocodifica)', async () => {
+    const { result, onSave } = montar();
+
+    act(() => result.current.handleAddressChange('Rua B, 2'));
+    act(() => result.current.handleAddressChange(parada.endereco));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(geocode).not.toHaveBeenCalled();
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
