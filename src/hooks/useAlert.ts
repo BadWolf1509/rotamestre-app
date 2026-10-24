@@ -47,8 +47,12 @@
 import React, { useCallback, useRef, useState } from 'react';
 
 import { Dialog } from '@/components/Dialog';
-import type { DialogType, DialogVariant } from '@/components/Dialog/Dialog.types';
+import type {
+  DialogType,
+  DialogVariant,
+} from '@/components/Dialog/Dialog.types';
 import { getErrorMessage, type UserFriendlyError } from '@/lib/errorMapping';
+import type { IconName } from '@/types/icons';
 
 // ============================================================================
 // TYPES
@@ -59,6 +63,7 @@ interface AlertState {
   title: string;
   message: string;
   type: DialogType;
+  icon?: IconName;
   variant: DialogVariant;
   confirmText?: string;
   cancelText?: string;
@@ -78,6 +83,8 @@ interface ShowConfirmOptions {
   title: string;
   message: string;
   type?: DialogType;
+  /** Ícone próprio; vence o do `type` (ex.: sair, em vez da lixeira do 'danger') */
+  icon?: IconName;
   confirmText?: string;
   cancelText?: string;
   onConfirm?: () => void;
@@ -102,7 +109,10 @@ export interface UseAlertReturn {
   /** Show a warning alert */
   showWarning: (title: string, message: string, onDismiss?: () => void) => void;
   /** Show an error alert - can accept Error object or options */
-  showError: (errorOrOptions: unknown | ShowErrorOptions, fallbackOptions?: ShowErrorOptions) => void;
+  showError: (
+    errorOrOptions: unknown | ShowErrorOptions,
+    fallbackOptions?: ShowErrorOptions,
+  ) => void;
   /** Show a confirmation dialog - returns Promise<boolean> */
   showConfirm: (options: ShowConfirmOptions) => Promise<boolean>;
   /** Show a destructive confirmation dialog */
@@ -151,7 +161,13 @@ export function useAlert(): UseAlertReturn {
 
   // Show simple alert (OK only)
   const showAlert = useCallback(
-    ({ title, message, type = 'default', confirmText, onConfirm }: ShowAlertOptions) => {
+    ({
+      title,
+      message,
+      type = 'default',
+      confirmText,
+      onConfirm,
+    }: ShowAlertOptions) => {
       onConfirmRef.current = onConfirm;
       onCancelRef.current = undefined;
       setState({
@@ -164,7 +180,7 @@ export function useAlert(): UseAlertReturn {
         confirmText,
       });
     },
-    []
+    [],
   );
 
   // Show success alert
@@ -172,7 +188,7 @@ export function useAlert(): UseAlertReturn {
     (title: string, message: string, onDismiss?: () => void) => {
       showAlert({ title, message, type: 'success', onConfirm: onDismiss });
     },
-    [showAlert]
+    [showAlert],
   );
 
   // Show warning alert
@@ -180,12 +196,15 @@ export function useAlert(): UseAlertReturn {
     (title: string, message: string, onDismiss?: () => void) => {
       showAlert({ title, message, type: 'warning', onConfirm: onDismiss });
     },
-    [showAlert]
+    [showAlert],
   );
 
   // Show error alert - handles Error objects or plain options
   const showError = useCallback(
-    (errorOrOptions: unknown | ShowErrorOptions, fallbackOptions?: ShowErrorOptions) => {
+    (
+      errorOrOptions: unknown | ShowErrorOptions,
+      fallbackOptions?: ShowErrorOptions,
+    ) => {
       let title: string;
       let message: string;
       let onDismiss: (() => void) | undefined;
@@ -205,7 +224,8 @@ export function useAlert(): UseAlertReturn {
         onDismiss = opts.onDismiss;
       } else {
         // It's an error - use errorMapping to get user-friendly message
-        const friendlyError: UserFriendlyError = getErrorMessage(errorOrOptions);
+        const friendlyError: UserFriendlyError =
+          getErrorMessage(errorOrOptions);
         title = fallbackOptions?.title || friendlyError.title;
         message = fallbackOptions?.message || friendlyError.message;
         onDismiss = fallbackOptions?.onDismiss;
@@ -213,7 +233,7 @@ export function useAlert(): UseAlertReturn {
 
       showAlert({ title, message, type: 'error', onConfirm: onDismiss });
     },
-    [showAlert]
+    [showAlert],
   );
 
   // Show confirmation dialog - returns promise
@@ -222,6 +242,7 @@ export function useAlert(): UseAlertReturn {
       title,
       message,
       type = 'default',
+      icon,
       confirmText,
       cancelText,
       onConfirm,
@@ -237,13 +258,14 @@ export function useAlert(): UseAlertReturn {
           title,
           message,
           type,
+          icon,
           variant: 'confirm',
           confirmText,
           cancelText,
         });
       });
     },
-    []
+    [],
   );
 
   // Show destructive confirmation dialog
@@ -275,7 +297,7 @@ export function useAlert(): UseAlertReturn {
         });
       });
     },
-    []
+    [],
   );
 
   // Handle confirm button
@@ -299,6 +321,7 @@ export function useAlert(): UseAlertReturn {
         title: state.title,
         message: state.message,
         type: state.type,
+        icon: state.icon,
         variant: state.variant,
         confirmText: state.confirmText,
         cancelText: state.cancelText,

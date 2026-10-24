@@ -8,13 +8,19 @@ import { View } from 'react-native';
 
 import type { IconName } from '@/types/icons';
 
-import { DialogVariant, DialogType, ICON_MAP, ALERT_ICON_MAP } from './Dialog.types';
+import {
+  DialogVariant,
+  DialogType,
+  ICON_MAP,
+  ALERT_ICON_MAP,
+} from './Dialog.types';
 
 import type { ViewStyle, StyleProp } from 'react-native';
 
 interface DialogIconProps {
   variant: DialogVariant;
   type: DialogType;
+  icon?: IconName;
   iconColor: string;
   iconBgColor: string;
   size?: number;
@@ -23,7 +29,12 @@ interface DialogIconProps {
 }
 
 /** Get icon name based on variant and type */
-export function getIconName(variant: DialogVariant, type: DialogType): IconName {
+export function getIconName(
+  variant: DialogVariant,
+  type: DialogType,
+  icon?: IconName,
+): IconName {
+  if (icon) return icon;
   if (variant === 'alert') {
     return ALERT_ICON_MAP[type] || ALERT_ICON_MAP.default;
   }
@@ -37,13 +48,14 @@ export function getIconName(variant: DialogVariant, type: DialogType): IconName 
 export const DialogIcon = memo(function DialogIcon({
   variant,
   type,
+  icon,
   iconColor,
   iconBgColor,
   size = 28,
   containerSize = 56,
   style,
 }: DialogIconProps) {
-  const iconName = getIconName(variant, type);
+  const iconName = getIconName(variant, type, icon);
 
   return (
     <View
