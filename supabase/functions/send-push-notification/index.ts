@@ -34,6 +34,7 @@ import {
   resumoDoTicket,
   tokenDeveSerLimpo,
 } from './expoTicket.ts';
+import { decidirEnvio, lerPreferenciaDePush } from './preferenciaDePush.ts';
 import {
   apagarTokenMorto,
   lerTokensDaConta,
@@ -190,6 +191,46 @@ Deno.serve(async (req: Request) => {
         status: 400,
         headers,
       });
+    }
+
+    // Preferência de push da conta (Migration 47). O SOS sempre passa; sem
+    // linha vale tudo ligado; consulta que falha (inclusive a tabela ainda
+    // não existir) ENVIA — o aviso importa mais (ver preferenciaDePush.ts).
+    const { preferencia, erro: preferenciaErro } = await lerPreferenciaDePush(
+      supabase,
+      usuario_id,
+    );
+    if (preferenciaErro) {
+      console.warn(
+        `[send-push] Preferência não lida (usuário ${usuario_id}); enviando:`,
+        preferenciaErro,
+      );
+    }
+    const decisao = decidirEnvio({
+      tipo,
+      preferencia,
+      erro: preferenciaErro,
+    });
+    if (!decisao.envia) {
+      console.log(
+        `[send-push] Usuário ${usuario_id} desligou este push (${decisao.motivo}), tipo '${tipo}'`,
+      );
+      await logPushAttempt(supabase, {
+        notificacao_id,
+        usuario_id,
+        push_token: null,
+        status: 'skipped',
+        error_message: `Preferência do usuário: ${decisao.motivo}`,
+      });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: 'preferencia_do_usuario',
+          motivo: decisao.motivo,
+        }),
+        { headers },
+      );
     }
 
     // Tokens da conta (Migration 45): um por aparelho, em push_tokens. Sem a
@@ -383,7 +424,7 @@ async function logPushAttempt(
     notificacao_id: string | null;
     usuario_id: string;
     push_token: string | null;
-    status: 'sent' | 'failed' | 'no_token';
+    status: 'sent' | 'failed' | 'no_token' | 'skipped';
     response?: unknown;
     error_message?: string | null;
   },
