@@ -597,6 +597,95 @@ describe('LocationTrackingService', () => {
       ).toBe('stop-7');
     });
 
+    // Achado B da 1.14.4: em modo avião a busca da parada voltava null, lançava
+    // "Parada não encontrada" e o motorista via um alerta de erro. O chamador
+    // já tem a parada na mão.
+    describe('sem rede', () => {
+      const destino = {
+        latitude: -23.55,
+        longitude: -46.63,
+        endereco: 'Rua Test 123',
+      };
+      const erroDeRede = {
+        data: null,
+        error: { message: 'TypeError: Network request failed' },
+      };
+
+      it('com as coordenadas do chamador: inicia sem consultar o Supabase e sem alerta', async () => {
+        mockFrom.mockReturnValue(createChain(erroDeRede));
+
+        const result = await locationTrackingService.startTracking(
+          'rota-1',
+          'stop-1',
+          'stop-2',
+          destino,
+        );
+
+        expect(result).toBe(true);
+        expect(mockFrom).not.toHaveBeenCalled();
+        expect(Alert.alert).not.toHaveBeenCalled();
+        expect(Location.startLocationUpdatesAsync).toHaveBeenCalledWith(
+          'background-location-tracking',
+          expect.objectContaining({
+            foregroundService: expect.objectContaining({
+              notificationBody: 'Navegando para Rua Test 123',
+            }),
+          }),
+        );
+        expect(
+          (locationTrackingService as any).navigationState.currentStopLocation,
+        ).toEqual({ latitude: -23.55, longitude: -46.63 });
+      });
+
+      it('sem coordenadas e sem rede: avisa no log, não alerta e segue sem geofence', async () => {
+        mockFrom.mockReturnValue(createChain(erroDeRede));
+
+        const result = await locationTrackingService.startTracking(
+          'rota-1',
+          'stop-1',
+        );
+
+        expect(result).toBe(true);
+        expect(Alert.alert).not.toHaveBeenCalled();
+        expect(consoleWarnSpy).toHaveBeenCalled();
+        const state = (locationTrackingService as any).navigationState;
+        expect(state.currentStopId).toBe('stop-1');
+        expect(state.currentStopLocation).toBeUndefined();
+        // Sem alvo, o serviço em primeiro plano não teria o que medir.
+        expect(Location.startLocationUpdatesAsync).not.toHaveBeenCalled();
+      });
+
+      it('coordenada inválida do chamador cai na busca no servidor', async () => {
+        mockFrom.mockReturnValue(createChain({ data: stopData, error: null }));
+
+        const result = await locationTrackingService.startTracking(
+          'rota-1',
+          'stop-1',
+          undefined,
+          { latitude: Number.NaN, longitude: -46.63, endereco: 'x' },
+        );
+
+        expect(result).toBe(true);
+        expect(mockFrom).toHaveBeenCalledWith('paradas');
+      });
+
+      it('permissão negada continua devolvendo false com alerta', async () => {
+        (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue(
+          { status: 'denied' },
+        );
+
+        const result = await locationTrackingService.startTracking(
+          'rota-1',
+          'stop-1',
+          undefined,
+          destino,
+        );
+
+        expect(result).toBe(false);
+        expect(Alert.alert).toHaveBeenCalledWith('Erro', expect.any(String));
+      });
+    });
+
     it('deve retornar false quando parada não encontrada', async () => {
       const chain = createChain({ data: null, error: null });
       mockFrom.mockReturnValue(chain);

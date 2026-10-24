@@ -4,6 +4,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
+import { isNetworkError } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import {
@@ -26,6 +27,23 @@ interface LocationUpdate {
   timestamp: number;
   speed?: number;
   heading?: number;
+}
+
+/** Coordenadas e endereço da parada-alvo, como o chamador já os tem. */
+export interface DestinoDaParada {
+  latitude: number;
+  longitude: number;
+  endereco?: string;
+}
+
+function destinoValido(
+  destino: DestinoDaParada | undefined,
+): destino is DestinoDaParada {
+  return (
+    !!destino &&
+    Number.isFinite(destino.latitude) &&
+    Number.isFinite(destino.longitude)
+  );
 }
 
 /** Para onde o botão "Navegar" leva: o mapa do app ou o app externo. */
@@ -120,6 +138,7 @@ class LocationTrackingService {
     rotaId: string,
     currentStopId: string,
     nextStopId?: string,
+    destino?: DestinoDaParada,
   ) {
     try {
       const permissions = await checkLocationPermissions();
@@ -136,15 +155,30 @@ class LocationTrackingService {
       // Load navigation preferences
       const prefs = await this.getNavigationPreferences();
 
-      // Get current stop details
-      const { data: stopData } = await supabase
-        .from('paradas')
-        .select('latitude, longitude, endereco')
-        .eq('id', currentStopId)
-        .single();
-
+      // O chamador já tem a parada: só vai ao servidor se faltar coordenada.
+      // Sem rede a busca volta null, e o "Parada não encontrada" virava um
+      // alerta falso de erro de rastreamento (moto g15, modo avião, 24/10).
+      let stopData: DestinoDaParada | null = destinoValido(destino)
+        ? destino
+        : null;
       if (!stopData) {
-        throw new Error('Parada não encontrada');
+        const { data, error } = await supabase
+          .from('paradas')
+          .select('latitude, longitude, endereco')
+          .eq('id', currentStopId)
+          .single();
+        if (data) {
+          stopData = data;
+        } else if (error && isNetworkError(error)) {
+          // Sem rede e sem coordenadas: não é falha de rastreamento. Segue sem
+          // geofence; a próxima troca de parada (ou volta da rede) refaz.
+          logger.warn(
+            '[LocationTracking] Sem rede e sem coordenadas da parada; seguindo sem geofence',
+            error,
+          );
+        } else {
+          throw new Error('Parada não encontrada');
+        }
       }
 
       // Update navigation state
@@ -157,10 +191,9 @@ class LocationTrackingService {
         rotaId,
         currentStopId,
         nextStopId,
-        currentStopLocation: {
-          latitude: stopData.latitude,
-          longitude: stopData.longitude,
-        },
+        currentStopLocation: stopData
+          ? { latitude: stopData.latitude, longitude: stopData.longitude }
+          : undefined,
       };
 
       // Save state to AsyncStorage for background task
@@ -168,6 +201,9 @@ class LocationTrackingService {
         'navigationState',
         JSON.stringify(this.navigationState),
       );
+
+      // Sem alvo não há o que medir: não sobe serviço em primeiro plano.
+      if (!stopData) return true;
 
       // Já há serviço em primeiro plano com GPS: só o alvo mudou.
       const jaRodando =
@@ -187,7 +223,9 @@ class LocationTrackingService {
         distanceInterval: 10, // Or every 10 meters
         foregroundService: {
           notificationTitle: 'RotaMestre - Navegação Ativa',
-          notificationBody: `Navegando para ${stopData.endereco}`,
+          notificationBody: stopData.endereco
+            ? `Navegando para ${stopData.endereco}`
+            : 'Navegando para a parada',
           notificationColor: defaultTheme.colors.primary,
         },
         pausesUpdatesAutomatically: false,
