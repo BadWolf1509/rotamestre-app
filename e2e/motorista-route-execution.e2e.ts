@@ -101,9 +101,12 @@ test.describe('Motorista Route Execution E2E Tests', () => {
     test('should display stop details if route exists', async ({ page }) => {
       await page.waitForTimeout(2000);
 
-      const paradasTab = page.getByText(/paradas/i).first();
-      if (await paradasTab.isVisible()) {
-        await paradasTab.click();
+      // Pela aba da barra inferior (page object, `getByRole('tab')`), nunca por
+      // `getByText(/paradas/i).first()`: com parada em andamento o primeiro
+      // casamento é o texto da Início ("3 paradas restantes • 39,2 km"), e o
+      // cartão de deslizar intercepta o clique (timeout de 15 s no CI do #648).
+      if (await motoristaPage.paradasTab.isVisible()) {
+        await motoristaPage.navigateToParadas();
         await page.waitForTimeout(2000);
       }
 
