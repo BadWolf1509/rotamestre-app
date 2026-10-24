@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ParadaData, RouteData } from '@/context/route-status/types';
 import { logger } from '@/lib/logger';
 
+import { criarAcaoParada } from '../filaAcoesParada';
 import {
+  aplicarAcoesNaRotaGuardada,
   CHAVE_ROTA_GUARDADA,
   gravarRotaGuardada,
   lerRotaGuardada,
@@ -134,5 +136,70 @@ describe('rota guardada (stale-if-error, por conta)', () => {
       }),
     ).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();
+  });
+});
+
+describe('ação que subiu entra no retrato (Minor 3 da revisão final)', () => {
+  const conclusao = (motoristaId = 'm1', rotaId = 'r1') =>
+    criarAcaoParada({
+      tipo: 'concluir',
+      paradaId: 'p1',
+      rotaId,
+      motoristaId,
+      em: '2026-10-24T12:00:00.000Z',
+    });
+
+  async function guardar() {
+    await gravarRotaGuardada('m1', {
+      route: rota,
+      paradas,
+      pendingRoutesCount: 0,
+      guardadoEm: 1_700_000_000_000,
+    });
+  }
+
+  it('marca a parada concluída e mantém a hora do retrato', async () => {
+    await guardar();
+
+    await aplicarAcoesNaRotaGuardada('m1', [conclusao()]);
+
+    const lido = await lerRotaGuardada('m1');
+    expect(lido?.paradas[0].status).toBe('concluida');
+    expect(lido?.paradas[0].concluida_em).toBe('2026-10-24T12:00:00.000Z');
+    expect(lido?.guardadoEm).toBe(1_700_000_000_000);
+  });
+
+  it('não mexe no retrato de outra conta nem em ação de outra rota', async () => {
+    await guardar();
+
+    await aplicarAcoesNaRotaGuardada('m2', [conclusao('m2')]);
+    await aplicarAcoesNaRotaGuardada('m1', [conclusao('m1', 'outra-rota')]);
+
+    expect((await lerRotaGuardada('m1'))?.paradas[0].status).toBe('pendente');
+  });
+
+  it('em série: um retrato fresco gravado depois não é sobrescrito pela correção', async () => {
+    await guardar();
+    // Leitura lenta: sem a série, a gravação fresca cairia no meio da
+    // correção, e a correção a sobrescreveria com o retrato velho.
+    let leu: () => void = () => undefined;
+    const leitura = new Promise<void>((ok) => (leu = ok));
+    (AsyncStorage.getItem as jest.Mock).mockImplementationOnce((k: string) => {
+      const valor = memoria.get(k) ?? null;
+      leu();
+      return new Promise((ok) => setTimeout(() => ok(valor), 10));
+    });
+
+    const correcao = aplicarAcoesNaRotaGuardada('m1', [conclusao()]);
+    await leitura;
+    const fresco = gravarRotaGuardada('m1', {
+      route: rota,
+      paradas,
+      pendingRoutesCount: 0,
+      guardadoEm: 2,
+    });
+    await Promise.all([correcao, fresco]);
+
+    expect((await lerRotaGuardada('m1'))?.guardadoEm).toBe(2);
   });
 });

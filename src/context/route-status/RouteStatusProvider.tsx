@@ -26,7 +26,10 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
-import { sobreporAcoesPendentes } from '@/lib/motorista/filaAcoesParada';
+import {
+  acoesQueSubiram,
+  sobreporAcoesPendentes,
+} from '@/lib/motorista/filaAcoesParada';
 import { solicitarEnvioFila } from '@/lib/offline';
 
 import {
@@ -56,6 +59,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     error,
     atualizadoEm,
     loadActiveRoute,
+    aplicarAcoesEnviadas,
   } = useLoadActiveRoute({ userLoading, motoristaId });
 
   // Concluir/pular feitos sem rede ficam na fila do aparelho
@@ -92,12 +96,36 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   }, [enviarFila, loadActiveRoute]);
 
   // A fila encolheu (enviada ou descartada): o banco mudou, recarrega.
-  const tamanhoAnteriorDaFila = useRef(filaDeAcoes.acoes.length);
+  // A sobreposição some junto com a fila; o que SUBIU entra antes no estado
+  // base (memória + retrato), senão uma recarga que falhe devolveria a
+  // parada a "pendente" (revisão final da 1.14.5, Minor 3). Descartada não
+  // entra: o banco tem outra decisão, e a recarga a traz.
+  const filaAnterior = useRef({ motoristaId, acoes: filaDeAcoes.acoes });
   useEffect(() => {
-    const anterior = tamanhoAnteriorDaFila.current;
-    tamanhoAnteriorDaFila.current = filaDeAcoes.acoes.length;
-    if (filaDeAcoes.acoes.length < anterior) void loadActiveRoute();
-  }, [filaDeAcoes.acoes.length, loadActiveRoute]);
+    const anterior = filaAnterior.current;
+    filaAnterior.current = { motoristaId, acoes: filaDeAcoes.acoes };
+    if (filaDeAcoes.acoes.length >= anterior.acoes.length) return;
+    // Troca de conta também esvazia a lista: nada subiu.
+    if (anterior.motoristaId === motoristaId) {
+      aplicarAcoesEnviadas(
+        acoesQueSubiram(
+          anterior.acoes,
+          filaDeAcoes.acoes,
+          filaDeAcoes.descartes,
+        ),
+        route?.id,
+      );
+    }
+    void loadActiveRoute();
+    // Rodar por outra dependência é inofensivo: sem encolher, sai no início.
+  }, [
+    filaDeAcoes.acoes,
+    filaDeAcoes.descartes,
+    motoristaId,
+    route?.id,
+    loadActiveRoute,
+    aplicarAcoesEnviadas,
+  ]);
 
   // Route actions (start, complete stop, skip, complete route)
   const { startRoute, completeStop, skipStop, completeRoute } = useRouteActions(

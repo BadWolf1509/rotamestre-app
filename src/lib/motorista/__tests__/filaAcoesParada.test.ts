@@ -9,6 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
+  acoesQueSubiram,
   aplicarAcaoParada,
   criarAcaoParada,
   enfileirarAcaoParada,
@@ -668,4 +669,29 @@ describe('ehErroDefinitivo — SQLSTATE transitório não conta tentativa', () =
       expect(ehErroDefinitivo({ code, message: 'recusa' })).toBe(true);
     },
   );
+});
+
+describe('acoesQueSubiram', () => {
+  const acao = (paradaId: string) =>
+    criarAcaoParada({
+      tipo: 'concluir',
+      paradaId,
+      rotaId: 'r1',
+      motoristaId: 'm1',
+      em: '2026-10-24T12:00:00.000Z',
+    });
+
+  it('devolve só o que saiu da fila sem ter sido descartado', () => {
+    const subiu = acao('p1');
+    const descartada = acao('p2');
+    const ficou = acao('p3');
+
+    const resultado = acoesQueSubiram(
+      [subiu, descartada, ficou],
+      [ficou],
+      [{ acao: descartada, motivo: 'parada_removida', em: 'x' }],
+    );
+
+    expect(resultado).toEqual([subiu]);
+  });
 });

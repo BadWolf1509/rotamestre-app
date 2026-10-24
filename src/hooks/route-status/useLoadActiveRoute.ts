@@ -37,6 +37,11 @@ import type {
 } from '@/context/route-status/types';
 import { logarFalha } from '@/lib/logarFalha';
 import {
+  sobreporAcoesPendentes,
+  type AcaoParada,
+} from '@/lib/motorista/filaAcoesParada';
+import {
+  aplicarAcoesNaRotaGuardada,
   gravarRotaGuardada,
   lerRotaGuardada,
 } from '@/lib/motorista/rotaGuardada';
@@ -59,6 +64,14 @@ export interface EstadoDaRotaAtiva {
   /** Epoch (ms) da última carga bem-sucedida; null se nunca carregou. */
   atualizadoEm: number | null;
   loadActiveRoute: () => Promise<void>;
+  /**
+   * Ações de parada que já subiram (a fila esvaziou) entram no estado base
+   * (memória e retrato guardado), até uma carga fresca trazer o banco.
+   */
+  aplicarAcoesEnviadas: (
+    acoes: AcaoParada[],
+    rotaId: string | null | undefined,
+  ) => void;
 }
 
 const CAMPOS_DA_ROTA = `
@@ -271,6 +284,20 @@ export function useLoadActiveRoute({
     }
   }, [userLoading, motoristaId]);
 
+  // Sem tocar em `error`/`atualizadoEm`: os dados continuam sendo os daquela
+  // hora, só sem a volta a "pendente" de uma ação que o banco já aceitou.
+  const aplicarAcoesEnviadas = useCallback(
+    (acoes: AcaoParada[], rotaId: string | null | undefined) => {
+      if (!motoristaId || acoes.length === 0) return;
+      setParadas(
+        (anteriores) =>
+          sobreporAcoesPendentes(anteriores, acoes, rotaId).paradas,
+      );
+      void aplicarAcoesNaRotaGuardada(motoristaId, acoes);
+    },
+    [motoristaId],
+  );
+
   return {
     route,
     paradas,
@@ -279,5 +306,6 @@ export function useLoadActiveRoute({
     error,
     atualizadoEm,
     loadActiveRoute,
+    aplicarAcoesEnviadas,
   };
 }

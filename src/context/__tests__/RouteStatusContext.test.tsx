@@ -1533,6 +1533,60 @@ describe('RouteStatusContext com ações na fila offline', () => {
     await waitFor(() => expect(enviouParada1()).toBe(true));
   });
 
+  // A fila esvazia (enviada) e a recarga que viria confirmar falha (sinal
+  // fraco: o UPDATE passou, a leitura não). A parada não pode voltar a
+  // "pendente" — nem na tela, nem no retrato que reabre o app sem rede.
+  it('fila enviada e recarga falhando: a parada segue concluída na memória e no retrato', async () => {
+    await guardarRotaComRede();
+    ficarOffline();
+    await enfileirarConclusaoDaParada1();
+    function Parada1() {
+      const { paradas } = useRouteStatus();
+      return (
+        <Text testID="parada-1">
+          {paradas.find((p) => p.id === 'parada-1')?.status ?? '-'}
+        </Text>
+      );
+    }
+    let atualizar: () => Promise<void> = async () => undefined;
+    function Captura() {
+      atualizar = useRouteStatus().refreshRoute;
+      return null;
+    }
+    const { getByTestId } = render(
+      <RouteStatusProvider>
+        <Parada1 />
+        <EnvioPendente />
+        <Captura />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('parada-1');
+    });
+
+    // Volta a rede para o envio, mas toda leitura da rota falha.
+    ficarOnline();
+    mockLeituraSemRede = true;
+    await act(async () => {
+      await atualizar();
+    });
+    await waitFor(() => expect(enviouParada1()).toBe(true));
+    await waitFor(() => {
+      expect(getByTestId('pendentes').props.children).toBe('nenhuma');
+    });
+
+    expect(getByTestId('parada-1').props.children).toBe('concluida');
+    await waitFor(() => {
+      const registro = JSON.parse(
+        memoria.get('@rotamestre:rota_guardada') ?? '{}',
+      );
+      const guardada = registro.retrato.paradas.find(
+        (p: ParadaData) => p.id === 'parada-1',
+      );
+      expect(guardada.status).toBe('concluida');
+    });
+  });
+
   it('com rede ao abrir: envia a fila para o banco e tira o selo', async () => {
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
       isConnected: true,
