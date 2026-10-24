@@ -5,7 +5,10 @@ import { Platform } from 'react-native';
 
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
-import { sincronizarFilaAcoesParada } from './motorista/filaAcoesParada';
+import {
+  lerFilaAcoesParada,
+  sincronizarFilaAcoesParada,
+} from './motorista/filaAcoesParada';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
@@ -647,6 +650,7 @@ export function _resetProcessingLocks(): void {
   fotosEmCurso = null;
   envioEmCurso = null;
   pedirEnvioDeNovo = false;
+  hasNotifiedOffline = false;
 }
 
 // ============================================================================
@@ -707,6 +711,23 @@ export function solicitarEnvioFila(): Promise<{
 let hasNotifiedOffline = false;
 
 /**
+ * Concluir/pular guardados sem rede por quem está no aparelho. Mesmo critério
+ * das fotos (`getPendingPhotosCount`): a fila só sobe com a sessão do dono,
+ * então ação de outra conta não é "pendente" para esta pessoa.
+ */
+async function contarAcoesParadaPendentes(): Promise<number> {
+  try {
+    const dono = await donoConhecido();
+    if (!dono) return 0;
+    return (await lerFilaAcoesParada()).filter((a) => a.motoristaId === dono)
+      .length;
+  } catch (error) {
+    logger.warn('[Offline] Falha ao contar ações de parada pendentes', error);
+    return 0;
+  }
+}
+
+/**
  * Hook para monitorar status de conexão e processar fila automaticamente
  */
 export function setupOfflineSync(): () => void {
@@ -762,9 +783,10 @@ export function setupOfflineSync(): () => void {
       if (!hasNotifiedOffline) {
         const queueSize = await getOfflineQueueSize();
         const photosCount = await getPendingPhotosCount();
+        const acoesParada = await contarAcoesParadaPendentes();
 
         // Só notifica se tem algo pendente
-        if (queueSize > 0 || photosCount > 0) {
+        if (queueSize > 0 || photosCount > 0 || acoesParada > 0) {
           await notifyOfflineMode();
           hasNotifiedOffline = true;
         }
