@@ -489,20 +489,76 @@ describe('useDistanceToStop', () => {
     });
 
     it('não faz setState depois de desmontar com consulta em voo', async () => {
-      const erro = jest.spyOn(console, 'error').mockImplementation(() => {});
-      let resolver: (v: unknown) => void = () => {};
-      mockGetDistance.mockReturnValueOnce(new Promise((r) => { resolver = r; }));
-      const { unmount, result } = renderizar(mockUserLocation);
+      // O React 18 ignora setState em componente desmontado, então o resultado
+      // não é observável por `result.current`: conta as chamadas ao setter.
+      const React = jest.requireActual('react');
+      const original = React.useState;
+      let chamadasAoSetter = 0;
+      const espiao = jest.spyOn(React, 'useState').mockImplementation(((inicial: unknown) => {
+        const [valor, set] = original(inicial);
+        const contado = (...args: unknown[]) => {
+          chamadasAoSetter++;
+          return set(...args);
+        };
+        return [valor, contado];
+      }) as typeof React.useState);
+      try {
+        let resolver: (v: unknown) => void = () => {};
+        mockGetDistance.mockReturnValueOnce(new Promise((r) => { resolver = r; }));
+        const { unmount } = renderizar(mockUserLocation);
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(100);
+        });
+        unmount();
+        const antes = chamadasAoSetter;
+        await act(async () => {
+          resolver({ distance: 1, distanceText: '1 m', duration: 1, durationText: '1 min' });
+          await jest.advanceTimersByTimeAsync(100);
+        });
+        expect(chamadasAoSetter).toBe(antes);
+      } finally {
+        espiao.mockRestore();
+      }
+    });
+
+    it('perto da parada (~100 m), ruído de 40 m não recalcula (piso de 50 m)', async () => {
+      const quase = { latitude: -23.5591, longitude: -46.64 }; // ~100 m
+      const { rerender } = renderizar(quase);
       await act(async () => {
         await jest.advanceTimersByTimeAsync(100);
       });
-      unmount();
       await act(async () => {
-        resolver({ distance: 1, distanceText: '1 m', duration: 1, durationText: '1 min' });
+        await jest.advanceTimersByTimeAsync(31000);
+      });
+      // 0,00036° ~ 40 m: acima de 30% de 100 m (30 m), abaixo do piso (50 m)
+      rerender({ userLocation: { latitude: -23.5591 + 0.00036, longitude: -46.64 }, destination: mockDestination });
+      await act(async () => {
         await jest.advanceTimersByTimeAsync(100);
       });
-      expect(result.current.distanceKm).not.toBe('1 m');
-      erro.mockRestore();
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+    });
+
+    it('longe da parada, o teto de 500 m vale: 400 m não recalcula, 600 m sim', async () => {
+      // ~11 km do destino: 30% seria 3,3 km, o teto limita a 500 m
+      const longe = { latitude: -23.46, longitude: -46.64 };
+      const { rerender } = renderizar(longe);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(31000);
+      });
+      rerender({ userLocation: { latitude: -23.46 + 0.0036, longitude: -46.64 }, destination: mockDestination }); // ~400 m
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+
+      rerender({ userLocation: { latitude: -23.46 + 0.0054, longitude: -46.64 }, destination: mockDestination }); // ~600 m
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
     });
   });
 });
