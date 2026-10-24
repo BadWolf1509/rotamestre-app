@@ -134,6 +134,13 @@ describe('Migration 46: o SOS chega a um gestor, ou o motorista sabe', () => {
         /EXCEPTION WHEN OTHERS THEN RAISE WARNING[\s\S]*RETURN NEW;/,
       );
     });
+
+    it('a falha do UPDATE da contagem não desfaz os avisos (bloco próprio, depois do aviso)', () => {
+      // Rodada 1: no mesmo bloco, a subtransação desfaria as notificações.
+      expect(corpo).toMatch(
+        /v_avisados := public\.avisar_gestores_do_sos\([^;]*\); BEGIN UPDATE public\.logs [^;]*; EXCEPTION WHEN OTHERS THEN RAISE WARNING [^;]*; END;/,
+      );
+    });
   });
 
   describe('registrar_sos (RPC do app)', () => {
@@ -167,6 +174,12 @@ describe('Migration 46: o SOS chega a um gestor, ou o motorista sabe', () => {
       );
     });
 
+    it('o COMMENT diz que "avisado" é notificação criada, não push entregue', () => {
+      expect(normaliza(sql)).toMatch(
+        /COMMENT ON FUNCTION public\.registrar_sos\(jsonb, uuid\) IS '[^']*notificação criada[^']*não[^']*push entregue/,
+      );
+    });
+
     it('só authenticated executa', () => {
       expect(executavel).toMatch(
         /REVOKE ALL ON FUNCTION public\.registrar_sos\(jsonb, uuid\) FROM PUBLIC, anon;/,
@@ -184,6 +197,14 @@ describe('Migration 46: o SOS chega a um gestor, ou o motorista sabe', () => {
     expect(sonda).toMatch(/registrar_sos/);
     // dois vínculos ativos, um inativo, e um gestor nas duas lojas
     expect(sonda).toMatch(/'motorista', false/);
+    // caso 12: o UPDATE da contagem falha e os avisos ficam
+    expect(sonda).toMatch(/12a OK/);
+  });
+
+  it('a sonda não usa DELETE nem DROP', () => {
+    const sonda = semComentarios(ler(caminhoSonda));
+    expect(sonda).not.toMatch(/\bDELETE\b/i);
+    expect(sonda).not.toMatch(/\bDROP\b/i);
   });
 
   it('está documentada no MIGRATIONS.md', () => {

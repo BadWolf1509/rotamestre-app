@@ -16,6 +16,7 @@
  */
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import SOSScreen from '../sos';
 
@@ -371,6 +372,41 @@ describe('tela de SOS', () => {
       );
       expect(mockInsert).not.toHaveBeenCalled();
       expect(global.mockUseAlert.showSuccess).not.toHaveBeenCalled();
+    });
+
+    it('RPC rejeitada (sem rede): diz que não confirmou o envio e destaca os botões', async () => {
+      mockRpc.mockRejectedValue(new TypeError('Network request failed'));
+      const { getByText, findByText, getByTestId } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+      const destaqueAntes = StyleSheet.flatten(
+        getByTestId('contato-emergencia-policia').props.style,
+      ).borderWidth;
+
+      await acionarSOS(getByText);
+
+      await waitFor(() =>
+        expect(global.mockUseAlert.showError).toHaveBeenCalled(),
+      );
+      const { title, message } = (global.mockUseAlert.showError as jest.Mock)
+        .mock.calls[0][0];
+      expect(`${title} ${message}`).toMatch(
+        /não foi possível confirmar o envio/i,
+      );
+      expect(textoDosDialogos()).not.toMatch(/notificad/i);
+
+      // A faixa sobre os botões, e os botões destacados, como com 0 gestores.
+      expect(
+        await findByText(/Não foi possível confirmar o envio do seu SOS/i),
+      ).toBeTruthy();
+      for (const id of ['gestor', 'policia', 'samu', 'bombeiros']) {
+        const estilo = StyleSheet.flatten(
+          getByTestId(`contato-emergencia-${id}`).props.style,
+        );
+        expect(estilo.borderWidth).toBe(2);
+        expect(estilo.borderWidth).not.toBe(destaqueAntes);
+      }
     });
   });
 

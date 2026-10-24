@@ -1967,7 +1967,9 @@ falha) e nunca levanta: na falha devolve 0, que é a verdade, porque a
 subtransação do bloco desfaz os avisos já criados. (2) `notify_sos_acionado`
 avisa pelo helper e grava a contagem no próprio log
 (`detalhes.gestores_avisados`), tudo dentro de `EXCEPTION`: o SOS nunca derruba
-o INSERT. O INSERT direto das versões até a 1.14.5 continua avisando. (3) RPC
+o INSERT. O UPDATE da contagem tem bloco próprio: se só ele falhar, os avisos
+ficam e a RPC responde 0. O INSERT direto das versões até a 1.14.5 continua
+avisando. (3) RPC
 `registrar_sos(p_detalhes, p_rota_id)` → integer, só `authenticated`: grava o
 log em nome de `auth.uid()` com as regras da policy `logs_insert_optimized`
 (sessão e, com rota, `pode_registrar_log_na_rota`), descarta
@@ -1978,7 +1980,11 @@ rota.
 
 **Decisão: SOS sem rota avisa todas as lojas.** O incidente precisa de UMA loja
 dona, por causa da visibilidade. O SOS, não: avisar a mais é inofensivo, e
-avisar a menos foi o defeito.
+avisar a menos foi o defeito. Com rota numa loja sem gestor ativo, o SOS não
+recorre às lojas do vínculo: o brief manda manter a loja da rota, e o app diz
+que ninguém recebeu. **"Avisado"** é notificação criada em `notificacoes`,
+não push entregue: gestor sem token de push conta como avisado (está no
+COMMENT da RPC).
 
 **Alternativas (como o app sabe se alguém recebeu).** (1) O app confere depois
 do INSERT: o motorista não lê `notificacoes` de outra conta (RLS), então
@@ -1994,7 +2000,8 @@ resposta certa também para o duplicado, e as versões antigas seguem avisando.
 avisados, a mensagem é a de antes. Com 0, um aviso ("Nenhum gestor recebeu o
 seu SOS") e uma faixa sobre os botões de ligar, que ficam destacados. Sem a RPC
 no servidor (PGRST202), grava pelo INSERT antigo e diz que não foi possível
-confirmar o aviso. Outro erro da RPC é erro de envio. Em nenhum desses casos a
+confirmar o aviso. Outro erro da RPC, ou falha de rede, diz que não foi
+possível confirmar o envio e também acende a faixa e o destaque dos botões. Em nenhum desses casos a
 tela diz "notificado".
 
 **Medido em 24/10/2026 (só SELECT).** Nenhum `sos_acionado` em `logs` nem em
@@ -2003,10 +2010,11 @@ tela diz "notificado".
 **Verificação.** Guarda estática `database/__tests__/migration46-sos-chega-a-um-gestor.test.ts`;
 sonda `database/sondas/20261024100000_sonda_migration46.sql` (lojas A/B/C, um
 gestor só de A, um só de B, um só de C e um de A e B; motorista com vínculo
-ativo em A e B e inativo em C; 11 casos: 3 avisados sem rota, 1 aviso por
+ativo em A e B e inativo em C; 12 casos: 3 avisados sem rota, 1 aviso por
 gestor sem repetir, o vínculo inativo sem aviso, `descricao` no texto, a
 contagem no log, o SOS duplicado, só a loja da rota com rota, o INSERT direto
 com `motivo`, motorista sem vínculo devolvendo 0 mesmo mandando 99, rota de
-outra loja recusada e anon sem EXECUTE; sem `DELETE`; termina em `RAISE`).
+outra loja recusada, anon sem EXECUTE e, com um gatilho de sonda que recusa o
+UPDATE da contagem, os avisos que ficam; sem `DELETE` nem `DROP`; termina em `RAISE`).
 Conferência só com SELECT (4 consultas) no fim da migration. Sintaxe validada
 com o parser do Postgres (libpg-query).

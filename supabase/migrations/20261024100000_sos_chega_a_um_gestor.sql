@@ -32,8 +32,13 @@
 --      avisa pelo helper e grava a contagem no próprio log
 --      (`detalhes.gestores_avisados`) — fica no histórico quantos gestores
 --      receberam cada SOS, e é de onde a RPC lê. Tudo dentro de EXCEPTION:
---      o SOS nunca derruba o INSERT do log. Continua valendo para as versões
---      do app que gravam o log por INSERT direto (até a 1.14.5).
+--      o SOS nunca derruba o INSERT do log. O UPDATE da contagem tem bloco
+--      próprio: se só ele falhar, os avisos já criados ficam (no mesmo bloco,
+--      a subtransação os desfaria) e a RPC responde 0. Continua valendo para
+--      as versões do app que gravam o log por INSERT direto (até a 1.14.5).
+--      Rota numa loja sem gestor ativo: 0 avisados, sem recorrer às lojas do
+--      vínculo (o brief manda manter a loja da rota; o app diz que ninguém
+--      recebeu e destaca os botões de ligar).
 --
 --   3. RPC `registrar_sos(p_detalhes jsonb, p_rota_id uuid)` → integer, só
 --      para `authenticated`: grava o log em nome de `auth.uid()` (o gatilho
@@ -160,14 +165,21 @@ BEGIN
 
   v_avisados := public.avisar_gestores_do_sos(NEW.usuario_id, NEW.rota_id, NEW.detalhes);
 
-  UPDATE public.logs
-  SET detalhes = COALESCE(detalhes, '{}'::jsonb) || jsonb_build_object('gestores_avisados', v_avisados)
-  WHERE id = NEW.id;
+  -- Bloco próprio: se só a contagem falhar, a subtransação dele desfaz o
+  -- UPDATE e mais nada — os avisos já criados ficam. Sem `gestores_avisados`
+  -- no log, a RPC responde 0 (ninguém confirmado), que é o lado seguro.
+  BEGIN
+    UPDATE public.logs
+    SET detalhes = COALESCE(detalhes, '{}'::jsonb) || jsonb_build_object('gestores_avisados', v_avisados)
+    WHERE id = NEW.id;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'notify_sos_acionado: contagem não gravada no log % (% gestores avisados): %', NEW.id, v_avisados, SQLERRM;
+  END;
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- O SOS nunca derruba o INSERT do log. Sem `gestores_avisados` no log, a
-  -- RPC responde 0 (ninguém confirmado), que é o lado seguro.
+  -- O SOS nunca derruba o INSERT do log. Só chega aqui uma falha FORA do
+  -- helper (que não levanta) e do bloco acima — ex.: EXECUTE perdido no helper.
   RAISE WARNING 'notify_sos_acionado falhou (log %): %', NEW.id, SQLERRM;
   RETURN NEW;
 END;
@@ -221,7 +233,7 @@ REVOKE ALL ON FUNCTION public.registrar_sos(jsonb, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.registrar_sos(jsonb, uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.registrar_sos(jsonb, uuid) IS
-  'Migration 46: grava o SOS (logs, evento sos_acionado) em nome de auth.uid() e devolve quantos gestores receberam o aviso. 0 = ninguém recebeu.';
+  'Migration 46: grava o SOS (logs, evento sos_acionado) em nome de auth.uid() e devolve quantos gestores receberam o aviso. 0 = ninguém recebeu. "Avisado" = notificação criada em notificacoes (aparece no app do gestor), não push entregue no aparelho: gestor sem token de push conta como avisado.';
 
 COMMIT;
 

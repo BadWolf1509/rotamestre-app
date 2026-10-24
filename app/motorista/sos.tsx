@@ -84,6 +84,14 @@ const AVISO_SEM_GESTOR = {
     faixa:
       'Não foi possível confirmar que um gestor recebeu o seu SOS. Ligue agora pelos botões abaixo.',
   },
+  // A gravação falhou (rede, servidor): nem o registro é certo.
+  falhaNoEnvio: {
+    titulo: 'SOS sem confirmação de envio',
+    corpo:
+      'Não foi possível confirmar o envio do SOS. Ligue agora para os números de emergência pelos botões abaixo.',
+    faixa:
+      'Não foi possível confirmar o envio do seu SOS. Ligue agora pelos botões abaixo.',
+  },
 } as const;
 
 /**
@@ -366,10 +374,12 @@ export default function SOSScreen() {
       setDescricao('');
     } catch (error) {
       logger.error('Erro ao enviar SOS:', error);
+      // Sem rede ou com erro do servidor, nenhum gestor foi confirmado: a
+      // faixa e o destaque dos botões valem aqui tanto quanto com 0 avisados.
+      setAvisoSemGestor(AVISO_SEM_GESTOR.falhaNoEnvio.faixa);
       showError({
-        title: 'Erro',
-        message:
-          'Não foi possível enviar o SOS. Tente ligar diretamente para os números de emergência.',
+        title: AVISO_SEM_GESTOR.falhaNoEnvio.titulo,
+        message: AVISO_SEM_GESTOR.falhaNoEnvio.corpo,
       });
     } finally {
       setEnviando(false);
@@ -502,6 +512,7 @@ export default function SOSScreen() {
             {EMERGENCY_CONTACTS.map((contact) => (
               <TouchableOpacity
                 key={contact.id}
+                testID={`contato-emergencia-${contact.id}`}
                 style={[
                   styles.contactItem,
                   contact.id === 'gestor' && styles.contactItemGestor,

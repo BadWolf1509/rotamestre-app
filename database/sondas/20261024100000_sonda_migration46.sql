@@ -7,10 +7,14 @@
 -- vezes). O motorista M tem vínculo ATIVO em A e em B (nenhum principal — o
 -- caso que hoje não avisa ninguém) e vínculo INATIVO em C. M2 só atende A e
 -- grava pelo INSERT direto, como as versões até a 1.14.5. M3 não tem vínculo
--- ativo nenhum. Há uma rota de M em A e uma rota de outro motorista em C.
+-- ativo nenhum. M4 só atende B (caso 12). Há uma rota de M em A e uma rota
+-- de outro motorista em C.
 -- O SOS sai como `authenticated` (SET LOCAL ROLE + claims do JWT), como o app.
 --
--- Sem DELETE. Termina SEMPRE em RAISE EXCEPTION, que desfaz tudo — inclusive
+-- Sem DELETE nem DROP. O caso 12 cria uma função e um gatilho de sonda em
+-- `logs` (ligado só por um GUC da própria transação); o CREATE TRIGGER segura
+-- um lock SHARE ROW EXCLUSIVE em `logs` até o RAISE final — INSERTs de
+-- outras sessões esperam esse instante (fração de segundo). Termina SEMPRE em RAISE EXCEPTION, que desfaz tudo — inclusive
 -- as notificações dos gatilhos e a fila do pg_net, que só é lida depois do
 -- commit. Leia "SONDA M46 (desfeita): ...". Esperado: todas as linhas com OK.
 --
@@ -32,6 +36,8 @@
 --      contagem do cliente é descartada) e o texto padrão não quebra nada
 --  10. M não registra SOS na rota de outra loja em que não atende (42501)
 --  11. anon não executa registrar_sos
+--  12. o UPDATE da contagem no log falha (gatilho de sonda): os avisos de
+--      GB e GAB ficam, o log fica sem contagem e a RPC responde 0
 -- ============================================================================
 DO $$
 DECLARE
@@ -48,6 +54,7 @@ DECLARE
   v_m2 uuid := gen_random_uuid();     -- motorista só de A (INSERT direto)
   v_m3 uuid := gen_random_uuid();     -- motorista sem vínculo ativo
   v_mc uuid := gen_random_uuid();     -- motorista de C (dono da rota de C)
+  v_m4 uuid := gen_random_uuid();     -- motorista só de B (caso 12)
   v_rota_a uuid := gen_random_uuid(); -- de M, em A
   v_rota_c uuid := gen_random_uuid(); -- de MC, em C
   v_ret integer;
@@ -65,7 +72,8 @@ BEGIN
     (v_m,   'sonda-m46-m-'   || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
     (v_m2,  'sonda-m46-m2-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
     (v_m3,  'sonda-m46-m3-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
-    (v_mc,  'sonda-m46-mc-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
+    (v_mc,  'sonda-m46-mc-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
+    (v_m4,  'sonda-m46-m4-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
 
   INSERT INTO public.unidades (id, nome, cidade) VALUES
     (v_ua, 'Sonda M46 A', 'Sonda'),
@@ -80,7 +88,8 @@ BEGIN
     (v_m,   'Sonda motorista', 'sonda-m46-m-'   || v_sufixo || '@example.invalid', 'motorista', v_ua),
     (v_m2,  'Sonda motorista 2', 'sonda-m46-m2-' || v_sufixo || '@example.invalid', 'motorista', v_ua),
     (v_m3,  'Sonda motorista 3', 'sonda-m46-m3-' || v_sufixo || '@example.invalid', 'motorista', v_uc),
-    (v_mc,  'Sonda motorista C', 'sonda-m46-mc-' || v_sufixo || '@example.invalid', 'motorista', v_uc);
+    (v_mc,  'Sonda motorista C', 'sonda-m46-mc-' || v_sufixo || '@example.invalid', 'motorista', v_uc),
+    (v_m4,  'Sonda motorista 4', 'sonda-m46-m4-' || v_sufixo || '@example.invalid', 'motorista', v_ub);
 
   INSERT INTO public.usuario_unidades (usuario_id, unidade_id, papel, ativo, is_principal) VALUES
     (v_ga,  v_ua, 'gestor', true, true),
@@ -93,7 +102,8 @@ BEGIN
     (v_m,   v_uc, 'motorista', false, false),
     (v_m2,  v_ua, 'motorista', true, false),
     (v_m3,  v_uc, 'motorista', false, false),
-    (v_mc,  v_uc, 'motorista', true, false);
+    (v_mc,  v_uc, 'motorista', true, false),
+    (v_m4,  v_ub, 'motorista', true, false);
 
   INSERT INTO public.rotas (id, unidade_id, motorista_id) VALUES
     (v_rota_a, v_ua, v_m),
@@ -271,6 +281,49 @@ BEGIN
     r := r || ' | 11 FALHOU: erro inesperado (' || SQLERRM || ')';
   END;
   RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- 12. o UPDATE da contagem falha: os avisos ficam (Rodada 1)
+  --     Gatilho de sonda em `logs`, ligado só pelo GUC da própria transação;
+  --     o RAISE do fim desfaz a função e o gatilho.
+  -- ---------------------------------------------------------------------------
+  CREATE FUNCTION public.sonda_m46_falha_no_update() RETURNS trigger
+  LANGUAGE plpgsql AS $f$
+  BEGIN
+    RAISE EXCEPTION 'sonda m46: UPDATE da contagem recusado de propósito';
+  END;
+  $f$;
+  CREATE TRIGGER sonda_m46_falha_no_update
+    BEFORE UPDATE ON public.logs
+    FOR EACH ROW
+    WHEN (current_setting('sonda.m46_falhar_update', true) = 'on')
+    EXECUTE FUNCTION public.sonda_m46_falha_no_update();
+
+  v_ret := NULL;
+  PERFORM set_config('sonda.m46_falhar_update', 'on', true);
+  BEGIN
+    PERFORM set_config('request.jwt.claims',
+      json_build_object('sub', v_m4, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    v_ret := public.registrar_sos(jsonb_build_object('descricao', 'sonda m46 contagem falhou'), NULL);
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 12 FALHOU: registrar_sos levantou (' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+  PERFORM set_config('sonda.m46_falhar_update', 'off', true);
+
+  SELECT count(*) INTO v_n FROM public.notificacoes
+   WHERE tipo = 'sos_acionado' AND usuario_id IN (v_gb, v_gab)
+     AND mensagem LIKE '%sonda m46 contagem falhou%';
+  r := r || CASE WHEN v_n = 2
+    THEN ' | 12a OK: com o UPDATE da contagem recusado, GB e GAB continuam avisados (2)'
+    ELSE ' | 12a FALHOU: avisos que sobraram = ' || v_n || ' (esperado 2)' END;
+
+  SELECT count(*) INTO v_n FROM public.logs
+   WHERE usuario_id = v_m4 AND evento = 'sos_acionado' AND NOT (detalhes ? 'gestores_avisados');
+  r := r || CASE WHEN v_n = 1 AND v_ret = 0
+    THEN ' | 12b OK: o log ficou, sem contagem, e a RPC responde 0 (lado seguro)'
+    ELSE ' | 12b FALHOU: logs sem contagem ' || v_n || ', devolveu ' || COALESCE(v_ret::text, 'NULL') END;
 
   RAISE EXCEPTION 'SONDA M46 (desfeita):%', r;
 END
