@@ -77,12 +77,23 @@ test.describe('Gestor Route Creation E2E Tests', () => {
     test('should have address input with autocomplete functionality', async ({
       page,
     }) => {
+      // A busca vai para a Edge Function do Google Places (paga). O teste
+      // responde por ela com lista vazia: o custo é zero e o resultado não
+      // depende de serviço externo. O que se prova é o campo existir e
+      // aceitar digitação.
+      await page.route('**/functions/v1/google-places-autocomplete', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ predictions: [], status: 'ZERO_RESULTS' }),
+        }),
+      );
+
       await gestorPage.gotoNovaEntrega();
 
-      // Look for address-related input
-      const addressInput = page
-        .locator('input[placeholder*="endereço"], input[placeholder*="Digite"]')
-        .first();
+      // O placeholder real é "Endereço ou CEP" (E maiúsculo, que o seletor
+      // antigo não casava); o rótulo de acessibilidade é a âncora estável.
+      const addressInput = page.getByLabel('Campo de endereço');
       await expect(addressInput).toBeVisible({ timeout: 15000 });
       await addressInput.click();
       await addressInput.fill('Avenida Paulista');
@@ -90,7 +101,7 @@ test.describe('Gestor Route Creation E2E Tests', () => {
       // NÃO se afirma aqui que sugestões apareceram: elas vêm do Google
       // Places por Edge Function, e um teste que dependesse dessa resposta
       // ficaria vermelho por indisponibilidade externa, não por defeito
-      // nosso. A contagem de sugestões era computada e descartada — saiu.
+      // nosso.
       await expect(addressInput).toHaveValue(/Paulista/);
     });
   });
