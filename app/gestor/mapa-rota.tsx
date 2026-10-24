@@ -40,6 +40,7 @@ import {
 } from '@/components/gestor/mapa-rota';
 import type { DraggableStopListControl } from '@/components/gestor/mapa-rota';
 import {
+  useFecharModalSemParada,
   useMapaRotaData,
   useMapaRotaHandlers,
   useMapaRotaModals,
@@ -142,6 +143,18 @@ export default function MapaRota() {
 
   // ===== Modal State Hook =====
   const modals = useMapaRotaModals();
+  // Os handlers zeram a parada ao recusar o clique (ou quando o motorista a
+  // conclui/inicia): a flag do modal acompanha, em vez de ficar presa em true.
+  useFecharModalSemParada(
+    modals.showRemoveStopModal,
+    paradaToRemove,
+    modals.closeRemoveStopModal,
+  );
+  useFecharModalSemParada(
+    modals.showEditStopModal,
+    paradaToEdit,
+    modals.closeEditStopModal,
+  );
 
   // ===== Computed Values =====
   const statusBadgeVariant = useMemo(

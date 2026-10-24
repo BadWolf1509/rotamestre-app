@@ -112,7 +112,7 @@ describe('useEditStopForm: salvar', () => {
     });
 
     expect(result.current.error).toBe(
-      'Esta parada não pode mais ser editada: o motorista já a finalizou ou ela não existe mais. A tela foi atualizada.',
+      'Esta parada não pode mais ser editada: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
     );
     expect(onSave).not.toHaveBeenCalled();
     expect(onDesatualizada).toHaveBeenCalledTimes(1);

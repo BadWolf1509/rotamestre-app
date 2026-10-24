@@ -21,6 +21,7 @@ type Ouvinte = {
 
 const mockOuvintes: Ouvinte[] = [];
 let mockStatusCb: ((status: string) => void) | null = null;
+let mockSubscribedNaHora = false;
 const mockRemoveChannel = jest.fn();
 
 const mockCanal: Record<string, unknown> = {};
@@ -32,6 +33,7 @@ mockCanal.on = jest.fn(
 );
 mockCanal.subscribe = jest.fn((cb?: (status: string) => void) => {
   mockStatusCb = cb ?? null;
+  if (mockSubscribedNaHora) cb?.('SUBSCRIBED');
   return mockCanal;
 });
 
@@ -96,6 +98,7 @@ describe('useMapaRotaData: tela viva', () => {
     jest.clearAllMocks();
     mockOuvintes.length = 0;
     mockStatusCb = null;
+    mockSubscribedNaHora = false;
     mockSingle.mockResolvedValue({ data: rotaRow, error: null });
     mockParadasOrder.mockResolvedValue({
       data: [parada('p1', 1, 'concluida'), parada('p2', 2, 'pendente')],
@@ -103,15 +106,18 @@ describe('useMapaRotaData: tela viva', () => {
     });
   });
 
-  it('assina paradas e rotas filtradas pela rota, e o DELETE de parada sem filtro', async () => {
+  it('assina paradas e rotas filtradas pela rota, e NÃO assina DELETE sem filtro', async () => {
     const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(ouvinte('paradas', '*')?.filtro.filter).toBe('rota_id=eq.rota-1');
     expect(ouvinte('rotas', 'UPDATE')?.filtro.filter).toBe('id=eq.rota-1');
-    // O DELETE não carrega `rota_id` (identidade de réplica padrão), então o
-    // filtro por rota nunca o entregaria.
-    expect(ouvinte('paradas', 'DELETE')?.filtro.filter).toBeUndefined();
+    // O Realtime não aplica RLS em DELETE: sem filtro, a tela receberia a PK
+    // de toda parada apagada em qualquer loja. Remoção chega pelos UPDATEs de
+    // reordenação/rota que ela dispara (e a tela que remove recarrega).
+    expect(
+      mockOuvintes.filter((o) => o.filtro.event === 'DELETE'),
+    ).toHaveLength(0);
   });
 
   it('o motorista conclui a parada 2: a tela passa a mostrar concluída sem skeleton', async () => {
@@ -169,27 +175,6 @@ describe('useMapaRotaData: tela viva', () => {
     });
 
     await waitFor(() => expect(result.current.rota?.status).toBe('cancelada'));
-  });
-
-  it('DELETE só recarrega se a parada apagada é desta rota', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    mockParadasOrder.mockClear();
-
-    act(() => {
-      ouvinte('paradas', 'DELETE')!.cb({ old: { id: 'de-outra-rota' } });
-    });
-    await new Promise((r) => setTimeout(r, 600));
-    expect(mockParadasOrder).not.toHaveBeenCalled();
-
-    mockParadasOrder.mockResolvedValue({
-      data: [parada('p1', 1, 'concluida')],
-      error: null,
-    });
-    act(() => {
-      ouvinte('paradas', 'DELETE')!.cb({ old: { id: 'p2' } });
-    });
-    await waitFor(() => expect(result.current.paradas).toHaveLength(1));
   });
 
   it('ao (re)conectar o canal revalida: cobre o intervalo sem eventos', async () => {
@@ -321,5 +306,74 @@ describe('useMapaRotaData: tela viva', () => {
     });
 
     expect(result.current.resumoParadas.concluidas).toBe(2);
+  });
+
+  describe('SUBSCRIBED durante a primeira carga (o skeleton não pode ficar preso)', () => {
+    /** Primeira leitura de paradas fica pendente até `liberar`. */
+    function primeiraCargaLenta() {
+      let liberar!: (v: unknown) => void;
+      mockParadasOrder.mockReturnValueOnce(
+        new Promise((resolve) => {
+          liberar = resolve;
+        }),
+      );
+      return (v: unknown) => liberar(v);
+    }
+    const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    it('a recarga do SUBSCRIBED vence a 1ª carga: loading desliga e os dados aparecem', async () => {
+      mockSubscribedNaHora = true;
+      const liberar = primeiraCargaLenta();
+      mockParadasOrder.mockResolvedValue({
+        data: [parada('p1', 1, 'concluida'), parada('p2', 2, 'concluida')],
+        error: null,
+      });
+
+      const { result } = renderHook(() =>
+        useMapaRotaData({ rotaId: 'rota-1' }),
+      );
+      expect(result.current.loading).toBe(true);
+
+      // O debounce (300 ms) vence e a recarga termina antes da 1ª carga.
+      await act(async () => {
+        await esperar(500);
+      });
+      await act(async () => {
+        liberar({ data: [parada('p1', 1, 'pendente')], error: null });
+        await esperar(0);
+      });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.resumoParadas.concluidas).toBe(2);
+    });
+
+    it('a recarga que venceu falha antes de qualquer sucesso: vale como falha da 1ª carga (toast e onError)', async () => {
+      mockSubscribedNaHora = true;
+      const onError = jest.fn();
+      const liberar = primeiraCargaLenta();
+      mockParadasOrder.mockResolvedValue({
+        data: null,
+        error: new Error('rede'),
+      });
+
+      const { result } = renderHook(() =>
+        useMapaRotaData({ rotaId: 'rota-1', onError }),
+      );
+
+      await act(async () => {
+        await esperar(500);
+      });
+      await act(async () => {
+        liberar({ data: [parada('p1', 1, 'pendente')], error: null });
+        await esperar(0);
+      });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Não foi possível carregar os dados da rota',
+        'error',
+      );
+    });
   });
 });

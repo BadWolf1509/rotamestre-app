@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO } from '@/lib/dateUtils';
 import {
-  MENSAGEM_PARADA_JA_FINALIZADA,
+  mensagemParadaNaoAlteravel,
   podeAlterarParada,
 } from '@/lib/gestor/paradaEditavel';
 import { logger } from '@/lib/logger';
@@ -362,7 +362,7 @@ export function useMapaRotaHandlers({
       }
       const viva = paradas.find((p) => p.id === parada.id) ?? parada;
       if (podeAlterarParada(viva.status, rota.status)) return false;
-      showToast(MENSAGEM_PARADA_JA_FINALIZADA, 'error');
+      showToast(mensagemParadaNaoAlteravel(viva.status), 'error');
       void loadRotaEParadas();
       return true;
     },

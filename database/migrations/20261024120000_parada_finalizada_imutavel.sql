@@ -105,9 +105,11 @@ CREATE OR REPLACE TRIGGER trg_recusa_apagar_parada_finalizada
   FOR EACH ROW
   EXECUTE FUNCTION public.recusa_apagar_parada_finalizada();
 
--- Os nomes `trg_...` ordenam depois de `log_parada_status` etc.; o BEFORE
--- UPDATE OF + WHEN deixa o gatilho de fora de todo UPDATE que não toca no
--- local de uma parada concluída (conclusão, pulo, reordenação, foto).
+-- BEFORE UPDATE OF + WHEN deixa o gatilho de fora de todo UPDATE que não
+-- toca no local de uma parada concluída (conclusão, pulo, reordenação, foto).
+-- A ordem entre os gatilhos não importa aqui: cada um só lê OLD/NEW e recusa
+-- ou deixa passar, e `update_paradas_updated_at` (BEFORE, que roda depois por
+-- ordem alfabética) só carimba `updated_at`.
 CREATE OR REPLACE TRIGGER trg_recusa_editar_local_de_parada_concluida
   BEFORE UPDATE OF endereco, tipo, latitude, longitude ON public.paradas
   FOR EACH ROW

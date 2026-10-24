@@ -40,6 +40,9 @@ jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
 const MENSAGEM =
   'Esta parada já foi finalizada pelo motorista e não pode mais ser alterada. A tela foi atualizada.';
 
+const MENSAGEM_INICIADA =
+  'O motorista já iniciou esta parada e ela não pode mais ser alterada. A tela foi atualizada.';
+
 const parada = (id: string, ordem: number, status = 'pendente'): Parada => ({
   id,
   ordem,
@@ -209,5 +212,35 @@ describe('useMapaRotaHandlers: parada feita', () => {
       'error',
     );
     expect(recarregar).toHaveBeenCalled();
+  });
+
+  it('parada que o motorista iniciou (em andamento): Editar e Remover recusam com aviso próprio, sem dizer que foi finalizada', () => {
+    const { result, recarregar } = montar([parada('p1', 1, 'em_andamento')]);
+
+    act(() => {
+      result.current.handleEditStop(parada('p1', 1, 'pendente'));
+      result.current.handleRemoveStopRequest(parada('p1', 1, 'pendente'));
+    });
+
+    expect(result.current.paradaToEdit).toBeNull();
+    expect(result.current.paradaToRemove).toBeNull();
+    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_INICIADA, 'error');
+    expect(mockShowToast).not.toHaveBeenCalledWith(MENSAGEM, 'error');
+    expect(recarregar).toHaveBeenCalled();
+  });
+
+  it('diálogo aberto quando o motorista INICIA a parada: fecha com o aviso de iniciada', () => {
+    const { result, rerender } = montar([parada('p1', 1)]);
+    act(() => {
+      result.current.handleRemoveStopRequest(parada('p1', 1));
+    });
+
+    rerender({
+      paradas: [parada('p1', 1, 'em_andamento')],
+      rota: rotaEmAndamento,
+    });
+
+    expect(result.current.paradaToRemove).toBeNull();
+    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_INICIADA, 'error');
   });
 });

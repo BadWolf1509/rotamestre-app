@@ -4,6 +4,7 @@
  */
 
 import { getErrorMessage } from '@/lib/errorMapping';
+import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -314,9 +315,6 @@ async function reordenarParadasFallback(
   return { success: true };
 }
 
-/** Status em que a parada ainda pode ser removida (a trava do banco cobre concluida/pulada). */
-const STATUS_PARADA_REMOVIVEL = ['pendente', 'em_andamento'];
-
 /**
  * Remove uma parada e recalcula a rota
  * 1. Deleta a parada do banco
@@ -351,7 +349,7 @@ export async function removerParadaERecalcular(
       .from('paradas')
       .delete()
       .eq('id', paradaId)
-      .in('status', STATUS_PARADA_REMOVIVEL)
+      .eq('status', STATUS_PARADA_ALTERAVEL)
       .select('id');
 
     if (deleteError) {
@@ -373,7 +371,7 @@ export async function removerParadaERecalcular(
       return {
         success: false,
         error:
-          'Esta parada não pode mais ser removida: o motorista já a finalizou ou ela não existe mais. A tela foi atualizada.',
+          'Esta parada não pode mais ser removida: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
       };
     }
 

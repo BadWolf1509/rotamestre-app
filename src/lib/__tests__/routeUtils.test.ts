@@ -52,12 +52,11 @@ function createSupabaseChain(finalResult: { data?: unknown; error?: unknown }) {
   return chain;
 }
 
-// DELETE de parada: `.delete().eq('id').in('status', ...).select('id')`.
+// DELETE de parada: `.delete().eq('id').eq('status', 'pendente').select('id')`.
 function cadeiaDelete(resultado: { data: unknown; error: unknown }) {
   const cadeia = {
     delete: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
-    in: jest.fn().mockReturnThis(),
     select: jest.fn().mockResolvedValue(resultado),
   };
   return cadeia;
@@ -647,10 +646,9 @@ describe('routeUtils', () => {
         mockEnderecoUnidade,
       );
 
-      expect(deleteChain.in).toHaveBeenCalledWith('status', [
-        'pendente',
-        'em_andamento',
-      ]);
+      // Só `pendente`: é a mesma regra da tela (podeAlterarParada). Parada que o
+      // motorista já iniciou (em_andamento) também não se remove.
+      expect(deleteChain.eq).toHaveBeenCalledWith('status', 'pendente');
     });
 
     it('zero linhas apagadas (o motorista concluiu a parada): erro explicado, sem reordenar', async () => {
@@ -665,7 +663,7 @@ describe('routeUtils', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe(
-        'Esta parada não pode mais ser removida: o motorista já a finalizou ou ela não existe mais. A tela foi atualizada.',
+        'Esta parada não pode mais ser removida: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
       );
       expect(mockRpc).not.toHaveBeenCalled();
     });

@@ -85,25 +85,27 @@ export function useMapaRotaData({
     return null;
   }, [paradas]);
 
-  // Retrato mais recente da tela, lido pelos ouvintes de realtime sem
-  // recriar o canal.
-  const paradasRef = useRef<Parada[]>([]);
-  paradasRef.current = paradas;
-
   // Cada carga leva um número; só a mais nova grava. Sem isso, a resposta
   // lenta de uma recarga antiga chegava depois da nova e voltava a tela no
   // tempo (parada "pendente" depois de "concluída").
   const sequenciaRef = useRef(0);
+
+  // `true` depois que uma carga desta rota aplicou dados. Enquanto `false`,
+  // QUALQUER carga (inclusive a silenciosa que o SUBSCRIBED dispara durante a
+  // primeira) é a primeira de fato: ela desliga o skeleton e, se falhar, avisa
+  // e chama `onError`. Sem isso, a recarga que descartava a 1ª carga deixava
+  // o skeleton para sempre (e uma falha dela sumia sem aviso).
+  const carregouRef = useRef(false);
 
   const id = Array.isArray(rotaId) ? rotaId[0] : rotaId;
 
   /**
    * Busca rota e paradas e grava no estado.
    *
-   * `silenciosa` não liga o skeleton, não avisa por toast e não chama
-   * `onError`: o gestor está olhando a tela, e trocá-la por skeleton remonta
-   * o mapa e os modais (foi o que cada ação fazia), enquanto `onError` aqui
-   * é `router.back()`. Falha de recarga só vira log.
+   * `silenciosa` não liga o skeleton, e, depois da primeira carga, não avisa
+   * por toast nem chama `onError`: o gestor está olhando a tela, e trocá-la
+   * por skeleton remonta o mapa e os modais (foi o que cada ação fazia),
+   * enquanto `onError` aqui é `router.back()`. Falha de recarga só vira log.
    */
   const carregar = useCallback(
     async (silenciosa: boolean) => {
@@ -167,17 +169,18 @@ export function useMapaRotaData({
             : rotaData.unidades,
         });
         setParadas(paradasData || []);
+        carregouRef.current = true;
+        setLoading(false);
       } catch (error) {
         if (minha !== sequenciaRef.current) return;
-        if (silenciosa) {
+        if (carregouRef.current) {
           logger.warn('[useMapaRotaData] Falha ao recarregar a rota', error);
         } else {
           logger.error('[useMapaRotaData] Erro ao carregar rota', error);
           showToast('Não foi possível carregar os dados da rota', 'error');
+          setLoading(false);
           onError?.();
         }
-      } finally {
-        if (!silenciosa && minha === sequenciaRef.current) setLoading(false);
       }
     },
     [id, showToast, onError],
@@ -199,6 +202,7 @@ export function useMapaRotaData({
   const carregarRef = useRef(carregar);
   carregarRef.current = carregar;
   useEffect(() => {
+    carregouRef.current = false;
     if (id) {
       void carregarRef.current(false);
     } else {
@@ -234,19 +238,11 @@ export function useMapaRotaData({
         },
         agendar,
       )
-      // O DELETE só carrega a chave primária (identidade de réplica padrão),
-      // então o filtro por `rota_id` nunca o entregaria: escuta sem filtro e
-      // só reage a parada que esta tela mostra.
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'paradas' },
-        (payload: { old?: { id?: string } }) => {
-          const apagada = payload?.old?.id;
-          if (apagada && paradasRef.current.some((p) => p.id === apagada)) {
-            agendar();
-          }
-        },
-      )
+      // Sem assinatura de DELETE: o Realtime não aplica RLS nele e, sem
+      // filtro (o DELETE só carrega a PK), cada tela de rota receberia o id de
+      // toda parada apagada em qualquer loja. A remoção chega aqui pelos
+      // UPDATEs que ela dispara (reordenação das restantes, recálculo da
+      // rota), e a tela de quem remove recarrega ao terminar.
       .on(
         'postgres_changes',
         {

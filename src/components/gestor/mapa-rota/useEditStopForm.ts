@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { getErrorMessage } from '@/lib/errorMapping';
+import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
@@ -184,7 +185,7 @@ export function useEditStopForm({
           tipo,
         })
         .eq('id', parada.id)
-        .eq('status', 'pendente')
+        .eq('status', STATUS_PARADA_ALTERAVEL)
         .select('id');
 
       if (updateError) {
@@ -202,7 +203,7 @@ export function useEditStopForm({
 
       if (!atualizadas || atualizadas.length === 0) {
         setError(
-          'Esta parada não pode mais ser editada: o motorista já a finalizou ou ela não existe mais. A tela foi atualizada.',
+          'Esta parada não pode mais ser editada: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
         );
         onDesatualizada?.();
         return;

@@ -1,4 +1,7 @@
-import { podeAlterarParada } from '../paradaEditavel';
+import {
+  mensagemParadaNaoAlteravel,
+  podeAlterarParada,
+} from '../paradaEditavel';
 
 describe('podeAlterarParada', () => {
   it.each(['pendente', 'em_andamento'])(
@@ -19,6 +22,21 @@ describe('podeAlterarParada', () => {
     'parada pendente em rota %s: não pode',
     (rota) => {
       expect(podeAlterarParada('pendente', rota)).toBe(false);
+    },
+  );
+});
+
+describe('mensagemParadaNaoAlteravel', () => {
+  it('parada que o motorista iniciou: aviso de iniciada, não de finalizada', () => {
+    expect(mensagemParadaNaoAlteravel('em_andamento')).toBe(
+      'O motorista já iniciou esta parada e ela não pode mais ser alterada. A tela foi atualizada.',
+    );
+  });
+
+  it.each(['concluida', 'pulada', undefined])(
+    'parada %s: aviso de finalizada',
+    (status) => {
+      expect(mensagemParadaNaoAlteravel(status)).toMatch(/já foi finalizada/);
     },
   );
 });
