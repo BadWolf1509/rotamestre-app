@@ -34,6 +34,8 @@ interface ToastState {
  * }
  * ```
  */
+export type ShowToast = ReturnType<typeof useToast>['showToast'];
+
 export function useToast() {
   const [toast, setToast] = useState<ToastState>({
     visible: false,

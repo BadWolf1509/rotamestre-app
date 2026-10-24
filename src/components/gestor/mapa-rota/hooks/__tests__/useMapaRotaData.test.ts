@@ -82,7 +82,7 @@ describe('useMapaRotaData', () => {
   });
 
   it('inclui otimizacao_estado no select de rotas (regressão: sem isso o campo nunca chega do banco)', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -92,7 +92,7 @@ describe('useMapaRotaData', () => {
   });
 
   it('popula rota.otimizacao_estado com o valor retornado pelo banco', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 

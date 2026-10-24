@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList } from 'react-native';
 
-import { useToast } from '@/hooks/useToast';
+import type { ShowToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO } from '@/lib/dateUtils';
 import {
@@ -75,6 +75,12 @@ interface UseMapaRotaHandlersOptions {
   paradasReais: Parada[];
   enderecoUnidade: { latitude: number; longitude: number } | null;
   loadRotaEParadas: () => Promise<void>;
+  /**
+   * O `showToast` da instância de `useToast` que a PÁGINA renderiza. É
+   * obrigatório de propósito: `useToast` é estado local, e um hook que criasse
+   * a própria instância mostraria o toast para ninguém.
+   */
+  showToast: ShowToast;
 }
 
 interface UseMapaRotaHandlersResult {
@@ -128,8 +134,8 @@ export function useMapaRotaHandlers({
   paradasReais,
   enderecoUnidade,
   loadRotaEParadas,
+  showToast,
 }: UseMapaRotaHandlersOptions): UseMapaRotaHandlersResult {
-  const { showToast } = useToast();
   const { userData } = useUser();
 
   // Selection state

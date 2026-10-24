@@ -73,7 +73,9 @@ export default function MapaRota() {
   const { theme } = useUnistyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { toast, hideToast } = useToast();
+  // A página é a dona do toast: os hooks recebem o showToast desta instância
+  // (cada useToast() é um estado local, e só o desta página é renderizado).
+  const { toast, showToast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
   const { userData } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
@@ -103,6 +105,7 @@ export default function MapaRota() {
   } = useMapaRotaData({
     rotaId: id,
     onError: handleDataError,
+    showToast,
   });
 
   // ===== Handlers Hook =====
@@ -140,6 +143,7 @@ export default function MapaRota() {
     // Depois de cada ação a tela recarrega sem skeleton (o mapa e os modais
     // ficam montados).
     loadRotaEParadas: recarregarSilencioso,
+    showToast,
   });
 
   // ===== Modal State Hook =====

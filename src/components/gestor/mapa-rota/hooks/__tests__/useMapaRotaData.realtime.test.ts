@@ -107,7 +107,7 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('assina paradas e rotas filtradas pela rota, e NÃO assina DELETE sem filtro', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(ouvinte('paradas', '*')?.filtro.filter).toBe('rota_id=eq.rota-1');
@@ -123,7 +123,7 @@ describe('useMapaRotaData: tela viva', () => {
   it('o motorista conclui a parada 2: a tela passa a mostrar concluída sem skeleton', async () => {
     const historicoLoading: boolean[] = [];
     const { result } = renderHook(() => {
-      const r = useMapaRotaData({ rotaId: 'rota-1' });
+      const r = useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast });
       historicoLoading.push(r.loading);
       return r;
     });
@@ -149,7 +149,7 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('uma rajada de eventos vira uma recarga só', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockParadasOrder.mockClear();
 
@@ -163,7 +163,7 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('mudança na rota (ex.: cancelada) também recarrega', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockSingle.mockResolvedValue({
       data: { ...rotaRow, status: 'cancelada' },
@@ -178,7 +178,7 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('ao (re)conectar o canal revalida: cobre o intervalo sem eventos', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockParadasOrder.mockClear();
 
@@ -200,7 +200,7 @@ describe('useMapaRotaData: tela viva', () => {
 
   it('desmontar remove o canal e cancela a recarga pendente', async () => {
     const { result, unmount } = renderHook(() =>
-      useMapaRotaData({ rotaId: 'rota-1' }),
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockParadasOrder.mockClear();
@@ -218,7 +218,7 @@ describe('useMapaRotaData: tela viva', () => {
   it('recarregarSilencioso (para quem salva) não liga o skeleton', async () => {
     const historicoLoading: boolean[] = [];
     const { result } = renderHook(() => {
-      const r = useMapaRotaData({ rotaId: 'rota-1' });
+      const r = useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast });
       historicoLoading.push(r.loading);
       return r;
     });
@@ -242,7 +242,7 @@ describe('useMapaRotaData: tela viva', () => {
   it('recarga silenciosa que falha mantém a tela: sem onError, sem toast', async () => {
     const onError = jest.fn();
     const { result } = renderHook(() =>
-      useMapaRotaData({ rotaId: 'rota-1', onError }),
+      useMapaRotaData({ rotaId: 'rota-1', onError, showToast: mockShowToast }),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockParadasOrder.mockResolvedValue({
@@ -265,7 +265,7 @@ describe('useMapaRotaData: tela viva', () => {
     const onError = jest.fn();
     mockSingle.mockResolvedValue({ data: null, error: new Error('x') });
     const { result } = renderHook(() =>
-      useMapaRotaData({ rotaId: 'rota-1', onError }),
+      useMapaRotaData({ rotaId: 'rota-1', onError, showToast: mockShowToast }),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -277,7 +277,7 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('resposta velha que chega depois da nova é descartada', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     let liberaVelha!: (v: unknown) => void;
@@ -330,7 +330,7 @@ describe('useMapaRotaData: tela viva', () => {
       });
 
       const { result } = renderHook(() =>
-        useMapaRotaData({ rotaId: 'rota-1' }),
+        useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
       );
       expect(result.current.loading).toBe(true);
 
@@ -357,7 +357,7 @@ describe('useMapaRotaData: tela viva', () => {
       });
 
       const { result } = renderHook(() =>
-        useMapaRotaData({ rotaId: 'rota-1', onError }),
+        useMapaRotaData({ rotaId: 'rota-1', onError, showToast: mockShowToast }),
       );
 
       await act(async () => {

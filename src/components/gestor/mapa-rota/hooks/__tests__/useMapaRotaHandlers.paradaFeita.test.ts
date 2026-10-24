@@ -68,6 +68,7 @@ function montar(
   const hook = renderHook(
     (props: { paradas: Parada[]; rota: Rota }) =>
       useMapaRotaHandlers({
+        showToast: mockShowToast,
         rotaId: 'rota-1',
         rota: props.rota,
         paradas: props.paradas,

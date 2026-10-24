@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useToast } from '@/hooks/useToast';
+import type { ShowToast } from '@/hooks/useToast';
 import { logger } from '@/lib/logger';
 import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +17,12 @@ const DEBOUNCE_RECARGA_MS = 300;
 interface UseMapaRotaDataOptions {
   rotaId: string | string[] | undefined;
   onError?: () => void;
+  /**
+   * O `showToast` da instância de `useToast` que a PÁGINA renderiza. É
+   * obrigatório de propósito: `useToast` é estado local, e um hook que criasse
+   * a própria instância mostraria o toast para ninguém.
+   */
+  showToast: ShowToast;
 }
 
 interface UseMapaRotaDataResult {
@@ -41,9 +47,8 @@ interface UseMapaRotaDataResult {
 export function useMapaRotaData({
   rotaId,
   onError,
+  showToast,
 }: UseMapaRotaDataOptions): UseMapaRotaDataResult {
-  const { showToast } = useToast();
-
   const [loading, setLoading] = useState(true);
   const [rota, setRota] = useState<Rota | null>(null);
   const [paradas, setParadas] = useState<Parada[]>([]);
