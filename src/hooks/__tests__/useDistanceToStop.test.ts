@@ -253,4 +253,104 @@ describe('useDistanceToStop', () => {
       expect(mockGetDistance).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('intervalo e movimento (DP-4)', () => {
+    const renderizar = () =>
+      renderHook(
+        ({ userLocation, destination }) => useDistanceToStop(userLocation, destination),
+        { initialProps: { userLocation: mockUserLocation, destination: mockDestination } },
+      );
+
+    it('sem movimento, consulta no máximo 1 vez por intervalo, mesmo com posição nova a cada tick do GPS', async () => {
+      const { rerender } = renderizar();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+
+      // GPS entrega objeto novo a cada 5 s, com ruído de poucos metros e destino recriado
+      for (let t = 5; t < 115; t += 5) {
+        rerender({
+          userLocation: { latitude: -23.55 + (t % 10) * 1e-6, longitude: -46.63 },
+          destination: { ...mockDestination },
+        });
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(5000);
+        });
+      }
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10000);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+    });
+
+    it('recalcula quando a posição anda acima do limiar, respeitando o intervalo mínimo', async () => {
+      const { rerender } = renderizar();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+
+      // ~1,1 km ao norte, mas só 10 s depois: ainda dentro do intervalo mínimo
+      const longe = { latitude: -23.54, longitude: -46.63 };
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10000);
+      });
+      rerender({ userLocation: longe, destination: mockDestination });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+
+      // ao fim do intervalo mínimo, o movimento já acumulado dispara a consulta
+      // sozinho, sem depender de outra posição chegar
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(25000);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+      expect(mockGetDistance).toHaveBeenLastCalledWith(longe, mockDestination);
+    });
+
+    it('ao trocar de parada, o valor da anterior some na hora e a nova é consultada', async () => {
+      const { result, rerender } = renderizar();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(result.current.distanceKm).toBe('1.5 km');
+
+      mockGetDistance.mockReturnValueOnce(new Promise(() => {})); // nunca resolve
+      const outra = { latitude: -23.6, longitude: -46.7 };
+      rerender({ userLocation: mockUserLocation, destination: outra });
+
+      expect(result.current.distanceKm).toBe('--');
+      expect(result.current.distanceMeters).toBe(0);
+      expect(result.current.durationText).toBe('--');
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+      expect(mockGetDistance).toHaveBeenLastCalledWith(mockUserLocation, outra);
+    });
+
+    it('descarta a resposta atrasada da parada anterior', async () => {
+      let resolverAntiga: (v: unknown) => void = () => {};
+      mockGetDistance.mockReturnValueOnce(
+        new Promise((r) => {
+          resolverAntiga = r;
+        }),
+      );
+      const { result, rerender } = renderizar();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+
+      mockGetDistance.mockReturnValueOnce(new Promise(() => {}));
+      rerender({ userLocation: mockUserLocation, destination: { latitude: -23.6, longitude: -46.7 } });
+
+      await act(async () => {
+        resolverAntiga({ distance: 9999, distanceText: '10 km', duration: 1, durationText: '1 min' });
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(result.current.distanceKm).not.toBe('10 km');
+    });
+  });
 });
