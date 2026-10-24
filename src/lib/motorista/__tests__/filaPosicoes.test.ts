@@ -29,6 +29,7 @@ jest.mock('@/lib/auth/sessao', () => ({
 const memoria = new Map<string, string>();
 
 const CHAVE_CONTEXTO = '@rotamestre:tracking_context';
+const CHAVE_ULTIMO_USUARIO = '@rotamestre:ultimo_usuario';
 
 /** Contexto de rastreamento gravado pela task, com o motorista dado. */
 function contextoDe(motoristaId: string | null) {
@@ -472,10 +473,49 @@ describe('filaPosicoes', () => {
       expect(filaGuardada()).toBeNull();
     });
 
-    it('sessão "offline" (sem sessão confirmada) não conta', async () => {
+    // No web o contexto de rastreamento nunca é gravado, e sem rede o
+    // `lerSessao` devolve "offline" sem ler a sessão. O último usuário (que o
+    // logout apaga) diz de quem é a posição.
+    it('web, sem rede e sem contexto: com o último usuário igual ao motorista, guarda', async () => {
       semRede();
       contextoDe(null);
       mockLerSessao.mockResolvedValue({ session: null, offline: true });
+      memoria.set(CHAVE_ULTIMO_USUARIO, 'm1');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('na_fila');
+      expect(filaGuardada()?.posicoes).toHaveLength(1);
+    });
+
+    it('depois do logout (último usuário apagado), sem rede, a fila não é recriada', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('sem rede, último usuário de outra conta não conta', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+      memoria.set(CHAVE_ULTIMO_USUARIO, 'outra');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('com rede e sem sessão, o último usuário não basta (requisição anônima)', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: false });
+      memoria.set(CHAVE_ULTIMO_USUARIO, 'm1');
 
       const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
 

@@ -45,7 +45,8 @@
  *   logout (`CHAVES_DA_CONTA` em `src/lib/auth/limparEstadoLocal.ts`).
  * - **Só com rastreamento ou sessão do motorista.** Nada entra na fila sem o
  *   contexto de rastreamento daquele `motorista_id` ou, na falta dele, a
- *   sessão dele confirmada. Fecha a corrida com o logout: a posição que
+ *   sessão dele confirmada (sem rede, o último usuário) — ver
+ *   `aindaEhDoAparelho`. Fecha a corrida com o logout: a posição que
  *   estava no ar quando o motorista saiu falharia por rede depois da limpeza
  *   e recriaria a fila. Conferido dentro da fila em série, logo antes de
  *   gravar, para a janela ser a menor possível.
@@ -76,6 +77,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { lerSessao } from '@/lib/auth/sessao';
+import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
@@ -202,16 +204,29 @@ function comHorario(posicao: Posicao, capturadaEm: number): LinhaGuardada {
 }
 
 /**
- * Ainda há rastreamento ou sessão de `motoristaId` neste aparelho. O contexto
- * vem primeiro: é leitura local, e é ele que existe no caso comum da fila (sem
- * rede, com o token vencido, a sessão não se confirma). A sessão cobre quem
- * grava sem contexto (navegação, broadcast). Sessão "offline" não conta:
- * depois do logout sem rede ela também volta assim.
+ * Ainda há rastreamento ou sessão de `motoristaId` neste aparelho, nesta
+ * ordem:
+ *
+ * 1. **Contexto de rastreamento** daquele motorista: leitura local, e é ele
+ *    que existe no caso comum do nativo (sem rede, com o token vencido, a
+ *    sessão não se confirma).
+ * 2. **Sessão confirmada** dele: cobre quem grava sem contexto (navegação,
+ *    broadcast) — no web, sempre, porque lá o contexto nunca é gravado.
+ * 3. **Sessão "offline"** só com o último usuário (`lerUltimoUsuario`) igual
+ *    ao motorista. Sem rede, `lerSessao` nem lê a sessão; o último usuário é
+ *    a prova local de dono, e o logout o apaga — então a posição em voo do
+ *    logout não passa por aqui. Com rede e sem sessão (requisição anônima),
+ *    ele não basta.
+ *
+ * Custo aceito: sem contexto, `lerSessao` roda dentro da fila em série e pode
+ * segurá-la até `PRAZO_LEITURA_SESSAO_MS` com rede ruim. Conferir fora dela
+ * alargaria a janela da corrida com o logout.
  */
 async function aindaEhDoAparelho(motoristaId: string): Promise<boolean> {
   if ((await motoristaDoContexto()) === motoristaId) return true;
-  const { session } = await lerSessao();
-  return session?.user?.id === motoristaId;
+  const { session, offline } = await lerSessao();
+  if (session) return session.user?.id === motoristaId;
+  return offline && (await lerUltimoUsuario()) === motoristaId;
 }
 
 /**
