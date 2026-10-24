@@ -194,7 +194,7 @@ function RegisterContent() {
                 accessibilityRole="link"
               >
                 <Text tone="primary" style={styles.backLinkText}>
-                  Ja tem uma conta? Faca login
+                  Já tem uma conta? Faça login
                 </Text>
               </TouchableOpacity>
             </View>
