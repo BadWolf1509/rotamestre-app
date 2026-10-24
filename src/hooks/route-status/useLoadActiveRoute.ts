@@ -40,6 +40,7 @@ import {
   gravarRotaGuardada,
   lerRotaGuardada,
 } from '@/lib/motorista/rotaGuardada';
+import { semRedeConfirmada } from '@/lib/semRede';
 import { supabase } from '@/lib/supabase';
 
 interface UseLoadActiveRouteOptions {
@@ -73,6 +74,8 @@ const CAMPOS_DA_ROTA = `
   data,
   unidades (nome)
 `;
+
+const SEM_REDE = 'Sem conexão com a internet';
 
 type Snapshot = {
   route: RouteData | null;
@@ -214,6 +217,11 @@ export function useLoadActiveRoute({
     }
 
     try {
+      // Sem rede confirmada (modo avião), a busca só falharia depois de o
+      // supabase-js esperar o refresh preso e do timeout de 15 s do cliente:
+      // falha já, e o retrato guardado entra na hora. NetInfo "conectado" não
+      // prova rede — aí a busca segue e o guardado só entra se ela falhar.
+      if (await semRedeConfirmada()) throw new Error(SEM_REDE);
       const snapshot = await buscarSnapshot(motoristaId);
       if (chamada !== ultimaChamadaRef.current) return;
 

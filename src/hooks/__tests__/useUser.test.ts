@@ -1,5 +1,5 @@
 import { User } from '@supabase/supabase-js';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -538,6 +538,34 @@ describe('useUser', () => {
 
       await waitFor(() => expect(result.current.userData).toEqual(motorista));
       expect(result.current.perfilIndisponivel).toBeNull();
+    });
+
+    // Reaberto do zero em modo avião (1.14.5, Tarefa 3): o `exigirSessaoDe`
+    // esperava, SEM prazo, o getSession preso no refresh do auth-js (~25 s).
+    it('offline com NetInfo desconectado: perfil conhecido sem esperar o getSession', async () => {
+      const NetInfo = require('@react-native-community/netinfo');
+      const motorista = { id: 'mot-aviao', papel: 'motorista' as const };
+      comUsuario(null, 'mot-aviao');
+      guardar(motorista);
+      NetInfo.fetch.mockResolvedValue({ isConnected: false, type: 'none' });
+      (mockSupabase.auth.getSession as jest.Mock).mockReturnValue(
+        new Promise(() => {}),
+      );
+      jest.useFakeTimers();
+      try {
+        const { result } = renderHook(() => useUser());
+
+        // Nenhum avanço de relógio: só microtarefas.
+        await act(async () => {
+          for (let i = 0; i < 20; i++) await Promise.resolve();
+        });
+        expect(result.current.userData).toEqual(motorista);
+        expect(result.current.loading).toBe(false);
+        expect(mockSupabase.auth.getSession).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+        NetInfo.fetch.mockResolvedValue({ isConnected: true, type: 'wifi' });
+      }
     });
 
     it('a sessão volta (offline → user): recarrega sozinho com a busca fresca', async () => {

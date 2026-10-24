@@ -1,7 +1,12 @@
+import NetInfo from '@react-native-community/netinfo';
 import { Session, User } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-import { lerSessao, PRAZO_LEITURA_SESSAO_MS } from '../lib/auth/sessao';
+import {
+  descartarLeituraEmCurso,
+  lerSessao,
+  PRAZO_LEITURA_SESSAO_MS,
+} from '../lib/auth/sessao';
 import { obterSessaoComTimeout } from '../lib/auth/sessaoComTimeout';
 import { lerUltimoUsuario } from '../lib/auth/ultimoUsuario';
 import { cleanExpiredCache } from '../lib/cache';
@@ -85,6 +90,30 @@ export function useAuth() {
     await aplicarSessao(await lerSessaoComPrazo());
   }, [aplicarSessao, lerSessaoComPrazo]);
 
+  // A rede voltou com o app no modo offline: relê a sessão. Sem rede
+  // confirmada, `lerSessao` responde offline sem consultar o auth-js — também
+  // para quem tem o token AINDA válido. Esse não tem renovação a fazer, então
+  // o auth-js não emite TOKEN_REFRESHED quando a rede volta, e o app ficaria
+  // no modo offline até o token chegar perto de vencer.
+  const offlineRef = useRef(false);
+  useEffect(() => {
+    offlineRef.current = offline;
+  }, [offline]);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const pararDeOuvir = NetInfo.addEventListener((estado) => {
+      if (estado.isConnected === true && offlineRef.current) {
+        recarregarSessao().catch((erro) =>
+          logger.warn(
+            '[useAuth] Falha ao reler a sessão na volta da rede',
+            erro,
+          ),
+        );
+      }
+    });
+    return () => pararDeOuvir();
+  }, [recarregarSessao]);
+
   useEffect(() => {
     // For E2E/CI: Check mock session first
     if (!isSupabaseConfigured) {
@@ -122,6 +151,8 @@ export function useAuth() {
       // modo offline. O INITIAL_SESSION null da MESMA falha de refresh não:
       // quem decide offline é a leitura com o erro, em `lerSessao`.
       if (session || event === 'SIGNED_OUT') {
+        // A leitura estourada (getSession velho preso) não responde mais.
+        descartarLeituraEmCurso();
         setOffline(false);
         setUsuarioOfflineId(null);
       }

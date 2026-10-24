@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { buildRouteData } from '@/context/route-status/calculations';
@@ -47,6 +48,18 @@ function cadeia(tabela: string) {
   c.maybeSingle = () => promessa;
   c.then = (ok: (v: Resposta) => unknown, falha?: (e: unknown) => unknown) =>
     promessa.then(ok, falha);
+  return c;
+}
+
+/** Consulta que nunca responde (o banco não deveria nem ser chamado). */
+function cadeiaPendurada() {
+  const c: Record<string, unknown> = {};
+  for (const m of ['select', 'eq', 'in', 'order', 'limit', 'gte']) {
+    c[m] = () => c;
+  }
+  const nunca = new Promise<Resposta>(() => {});
+  c.maybeSingle = () => nunca;
+  c.then = (ok: (v: Resposta) => unknown) => nunca.then(ok);
   return c;
 }
 
@@ -548,17 +561,96 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
     let a!: Promise<void>;
     await act(async () => {
       a = hook.result.current.loadActiveRoute();
-      // Deixa A chegar à leitura do disco antes de B começar.
-      for (let i = 0; i < 5; i++) await Promise.resolve();
+      // Deixa A chegar à leitura do disco antes de B começar. Espera pela
+      // leitura em si, não por um número fixo de microtarefas: com contagem
+      // fixa, um await a mais no caminho (o NetInfo) fazia A nem chegar ao
+      // disco e o teste passava sem testar nada.
+      for (let i = 0; i < 50 && !soltarLeitura; i++) await Promise.resolve();
+      expect(soltarLeitura).toBeDefined();
       await hook.result.current.loadActiveRoute();
     });
     expect(hook.result.current.route?.id).toBe('r-nova');
 
     await act(async () => {
-      soltarLeitura?.();
+      soltarLeitura();
       await a;
     });
     expect(hook.result.current.route?.id).toBe('r-nova');
     expect(hook.result.current.error).toBeNull();
+  });
+  // Reaberto do zero em modo avião (1.14.5, Tarefa 3): a busca ficava
+  // pendurada até o timeout de 15 s do cliente (e o getSession do supabase-js,
+  // preso no refresh, antes dela). Com o NetInfo afirmando "sem rede", o
+  // retrato aparece na hora, pelo mesmo atalho do portão de autenticação.
+  describe('NetInfo sem rede', () => {
+    const fetchNetInfo = NetInfo.fetch as jest.Mock;
+
+    afterEach(() => {
+      fetchNetInfo.mockReset();
+      fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+      jest.useRealTimers();
+    });
+
+    it('desconectado: rota guardada na hora, sem consultar o banco', async () => {
+      await guardarDeSessaoAnterior('m1', 123);
+      fetchNetInfo.mockResolvedValue({ isConnected: false, type: 'none' });
+      jest.useFakeTimers();
+      const consultas = jest.fn(() => cadeiaPendurada());
+      (supabase.from as jest.Mock) = consultas;
+
+      const hook = montarPara('m1');
+      // Nenhum avanço de relógio.
+      await act(async () => {
+        await hook.result.current.loadActiveRoute();
+      });
+
+      expect(consultas).not.toHaveBeenCalled();
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.atualizadoEm).toBe(123);
+      expect(hook.result.current.error).not.toBeNull();
+      expect(hook.result.current.loading).toBe(false);
+    });
+
+    it('desconectado com a rota desta sessão na memória: mantém a memória', async () => {
+      await guardarDeSessaoAnterior('m1', 123, rota('r-velha'));
+      enfileirar('rotas', { data: [rota('r-nova')], error: null });
+      enfileirar('paradas', { data: [parada('p1')], error: null });
+      const hook = montarPara('m1');
+      await carregar(hook);
+      const atualizadoAntes = hook.result.current.atualizadoEm;
+
+      fetchNetInfo.mockResolvedValue({ isConnected: false, type: 'none' });
+      await carregar(hook);
+
+      expect(hook.result.current.route?.id).toBe('r-nova');
+      expect(hook.result.current.atualizadoEm).toBe(atualizadoAntes);
+      expect(hook.result.current.error).not.toBeNull();
+    });
+
+    // Rede fraca: o NetInfo diz "conectado" e não prova nada. Segue a busca
+    // (que desiste no timeout do cliente) e o guardado só entra na falha.
+    it('conectado + busca pendurada: espera a busca, como antes', async () => {
+      await guardarDeSessaoAnterior('m1', 123);
+      const pendurada = deferido();
+      enfileirar('rotas', pendurada.promise);
+
+      const hook = montarPara('m1');
+      let carga!: Promise<void>;
+      await act(async () => {
+        carga = hook.result.current.loadActiveRoute();
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+
+      expect(supabase.from).toHaveBeenCalledWith('rotas');
+      expect(hook.result.current.loading).toBe(true);
+      expect(hook.result.current.route).toBeNull();
+
+      await act(async () => {
+        pendurada.resolve({ data: null, error: { message: 'timeout' } });
+        await carga;
+      });
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.atualizadoEm).toBe(123);
+    });
   });
 });

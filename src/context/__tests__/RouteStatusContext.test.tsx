@@ -1340,7 +1340,29 @@ describe('RouteStatusContext com ações na fila offline', () => {
     ];
     mockUpdateCalls.length = 0;
     mockLeituraSemRede = false;
+    // O `clearAllMocks` não desfaz o valor do NetInfo: sem isto, o "sem rede"
+    // de um teste vazava para o seguinte.
+    ficarOnline();
   });
+
+  /**
+   * Uma sessão anterior carregou com rede e guardou a rota no aparelho. Sem
+   * rede confirmada (NetInfo `isConnected === false`) a carga nem consulta o
+   * banco e usa esse retrato — o banco falso respondendo "sem rede" não é um
+   * cenário real.
+   */
+  async function guardarRotaComRede() {
+    ficarOnline();
+    const anterior = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(memoria.has('@rotamestre:rota_guardada')).toBe(true);
+    });
+    anterior.unmount();
+  }
 
   afterAll(() => {
     mockLeituraSemRede = false;
@@ -1365,6 +1387,7 @@ describe('RouteStatusContext com ações na fila offline', () => {
   }
 
   it('sem rede: a parada guardada aparece concluída e marcada como envio pendente', async () => {
+    await guardarRotaComRede();
     (NetInfo.fetch as jest.Mock).mockResolvedValue({
       isConnected: false,
       isInternetReachable: false,
@@ -1464,6 +1487,7 @@ describe('RouteStatusContext com ações na fila offline', () => {
       ouvintes.push(fn);
       return original.call(AppState, tipo, fn as never);
     }) as typeof AppState.addEventListener;
+    await guardarRotaComRede();
     ficarOffline();
     await enfileirarConclusaoDaParada1();
     const { getByTestId, unmount } = render(

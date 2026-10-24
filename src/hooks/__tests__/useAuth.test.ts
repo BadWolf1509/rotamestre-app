@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
@@ -63,14 +64,17 @@ describe('useAuth', () => {
       expect(result.current.user).toBeNull();
     });
 
-    it('deve chamar getSession ao montar', () => {
+    it('deve chamar getSession ao montar', async () => {
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
       });
 
       renderHook(() => useAuth());
 
-      expect(supabase.auth.getSession).toHaveBeenCalledTimes(1);
+      // Depois da consulta ao NetInfo (assíncrona): ver `lerSessao`.
+      await waitFor(() =>
+        expect(supabase.auth.getSession).toHaveBeenCalledTimes(1),
+      );
     });
 
     it('deve registrar listener de mudança de auth', () => {
@@ -294,8 +298,13 @@ describe('useAuth', () => {
     it('getSession sem resposta em 10 s: modo offline com o último usuário', async () => {
       jest.useFakeTimers();
       try {
+        // Pendurado durante o teste e solto no fim: a leitura da sessão é
+        // compartilhada no módulo e não pode ficar presa para os próximos.
+        let soltar!: (v: unknown) => void;
         (supabase.auth.getSession as jest.Mock).mockReturnValue(
-          new Promise(() => {}),
+          new Promise((r) => {
+            soltar = r;
+          }),
         );
 
         const { result } = renderHook(() => useAuth());
@@ -309,6 +318,13 @@ describe('useAuth', () => {
         expect(result.current.user).toBeNull();
         expect(result.current.offline).toBe(true);
         expect(result.current.usuarioOfflineId).toBe('m1');
+
+        await act(async () => {
+          soltar({
+            data: { session: null },
+            error: new AuthRetryableFetchError('Failed to fetch', 0),
+          });
+        });
       } finally {
         jest.useRealTimers();
       }
@@ -339,6 +355,88 @@ describe('useAuth', () => {
       expect(result.current.user).toEqual(mockSession.user);
       expect(result.current.offline).toBe(false);
       expect(result.current.usuarioOfflineId).toBeNull();
+    });
+  });
+  // Reabrir do zero em modo avião (1.14.5, Tarefa 3).
+  describe('NetInfo sem rede', () => {
+    const fetchNetInfo = NetInfo.fetch as jest.Mock;
+    const ouvirNetInfo = NetInfo.addEventListener as jest.Mock;
+    let aoMudarRede: (estado: { isConnected: boolean | null }) => void;
+
+    beforeEach(() => {
+      (lerUltimoUsuario as jest.Mock).mockResolvedValue('m1');
+      ouvirNetInfo.mockImplementation((cb) => {
+        aoMudarRede = cb;
+        return jest.fn();
+      });
+    });
+
+    afterEach(() => {
+      fetchNetInfo.mockReset();
+      fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+      ouvirNetInfo.mockReset();
+      ouvirNetInfo.mockImplementation(() => jest.fn());
+      jest.useRealTimers();
+    });
+
+    it('desconectado: modo offline com o último usuário sem esperar prazo', async () => {
+      jest.useFakeTimers();
+      fetchNetInfo.mockResolvedValue({ isConnected: false, type: 'none' });
+      (supabase.auth.getSession as jest.Mock).mockReturnValue(
+        new Promise(() => {}),
+      );
+
+      const { result } = renderHook(() => useAuth());
+
+      // Nenhum avanço de relógio: só microtarefas.
+      await act(async () => {
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+      });
+      expect(result.current.loading).toBe(false);
+      expect(result.current.offline).toBe(true);
+      expect(result.current.usuarioOfflineId).toBe('m1');
+      expect(supabase.auth.getSession).not.toHaveBeenCalled();
+    });
+
+    // Com o atalho, quem abriu sem rede com o token AINDA válido também entra
+    // no modo offline — e, sem renovação a fazer, o auth-js não emite evento
+    // quando a rede volta. A volta da rede relê a sessão.
+    it('a rede volta: relê a sessão e sai do modo offline', async () => {
+      fetchNetInfo.mockResolvedValue({ isConnected: false, type: 'none' });
+      const { result } = renderHook(() => useAuth());
+      await waitFor(() => expect(result.current.offline).toBe(true));
+
+      fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+      await act(async () => {
+        aoMudarRede({ isConnected: true });
+      });
+
+      await waitFor(() =>
+        expect(result.current.user).toEqual(mockSession.user),
+      );
+      expect(result.current.offline).toBe(false);
+      expect(result.current.usuarioOfflineId).toBeNull();
+    });
+
+    it('rede "conectada" sem estar offline: não relê a sessão à toa', async () => {
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+      const { result } = renderHook(() => useAuth());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      const chamadas = (supabase.auth.getSession as jest.Mock).mock.calls
+        .length;
+
+      await act(async () => {
+        aoMudarRede({ isConnected: true });
+      });
+
+      expect(supabase.auth.getSession).toHaveBeenCalledTimes(chamadas);
     });
   });
 });
