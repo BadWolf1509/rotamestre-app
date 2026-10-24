@@ -224,18 +224,18 @@ function FirstPasswordContent() {
 
             <View style={styles.requirementsBox}>
               <Text variant="label" style={styles.requirementsTitle}>
-                Requisitos de Seguranca:
+                Requisitos de Segurança:
               </Text>
               <Text style={styles.requirementText}>
-                - Minimo de 8 caracteres
+                - Mínimo de 8 caracteres
               </Text>
               <Text style={styles.requirementText}>
-                - Pelo menos 1 letra maiuscula
+                - Pelo menos 1 letra maiúscula
               </Text>
               <Text style={styles.requirementText}>
-                - Pelo menos 1 letra minuscula
+                - Pelo menos 1 letra minúscula
               </Text>
-              <Text style={styles.requirementText}>- Pelo menos 1 numero</Text>
+              <Text style={styles.requirementText}>- Pelo menos 1 número</Text>
               <Text style={styles.requirementText}>
                 - Pelo menos 1 caractere especial (!@#$%&*)
               </Text>

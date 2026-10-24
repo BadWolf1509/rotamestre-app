@@ -35,6 +35,17 @@ const FORMAS_SEM_ACENTO = [
   'senhas nao coincidem',
   'senha unica',
   'senha sera usada',
+  'suas informacoes',
+  'Requisitos de Seguranca',
+  '- Minimo de',
+  'letra maiuscula',
+  'letra minuscula',
+  'Pelo menos 1 numero',
+  'podem ter vinculos',
+  'esta vinculada',
+  'Dependencia circular',
+  'para uma rota e ${',
+  'e ${parada.tipo}',
 ];
 
 function listarFontes(dir: string): string[] {

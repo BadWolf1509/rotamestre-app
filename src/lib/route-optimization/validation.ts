@@ -18,13 +18,13 @@ export function validarVinculos(paradas: ParadaParaOtimizar[]): string[] {
     if (parada.vinculo_parada_id) {
       if (!idsExistentes.has(parada.vinculo_parada_id)) {
         erros.push(
-          `Parada "${parada.endereco}" esta vinculada a uma parada inexistente`,
+          `Parada "${parada.endereco}" está vinculada a uma parada inexistente`,
         );
       }
 
       if (parada.tipo !== 'entrega') {
         erros.push(
-          `Apenas entregas podem ter vinculos. "${parada.endereco}" e ${parada.tipo}`,
+          `Apenas entregas podem ter vínculos. "${parada.endereco}" é ${parada.tipo}`,
         );
       }
 
@@ -44,7 +44,7 @@ export function validarVinculos(paradas: ParadaParaOtimizar[]): string[] {
         const p = paradas.find((par) => par.id === id);
         return p?.destinatario || p?.endereco || id;
       });
-      erros.push(`Dependencia circular detectada: ${nomesCiclo.join(' → ')}`);
+      erros.push(`Dependência circular detectada: ${nomesCiclo.join(' → ')}`);
     });
   }
 
@@ -63,7 +63,7 @@ export function validarRotaParaOtimizacao(
   if (paradas.length > MAX_WAYPOINTS) {
     erros.push(
       `Limite de ${MAX_WAYPOINTS} paradas excedido (atual: ${paradas.length}). ` +
-        `O limite operacional configurado para uma rota e ${MAX_WAYPOINTS} paradas.`,
+        `O limite operacional configurado para uma rota é ${MAX_WAYPOINTS} paradas.`,
     );
   } else if (paradas.length > WAYPOINTS_RECOMENDADO) {
     avisos.push(

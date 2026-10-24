@@ -125,7 +125,7 @@ export default function EditarPerfil() {
 
       showAlert({
         title: 'Perfil atualizado',
-        message: 'Suas informacoes foram salvas com sucesso.',
+        message: 'Suas informações foram salvas com sucesso.',
         type: 'success',
         confirmText: 'Voltar',
         onConfirm: () => router.replace('/motorista/perfil'),
@@ -181,7 +181,7 @@ export default function EditarPerfil() {
           <View style={styles(theme).header}>
             <View style={styles(theme).headerContent}>
               <Text style={styles(theme).headerSubtitle}>
-                Atualize suas informacoes pessoais
+                Atualize suas informações pessoais
               </Text>
             </View>
           </View>

@@ -126,7 +126,7 @@ export default function EditarPerfilGestor() {
 
       showAlert({
         title: 'Perfil atualizado',
-        message: 'Suas informacoes foram salvas com sucesso.',
+        message: 'Suas informações foram salvas com sucesso.',
         type: 'success',
         confirmText: 'Voltar',
         onConfirm: () => router.replace('/perfil'),
@@ -238,7 +238,7 @@ export default function EditarPerfilGestor() {
           <View style={styles(theme).header}>
             <View style={styles(theme).headerContent}>
               <Text style={styles(theme).headerSubtitle}>
-                Atualize suas informacoes pessoais
+                Atualize suas informações pessoais
               </Text>
             </View>
           </View>
