@@ -26,63 +26,32 @@ const fs = require('fs');
  * Revisar nas datas indicadas — se já houver correção, remover a entrada e subir.
  */
 const ACEITOS = {
-  'GHSA-w3rx-r6r6-pgpr': {
-    pacote: 'image-size',
-    motivo:
-      'DoS por loop infinito no parser ICNS. Sem versão corrigida publicada ' +
-      '(advisory diz "Patched versions: None"; a 2.0.2 é a última e está no ' +
-      'range vulnerável <=2.0.2). Chega via react-native -> community-cli-plugin ' +
-      '-> metro: é o bundler, ferramenta de build que não vai para o bundle do ' +
-      'app. Exploração exigiria uma imagem maliciosa entrar nos assets do repo ' +
-      'e alguém rodar o build — trava a build, não atinge usuário final.',
-    revisarEm: '2026-11-01',
-  },
-  'GHSA-5p2g-fcmc-qvqq': {
-    pacote: 'image-size',
-    motivo:
-      'DoS por loop infinito nos parsers JXL e HEIF. Mesma origem, mesma ' +
-      'ausência de correção e mesmo alcance limitado a build-time do advisory ' +
-      'GHSA-w3rx-r6r6-pgpr.',
-    revisarEm: '2026-11-01',
-  },
   'GHSA-86w9-cpqp-85rv': {
     pacote: 'node-forge',
     motivo:
       'Verificação de assinatura RSA PKCS#1 v1.5 aceita DigestAlgorithm aninhado ' +
       'extra. Sem versão corrigida publicada (advisory diz "Patched versions: ' +
-      'None"; a 1.4.0 é a última e está no range vulnerável <=1.4.0). Chega via ' +
+      'None"; a 1.4.0 é a última e está no range vulnerável <=1.4.0; reconferido em 24/10/2026, ' +
+      'após o expo 57.0.31). Chega via ' +
       'expo -> @expo/cli e expo-updates -> @expo/code-signing-certificates, e só ' +
       'é carregado pelos comandos de CLI de code signing do expo-updates ' +
       '(`expo-updates/cli/build/{configure,generate}CodeSigningAsync.js`): é ' +
       'ferramenta de build/dev, não entra no bundle do app. Além disso o ' +
       '`app.config.js` não configura `codeSigningCertificate`, então o app não ' +
       'verifica assinatura de update com essa biblioteca em lugar nenhum.',
-    revisarEm: '2026-11-01',
-  },
-  'GHSA-vfj7-8cjw-p6xm': {
-    pacote: 'braces',
-    motivo:
-      'Estouro de pilha (DoS) ao expandir padrões glob muito aninhados. Sem ' +
-      'versão corrigida publicada (range vulnerável <=3.0.3; a 3.0.3 é a ' +
-      'última). Chega só via expo -> @expo/cli -> @expo/metro-file-map -> ' +
-      'micromatch: é o indexador de arquivos do bundler, que roda no build e no ' +
-      'servidor de desenvolvimento. Não entra no bundle do app (conferido no ' +
-      'build web de 03/10/2026: as ocorrências de "braces" são texto do React e ' +
-      'nomes de ícone). Explorar exigiria um padrão glob malicioso na ' +
-      'configuração do build — trava a build, não atinge usuário final.',
-    revisarEm: '2026-11-01',
+    revisarEm: '2026-11-24',
   },
   'GHSA-mrhx-c7xc-m3w5': {
     pacote: 'zod',
     motivo:
       'Consumo de memória ao validar coleção restrita muito grande. Corrigido ' +
       'só no zod 4.6.6; a linha 3 não tem correção. O zod do app já é o 4.6.7. ' +
-      'O 3.25.76 vulnerável chega só via expo -> @expo/cli (até a 58.1.14, a ' +
-      'mais nova, ainda pede ^3.25.76), que valida a configuração do próprio ' +
+      'O 3.25.76 vulnerável chega só via expo -> @expo/cli (até a 58.1.9, a ' +
+      'mais nova, ainda pede ^3.25.76; reconferido em 24/10/2026), que valida a configuração do próprio ' +
       'projeto no build e no servidor de desenvolvimento: não entra no bundle ' +
       'do app nem recebe entrada de usuário. Forçar o zod 4 por overrides ' +
       'arriscaria quebrar o build (APIs da 3 e da 4 diferem).',
-    revisarEm: '2026-11-01',
+    revisarEm: '2026-11-24',
   },
 };
 
