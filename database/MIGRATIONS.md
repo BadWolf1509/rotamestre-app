@@ -1985,3 +1985,48 @@ DELETE de concluída (2) e pulada (3) recusados, pendente apagada (4), endereço
 (6), reabrir e reordenar passam (7), endereço da pulada corrigível (8), cascata
 da rota concluída (9), sem usuário livre (10), funções sem EXECUTE (11). Os
 itens 1 e 2 do Review Focus são os casos 1 e 2.
+
+### ⏳ Migration 54: desativar motorista com rota aberta é recusado
+
+**Arquivo:** `20261024154000_desativar_motorista_com_rota_aberta.sql` · **⏳ pendente**
+(o controlador aplica pelo CLI). Só `CREATE OR REPLACE FUNCTION` — mesma
+assinatura e retorno, grants preservados.
+
+**Por quê.** `alternar_motorista_na_unidade` desativava o motorista (a pessoa ou
+só o vínculo desta loja) com rota `pendente` ou `em_andamento` nesta loja. Com
+o corte de acesso de quem está inativo (Migrations 48 e 49), a rota ficava
+órfã: o motorista já não a vê, e o gestor não sabia que ela existia.
+
+**O que faz.** Ao desativar (`p_ativo = false`), depois do `FOR UPDATE` e antes
+das duas vias (vínculo e pessoa), lê as rotas abertas do motorista **nesta
+loja**; havendo alguma, recusa com:
+
+- `ERRCODE P0001` e `MESSAGE` em português ("Não dá para desativar: este
+  motorista tem 3 rotas abertas nesta loja. Reatribua a outro motorista ou
+  cancele antes de desativar.") — o app já instalado mostra a MESSAGE de P0001
+  como está, então a versão antiga também entende;
+- `HINT = 'MOTORISTA_COM_ROTA_ABERTA'` (sentinela);
+- `DETAIL` = JSON `[{"id","data","status"}]`, em andamento primeiro, depois por data.
+
+O PostgREST devolve DETAIL e HINT em `details`/`hint`, e o supabase-js os
+repassa crus. O app (`src/lib/motorista/rotasAbertasDoMotorista.ts`) mostra a
+lista nas telas Motoristas, perfil e Equipe, com cada rota abrindo a tela da
+rota (trocar motorista ou cancelar). Reativar nunca é bloqueado.
+
+**Alternativa descartada: retorno json** (`{resultado, rotas}`). Exige DROP
+FUNCTION (o tipo de retorno não muda com CREATE OR REPLACE) e o app instalado
+leria a resposta como sucesso sem nada ter mudado. A exceção falha fechada nas
+duas versões.
+
+**Limite conhecido.** Atribuição que comece depois do lock passa quando ele
+cai. Pela via do vínculo, `validar_motorista_e_loja_da_rota` barra a seguinte;
+pela via da pessoa, o gatilho confere só o vínculo (não `usuarios.ativo`).
+
+**Verificação.** Guarda estática `database/__tests__/migration54-desativar-motorista-com-rota-aberta.test.ts`
+(amarra a sentinela do banco à do app); sonda
+`database/sondas/20261024154000_sonda_migration54.sql` (cenário próprio, duas
+lojas, seis motoristas, termina em `RAISE`, sem DELETE): 9 casos — o item 5 do
+Review Focus é o 1 e o 2 (uma em andamento + duas pendentes: recusado, as três
+rotas no DETAIL); sem rota aberta desativa (3); via do vínculo também bloqueada
+(4); rota de outra loja não bloqueia (5); reativar passa (6); gestor de outra
+loja segue 42501 (7); reatribuir e cancelar libera (8); grants (9).
