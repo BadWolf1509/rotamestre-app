@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useUser } from './useUser';
 import { logger } from '../lib/logger';
+import { SELECT_UNIDADE_APP } from '../lib/queries/colunasUnidade';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { UsuarioUnidade, UnidadeComSede } from '../types/usuario';
 
@@ -68,7 +69,6 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
           unidades: {
             id: mockUnidadeId,
             nome: 'Unidade Teste',
-            cnpj: '00.000.000/0001-00',
             cidade: 'São Paulo',
             endereco: 'Rua Teste, 123',
             telefone: '11999999999',
@@ -100,23 +100,7 @@ export function useUnidadeAtiva(): UseUnidadeAtivaReturn {
           is_principal,
           ativo,
           created_at,
-          unidades (
-            id,
-            nome,
-            cnpj,
-            cidade,
-            endereco,
-            telefone,
-            email,
-            ativa,
-            created_at,
-            updated_at,
-            sede_latitude,
-            sede_longitude,
-            sede_endereco,
-            uf,
-            cep
-          )
+          unidades(${SELECT_UNIDADE_APP})
         `)
         .eq('usuario_id', userData.id)
         .eq('ativo', true)
