@@ -1940,3 +1940,35 @@ service_role movendo token para a tabela e a RPC recusando conta sem perfil;
 tem `DELETE` só de tokens que ela cria, então roda no SQL Editor;
 termina em `RAISE`). Roteiro de conferência só com SELECT (9 consultas) no fim
 da migration. Sintaxe validada com o parser do Postgres (libpg-query).
+
+### ⏳ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
+
+**Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **pendente
+de aplicação.** Aplicar pelo `apply_migration` (não tem `REVOKE`/`DELETE`) e
+publicar a `delete-account` na mesma janela; a sonda roda no **SQL Editor**
+(tem `DELETE` de usuário que ela cria, termina em `RAISE`).
+`SET LOCAL lock_timeout = '5s'`.
+
+**Por quê.** `incidentes.motorista_id` era `NOT NULL ... ON DELETE CASCADE`:
+excluir a conta do motorista apagava os incidentes que ele reportou, contra o
+que `app/exclusao-de-conta.tsx` promete (registros "anonimizados").
+
+**O que faz.** `motorista_id` aceita NULL e a FK vira `ON DELETE SET NULL`. O
+gatilho `incidentes_confere_rota_parada` (Migration 38) recusaria o SET NULL
+(reconfere "a rota é deste motorista" e `rota.motorista_id = NULL` nunca é
+verdadeiro): passa a pular a conferência da rota com motorista NULL e, em troca,
+recusa NULL no INSERT (23502) — o `NOT NULL` que saiu da coluna. A loja
+(`unidade_id`) e a rota ficam, então o gestor segue vendo o registro pela policy.
+
+**Campos pessoais.** Só `motorista_id` identifica a pessoa e vira NULL.
+`descricao`, `foto_url`, `endereco`, `observacoes_gestao` e demais ficam: são o
+registro da loja. Alternativa descartada: mascarar descrição e foto (tiraria do
+incidente a função para a qual a tela promete preservá-lo).
+
+**Guardas na função.** `delete-account` recusa antes de apagar qualquer coisa:
+409 `ULTIMO_GESTOR` (único gestor ativo de alguma loja), 409
+`ROTA_EM_ANDAMENTO`, 503 `GUARDA_INDISPONIVEL` (a consulta falhou: não libera).
+Lógica em `supabase/functions/delete-account/guardasExclusao.ts`.
+
+**Pendência de app.** A lista e as estatísticas de incidentes do gestor filtram
+`motorista_id IN (motoristas da loja)` e não mostram incidente anonimizado.

@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { lerRecusaDaExclusao } from './auth/exclusaoRecusada';
 import { classificarFalhaPerfil } from './auth/falhaPerfil';
 import {
   limparAparelhoAoExcluirConta,
@@ -208,7 +209,11 @@ export const authService = {
       method: 'POST',
     });
 
-    if (error) throw error;
+    if (error) {
+      // Guarda do servidor (último gestor, rota em andamento): vai com a
+      // mensagem que diz o que fazer, não com o erro genérico do supabase-js.
+      throw (await lerRecusaDaExclusao(error)) ?? error;
+    }
     if (!data?.success) {
       throw new Error(data?.error || 'Não foi possível excluir a conta.');
     }

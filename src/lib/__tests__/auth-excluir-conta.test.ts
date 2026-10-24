@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { authService } from '../auth';
+import { ExclusaoRecusadaError } from '../auth/exclusaoRecusada';
 import { supabase } from '../supabase';
 
 jest.mock('../logger', () => ({
@@ -141,5 +142,32 @@ describe('authService.deleteAccount', () => {
     await expect(authService.deleteAccount()).rejects.toThrow('falhou');
     expect(disco.has('@rotamestre:theme_preference')).toBe(true);
     expect(AsyncStorage.clear).not.toHaveBeenCalled();
+  });
+});
+
+describe('authService.deleteAccount: recusa do servidor', () => {
+  it('guarda recusou (409): lança a recusa com a mensagem do servidor e não limpa o aparelho', async () => {
+    (
+      mockSupabase as unknown as { functions: { invoke: jest.Mock } }
+    ).functions.invoke.mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error('non-2xx'), {
+        context: new Response(
+          JSON.stringify({
+            error: 'Você é o único gestor ativo da loja X.',
+            code: 'ULTIMO_GESTOR',
+          }),
+          { status: 409 },
+        ),
+      }),
+    });
+
+    const falha = await authService.deleteAccount().catch((e) => e);
+
+    expect(falha).toBeInstanceOf(ExclusaoRecusadaError);
+    expect(falha.codigo).toBe('ULTIMO_GESTOR');
+    expect(falha.message).toBe('Você é o único gestor ativo da loja X.');
+    expect(disco.has('@rotamestre:theme_preference')).toBe(true);
+    expect(mockSupabase.auth.signOut).not.toHaveBeenCalled();
   });
 });
