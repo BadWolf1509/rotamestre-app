@@ -127,11 +127,201 @@ jobs:
             jest-results.json
           retention-days: 30
 
+  e2e-auth:
+    name: E2E autenticado
+    runs-on: ubuntu-latest
+    # Mapa + suíte e2e completa. Build web + browsers + e2e: 3 min medidos de
+    # teste, folga larga mas finita.
+    timeout-minutes: 30
+    # Job PRÓPRIO, com `if:` no nível do job, para que o pulo apareça na lista de
+    # checks do PR como "Skipped" (cinza) em vez de um ✓ verde enganoso.
+    #
+    # Quem nunca recebe secrets: Dependabot (guarda os próprios, em store
+    # separado e vazio) e PR de fork. Nenhuma das duas condições depende de
+    # secret, então cabem no `if:` do job: `github.actor` e
+    # `github.event.pull_request.head.repo.full_name` existem ali (`secrets`,
+    # não). `github.actor` fica igual num re-run (quem o dispara é
+    # `github.triggering_actor`), então re-rodar um PR do Dependabot continua
+    # pulando, como deve: os secrets seguem sendo os do bot.
+    #
+    # PR de humano, push na main e dispatch RODAM, e sem secret o step falha com
+    # ::error::. O caminho `update_snapshots=true` também pula este job: quem
+    # trabalha nele é o job `visual-regression`, com as mesmas envs.
+    #
+    # Alternativas comparadas (24/10/2026):
+    #   1. `if:` nos steps, dentro de `visual-regression`: o job inteiro sairia
+    #      verde com steps cinza, e a lista de checks do PR não mostra step. É o
+    #      problema que esta troca resolve (era a solução anterior, com `exit 0`
+    #      e `::warning::`, que só aparece a quem abre o run).
+    #   2. `if:` no job `visual-regression` inteiro: o bot perderia também a
+    #      regressão visual pública, que não precisa de secret. Descartada.
+    #   3. Job próprio (esta). Custo: build web e browsers repetidos, ~4 min.
+    #
+    # Check obrigatório da main: `Visual Regression (22.x)` NÃO muda de nome. Ele
+    # continua obrigatório e passa a depender deste job (`needs`): falha se
+    # este falhar, e conta como satisfeito se for pulado. Assim o e2e não sai do
+    # gate da main e não há check novo a cadastrar em Settings > Branches. Um
+    # job pulado satisfaz check exigido, e é essa a semântica certa para
+    # bot/fork; para humano o job roda e falha sem secret.
+    if: ${{ github.event.inputs.update_snapshots != 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.npm
+            node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Copiar worker do MapLibre
+        # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
+        # script. Sem isto, public/maplibre-gl-worker.mjs não existe em CI e o
+        # mapa web trava em "Carregando mapa...", exatamente o modo de falha
+        # descrito no CLAUDE.md. Passou despercebido até 25/08/2026 porque o
+        # teste de mapa era um screenshot que mascarava justamente o mapa.
+        #
+        # REDUNDANTE DESDE 07/09/2026, e fica de propósito: o `build:web` abaixo
+        # começa chamando este mesmo script, então hoje há duas garantias. Custa
+        # ~0,3 s. (Até 21/09 este comentário afirmava que o job "não executa
+        # build:web" — era verdade quando foi escrito e deixou de ser quando o
+        # step de build entrou.)
+        run: node tools/scripts/copy-maplibre-worker.cjs
+
+      - name: Versão do Playwright (chave do cache)
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache dos navegadores do Playwright
+        # O download dos navegadores é a maior parte do `playwright install`
+        # (centenas de MB de Chromium). A chave é a VERSÃO do @playwright/test,
+        # não o hash do lockfile: assim o cache sobrevive a bump de qualquer
+        # outra dependência, e invalida exatamente quando precisa.
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps
+
+      - name: Dependências de sistema do Playwright
+        # Com cache hit os navegadores já estão em ~/.cache/ms-playwright, mas
+        # as libs de sistema (apt) NÃO são cacheadas pelo path — elas vivem fora
+        # dele. Sem este step o Chromium cacheado não sobe, e o modo de falha é
+        # ruim: todos os testes falham no launch, não no download.
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps
+
+      - name: Construir o bundle web
+        # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
+        # passou a servir `dist/` em vez de rodar `expo start --web`. Sem este
+        # step o servidor sobe sem bundle e TODOS os testes falham com 404.
+        #
+        # O ganho medido: a suite inteira caiu de 17,5 min (dev server, 1
+        # worker) para a casa dos minutos, e as falhas por contencao sumiram —
+        # elas eram disputa por compilacao, nao defeito. De quebra, o teste
+        # passa a exercitar o MESMO artefato que vai para a Vercel.
+        run: npm run build:web
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Testes de mapa (autenticados)
+        # Os testes de mapa vivem no describe `@auth`, que o job
+        # `visual-regression` NÃO roda: `test:visual:public` filtra por
+        # `@visual.*@public`. Sem este step o mapa fica sem cobertura nenhuma em
+        # CI — foi assim que duas baselines congelando o mapa travado em
+        # "Carregando mapa..." sobreviveram desde 09/01/2026 sem ninguém notar.
+        #
+        # Depende de conta de teste. Aqui só chega quem deveria ter os secrets
+        # (o `if:` do job pula Dependabot e PR de fork), então secret ausente é
+        # secret apagado ou renomeado: o step FALHA, sem exceção. O pulo de
+        # bot/fork é o job aparecendo "Skipped" na lista de checks.
+        # `gh workflow run test.yml --ref <branch>` roda com secrets.
+        run: |
+          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_MOTORISTA_PASSWORD" ] || [ -z "$E2E_GESTOR_EMAIL" ] || [ -z "$E2E_GESTOR_PASSWORD" ]; then
+            echo '### :x: Testes de mapa NÃO executados (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Mapa sem cobertura::Secrets E2E_* ausentes. Configure E2E_MOTORISTA_EMAIL, E2E_MOTORISTA_PASSWORD, E2E_GESTOR_EMAIL e E2E_GESTOR_PASSWORD em Settings > Secrets."
+            exit 1
+          fi
+          npx playwright test e2e/visual-critical.e2e.ts --project=chromium -g "mapa"
+          echo '### :white_check_mark: Testes de mapa executados' >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VISUAL_REGRESSION: '1'
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
+          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
+          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
+          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
+
+      - name: Suite e2e completa
+        # LIGADA EM 07/09/2026. Antes o CI rodava UM filtro dentro de um
+        # arquivo (`visual-critical -g "mapa"`) e os outros ~105 testes nunca
+        # executavam. O custo era o argumento: 17,5 min em serie contra os
+        # ~5 min de CI da epoca.
+        #
+        # Servindo `dist/` em vez do dev server, a suite inteira leva 3,0 min
+        # com zero falhas — medido em 07/09. O argumento de custo caiu junto
+        # com o dev server.
+        #
+        # POR QUE ISTO IMPORTA: no mesmo dia, uma regressao mergeada no #490
+        # (um aviso cujo texto contem "mapa", colidindo com o seletor da aba)
+        # atravessou CI verde, revisao de task, revisao final de branch,
+        # re-revisao de onda de correcao e validacao em aparelho. So o e2e
+        # pegou — e ninguem soube, porque ele nao rodava aqui.
+        #
+        # Sem os secrets E2E_*: falha. Bot/fork nem chegam aqui (o `if:` do job
+        # os pula; ver o comentário do job `e2e-auth`).
+        run: |
+          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_MOTORISTA_PASSWORD" ] || [ -z "$E2E_GESTOR_EMAIL" ] || [ -z "$E2E_GESTOR_PASSWORD" ]; then
+            echo '### :x: Suite e2e NÃO executada (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=e2e nao executada::Secrets E2E_* ausentes. Configure-os em Settings > Secrets."
+            exit 1
+          fi
+          npx playwright test --project=chromium
+          echo '### :white_check_mark: Suite e2e completa executada' >> "$GITHUB_STEP_SUMMARY"
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
+          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
+          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
+          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
+
   visual-regression:
     name: Visual Regression
     runs-on: ubuntu-latest
     # Build web + browsers + e2e (3 min medidos) + visual: folga larga, mas finita.
     timeout-minutes: 30
+    # Depende do e2e autenticado para que ESTE check (obrigatório na main, nome
+    # inalterado) continue sendo o portão dele: `!cancelled()` faz o job rodar
+    # mesmo com o e2e pulado (bot/fork, update_snapshots) ou falho; o último
+    # step converte falha do e2e em falha deste job. Roda depois do e2e, não em
+    # paralelo: é o preço de não cadastrar um check novo na proteção da main.
+    needs: e2e-auth
+    if: ${{ !cancelled() }}
 
     strategy:
       matrix:
@@ -242,100 +432,6 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Testes de mapa (autenticados)
-        # Os testes de mapa vivem no describe `@auth`, que o step acima NÃO roda:
-        # `test:visual:public` filtra por `@visual.*@public`. Sem este step o mapa
-        # fica sem cobertura nenhuma em CI — foi assim que duas baselines
-        # congelando o mapa travado em "Carregando mapa..." sobreviveram desde
-        # 09/01/2026 sem ninguém notar.
-        #
-        # Depende de conta de teste. Sem os secrets, o step FALHA (::error::),
-        # exceto para Dependabot e PR de fork, que nunca os recebem: ali ele
-        # avisa (::warning:: + resumo do job) e sai com 0.
-        #
-        # Por que não marcar o job como `skipped` por `if:` (alternativa
-        # descartada): `secrets` não existe em `if:` de step, só via env de um
-        # job anterior; `Visual Regression (22.x)` é check exigido pela main e
-        # um job pulado conta como satisfeito, então secret apagado passaria
-        # verde sem aviso nenhum, pior que o `exit 0` com anotação. E pular o
-        # step só para bot/fork não resolve o caso humano, que é o que importa.
-        # Mesmo com o aviso, o verde de bot/fork não prova que o mapa foi
-        # testado; `gh workflow run test.yml --ref <branch>` roda com secrets.
-        if: ${{ github.event.inputs.update_snapshots != 'true' }}
-        run: |
-          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_MOTORISTA_PASSWORD" ] || [ -z "$E2E_GESTOR_EMAIL" ] || [ -z "$E2E_GESTOR_PASSWORD" ]; then
-            echo '### :warning: Testes de mapa NÃO executados (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
-            # Só quem NUNCA recebe secrets pode pular: Dependabot (guarda os
-            # próprios secrets, separados) e PR de fork. Qualquer outro caso
-            # (PR de humano, push na main, dispatch) é secret apagado ou
-            # renomeado, e passar verde aqui esconderia o mapa sem teste.
-            if [ "$ACTOR" = 'dependabot[bot]' ] || { [ "$EVENT_NAME" = 'pull_request' ] && [ "$HEAD_REPO" != "$REPO" ]; }; then
-              echo "::warning title=Mapa sem cobertura::Secrets E2E_* indisponíveis para este autor ($ACTOR); os testes de mapa não rodaram. Rode 'gh workflow run test.yml --ref <branch>' para cobrir o mapa."
-              exit 0
-            fi
-            echo "::error title=Mapa sem cobertura::Secrets E2E_* ausentes. Configure E2E_MOTORISTA_EMAIL, E2E_MOTORISTA_PASSWORD, E2E_GESTOR_EMAIL e E2E_GESTOR_PASSWORD em Settings > Secrets."
-            exit 1
-          fi
-          npx playwright test e2e/visual-critical.e2e.ts --project=chromium -g "mapa"
-          echo '### :white_check_mark: Testes de mapa executados' >> "$GITHUB_STEP_SUMMARY"
-        env:
-          ACTOR: ${{ github.actor }}
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          REPO: ${{ github.repository }}
-          VISUAL_REGRESSION: '1'
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
-          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
-          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
-          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
-
-      - name: Suite e2e completa
-        # LIGADA EM 07/09/2026. Antes o CI rodava UM filtro dentro de um
-        # arquivo (`visual-critical -g "mapa"`) e os outros ~105 testes nunca
-        # executavam. O custo era o argumento: 17,5 min em serie contra os
-        # ~5 min de CI da epoca.
-        #
-        # Servindo `dist/` em vez do dev server, a suite inteira leva 3,0 min
-        # com zero falhas — medido em 07/09. O argumento de custo caiu junto
-        # com o dev server.
-        #
-        # POR QUE ISTO IMPORTA: no mesmo dia, uma regressao mergeada no #490
-        # (um aviso cujo texto contem "mapa", colidindo com o seletor da aba)
-        # atravessou CI verde, revisao de task, revisao final de branch,
-        # re-revisao de onda de correcao e validacao em aparelho. So o e2e
-        # pegou — e ninguem soube, porque ele nao rodava aqui.
-        #
-        # Sem os secrets E2E_*: falha, exceto Dependabot e PR de fork (que
-        # nunca os recebem) — ali avisa e sai com 0. Mesma regra, e mesma
-        # justificativa contra `skipped`, do step de mapa acima.
-        if: ${{ github.event.inputs.update_snapshots != 'true' }}
-        run: |
-          if [ -z "$E2E_MOTORISTA_EMAIL" ] || [ -z "$E2E_MOTORISTA_PASSWORD" ] || [ -z "$E2E_GESTOR_EMAIL" ] || [ -z "$E2E_GESTOR_PASSWORD" ]; then
-            echo '### :warning: Suite e2e NÃO executada (secrets E2E ausentes)' >> "$GITHUB_STEP_SUMMARY"
-            # Mesma regra do step de mapa: só Dependabot e PR de fork pulam.
-            if [ "$ACTOR" = 'dependabot[bot]' ] || { [ "$EVENT_NAME" = 'pull_request' ] && [ "$HEAD_REPO" != "$REPO" ]; }; then
-              echo "::warning title=e2e nao executada::Secrets E2E_* indisponíveis para este autor ($ACTOR). Rode 'gh workflow run test.yml --ref <branch>' para cobrir."
-              exit 0
-            fi
-            echo "::error title=e2e nao executada::Secrets E2E_* ausentes. Configure-os em Settings > Secrets."
-            exit 1
-          fi
-          npx playwright test --project=chromium
-          echo '### :white_check_mark: Suite e2e completa executada' >> "$GITHUB_STEP_SUMMARY"
-        env:
-          ACTOR: ${{ github.actor }}
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          REPO: ${{ github.repository }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
-          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
-          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
-          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
-
       - name: Update visual regression snapshots
         if: ${{ github.event.inputs.update_snapshots == 'true' }}
         # Sem `|| true`: o Playwright sai com 0 quando só os snapshots mudam
@@ -375,3 +471,21 @@ jobs:
             e2e-report
             test-results
           retention-days: 7
+
+      - name: Resultado do e2e autenticado (portão do check obrigatório)
+        # `Visual Regression (22.x)` é o check exigido pela main; o e2e vive no
+        # job `e2e-auth`. Falha aqui se ele falhou. Se foi pulado (bot, fork ou
+        # update_snapshots), o pulo já aparece como "Skipped" na lista de
+        # checks; o aviso abaixo repete no resumo deste job.
+        if: ${{ always() }}
+        env:
+          E2E_RESULT: ${{ needs.e2e-auth.result }}
+        run: |
+          case "$E2E_RESULT" in
+            success) echo '### :white_check_mark: e2e autenticado passou' >> "$GITHUB_STEP_SUMMARY" ;;
+            skipped) echo '### :warning: e2e autenticado PULADO (bot, fork ou update_snapshots): o mapa e a suíte não rodaram' >> "$GITHUB_STEP_SUMMARY" ;;
+            *)
+              echo "::error title=e2e autenticado::resultado do job e2e-auth: $E2E_RESULT"
+              exit 1
+              ;;
+          esac
