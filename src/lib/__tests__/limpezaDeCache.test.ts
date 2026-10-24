@@ -16,6 +16,10 @@ const PRESERVADAS = [
   '@rotamestre:fila_acoes_parada_descartes',
   '@rotamestre:offline_photos_index',
   '@rotamestre:offline_queue',
+  // preferência de push escolhida sem rede (só existe no aparelho) e a cópia
+  // que a acompanha (src/lib/notificacoes/preferenciasPush.ts)
+  '@rotamestre:preferencias_push_pendente:u1',
+  '@rotamestre:preferencias_push:u1',
 ];
 const DESCARTAVEIS = [
   '@cache_rotas_u1',

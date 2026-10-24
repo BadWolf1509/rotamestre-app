@@ -5,8 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeSettings } from '@/components/ThemeSettings';
-import { MobileCard, Text } from '@/design-system';
+import { MobileCard, Text, Toast } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
+import { usePreferenciasPush } from '@/hooks/usePreferenciasPush';
+import { useToast } from '@/hooks/useToast';
 import {
   getAppVersion,
   getBuildNumber,
@@ -16,14 +18,13 @@ import {
   chavesParaLimparNoCache,
   MENSAGEM_LIMPAR_CACHE,
 } from '@/lib/limpezaDeCache';
+import { AVISO_PREFERENCIA_SEM_REDE } from '@/lib/notificacoes/preferenciasPush';
+import type { PreferenciasNotificacao } from '@/types/notifications';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
-// Storage keys
+// Storage keys (as preferências de push moram no banco desde a Migration 47;
+// as chaves antigas migram uma vez em src/lib/notificacoes/preferenciasPush.ts)
 const STORAGE_KEYS = {
-  NOTIFICATIONS_ENABLED: '@rotamestre:gestor:notifications_enabled',
-  INCIDENT_ALERTS: '@rotamestre:gestor:incident_alerts',
-  ROUTE_UPDATES: '@rotamestre:gestor:route_updates',
-  DAILY_SUMMARY: '@rotamestre:gestor:daily_summary',
   DASHBOARD_AUTO_REFRESH: '@rotamestre:gestor:dashboard_auto_refresh',
   EXPORT_FORMAT: '@rotamestre:gestor:export_format',
 };
@@ -38,11 +39,18 @@ export default function ConfiguracoesGestorScreen() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const { showSuccess, showError, showConfirm, AlertDialog } = useAlert();
+  const { toast, showToast, hideToast } = useToast();
+  // Preferências no banco (Migration 47), lidas pela Edge Function de push.
+  const {
+    preferencias,
+    carregando: carregandoPreferencias,
+    alterar: alterarPreferencia,
+  } = usePreferenciasPush();
+  const notificationsEnabled = preferencias.push_ativo;
+  const incidentAlerts = preferencias.incidentes;
+  const routeUpdates = preferencias.rotas;
+  const dailySummary = preferencias.resumo_diario;
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [incidentAlerts, setIncidentAlerts] = useState(true);
-  const [routeUpdates, setRouteUpdates] = useState(true);
-  const [dailySummary, setDailySummary] = useState(true);
   const [dashboardAutoRefresh, setDashboardAutoRefresh] = useState(true);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('csv');
   const [loading, setLoading] = useState(true);
@@ -52,21 +60,11 @@ export default function ConfiguracoesGestorScreen() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const [notifications, incidents, routes, summary, autoRefresh, format] =
-          await Promise.all([
-            AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED),
-            AsyncStorage.getItem(STORAGE_KEYS.INCIDENT_ALERTS),
-            AsyncStorage.getItem(STORAGE_KEYS.ROUTE_UPDATES),
-            AsyncStorage.getItem(STORAGE_KEYS.DAILY_SUMMARY),
-            AsyncStorage.getItem(STORAGE_KEYS.DASHBOARD_AUTO_REFRESH),
-            AsyncStorage.getItem(STORAGE_KEYS.EXPORT_FORMAT),
-          ]);
+        const [autoRefresh, format] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.DASHBOARD_AUTO_REFRESH),
+          AsyncStorage.getItem(STORAGE_KEYS.EXPORT_FORMAT),
+        ]);
 
-        if (notifications !== null)
-          setNotificationsEnabled(notifications === 'true');
-        if (incidents !== null) setIncidentAlerts(incidents === 'true');
-        if (routes !== null) setRouteUpdates(routes === 'true');
-        if (summary !== null) setDailySummary(summary === 'true');
         if (autoRefresh !== null)
           setDashboardAutoRefresh(autoRefresh === 'true');
         if (format) setExportFormat(format as ExportFormat);
@@ -83,44 +81,19 @@ export default function ConfiguracoesGestorScreen() {
     loadSettings();
   }, []);
 
-  async function toggleNotifications(value: boolean) {
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.NOTIFICATIONS_ENABLED,
-        String(value),
-      );
-      setNotificationsEnabled(value);
-    } catch {
-      // Silent fail
-    }
+  // Muda na hora; a gravação corre por trás. Sem rede, a escolha fica no
+  // aparelho e sobe depois — a tela só avisa.
+  async function alternar(
+    campo: keyof PreferenciasNotificacao,
+    value: boolean,
+  ) {
+    const { sincronizado } = await alterarPreferencia(campo, value);
+    if (!sincronizado) showToast(AVISO_PREFERENCIA_SEM_REDE, 'info', 5000);
   }
-
-  async function toggleIncidentAlerts(value: boolean) {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.INCIDENT_ALERTS, String(value));
-      setIncidentAlerts(value);
-    } catch {
-      // Silent fail
-    }
-  }
-
-  async function toggleRouteUpdates(value: boolean) {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ROUTE_UPDATES, String(value));
-      setRouteUpdates(value);
-    } catch {
-      // Silent fail
-    }
-  }
-
-  async function toggleDailySummary(value: boolean) {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.DAILY_SUMMARY, String(value));
-      setDailySummary(value);
-    } catch {
-      // Silent fail
-    }
-  }
+  const toggleNotifications = (v: boolean) => alternar('push_ativo', v);
+  const toggleIncidentAlerts = (v: boolean) => alternar('incidentes', v);
+  const toggleRouteUpdates = (v: boolean) => alternar('rotas', v);
+  const toggleDailySummary = (v: boolean) => alternar('resumo_diario', v);
 
   async function toggleDashboardAutoRefresh(value: boolean) {
     try {
@@ -169,7 +142,7 @@ export default function ConfiguracoesGestorScreen() {
     }
   }
 
-  if (loading) {
+  if (loading || carregandoPreferencias) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Carregando...</Text>
@@ -195,6 +168,7 @@ export default function ConfiguracoesGestorScreen() {
               </Text>
             </View>
             <Switch
+              testID="switch-push-ativo"
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
               trackColor={{
@@ -217,6 +191,7 @@ export default function ConfiguracoesGestorScreen() {
               </Text>
             </View>
             <Switch
+              testID="switch-incidentes"
               value={incidentAlerts}
               onValueChange={toggleIncidentAlerts}
               trackColor={{
@@ -238,6 +213,7 @@ export default function ConfiguracoesGestorScreen() {
               </Text>
             </View>
             <Switch
+              testID="switch-rotas"
               value={routeUpdates}
               onValueChange={toggleRouteUpdates}
               trackColor={{
@@ -259,6 +235,7 @@ export default function ConfiguracoesGestorScreen() {
               </Text>
             </View>
             <Switch
+              testID="switch-resumo-diario"
               value={dailySummary}
               onValueChange={toggleDailySummary}
               trackColor={{
@@ -371,6 +348,13 @@ export default function ConfiguracoesGestorScreen() {
         <View style={styles.footer} />
         {AlertDialog}
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onDismiss={hideToast}
+      />
     </ErrorBoundary>
   );
 }
