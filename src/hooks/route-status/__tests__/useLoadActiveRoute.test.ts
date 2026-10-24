@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { buildRouteData } from '@/context/route-status/calculations';
 import type { ParadaData, RotaQueryRow } from '@/context/route-status/types';
+import { logger } from '@/lib/logger';
 import {
   gravarRotaGuardada,
   lerRotaGuardada,
@@ -164,6 +165,40 @@ describe('useLoadActiveRoute', () => {
     expect(result.current.route?.id).toBe('r1');
     expect(result.current.paradas).toHaveLength(2);
     expect(result.current.error).not.toBeNull();
+  });
+
+  it('falha de rede esperada vira warn, não error (nem toast vermelho no dev)', async () => {
+    const { result } = await montarCarregado();
+    jest.clearAllMocks();
+
+    enfileirar('rotas', new Error('Network request failed'));
+    await act(async () => {
+      await result.current.loadActiveRoute();
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[RouteStatus] Erro ao carregar rota',
+      expect.any(Error),
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('erro de verdade (schema) continua sendo logger.error', async () => {
+    const { result } = await montarCarregado();
+    jest.clearAllMocks();
+
+    enfileirar('rotas', {
+      data: null,
+      error: { message: 'column rotas.foo does not exist', code: '42703' },
+    });
+    await act(async () => {
+      await result.current.loadActiveRoute();
+    });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      '[RouteStatus] Erro ao carregar rota',
+      expect.anything(),
+    );
   });
 
   it('erro na consulta de paradas não vira lista vazia (rota "pronta para finalizar")', async () => {

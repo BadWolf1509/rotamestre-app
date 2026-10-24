@@ -3,6 +3,7 @@
  * Focus: Route optimization and waypoint ordering
  */
 
+import { logger } from '../logger';
 import {
   calculateHaversineDistance,
   estimateRouteDistance,
@@ -861,6 +862,38 @@ describe('OSRM module', () => {
       const result = await getDistance(origin, destination);
 
       expect(result.distance).toBeGreaterThan(0);
+    });
+
+    it('sem rede: o fallback é esperado, logo warn e não error', async () => {
+      const erro = jest.spyOn(logger, 'error').mockImplementation(() => {});
+      const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+      await getDistance(origin, destination);
+
+      expect(aviso).toHaveBeenCalledWith(
+        'OSRM getDistance error:',
+        expect.any(TypeError),
+      );
+      expect(erro).not.toHaveBeenCalled();
+      erro.mockRestore();
+      aviso.mockRestore();
+    });
+
+    it('sem rede em getRoute: warn e não error', async () => {
+      const erro = jest.spyOn(logger, 'error').mockImplementation(() => {});
+      const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+      await getRoute(origin, destination);
+
+      expect(aviso).toHaveBeenCalledWith(
+        'OSRM getRoute error:',
+        expect.any(TypeError),
+      );
+      expect(erro).not.toHaveBeenCalled();
+      erro.mockRestore();
+      aviso.mockRestore();
     });
 
     it('estima via Haversine quando resposta nao-ok', async () => {

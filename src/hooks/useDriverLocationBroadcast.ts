@@ -16,6 +16,7 @@ import { Platform } from 'react-native';
 
 import { useLocationWatcher } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
+import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
@@ -103,15 +104,13 @@ export function useDriverLocationBroadcast({
         });
 
         if (error) {
-          logger.error(
-            '[LocationBroadcast] Erro ao enviar localização:',
-            error,
-          );
+          // Sem rede é esperado (a próxima posição tenta de novo): warn.
+          logarFalha('[LocationBroadcast] Erro ao enviar localização:', error);
         } else {
           lastUpdateRef.current = now;
         }
       } catch (err) {
-        logger.error('[LocationBroadcast] Erro:', err);
+        logarFalha('[LocationBroadcast] Erro:', err);
       }
     },
     [rotaId, updateInterval],

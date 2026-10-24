@@ -15,6 +15,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
+import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { pedirPermissao } from '@/lib/permissoes';
 import { supabase } from '@/lib/supabase';
@@ -110,10 +111,11 @@ async function saveLocationToDatabase(
     });
 
     if (error) {
-      logger.error('[LocationTracking] Erro ao salvar', error);
+      // Sem rede é esperado: a próxima posição tenta de novo (warn).
+      logarFalha('[LocationTracking] Erro ao salvar', error);
     }
   } catch (err) {
-    logger.error('[LocationTracking] Erro', err);
+    logarFalha('[LocationTracking] Erro', err);
   }
 }
 

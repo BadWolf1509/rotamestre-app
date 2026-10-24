@@ -103,6 +103,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
+import { logger } from '@/lib/logger';
+
 import locationTrackingService, {
   PREFERENCIAS_PADRAO,
 } from '../locationTracking';
@@ -825,6 +827,37 @@ describe('LocationTrackingService', () => {
       expect(mockGetUser).not.toHaveBeenCalled();
       expect(mockGetSession).toHaveBeenCalled();
       expect(mockFrom).toHaveBeenCalledWith('motorista_locations');
+    });
+
+    it('sem rede, falha ao salvar a posição é warn e não error', async () => {
+      setUpNavigationState();
+      const chain = createChain();
+      chain.insert = jest.fn().mockResolvedValue({
+        error: { message: 'TypeError: Network request failed' },
+      });
+      mockFrom.mockImplementation(() => chain);
+      const erroSpy = jest.spyOn(logger, 'error').mockImplementation();
+      const avisoSpy = jest.spyOn(logger, 'warn').mockImplementation();
+
+      await locationTrackingService.processLocationUpdate({
+        ...baseLocation,
+        latitude: -23.56,
+        longitude: -46.64,
+      });
+
+      expect(avisoSpy).toHaveBeenCalledWith(
+        '[LocationTracking] Erro ao salvar localização',
+        expect.objectContaining({
+          message: expect.stringContaining('Network'),
+        }),
+      );
+      expect(erroSpy).not.toHaveBeenCalledWith(
+        '[LocationTracking] Erro ao salvar localização',
+        expect.anything(),
+      );
+      erroSpy.mockRestore();
+      avisoSpy.mockRestore();
+      mockFrom.mockImplementation(() => createChain());
     });
 
     it('sem sessão, não envia a posição', async () => {

@@ -1045,6 +1045,71 @@ describe('useDriverLocationBroadcast', () => {
       loggerSpy.mockRestore();
     });
 
+    it('sem rede, falha ao inserir é warn e não error', async () => {
+      let locationCallback:
+        ((location: Location.LocationObject) => void) | null = null;
+
+      mockWatchPositionAsync.mockImplementation(
+        (
+          _options: unknown,
+          callback: (location: Location.LocationObject) => void,
+        ) => {
+          locationCallback = callback;
+          return Promise.resolve({ remove: mockWatchPositionRemove });
+        },
+      );
+
+      mockInsert.mockResolvedValue({
+        error: { message: 'TypeError: Network request failed' },
+      });
+
+      const erroSpy = jest.spyOn(logger, 'error');
+      const avisoSpy = jest.spyOn(logger, 'warn');
+
+      renderHook(() =>
+        useDriverLocationBroadcast({
+          rotaId: 'rota-123',
+          motoristaId: 'motorista-123',
+          rotaStatus: 'em_andamento',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(locationCallback).not.toBeNull();
+      });
+
+      await act(async () => {
+        locationCallback!({
+          coords: {
+            latitude: -23.5505,
+            longitude: -46.6333,
+            accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        });
+      });
+
+      await waitFor(() => {
+        expect(avisoSpy).toHaveBeenCalledWith(
+          '[LocationBroadcast] Erro ao enviar localização:',
+          expect.objectContaining({
+            message: expect.stringContaining('Network'),
+          }),
+        );
+      });
+      expect(erroSpy).not.toHaveBeenCalledWith(
+        '[LocationBroadcast] Erro ao enviar localização:',
+        expect.anything(),
+      );
+
+      erroSpy.mockRestore();
+      avisoSpy.mockRestore();
+    });
+
     it('deve tratar erro ao iniciar tracking', async () => {
       mockWatchPositionAsync.mockRejectedValue(new Error('Location error'));
 

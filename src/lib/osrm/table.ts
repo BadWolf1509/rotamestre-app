@@ -5,6 +5,7 @@
  * Used by the TSP solver to optimize route order by distance.
  */
 
+import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 
 import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
@@ -69,7 +70,7 @@ export async function getDistanceMatrix(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('[OSRM Table] Error fetching distance matrix', error);
+    logarFalha('[OSRM Table] Error fetching distance matrix', error);
     return null;
   }
 }

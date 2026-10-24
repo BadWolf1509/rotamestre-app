@@ -35,7 +35,7 @@ import type {
   RotaQueryRow,
   RouteData,
 } from '@/context/route-status/types';
-import { logger } from '@/lib/logger';
+import { logarFalha } from '@/lib/logarFalha';
 import {
   gravarRotaGuardada,
   lerRotaGuardada,
@@ -242,7 +242,8 @@ export function useLoadActiveRoute({
       if (chamada !== ultimaChamadaRef.current) return;
       // Crítico, mas com fallback: o estado anterior fica na tela, marcado
       // como desatualizado pelo `error`.
-      logger.error('[RouteStatus] Erro ao carregar rota', erro);
+      // Falha de rede (inclusive o `SEM_REDE` daqui) é esperada: vira warn.
+      logarFalha('[RouteStatus] Erro ao carregar rota', erro);
 
       // Memória sem dado desta conta (reaberto do zero, ou dado de outra
       // conta): vale o retrato guardado; sem retrato, nada — nunca o que

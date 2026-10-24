@@ -419,7 +419,8 @@ const ERROR_PATTERNS: Array<{
 
   // Erros de rede
   {
-    pattern: /network|connection|offline|fetch.*failed|econnrefused/i,
+    pattern:
+      /network|connection|offline|fetch.*failed|failed to fetch|\bload failed|sem conexão|econnrefused/i,
     result: {
       title: 'Sem conexão',
       message: 'Verifique sua conexão com a internet e tente novamente.',

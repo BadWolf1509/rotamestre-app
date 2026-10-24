@@ -9,6 +9,7 @@
 
 import { decode } from '@mapbox/polyline';
 
+import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 
 import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
@@ -157,7 +158,7 @@ export async function getRoute(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('OSRM getRoute error:', error);
+    logarFalha('OSRM getRoute error:', error);
     // Fallback to Haversine
     return createFallbackRoute(origin, destination, waypoints);
   }
@@ -230,7 +231,7 @@ export async function getDistance(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('OSRM getDistance error:', error);
+    logarFalha('OSRM getDistance error:', error);
     return estimateRouteDistance(origin, destination);
   }
 }
@@ -308,7 +309,7 @@ export async function optimizeWaypoints(
     setCache(cacheKey, result);
     return result;
   } catch (error) {
-    logger.error('OSRM optimizeWaypoints error:', error);
+    logarFalha('OSRM optimizeWaypoints error:', error);
     return null;
   }
 }
@@ -386,7 +387,7 @@ export async function getOptimizedDirections(
     );
     return result ?? createFallbackDirections(origin, destination, waypoints);
   } catch (error) {
-    logger.error('OSRM getOptimizedDirections error:', error);
+    logarFalha('OSRM getOptimizedDirections error:', error);
     // Fallback com Haversine
     return createFallbackDirections(origin, destination, waypoints);
   }
@@ -559,7 +560,7 @@ async function getSimpleRoute(
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
-    logger.error('[OSRM] getSimpleRoute error:', error);
+    logarFalha('[OSRM] getSimpleRoute error:', error);
     return null;
   }
 }

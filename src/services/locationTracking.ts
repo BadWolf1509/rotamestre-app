@@ -5,6 +5,7 @@ import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { isNetworkError } from '@/lib/errorMapping';
+import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import {
@@ -386,10 +387,11 @@ class LocationTrackingService {
       });
 
       if (error) {
-        logger.error('[LocationTracking] Erro ao salvar localização', error);
+        // Sem rede é esperado: a próxima posição tenta de novo (warn).
+        logarFalha('[LocationTracking] Erro ao salvar localização', error);
       }
     } catch (error) {
-      logger.error('[LocationTracking] Error updating driver position', error);
+      logarFalha('[LocationTracking] Error updating driver position', error);
     }
   }
 
