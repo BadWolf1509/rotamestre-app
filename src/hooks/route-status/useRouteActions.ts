@@ -275,9 +275,14 @@ export function useRouteActions({
 
     // Conclusão guardada sem rede ainda não chegou ao banco: a RPC recusaria
     // com "paradas pendentes", e o motorista não entenderia por quê. Tenta
-    // enviar antes de recusar.
+    // enviar antes de recusar. Só as ações DESTA conta: a fila só sobe com a
+    // sessão do dono (`processarFilaAcoesParada`), então a de outra conta na
+    // mesma rota nunca sairia daqui e recusaria o Finalizar para sempre.
+    // Mesmo id com que `completeStop`/`skipStop` gravam o `motoristaId`.
     const contarNaFila = async () =>
-      (await lerFilaAcoesParada()).filter((a) => a.rotaId === route.id).length;
+      (await lerFilaAcoesParada()).filter(
+        (a) => a.rotaId === route.id && a.motoristaId === userData?.id,
+      ).length;
     let naFila = await contarNaFila();
     if (naFila > 0) {
       // Com teto: o envio pode incluir foto (até minutos em rede ruim), e o
