@@ -118,6 +118,7 @@ describe('Migration 49: rotas e paradas do motorista pelo vínculo ativo', () =>
   });
 
   it('rotas_select e rotas_update: vínculo ativo, e gestor ou motorista ativo', () => {
+    expect.hasAssertions();
     confereVinculoEPessoaAtivos(usingDe('rotas_select', 'rotas'), 'rotas');
     confereVinculoEPessoaAtivos(usingDe('rotas_update', 'rotas'), 'rotas');
   });

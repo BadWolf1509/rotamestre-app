@@ -90,10 +90,12 @@ describe('Migration 48: logs, posições e logs de push pela loja da rota', () =
   });
 
   it('logs_select: o autor ou o gestor ativo da loja da rota', () => {
+    expect.hasAssertions();
     confereDonoOuLojaDaRota(usingDe('logs_select', 'logs'), 'logs', 'usuario_id');
   });
 
   it('motorista_locations_select_optimized: o motorista ou o gestor ativo da loja da rota', () => {
+    expect.hasAssertions();
     confereDonoOuLojaDaRota(
       usingDe('motorista_locations_select_optimized', 'motorista_locations'),
       'motorista_locations',
