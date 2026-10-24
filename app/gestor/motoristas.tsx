@@ -12,6 +12,7 @@ import {
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MotoristaAvatar } from '@/components/gestor/motoristas/MotoristaAvatar';
+import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DataTable,
@@ -85,6 +86,8 @@ export default function MotoristasGestor() {
     toggleAtivo,
     confirmarToggleAtivo,
     resetFormulario,
+    bloqueioDesativacao,
+    fecharBloqueioDesativacao,
     // Validation
     validateEmail,
     handleTelefoneChange,
@@ -384,23 +387,33 @@ export default function MotoristasGestor() {
   // Confirm Modal (shared)
   // ============================================
 
+  // Desativação recusada por rota aberta (Migration 54) mostra as rotas logo
+  // depois da confirmação; vai junto para render nos dois layouts.
   const confirmModal = (
-    <Dialog
-      visible={showConfirmModal}
-      variant="confirm"
-      title={
-        motoristaParaToggle?.ativo ? 'Desativar Motorista' : 'Ativar Motorista'
-      }
-      message={`Deseja realmente ${motoristaParaToggle?.ativo ? 'desativar' : 'ativar'} ${motoristaParaToggle?.nome}?`}
-      confirmText="Confirmar"
-      cancelText="Cancelar"
-      type={motoristaParaToggle?.ativo ? 'danger' : 'success'}
-      onConfirm={confirmarToggleAtivo}
-      onCancel={() => {
-        setShowConfirmModal(false);
-        setMotoristaParaToggle(null);
-      }}
-    />
+    <>
+      <Dialog
+        visible={showConfirmModal}
+        variant="confirm"
+        title={
+          motoristaParaToggle?.ativo
+            ? 'Desativar Motorista'
+            : 'Ativar Motorista'
+        }
+        message={`Deseja realmente ${motoristaParaToggle?.ativo ? 'desativar' : 'ativar'} ${motoristaParaToggle?.nome}?`}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        type={motoristaParaToggle?.ativo ? 'danger' : 'success'}
+        onConfirm={confirmarToggleAtivo}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          setMotoristaParaToggle(null);
+        }}
+      />
+      <RotasAbertasModal
+        bloqueio={bloqueioDesativacao}
+        onClose={fecharBloqueioDesativacao}
+      />
+    </>
   );
 
   // ============================================

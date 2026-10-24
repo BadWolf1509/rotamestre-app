@@ -16,6 +16,11 @@ import { validatePhone } from '@/lib/phone';
 import { updateUsuario, logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
+import {
+  useBloqueioDesativacao,
+  type BloqueioDesativacao,
+} from './useBloqueioDesativacao';
+
 import type { MotoristaDetalhado } from '../useMotoristasGestor';
 
 const INDICE_TELEFONE_MOTORISTA = 'usuarios_motorista_telefone_unico';
@@ -67,6 +72,10 @@ export interface UseMotoristasOperationsReturn {
     onSuccess: () => void,
   ) => Promise<void>;
 
+  /** Desativação recusada por rota aberta (Migration 54): a tela lista as rotas. */
+  bloqueioDesativacao: BloqueioDesativacao | null;
+  fecharBloqueioDesativacao: () => void;
+
   // Toast
   toastState: ReturnType<typeof useToast>['toast'];
   showToast: ReturnType<typeof useToast>['showToast'];
@@ -77,6 +86,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
+  const { bloqueio, mostrarSeBloqueado, fecharBloqueio } =
+    useBloqueioDesativacao();
 
   // Data state
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
@@ -387,11 +398,24 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
+        // Rota aberta: o aviso com a lista (por cima da tela) substitui o
+        // toast de erro que o withToast acabou de mostrar.
+        if (mostrarSeBloqueado(error, motorista.nome)) {
+          hideToast();
+          return;
+        }
         logger.error('[Motoristas] Erro ao alterar status', error);
         // withToast já mostrou o toast de erro.
       }
     },
-    [loadMotoristas, unidadeAtiva, userData, withToast],
+    [
+      hideToast,
+      loadMotoristas,
+      mostrarSeBloqueado,
+      unidadeAtiva,
+      userData,
+      withToast,
+    ],
   );
 
   return {
@@ -407,6 +431,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
     adicionarMotorista,
     editarMotorista,
     confirmarToggleAtivo,
+    bloqueioDesativacao: bloqueio,
+    fecharBloqueioDesativacao: fecharBloqueio,
 
     // Toast
     toastState,
