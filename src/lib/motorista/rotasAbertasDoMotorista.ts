@@ -6,7 +6,9 @@
  * - DETAIL: JSON com as rotas `pendente`/`em_andamento` desta loja.
  *
  * O supabase-js entrega o corpo do PostgREST como objeto cru
- * (`{ code, message, details, hint }`), não como `Error`.
+ * (`{ code, message, details, hint }`); com `.throwOnError()` lança um
+ * `PostgrestError`, que estende Error e carrega os mesmos campos — por isso
+ * Error não é excluído aqui.
  */
 export const SENTINELA_ROTA_ABERTA = 'MOTORISTA_COM_ROTA_ABERTA';
 
@@ -34,9 +36,7 @@ function ehRotaAberta(item: unknown): item is RotaAbertaDoMotorista {
 export function rotasAbertasDoErro(
   error: unknown,
 ): RotaAbertaDoMotorista[] | null {
-  if (!error || typeof error !== 'object' || error instanceof Error) {
-    return null;
-  }
+  if (!error || typeof error !== 'object') return null;
   const { code, hint, details } = error as {
     code?: unknown;
     hint?: unknown;

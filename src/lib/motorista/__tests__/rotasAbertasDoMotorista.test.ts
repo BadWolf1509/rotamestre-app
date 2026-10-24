@@ -47,9 +47,22 @@ describe('rotasAbertasDoErro', () => {
     ).toEqual([{ id: 'r1', data: '2026-10-24', status: 'pendente' }]);
   });
 
+  it('reconhece o PostgrestError (subclasse de Error) do .throwOnError()', () => {
+    // Com .throwOnError() o supabase-js lança `new PostgrestError(body)`, que
+    // estende Error e carrega code/hint/details.
+    const erro = Object.assign(new Error('Não dá para desativar'), {
+      code: 'P0001',
+      hint: SENTINELA_ROTA_ABERTA,
+      details: '[{"id":"r1","data":"2026-10-24","status":"pendente"}]',
+    });
+    expect(rotasAbertasDoErro(erro)).toEqual([
+      { id: 'r1', data: '2026-10-24', status: 'pendente' },
+    ]);
+  });
+
   it.each([
     ['null', null],
-    ['Error', new Error('falhou')],
+    ['Error comum', new Error('falhou')],
     ['outro P0001', { code: 'P0001', message: 'outra regra', hint: null }],
     [
       'outro código com a sentinela',

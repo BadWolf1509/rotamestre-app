@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { Text } from '@/components/Text';
@@ -14,6 +14,15 @@ import type { BloqueioDesativacao } from '@/hooks/motoristas-gestor/useBloqueioD
 // `rotas.data` é coluna date: formatDateBR monta o dia com componentes locais.
 import { formatDateBR } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+/** O texto conta as rotas (singular com uma); sem lista legível, não conta. */
+function textoDoBloqueio(nome: string, total: number): string {
+  if (total === 1) {
+    return `${nome} tem 1 rota aberta nesta loja. Antes de desativar, reatribua a rota a outro motorista ou cancele-a.`;
+  }
+  const quantas = total > 1 ? `${total} rotas abertas` : 'rotas abertas';
+  return `${nome} tem ${quantas} nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.`;
+}
 
 const ROTULO_STATUS: Record<string, string> = {
   em_andamento: 'Em andamento',
@@ -51,42 +60,51 @@ export function RotasAbertasModal({
       {bloqueio && (
         <View style={styles.corpo}>
           <Text style={styles.texto}>
-            {`${nome} tem rotas abertas nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.`}
+            {textoDoBloqueio(nome, rotas.length)}
           </Text>
           {rotas.length > 0 && (
             <Text style={styles.dica}>
               Toque numa rota para abrir e trocar o motorista ou cancelar.
             </Text>
           )}
-          {rotas.map((rota) => (
-            <TouchableOpacity
-              key={rota.id}
-              testID={`rota-aberta-${rota.id}`}
-              style={styles.linha}
-              onPress={() => abrirRota(rota.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`Abrir rota de ${formatDateBR(rota.data)}`}
-            >
-              <Ionicons
-                name={rota.status === 'em_andamento' ? 'time' : 'hourglass'}
-                size={18}
-                color={
-                  rota.status === 'em_andamento'
-                    ? theme.colors.info
-                    : theme.colors.warning
-                }
-              />
-              <Text style={styles.data}>{formatDateBR(rota.data)}</Text>
-              <Text style={styles.status}>
-                {ROTULO_STATUS[rota.status] ?? rota.status}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={theme.colors.gray500}
-              />
-            </TouchableOpacity>
-          ))}
+          {/* No aparelho o DesktopModal (bottom sheet) não rola o corpo:
+              a lista rola sozinha, com altura limitada. */}
+          <ScrollView
+            testID="rotas-abertas-lista"
+            style={styles.lista}
+            contentContainerStyle={styles.listaConteudo}
+            nestedScrollEnabled
+          >
+            {rotas.map((rota) => (
+              <TouchableOpacity
+                key={rota.id}
+                testID={`rota-aberta-${rota.id}`}
+                style={styles.linha}
+                onPress={() => abrirRota(rota.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir rota de ${formatDateBR(rota.data)}`}
+              >
+                <Ionicons
+                  name={rota.status === 'em_andamento' ? 'time' : 'hourglass'}
+                  size={18}
+                  color={
+                    rota.status === 'em_andamento'
+                      ? theme.colors.info
+                      : theme.colors.warning
+                  }
+                />
+                <Text style={styles.data}>{formatDateBR(rota.data)}</Text>
+                <Text style={styles.status}>
+                  {ROTULO_STATUS[rota.status] ?? rota.status}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={theme.colors.gray500}
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
       )}
     </DesktopModal>
@@ -104,6 +122,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   dica: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.textSecondary,
+  },
+  lista: {
+    maxHeight: 320,
+  },
+  listaConteudo: {
+    gap: theme.spacing.md,
   },
   linha: {
     flexDirection: 'row',

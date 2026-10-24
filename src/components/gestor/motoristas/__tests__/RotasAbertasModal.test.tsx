@@ -52,6 +52,51 @@ describe('RotasAbertasModal', () => {
     expect(screen.queryByTestId(/^rota-aberta-/)).toBeNull();
   });
 
+  it('com uma rota só, o texto fica no singular', () => {
+    render(
+      <RotasAbertasModal
+        bloqueio={{ nomeMotorista: 'Ana', rotas: [bloqueio.rotas[1]] }}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Ana tem 1 rota aberta nesta loja. Antes de desativar, reatribua a rota a outro motorista ou cancele-a.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('com várias rotas, o texto conta e fica no plural', () => {
+    render(<RotasAbertasModal bloqueio={bloqueio} onClose={jest.fn()} />);
+
+    expect(
+      screen.getByText(
+        'João Silva tem 3 rotas abertas nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('lista longa fica numa área rolável e mostra todas as rotas', () => {
+    const muitas = Array.from({ length: 30 }, (_, i) => ({
+      id: `r${i}`,
+      data: `2026-11-${String(i + 1).padStart(2, '0')}`,
+      status: 'pendente',
+    }));
+    render(
+      <RotasAbertasModal
+        bloqueio={{ nomeMotorista: 'Ana', rotas: muitas }}
+        onClose={jest.fn()}
+      />,
+    );
+
+    const lista = screen.getByTestId('rotas-abertas-lista');
+    // ScrollView (no aparelho o DesktopModal não rola o corpo sozinho)
+    expect(lista.type).toBe('RCTScrollView');
+    expect(screen.getAllByTestId(/^rota-aberta-/)).toHaveLength(30);
+    expect(screen.getByTestId('rota-aberta-r29')).toBeTruthy();
+  });
+
   it('sem bloqueio, não mostra nada', () => {
     render(<RotasAbertasModal bloqueio={null} onClose={jest.fn()} />);
     expect(screen.queryByText(/rotas abertas/)).toBeNull();
