@@ -8,6 +8,45 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.14.4 e validação offline (23–24/10/2026)
+
+- **#641:** pendências menores (rollback de foto relê antes de apagar, mensagem "parada indisponível", listener de abort, guarda CRLF da M43, histórico fail-closed).
+- **#642:** docs.
+- **#643:** o audit aceita o GHSA-mrhx-c7xc-m3w5 (zod 3, que só vem pelo `@expo/cli`); revisar em 01/11/2026.
+- **#644:** abrir o app sem rede não manda mais ao login nem ao onboarding. Usa o último perfil conhecido da conta, inclusive com o token vencido; sem perfil conhecido mostra "Sem conexão / Tentar novamente".
+- **#645 — Migration 45:** o token de push mora em `push_tokens`, visível só ao dono. Aplicada em produção em 23/10, com a `send-push-notification` v15 publicada antes; a sonda e a conferência deram OK (detalhe em `database/MIGRATIONS.md`).
+- **#646:** o app reenvia o registro do aparelho ao abrir e ao voltar ao primeiro plano (12 h), em voo único e com recuo de 5 min.
+- **#647:** bump para 1.14.4 (versionCode 3042).
+- **Release:** a 1.14.4 está nas faixas interna e alpha desde 24/10/2026, com notas (429 caracteres). Produção segue presa na pendência 4.
+
+**Validação no moto g15 com o binário da Play (24/10):**
+
+- câmera abriu sem piscar a tela de permissão;
+- em modo avião, concluir com foto foi para a fila;
+- `am force-stop` sem rede e reabrir abriu a Início, sem onboarding e sem login;
+- ao voltar a rede, a sincronização levou 5 s, com `concluida_em` preservado, a foto no storage e 1 log;
+- o reenvio do token apareceu em `push_tokens.atualizado_em` na abertura;
+- fonte 2.0: a aba Paradas ok.
+
+**Achados (já existiam antes da 1.14.4), em correção na 1.14.5 (branch `fix/offline-1-14-5`, não mesclada):**
+
+- reaberto do zero sem rede, a rota não aparecia;
+- o modo navegação sem rede mostrava o alerta "Não foi possível iniciar o rastreamento de localização";
+- de 20 a 30 s em "Verificando autenticação";
+- fonte 2.0 na Início: saudação quebrada no meio da palavra e FAB cobrindo o cartão;
+- a faixa "Sem conexão" aparece depois e empurra o cartão, e o toque em "Concluir" cai no botão de distância, que abre a navegação;
+- posições registradas sem rede se perdem (`insert` em `motorista_locations` sem fila);
+- notificação "Modo Offline" sem acentos;
+- erros esperados sem rede registrados como erro;
+- a fixture `garantir-rota-do-mapa` conta partida e chegada como pendentes.
+
+**Lições:**
+
+- `am force-stop` (ou o deep link) reproduz a morte do processo sem esperar a falta de memória.
+- Uma faixa que aparece de forma assíncrona e desloca botões gera toque errado: o toque mirado em "Concluir" caiu no botão ao lado.
+- O audit pode ficar vermelho por advisory novo sem ligação com o PR; prove no lockfile anterior antes de culpar o merge.
+- A cota de builds Android do EAS (Free) acabou em outubro e renova em 01/11/2026; até lá, dev client + Metro. A opção `development` do workflow `eas-build-android.yml` vem na 1.14.5, não está na `main`.
+
 ## Pós-varredura e release 1.14.3 (23/10/2026)
 
 - **#637:** a busca de endereço se identifica com a sessão do usuário; sem sessão, usa a chave publishable.
