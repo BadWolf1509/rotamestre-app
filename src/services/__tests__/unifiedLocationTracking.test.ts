@@ -662,6 +662,13 @@ describe('unifiedLocationTracking', () => {
       timestamp: Date.UTC(2026, 9, 24, 12, minuto),
     });
 
+    afterEach(() => {
+      (supabase.from as jest.Mock).mockReset();
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ error: null }),
+      });
+    });
+
     it.each([
       ['em ordem', [leitura(1, -7.1), leitura(2, -7.2), leitura(3, -7.3)]],
       ['fora de ordem', [leitura(1, -7.1), leitura(3, -7.3), leitura(2, -7.2)]],
@@ -701,10 +708,6 @@ describe('unifiedLocationTracking', () => {
           fonte: 'background',
         }),
       );
-      (supabase.from as jest.Mock).mockReset();
-      (supabase.from as jest.Mock).mockReturnValue({
-        insert: jest.fn().mockResolvedValue({ error: null }),
-      });
     });
   });
 

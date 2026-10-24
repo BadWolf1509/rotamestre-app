@@ -125,18 +125,26 @@ describe('filaPosicoes', () => {
     expect(mockInsert).toHaveBeenCalledTimes(1);
     // O horário é o do GPS, não o do servidor (default NOW()): a posição pode
     // ter sido capturada segundos antes de o insert sair.
-    expect(mockInsert).toHaveBeenCalledWith({ ...posicao(), timestamp: iso(1) });
+    expect(mockInsert).toHaveBeenCalledWith({
+      ...posicao(),
+      timestamp: iso(1),
+    });
     expect(filaGuardada()).toBeNull();
   });
 
   it('fix sem horário válido sai com o relógio do aparelho, em vez de se perder', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(minuto(7));
+    const agora = jest.spyOn(Date, 'now').mockReturnValue(minuto(7));
+    try {
+      const destino = await registrarPosicao(posicao(), Number.NaN, ROTULO);
 
-    const destino = await registrarPosicao(posicao(), Number.NaN, ROTULO);
-
-    expect(destino).toBe('enviada');
-    expect(mockInsert).toHaveBeenCalledWith({ ...posicao(), timestamp: iso(7) });
-    jest.restoreAllMocks();
+      expect(destino).toBe('enviada');
+      expect(mockInsert).toHaveBeenCalledWith({
+        ...posicao(),
+        timestamp: iso(7),
+      });
+    } finally {
+      agora.mockRestore();
+    }
   });
 
   it('sem rede, guarda a posição com o horário em que foi capturada', async () => {
@@ -405,6 +413,39 @@ describe('filaPosicoes', () => {
     // recusa vem de uma sessão que saiu anônima, e aí ele precisa subir.
     expect(filaGuardada()?.posicoes).toEqual([
       { ...posicao({ rota_id: 'antiga' }), timestamp: iso(1), tentativas: 1 },
+    ]);
+  });
+
+  it('depois de pular o lote recusado, erro de rede na rota seguinte para o envio', async () => {
+    const recusada = { code: '42501', message: 'posição recusada' };
+    semRede();
+    await registrarPosicao(posicao({ rota_id: 'antiga' }), minuto(1), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(2), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'terceira' }), minuto(3), ROTULO);
+    mockInsert.mockClear();
+    mockInsert.mockImplementation(async (linhas: Posicao[]) => {
+      if (linhas[0].rota_id === 'antiga') return { error: recusada };
+      if (linhas[0].rota_id === 'nova') return { error: ERRO_DE_REDE };
+      return { error: null };
+    });
+
+    const destino = await registrarPosicao(
+      posicao({ rota_id: 'terceira' }),
+      minuto(4),
+      ROTULO,
+    );
+
+    expect(destino).toBe('na_fila');
+    // A recusada foi pulada, a nova foi tentada, e a terceira nem saiu.
+    expect(lotesEnviados().map((l) => l[0].rota_id)).toEqual([
+      'antiga',
+      'nova',
+    ]);
+    expect(filaGuardada()?.posicoes).toEqual([
+      { ...posicao({ rota_id: 'antiga' }), timestamp: iso(1), tentativas: 1 },
+      { ...posicao({ rota_id: 'nova' }), timestamp: iso(2) },
+      { ...posicao({ rota_id: 'terceira' }), timestamp: iso(3) },
+      { ...posicao({ rota_id: 'terceira' }), timestamp: iso(4) },
     ]);
   });
 
