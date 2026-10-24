@@ -39,6 +39,52 @@ export interface UseAddStopFormParams {
   motoristaId?: string | null;
 }
 
+type ParadaDeRota = {
+  id: string;
+  ordem: number;
+  latitude: number | null;
+  longitude: number | null;
+  is_checkpoint?: boolean;
+};
+
+/**
+ * Paradas da rota como o banco as deixou depois do `inserir_parada`.
+ *
+ * A RPC devolve só o id e a ordem da nova parada, não a lista. Reler é a fonte
+ * de verdade (também pega mudança feita por outro cliente). Se a leitura
+ * falhar, projeta a mesma regra da RPC: as reais a partir da ordem inserida
+ * sobem uma casa. Sem isso o recálculo ficaria sem lista, e a rota, com a
+ * geometria já invalidada.
+ */
+async function paradasAposInsercao({
+  rotaId,
+  antes,
+  nova,
+}: {
+  rotaId: string;
+  antes: Parada[];
+  nova: ParadaDeRota;
+}): Promise<ParadaDeRota[]> {
+  try {
+    const { data, error } = await supabase
+      .from('paradas')
+      .select('id, ordem, latitude, longitude, is_checkpoint')
+      .eq('rota_id', rotaId)
+      .returns<ParadaDeRota[]>();
+    if (error) throw error;
+    if (data?.some((p) => p.id === nova.id)) return data;
+  } catch (err) {
+    logger.warn('Releitura das paradas falhou; projetando a ordem nova', err);
+  }
+
+  const deslocadas = antes.map((p) =>
+    p.is_checkpoint !== false && p.ordem >= nova.ordem
+      ? { ...p, ordem: p.ordem + 1 }
+      : p,
+  );
+  return [...deslocadas, nova];
+}
+
 // Limite de paradas (Google API)
 const MAX_PARADAS = 23;
 
@@ -221,17 +267,20 @@ export function useAddStopForm({
       const newParadaId = rpcResult.parada_id;
       const newStopOrdem = rpcResult.ordem;
 
-      // Recalculate route
-      const updatedParadas = [
-        ...allParadas,
-        {
+      // Recalcula com a ordem de DEPOIS da RPC. A lista da tela é de antes dela:
+      // a RPC empurra uma casa as paradas a partir da posição inserida, e usar
+      // a lista antiga montava o trajeto na ordem errada.
+      const updatedParadas = await paradasAposInsercao({
+        rotaId,
+        antes: allParadas,
+        nova: {
           id: newParadaId,
           ordem: newStopOrdem,
           latitude: finalLatitude,
           longitude: finalLongitude,
           is_checkpoint: true,
         },
-      ];
+      });
 
       const recalcResult = await recalcularRota(
         rotaId,
