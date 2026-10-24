@@ -17,6 +17,11 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { from: (...args: unknown[]) => mockFrom(...args) },
 }));
 
+const mockMarcarOtimizacao = jest.fn();
+jest.mock('@/lib/gestor/otimizacaoRota', () => ({
+  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+}));
+
 jest.mock('@/lib/photon', () => ({
   photonService: { geocodeAddress: jest.fn() },
 }));
@@ -162,5 +167,74 @@ describe('useEditStopForm: salvar', () => {
     );
     expect(onSave).not.toHaveBeenCalled();
     expect(onDesatualizada).not.toHaveBeenCalled();
+  });
+});
+
+describe('useEditStopForm: rota otimizada vira otimizada_alterada (G12)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRecalcular.mockResolvedValue({ success: true });
+    mockNotificar.mockResolvedValue({ success: true });
+    mockMarcarOtimizacao.mockResolvedValue(true);
+    const cadeia = cadeiaUpdate({ data: [{ id: 'p1' }], error: null });
+    mockFrom.mockImplementation((tabela: string) =>
+      tabela === 'paradas'
+        ? { update: cadeia.update }
+        : { insert: jest.fn().mockResolvedValue({ error: null }) },
+    );
+  });
+
+  it('mudou o endereço (coordenadas): marca', async () => {
+    const { result } = montar();
+
+    act(() => {
+      result.current.handleAddressSelect('Rua B, 2', 'x', {
+        latitude: -7.2,
+        longitude: -34.9,
+      });
+    });
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockMarcarOtimizacao).toHaveBeenCalledWith('rota-1');
+  });
+
+  it('mudou o tipo: marca', async () => {
+    const { result } = montar();
+
+    act(() => result.current.setTipo('retirada'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockMarcarOtimizacao).toHaveBeenCalledWith('rota-1');
+  });
+
+  it('mudou só destinatário/observações: o trajeto é o mesmo, não marca', async () => {
+    const { result } = montar();
+
+    act(() => {
+      result.current.setDestinatario('Bia');
+      result.current.setObservacoes('portão azul');
+    });
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
+  });
+
+  it('o banco recusou a edição (zero linhas): não marca', async () => {
+    const cadeia = cadeiaUpdate({ data: [], error: null });
+    mockFrom.mockImplementation(() => ({ update: cadeia.update }));
+    const { result } = montar();
+
+    act(() => result.current.setTipo('retirada'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
   });
 });

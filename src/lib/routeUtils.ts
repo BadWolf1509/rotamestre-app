@@ -4,6 +4,7 @@
  */
 
 import { getErrorMessage } from '@/lib/errorMapping';
+import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
@@ -374,6 +375,10 @@ export async function removerParadaERecalcular(
           'Esta parada não pode mais ser removida: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
       };
     }
+
+    // Remover à mão desfaz a otimização, como reordenar. Aqui, e não nos
+    // passos seguintes: a parada já saiu, mesmo que a renumeração falhe.
+    await marcarOtimizacaoAlterada(rotaId);
 
     // 2. Reordenar paradas restantes
     const reordenResult = await reordenarParadas(paradasRestantes);

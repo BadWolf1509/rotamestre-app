@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
@@ -268,6 +269,10 @@ export function useAddStopForm({
 
       const newParadaId = rpcResult.parada_id;
       const newStopOrdem = rpcResult.ordem;
+
+      // Inserir à mão desfaz a otimização, como reordenar. Antes do recálculo:
+      // a ordem já mudou no banco, mesmo que o trajeto falhe depois.
+      await marcarOtimizacaoAlterada(rotaId);
 
       // Recalcula com a ordem de DEPOIS da RPC. A lista da tela é de antes dela:
       // a RPC empurra uma casa as paradas a partir da posição inserida, e usar

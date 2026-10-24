@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { getErrorMessage } from '@/lib/errorMapping';
+import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
@@ -207,6 +208,12 @@ export function useEditStopForm({
         );
         onDesatualizada?.();
         return;
+      }
+
+      // Mudar o local ou o tipo desfaz a otimização, como reordenar. Só
+      // destinatário, telefone ou observações não mexem no trajeto.
+      if (coordinatesChanged || tipo !== parada.tipo) {
+        await marcarOtimizacaoAlterada(rotaId);
       }
 
       // Only recalculate route if coordinates ACTUALLY changed

@@ -19,6 +19,11 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+const mockMarcarOtimizacao = jest.fn();
+jest.mock('@/lib/gestor/otimizacaoRota', () => ({
+  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+}));
+
 jest.mock('@/lib/photon', () => ({
   photonService: { geocodeAddress: jest.fn() },
 }));
@@ -185,5 +190,49 @@ describe('useAddStopForm: recálculo depois de inserir no meio', () => {
       UNIDADE,
       ordemEsperada,
     );
+  });
+});
+
+describe('useAddStopForm: rota otimizada vira otimizada_alterada (G12)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockMarcarOtimizacao.mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('marca a rota depois de inserir a parada', async () => {
+    prepararBanco();
+
+    await inserirNaPosicao2();
+
+    expect(mockMarcarOtimizacao).toHaveBeenCalledTimes(1);
+    expect(mockMarcarOtimizacao).toHaveBeenCalledWith('rota-1');
+  });
+
+  it('marca mesmo se o recálculo do trajeto falhar: a ordem já mudou', async () => {
+    prepararBanco();
+    mockGetDirectionsSequential.mockResolvedValue(null);
+
+    await inserirNaPosicao2();
+
+    expect(mockMarcarOtimizacao).toHaveBeenCalledWith('rota-1');
+  });
+
+  it('não marca se a RPC recusou a inserção', async () => {
+    prepararBanco();
+    mockRpc.mockResolvedValue({
+      data: { success: false, error: 'rota fechada' },
+      error: null,
+    });
+
+    await inserirNaPosicao2();
+
+    expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
   });
 });

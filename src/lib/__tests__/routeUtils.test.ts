@@ -22,6 +22,11 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+const mockMarcarOtimizacao = jest.fn();
+jest.mock('@/lib/gestor/otimizacaoRota', () => ({
+  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+}));
+
 // Mock do Google Maps service
 const mockGetDirectionsSequential = jest.fn();
 
@@ -478,6 +483,39 @@ describe('routeUtils', () => {
     const mockParadasRestantes = [
       { id: 'p1', ordem: 1, latitude: -23.56, longitude: -46.64 },
     ];
+
+    it('marca a rota otimizada como alterada quando a remoção acontece (G12)', async () => {
+      mockMarcarOtimizacao.mockResolvedValue(true);
+      mockFrom.mockReturnValueOnce(
+        cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+      );
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(mockMarcarOtimizacao).toHaveBeenCalledTimes(1);
+      expect(mockMarcarOtimizacao).toHaveBeenCalledWith(mockRotaId);
+    });
+
+    it('não marca nada quando o DELETE não apagou a parada (G12)', async () => {
+      mockFrom.mockReturnValueOnce(cadeiaDelete({ data: [], error: null }));
+
+      const result = await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
+    });
 
     it('deve confirmar remoção com ressalva se reordenação falhar', async () => {
       // Mock para delete (sucesso)
