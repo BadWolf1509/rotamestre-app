@@ -54,6 +54,12 @@ export { ContaDesativada, MENSAGEM_CONTA_DESATIVADA };
  * `useGarantirRastreamentoDaRota`.
  */
 async function pararRastreamentoDaConta(): Promise<void> {
+  // Na web não há rastreamento em segundo plano, e o expo-location web nem tem
+  // `hasStartedLocationUpdatesAsync`: tentar parar gravava um `logger.error`
+  // em todo "Sair". Pular aqui (e não dentro de cada serviço) mantém o guarda
+  // num lugar só, o que o logout chama.
+  if (Platform.OS === 'web') return;
+
   const paradas = await Promise.allSettled([
     stopBackgroundTracking(),
     LocationTrackingService.stopTracking(),
