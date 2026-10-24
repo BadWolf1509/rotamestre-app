@@ -19,6 +19,9 @@ type LabelFn = (props: {
 
 interface ScreenOptions {
   title?: string;
+  tabBarBadge?: number;
+  tabBarAllowFontScaling?: boolean;
+  tabBarBadgeStyle?: { fontSize?: number; height?: number };
   tabBarLabel?: LabelFn | string;
   tabBarStyle?: { height?: number; paddingTop?: number };
 }
@@ -26,6 +29,8 @@ interface ScreenOptions {
 // Última screenOptions que o layout entregou à tab bar.
 const mockOpcoes: { atual?: ScreenOptions } = {};
 const mockJanela = { fontScale: 1 };
+// Opções de cada aba, pelo nome da tela.
+const mockOpcoesDaAba: Record<string, ScreenOptions> = {};
 
 jest.mock('expo-router', () => {
   const ReactLib = jest.requireActual<typeof import('react')>('react');
@@ -48,6 +53,7 @@ jest.mock('expo-router', () => {
         ).props;
         const label = options?.tabBarLabel ?? screenOptions.tabBarLabel;
         const titulo = options?.title ?? name;
+        mockOpcoesDaAba[name] = options ?? {};
         return ReactLib.createElement(
           ReactLib.Fragment,
           { key: name },
@@ -90,7 +96,12 @@ jest.mock('@/context/DrawerMenuContext', () => ({
 }));
 
 jest.mock('@/context/RouteStatusContext', () => ({
-  useRouteStatus: () => ({ paradas: [] }),
+  useRouteStatus: () => ({
+    paradas: [
+      { id: 'p1', status: 'pendente', is_checkpoint: true },
+      { id: 'p2', status: 'pendente', is_checkpoint: true },
+    ],
+  }),
 }));
 
 import TabLayout from '../_layout';
@@ -122,4 +133,24 @@ describe('tab bar do motorista com a fonte do sistema em 2.0', () => {
       expect(altura - 24).toBeGreaterThanOrEqual(46 + linha);
     },
   );
+
+  // Com a fonte em 2.0 o número de pendências da aba "Paradas" crescia e
+  // encobria o ícone (24/10/2026, moto g15): o selo tem caixa fixa (18 dp) e o
+  // dígito escalava dentro dela. O selo do react-navigation não aceita
+  // `maxFontSizeMultiplier` — só `allowFontScaling`, vindo de
+  // `tabBarAllowFontScaling` —, então o dígito fica fixo no tamanho `xs`, o
+  // mesmo da caixa. O rótulo é nosso e continua com o teto 1.3.
+  it('o selo de pendências da aba Paradas não cresce com a fonte do sistema', () => {
+    mockJanela.fontScale = 2;
+    render(<TabLayout />);
+
+    const paradas = mockOpcoesDaAba.paradas;
+    expect(paradas.tabBarBadge).toBe(2);
+    expect(paradas.tabBarAllowFontScaling).toBe(false);
+    // Legível: o dígito fixo continua cabendo na caixa do selo.
+    expect(paradas.tabBarBadgeStyle?.fontSize).toBeGreaterThanOrEqual(11);
+    expect(paradas.tabBarBadgeStyle?.fontSize).toBeLessThanOrEqual(
+      (paradas.tabBarBadgeStyle?.height ?? 0) - 4,
+    );
+  });
 });

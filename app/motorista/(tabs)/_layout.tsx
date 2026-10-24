@@ -170,6 +170,10 @@ export default function TabLayout() {
             tabBarIcon: ({ color, focused }) =>
               renderTabIcon('list', 'list-outline', color, focused),
             tabBarBadge: paradasPendentes > 0 ? paradasPendentes : undefined,
+            // O selo tem caixa fixa (18 dp): com a fonte do sistema em 2.0 o
+            // dígito crescia e encobria o ícone. Sem escala, o dígito (xs)
+            // continua cabendo na caixa. O rótulo é nosso e tem o teto 1.3.
+            tabBarAllowFontScaling: false,
             tabBarBadgeStyle: {
               backgroundColor: theme.colors.secondaryDark, // contraste 4.5:1 com texto branco
               color: theme.colors.white,
