@@ -5,11 +5,16 @@
  * - Separação de paradas fixas vs reordenáveis
  * - Estado local para preview (web)
  * - Operações de mover para cima/baixo
+ * - Recusa de ordem que põe a entrega antes da retirada vinculada
  * - Salvar/cancelar alterações
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import {
+  mensagemEntregaAntesDaRetirada,
+  primeiraViolacaoNova,
+} from '@/lib/gestor/vinculoParada';
 import { logger } from '@/lib/logger';
 
 import type { Parada } from '../types';
@@ -32,6 +37,13 @@ export interface UseReorderStateReturn {
   canReorder: boolean;
   /** Se há mudanças pendentes */
   hasChanges: boolean;
+  /** Por que o último movimento foi recusado (vínculo retirada -> entrega) */
+  aviso: string | null;
+  /**
+   * Sobe a cada arrasto recusado. A lista nativa guarda a ordem arrastada, e
+   * sem remontá-la ela continuaria mostrando uma ordem que não foi gravada.
+   */
+  resetToken: number;
   /** Move uma parada para cima na lista */
   moveUp: (index: number) => void;
   /** Move uma parada para baixo na lista */
@@ -53,6 +65,8 @@ export function useReorderState({
   // Estado local para reordenação na web (permite preview antes de salvar)
   const [webReorderList, setWebReorderList] = useState<Parada[] | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState(0);
 
   // Separar paradas fixas (concluídas/puladas) das reordenáveis
   const { fixedParadas, reorderableParadas } = useMemo(() => {
@@ -96,12 +110,38 @@ export function useReorderState({
   useEffect(() => {
     setWebReorderList(null);
     setHasChanges(false);
+    setAviso(null);
   }, [paradas]);
+
+  // A entrega não pode ir antes da retirada de que depende. Compara a ordem
+  // inteira (fixas + reordenáveis) e só recusa violação NOVA: rota que já veio
+  // quebrada continua editável, só não dá para piorar. Devolve true quando
+  // recusou (e já avisou).
+  const recusaPorVinculo = useCallback(
+    (antes: Parada[], depois: Parada[]): boolean => {
+      const violacao = primeiraViolacaoNova(
+        [...fixedParadas, ...antes],
+        [...fixedParadas, ...depois],
+      );
+      if (!violacao) {
+        setAviso(null);
+        return false;
+      }
+      setAviso(mensagemEntregaAntesDaRetirada(violacao));
+      return true;
+    },
+    [fixedParadas],
+  );
 
   // Handler de reordenação (mobile - drag-and-drop)
   const handleDragEnd = useCallback(
     async (data: Parada[]) => {
       if (!canReorder) return;
+
+      if (recusaPorVinculo(currentWebList, data)) {
+        setResetToken((t) => t + 1);
+        return;
+      }
 
       // Recalcular ordem considerando as paradas fixas
       const newOrder = data.map((p, idx) => ({
@@ -111,7 +151,7 @@ export function useReorderState({
 
       await onReorder([...fixedParadas, ...newOrder]);
     },
-    [canReorder, fixedParadas, onReorder],
+    [canReorder, currentWebList, fixedParadas, onReorder, recusaPorVinculo],
   );
 
   // Move parada para cima
@@ -120,10 +160,11 @@ export function useReorderState({
       if (index <= 0) return;
       const list = [...currentWebList];
       [list[index - 1], list[index]] = [list[index], list[index - 1]];
+      if (recusaPorVinculo(currentWebList, list)) return;
       setWebReorderList(list);
       setHasChanges(true);
     },
-    [currentWebList],
+    [currentWebList, recusaPorVinculo],
   );
 
   // Move parada para baixo
@@ -132,10 +173,11 @@ export function useReorderState({
       if (index >= currentWebList.length - 1) return;
       const list = [...currentWebList];
       [list[index], list[index + 1]] = [list[index + 1], list[index]];
+      if (recusaPorVinculo(currentWebList, list)) return;
       setWebReorderList(list);
       setHasChanges(true);
     },
-    [currentWebList],
+    [currentWebList, recusaPorVinculo],
   );
 
   // Salvar alterações da web
@@ -163,6 +205,7 @@ export function useReorderState({
   const cancelChanges = useCallback(() => {
     setWebReorderList(null);
     setHasChanges(false);
+    setAviso(null);
   }, []);
 
   return {
@@ -171,6 +214,8 @@ export function useReorderState({
     currentWebList,
     canReorder,
     hasChanges,
+    aviso,
+    resetToken,
     moveUp,
     moveDown,
     handleDragEnd,

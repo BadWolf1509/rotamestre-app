@@ -20,6 +20,8 @@ export interface Parada {
   foto_url?: string | null;
   is_checkpoint?: boolean;
   concluida_em?: string;
+  /** Retirada de que esta entrega depende (só entregas). */
+  vinculo_parada_id?: string | null;
 }
 
 export interface Rota {

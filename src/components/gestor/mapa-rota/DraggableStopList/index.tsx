@@ -19,6 +19,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useResponsive } from '@/hooks/useResponsive';
@@ -69,6 +70,8 @@ export function DraggableStopList({
     currentWebList,
     canReorder,
     hasChanges,
+    aviso,
+    resetToken,
     moveUp,
     moveDown,
     handleDragEnd,
@@ -118,11 +121,23 @@ export function DraggableStopList({
       {/* Instruções */}
       <Instructions isDesktop={isDesktop} />
 
+      {/* Movimento recusado: entrega não vai antes da retirada vinculada */}
+      {aviso && (
+        <View
+          style={styles.aviso}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="assertive"
+        >
+          <Text style={styles.avisoTexto}>{aviso}</Text>
+        </View>
+      )}
+
       {/* Paradas fixas (concluídas/puladas) */}
       <FixedStopsList paradas={fixedParadas} isDesktop={isDesktop} />
 
       {/* Paradas reordenáveis */}
       <ReorderableList
+        key={`lista-${resetToken}`}
         paradas={currentWebList}
         orderOffset={fixedParadas.length}
         onMoveUp={moveUp}
@@ -138,5 +153,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+  aviso: {
+    backgroundColor: theme.colors.warningBg,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+  },
+  avisoTexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.warning,
   },
 }));

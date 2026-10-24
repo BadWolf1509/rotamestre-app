@@ -63,6 +63,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { mensagemConfirmarRemocaoParada } from '@/lib/gestor/vinculoParada';
 import { useUnistyles } from '@/utils/styles';
 
 // Optimized map height
@@ -477,7 +478,11 @@ export default function MapaRota() {
             visible={modals.showRemoveStopModal && !!paradaToRemove}
             variant="confirm"
             title="Remover parada"
-            message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
+            message={
+              paradaToRemove
+                ? mensagemConfirmarRemocaoParada(paradas, paradaToRemove)
+                : ''
+            }
             confirmText="Sim, remover"
             cancelText="Cancelar"
             onConfirm={async () => {

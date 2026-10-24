@@ -330,6 +330,36 @@ describe('DraggableStopList', () => {
     });
   });
 
+  describe('Vínculo retirada -> entrega (G7)', () => {
+    it('seta que poria a entrega antes da retirada vinculada: avisa na tela e não marca alteração', async () => {
+      Platform.OS = 'web';
+      const onWebChangesChange = jest.fn();
+      // parada-2 (retirada) fica antes da parada-3 (entrega vinculada a ela)
+      const paradas = mockParadasPendentes.map((p) =>
+        p.id === 'parada-3' ? { ...p, vinculo_parada_id: 'parada-2' } : p,
+      );
+      const { getAllByTestId, findByText, queryByText } = render(
+        <DraggableStopList
+          {...defaultProps}
+          paradas={paradas}
+          onWebChangesChange={onWebChangesChange}
+        />,
+      );
+
+      // Sobe a terceira (a entrega) para antes da segunda (a retirada)
+      fireEvent.press(getAllByTestId('icon-chevron-up')[2]);
+
+      expect(await findByText(/depende de Retirada Rua B, 200/)).toBeTruthy();
+      expect(onWebChangesChange).not.toHaveBeenCalledWith(true);
+
+      // Movimento permitido limpa o aviso
+      fireEvent.press(getAllByTestId('icon-chevron-down')[0]);
+      await waitFor(() => {
+        expect(queryByText(/depende de/)).toBeNull();
+      });
+    });
+  });
+
   describe('Interações Web - Botões de mover', () => {
     it('deve mover parada para cima ao clicar na seta e notificar callback', async () => {
       Platform.OS = 'web';
