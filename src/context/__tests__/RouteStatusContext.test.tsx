@@ -220,6 +220,8 @@ jest.mock('@/services/unifiedLocationTracking', () => ({
   stopBackgroundTracking: jest.fn(),
   requestAndStartTracking: jest.fn(),
   garantirRastreamentoDaRota: jest.fn().mockResolvedValue('ativo'),
+  getTrackingContext: jest.fn().mockResolvedValue(null),
+  isBackgroundTrackingActive: jest.fn().mockResolvedValue(false),
 }));
 
 // Helper to create mock route data
@@ -495,6 +497,35 @@ describe('RouteStatusContext', () => {
         expect(garantirRastreamentoDaRota).toHaveBeenCalledWith(
           expect.objectContaining({ rotaId: 'rota-1' }),
         );
+      });
+    });
+
+    it('desliga o rastreamento quando a rota carregada já está concluída', async () => {
+      const { getTrackingContext, stopBackgroundTracking } = jest.requireMock(
+        '@/services/unifiedLocationTracking',
+      );
+      getTrackingContext.mockResolvedValueOnce({
+        rotaId: 'rota-1',
+        motoristaId: 'motorista-1',
+        motoristaNome: 'Ana',
+        startedAt: '2026-10-24T10:00:00Z',
+      });
+      // Concluída pela web há 30 min: chega pela consulta das concluídas
+      mockRotasData = [];
+      mockRotasConcluidas = createMockRoute({
+        status: 'concluida',
+        concluida_em: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+      });
+      mockParadasData = [];
+
+      render(
+        <RouteStatusProvider>
+          <TestComponent />
+        </RouteStatusProvider>,
+      );
+
+      await waitFor(() => {
+        expect(stopBackgroundTracking).toHaveBeenCalled();
       });
     });
 

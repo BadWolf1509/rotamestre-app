@@ -9,9 +9,15 @@ jest.mock('@/lib/logger');
 
 const mockGarantir = jest.fn();
 const mockRequestAndStart = jest.fn();
+const mockGetContexto = jest.fn();
+const mockTaskAtiva = jest.fn();
+const mockParar = jest.fn();
 jest.mock('@/services/unifiedLocationTracking', () => ({
   garantirRastreamentoDaRota: (...args: unknown[]) => mockGarantir(...args),
   requestAndStartTracking: (...args: unknown[]) => mockRequestAndStart(...args),
+  getTrackingContext: () => mockGetContexto(),
+  isBackgroundTrackingActive: () => mockTaskAtiva(),
+  stopBackgroundTracking: () => mockParar(),
 }));
 
 let ouvintesAppState: Array<(estado: string) => void> = [];
@@ -51,11 +57,18 @@ describe('useGarantirRastreamentoDaRota', () => {
       started: true,
       hasBackgroundPermission: true,
     });
+    mockGetContexto.mockResolvedValue(null);
+    mockTaskAtiva.mockResolvedValue(false);
+    mockParar.mockResolvedValue(undefined);
   });
 
   it('garante o rastreamento ao abrir com rota própria em andamento', async () => {
     renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
 
     await waitFor(() => expect(mockGarantir).toHaveBeenCalledTimes(1));
@@ -72,6 +85,7 @@ describe('useGarantirRastreamentoDaRota', () => {
       useGarantirRastreamentoDaRota({
         route: { ...rotaEmAndamento, status: 'pendente' },
         motorista,
+        cargaConfirmada: true,
       }),
     );
     voltarAoPrimeiroPlano();
@@ -84,7 +98,11 @@ describe('useGarantirRastreamentoDaRota', () => {
     jest.replaceProperty(Platform, 'OS', 'web');
 
     renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
 
     await new Promise((r) => setTimeout(r, 0));
@@ -94,7 +112,11 @@ describe('useGarantirRastreamentoDaRota', () => {
 
   it('confere de novo quando o app volta ao primeiro plano', async () => {
     renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
     await waitFor(() => expect(mockGarantir).toHaveBeenCalledTimes(1));
 
@@ -107,7 +129,11 @@ describe('useGarantirRastreamentoDaRota', () => {
     mockGarantir.mockResolvedValue('sem-segundo-plano');
 
     const { result } = renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
 
     await waitFor(() => expect(result.current.avisoVisivel).toBe(true));
@@ -117,7 +143,11 @@ describe('useGarantirRastreamentoDaRota', () => {
   it('o aviso leva ao fluxo com a divulgação e some quando o rastreamento liga', async () => {
     mockGarantir.mockResolvedValueOnce('sem-segundo-plano');
     const { result } = renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
     await waitFor(() => expect(result.current.avisoVisivel).toBe(true));
 
@@ -135,7 +165,11 @@ describe('useGarantirRastreamentoDaRota', () => {
   it('dispensar é definitivo enquanto o app vive', async () => {
     mockGarantir.mockResolvedValue('sem-segundo-plano');
     const { result } = renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
     await waitFor(() => expect(result.current.avisoVisivel).toBe(true));
 
@@ -154,7 +188,11 @@ describe('useGarantirRastreamentoDaRota', () => {
       () => new Promise((resolve) => (liberar = resolve)),
     );
     renderHook(() =>
-      useGarantirRastreamentoDaRota({ route: rotaEmAndamento, motorista }),
+      useGarantirRastreamentoDaRota({
+        route: rotaEmAndamento,
+        motorista,
+        cargaConfirmada: true,
+      }),
     );
     await waitFor(() => expect(mockGarantir).toHaveBeenCalledTimes(1));
 
@@ -163,5 +201,137 @@ describe('useGarantirRastreamentoDaRota', () => {
     expect(mockGarantir).toHaveBeenCalledTimes(1);
 
     await act(async () => liberar('ativo'));
+  });
+  // MOT-1: a rota pode acabar fora deste aparelho (web, outro aparelho,
+  // expiração, reatribuição). Sem isto a task seguia gravando por horas.
+  describe('desliga o rastreamento fora da rota em andamento', () => {
+    const contextoGravado = {
+      rotaId: 'rota-1',
+      motoristaId: 'motorista-1',
+      motoristaNome: 'Ana',
+      startedAt: '2026-10-21T11:00:00Z',
+    };
+
+    it('para quando a rota carregada já está concluída', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: { ...rotaEmAndamento, status: 'concluida' },
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockParar).toHaveBeenCalledTimes(1));
+      expect(mockGarantir).not.toHaveBeenCalled();
+    });
+
+    it('para quando a carga diz que não há rota', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockParar).toHaveBeenCalledTimes(1));
+    });
+
+    it('para quando o contexto é de outra rota e a carregada não anda', async () => {
+      mockGetContexto.mockResolvedValue({ ...contextoGravado, rotaId: 'rota-velha' });
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: { ...rotaEmAndamento, status: 'pendente' },
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockParar).toHaveBeenCalledTimes(1));
+    });
+
+    it('para a task que roda sem contexto (notificação órfã)', async () => {
+      mockTaskAtiva.mockResolvedValue(true);
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockParar).toHaveBeenCalledTimes(1));
+    });
+
+    it('não para com a rota em andamento', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockTaskAtiva.mockResolvedValue(true);
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: rotaEmAndamento,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockGarantir).toHaveBeenCalledTimes(1));
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('não para enquanto a carga não foi confirmada pelo banco (abrindo, ou sem rede)', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockTaskAtiva.mockResolvedValue(true);
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: false,
+        }),
+      );
+
+      await act(async () => {});
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('não chama o stop quando não há nada rodando', async () => {
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockTaskAtiva).toHaveBeenCalled());
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('na web não mexe no rastreamento', async () => {
+      jest.replaceProperty(Platform, 'OS', 'web');
+      mockGetContexto.mockResolvedValue(contextoGravado);
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockParar).not.toHaveBeenCalled();
+      jest.restoreAllMocks();
+    });
   });
 });
