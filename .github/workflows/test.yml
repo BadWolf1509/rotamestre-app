@@ -344,8 +344,18 @@ jobs:
         # os PNGs gerados são guardados mesmo se este step falhar.
         run: npx playwright test --update-snapshots
         env:
+          # Mesmas envs dos steps de mapa/e2e. Sem E2E_* o projeto `setup` é pulado
+          # (e2e/auth.setup.ts) e os testes autenticados falham sem storageState;
+          # sem VISUAL_REGRESSION os specs visuais fazem skip e nada é gerado.
+          # Com elas, exit != 0 passa a ser teste quebrado, que é o que o `|| true`
+          # escondia. (Sem secrets o step fica vermelho: falha honesta.)
+          VISUAL_REGRESSION: '1'
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          E2E_MOTORISTA_EMAIL: ${{ secrets.E2E_MOTORISTA_EMAIL }}
+          E2E_MOTORISTA_PASSWORD: ${{ secrets.E2E_MOTORISTA_PASSWORD }}
+          E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
+          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
 
       - name: Upload updated snapshots
         if: ${{ github.event.inputs.update_snapshots == 'true' && always() }}
