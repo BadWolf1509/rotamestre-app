@@ -25,11 +25,28 @@ const INTERVALO_PADRAO_MS = 120000;
 const INTERVALO_MINIMO_MOVIMENTO_MS = 30000;
 /**
  * Quanto a posição precisa andar desde a última consulta para recalcular antes
- * do intervalo. 500 m: a 40 km/h são ~45 s, e o número na tela ("1,2 km") só
- * fica velho por esse tanto. 100 m refaria a consulta a cada ~9 s no carro,
- * que é o excesso que este limiar existe para evitar.
+ * do intervalo: 30% da distância restante, entre um piso e um teto.
+ *
+ * Alternativas comparadas:
+ * - Limiar fixo de 500 m: a 300 m da parada o card ficava em "300 m" por até
+ *   2 min com o motorista já na porta (erro maior que a própria distância).
+ * - Faixas (500 m / 200 m / 50 m por distância): resolve, mas tem degraus e
+ *   três números para manter.
+ * - Proporcional (escolhido): contínuo, com um só parâmetro. Longe (>1,7 km)
+ *   vale o teto de 500 m (~45 s a 40 km/h); a 300 m vale 90 m; o piso de 50 m
+ *   fica acima do ruído do GPS. Quem segura o ritmo de consultas é o mínimo de
+ *   30 s, não o limiar.
  */
-const LIMIAR_MOVIMENTO_METROS = 500;
+const FRACAO_LIMIAR_MOVIMENTO = 0.3;
+const LIMIAR_MOVIMENTO_MIN_METROS = 50;
+const LIMIAR_MOVIMENTO_MAX_METROS = 500;
+
+function limiarDeMovimento(distanciaRestanteMetros: number): number {
+  return Math.min(
+    LIMIAR_MOVIMENTO_MAX_METROS,
+    Math.max(LIMIAR_MOVIMENTO_MIN_METROS, FRACAO_LIMIAR_MOVIMENTO * distanciaRestanteMetros),
+  );
+}
 
 const DISTANCIA_VAZIA: DistanceInfo = {
   distanceMeters: 0,
@@ -85,7 +102,7 @@ export function useDistanceToStop(
   const temDestino = destLat != null && destLng != null;
   const ativo = enabled && temPosicao && temDestino;
 
-  const ultimaConsultaRef = useRef<{ em: number; lat: number; lng: number } | null>(null);
+  const ultimaConsultaRef = useRef<{ em: number; lat: number; lng: number; restante: number } | null>(null);
   const chaveDestinoRef = useRef<string | null>(null);
   const requisicaoRef = useRef(0);
 
@@ -98,6 +115,13 @@ export function useDistanceToStop(
       em: Date.now(),
       lat: origem.latitude,
       lng: origem.longitude,
+      // linha reta até o destino: base do limiar (a viária pode nem ter chegado)
+      restante: calculateHaversineDistance(
+        origem.latitude,
+        origem.longitude,
+        alvo.latitude,
+        alvo.longitude,
+      ),
     };
     const minha = ++requisicaoRef.current;
     // Resposta atrasada de uma consulta antiga (outra parada) não pode vencer.
@@ -141,7 +165,9 @@ export function useDistanceToStop(
 
   // Troca de parada (ou desligar/ligar): esquece o valor e a janela da anterior
   // e consulta na hora. Sem isso a Início mostrava a distância da parada concluída.
-  const chaveDestino = ativo ? `${destLat},${destLng}` : null;
+  // Só destino e `enabled` entram na chave: perda momentânea de GPS na mesma
+  // parada mantém o valor em vez de piscar "--".
+  const chaveDestino = enabled && temDestino ? `${destLat},${destLng}` : null;
   useEffect(() => {
     if (chaveDestinoRef.current !== chaveDestino) {
       chaveDestinoRef.current = chaveDestino;
@@ -153,13 +179,27 @@ export function useDistanceToStop(
     // `consultar` lê tudo por ref: só a chave do destino deve disparar.
   }, [chaveDestino]);
 
+  // Desmontou: consulta em voo não pode mais gravar estado.
+  useEffect(
+    () => () => {
+      requisicaoRef.current++;
+    },
+    [],
+  );
+
   // Movimento: recalcula antes do intervalo se andou além do limiar. Se ainda
   // está dentro do intervalo mínimo, agenda para o fim dele (a posição pode não
   // mudar mais, e então nenhum efeito voltaria a olhar).
   useEffect(() => {
+    if (!ativo || lat == null || lng == null) return;
     const ultima = ultimaConsultaRef.current;
-    if (!ativo || !ultima || lat == null || lng == null) return;
-    if (calculateHaversineDistance(ultima.lat, ultima.lng, lat, lng) < LIMIAR_MOVIMENTO_METROS) return;
+    if (!ultima) {
+      // GPS chegou depois do destino: primeira consulta
+      consultar();
+      return;
+    }
+    const andou = calculateHaversineDistance(ultima.lat, ultima.lng, lat, lng);
+    if (andou < limiarDeMovimento(ultima.restante)) return;
     const restante = INTERVALO_MINIMO_MOVIMENTO_MS - (Date.now() - ultima.em);
     if (restante <= 0) {
       consultar();
@@ -167,12 +207,19 @@ export function useDistanceToStop(
     }
     const id = setTimeout(consultar, restante);
     return () => clearTimeout(id);
-  }, [lat, lng, ativo]);
+  }, [lat, lng, ativo, chaveDestino]);
 
   // Refresh periódico: um relógio só, que não reinicia a cada posição nova.
+  // Uma consulta por movimento "reinicia" o relógio: a rodada que cair logo
+  // depois dela é pulada.
   useEffect(() => {
     if (!ativo) return;
-    const id = setInterval(consultar, refreshInterval);
+    const folga = Math.min(INTERVALO_MINIMO_MOVIMENTO_MS, refreshInterval);
+    const id = setInterval(() => {
+      const ultima = ultimaConsultaRef.current;
+      if (ultima && Date.now() - ultima.em < folga) return;
+      consultar();
+    }, refreshInterval);
     return () => clearInterval(id);
   }, [ativo, refreshInterval]);
 

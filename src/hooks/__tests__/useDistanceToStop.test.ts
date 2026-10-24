@@ -353,4 +353,156 @@ describe('useDistanceToStop', () => {
       expect(result.current.distanceKm).not.toBe('10 km');
     });
   });
+
+  describe('aproximação da parada e limpeza (rodada de correção 1)', () => {
+    // 0,001° de latitude ~ 111 m. Destino em -23.56: -23.5573 fica a ~300 m.
+    const perto = { latitude: -23.5573, longitude: -46.64 };
+    const maisPerto = { latitude: -23.5582, longitude: -46.64 }; // ~200 m: andou ~100 m
+
+    const renderizar = (inicial = perto) =>
+      renderHook(
+        ({ userLocation, destination }) => useDistanceToStop(userLocation, destination),
+        { initialProps: { userLocation: inicial, destination: mockDestination } },
+      );
+
+    it('a 300 m da parada, andar 100 m recalcula antes do motorista chegar', async () => {
+      const { rerender } = renderizar();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(31000);
+      });
+      rerender({ userLocation: maisPerto, destination: mockDestination });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+    });
+
+    it('perto da parada, ruído de GPS abaixo do piso não consulta', async () => {
+      const { rerender } = renderizar();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(31000);
+      });
+      rerender({ userLocation: { latitude: -23.5573 - 0.0002, longitude: -46.64 }, destination: mockDestination }); // ~22 m
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+    });
+
+    it('consulta por movimento reinicia o relógio: a rodada do intervalo logo depois é pulada', async () => {
+      const { rerender } = renderizar(mockUserLocation);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(110000);
+      });
+      rerender({ userLocation: { latitude: -23.54, longitude: -46.63 }, destination: mockDestination });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+      // o intervalo de 2 min cai ~10 s depois da consulta por movimento
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(15000);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+    });
+
+    it('perda momentânea de GPS na mesma parada mantém o valor', async () => {
+      const { result, rerender } = renderHook(
+        ({ userLocation }: { userLocation: { latitude: number; longitude: number } | null }) =>
+          useDistanceToStop(userLocation, mockDestination),
+        { initialProps: { userLocation: mockUserLocation as { latitude: number; longitude: number } | null } },
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(result.current.distanceKm).toBe('1.5 km');
+
+      rerender({ userLocation: null });
+      expect(result.current.distanceKm).toBe('1.5 km');
+
+      rerender({ userLocation: { ...mockUserLocation } });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(result.current.distanceKm).toBe('1.5 km');
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+    });
+
+    it('sem posição no início, consulta quando o GPS chega', async () => {
+      const { rerender } = renderHook(
+        ({ userLocation }: { userLocation: { latitude: number; longitude: number } | null }) =>
+          useDistanceToStop(userLocation, mockDestination),
+        { initialProps: { userLocation: null as { latitude: number; longitude: number } | null } },
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).not.toHaveBeenCalled();
+      rerender({ userLocation: mockUserLocation });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+    });
+
+    it('desmontar cancela o timeout agendado por movimento e descarta consulta em voo', async () => {
+      const { rerender, unmount, result } = renderizar(mockUserLocation);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      // movimento dentro da janela mínima: fica um timeout agendado
+      rerender({ userLocation: { latitude: -23.54, longitude: -46.63 }, destination: mockDestination });
+      unmount();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60000);
+      });
+      expect(mockGetDistance).toHaveBeenCalledTimes(1);
+      expect(result.current.distanceKm).toBe('1.5 km');
+    });
+
+    it('trocar de parada cancela o timeout agendado da parada anterior', async () => {
+      const { rerender } = renderizar(mockUserLocation);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      const longe = { latitude: -23.54, longitude: -46.63 };
+      rerender({ userLocation: longe, destination: mockDestination }); // agenda timeout (~30 s)
+      const outra = { latitude: -23.6, longitude: -46.7 };
+      rerender({ userLocation: longe, destination: outra }); // consulta já da nova
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(31000);
+      });
+      // o timeout antigo não dispara uma 3ª consulta
+      expect(mockGetDistance).toHaveBeenCalledTimes(2);
+    });
+
+    it('não faz setState depois de desmontar com consulta em voo', async () => {
+      const erro = jest.spyOn(console, 'error').mockImplementation(() => {});
+      let resolver: (v: unknown) => void = () => {};
+      mockGetDistance.mockReturnValueOnce(new Promise((r) => { resolver = r; }));
+      const { unmount, result } = renderizar(mockUserLocation);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      unmount();
+      await act(async () => {
+        resolver({ distance: 1, distanceText: '1 m', duration: 1, durationText: '1 min' });
+        await jest.advanceTimersByTimeAsync(100);
+      });
+      expect(result.current.distanceKm).not.toBe('1 m');
+      erro.mockRestore();
+    });
+  });
 });
