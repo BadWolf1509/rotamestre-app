@@ -81,7 +81,8 @@ describe('Migration 53: trava de UPDATE', () => {
   it('compara OLD e NEW com IS DISTINCT FROM e usa a sentinela', () => {
     for (const col of ['endereco', 'tipo', 'latitude', 'longitude']) {
       expect(exec).toMatch(
-        new RegExp(`NEW\.${col} IS DISTINCT FROM OLD\.${col}`),
+        // `\\.` no template: `\.` virava `.` (qualquer caractere).
+        new RegExp(`NEW\\.${col} IS DISTINCT FROM OLD\\.${col}`),
       );
     }
     expect(exec).toMatch(/RAISE EXCEPTION 'PARADA_CONCLUIDA_IMUTAVEL:/);
