@@ -1,6 +1,11 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import {
+  contaEstaAtiva,
+  ContaDesativada,
+  MENSAGEM_CONTA_DESATIVADA,
+} from './auth/contaAtiva';
 import { lerRecusaDaExclusao } from './auth/exclusaoRecusada';
 import { classificarFalhaPerfil } from './auth/falhaPerfil';
 import {
@@ -10,9 +15,11 @@ import {
 import { exigirSessaoDe, lerSessao } from './auth/sessao';
 import { obterSessaoComTimeout } from './auth/sessaoComTimeout';
 import { logger } from './logger';
-import { unregisterPushToken } from './notifications';
+import { cancelRouteReminder, unregisterPushToken } from './notifications';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
+import LocationTrackingService from '../services/locationTracking';
+import { stopBackgroundTracking } from '../services/unifiedLocationTracking';
 import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
 
 import type { Session } from '@supabase/supabase-js';
@@ -37,7 +44,28 @@ async function limparPushDestaConta(): Promise<void> {
   if (userId) await unregisterPushToken(userId);
 }
 
-const FALLBACK_WEB_BASE_URL = 'https://app.rotamestre.tec.br';
+export { ContaDesativada, MENSAGEM_CONTA_DESATIVADA };
+
+/**
+ * Para o que segue rodando em nome de quem sai: a task de localização em
+ * segundo plano (com o contexto dela) e o modo navegação. Parar é melhor
+ * esforço e não prende o logout: a falha de cada um é só registrada. Quem
+ * entrar depois com rota em andamento é religado pelo
+ * `useGarantirRastreamentoDaRota`.
+ */
+async function pararRastreamentoDaConta(): Promise<void> {
+  const paradas = await Promise.allSettled([
+    stopBackgroundTracking(),
+    LocationTrackingService.stopTracking(),
+  ]);
+  for (const p of paradas) {
+    if (p.status === 'rejected') {
+      logger.warn('[Logout] Falha ao parar o rastreamento', p.reason);
+    }
+  }
+}
+
+const FALLBACK_WEB_BASE_URL ='https://app.rotamestre.tec.br';
 
 /** Base pública do app web. Fonte canônica: app.config.js → extra.baseUrl */
 function getWebBaseUrl(): string {
@@ -105,6 +133,7 @@ export const authService = {
     // Buscar dados do usuário na tabela usuarios
     if (data.user) {
       const usuario = await this.getUsuario(data.user.id);
+      if (usuario) await this.garantirContaAtiva(usuario);
       await supabase
         .from('usuarios')
         .update({ ultimo_login: new Date().toISOString() })
@@ -113,6 +142,23 @@ export const authService = {
     }
 
     return { session: data.session, usuario: null };
+  },
+
+  /**
+   * Portão da conta desativada: se o servidor não reconhece nenhum vínculo
+   * ativo, sai DESTE aparelho (limpando o estado) e lança `ContaDesativada`.
+   * Chame só com perfil vindo do servidor, nunca com o perfil conhecido do
+   * aparelho (ver `auth/contaAtiva.ts`).
+   */
+  async garantirContaAtiva(usuario: Usuario): Promise<void> {
+    if (await contaEstaAtiva(usuario)) return;
+    try {
+      await this.signOut();
+    } catch (error) {
+      // O que importa é não entrar; o signOut limpa o estado local no finally.
+      logger.warn('[Auth] Falha ao sair da conta desativada', error);
+    }
+    throw new ContaDesativada();
   },
 
   // Registro
@@ -144,6 +190,11 @@ export const authService = {
    * Logout deste aparelho — o ÚNICO caminho de "Sair" (guarda em
    * `__tests__/signout-so-neste-aparelho.test.ts`).
    *
+   * 0. Para o rastreamento (task de segundo plano e modo navegação) e cancela
+   *    o lembrete diário: nada segue rodando em nome de quem saiu. O contexto
+   *    do rastreamento (`@rotamestre:tracking_context`) é apagado por
+   *    `stopBackgroundTracking`, junto com a task — não por varredura de
+   *    chaves em `limparEstadoLocal.ts` (ver o comentário de lá).
    * 1. Tira o token de push do banco ANTES do `auth.signOut`: depois dele o
    *    UPDATE vai anônimo e a RLS filtra 0 linhas sem erro — o aparelho
    *    seguia recebendo push da conta que saiu. Melhor esforço, com prazo
@@ -153,6 +204,13 @@ export const authService = {
    * 3. Limpa o estado local da conta, mesmo se o passo 2 falhar.
    */
   async signOut() {
+    await pararRastreamentoDaConta();
+    try {
+      await cancelRouteReminder();
+    } catch (error) {
+      logger.warn('[Logout] Falha ao cancelar o lembrete diário', error);
+    }
+
     try {
       await obterSessaoComTimeout(
         limparPushDestaConta,
