@@ -1940,3 +1940,48 @@ service_role movendo token para a tabela e a RPC recusando conta sem perfil;
 tem `DELETE` só de tokens que ela cria, então roda no SQL Editor;
 termina em `RAISE`). Roteiro de conferência só com SELECT (9 consultas) no fim
 da migration. Sintaxe validada com o parser do Postgres (libpg-query).
+
+### ⏳ Migration 53: parada finalizada não se apaga, e a concluída não muda de lugar
+
+**Arquivo:** `20261024120000_parada_finalizada_imutavel.sql` · **⏳ pendente**
+(o controlador aplica pelo CLI). Gatilhos com `CREATE OR REPLACE TRIGGER`, sem
+DROP; os dois `REVOKE EXECUTE` das funções internas pedem SQL Editor se o MCP
+recusar.
+
+**Por quê.** A tela da rota do gestor trabalha com um retrato velho: o motorista
+conclui a parada 3 e o botão Remover continua na tela. A política
+`paradas_delete` só confere se o gestor é da loja, nunca o status — a entrega
+feita, com foto e log, some da rota. Editar reescrevia endereço e tipo de
+parada já entregue. O cliente passou a esconder os botões e a conferir o
+retorno, mas isso é só o cliente.
+
+**O que faz** (valem só com `auth.uid()` não nulo):
+
+1. `BEFORE DELETE` em `paradas` recusa `concluida` e `pulada` com a sentinela
+   `PARADA_FINALIZADA` (P0001) — salvo na cascata da exclusão da rota (a rota
+   da parada já não existe quando o RI trigger roda), senão nenhuma rota feita
+   poderia ser excluída.
+2. `BEFORE UPDATE OF endereco, tipo, latitude, longitude` com
+   `WHEN (OLD.status = 'concluida')` recusa a mudança com
+   `PARADA_CONCLUIDA_IMUTAVEL` (P0001). Destinatário, telefone, observações,
+   ordem e status (reabrir) seguem livres; `pulada` pode ter o endereço
+   corrigido. A coordenada entra porque o formulário a grava junto do endereço.
+
+Sem usuário (service_role, SQL Editor) segue livre — mesma escolha da
+Migration 41. O app traduz as sentinelas em `errorMapping`.
+
+**Alternativa descartada: política RESTRICTIVE.** (a) A RLS recusa DELETE sem
+erro (0 linhas), e a tela não saberia dizer por quê; (b) UPDATE não cabe em
+política — USING/WITH CHECK não enxergam OLD e NEW juntas, então "o endereço
+mudou" não se expressa; (c) exige DROP/CREATE POLICY, que o MCP recusa; (d) a
+política não distingue a cascata da rota. O gatilho dá mensagem própria, compara
+OLD e NEW e é idempotente.
+
+**Sonda** `database/sondas/20261024120000_sonda_migration53.sql` (cenário
+próprio, `authenticated` por claims, termina em `RAISE`; sem DELETE fora do que
+cria, então roda também fora do SQL Editor): 11 casos — motorista conclui (1),
+DELETE de concluída (2) e pulada (3) recusados, pendente apagada (4), endereço
+(5a), tipo (5b) e latitude (5c) da concluída recusados, destinatário editável
+(6), reabrir e reordenar passam (7), endereço da pulada corrigível (8), cascata
+da rota concluída (9), sem usuário livre (10), funções sem EXECUTE (11). Os
+itens 1 e 2 do Review Focus são os casos 1 e 2.

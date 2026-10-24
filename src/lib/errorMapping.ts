@@ -223,6 +223,32 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    // Sentinela do gatilho da Migration 53 (recusa_apagar_parada_finalizada):
+    // o gestor tentou remover parada que o motorista já concluiu ou pulou
+    // (tela com retrato velho).
+    pattern: /PARADA_FINALIZADA/,
+    result: {
+      title: 'Parada finalizada',
+      message:
+        'Esta parada já foi finalizada pelo motorista e não pode ser removida.',
+      type: 'warning',
+      code: 'STOP_ALREADY_DONE',
+    },
+  },
+  {
+    // Sentinela do gatilho da Migration 53
+    // (recusa_editar_local_de_parada_concluida): editar endereço ou tipo de
+    // parada que o motorista já concluiu.
+    pattern: /PARADA_CONCLUIDA_IMUTAVEL/,
+    result: {
+      title: 'Parada concluída',
+      message:
+        'Esta parada já foi concluída pelo motorista: o endereço e o tipo não podem mais ser alterados.',
+      type: 'warning',
+      code: 'STOP_COMPLETED_LOCKED',
+    },
+  },
+  {
     // Sentinela da RPC atualizar_unidade: levantada quando quem chama não é
     // gestor ativo daquela unidade. Mensagem específica para deixar claro que
     // é falta de permissão, não erro genérico.

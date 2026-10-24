@@ -97,7 +97,7 @@ export default function MapaRota() {
     pontosBase,
     resumoParadas,
     enderecoUnidade,
-    loadRotaEParadas,
+    recarregarSilencioso,
   } = useMapaRotaData({
     rotaId: id,
     onError: handleDataError,
@@ -135,7 +135,9 @@ export default function MapaRota() {
     paradas,
     paradasReais,
     enderecoUnidade,
-    loadRotaEParadas,
+    // Depois de cada ação a tela recarrega sem skeleton (o mapa e os modais
+    // ficam montados).
+    loadRotaEParadas: recarregarSilencioso,
   });
 
   // ===== Modal State Hook =====
@@ -482,6 +484,7 @@ export default function MapaRota() {
             rotaId={Array.isArray(id) ? id[0] : id || ''}
             enderecoUnidade={enderecoUnidade}
             allParadas={paradasReais}
+            onDesatualizada={recarregarSilencioso}
             onSave={async ({ routeRecalculationFailed }) => {
               await handleEditStopSave(routeRecalculationFailed);
               modals.closeEditStopModal();

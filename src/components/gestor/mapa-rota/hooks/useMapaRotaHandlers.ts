@@ -2,12 +2,16 @@
  * Hook para ações e handlers da página MapaRota
  */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList } from 'react-native';
 
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO } from '@/lib/dateUtils';
+import {
+  MENSAGEM_PARADA_JA_FINALIZADA,
+  podeAlterarParada,
+} from '@/lib/gestor/paradaEditavel';
 import { logger } from '@/lib/logger';
 import {
   removerParadaERecalcular,
@@ -120,7 +124,7 @@ interface UseMapaRotaHandlersResult {
 export function useMapaRotaHandlers({
   rotaId,
   rota,
-  paradas: _paradas,
+  paradas,
   paradasReais,
   enderecoUnidade,
   loadRotaEParadas,
@@ -343,10 +347,47 @@ export function useMapaRotaHandlers({
     ],
   );
 
+  // Parada feita ou rota fechada não se edita nem se remove. A decisão vale
+  // pelo estado VIVO (`paradas`, atualizado por realtime), não pelo objeto
+  // que veio do clique: o gestor pode ter clicado num retrato velho.
+  // Devolve true quando recusou (e já avisou).
+  const recusarAlteracao = useCallback(
+    (parada: Parada): boolean => {
+      if (!rota) return false;
+      const rotaFechada =
+        rota.status !== 'pendente' && rota.status !== 'em_andamento';
+      if (rotaFechada) {
+        showToast('Esta rota não aceita mais alterações nas paradas.', 'error');
+        return true;
+      }
+      const viva = paradas.find((p) => p.id === parada.id) ?? parada;
+      if (podeAlterarParada(viva.status, rota.status)) return false;
+      showToast(MENSAGEM_PARADA_JA_FINALIZADA, 'error');
+      void loadRotaEParadas();
+      return true;
+    },
+    [rota, paradas, showToast, loadRotaEParadas],
+  );
+
+  // Diálogo/modal já aberto quando o motorista conclui a parada (ou a rota
+  // fecha): fecha e explica, em vez de deixar o gestor confirmar no escuro.
+  useEffect(() => {
+    if (paradaToRemove && recusarAlteracao(paradaToRemove)) {
+      setParadaToRemove(null);
+    }
+    if (paradaToEdit && recusarAlteracao(paradaToEdit)) {
+      setParadaToEdit(null);
+    }
+  }, [paradaToRemove, paradaToEdit, recusarAlteracao]);
+
   // Stop action handlers
-  const handleRemoveStopRequest = useCallback((parada: Parada) => {
-    setParadaToRemove(parada);
-  }, []);
+  const handleRemoveStopRequest = useCallback(
+    (parada: Parada) => {
+      if (recusarAlteracao(parada)) return;
+      setParadaToRemove(parada);
+    },
+    [recusarAlteracao],
+  );
 
   const clearParadaToRemove = useCallback(() => {
     setParadaToRemove(null);
@@ -355,6 +396,12 @@ export function useMapaRotaHandlers({
   const handleConfirmRemoveStop = useCallback(async () => {
     const id = getIdString();
     if (!paradaToRemove || !id || !rota) return;
+    // Conferência de última hora, pelo estado vivo: o efeito acima fecha o
+    // diálogo, mas a confirmação pode ter chegado antes dele rodar.
+    if (recusarAlteracao(paradaToRemove)) {
+      setParadaToRemove(null);
+      return;
+    }
 
     try {
       if (!enderecoUnidade) {
@@ -398,6 +445,9 @@ export function useMapaRotaHandlers({
         await loadRotaEParadas();
       } else {
         showToast(result.error || 'Erro ao remover parada', 'error');
+        // Se o banco recusou (parada finalizada, linha sumida), a tela estava
+        // velha: traz o estado real.
+        await loadRotaEParadas();
       }
     } catch (error) {
       logger.error('[useMapaRotaHandlers] Erro ao remover parada', error);
@@ -410,13 +460,18 @@ export function useMapaRotaHandlers({
     paradasReais,
     enderecoUnidade,
     loadRotaEParadas,
+    recusarAlteracao,
     showToast,
     userData?.id,
   ]);
 
-  const handleEditStop = useCallback((parada: Parada) => {
-    setParadaToEdit(parada);
-  }, []);
+  const handleEditStop = useCallback(
+    (parada: Parada) => {
+      if (recusarAlteracao(parada)) return;
+      setParadaToEdit(parada);
+    },
+    [recusarAlteracao],
+  );
 
   const clearParadaToEdit = useCallback(() => {
     setParadaToEdit(null);

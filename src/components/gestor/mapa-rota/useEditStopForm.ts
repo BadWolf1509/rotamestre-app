@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
@@ -36,6 +37,8 @@ export interface UseEditStopFormParams {
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
   onSave: (result: { routeRecalculationFailed: boolean }) => void;
+  /** O banco mostrou que a tela estava velha (parada já finalizada): recarregue. */
+  onDesatualizada?: () => void;
   usuarioId?: string;
   motoristaId?: string | null;
 }
@@ -47,6 +50,7 @@ export function useEditStopForm({
   enderecoUnidade,
   allParadas,
   onSave,
+  onDesatualizada,
   usuarioId,
   motoristaId,
 }: UseEditStopFormParams) {
@@ -163,8 +167,12 @@ export function useEditStopForm({
         finalLatitude !== parada.latitude ||
         finalLongitude !== parada.longitude;
 
-      // Update parada in database
-      const { error: updateError } = await supabase
+      // Update parada in database. Condicionado a `pendente` e conferindo as
+      // linhas afetadas: a tela pode estar velha (o motorista concluiu a
+      // parada), e UPDATE de zero linhas não é sucesso. A trava de verdade é o
+      // gatilho da Migration 53 (PARADA_CONCLUIDA_IMUTAVEL), que vale para
+      // qualquer cliente.
+      const { data: atualizadas, error: updateError } = await supabase
         .from('paradas')
         .update({
           endereco,
@@ -175,10 +183,29 @@ export function useEditStopForm({
           observacoes: observacoes || null,
           tipo,
         })
-        .eq('id', parada.id);
+        .eq('id', parada.id)
+        .eq('status', 'pendente')
+        .select('id');
 
       if (updateError) {
+        const conhecido = getErrorMessage(updateError);
+        if (
+          conhecido.code === 'STOP_COMPLETED_LOCKED' ||
+          conhecido.code === 'STOP_ALREADY_DONE'
+        ) {
+          setError(conhecido.message);
+          onDesatualizada?.();
+          return;
+        }
         throw updateError;
+      }
+
+      if (!atualizadas || atualizadas.length === 0) {
+        setError(
+          'Esta parada não pode mais ser editada: o motorista já a finalizou ou ela não existe mais. A tela foi atualizada.',
+        );
+        onDesatualizada?.();
+        return;
       }
 
       // Only recalculate route if coordinates ACTUALLY changed
@@ -271,6 +298,7 @@ export function useEditStopForm({
     usuarioId,
     motoristaId,
     onSave,
+    onDesatualizada,
   ]);
 
   return {

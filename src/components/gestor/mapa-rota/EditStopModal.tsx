@@ -45,6 +45,8 @@ export interface EditStopModalProps {
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
   onSave: (result: { routeRecalculationFailed: boolean }) => void;
+  /** O banco mostrou que a tela estava velha (parada já finalizada): recarregue. */
+  onDesatualizada?: () => void;
   onCancel: () => void;
   usuarioId?: string;
   motoristaId?: string | null;
@@ -57,6 +59,7 @@ export function EditStopModal({
   enderecoUnidade,
   allParadas,
   onSave,
+  onDesatualizada,
   onCancel,
   usuarioId,
   motoristaId,
@@ -88,6 +91,7 @@ export function EditStopModal({
     enderecoUnidade,
     allParadas,
     onSave,
+    onDesatualizada,
     usuarioId,
     motoristaId,
   });

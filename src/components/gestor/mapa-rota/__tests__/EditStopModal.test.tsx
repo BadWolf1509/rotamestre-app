@@ -11,6 +11,17 @@ import { EditStopModal, EditStopModalProps } from '../EditStopModal';
 // Mock dependencies
 const mockFrom = jest.fn();
 
+// UPDATE de parada: `.update().eq('id').eq('status').select('id')`.
+function cadeiaUpdate(resultado: { data: unknown; error: unknown }) {
+  return jest.fn().mockReturnValue({
+    eq: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        select: jest.fn().mockResolvedValue(resultado),
+      }),
+    }),
+  });
+}
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
@@ -281,9 +292,7 @@ describe('EditStopModal', () => {
   describe('Salvamento', () => {
     beforeEach(() => {
       mockFrom.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-        }),
+        update: cadeiaUpdate({ data: [{ id: 'parada-123' }], error: null }),
         insert: jest.fn().mockResolvedValue({ data: null, error: null }),
       });
       mockRecalcularRota.mockResolvedValue({ success: true });
@@ -431,13 +440,9 @@ describe('EditStopModal', () => {
 
     it('deve lidar com erro ao salvar', async () => {
       mockFrom.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest
-            .fn()
-            .mockResolvedValue({
-              data: null,
-              error: { message: 'Update failed' },
-            }),
+        update: cadeiaUpdate({
+          data: null,
+          error: { message: 'Update failed' },
         }),
       });
 

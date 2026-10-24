@@ -30,9 +30,16 @@ const mockFrom = jest.fn((table: string) => {
   throw new Error(`useMapaRotaData.test: tabela inesperada "${table}"`);
 });
 
+// Realtime inerte (coberto em useMapaRotaData.realtime.test.ts).
+const canalInerte: Record<string, unknown> = {};
+canalInerte.on = () => canalInerte;
+canalInerte.subscribe = () => canalInerte;
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
+    channel: () => canalInerte,
+    removeChannel: () => undefined,
   },
 }));
 

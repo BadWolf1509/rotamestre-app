@@ -124,7 +124,16 @@ function consulta(tabela: string) {
   return api;
 }
 
+// Realtime inerte: hooks que assinam canal montam sem rede e sem evento.
+const canalFalso: Record<string, unknown> = {};
+canalFalso.on = () => canalFalso;
+canalFalso.subscribe = () => canalFalso;
+
 export const moduloConsultaFalsa = {
-  supabase: { from: (t: string) => consulta(t) },
+  supabase: {
+    from: (t: string) => consulta(t),
+    channel: () => canalFalso,
+    removeChannel: () => undefined,
+  },
   isSupabaseConfigured: true,
 };
