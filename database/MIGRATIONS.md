@@ -2018,3 +2018,50 @@ outra loja recusada, anon sem EXECUTE e, com um gatilho de sonda que recusa o
 UPDATE da contagem, os avisos que ficam; sem `DELETE` nem `DROP`; termina em `RAISE`).
 Conferência só com SELECT (4 consultas) no fim da migration. Sintaxe validada
 com o parser do Postgres (libpg-query).
+
+### ⏳ Migration 47: preferências de push por conta, que só o dono lê e grava
+
+**Arquivo:** `20261024200000_preferencias_notificacao.sql` · **⏳ pendente.**
+Rodar pelo **SQL Editor** como `postgres` (tem `REVOKE`, que o MCP recusa),
+numa execução só, e depois a sonda. A ordem com a função e o app não importa:
+a função sem a tabela envia tudo (consulta que falha = envia), e o app sem a
+tabela grava só no aparelho e tenta de novo na próxima abertura da tela.
+
+**Por quê (AN3, 1.14.6).** Os interruptores de notificação das Configurações
+(motorista: "Notificações Push"; gestor: push geral, incidentes, rotas e
+resumo diário) só gravavam no AsyncStorage, e ninguém lia: o push chegava do
+mesmo jeito.
+
+**O que faz.** Tabela `preferencias_notificacao (usuario_id PK → usuarios ON
+DELETE CASCADE, push_ativo, incidentes, rotas, resumo_diario, atualizado_em)`,
+tudo `boolean NOT NULL DEFAULT true`. Sem linha também vale tudo ligado, então
+não há backfill. RLS: SELECT, INSERT e UPDATE só da própria linha
+(`usuario_id = (SELECT auth.uid())`, o UPDATE com `WITH CHECK` para a linha não
+mudar de dono); sem DELETE. Grants: `REVOKE ALL` da API e `SELECT, INSERT,
+UPDATE` de volta a `authenticated`. O índice da FK é a própria PK.
+
+**Decisão: tabela própria, não coluna `jsonb` em `usuarios`.** No catálogo
+(24/10/2026), `usuarios_select_optimized` mostra a linha a toda a loja e
+`usuarios_update_optimized` deixa o gestor alterar a linha do motorista: com a
+coluna, o gestor leria e desligaria o push do motorista. Fechar isso pediria
+mexer na RLS de `usuarios`, de que a leitura das fotos depende (invariante do
+CLAUDE.md), e outro GRANT por coluna (Migration 45), passando pelo gatilho
+`trava_motorista_outra_loja`. Dentro da tabela, colunas `boolean` em vez de um
+`jsonb`: tipo e default garantidos pelo banco.
+
+**Quem lê.** A Edge Function `send-push-notification`, com a chave secreta
+(`preferenciaDePush.ts`): SOS sempre envia; push geral desligado cala o resto;
+com ele ligado, `incidente_reportado` obedece a `incidentes`, os tipos de rota
+e de parada a `rotas`, e `resumo_*` a `resumo_diario` (hoje nenhum gatilho cria
+tipo de resumo). Quem é calado fica em `push_notification_logs` com status
+`skipped`. O app (`src/lib/notificacoes/preferenciasPush.ts`) grava por upsert
+e guarda a última cópia e a pendência offline no aparelho; o valor antigo do
+AsyncStorage migra uma vez, só se a conta ainda não tiver linha.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration47-preferencias-notificacao.test.ts`; sonda
+`database/sondas/20261024200000_sonda_migration47.sql` (loja com motoristas M e
+M2 e gestor G; 9 casos: default ligado, upsert e releitura do dono, G não lê,
+G não altera, G não cria nem faz upsert, a linha não muda de dono, sem DELETE,
+anon sem acesso, service_role lê; só o DELETE recusado de M; termina em
+`RAISE`). Conferência só com SELECT (4 consultas) no fim da migration.
