@@ -18,6 +18,7 @@ import {
   updateTrackingContext,
   requestAndStartTracking,
   garantirRastreamentoDaRota,
+  POSICOES_ENTRE_CONFERENCIAS,
 } from '../unifiedLocationTracking';
 
 import type { TrackingContext } from '../unifiedLocationTracking';
@@ -71,6 +72,12 @@ jest.mock('@/lib/supabase', () => ({
       insert: jest.fn().mockResolvedValue({ error: null }),
     }),
   },
+}));
+
+// Sessão lida na conferência da rota (só quando a rota não aparece).
+const mockLerSessao = jest.fn();
+jest.mock('@/lib/auth/sessao', () => ({
+  lerSessao: () => mockLerSessao(),
 }));
 
 // A espera pelo primeiro plano é controlada pelo teste: por padrão o app já
@@ -637,6 +644,213 @@ describe('unifiedLocationTracking', () => {
           timestamp: '2026-10-24T12:00:00.000Z',
         }),
       ]);
+    });
+  });
+  // MOT-1: a task headless roda sem tela nenhuma. Rota concluída pela web,
+  // por outro aparelho, pela expiração ou reatribuída seguia gravando
+  // posições por até ~21 h. A task confere a rota do contexto e para.
+  describe('task de segundo plano confere se a rota ainda anda', () => {
+    const insertPadrao = jest.fn();
+    let rotaNoBanco: { data: unknown; error: unknown };
+    let selectsDaRota: number;
+
+    const umaPosicao = () =>
+      tarefaDeSegundoPlano({
+        data: {
+          locations: [
+            {
+              coords: {
+                latitude: -7.1,
+                longitude: -34.8,
+                accuracy: 10,
+                speed: null,
+                heading: null,
+              },
+              timestamp: Date.UTC(2026, 9, 24, 12, 0),
+            },
+          ],
+        },
+        error: null,
+      });
+
+    const recusaDeRls = {
+      code: '42501',
+      message: 'new row violates row-level security policy',
+    };
+
+    beforeEach(async () => {
+      selectsDaRota = 0;
+      rotaNoBanco = {
+        data: { status: 'em_andamento', motorista_id: 'motorista-456' },
+        error: null,
+      };
+      insertPadrao.mockReset();
+      insertPadrao.mockResolvedValue({ error: null });
+      mockLerSessao.mockReset();
+      mockLerSessao.mockResolvedValue({
+        session: { user: { id: 'motorista-456' } },
+        offline: false,
+      });
+      (supabase.from as jest.Mock).mockImplementation((tabela: string) => {
+        if (tabela === 'rotas') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () => {
+                  selectsDaRota++;
+                  return Promise.resolve(rotaNoBanco);
+                },
+              }),
+            }),
+          };
+        }
+        return { insert: insertPadrao };
+      });
+      // Parar zera a contagem: a primeira posição depois confere.
+      await stopBackgroundTracking();
+      mockGetItem.mockImplementation(async (chave: string) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify(mockContext)
+          : null,
+      );
+      mockHasStartedLocationUpdates.mockResolvedValue(true);
+      mockStopLocationUpdates.mockClear();
+      mockRemoveItem.mockClear();
+    });
+
+    afterEach(() => {
+      (supabase.from as jest.Mock).mockReset();
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ error: null }),
+      });
+    });
+
+    it('para quando a conferência diz que a rota acabou', async () => {
+      rotaNoBanco = {
+        data: { status: 'concluida', motorista_id: 'motorista-456' },
+        error: null,
+      };
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+      expect(mockRemoveItem).toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+      );
+    });
+
+    it('para quando a rota foi reatribuída a outro motorista', async () => {
+      rotaNoBanco = {
+        data: { status: 'em_andamento', motorista_id: 'outro-motorista' },
+        error: null,
+      };
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('não para com a rota em andamento', async () => {
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+      expect(mockRemoveItem).not.toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+      );
+    });
+
+    it('sem rede, não para', async () => {
+      rotaNoBanco = {
+        data: null,
+        error: { message: 'TypeError: Network request failed' },
+      };
+      insertPadrao.mockResolvedValue({
+        error: { message: 'TypeError: Network request failed' },
+      });
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('rota que não aparece mais (apagada ou de outro) para, com a sessão do próprio motorista', async () => {
+      rotaNoBanco = { data: null, error: null };
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('rota que não aparece sem sessão confirmada não para (a consulta pode ter saído anônima)', async () => {
+      rotaNoBanco = { data: null, error: null };
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('não para se o contexto mudou de rota durante a conferência', async () => {
+      rotaNoBanco = {
+        data: { status: 'concluida', motorista_id: 'motorista-456' },
+        error: null,
+      };
+      let leituras = 0;
+      mockGetItem.mockImplementation(async (chave: string) => {
+        if (chave !== '@rotamestre:tracking_context') return null;
+        leituras++;
+        // A 1ª leitura é a da posição; depois, o motorista já iniciou outra.
+        return JSON.stringify(
+          leituras === 1
+            ? mockContext
+            : { ...mockContext, rotaId: 'rota-nova' },
+        );
+      });
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it(`confere na primeira posição e depois a cada ${POSICOES_ENTRE_CONFERENCIAS}`, async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      for (let i = 1; i < POSICOES_ENTRE_CONFERENCIAS; i++) await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      await umaPosicao();
+      expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('posição recusada pelo banco (ex.: 42501 da rota de outro) confere fora da contagem', async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      insertPadrao.mockResolvedValue({ error: recusaDeRls });
+      rotaNoBanco = {
+        data: { status: 'em_andamento', motorista_id: 'outro-motorista' },
+        error: null,
+      };
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('recusa do banco com a rota ainda viva (token vencido) não para', async () => {
+      await umaPosicao();
+      insertPadrao.mockResolvedValue({ error: recusaDeRls });
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
     });
   });
 });

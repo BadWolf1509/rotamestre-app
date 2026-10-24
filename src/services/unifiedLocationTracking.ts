@@ -15,10 +15,12 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
+import { lerSessao } from '@/lib/auth/sessao';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { pedirPermissao } from '@/lib/permissoes';
+import { supabase } from '@/lib/supabase';
 import { defaultTheme } from '@/utils/styles';
 
 // ========================================
@@ -101,7 +103,7 @@ async function saveLocationToDatabase(
 
     // Sem rede, a posição fica guardada no aparelho e sobe em lote com a
     // próxima que conseguir enviar (`filaPosicoes`).
-    await registrarPosicao(
+    const destino = await registrarPosicao(
       {
         motorista_id: context.motoristaId,
         rota_id: context.rotaId,
@@ -115,8 +117,101 @@ async function saveLocationToDatabase(
       location.timestamp,
       '[LocationTracking] Erro ao salvar',
     );
+
+    posicoesAteConferir--;
+    if (destino === 'perdida' || posicoesAteConferir <= 0) {
+      await conferirRotaDoContexto(context);
+    }
   } catch (err) {
     logarFalha('[LocationTracking] Erro', err);
+  }
+}
+
+// ========================================
+// CONFERÊNCIA DA ROTA RASTREADA (MOT-1)
+// ========================================
+
+/**
+ * Posições entre duas conferências da rota pela task de segundo plano.
+ *
+ * POR QUE EXISTE. Só o `completeRoute` deste aparelho parava a task. A rota
+ * que terminava em outro lugar (web, outro aparelho, expiração, reatribuição)
+ * seguia rastreada, e a tela, que agora também desliga
+ * (`useGarantirRastreamentoDaRota`), pode nem abrir: 4 rotas concluídas com
+ * 131 a 555 posições gravadas até ~21 h depois do fim.
+ *
+ * POR QUE 20. A configuração de segundo plano entrega uma posição a cada
+ * 50 m (no iOS, agrupadas a cada 30 s / 100 m): 20 posições são ~1 km
+ * rodado, de 1,5 a 10 min. Contar POSIÇÕES, e não tempo, limita
+ * diretamente o que importa — o vazamento depois do fim fica em no máximo
+ * 20 linhas por processo — e motorista parado não gasta consulta. 10
+ * dobraria a carga (um SELECT a cada 10 INSERTs) para ganhar poucos
+ * minutos; 60 deixaria vazar ~3 km de trajeto de quem já não está em rota.
+ * A primeira posição de cada processo (e de cada novo rastreamento) confere
+ * logo: é o caso da task restaurada horas depois do fim.
+ */
+export const POSICOES_ENTRE_CONFERENCIAS = 20;
+
+/** Começa em 0: a primeira posição do processo confere. */
+let posicoesAteConferir = 0;
+let conferenciaEmVoo: Promise<void> | null = null;
+
+/**
+ * Confere se a rota do contexto ainda está em andamento e com este motorista;
+ * se não estiver, para o rastreamento. Gatilhos: a contagem acima e a
+ * posição que o banco recusou (`perdida`). Desde a Migration 48 o INSERT
+ * com a rota de outro motorista volta 42501 — mas um 42501 também vem de
+ * token vencido, então a recusa SÓ dispara a conferência, nunca para.
+ * Sem rede (ou qualquer dúvida), não para.
+ */
+function conferirRotaDoContexto(context: TrackingContext): Promise<void> {
+  posicoesAteConferir = POSICOES_ENTRE_CONFERENCIAS;
+  if (conferenciaEmVoo) return conferenciaEmVoo;
+  const conferencia = (async () => {
+    if (!(await rotaDoContextoAcabou(context))) return;
+    // O motorista pode ter iniciado outra rota enquanto a consulta voava.
+    const atual = await getTrackingContext();
+    if (atual?.rotaId !== context.rotaId) return;
+    logger.warn(
+      '[LocationTracking] Rota rastreada não está mais em andamento; parando',
+      context.rotaId,
+    );
+    await stopBackgroundTracking();
+  })().finally(() => {
+    conferenciaEmVoo = null;
+  });
+  conferenciaEmVoo = conferencia;
+  return conferencia;
+}
+
+/** true só com certeza de que a rota acabou ou não é mais deste motorista. */
+async function rotaDoContextoAcabou(context: TrackingContext): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('rotas')
+      .select('status, motorista_id')
+      .eq('id', context.rotaId)
+      .maybeSingle<{ status: string; motorista_id: string | null }>();
+    if (error) {
+      // Sem rede ou recusa passageira: na dúvida, segue rastreando.
+      logarFalha('[LocationTracking] Falha ao conferir a rota rastreada', error);
+      return false;
+    }
+    if (data) {
+      return (
+        data.status !== 'em_andamento' ||
+        data.motorista_id !== context.motoristaId
+      );
+    }
+    // Sem linha: rota apagada, ou reatribuída (a RLS de `rotas` esconde a
+    // de outro motorista). Mas a consulta que sai anônima (refresh do token
+    // falhou) também volta vazia, sem erro — só a sessão deste motorista
+    // confirmada torna o "vazio" uma resposta.
+    const { session } = await lerSessao();
+    return session?.user?.id === context.motoristaId;
+  } catch (err) {
+    logarFalha('[LocationTracking] Falha ao conferir a rota rastreada', err);
+    return false;
   }
 }
 
@@ -306,6 +401,8 @@ export async function stopBackgroundTracking(): Promise<void> {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
     taskConfirmadaNesteProcesso = false;
+    // O próximo rastreamento confere já na primeira posição.
+    posicoesAteConferir = 0;
     await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
   } catch (err) {
     logger.error('[LocationTracking] Erro ao parar', err);
