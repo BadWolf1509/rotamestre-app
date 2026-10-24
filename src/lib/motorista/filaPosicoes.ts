@@ -21,19 +21,22 @@
  *   da nova faria o motorista "voltar" no mapa.
  *
  * Cada posição guardada leva o `rota_id` com que foi capturada e é enviada com
- * ele — são posições verdadeiras daquela rota, mesmo que ela já tenha sido
- * finalizada ou trocada. O lote é cortado por rota (sequências consecutivas).
- * Lote recusado:
+ * ele. A posição de uma rota que não é mais do motorista (reatribuída, loja
+ * desativada) é recusada pelo servidor. O lote é cortado por rota (sequências
+ * consecutivas). Lote recusado:
  *
  * - **por rede:** fica, e o envio para até a próxima posição;
  * - **por DADO** (`CODIGOS_RECUSA_DE_DADO`: FK de rota apagada, NOT NULL,
  *   CHECK, tipo): descartado na hora, só o lote daquela rota;
- * - **por qualquer outra coisa** (JWT vencido, RLS com a requisição saindo
- *   anônima porque o refresh do token falhou, 5xx sem texto de rede): fica, e
- *   cada posição conta uma tentativa; a que chega a `MAX_TENTATIVAS_POSICAO`
- *   sai, com um `logger.error` por descarte. É justamente na volta de um longo
- *   período sem rede que o token está vencido — descartar ali perderia a fila
- *   inteira, que é o que esta fila existe para guardar.
+ * - **por qualquer outra coisa** (rota que não é mais do motorista, JWT
+ *   vencido, requisição saindo anônima porque o refresh do token falhou, 5xx
+ *   sem texto de rede): fica, cada posição conta uma tentativa, e o envio
+ *   SEGUE com os lotes das outras rotas — a rota recusada só volta a ser
+ *   tentada na próxima posição. A que chega a `MAX_TENTATIVAS_POSICAO` sai,
+ *   com um `logger.error` por descarte. Não é descartado na hora porque a
+ *   resposta do servidor é a mesma nos dois casos, e é justamente na volta de
+ *   um longo período sem rede que o token está vencido — descartar ali
+ *   perderia a fila inteira, que é o que esta fila existe para guardar.
  *
  * - **Por conta.** A fila guarda o dono; fila de outra conta é descartada sem
  *   envio (a RLS recusaria, e não é posição desta sessão). Apagada no logout
@@ -79,8 +82,9 @@ export const TETO_FILA_POSICOES = 500;
  * uma posição nova (a cada 5–30 s com a rota andando), e motorista parado
  * não gasta nada. 60 tentativas cobrem de ~5 min (navegação, 5 s) a ~30 min
  * (só a task), tempo de sobra para o supabase-js renovar um token vencido ou
- * um gateway voltar de um 5xx. E um erro que nunca passa trava o envio da
- * fila por no máximo 60 posições, não para sempre.
+ * um gateway voltar de um 5xx. Um erro que nunca passa (rota que não é mais
+ * do motorista) guarda aquele lote por no máximo 60 posições, e não atrasa o
+ * envio das outras rotas.
  */
 export const MAX_TENTATIVAS_POSICAO = 60;
 
@@ -298,18 +302,28 @@ async function inserir(
   }
 }
 
-/** Primeira sequência consecutiva de posições da mesma rota. */
-function primeiroLote(posicoes: PosicaoGuardada[]): PosicaoGuardada[] {
-  const rota = posicoes[0].rota_id;
-  const fim = posicoes.findIndex((p) => p.rota_id !== rota);
-  return fim === -1 ? posicoes : posicoes.slice(0, fim);
+/**
+ * Primeira sequência consecutiva de posições da mesma rota, pulando as rotas
+ * já recusadas neste envio. Vazia = só sobraram rotas recusadas.
+ */
+function primeiroLote(
+  posicoes: PosicaoGuardada[],
+  recusadas: ReadonlySet<string>,
+): PosicaoGuardada[] {
+  const restantes = posicoes.filter((p) => !recusadas.has(p.rota_id));
+  if (restantes.length === 0) return [];
+  const rota = restantes[0].rota_id;
+  const fim = restantes.findIndex((p) => p.rota_id !== rota);
+  return fim === -1 ? restantes : restantes.slice(0, fim);
 }
 
-/** true = a fila esvaziou; false = parou (sem rede ou recusa passageira). */
+/** true = a fila esvaziou; false = sobrou algo (sem rede ou lote recusado). */
 async function enviarFila(
   motoristaId: string,
   rotulo: string,
 ): Promise<boolean> {
+  // Rotas cujo lote o servidor recusou neste envio: ficam para o próximo.
+  const recusadas = new Set<string>();
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
     const fila = await emSerie(ler);
     if (!fila || fila.posicoes.length === 0) return true;
@@ -318,18 +332,23 @@ async function enviarFila(
       return true;
     }
 
-    const lote = primeiroLote(fila.posicoes);
+    const lote = primeiroLote(fila.posicoes, recusadas);
+    if (lote.length === 0) return false;
     const { error } = await inserir(lote.map(paraLinha));
     if (error && isNetworkError(error)) {
+      // Sem rede, nenhum outro lote subiria: para e tenta na próxima posição.
       logarFalha(rotulo, error);
       return false;
     }
     if (error && !ehRecusaDeDado(error)) {
-      // Pode ser passageiro (token vencido, 5xx): o lote fica, e a posição
-      // conta uma tentativa — até `MAX_TENTATIVAS_POSICAO`.
+      // Posição recusada pelo servidor: rota que não é mais do motorista, ou
+      // algo passageiro (token vencido, 5xx) — a resposta é a mesma e não dá
+      // para separar. O lote fica e conta uma tentativa (até
+      // `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
       logarFalha(rotulo, error);
       await marcarTentativa(motoristaId, lote, error);
-      return false;
+      recusadas.add(lote[0].rota_id);
+      continue;
     }
     if (error) {
       // Recusa de dado (ex.: rota apagada): reenviar falharia para sempre.

@@ -336,6 +336,39 @@ describe('filaPosicoes', () => {
     });
   });
 
+  // Posição recusada pelo servidor (rota que não é mais do motorista: foi
+  // reatribuída, ou a loja foi desativada). O lote dela não pode prender o
+  // das outras rotas por até MAX_TENTATIVAS_POSICAO posições.
+  it('lote recusado de uma rota não prende o lote das rotas seguintes', async () => {
+    const recusada = {
+      code: '42501',
+      message:
+        'new row violates row-level security policy for table "motorista_locations"',
+    };
+    semRede();
+    await registrarPosicao(posicao({ rota_id: 'antiga' }), minuto(1), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(2), ROTULO);
+    mockInsert.mockClear();
+    mockInsert.mockImplementation(async (linhas: Posicao[]) =>
+      linhas[0].rota_id === 'antiga' ? { error: recusada } : { error: null },
+    );
+
+    await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(3), ROTULO);
+
+    expect(lotesEnviados()).toEqual([
+      [{ ...posicao({ rota_id: 'antiga' }), timestamp: iso(1) }],
+      [
+        { ...posicao({ rota_id: 'nova' }), timestamp: iso(2) },
+        { ...posicao({ rota_id: 'nova' }), timestamp: iso(3) },
+      ],
+    ]);
+    // O lote recusado continua guardado, contando a tentativa: a mesma
+    // recusa vem de uma sessão que saiu anônima, e aí ele precisa subir.
+    expect(filaGuardada()?.posicoes).toEqual([
+      { ...posicao({ rota_id: 'antiga' }), timestamp: iso(1), tentativas: 1 },
+    ]);
+  });
+
   it('posição que esgota as tentativas sai da fila, com um logger.error por descarte', async () => {
     semRede();
     await registrarPosicao(posicao({ latitude: 0 }), minuto(0), ROTULO);
