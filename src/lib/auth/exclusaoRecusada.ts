@@ -5,8 +5,8 @@
 // como FunctionsHttpError, com a Response em `context` — e a mensagem dele é
 // só "Edge Function returned a non-2xx status code". Sem ler o corpo, a tela
 // mostraria o erro genérico e mandaria a pessoa escrever ao suporte, quando o
-// que ela precisa é saber o que fazer (promover outro gestor, finalizar a
-// rota).
+// que ela precisa é saber o que fazer (pedir ao suporte que adicione outro gestor,
+// finalizar a rota).
 
 export type CodigoExclusaoRecusada =
   | 'ULTIMO_GESTOR'

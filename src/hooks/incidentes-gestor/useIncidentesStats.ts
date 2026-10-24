@@ -15,6 +15,9 @@ interface UseIncidentesStatsResult {
   resumoGeral: ResumoGeral;
 }
 
+// Chave interna do grupo sem motorista; sai como id nulo, nunca como id.
+const CHAVE_REMOVIDO = '__removido__';
+
 /**
  * Computes driver statistics and general summary from incidents
  */
@@ -30,7 +33,7 @@ export function useIncidentesStats({
 
     incidentes.forEach((inc) => {
       // Conta excluída (motorista_id NULL): todos num grupo só, sem id real.
-      const chave = inc.motorista_id ?? 'removido';
+      const chave = inc.motorista_id ?? CHAVE_REMOVIDO;
       if (!stats[chave]) {
         stats[chave] = {
           nome: inc.motorista_nome,
@@ -49,7 +52,10 @@ export function useIncidentesStats({
     });
 
     return Object.entries(stats)
-      .map(([id, data]) => ({ id, ...data }))
+      .map(([id, data]) => ({
+        id: id === CHAVE_REMOVIDO ? null : id,
+        ...data,
+      }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
   }, [incidentes]);

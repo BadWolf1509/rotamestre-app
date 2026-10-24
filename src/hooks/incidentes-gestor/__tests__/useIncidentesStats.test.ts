@@ -59,6 +59,8 @@ describe('useIncidentesStats', () => {
         (e) => e.nome === 'Motorista removido',
       );
       expect(removido).toMatchObject({ total: 2, abertos: 1, resolvidos: 1 });
+      // sem id: o card não tem histórico a abrir
+      expect(removido?.id).toBeNull();
       expect(result.current.resumoGeral.total).toBe(3);
     });
 

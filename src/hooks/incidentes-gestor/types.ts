@@ -68,7 +68,8 @@ export interface StatusLabel {
  * Driver statistics
  */
 export interface EstatisticaMotorista {
-  id: string;
+  /** NULL = grupo "Motorista removido" (contas excluídas, Migration 56). */
+  id: string | null;
   nome: string;
   total: number;
   abertos: number;
