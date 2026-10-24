@@ -382,11 +382,7 @@ describe('filaPosicoes', () => {
   // reatribuída, ou a loja foi desativada). O lote dela não pode prender o
   // das outras rotas por até MAX_TENTATIVAS_POSICAO posições.
   it('lote recusado de uma rota não prende o lote das rotas seguintes', async () => {
-    const recusada = {
-      code: '42501',
-      message:
-        'new row violates row-level security policy for table "motorista_locations"',
-    };
+    const recusada = { code: '42501', message: 'posição recusada' };
     semRede();
     await registrarPosicao(posicao({ rota_id: 'antiga' }), minuto(1), ROTULO);
     await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(2), ROTULO);
