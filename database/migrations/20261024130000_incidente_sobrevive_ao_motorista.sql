@@ -35,10 +35,8 @@
 --   sem ligação com a conta; quem digitou dado pessoal de terceiros no texto
 --   livre é caso de pedido de remoção pontual, não de apagar todo incidente.
 --
---   Efeito no app (fora desta migration): o incidente sem motorista segue
---   visível ao gestor pela policy (loja gravada), mas a lista do gestor ainda
---   filtra `motorista_id IN (motoristas da loja)` e não o mostra — ajuste de
---   app à parte.
+--   Efeito no app: a lista do gestor filtra pela loja (`unidade_id`) e passa a
+--   mostrar o incidente sem motorista como "Motorista removido".
 --
 --   Rollback: ver o bloco comentado no fim. Só é possível voltar o NOT NULL
 --   enquanto nenhum incidente tiver sido anonimizado.

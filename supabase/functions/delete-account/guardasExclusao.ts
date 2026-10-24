@@ -124,7 +124,7 @@ export async function verificarGuardas(
           : 'de uma loja';
     return {
       codigo: 'ULTIMO_GESTOR',
-      mensagem: `Você é o único gestor ativo ${onde}. Antes de excluir a conta, promova outro gestor na Equipe da loja. Nada foi apagado.`,
+      mensagem: `Você é o único gestor ativo ${onde}. Antes de excluir a conta, a loja precisa de outro gestor ativo: peça ao suporte (contato@rotamestre.tec.br) para adicionar um. Nada foi apagado.`,
       status: 409,
     };
   }

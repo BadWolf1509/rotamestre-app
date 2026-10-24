@@ -46,6 +46,22 @@ describe('useIncidentesStats', () => {
   });
 
   describe('estatisticasMotorista', () => {
+    it('incidente de motorista excluído (motorista_id NULL) entra num grupo "Motorista removido"', () => {
+      const incidentes: Incidente[] = [
+        createMockIncidente({ motorista_id: null, motorista_nome: 'Motorista removido', status: 'aberto' }),
+        createMockIncidente({ motorista_id: null, motorista_nome: 'Motorista removido', status: 'resolvido' }),
+        createMockIncidente({ motorista_id: 'driver-1' }),
+      ];
+
+      const { result } = renderHook(() => useIncidentesStats({ incidentes }));
+
+      const removido = result.current.estatisticasMotorista.find(
+        (e) => e.nome === 'Motorista removido',
+      );
+      expect(removido).toMatchObject({ total: 2, abertos: 1, resolvidos: 1 });
+      expect(result.current.resumoGeral.total).toBe(3);
+    });
+
     it('counts incidents per driver', () => {
       const incidentes: Incidente[] = [
         createMockIncidente({ motorista_id: 'driver-1', motorista_nome: 'João' }),

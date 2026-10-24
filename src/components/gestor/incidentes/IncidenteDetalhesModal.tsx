@@ -68,6 +68,7 @@ export function IncidenteDetalhesModal({
 
   const cat = categoriaLabels[incidente.categoria];
   const st = statusLabels[incidente.status];
+  const motoristaId = incidente.motorista_id;
 
   return (
     <DesktopModal
@@ -341,38 +342,41 @@ export function IncidenteDetalhesModal({
           </View>
         )}
 
-        <TouchableOpacity
-          style={[
-            styles.verHistoricoLink,
-            isDesktop && styles.verHistoricoLinkCompact,
-          ]}
-          onPress={() => {
-            onClose();
-            setTimeout(
-              () =>
-                onVerHistoricoMotorista(
-                  incidente.motorista_id,
-                  incidente.motorista_nome,
-                ),
-              300,
-            );
-          }}
-          accessibilityRole="link"
-        >
-          <Ionicons
-            name="time-outline"
-            size={isDesktop ? 14 : 16}
-            color={theme.colors.primary}
-          />
-          <Text
+        {/* Sem conta (motorista_id NULL) não há histórico a abrir. */}
+        {motoristaId !== null && (
+          <TouchableOpacity
             style={[
-              styles.verHistoricoLinkText,
-              isDesktop && styles.verHistoricoLinkTextCompact,
+              styles.verHistoricoLink,
+              isDesktop && styles.verHistoricoLinkCompact,
             ]}
+            onPress={() => {
+              onClose();
+              setTimeout(
+                () =>
+                  onVerHistoricoMotorista(
+                    motoristaId,
+                    incidente.motorista_nome,
+                  ),
+                300,
+              );
+            }}
+            accessibilityRole="link"
           >
-            Ver histórico de incidentes deste motorista
-          </Text>
-        </TouchableOpacity>
+            <Ionicons
+              name="time-outline"
+              size={isDesktop ? 14 : 16}
+              color={theme.colors.primary}
+            />
+            <Text
+              style={[
+                styles.verHistoricoLinkText,
+                isDesktop && styles.verHistoricoLinkTextCompact,
+              ]}
+            >
+              Ver histórico de incidentes deste motorista
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </DesktopModal>
   );

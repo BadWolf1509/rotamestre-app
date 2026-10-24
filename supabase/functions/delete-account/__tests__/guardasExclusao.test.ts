@@ -69,7 +69,7 @@ describe('verificarGuardas', () => {
 
     expect(recusa).toMatchObject({ codigo: 'ULTIMO_GESTOR', status: 409 });
     expect(recusa?.mensagem).toContain('Loja Centro');
-    expect(recusa?.mensagem).toMatch(/promova outro gestor/i);
+    expect(recusa?.mensagem).toMatch(/outro gestor ativo.*suporte/i);
     // A segunda pergunta exclui o próprio usuário e só conta gestor ATIVO.
     expect(filtros).toContainEqual({
       tabela: 'usuario_unidades',
@@ -182,6 +182,6 @@ describe('verificarGuardas', () => {
     const recusa = await verificarGuardas(cliente, 'u1');
 
     expect(recusa?.codigo).toBe('ULTIMO_GESTOR');
-    expect(recusa?.mensagem).toMatch(/promova outro gestor/i);
+    expect(recusa?.mensagem).toMatch(/outro gestor ativo.*suporte/i);
   });
 });

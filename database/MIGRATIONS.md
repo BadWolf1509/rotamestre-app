@@ -1944,9 +1944,12 @@ da migration. Sintaxe validada com o parser do Postgres (libpg-query).
 ### ⏳ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
 
 **Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **pendente
-de aplicação.** Aplicar pelo `apply_migration` (não tem `REVOKE`/`DELETE`) e
-publicar a `delete-account` na mesma janela; a sonda roda no **SQL Editor**
-(tem `DELETE` de usuário que ela cria, termina em `RAISE`).
+de aplicação.** **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
+tem `REVOKE`/`DELETE`), DEPOIS publicar a `delete-account`.** Com a função nova no
+ar e a FK ainda `CASCADE`, a guarda deixa passar o motorista sem rota em
+andamento e a exclusão apagaria os incidentes dele. A migration sozinha é
+segura (a função antiga só passa a anonimizar em vez de apagar). A sonda roda
+no **SQL Editor** (tem `DELETE` de usuário que ela cria, termina em `RAISE`).
 `SET LOCAL lock_timeout = '5s'`.
 
 **Por quê.** `incidentes.motorista_id` era `NOT NULL ... ON DELETE CASCADE`:
@@ -1970,5 +1973,10 @@ incidente a função para a qual a tela promete preservá-lo).
 `ROTA_EM_ANDAMENTO`, 503 `GUARDA_INDISPONIVEL` (a consulta falhou: não libera).
 Lógica em `supabase/functions/delete-account/guardasExclusao.ts`.
 
-**Pendência de app.** A lista e as estatísticas de incidentes do gestor filtram
-`motorista_id IN (motoristas da loja)` e não mostram incidente anonimizado.
+**App.** A lista de incidentes do gestor já filtra pela loja (`unidade_id`) e
+passa a mostrar o incidente anonimizado como "Motorista removido", sem o link
+"Ver histórico do motorista" (`src/lib/incidentes/nomeDoMotorista.ts`).
+
+**Gestor único.** Não há tela para promover outro gestor (a Equipe só desativa
+motorista; "Transferir Gestão" move o principal entre gestores que já existem), então
+a mensagem manda pedir ao suporte que adicione um.

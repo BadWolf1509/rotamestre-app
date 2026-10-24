@@ -16,7 +16,8 @@ export interface Incidente {
   foto_url: string | null;
   created_at: string;
   motorista_nome: string;
-  motorista_id: string;
+  /** NULL = conta do motorista excluída (Migration 56). */
+  motorista_id: string | null;
   unidade_nome: string;
   rota_id: string | null;
   rota_data: string | null;

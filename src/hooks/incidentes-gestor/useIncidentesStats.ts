@@ -29,20 +29,22 @@ export function useIncidentesStats({
     > = {};
 
     incidentes.forEach((inc) => {
-      if (!stats[inc.motorista_id]) {
-        stats[inc.motorista_id] = {
+      // Conta excluída (motorista_id NULL): todos num grupo só, sem id real.
+      const chave = inc.motorista_id ?? 'removido';
+      if (!stats[chave]) {
+        stats[chave] = {
           nome: inc.motorista_nome,
           total: 0,
           abertos: 0,
           resolvidos: 0,
         };
       }
-      stats[inc.motorista_id].total++;
+      stats[chave].total++;
       if (inc.status === 'aberto' || inc.status === 'em_analise') {
-        stats[inc.motorista_id].abertos++;
+        stats[chave].abertos++;
       }
       if (inc.status === 'resolvido' || inc.status === 'fechado') {
-        stats[inc.motorista_id].resolvidos++;
+        stats[chave].resolvidos++;
       }
     });
 

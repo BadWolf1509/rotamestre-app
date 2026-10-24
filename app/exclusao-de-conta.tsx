@@ -108,7 +108,7 @@ function ExclusaoDeContaContent() {
 
         <LegalSection title="Antes de excluir">
           <LegalBullet>
-            Gestor único de uma loja: promova outro gestor na Equipe antes.
+            Gestor único de uma loja: peça ao suporte para adicionar outro gestor antes.
           </LegalBullet>
           <LegalBullet>
             Motorista com rota em andamento: finalize a rota, ou peça ao gestor
