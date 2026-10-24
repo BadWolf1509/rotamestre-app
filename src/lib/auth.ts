@@ -65,6 +65,41 @@ async function pararRastreamentoDaConta(): Promise<void> {
   }
 }
 
+/**
+ * Desliga neste aparelho o que roda em nome da conta que sai: rastreamento
+ * (segundo plano e modo navegação), lembrete diário e token de push. Usado
+ * pelo "Sair" e pela exclusão de conta, para os dois desligarem a MESMA lista
+ * (a exclusão tinha caminho próprio e deixava o lembrete agendado).
+ *
+ * Ordem importa: o push sai por último e ainda com a sessão viva (depois do
+ * `auth.signOut` o UPDATE iria anônimo e a RLS filtraria 0 linhas). Tudo é
+ * melhor esforço e nunca lança: nenhuma falha aqui pode prender o logout nem
+ * deixar a exclusão pela metade.
+ */
+async function desligarOQueRodaPelaConta(): Promise<void> {
+  await pararRastreamentoDaConta();
+  try {
+    await cancelRouteReminder();
+  } catch (error) {
+    logger.warn('[Logout] Falha ao cancelar o lembrete diário', error);
+  }
+
+  try {
+    await obterSessaoComTimeout(
+      limparPushDestaConta,
+      PRAZO_LIMPEZA_PUSH_MS,
+      () =>
+        logger.warn(
+          '[Logout] Limpeza do push passou do prazo',
+          PRAZO_LIMPEZA_PUSH_MS,
+        ),
+    );
+  } catch (error) {
+    // Push é opcional: falhar aqui não pode prender a pessoa logada.
+    logger.warn('[Logout] Falha ao remover token de push', error);
+  }
+}
+
 const FALLBACK_WEB_BASE_URL = 'https://app.rotamestre.tec.br';
 
 /** Base pública do app web. Fonte canônica: app.config.js → extra.baseUrl */
@@ -204,27 +239,7 @@ export const authService = {
    * 3. Limpa o estado local da conta, mesmo se o passo 2 falhar.
    */
   async signOut() {
-    await pararRastreamentoDaConta();
-    try {
-      await cancelRouteReminder();
-    } catch (error) {
-      logger.warn('[Logout] Falha ao cancelar o lembrete diário', error);
-    }
-
-    try {
-      await obterSessaoComTimeout(
-        limparPushDestaConta,
-        PRAZO_LIMPEZA_PUSH_MS,
-        () =>
-          logger.warn(
-            '[Logout] Limpeza do push passou do prazo',
-            PRAZO_LIMPEZA_PUSH_MS,
-          ),
-      );
-    } catch (error) {
-      // Push é opcional: falhar aqui não pode prender a pessoa logada.
-      logger.warn('[Logout] Falha ao remover token de push', error);
-    }
+    await desligarOQueRodaPelaConta();
 
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
@@ -276,8 +291,10 @@ export const authService = {
       throw new Error(data?.error || 'Não foi possível excluir a conta.');
     }
 
-    // A conta já não existe no servidor. Limpa a sessão local sem depender de
-    // outra chamada de rede e remove caches que possam conter dados pessoais.
+    // A conta já não existe no servidor. Desliga o que rodava por ela (mesma
+    // lista do "Sair"), limpa a sessão local sem depender de outra chamada de
+    // rede e remove caches que possam conter dados pessoais.
+    await desligarOQueRodaPelaConta();
     await supabase.auth.signOut({ scope: 'local' });
     await limparAparelhoAoExcluirConta(usuarioId);
     setMockSession(null, null);
