@@ -2030,3 +2030,46 @@ Review Focus é o 1 e o 2 (uma em andamento + duas pendentes: recusado, as três
 rotas no DETAIL); sem rota aberta desativa (3); via do vínculo também bloqueada
 (4); rota de outra loja não bloqueia (5); reativar passa (6); gestor de outra
 loja segue 42501 (7); reatribuir e cancelar libera (8); grants (9).
+
+### ⏳ Migration 55: totais de desempenho do motorista somados no servidor
+
+**Arquivo:** `20261024180000_resumo_desempenho_motorista.sql` · **⏳ pendente**
+(o controlador aplica pelo CLI). Função nova `resumo_desempenho_motorista(p_motorista_id uuid, p_dias integer DEFAULT NULL)`,
+`SECURITY DEFINER`, `STABLE`, `search_path = ''`; EXECUTE só para `authenticated`.
+
+**Por quê.** Desempenho e marcos do motorista buscavam as rotas e depois
+`paradas ... .in('rota_id', todas)`. Com o motorista de maior volume (393 rotas,
+2.235 paradas), o PostgREST corta em 1.000 linhas sem erro e a lista de ids
+passa de 14 KB na URL (marcos). O Histórico tinha o mesmo corte.
+
+**O que faz.** Devolve uma linha: `desde`, `total_rotas`, `rotas_concluidas`,
+`rotas_canceladas`, `distancia_total`, `total_paradas`, `paradas_concluidas`,
+`paradas_puladas`, `entregas_em_rotas_concluidas` (partida e chegada,
+`is_checkpoint = false`, não contam). Chama o próprio motorista com cadastro
+ativo (`usuario_atual_ativo()`, decisão da Migration 49) ou gestor com vínculo
+ativo numa loja do motorista; senão 42501. Soma só as rotas que a RLS de
+`rotas` mostraria a quem chama — o gestor da loja A vê, de quem atende A e B,
+só os números de A.
+
+**Período.** `p_dias` = dias corridos sobre `rotas.data`, a partir de hoje em
+`America/Sao_Paulo`: entra `data >= hoje_SP - p_dias`. `NULL` = desde sempre.
+
+**Decisão (RPC × paginação no cliente).** Paginar no cliente (lotes de ids +
+`range`, como `contarParadasDasRotas`) acerta, mas baixa todas as paradas para
+contá-las (~9 requisições no celular) e repete a regra de visibilidade no app.
+Os **totais** vêm da RPC (uma linha, ~19 ms no EXPLAIN do motorista grande, com
+os índices que já existem); as **listas** (cards do Histórico, gráfico da
+semana nos marcos) seguem no cliente com paginação, porque ali as linhas são
+necessárias. Enquanto a função não existir (PGRST202/42883), o app soma pela
+paginação — os mesmos totais, sem quebrar a tela.
+
+**Compatibilidade.** Função nova: o app instalado não a chama. Rollback = `DROP FUNCTION`.
+
+**Verificação.** Guarda estática `database/__tests__/migration55-resumo-desempenho-motorista.test.ts`;
+sonda `database/sondas/20261024180000_sonda_migration55.sql` (cenário próprio,
+três lojas, termina em `RAISE`, sem DELETE): 13 casos — totais e partida/chegada
+fora (1), período no fuso SP (2), gestor de cada loja vê só a sua (3, 4),
+recusas 42501 (5–8), vínculo inativo some da soma (9), zeros (10), `p_dias`
+negativo (11), grants (12) e o item 3 do Review Focus (13): o motorista real
+de maior volume, achado por SELECT, bate com o COUNT direto pela RPC chamada
+por ele e pelo gestor da loja.

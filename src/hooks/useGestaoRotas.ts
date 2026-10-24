@@ -229,6 +229,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
           const stats = paradasPorRota.get(rota.id) || {
             total: 0,
             concluidas: 0,
+            puladas: 0,
           };
 
           return {
