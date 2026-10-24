@@ -127,16 +127,16 @@ export function StatusSection({
 
   return (
     <View style={styles.header} testID={testID}>
-      <View style={styles.topRow}>
+      <View style={styles.topRow} testID="status-linha-topo">
         {/* Greeting + Name (compacto) */}
-        <View style={styles.greetingContainer}>
+        <View style={styles.greetingContainer} testID="status-saudacao">
           <Text style={styles.greetingText}>
             {getGreeting()}, <Text style={styles.nameText}>{firstName}</Text>
           </Text>
         </View>
 
         {/* Status badge + connectivity */}
-        <View style={styles.rightContainer}>
+        <View style={styles.rightContainer} testID="status-direita">
           <ConnectivityIndicator />
           <View
             style={[
@@ -150,6 +150,7 @@ export function StatusSection({
               color={theme.colors[config.colorKey]}
             />
             <Text
+              maxFontSizeMultiplier={1.3}
               style={[
                 styles.statusText,
                 { color: theme.colors[config.colorKey] },
@@ -205,9 +206,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // Com a fonte do sistema em 2.0 o selo não cabe ao lado da saudação: desce
+    // para a linha de baixo em vez de espremê-la.
+    flexWrap: 'wrap',
+    rowGap: theme.spacing['1.5'],
   },
   greetingContainer: {
-    flex: 1,
+    // Sem `flex: 1` (basis 0): a saudação pede a largura do próprio texto, e o
+    // selo só fica ao lado se sobrar espaço. Antes quebrava "Mot / orista".
+    flexGrow: 1,
+    flexShrink: 1,
   },
   greetingText: {
     fontSize: theme.typography.base, // 16px
@@ -219,6 +227,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
   },
   rightContainer: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing['1.5'],

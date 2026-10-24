@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { StatusSection } from '../StatusSection';
 
@@ -116,41 +117,33 @@ describe('StatusSection', () => {
 
   describe('RouteStatus Prop', () => {
     it('deve renderizar status "pending" corretamente', () => {
-      const { getByText } = render(
-        <StatusSection routeStatus="pending" />
-      );
+      const { getByText } = render(<StatusSection routeStatus="pending" />);
 
       expect(getByText('Rota pendente')).toBeTruthy();
     });
 
     it('deve renderizar status "active" corretamente', () => {
-      const { getByText } = render(
-        <StatusSection routeStatus="active" />
-      );
+      const { getByText } = render(<StatusSection routeStatus="active" />);
 
       expect(getByText('Em rota')).toBeTruthy();
     });
 
     it('deve renderizar status "last-stop" corretamente', () => {
-      const { getByText } = render(
-        <StatusSection routeStatus="last-stop" />
-      );
+      const { getByText } = render(<StatusSection routeStatus="last-stop" />);
 
       expect(getByText('Última parada')).toBeTruthy();
     });
 
     it('deve renderizar status "ready-to-complete" corretamente', () => {
       const { getByText } = render(
-        <StatusSection routeStatus="ready-to-complete" />
+        <StatusSection routeStatus="ready-to-complete" />,
       );
 
       expect(getByText('Pronto para finalizar')).toBeTruthy();
     });
 
     it('deve renderizar status "completed" corretamente', () => {
-      const { getByText } = render(
-        <StatusSection routeStatus="completed" />
-      );
+      const { getByText } = render(<StatusSection routeStatus="completed" />);
 
       expect(getByText('Rota concluída')).toBeTruthy();
     });
@@ -163,7 +156,7 @@ describe('StatusSection', () => {
           routeStatus="active"
           completedStops={3}
           totalStops={10}
-        />
+        />,
       );
 
       expect(getByText('3/10')).toBeTruthy();
@@ -175,7 +168,7 @@ describe('StatusSection', () => {
           routeStatus="last-stop"
           completedStops={9}
           totalStops={10}
-        />
+        />,
       );
 
       expect(getByText('9/10')).toBeTruthy();
@@ -187,7 +180,7 @@ describe('StatusSection', () => {
           routeStatus="no-route"
           completedStops={3}
           totalStops={10}
-        />
+        />,
       );
 
       expect(queryByText('3/10')).toBeNull();
@@ -199,7 +192,7 @@ describe('StatusSection', () => {
           routeStatus="active"
           completedStops={0}
           totalStops={0}
-        />
+        />,
       );
 
       expect(queryByText('0/0')).toBeNull();
@@ -210,9 +203,7 @@ describe('StatusSection', () => {
 
   describe('Estrutura do Componente', () => {
     it('deve renderizar múltiplos Views aninhados', () => {
-      const { UNSAFE_getAllByType } = render(
-        <StatusSection userName="João" />
-      );
+      const { UNSAFE_getAllByType } = render(<StatusSection userName="João" />);
 
       const { View } = require('react-native');
       const views = UNSAFE_getAllByType(View);
@@ -230,9 +221,7 @@ describe('StatusSection', () => {
 
   describe('Casos de Uso Reais', () => {
     it('deve renderizar tela inicial do motorista com userName', () => {
-      const { getByText } = render(
-        <StatusSection userName="João Silva" />
-      );
+      const { getByText } = render(<StatusSection userName="João Silva" />);
 
       expect(getByText('João')).toBeTruthy();
     });
@@ -251,7 +240,7 @@ describe('StatusSection', () => {
 
     it('deve renderizar primeiro nome para nomes longos', () => {
       const { getByText } = render(
-        <StatusSection userName="Carlos Oliveira Santos" />
+        <StatusSection userName="Carlos Oliveira Santos" />,
       );
 
       expect(getByText('Carlos')).toBeTruthy();
@@ -267,12 +256,69 @@ describe('StatusSection', () => {
     });
 
     it('deve renderizar com userName com caracteres especiais', () => {
-      const { getByText } = render(
-        <StatusSection userName="João & Maria" />
-      );
+      const { getByText } = render(<StatusSection userName="João & Maria" />);
 
       // Apenas primeiro nome é mostrado
       expect(getByText('João')).toBeTruthy();
+    });
+  });
+
+  // Moto g15, 1.14.4, font_scale 2.0, 360 dp: com o selo "Pronto para finalizar"
+  // na mesma linha, a saudação ficou "Bom / dia, Mot / orista". O CI não aplica
+  // escala de fonte, então os testes fixam o layout que a impede.
+  describe('com a fonte do sistema em 2.0', () => {
+    const estilo = (el: { props: { style?: unknown } }) =>
+      StyleSheet.flatten(el.props.style as never) as Record<string, unknown>;
+
+    it('o selo desce para a linha de baixo em vez de espremer a saudação', () => {
+      const { getByTestId } = render(<StatusSection />);
+
+      expect(estilo(getByTestId('status-linha-topo')).flexWrap).toBe('wrap');
+    });
+
+    it('a saudação ocupa a largura do texto, não a sobra (sem flex: 1)', () => {
+      const { getByTestId } = render(<StatusSection />);
+      const saudacao = estilo(getByTestId('status-saudacao'));
+
+      // flex: 1 vira flexBasis 0 e a saudação nunca "pede" largura: o selo
+      // fica ao lado e a palavra quebra no meio.
+      expect(saudacao.flex).toBeUndefined();
+      expect(saudacao.flexBasis).toBeUndefined();
+      expect(saudacao.flexGrow).toBe(1);
+      expect(saudacao.flexShrink).toBe(1);
+    });
+
+    it.each([
+      ['no-route', 'Sem rota'],
+      ['pending', 'Rota pendente'],
+      ['active', 'Em rota'],
+      ['last-stop', 'Última parada'],
+      ['ready-to-complete', 'Pronto para finalizar'],
+      ['completed', 'Rota concluída'],
+    ] as const)('o selo "%2$s" (%1$s) tem teto de escala', (status, rotulo) => {
+      const { getByText } = render(<StatusSection routeStatus={status} />);
+
+      expect(getByText(rotulo).props.maxFontSizeMultiplier).toBeLessThanOrEqual(
+        1.3,
+      );
+    });
+
+    it.each(['carregando', 'sem-conexao'] as const)(
+      'o selo da carga "%s" tem teto de escala',
+      (estado) => {
+        const { getByText } = render(<StatusSection estadoDaCarga={estado} />);
+        const rotulo = estado === 'carregando' ? 'Carregando' : 'Sem conexão';
+
+        expect(
+          getByText(rotulo).props.maxFontSizeMultiplier,
+        ).toBeLessThanOrEqual(1.3);
+      },
+    );
+
+    it('o selo cabe na largura da tela (maxWidth 100%)', () => {
+      const { getByTestId } = render(<StatusSection />);
+
+      expect(estilo(getByTestId('status-direita')).maxWidth).toBe('100%');
     });
   });
 });
