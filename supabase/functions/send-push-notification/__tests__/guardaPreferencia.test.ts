@@ -26,7 +26,9 @@ describe('send-push-notification: preferência de push', () => {
   it('lê a preferência da conta e decide pelo tipo, antes dos tokens', () => {
     const leitura = fonte.search(LEITURA);
     const decisao = fonte.search(/decidirEnvio\(\{\s*tipo,/);
-    const tokens = fonte.indexOf('await lerTokensDaConta(supabase, usuario_id)');
+    const tokens = fonte.indexOf(
+      'await lerTokensDaConta(supabase, usuario_id)',
+    );
     expect(leitura).toBeGreaterThan(-1);
     expect(decisao).toBeGreaterThan(leitura);
     expect(tokens).toBeGreaterThan(decisao);
@@ -53,6 +55,8 @@ describe('send-push-notification: preferência de push', () => {
   });
 
   it('o status do log aceita "skipped"', () => {
-    expect(fonte).toMatch(/status:\s*'sent'\s*\|\s*'failed'\s*\|\s*'no_token'\s*\|\s*'skipped'/);
+    expect(fonte).toMatch(
+      /status:\s*'sent'\s*\|\s*'failed'\s*\|\s*'no_token'\s*\|\s*'skipped'/,
+    );
   });
 });
