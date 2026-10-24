@@ -18,6 +18,13 @@
  *    ligar `loading` trocava a aba Paradas por skeleton e desmontava modais.
  *    E as paradas que não mudaram (id + updated_at) mantêm a identidade, para
  *    não disparar efeitos a cada recarga.
+ *
+ * E uma quinta (1.14.5): **o processo morre, a rota não.** Cada carga
+ * bem-sucedida guarda o retrato no aparelho, por conta
+ * (`src/lib/motorista/rotaGuardada.ts`). Reaberto do zero sem rede, a busca
+ * falha sem nada em memória: aí vale o retrato, com `atualizadoEm` = hora em
+ * que ele foi lido do banco ("Sem conexão — dados de HH:MM"). Busca que
+ * responde sempre vence e regrava, inclusive "sem rota".
  */
 
 import { useCallback, useRef, useState } from 'react';
@@ -29,6 +36,10 @@ import type {
   RouteData,
 } from '@/context/route-status/types';
 import { logger } from '@/lib/logger';
+import {
+  gravarRotaGuardada,
+  lerRotaGuardada,
+} from '@/lib/motorista/rotaGuardada';
 import { supabase } from '@/lib/supabase';
 
 interface UseLoadActiveRouteOptions {
@@ -180,6 +191,10 @@ export function useLoadActiveRoute({
 
   // Guarda de sequência: só a resposta da chamada mais recente é aplicada.
   const ultimaChamadaRef = useRef(0);
+  // Conta cujos dados estão em memória (busca fresca ou retrato guardado).
+  // Com dado em memória, uma falha só o marca como velho (regra 1); o retrato
+  // do disco só entra quando a memória está vazia para esta conta.
+  const carregadoParaRef = useRef<string | null>(null);
 
   const loadActiveRoute = useCallback(async () => {
     const chamada = ++ultimaChamadaRef.current;
@@ -187,10 +202,12 @@ export function useLoadActiveRoute({
     // Aguardar carregamento completo do userData antes de fazer queries
     if (userLoading || !motoristaId) {
       if (!userLoading && !motoristaId) {
+        carregadoParaRef.current = null;
         setRoute(null);
         setParadas([]);
         setPendingRoutesCount(0);
         setError(null);
+        setAtualizadoEm(null);
         setLoading(false);
       }
       return;
@@ -200,6 +217,8 @@ export function useLoadActiveRoute({
       const snapshot = await buscarSnapshot(motoristaId);
       if (chamada !== ultimaChamadaRef.current) return;
 
+      const agora = Date.now();
+      carregadoParaRef.current = motoristaId;
       // Tudo no mesmo tick: o React agrupa, e a tela nunca vê rota nova com
       // paradas velhas.
       setRoute(snapshot.route);
@@ -208,12 +227,35 @@ export function useLoadActiveRoute({
       );
       setPendingRoutesCount(snapshot.pendingRoutesCount);
       setError(null);
-      setAtualizadoEm(Date.now());
+      setAtualizadoEm(agora);
+      // Sem await: a tela não espera o disco. `gravarRotaGuardada` não lança.
+      void gravarRotaGuardada(motoristaId, { ...snapshot, guardadoEm: agora });
     } catch (erro) {
       if (chamada !== ultimaChamadaRef.current) return;
       // Crítico, mas com fallback: o estado anterior fica na tela, marcado
       // como desatualizado pelo `error`.
       logger.error('[RouteStatus] Erro ao carregar rota', erro);
+
+      // Memória sem dado desta conta (reaberto do zero, ou dado de outra
+      // conta): vale o retrato guardado; sem retrato, nada — nunca o que
+      // estava na memória para outra conta. Qualquer falha conta, não só
+      // "rede": é a mesma regra 1 de quem tem o dado em memória, e classificar
+      // a mensagem do erro seria frágil.
+      if (carregadoParaRef.current !== motoristaId) {
+        const guardado = await lerRotaGuardada(motoristaId);
+        if (chamada !== ultimaChamadaRef.current) return;
+        carregadoParaRef.current = guardado ? motoristaId : null;
+        setRoute(guardado?.route ?? null);
+        setParadas((anteriores) =>
+          guardado
+            ? guardado.paradas
+            : anteriores.length === 0
+              ? anteriores
+              : [],
+        );
+        setPendingRoutesCount(guardado?.pendingRoutesCount ?? 0);
+        setAtualizadoEm(guardado?.guardadoEm ?? null);
+      }
       setError(comoErro(erro));
     } finally {
       if (chamada === ultimaChamadaRef.current) setLoading(false);

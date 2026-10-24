@@ -1,5 +1,12 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import { buildRouteData } from '@/context/route-status/calculations';
+import type { ParadaData, RotaQueryRow } from '@/context/route-status/types';
+import {
+  gravarRotaGuardada,
+  lerRotaGuardada,
+} from '@/lib/motorista/rotaGuardada';
 import { supabase } from '@/lib/supabase';
 
 import { useLoadActiveRoute } from '../useLoadActiveRoute';
@@ -305,5 +312,253 @@ describe('useLoadActiveRoute', () => {
       await result.current.loadActiveRoute();
     });
     await waitFor(() => expect(result.current.error).toBeNull());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rota guardada no aparelho (reabrir do zero sem rede, 1.14.5)
+// ---------------------------------------------------------------------------
+
+describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
+  const memoria = new Map<string, string>();
+
+  beforeEach(() => {
+    memoria.clear();
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(
+      async (k: string) => memoria.get(k) ?? null,
+    );
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(
+      async (k: string, v: string) => {
+        memoria.set(k, v);
+      },
+    );
+  });
+
+  afterAll(() => {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(() =>
+      Promise.resolve(null),
+    );
+    (AsyncStorage.setItem as jest.Mock).mockImplementation(() =>
+      Promise.resolve(null),
+    );
+  });
+
+  function montarPara(motoristaId: string) {
+    return renderHook(() =>
+      useLoadActiveRoute({ userLoading: false, motoristaId }),
+    );
+  }
+
+  async function carregar(hook: ReturnType<typeof montarPara>) {
+    await act(async () => {
+      await hook.result.current.loadActiveRoute();
+    });
+  }
+
+  /** Grava como se uma sessão anterior (outro processo) tivesse carregado. */
+  async function guardarDeSessaoAnterior(
+    motoristaId: string,
+    guardadoEm: number,
+    rotaGuardada = rota('r1'),
+    paradasGuardadas = [parada('p1'), parada('p2')],
+  ) {
+    await gravarRotaGuardada(motoristaId, {
+      route: buildRouteData(rotaGuardada as RotaQueryRow),
+      paradas: paradasGuardadas as ParadaData[],
+      pendingRoutesCount: 1,
+      guardadoEm,
+    });
+  }
+
+  it('reaberto do zero com a busca falhando: mostra a rota guardada com a hora dela', async () => {
+    await guardarDeSessaoAnterior('m1', 1_761_276_480_000);
+    enfileirar('rotas', new Error('Network request failed'));
+
+    const hook = montarPara('m1');
+    await carregar(hook);
+
+    expect(hook.result.current.route?.id).toBe('r1');
+    expect(hook.result.current.paradas.map((p) => p.id)).toEqual(['p1', 'p2']);
+    expect(hook.result.current.pendingRoutesCount).toBe(1);
+    expect(hook.result.current.error).not.toBeNull();
+    expect(hook.result.current.atualizadoEm).toBe(1_761_276_480_000);
+    expect(hook.result.current.loading).toBe(false);
+  });
+
+  it('erro de consulta (não rejeição) também usa o guardado', async () => {
+    await guardarDeSessaoAnterior('m1', 123);
+    enfileirar('rotas', { data: null, error: { message: 'Failed to fetch' } });
+
+    const hook = montarPara('m1');
+    await carregar(hook);
+
+    expect(hook.result.current.route?.id).toBe('r1');
+    expect(hook.result.current.atualizadoEm).toBe(123);
+  });
+
+  it('sem retrato guardado: segue sem rota e sem hora (mensagem atual)', async () => {
+    enfileirar('rotas', new Error('Network request failed'));
+
+    const hook = montarPara('m1');
+    await carregar(hook);
+
+    expect(hook.result.current.route).toBeNull();
+    expect(hook.result.current.error).not.toBeNull();
+    expect(hook.result.current.atualizadoEm).toBeNull();
+  });
+
+  it('retrato de outra conta é ignorado', async () => {
+    await guardarDeSessaoAnterior('outra-conta', 123);
+    enfileirar('rotas', new Error('Network request failed'));
+
+    const hook = montarPara('m1');
+    await carregar(hook);
+
+    expect(hook.result.current.route).toBeNull();
+    expect(hook.result.current.paradas).toEqual([]);
+    expect(hook.result.current.atualizadoEm).toBeNull();
+  });
+
+  it('busca fresca bem-sucedida grava o retrato da conta', async () => {
+    enfileirar('rotas', { data: [rota('r1')], error: null });
+    enfileirar('paradas', { data: [parada('p1')], error: null });
+
+    const hook = montarPara('m1');
+    await carregar(hook);
+
+    const lido = await lerRotaGuardada('m1');
+    expect(lido?.route?.id).toBe('r1');
+    expect(lido?.paradas.map((p) => p.id)).toEqual(['p1']);
+    expect(lido?.guardadoEm).toBe(hook.result.current.atualizadoEm);
+  });
+
+  it('com rede, o fresco vence o guardado e o substitui', async () => {
+    await guardarDeSessaoAnterior('m1', 123, rota('r-velha'), [
+      parada('p-velha'),
+    ]);
+    enfileirar('rotas', { data: [rota('r-nova')], error: null });
+    enfileirar('paradas', { data: [parada('p-nova')], error: null });
+
+    const hook = montarPara('m1');
+    await carregar(hook);
+
+    expect(hook.result.current.route?.id).toBe('r-nova');
+    expect(hook.result.current.paradas.map((p) => p.id)).toEqual(['p-nova']);
+    const lido = await lerRotaGuardada('m1');
+    expect(lido?.route?.id).toBe('r-nova');
+    expect(lido?.paradas.map((p) => p.id)).toEqual(['p-nova']);
+  });
+
+  it('rota finalizada no servidor ("sem rota" fresco) substitui o guardado', async () => {
+    await guardarDeSessaoAnterior('m1', 123);
+    enfileirar('rotas', { data: [], error: null });
+    enfileirar('rotas', { data: null, error: null });
+    const online = montarPara('m1');
+    await carregar(online);
+    expect(online.result.current.route).toBeNull();
+    online.unmount();
+
+    // Reabre do zero sem rede: não ressuscita a rota finalizada.
+    enfileirar('rotas', new Error('Network request failed'));
+    const offline = montarPara('m1');
+    await carregar(offline);
+
+    expect(offline.result.current.route).toBeNull();
+    expect(offline.result.current.paradas).toEqual([]);
+  });
+
+  it('falha depois de uma carga fresca nesta sessão mantém o que está na memória', async () => {
+    enfileirar('rotas', { data: [rota('r1')], error: null });
+    enfileirar('paradas', { data: [parada('p1')], error: null });
+    const hook = montarPara('m1');
+    await carregar(hook);
+    const atualizadoEm = hook.result.current.atualizadoEm;
+
+    // O disco muda por fora; a memória desta sessão é mais confiável.
+    await guardarDeSessaoAnterior('m1', 1, rota('r-disco'));
+    enfileirar('rotas', new Error('Network request failed'));
+    await carregar(hook);
+
+    expect(hook.result.current.route?.id).toBe('r1');
+    expect(hook.result.current.atualizadoEm).toBe(atualizadoEm);
+  });
+
+  it('troca de conta sem passar por "sem usuário": a rota de A não fica para B', async () => {
+    enfileirar('rotas', { data: [rota('r-de-A')], error: null });
+    enfileirar('paradas', { data: [parada('p-de-A')], error: null });
+    const hook = renderHook(
+      ({ id }: { id: string }) =>
+        useLoadActiveRoute({ userLoading: false, motoristaId: id }),
+      { initialProps: { id: 'conta-a' } },
+    );
+    await act(async () => {
+      await hook.result.current.loadActiveRoute();
+    });
+    expect(hook.result.current.route?.id).toBe('r-de-A');
+
+    hook.rerender({ id: 'conta-b' });
+    enfileirar('rotas', new Error('Network request failed'));
+    await act(async () => {
+      await hook.result.current.loadActiveRoute();
+    });
+
+    expect(hook.result.current.route).toBeNull();
+    expect(hook.result.current.paradas).toEqual([]);
+    expect(hook.result.current.atualizadoEm).toBeNull();
+  });
+
+  it('sair da conta zera também a hora dos dados', async () => {
+    enfileirar('rotas', { data: [rota('r1')], error: null });
+    enfileirar('paradas', { data: [parada('p1')], error: null });
+    const hook = renderHook(
+      ({ id }: { id: string | undefined }) =>
+        useLoadActiveRoute({ userLoading: false, motoristaId: id }),
+      { initialProps: { id: 'm1' as string | undefined } },
+    );
+    await act(async () => {
+      await hook.result.current.loadActiveRoute();
+    });
+    expect(hook.result.current.atualizadoEm).not.toBeNull();
+
+    hook.rerender({ id: undefined });
+    await act(async () => {
+      await hook.result.current.loadActiveRoute();
+    });
+
+    expect(hook.result.current.route).toBeNull();
+    expect(hook.result.current.atualizadoEm).toBeNull();
+  });
+
+  it('o guardado lido tarde não sobrescreve uma busca mais nova', async () => {
+    await guardarDeSessaoAnterior('m1', 123, rota('r-velha'));
+    const hook = montarPara('m1');
+
+    // Chamada A falha; a leitura do disco fica pendurada até B aplicar.
+    let soltarLeitura!: () => void;
+    (AsyncStorage.getItem as jest.Mock).mockImplementationOnce(
+      (k: string) =>
+        new Promise((r) => {
+          soltarLeitura = () => r(memoria.get(k) ?? null);
+        }),
+    );
+    enfileirar('rotas', new Error('Network request failed')); // A
+    enfileirar('rotas', { data: [rota('r-nova')], error: null }); // B
+    enfileirar('paradas', { data: [parada('p-nova')], error: null });
+
+    let a!: Promise<void>;
+    await act(async () => {
+      a = hook.result.current.loadActiveRoute();
+      // Deixa A chegar à leitura do disco antes de B começar.
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+      await hook.result.current.loadActiveRoute();
+    });
+    expect(hook.result.current.route?.id).toBe('r-nova');
+
+    await act(async () => {
+      soltarLeitura?.();
+      await a;
+    });
+    expect(hook.result.current.route?.id).toBe('r-nova');
+    expect(hook.result.current.error).toBeNull();
   });
 });

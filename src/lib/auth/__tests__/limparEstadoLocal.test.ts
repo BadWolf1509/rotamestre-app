@@ -25,6 +25,7 @@ const DA_PESSOA = [
   '@rotamestre:offline_data',
   '@rotamestre:ultimo_usuario',
   '@rotamestre:perfil_conhecido',
+  '@rotamestre:rota_guardada',
 ];
 
 const DO_APARELHO = [

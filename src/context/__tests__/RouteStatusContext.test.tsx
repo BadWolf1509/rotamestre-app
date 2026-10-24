@@ -46,6 +46,8 @@ let mockRotasData: any[] | null = null;
 let mockRotasConcluidas: any | null = null;
 let mockParadasData: any[] | null = null;
 let mockUpdateError: any = null;
+// Leitura de `rotas` falhando como sem rede (o fetch do cliente devolve erro).
+let mockLeituraSemRede = false;
 
 // Track rpc calls (finalizar_rota)
 const mockRpcCalls: { fn: string; args: unknown }[] = [];
@@ -154,7 +156,12 @@ jest.mock('@/lib/supabase', () => {
     // Override for async/await pattern
     Object.defineProperty(methods, 'then', {
       value: (resolve: any) => {
-        if (tableName === 'rotas') {
+        if (tableName === 'rotas' && mockLeituraSemRede) {
+          resolve({
+            data: null,
+            error: { message: 'TypeError: Network request failed' },
+          });
+        } else if (tableName === 'rotas') {
           resolve({ data: mockRotasData, error: null });
         } else if (tableName === 'paradas') {
           resolve({ data: mockParadasData, error: null });
@@ -1332,9 +1339,11 @@ describe('RouteStatusContext com ações na fila offline', () => {
       createMockParada({ id: 'parada-2', ordem: 2, status: 'pendente' }),
     ];
     mockUpdateCalls.length = 0;
+    mockLeituraSemRede = false;
   });
 
   afterAll(() => {
+    mockLeituraSemRede = false;
     (AsyncStorage.getItem as jest.Mock).mockImplementation(() =>
       Promise.resolve(null),
     );
@@ -1373,6 +1382,58 @@ describe('RouteStatusContext com ações na fila offline', () => {
     });
     expect(getByTestId('concluidas').props.children).toBe(1);
     expect(mockUpdateCalls).toHaveLength(0);
+  });
+
+  it('reaberto do zero sem rede: rota guardada na tela, com a fila por cima', async () => {
+    // Sessão anterior (outro processo): carregou com rede e guardou a rota.
+    const primeira = render(
+      <RouteStatusProvider>
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(memoria.has('@rotamestre:rota_guardada')).toBe(true);
+    });
+    primeira.unmount();
+
+    // Sem rede: concluiu a parada 1 (fila), e o processo morreu.
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: false,
+      isInternetReachable: false,
+    });
+    await enfileirarConclusaoDaParada1();
+    _resetFilaAcoesParada(); // memória do processo novo: só o disco sobra
+    mockLeituraSemRede = true;
+
+    function RotaNaTela() {
+      const { route, paradas, error, atualizadoEm } = useRouteStatus();
+      return (
+        <>
+          <Text testID="rota">{route?.id ?? 'nenhuma'}</Text>
+          <Text testID="parada-1">
+            {paradas.find((p) => p.id === 'parada-1')?.status ?? '-'}
+          </Text>
+          <Text testID="dados-de">
+            {error && atualizadoEm !== null ? 'com-hora' : 'sem-hora'}
+          </Text>
+        </>
+      );
+    }
+    const { getByTestId } = render(
+      <RouteStatusProvider>
+        <RotaNaTela />
+        <EnvioPendente />
+      </RouteStatusProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('rota').props.children).toBe('rota-1');
+    });
+    expect(getByTestId('dados-de').props.children).toBe('com-hora');
+    await waitFor(() => {
+      expect(getByTestId('parada-1').props.children).toBe('concluida');
+    });
+    expect(getByTestId('pendentes').props.children).toBe('parada-1');
   });
 
   // Ação que foi para a fila com o NetInfo "conectado" (timeout em sinal
