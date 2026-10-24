@@ -1940,3 +1940,73 @@ service_role movendo token para a tabela e a RPC recusando conta sem perfil;
 tem `DELETE` só de tokens que ela cria, então roda no SQL Editor;
 termina em `RAISE`). Roteiro de conferência só com SELECT (9 consultas) no fim
 da migration. Sintaxe validada com o parser do Postgres (libpg-query).
+
+### ⏳ Migration 46: o SOS chega a um gestor, ou o motorista sabe que não chegou
+
+**Arquivo:** `20261024100000_sos_chega_a_um_gestor.sql` · **⏳ pendente.**
+Rodar pelo **SQL Editor** como `postgres` (tem `REVOKE`, que o MCP recusa),
+numa execução só, e depois a sonda. Pode ir antes ou depois do merge: sem a
+RPC, o app novo volta ao INSERT direto e diz que não conseguiu confirmar o
+aviso.
+
+**Por quê (B1, 1.14.6).** Sem rota, `notify_sos_acionado` (Migration 35) achava
+a loja só pelo vínculo `is_principal` — em 24/10/2026, 1 de 11 vínculos ativos
+de motorista tem a marca, e 3 motoristas atendem mais de uma loja. O SOS de
+quem não estava em rota não avisava ninguém. O gatilho lia `detalhes.motivo` e
+o app grava `detalhes.descricao`, então o texto do motorista nunca chegava. E o
+app dizia "Seu gestor foi notificado" sem saber de nada.
+
+**O que faz.** (1) Helper `avisar_gestores_do_sos(motorista, rota, detalhes)`
+(SECURITY DEFINER, sem EXECUTE para a API), fonte única de quem recebe, no
+padrão do `unidade_do_incidente` da Migration 43: com rota, os gestores ativos
+da loja da rota; sem rota (ou rota sem loja), os de **todas** as lojas com
+vínculo ativo do motorista, sem repetir gestor (`UNION`). Texto: `descricao`,
+depois `motivo`, depois "Emergência acionada" (cortado em 200 caracteres).
+Devolve quantas notificações nasceram (`criar_notificacao` devolve NULL quando
+falha) e nunca levanta: na falha devolve 0, que é a verdade, porque a
+subtransação do bloco desfaz os avisos já criados. (2) `notify_sos_acionado`
+avisa pelo helper e grava a contagem no próprio log
+(`detalhes.gestores_avisados`), tudo dentro de `EXCEPTION`: o SOS nunca derruba
+o INSERT. O INSERT direto das versões até a 1.14.5 continua avisando. (3) RPC
+`registrar_sos(p_detalhes, p_rota_id)` → integer, só `authenticated`: grava o
+log em nome de `auth.uid()` com as regras da policy `logs_insert_optimized`
+(sessão e, com rota, `pode_registrar_log_na_rota`), descarta
+`gestores_avisados` vindo do cliente e devolve quantos gestores receberam. SOS
+repetido em 5 s é descartado pelo `prevent_duplicate_log` e o gatilho nem
+roda. Nesse caso a RPC responde pelo SOS anterior do mesmo motorista e da mesma
+rota.
+
+**Decisão: SOS sem rota avisa todas as lojas.** O incidente precisa de UMA loja
+dona, por causa da visibilidade. O SOS, não: avisar a mais é inofensivo, e
+avisar a menos foi o defeito.
+
+**Alternativas (como o app sabe se alguém recebeu).** (1) O app confere depois
+do INSERT: o motorista não lê `notificacoes` de outra conta (RLS), então
+precisaria de outra RPC de qualquer jeito. Seriam duas idas à rede, e a
+resposta poderia não ser a do log recém-gravado. (2) Contagem num GUC de
+transação lida pela RPC: não deixa rastro e não responde ao SOS duplicado, em
+que o gatilho não roda. (3) RPC chamando o helper direto, sem o gatilho: fora
+de gatilho, `criar_notificacao` recusa quem não é gestor. (4) RPC + contagem
+gravada no log pelo gatilho (escolhida): uma ida à rede, rastro no histórico,
+resposta certa também para o duplicado, e as versões antigas seguem avisando.
+
+**App.** `app/motorista/sos.tsx` chama `registrar_sos`. Com 1 ou mais gestores
+avisados, a mensagem é a de antes. Com 0, um aviso ("Nenhum gestor recebeu o
+seu SOS") e uma faixa sobre os botões de ligar, que ficam destacados. Sem a RPC
+no servidor (PGRST202), grava pelo INSERT antigo e diz que não foi possível
+confirmar o aviso. Outro erro da RPC é erro de envio. Em nenhum desses casos a
+tela diz "notificado".
+
+**Medido em 24/10/2026 (só SELECT).** Nenhum `sos_acionado` em `logs` nem em
+`notificacoes`, então não há backfill.
+
+**Verificação.** Guarda estática `database/__tests__/migration46-sos-chega-a-um-gestor.test.ts`;
+sonda `database/sondas/20261024100000_sonda_migration46.sql` (lojas A/B/C, um
+gestor só de A, um só de B, um só de C e um de A e B; motorista com vínculo
+ativo em A e B e inativo em C; 11 casos: 3 avisados sem rota, 1 aviso por
+gestor sem repetir, o vínculo inativo sem aviso, `descricao` no texto, a
+contagem no log, o SOS duplicado, só a loja da rota com rota, o INSERT direto
+com `motivo`, motorista sem vínculo devolvendo 0 mesmo mandando 99, rota de
+outra loja recusada e anon sem EXECUTE; sem `DELETE`; termina em `RAISE`).
+Conferência só com SELECT (4 consultas) no fim da migration. Sintaxe validada
+com o parser do Postgres (libpg-query).

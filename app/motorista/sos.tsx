@@ -65,6 +65,58 @@ const EMERGENCY_CONTACTS = [
 ];
 
 /**
+ * O servidor sem a Migration 46 (app publicado antes dela): a RPC não existe.
+ * PGRST202 é o PostgREST não achando a função; 42883, o Postgres.
+ */
+const CODIGOS_SEM_RPC = new Set(['PGRST202', '42883']);
+
+/** O que dizer quando ninguém confirmou o recebimento do SOS. */
+const AVISO_SEM_GESTOR = {
+  nenhum: {
+    titulo: 'Nenhum gestor recebeu o SOS',
+    corpo: 'O SOS foi registrado, mas nenhum gestor recebeu o aviso.',
+    faixa: 'Nenhum gestor recebeu o seu SOS. Ligue agora pelos botões abaixo.',
+  },
+  semConfirmacao: {
+    titulo: 'SOS registrado sem confirmação',
+    corpo:
+      'O SOS foi registrado, mas não foi possível confirmar que um gestor recebeu o aviso.',
+    faixa:
+      'Não foi possível confirmar que um gestor recebeu o seu SOS. Ligue agora pelos botões abaixo.',
+  },
+} as const;
+
+/**
+ * Grava o SOS e devolve quantos gestores receberam o aviso — `null` quando não
+ * dá para saber (servidor sem a RPC: o SOS sai pelo INSERT antigo, que o
+ * gatilho também avisa, mas sem devolver nada).
+ */
+async function registrarSOS(
+  usuarioId: string,
+  detalhes: Record<string, unknown>,
+  rotaId: string | null,
+): Promise<number | null> {
+  const { data, error } = await supabase.rpc('registrar_sos', {
+    p_detalhes: detalhes,
+    p_rota_id: rotaId,
+  });
+
+  if (!error) return typeof data === 'number' ? data : null;
+  if (!CODIGOS_SEM_RPC.has(error.code ?? '')) throw error;
+
+  // O SOS não pode se perder por causa da ordem entre o deploy e a migration.
+  logger.warn('[SOS] registrar_sos indisponível; gravando pelo INSERT', error);
+  const { error: erroInsert } = await supabase.from('logs').insert({
+    usuario_id: usuarioId,
+    evento: 'sos_acionado',
+    detalhes,
+    ...(rotaId ? { rota_id: rotaId } : {}),
+  });
+  if (erroInsert) throw erroInsert;
+  return null;
+}
+
+/**
  * Precisão folgada de propósito: aqui a pergunta é "onde essa pessoa está",
  * não "em qual faixa da via" — e `Balanced` pega um fix bem mais rápido que
  * `High` num GPS frio, que é a situação de quem abre esta tela.
@@ -93,6 +145,8 @@ export default function SOSScreen() {
   const [permissao, setPermissao] = useState<ResultadoPermissao | null>(null);
   const [gestorTelefone, setGestorTelefone] = useState<string | null>(null);
   const [gestorNome, setGestorNome] = useState<string | null>(null);
+  /** Faixa sobre os botões de ligar quando nenhum gestor confirmou o SOS. */
+  const [avisoSemGestor, setAvisoSemGestor] = useState<string | null>(null);
 
   // Carregar localização atual
   useEffect(() => {
@@ -260,44 +314,47 @@ export default function SOSScreen() {
     setEnviando(true);
 
     try {
-      // Registrar log no banco
-      const logData: Record<string, unknown> = {
-        usuario_id: userData.id,
-        evento: 'sos_acionado',
-        detalhes: {
-          descricao: descricao || 'SOS acionado sem descrição',
-          timestamp: new Date().toISOString(),
-        },
+      const detalhes: Record<string, unknown> = {
+        descricao: descricao || 'SOS acionado sem descrição',
+        timestamp: new Date().toISOString(),
       };
 
-      // Adicionar rota se existir
-      if (routeStatus?.route?.id) {
-        logData.rota_id = routeStatus.route.id;
-        (logData.detalhes as Record<string, unknown>).rota_id =
-          routeStatus.route.id;
-        (logData.detalhes as Record<string, unknown>).rota_status =
-          routeStatus.route.status;
+      const rotaId = routeStatus?.route?.id ?? null;
+      if (rotaId) {
+        detalhes.rota_id = rotaId;
+        detalhes.rota_status = routeStatus?.route?.status;
       }
 
-      // Adicionar localização se disponível
       if (location) {
-        (logData.detalhes as Record<string, unknown>).localizacao = {
+        detalhes.localizacao = {
           latitude: location.latitude,
           longitude: location.longitude,
           google_maps_url: `https://www.google.com/maps?q=${location.latitude},${location.longitude}`,
         };
       }
 
-      const { error } = await supabase.from('logs').insert(logData);
+      const avisados = await registrarSOS(userData.id, detalhes, rotaId);
 
-      if (error) throw error;
-
-      if (location) {
+      // "Notificado" só quando o servidor confirmou que alguém recebeu (B1:
+      // sem rota, o gatilho antigo não avisava ninguém e a tela dizia que sim).
+      if (avisados === null || avisados === 0) {
+        const resultado =
+          AVISO_SEM_GESTOR[avisados === 0 ? 'nenhum' : 'semConfirmacao'];
+        setAvisoSemGestor(resultado.faixa);
+        showWarning(
+          resultado.titulo,
+          location
+            ? `${resultado.corpo} Ligue agora pelos botões abaixo.`
+            : `${resultado.corpo} Ligue agora pelos botões abaixo e diga onde você está.`,
+        );
+      } else if (location) {
+        setAvisoSemGestor(null);
         showSuccess(
           'SOS Enviado',
           'Seu gestor foi notificado da emergência. Se precisar de ajuda imediata, use os botões de ligação abaixo.',
         );
       } else {
+        setAvisoSemGestor(null);
         // Omitir isso aqui seria a mesma mentira da confirmação, uma tela
         // depois: o motorista precisa saber que ninguém sabe onde ele está.
         showSuccess(
@@ -436,6 +493,11 @@ export default function SOSScreen() {
         {/* Contatos de Emergência */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ligação de Emergência</Text>
+          {avisoSemGestor && (
+            <View style={styles.avisoSemGestor} accessibilityRole="alert">
+              <Text style={styles.avisoSemGestorTexto}>{avisoSemGestor}</Text>
+            </View>
+          )}
           <View style={styles.contactsList}>
             {EMERGENCY_CONTACTS.map((contact) => (
               <TouchableOpacity
@@ -443,6 +505,7 @@ export default function SOSScreen() {
                 style={[
                   styles.contactItem,
                   contact.id === 'gestor' && styles.contactItemGestor,
+                  avisoSemGestor && styles.contactItemDestaque,
                 ]}
                 onPress={() => handleEmergencyCall(contact.id, contact.number)}
               >
@@ -616,6 +679,24 @@ const styles = StyleSheet.create((theme: Theme) => ({
   contactItemGestor: {
     backgroundColor: theme.colors.primary + '10',
     borderColor: theme.colors.primary + '40',
+  },
+  // Sem gestor avisado, ligar é o único caminho: os botões ganham o destaque.
+  contactItemDestaque: {
+    borderWidth: 2,
+    borderColor: theme.colors.error,
+  },
+  avisoSemGestor: {
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.errorBg,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  avisoSemGestorTexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.error,
   },
   contactIcon: {
     fontSize: theme.typography['3xl'],
