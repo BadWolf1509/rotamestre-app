@@ -45,7 +45,7 @@ import {
 } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
 import { useUser } from '@/hooks/useUser';
-import { formatTimeBR } from '@/lib/dateUtils';
+import { formatarMomentoDosDados } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import {
   chegouPelaParadaAnterior,
@@ -628,7 +628,7 @@ function MotoristaInicioContent() {
         {error && atualizadoEm !== null && (
           <AlertInline
             type="warning"
-            title={`Sem conexão — dados de ${formatTimeBR(new Date(atualizadoEm).toISOString())}`}
+            title={`Sem conexão — dados de ${formatarMomentoDosDados(atualizadoEm)}`}
             message="Puxe para atualizar quando o sinal voltar."
             testID="aviso-sem-conexao"
           />

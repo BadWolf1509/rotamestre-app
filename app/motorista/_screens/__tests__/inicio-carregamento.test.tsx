@@ -252,13 +252,35 @@ describe('Início — carga e conexão', () => {
   });
 
   it('erro com rota preservada: rota na tela e aviso com a hora dos dados', () => {
-    mockCtx.route = ROTA;
-    mockCtx.error = new Error('Network request failed');
-    mockCtx.atualizadoEm = new Date(2026, 9, 22, 14, 5).getTime();
-    const { getByText } = render(<MotoristaInicio />);
+    // Dados de hoje: só a hora. O relógio é fixado no mesmo dia dos dados.
+    jest.useFakeTimers({ now: new Date(2026, 9, 22, 15, 0) });
+    try {
+      mockCtx.route = ROTA;
+      mockCtx.error = new Error('Network request failed');
+      mockCtx.atualizadoEm = new Date(2026, 9, 22, 14, 5).getTime();
+      const { getByText } = render(<MotoristaInicio />);
 
-    expect(getByText('main-card:active')).toBeTruthy();
-    expect(getByText(/Sem conexão — dados de 14:05/)).toBeTruthy();
+      expect(getByText('main-card:active')).toBeTruthy();
+      expect(getByText('Sem conexão — dados de 14:05')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('dados de outro dia: o aviso mostra a data junto da hora', () => {
+    // O retrato não expira: a rota de ontem, aberta offline, não pode
+    // parecer de hoje (revisão final da 1.14.5, Minor 6).
+    jest.useFakeTimers({ now: new Date(2026, 9, 24, 7, 30) });
+    try {
+      mockCtx.route = ROTA;
+      mockCtx.error = new Error('Network request failed');
+      mockCtx.atualizadoEm = new Date(2026, 9, 23, 18, 40).getTime();
+      const { getByText } = render(<MotoristaInicio />);
+
+      expect(getByText(/Sem conexão — dados de 23\/10 às 18:40/)).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('erro sem nunca ter carregado: "Sem conexão", não "Sem rota"', () => {

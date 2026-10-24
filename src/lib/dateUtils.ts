@@ -88,6 +88,25 @@ export function formatTimeBR(dateStr: string | undefined | null): string {
 }
 
 /**
+ * De quando são os dados na tela: "HH:mm" se forem de hoje, "DD/MM às HH:mm"
+ * se forem de outro dia — o retrato guardado não expira, e a rota de ontem
+ * aberta offline não pode parecer de hoje.
+ *
+ * Timestamp (carrega fuso), então pode passar por `new Date`. "Hoje" é o dia
+ * LOCAL (`toLocalISODate`), nunca o de `toISOString()`, que a partir das
+ * 21:00 em UTC-3 já é amanhã. Montado na mão, sem `toLocaleDateString`, pelo
+ * mesmo motivo de `formatTimeBR` (Hermes sem ICU).
+ */
+export function formatarMomentoDosDados(epochMs: number): string {
+  const momento = new Date(epochMs);
+  const hora = formatTimeBR(momento.toISOString());
+  if (toLocalISODate(momento) === getTodayISO()) return hora;
+  const dia = String(momento.getDate()).padStart(2, '0');
+  const mes = String(momento.getMonth() + 1).padStart(2, '0');
+  return `${dia}/${mes} às ${hora}`;
+}
+
+/**
  * Retorna a data atual no formato YYYY-MM-DD (para queries)
  * Usa data local para evitar problemas de timezone
  */
