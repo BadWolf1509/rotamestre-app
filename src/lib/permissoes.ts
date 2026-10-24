@@ -88,7 +88,15 @@ export async function pedirPermissao(
   consultar?: () => Promise<RespostaDePermissao>,
 ): Promise<ResultadoPermissao> {
   const atual = consultar ? await consultar() : null;
-  const resposta = atual?.status === 'granted' ? atual : await solicitar();
+  // Concedida, ou bloqueada (`canAskAgain: false`): o pedido não mudaria a
+  // resposta — bloqueada, o sistema nem mostra o diálogo — e no Android ainda
+  // abriria a activity de permissão. No Android, o Expo só devolve `false` na
+  // consulta depois de um pedido negado sem volta (`PermissionsService`);
+  // permissão nunca pedida vem `undetermined` com `canAskAgain: true`.
+  const resposta =
+    atual && (atual.status === 'granted' || atual.canAskAgain === false)
+      ? atual
+      : await solicitar();
   return {
     concedida: resposta.status === 'granted',
     // Ausente (mocks antigos, versões de lib) conta como "ainda dá para

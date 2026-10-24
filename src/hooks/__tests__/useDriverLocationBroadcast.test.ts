@@ -1462,6 +1462,7 @@ describe('useDriverLocationBroadcast', () => {
         canAskAgain: false,
       });
       const app = espiarAppState();
+      const avisoNegada = jest.spyOn(logger, 'warn');
 
       renderHook(() =>
         useDriverLocationBroadcast({
@@ -1471,9 +1472,14 @@ describe('useDriverLocationBroadcast', () => {
       );
 
       await waitFor(() => {
-        expect(mockRequestForegroundPermissionsAsync).toHaveBeenCalled();
+        expect(avisoNegada).toHaveBeenCalledWith(
+          expect.stringContaining('Permissão de localização negada'),
+        );
       });
+      // Bloqueada: o pedido não mostraria diálogo, então nem é feito (AN12).
+      expect(mockRequestForegroundPermissionsAsync).not.toHaveBeenCalled();
       expect(mockWatchPositionAsync).not.toHaveBeenCalled();
+      avisoNegada.mockRestore();
 
       // Concedeu nas Configuracoes e voltou: o `get` (sem dialogo) agora
       // responde granted.

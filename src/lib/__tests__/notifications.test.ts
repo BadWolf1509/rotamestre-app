@@ -164,6 +164,21 @@ describe('notifications', () => {
       expect(result).toBe(true);
     });
 
+    // AN12: roda a cada abertura do app (`initializeNotifications`). Com o
+    // pedido bloqueado pelo sistema, pedir de novo não mostra diálogo nenhum e,
+    // no Android, ainda abre a activity de permissão (o app pausa).
+    it('não pede de novo quando o sistema diz que não dá mais (canAskAgain false)', async () => {
+      mockGetPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        canAskAgain: false,
+      });
+
+      const result = await requestNotificationPermissions();
+
+      expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
+      expect(result).toBe(false);
+    });
+
     it('should return false when permission denied', async () => {
       mockGetPermissionsAsync.mockResolvedValue({ status: 'denied' });
       mockRequestPermissionsAsync.mockResolvedValue({ status: 'denied' });

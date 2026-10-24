@@ -52,10 +52,12 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     return false;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  const { status: existingStatus, canAskAgain } =
+    await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
+  // Bloqueada pelo sistema: pedir não mostra diálogo (AN12).
+  if (existingStatus !== 'granted' && canAskAgain !== false) {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
