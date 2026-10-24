@@ -9,10 +9,12 @@
  *
  * COMO FUNCIONA. `registrarPosicao` é a porta única do insert:
  *
- * - **Fila vazia:** insert direto de uma linha, como antes. O horário fica com
- *   o relógio do servidor (default `NOW()` da coluna `timestamp`).
- * - **Falha de rede:** a posição vai para o AsyncStorage com o horário em que
- *   foi CAPTURADA (`timestamp`), que é a única verdade para uma posição velha.
+ * Toda linha, direta ou da fila, leva o horário em que a posição foi
+ * CAPTURADA pelo GPS (`timestamp`), nunca o relógio do servidor (default
+ * `NOW()` da coluna): o insert pode sair segundos ou horas depois do fix.
+ *
+ * - **Fila vazia:** insert direto de uma linha, como antes.
+ * - **Falha de rede:** a posição vai para o AsyncStorage, com o horário dela.
  * - **Falha que não é de rede, com a fila vazia:** a posição não entra na
  *   fila (uma posição só, como antes desta fila). Fica o `logger.error`.
  * - **Fila com algo:** a posição nova entra no fim da fila e a fila inteira é
@@ -180,19 +182,26 @@ async function gravar(registro: Registro): Promise<boolean> {
   }
 }
 
+/**
+ * A linha da tabela com o horário do fix do GPS (`capturadaEm`, epoch ms).
+ * Horário inválido (o `toISOString` lançaria e a posição se perderia) cai no
+ * relógio do aparelho, que ainda é mais perto da captura que o do servidor.
+ */
+function comHorario(posicao: Posicao, capturadaEm: number): LinhaGuardada {
+  const horario = Number.isFinite(capturadaEm) ? capturadaEm : Date.now();
+  return { ...posicao, timestamp: new Date(horario).toISOString() };
+}
+
 /** false = não ficou guardada (o AsyncStorage recusou a gravação). */
-function guardar(posicao: Posicao, capturadaEm: number): Promise<boolean> {
+function guardar(linha: LinhaGuardada): Promise<boolean> {
   return emSerie(async () => {
     const atual = await ler();
     const registro: Registro =
-      atual?.userId === posicao.motorista_id
+      atual?.userId === linha.motorista_id
         ? atual
-        : { userId: posicao.motorista_id, posicoes: [], estourou: false };
+        : { userId: linha.motorista_id, posicoes: [], estourou: false };
 
-    registro.posicoes.push({
-      ...posicao,
-      timestamp: new Date(capturadaEm).toISOString(),
-    });
+    registro.posicoes.push(linha);
 
     const excesso = registro.posicoes.length - TETO_FILA_POSICOES;
     if (excesso > 0) {
@@ -292,7 +301,7 @@ function paraLinha({ tentativas: _tentativas, ...linha }: PosicaoGuardada) {
 // ---------------------------------------------------------------------------
 
 async function inserir(
-  linhas: Posicao | LinhaGuardada[],
+  linhas: LinhaGuardada | LinhaGuardada[],
 ): Promise<{ error: unknown }> {
   try {
     const { error } = await supabase.from('motorista_locations').insert(linhas);
@@ -399,22 +408,23 @@ export async function registrarPosicao(
   rotulo: string,
 ): Promise<DestinoDaPosicao> {
   try {
+    const linha = comHorario(posicao, capturadaEm);
     const fila = await emSerie(ler);
     const temFila =
       fila?.userId === posicao.motorista_id && fila.posicoes.length > 0;
 
     if (!temFila && !envioEmVoo) {
       if (fila) await descartarFilaDeOutraConta(posicao.motorista_id);
-      const { error } = await inserir(posicao);
+      const { error } = await inserir(linha);
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
       if (!isNetworkError(error)) return 'perdida';
-      return (await guardar(posicao, capturadaEm)) ? 'na_fila' : 'perdida';
+      return (await guardar(linha)) ? 'na_fila' : 'perdida';
     }
 
     // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a
     // remoção do lote também falharia e o mesmo lote subiria de novo.
-    if (!(await guardar(posicao, capturadaEm))) return 'perdida';
+    if (!(await guardar(linha))) return 'perdida';
     const esvaziou = await esvaziarFila(posicao.motorista_id, rotulo);
     return esvaziou ? 'enviada' : 'na_fila';
   } catch (error) {

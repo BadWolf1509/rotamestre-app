@@ -95,9 +95,20 @@ describe('filaPosicoes', () => {
 
     expect(destino).toBe('enviada');
     expect(mockInsert).toHaveBeenCalledTimes(1);
-    // Fila vazia: o horário fica com o relógio do servidor (default NOW()).
-    expect(mockInsert).toHaveBeenCalledWith(posicao());
+    // O horário é o do GPS, não o do servidor (default NOW()): a posição pode
+    // ter sido capturada segundos antes de o insert sair.
+    expect(mockInsert).toHaveBeenCalledWith({ ...posicao(), timestamp: iso(1) });
     expect(filaGuardada()).toBeNull();
+  });
+
+  it('fix sem horário válido sai com o relógio do aparelho, em vez de se perder', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(minuto(7));
+
+    const destino = await registrarPosicao(posicao(), Number.NaN, ROTULO);
+
+    expect(destino).toBe('enviada');
+    expect(mockInsert).toHaveBeenCalledWith({ ...posicao(), timestamp: iso(7) });
+    jest.restoreAllMocks();
   });
 
   it('sem rede, guarda a posição com o horário em que foi capturada', async () => {
