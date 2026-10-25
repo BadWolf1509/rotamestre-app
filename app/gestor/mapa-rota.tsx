@@ -456,6 +456,7 @@ export default function MapaRota() {
             }}
             onCancel={modals.closeCancelModal}
             type="danger"
+            icon="close-circle-outline"
           />
 
           <Dialog

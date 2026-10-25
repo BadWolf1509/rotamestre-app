@@ -155,6 +155,7 @@ export function NavigationSettings({
       confirmText: 'Restaurar',
       cancelText: 'Cancelar',
       type: 'danger',
+      icon: 'refresh-outline',
     });
 
     if (confirmed) {
