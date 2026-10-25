@@ -108,6 +108,8 @@ jest.mock('@/hooks/useIncidentesGestor', () => {
 jest.mock('@/components/gestor/incidentes', () => ({
   IncidenteDetalhesModal: () => null,
   AlterarStatusModal: () => null,
+  // Extraído na main (Migration 56: grupo "Motorista removido" sem ação).
+  EstatisticaMotoristaCard: () => null,
   HistoricoMotoristaModal: () => null,
 }));
 jest.mock('expo-router', () => ({

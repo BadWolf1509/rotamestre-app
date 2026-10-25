@@ -49,18 +49,17 @@ const textosExibidos = () =>
     fn.mock.calls.flat().filter((a): a is string => typeof a === 'string'),
   );
 
-function preencherESalvar() {
+const NOVA_VALIDA = 'NovaSenha@1';
+
+function preencherESalvar(nova = NOVA_VALIDA, confirmacao = nova) {
   fireEvent.changeText(
     screen.getByPlaceholderText('Digite sua senha atual'),
     'antiga123',
   );
-  fireEvent.changeText(
-    screen.getByPlaceholderText('Digite a nova senha'),
-    'NovaSenha1',
-  );
+  fireEvent.changeText(screen.getByPlaceholderText('Digite a nova senha'), nova);
   fireEvent.changeText(
     screen.getByPlaceholderText('Digite a senha novamente'),
-    'NovaSenha1',
+    confirmacao,
   );
   fireEvent.press(screen.getByText('Salvar'));
 }
@@ -121,8 +120,83 @@ describe('alterar senha: falha ao conferir a senha atual', () => {
     preencherESalvar();
 
     await waitFor(() =>
-      expect(mockAuth.updatePassword).toHaveBeenCalledWith('NovaSenha1'),
+      expect(mockAuth.updatePassword).toHaveBeenCalledWith(NOVA_VALIDA),
     );
     expect(textosExibidos()).not.toContain('Senha atual incorreta');
+  });
+});
+
+// AN7: o servidor fora não prova que a senha está errada.
+describe('alterar senha: servidor fora não vira "senha incorreta"', () => {
+  it('erro 5xx do Auth diz que o serviço não respondeu', async () => {
+    mockAuth.signIn.mockRejectedValue(
+      new AuthApiError('boom', 500, 'unexpected_failure'),
+    );
+    render(<AlterarSenha />);
+
+    preencherESalvar();
+
+    await waitFor(() =>
+      expect(textosExibidos()).toContain('Serviço indisponível'),
+    );
+    expect(textosExibidos()).not.toContain('Senha atual incorreta');
+    expect(mockAuth.updatePassword).not.toHaveBeenCalled();
+  });
+});
+
+// AN8: a regra da nova senha é a do cadastro, com erro inline por campo.
+describe('alterar senha: mesma regra do cadastro (Zod + erro inline)', () => {
+  it.each([
+    ['6 caracteres (a regra antiga do motorista)', 'Ab@1de', 'Senha deve ter no mínimo 8 caracteres'],
+    ['sem maiúscula', 'novasenha@1', 'Senha deve conter pelo menos uma letra maiúscula'],
+    ['sem número', 'NovaSenha@a', 'Senha deve conter pelo menos um número'],
+    ['sem caractere especial', 'NovaSenha12', 'Senha deve conter pelo menos um caractere especial (!@#$%...)'],
+  ])('recusa nova senha %s sem tocar no servidor', async (_n, nova, msg) => {
+    render(<AlterarSenha />);
+
+    preencherESalvar(nova);
+
+    expect(await screen.findByText(msg)).toBeTruthy();
+    expect(mockAuth.signIn).not.toHaveBeenCalled();
+    expect(mockAuth.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it('confirmação diferente mostra o erro no campo da confirmação', async () => {
+    render(<AlterarSenha />);
+
+    preencherESalvar(NOVA_VALIDA, 'Outra@12345');
+
+    expect(await screen.findByText('As senhas não coincidem')).toBeTruthy();
+    expect(mockAuth.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it('senha atual vazia mostra o erro no campo', async () => {
+    render(<AlterarSenha />);
+    fireEvent.press(screen.getByText('Salvar'));
+
+    expect(await screen.findByText('Digite sua senha atual')).toBeTruthy();
+    expect(mockAuth.signIn).not.toHaveBeenCalled();
+  });
+
+  it('nova senha igual à atual é recusada', async () => {
+    render(<AlterarSenha />);
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Digite sua senha atual'),
+      NOVA_VALIDA,
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Digite a nova senha'),
+      NOVA_VALIDA,
+    );
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Digite a senha novamente'),
+      NOVA_VALIDA,
+    );
+    fireEvent.press(screen.getByText('Salvar'));
+
+    expect(
+      await screen.findByText('A nova senha deve ser diferente da atual'),
+    ).toBeTruthy();
+    expect(mockAuth.signIn).not.toHaveBeenCalled();
   });
 });

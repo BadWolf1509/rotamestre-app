@@ -64,7 +64,8 @@ export interface LinhaIncidente {
   foto_url: string | null;
   created_at: string;
   observacoes_gestao: string | null;
-  motorista_id: string;
+  // NULL desde a Migration 56: motorista excluído (incidente anonimizado).
+  motorista_id: string | null;
   motorista: { nome: string } | null;
   rota: { id: string; data: string } | null;
   parada: { endereco: string } | null;

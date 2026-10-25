@@ -6,10 +6,11 @@
  * rua, tinha de lembrar de refazer depois. A foto já tinha fila própria
  * (`src/lib/offline.ts`); a conclusão, não.
  *
- * POR QUE UM MÓDULO PRÓPRIO, e não a `addToOfflineQueue` genérica de
- * `offline.ts`: aquela fila espalha um UPDATE cego (`update_parada`) que
- * reenviado regride status e não sabe distinguir "parada removida" de "rede
- * caiu" — reenfileira para sempre. Aqui cada ação sabe o que quer dizer:
+ * POR QUE UM MÓDULO PRÓPRIO, e não a `addToOfflineQueue` genérica que
+ * `offline.ts` tinha (removida na 1.14.6, sem produtor): aquela fila
+ * espalhava um UPDATE cego (`update_parada`) que reenviado regredia status e
+ * não distinguia "parada removida" de "rede caiu" — reenfileirava para
+ * sempre. Aqui cada ação sabe o que quer dizer:
  *
  * - **Idempotente no servidor.** O UPDATE só muda parada ainda ABERTA
  *   (`pendente`/`em_andamento`). Reenviar não duplica log (o gatilho

@@ -14,6 +14,7 @@ export {
   // Constants
   PASSWORD_MIN_LENGTH,
   PASSWORD_REQUIREMENTS,
+  PASSWORD_SPECIAL_REGEX,
   // Schemas
   emailSchema,
   passwordSchema,
@@ -36,10 +37,12 @@ export {
   registerSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  trocarSenhaSchema,
   type LoginInput,
   type RegisterInput,
   type ForgotPasswordInput,
   type ResetPasswordInput,
+  type TrocarSenhaInput,
 } from './auth';
 
 // Domain schemas

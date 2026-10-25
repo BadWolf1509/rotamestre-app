@@ -18,6 +18,8 @@ import {
   updateTrackingContext,
   requestAndStartTracking,
   garantirRastreamentoDaRota,
+  POSICOES_ENTRE_CONFERENCIAS,
+  POSICOES_MINIMAS_ENTRE_CONFERENCIAS,
 } from '../unifiedLocationTracking';
 
 import type { TrackingContext } from '../unifiedLocationTracking';
@@ -71,6 +73,12 @@ jest.mock('@/lib/supabase', () => ({
       insert: jest.fn().mockResolvedValue({ error: null }),
     }),
   },
+}));
+
+// Sessão lida na conferência da rota (só quando a rota não aparece).
+const mockLerSessao = jest.fn();
+jest.mock('@/lib/auth/sessao', () => ({
+  lerSessao: () => mockLerSessao(),
 }));
 
 // A espera pelo primeiro plano é controlada pelo teste: por padrão o app já
@@ -405,6 +413,15 @@ describe('unifiedLocationTracking', () => {
       expect(mockRemoveItem).toHaveBeenCalled();
     });
 
+    it('remove o contexto mesmo quando parar a task falha (a task não segue com contexto de quem saiu)', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValueOnce(true);
+      mockStopLocationUpdates.mockRejectedValueOnce(new Error('falha ao parar'));
+
+      await expect(stopBackgroundTracking()).resolves.toBeUndefined();
+
+      expect(mockRemoveItem).toHaveBeenCalledWith('@rotamestre:tracking_context');
+    });
+
     it('deve apenas remover contexto se não está rastreando', async () => {
       mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
 
@@ -637,6 +654,342 @@ describe('unifiedLocationTracking', () => {
           timestamp: '2026-10-24T12:00:00.000Z',
         }),
       ]);
+    });
+  });
+  // MOT-2: o sistema pode entregar várias leituras num lote só (no iOS, a
+  // cada 30 s / 100 m). Gravar a mais antiga deixava o marcador do gestor
+  // atrás de onde o motorista já estava.
+  describe('task de segundo plano com várias leituras no lote', () => {
+    const leitura = (minuto: number, latitude: number) => ({
+      coords: {
+        latitude,
+        longitude: -34.8,
+        accuracy: 10,
+        speed: null,
+        heading: null,
+      },
+      timestamp: Date.UTC(2026, 9, 24, 12, minuto),
+    });
+
+    afterEach(() => {
+      (supabase.from as jest.Mock).mockReset();
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ error: null }),
+      });
+    });
+
+    it.each([
+      ['em ordem', [leitura(1, -7.1), leitura(2, -7.2), leitura(3, -7.3)]],
+      ['fora de ordem', [leitura(1, -7.1), leitura(3, -7.3), leitura(2, -7.2)]],
+    ])('grava só a mais recente, com o horário dela (%s)', async (_n, lote) => {
+      const insert = jest.fn().mockResolvedValue({ error: null });
+      (supabase.from as jest.Mock).mockImplementation((tabela: string) =>
+        tabela === 'rotas'
+          ? {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: () =>
+                    Promise.resolve({
+                      data: {
+                        status: 'em_andamento',
+                        motorista_id: 'motorista-456',
+                      },
+                      error: null,
+                    }),
+                }),
+              }),
+            }
+          : { insert },
+      );
+      mockGetItem.mockImplementation(async (chave: string) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify(mockContext)
+          : null,
+      );
+
+      await tarefaDeSegundoPlano({ data: { locations: lote }, error: null });
+
+      expect(insert).toHaveBeenCalledTimes(1);
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          latitude: -7.3,
+          timestamp: '2026-10-24T12:03:00.000Z',
+          fonte: 'background',
+        }),
+      );
+    });
+  });
+
+  // MOT-1: a task headless roda sem tela nenhuma. Rota concluída pela web,
+  // por outro aparelho, pela expiração ou reatribuída seguia gravando
+  // posições por até ~21 h. A task confere a rota do contexto e para.
+  describe('task de segundo plano confere se a rota ainda anda', () => {
+    const insertPadrao = jest.fn();
+    let rotaNoBanco: { data: unknown; error: unknown };
+    let selectsDaRota: number;
+
+    const umaPosicao = () =>
+      tarefaDeSegundoPlano({
+        data: {
+          locations: [
+            {
+              coords: {
+                latitude: -7.1,
+                longitude: -34.8,
+                accuracy: 10,
+                speed: null,
+                heading: null,
+              },
+              timestamp: Date.UTC(2026, 9, 24, 12, 0),
+            },
+          ],
+        },
+        error: null,
+      });
+
+    const recusaDeRls = {
+      code: '42501',
+      message: 'new row violates row-level security policy',
+    };
+
+    beforeEach(async () => {
+      selectsDaRota = 0;
+      rotaNoBanco = {
+        data: { status: 'em_andamento', motorista_id: 'motorista-456' },
+        error: null,
+      };
+      insertPadrao.mockReset();
+      insertPadrao.mockResolvedValue({ error: null });
+      mockLerSessao.mockReset();
+      mockLerSessao.mockResolvedValue({
+        session: { user: { id: 'motorista-456' } },
+        offline: false,
+      });
+      (supabase.from as jest.Mock).mockImplementation((tabela: string) => {
+        if (tabela === 'rotas') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () => {
+                  selectsDaRota++;
+                  return Promise.resolve(rotaNoBanco);
+                },
+              }),
+            }),
+          };
+        }
+        return { insert: insertPadrao };
+      });
+      // Parar zera a contagem: a primeira posição depois confere.
+      await stopBackgroundTracking();
+      mockGetItem.mockImplementation(async (chave: string) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify(mockContext)
+          : null,
+      );
+      mockHasStartedLocationUpdates.mockResolvedValue(true);
+      mockStopLocationUpdates.mockClear();
+      mockRemoveItem.mockClear();
+    });
+
+    afterEach(() => {
+      (supabase.from as jest.Mock).mockReset();
+      (supabase.from as jest.Mock).mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ error: null }),
+      });
+    });
+
+    it('para quando a conferência diz que a rota acabou', async () => {
+      rotaNoBanco = {
+        data: { status: 'concluida', motorista_id: 'motorista-456' },
+        error: null,
+      };
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+      expect(mockRemoveItem).toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+      );
+    });
+
+    it('para quando a rota foi reatribuída a outro motorista', async () => {
+      rotaNoBanco = {
+        data: { status: 'em_andamento', motorista_id: 'outro-motorista' },
+        error: null,
+      };
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('não para com a rota em andamento', async () => {
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+      expect(mockRemoveItem).not.toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+      );
+    });
+
+    it('sem rede, não para', async () => {
+      rotaNoBanco = {
+        data: null,
+        error: { message: 'TypeError: Network request failed' },
+      };
+      insertPadrao.mockResolvedValue({
+        error: { message: 'TypeError: Network request failed' },
+      });
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('rota que não aparece mais (apagada ou de outro) para, com a sessão do próprio motorista', async () => {
+      rotaNoBanco = { data: null, error: null };
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('rota que não aparece sem sessão confirmada não para (a consulta pode ter saído anônima)', async () => {
+      rotaNoBanco = { data: null, error: null };
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('não para se o contexto mudou de rota durante a conferência', async () => {
+      rotaNoBanco = {
+        data: { status: 'concluida', motorista_id: 'motorista-456' },
+        error: null,
+      };
+      let leituras = 0;
+      mockGetItem.mockImplementation(async (chave: string) => {
+        if (chave !== '@rotamestre:tracking_context') return null;
+        leituras++;
+        // A 1ª leitura é a da posição; depois, o motorista já iniciou outra.
+        return JSON.stringify(
+          leituras === 1
+            ? mockContext
+            : { ...mockContext, rotaId: 'rota-nova' },
+        );
+      });
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('parar com falha também zera a contagem: o próximo rastreamento confere na 1ª posição', async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      mockHasStartedLocationUpdates.mockRejectedValueOnce(new Error('boom'));
+      await expect(stopBackgroundTracking()).resolves.toBeUndefined();
+
+      await umaPosicao();
+      expect(selectsDaRota).toBe(2);
+    });
+
+    it(`confere na primeira posição e depois a cada ${POSICOES_ENTRE_CONFERENCIAS}`, async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      for (let i = 1; i < POSICOES_ENTRE_CONFERENCIAS; i++) await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      await umaPosicao();
+      expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('posição recusada pelo banco (ex.: 42501 da rota de outro) confere fora da contagem', async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+      // Respeita o espaçamento mínimo desde a última conferência.
+      for (let i = 2; i < POSICOES_MINIMAS_ENTRE_CONFERENCIAS + 1; i++) {
+        await umaPosicao();
+      }
+      expect(selectsDaRota).toBe(1);
+
+      insertPadrao.mockResolvedValue({ error: recusaDeRls });
+      rotaNoBanco = {
+        data: { status: 'em_andamento', motorista_id: 'outro-motorista' },
+        error: null,
+      };
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('recusa do banco com a rota ainda viva (token vencido) não para', async () => {
+      await umaPosicao();
+      insertPadrao.mockResolvedValue({ error: recusaDeRls });
+
+      for (let i = 0; i < POSICOES_MINIMAS_ENTRE_CONFERENCIAS; i++) {
+        await umaPosicao();
+      }
+
+      expect(selectsDaRota).toBe(2);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    // Sessão anônima permanente (refresh token revogado): toda posição é
+    // recusada. Sem espaçamento, cada uma fazia INSERT + SELECT + lerSessao.
+    it(`recusas seguidas conferem no máximo a cada ${POSICOES_MINIMAS_ENTRE_CONFERENCIAS} posições`, async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+      insertPadrao.mockResolvedValue({ error: recusaDeRls });
+
+      for (let i = 0; i < 2 * POSICOES_MINIMAS_ENTRE_CONFERENCIAS; i++) {
+        await umaPosicao();
+      }
+
+      expect(selectsDaRota).toBe(3);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    // A consulta saiu anônima (refresh falhou) e logo depois o token foi
+    // renovado: a sessão lida só DEPOIS confirmaria um vazio que não era
+    // resposta sobre este motorista.
+    it('rota que não aparece com a sessão renovada só depois do SELECT não para', async () => {
+      rotaNoBanco = { data: null, error: null };
+      // Sem sessão até o SELECT sair; renovada logo depois.
+      mockLerSessao.mockImplementation(async () =>
+        selectsDaRota === 0
+          ? { session: null, offline: true }
+          : { session: { user: { id: 'motorista-456' } }, offline: false },
+      );
+
+      await umaPosicao();
+
+      expect(selectsDaRota).toBe(1);
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('rota que não aparece com a sessão perdida depois do SELECT não para', async () => {
+      rotaNoBanco = { data: null, error: null };
+      // Sessão boa até o SELECT; perdida logo depois (refresh falhou).
+      mockLerSessao.mockImplementation(async () =>
+        selectsDaRota === 0
+          ? { session: { user: { id: 'motorista-456' } }, offline: false }
+          : { session: null, offline: true },
+      );
+
+      await umaPosicao();
+
+      expect(mockStopLocationUpdates).not.toHaveBeenCalled();
     });
   });
 });

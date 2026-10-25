@@ -1127,51 +1127,64 @@ describe('useDriverLocationBroadcast', () => {
         error: { message: 'TypeError: Network request failed' },
       });
       const avisoSpy = jest.spyOn(logger, 'warn').mockImplementation();
-
-      renderHook(() =>
-        useDriverLocationBroadcast({
-          rotaId: 'rota-123',
-          motoristaId: 'motorista-123',
-          rotaStatus: 'em_andamento',
-        }),
+      // O contexto que `getTrackingContext` devolve mora nesta chave; a fila
+      // só guarda com o rastreamento (ou a sessão) do mesmo motorista.
+      (AsyncStorage.getItem as jest.Mock).mockImplementation(async (chave) =>
+        chave === '@rotamestre:tracking_context'
+          ? JSON.stringify({ motoristaId: 'motorista-123', rotaId: 'rota-123' })
+          : null,
       );
-      await waitFor(() => {
-        expect(locationCallback).not.toBeNull();
-      });
 
-      const fix = (minuto: number): Location.LocationObject => ({
-        coords: {
-          latitude: -23.5505,
-          longitude: -46.6333,
-          accuracy: 10,
-          altitude: null,
-          altitudeAccuracy: null,
-          heading: null,
-          speed: null,
-        },
-        timestamp: Date.UTC(2026, 9, 24, 12, minuto),
-      });
-      // Duas posições dentro do mesmo intervalo: a guardada conta como
-      // enviada, senão cada fix do GPS encheria a fila.
-      await act(async () => {
-        await locationCallback!(fix(0));
-      });
-      await act(async () => {
-        await locationCallback!(fix(1));
-      });
+      try {
+        renderHook(() =>
+          useDriverLocationBroadcast({
+            rotaId: 'rota-123',
+            motoristaId: 'motorista-123',
+            rotaStatus: 'em_andamento',
+          }),
+        );
+        await waitFor(() => {
+          expect(locationCallback).not.toBeNull();
+        });
 
-      const gravacoes = (AsyncStorage.setItem as jest.Mock).mock.calls.filter(
-        ([chave]) => chave === '@rotamestre:fila_posicoes',
-      );
-      expect(gravacoes).toHaveLength(1);
-      expect(JSON.parse(gravacoes[0][1]).posicoes).toEqual([
-        expect.objectContaining({
-          rota_id: 'rota-123',
-          fonte: 'foreground',
-          timestamp: '2026-10-24T12:00:00.000Z',
-        }),
-      ]);
-      avisoSpy.mockRestore();
+        const fix = (minuto: number): Location.LocationObject => ({
+          coords: {
+            latitude: -23.5505,
+            longitude: -46.6333,
+            accuracy: 10,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.UTC(2026, 9, 24, 12, minuto),
+        });
+        // Duas posições dentro do mesmo intervalo: a guardada conta como
+        // enviada, senão cada fix do GPS encheria a fila.
+        await act(async () => {
+          await locationCallback!(fix(0));
+        });
+        await act(async () => {
+          await locationCallback!(fix(1));
+        });
+
+        const gravacoes = (AsyncStorage.setItem as jest.Mock).mock.calls.filter(
+          ([chave]) => chave === '@rotamestre:fila_posicoes',
+        );
+        expect(gravacoes).toHaveLength(1);
+        expect(JSON.parse(gravacoes[0][1]).posicoes).toEqual([
+          expect.objectContaining({
+            rota_id: 'rota-123',
+            fonte: 'foreground',
+            timestamp: '2026-10-24T12:00:00.000Z',
+          }),
+        ]);
+      } finally {
+        avisoSpy.mockRestore();
+        (AsyncStorage.getItem as jest.Mock).mockImplementation(() =>
+          Promise.resolve(null),
+        );
+      }
     });
 
     it('deve tratar erro ao iniciar tracking', async () => {
@@ -1449,6 +1462,7 @@ describe('useDriverLocationBroadcast', () => {
         canAskAgain: false,
       });
       const app = espiarAppState();
+      const avisoNegada = jest.spyOn(logger, 'warn');
 
       renderHook(() =>
         useDriverLocationBroadcast({
@@ -1458,9 +1472,14 @@ describe('useDriverLocationBroadcast', () => {
       );
 
       await waitFor(() => {
-        expect(mockRequestForegroundPermissionsAsync).toHaveBeenCalled();
+        expect(avisoNegada).toHaveBeenCalledWith(
+          expect.stringContaining('Permissão de localização negada'),
+        );
       });
+      // Bloqueada: o pedido não mostraria diálogo, então nem é feito (AN12).
+      expect(mockRequestForegroundPermissionsAsync).not.toHaveBeenCalled();
       expect(mockWatchPositionAsync).not.toHaveBeenCalled();
+      avisoNegada.mockRestore();
 
       // Concedeu nas Configuracoes e voltou: o `get` (sem dialogo) agora
       // responde granted.

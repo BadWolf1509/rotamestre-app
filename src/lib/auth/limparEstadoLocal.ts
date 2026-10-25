@@ -8,6 +8,17 @@
  * contexto do rastreamento. Uma chave nova esquecida aqui só sobrevive ao
  * logout; uma chave nova esquecida numa allowlist seria apagada sem aviso.
  *
+ * CONTEXTO DO RASTREAMENTO (`@rotamestre:tracking_context`, PR #629): segue
+ * FORA desta lista, e quem o apaga é o `stopBackgroundTracking`, que o
+ * `authService.signOut` chama ANTES de chegar aqui, junto com a parada da
+ * task. Revisão (24/10/2026): a regra "não pode sumir" valia para esta
+ * varredura de chaves, não para o logout. Apagar o contexto SEM parar a task
+ * deixaria uma task viva sem contexto, e parar a task SEM apagar o contexto
+ * a deixaria religável por quem entrasse depois; o serviço é o único que faz
+ * as duas coisas juntas, e quem tem rota em andamento é religado na próxima
+ * abertura pelo `useGarantirRastreamentoDaRota`. Pôr a chave aqui duplicaria
+ * esse conhecimento e faria a limpeza correr sem a parada.
+ *
  * Os nomes são conferidos contra o código por
  * `__tests__/limparEstadoLocal.chaves.test.ts`: renomear uma chave na origem
  * sem atualizar aqui quebra o teste.
@@ -18,6 +29,7 @@ import { Platform } from 'react-native';
 
 import { clearAllCache } from '../cache';
 import { logger } from '../logger';
+import { invalidarPosicoesEmVoo } from '../motorista/filaPosicoes';
 import { limparCacheOtimizacao } from '../route-optimization/cache';
 
 /** Chaves exatas com dado da conta. */
@@ -40,6 +52,7 @@ export const PREFIXOS_DA_CONTA = [
 ] as const;
 
 export async function limparEstadoLocalDoUsuario(): Promise<void> {
+  invalidarPosicoesEmVoo(); // insert de GPS em voo não regrava a fila depois
   // Caches com camada em memória: só as funções do próprio módulo zeram o Map.
   // `clearAllCache` cobre as chaves `@cache_*` e já engole a própria falha.
   await clearAllCache();
@@ -96,6 +109,7 @@ type FotoComDono = { userId?: string; semDono?: boolean; localPath?: string };
 export async function limparAparelhoAoExcluirConta(
   usuarioId: string | null,
 ): Promise<void> {
+  invalidarPosicoesEmVoo(); // insert de GPS em voo não regrava a fila depois
   const lerLista = async <T>(chave: string): Promise<T[]> => {
     try {
       const bruto = await AsyncStorage.getItem(chave);

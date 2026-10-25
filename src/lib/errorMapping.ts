@@ -185,6 +185,18 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    // Sentinela do `startRoute` (useRouteActions): o UPDATE condicionado a
+    // "pendente + deste motorista" voltou com 0 linhas — a tela estava velha.
+    pattern: /ROTA_NAO_PENDENTE/,
+    result: {
+      title: 'Rota não pode ser iniciada',
+      message:
+        'Esta rota mudou: já foi iniciada, cancelada ou passada para outro motorista. A tela foi atualizada.',
+      type: 'warning',
+      code: 'ROUTE_NOT_PENDING',
+    },
+  },
+  {
     pattern: /ROTA_NAO_ENCONTRADA/,
     result: {
       title: 'Rota não encontrada',

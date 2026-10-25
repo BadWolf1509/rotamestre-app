@@ -1941,6 +1941,133 @@ tem `DELETE` só de tokens que ela cria, então roda no SQL Editor;
 termina em `RAISE`). Roteiro de conferência só com SELECT (9 consultas) no fim
 da migration. Sintaxe validada com o parser do Postgres (libpg-query).
 
+### ✅ Migration 46: o SOS chega a um gestor, ou o motorista sabe que não chegou
+
+**Arquivo:** `20261024100000_sos_chega_a_um_gestor.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois).
+Rodar pelo **SQL Editor** como `postgres` (tem `REVOKE`, que o MCP recusa),
+numa execução só, e depois a sonda. Pode ir antes ou depois do merge: sem a
+RPC, o app novo volta ao INSERT direto e diz que não conseguiu confirmar o
+aviso.
+
+**Por quê (B1, 1.14.6).** Sem rota, `notify_sos_acionado` (Migration 35) achava
+a loja só pelo vínculo `is_principal` — em 24/10/2026, 1 de 11 vínculos ativos
+de motorista tem a marca, e 3 motoristas atendem mais de uma loja. O SOS de
+quem não estava em rota não avisava ninguém. O gatilho lia `detalhes.motivo` e
+o app grava `detalhes.descricao`, então o texto do motorista nunca chegava. E o
+app dizia "Seu gestor foi notificado" sem saber de nada.
+
+**O que faz.** (1) Helper `avisar_gestores_do_sos(motorista, rota, detalhes)`
+(SECURITY DEFINER, sem EXECUTE para a API), fonte única de quem recebe, no
+padrão do `unidade_do_incidente` da Migration 43: com rota, os gestores ativos
+da loja da rota; sem rota (ou rota sem loja), os de **todas** as lojas com
+vínculo ativo do motorista, sem repetir gestor (`UNION`). Texto: `descricao`,
+depois `motivo`, depois "Emergência acionada" (cortado em 200 caracteres).
+Devolve quantas notificações nasceram (`criar_notificacao` devolve NULL quando
+falha) e nunca levanta: na falha devolve 0, que é a verdade, porque a
+subtransação do bloco desfaz os avisos já criados. (2) `notify_sos_acionado`
+avisa pelo helper e grava a contagem no próprio log
+(`detalhes.gestores_avisados`), tudo dentro de `EXCEPTION`: o SOS nunca derruba
+o INSERT. O UPDATE da contagem tem bloco próprio: se só ele falhar, os avisos
+ficam e a RPC responde 0. O INSERT direto das versões até a 1.14.5 continua
+avisando. (3) RPC
+`registrar_sos(p_detalhes, p_rota_id)` → integer, só `authenticated`: grava o
+log em nome de `auth.uid()` com as regras da policy `logs_insert_optimized`
+(sessão e, com rota, `pode_registrar_log_na_rota`), descarta
+`gestores_avisados` vindo do cliente e devolve quantos gestores receberam. SOS
+repetido em 5 s é descartado pelo `prevent_duplicate_log` e o gatilho nem
+roda. Nesse caso a RPC responde pelo SOS anterior do mesmo motorista e da mesma
+rota.
+
+**Decisão: SOS sem rota avisa todas as lojas.** O incidente precisa de UMA loja
+dona, por causa da visibilidade. O SOS, não: avisar a mais é inofensivo, e
+avisar a menos foi o defeito. Com rota numa loja sem gestor ativo, o SOS não
+recorre às lojas do vínculo: o brief manda manter a loja da rota, e o app diz
+que ninguém recebeu. **"Avisado"** é notificação criada em `notificacoes`,
+não push entregue: gestor sem token de push conta como avisado (está no
+COMMENT da RPC).
+
+**Alternativas (como o app sabe se alguém recebeu).** (1) O app confere depois
+do INSERT: o motorista não lê `notificacoes` de outra conta (RLS), então
+precisaria de outra RPC de qualquer jeito. Seriam duas idas à rede, e a
+resposta poderia não ser a do log recém-gravado. (2) Contagem num GUC de
+transação lida pela RPC: não deixa rastro e não responde ao SOS duplicado, em
+que o gatilho não roda. (3) RPC chamando o helper direto, sem o gatilho: fora
+de gatilho, `criar_notificacao` recusa quem não é gestor. (4) RPC + contagem
+gravada no log pelo gatilho (escolhida): uma ida à rede, rastro no histórico,
+resposta certa também para o duplicado, e as versões antigas seguem avisando.
+
+**App.** `app/motorista/sos.tsx` chama `registrar_sos`. Com 1 ou mais gestores
+avisados, a mensagem é a de antes. Com 0, um aviso ("Nenhum gestor recebeu o
+seu SOS") e uma faixa sobre os botões de ligar, que ficam destacados. Sem a RPC
+no servidor (PGRST202), grava pelo INSERT antigo e diz que não foi possível
+confirmar o aviso. Outro erro da RPC, ou falha de rede, diz que não foi
+possível confirmar o envio e também acende a faixa e o destaque dos botões. Em nenhum desses casos a
+tela diz "notificado".
+
+**Medido em 24/10/2026 (só SELECT).** Nenhum `sos_acionado` em `logs` nem em
+`notificacoes`, então não há backfill.
+
+**Verificação.** Guarda estática `database/__tests__/migration46-sos-chega-a-um-gestor.test.ts`;
+sonda `database/sondas/20261024100000_sonda_migration46.sql` (lojas A/B/C, um
+gestor só de A, um só de B, um só de C e um de A e B; motorista com vínculo
+ativo em A e B e inativo em C; 12 casos: 3 avisados sem rota, 1 aviso por
+gestor sem repetir, o vínculo inativo sem aviso, `descricao` no texto, a
+contagem no log, o SOS duplicado, só a loja da rota com rota, o INSERT direto
+com `motivo`, motorista sem vínculo devolvendo 0 mesmo mandando 99, rota de
+outra loja recusada, anon sem EXECUTE e, com um gatilho de sonda que recusa o
+UPDATE da contagem, os avisos que ficam; sem `DELETE` nem `DROP`; termina em `RAISE`).
+Conferência só com SELECT (4 consultas) no fim da migration. Sintaxe validada
+com o parser do Postgres (libpg-query).
+
+### ✅ Migration 47: preferências de push por conta, que só o dono lê e grava
+
+**Arquivo:** `20261024200000_preferencias_notificacao.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois).
+Rodar pelo **SQL Editor** como `postgres` (tem `REVOKE`, que o MCP recusa),
+numa execução só, e depois a sonda. A ordem com a função e o app não importa:
+a função sem a tabela envia tudo (consulta que falha = envia), e o app sem a
+tabela grava só no aparelho e tenta de novo na próxima abertura da tela.
+
+**Por quê (AN3, 1.14.6).** Os interruptores de notificação das Configurações
+(motorista: "Notificações Push"; gestor: push geral, incidentes, rotas e
+resumo diário) só gravavam no AsyncStorage, e ninguém lia: o push chegava do
+mesmo jeito.
+
+**O que faz.** Tabela `preferencias_notificacao (usuario_id PK → usuarios ON
+DELETE CASCADE, push_ativo, incidentes, rotas, resumo_diario, atualizado_em)`,
+tudo `boolean NOT NULL DEFAULT true`. Sem linha também vale tudo ligado, então
+não há backfill. RLS: SELECT, INSERT e UPDATE só da própria linha
+(`usuario_id = (SELECT auth.uid())`, o UPDATE com `WITH CHECK` para a linha não
+mudar de dono); sem DELETE. Grants: `REVOKE ALL` da API e `SELECT, INSERT,
+UPDATE` de volta a `authenticated`. O índice da FK é a própria PK.
+
+**Decisão: tabela própria, não coluna `jsonb` em `usuarios`.** No catálogo
+(24/10/2026), `usuarios_select_optimized` mostra a linha a toda a loja e
+`usuarios_update_optimized` deixa o gestor alterar a linha do motorista: com a
+coluna, o gestor leria e desligaria o push do motorista. Fechar isso pediria
+mexer na RLS de `usuarios`, de que a leitura das fotos depende (invariante do
+CLAUDE.md), e outro GRANT por coluna (Migration 45), passando pelo gatilho
+`trava_motorista_outra_loja`. Dentro da tabela, colunas `boolean` em vez de um
+`jsonb`: tipo e default garantidos pelo banco.
+
+**Quem lê.** A Edge Function `send-push-notification`, com a chave secreta
+(`preferenciaDePush.ts`): SOS sempre envia; push geral desligado cala o resto;
+com ele ligado, `incidente_reportado` obedece a `incidentes`, os tipos de rota
+e de parada a `rotas`, e `resumo_*` a `resumo_diario` (hoje nenhum gatilho cria
+tipo de resumo). O SOS nem consulta a preferência. Quem é calado fica em
+`push_notification_logs` com status `skipped` e **sem `notificacao_id`** (o id
+e o motivo vão em `response`): a policy `push_notification_logs_select_scoped`
+mostra ao gestor só as linhas com `notificacao_id`, e a preferência é só do
+dono. O app (`src/lib/notificacoes/preferenciasPush.ts`) grava por upsert
+e guarda a última cópia e a pendência offline no aparelho; o valor antigo do
+AsyncStorage migra uma vez, só se a conta ainda não tiver linha.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration47-preferencias-notificacao.test.ts`; sonda
+`database/sondas/20261024200000_sonda_migration47.sql` (loja com motoristas M e
+M2 e gestor G; 9 casos: default ligado, upsert e releitura do dono, G não lê,
+G não altera, G não cria nem faz upsert, a linha não muda de dono, sem DELETE,
+anon sem acesso, service_role lê; só o DELETE recusado de M; termina em
+`RAISE`). Conferência só com SELECT (4 consultas) no fim da migration.
 ### ✅ Migration 48: logs, posições e logs de push lidos pela loja da rota
 
 **Arquivo:** `20261024110000_logs_posicoes_push_pela_loja_da_rota.sql` · **✅ aplicada em
@@ -2361,6 +2488,46 @@ recusas 42501 (5–8), vínculo inativo some da soma (9), zeros (10), `p_dias`
 negativo (11), grants (12) e o item 3 do Review Focus (13): o motorista real
 de maior volume, achado por SELECT, bate com o COUNT direto pela RPC chamada
 por ele e pelo gestor da loja.
+
+### ✅ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
+
+**Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois), antes da `delete-account` v8. **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
+tem `REVOKE`/`DELETE`), DEPOIS publicar a `delete-account`.** Com a função nova no
+ar e a FK ainda `CASCADE`, a guarda deixa passar o motorista sem rota em
+andamento e a exclusão apagaria os incidentes dele. A migration sozinha é
+segura (a função antiga só passa a anonimizar em vez de apagar). A sonda roda
+no **SQL Editor** (tem `DELETE` de usuário que ela cria, termina em `RAISE`).
+`SET LOCAL lock_timeout = '5s'`.
+
+**Por quê.** `incidentes.motorista_id` era `NOT NULL ... ON DELETE CASCADE`:
+excluir a conta do motorista apagava os incidentes que ele reportou, contra o
+que `app/exclusao-de-conta.tsx` promete (registros "anonimizados").
+
+**O que faz.** `motorista_id` aceita NULL e a FK vira `ON DELETE SET NULL`. O
+gatilho `incidentes_confere_rota_parada` (Migration 38) recusaria o SET NULL
+(reconfere "a rota é deste motorista" e `rota.motorista_id = NULL` nunca é
+verdadeiro): passa a pular a conferência da rota com motorista NULL e, em troca,
+recusa NULL no INSERT (23502) — o `NOT NULL` que saiu da coluna. A loja
+(`unidade_id`) e a rota ficam, então o gestor segue vendo o registro pela policy.
+
+**Campos pessoais.** Só `motorista_id` identifica a pessoa e vira NULL.
+`descricao`, `foto_url`, `endereco`, `observacoes_gestao` e demais ficam: são o
+registro da loja. Alternativa descartada: mascarar descrição e foto (tiraria do
+incidente a função para a qual a tela promete preservá-lo).
+
+**Guardas na função.** `delete-account` recusa antes de apagar qualquer coisa:
+409 `ULTIMO_GESTOR` (único gestor ativo de alguma loja), 409
+`ROTA_EM_ANDAMENTO`, 503 `GUARDA_INDISPONIVEL` (a consulta falhou: não libera).
+Lógica em `supabase/functions/delete-account/guardasExclusao.ts`.
+
+**App.** A lista de incidentes do gestor já filtra pela loja (`unidade_id`) e
+passa a mostrar o incidente anonimizado como "Motorista removido", sem o link
+"Ver histórico do motorista" (`src/lib/incidentes/nomeDoMotorista.ts`).
+
+**Gestor único.** Não há tela para promover outro gestor (a Equipe só desativa
+motorista; "Transferir Gestão" move o principal entre gestores que já existem), então
+a mensagem manda pedir ao suporte que adicione um.
+
 ### ✅ Migration 57: foto de comprovante vinculada não é desfeita pelo motorista
 
 **Arquivo:** `20261024190000_foto_comprovante_vinculada_preservada.sql` · **✅ aplicada em 24/10/2026 pelo CLI**
@@ -2409,3 +2576,99 @@ parada aberta, foto do incidente; ligação tardia na forma do app, mesmo valor,
 nova foto em parada aberta, NULL → valor no incidente, conclusão e outra
 coluna; gestor corrige e reabre; com a Migration 50, objeto e referência
 continuam; sem sessão; catálogo; termina em `RAISE`). Rollback colável.
+
+### ✅ Migration 58: parada só muda de rota pelo gestor das lojas das duas rotas
+
+**Arquivo:** `20261024210000_parada_muda_de_rota_pelo_gestor.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois).
+
+**O que faz.** Gatilho BEFORE UPDATE OF `rota_id` em `paradas`, só quando a
+rota muda de fato (cláusula WHEN). Com sessão, a troca de rota vale apenas para
+quem é gestor com vínculo ativo na loja da rota de origem **e** na loja da rota
+de destino; os demais recebem `42501`. Sem sessão (chave secreta do painel e
+das Edge Functions, jobs), nada muda. Função SECURITY DEFINER com
+`search_path` vazio (a conferência de gestor não depende do RLS de quem
+atualiza), sem EXECUTE para PUBLIC, `anon` e `authenticated`.
+
+**Alternativas.** (a) Gatilho que compara OLD e NEW — escolhido. (b) WITH
+CHECK em `paradas_update`: a expressão só enxerga a linha nova, então não
+confere a loja de origem nem que a rota continua a mesma. (c) Privilégio de
+coluna: fecharia a troca também para o gestor das duas lojas, e toda coluna
+nova de `paradas` passaria a exigir GRANT.
+
+**Efeito no que já existe.** Nenhuma RPC muda `rota_id` (`inserir_parada`,
+`reordenar_paradas`, `finalizar_rota` e `criar_rota_com_paradas` gravam só
+`ordem`, `status`, `concluida_em` e `vinculo_parada_id`), e nenhum fluxo do app
+troca a rota de uma parada. Apagar a rota não passa por aqui (FK ON DELETE
+CASCADE, coluna NOT NULL). A fixture do e2e (`garantir-rota-do-mapa`) só reabre
+paradas da mesma rota.
+
+**Medido em 24/10/2026.** 3 motoristas com vínculo ativo em mais de uma loja;
+nenhum gestor nessa situação.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration58-parada-muda-de-rota-pelo-gestor.test.ts`; sonda
+`database/sondas/20261024210000_sonda_migration58.sql`, com casos
+independentes (cada um monta as próprias rotas): motorista com vínculo nas
+duas lojas, gestor de uma loja só e gestor com vínculo inativo no destino não
+mudam a parada de rota; gestor de uma loja só move entre rotas da mesma loja;
+gestor das duas lojas muda; `inserir_parada` e `reordenar_paradas` seguem
+funcionando; UPDATE comum do motorista e SET com a mesma rota passam; sem
+sessão; catálogo, com dono `postgres`; termina em `RAISE`. A guarda confere o
+SQLSTATE `42501` dos casos recusados. Rollback colável.
+
+### ✅ Migration 59: incidente só muda de rota pelo gestor das lojas de origem e de destino
+
+**Arquivo:** `20261024220000_incidente_muda_de_rota_pelo_gestor.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois)
+
+**O que faz.** Gatilho BEFORE UPDATE OF `rota_id` em `incidentes`, só quando o
+incidente vai para outra rota não nula (cláusula WHEN). Com sessão, a troca
+vale apenas para quem é gestor com vínculo ativo na loja de origem do
+incidente (`OLD.unidade_id`; sem ela, a loja da rota antiga) **e** na loja da
+rota de destino; os demais recebem `42501`. Mesmo molde da Migration 58. Sem
+sessão (chave secreta do painel e das Edge Functions, jobs), nada muda.
+Função SECURITY DEFINER com `search_path` vazio e dono `postgres`, sem EXECUTE
+para PUBLIC, `anon` e `authenticated`.
+
+**Por que a origem vem de OLD.** O `incidentes_define_unidade` reescreve
+`NEW.unidade_id` pela rota nova. O gatilho lê OLD e a loja da rota nova em
+`rotas`, então o resultado não depende da ordem alfabética dos gatilhos
+BEFORE. `unidade_id` fica fora da lista OF: gravar a coluna direto não muda a
+loja, porque o `incidentes_define_unidade` devolve `OLD.unidade_id` quando a
+rota não muda (a sonda confere).
+
+**Alternativas.** (a) Gatilho próprio com origem em OLD e destino pela rota —
+escolhido. (b) Comparar `OLD.unidade_id` com o `NEW.unidade_id` já
+recalculado: depende de disparar depois do `incidentes_define_unidade`, e um
+renomear desfaria a regra sem erro. (c) RAISE dentro do
+`incidentes_define_unidade`: mistura cálculo de loja com permissão numa função
+que também roda na criação. (d) WITH CHECK em `incidentes_update`: sem OLD, e
+o próprio motorista continua passando. (e) Privilégio de coluna: fecharia a
+troca também para o gestor das duas lojas.
+
+**Efeito no que já existe.** Nenhum fluxo do app troca `rota_id` de incidente:
+a criação (envio e restauração do rascunho) é INSERT, que não passa por
+gatilho de UPDATE; as atualizações gravam `status`, `observacoes_gestao`,
+`resolvido_em` e `updated_at`, e a ligação tardia da foto (Migration 57) grava
+só `foto_url`. Nenhuma função do banco faz UPDATE em `incidentes`. Desligar a
+rota (NULL), inclusive o ON DELETE SET NULL ao apagar a rota, fica fora da
+cláusula WHEN e mantém a loja.
+
+**Medido em 24/10/2026.** 26 incidentes, nenhum sem loja gravada e nenhum com
+loja diferente da loja da rota; 3 sem rota.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration59-incidente-muda-de-rota-pelo-gestor.test.ts`;
+sonda `database/sondas/20261024220000_sonda_migration59.sql`, com casos
+independentes (cada um monta as próprias rotas e o próprio incidente):
+motorista com vínculo nas duas lojas não muda o incidente de rota (nem na
+mesma loja, nem ligando um incidente sem rota a outra loja); gestor de uma
+loja só e gestor com vínculo inativo no destino não mudam; gestor de uma loja
+só move entre rotas da mesma loja; gestor das duas lojas muda e a loja
+acompanha; UPDATE comum do motorista (descrição, foto NULL → valor), desligar
+a rota, SET com a mesma rota e criação do incidente passam; `unidade_id`
+gravado direto não muda a loja; sem sessão; catálogo, com dono `postgres`;
+termina em `RAISE`. Rollback colável.

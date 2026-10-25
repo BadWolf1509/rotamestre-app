@@ -7,6 +7,7 @@ import {
   CHAVE_FILA_POSICOES,
   MAX_TENTATIVAS_POSICAO,
   TETO_FILA_POSICOES,
+  invalidarPosicoesEmVoo,
   registrarPosicao,
   type Posicao,
 } from '../filaPosicoes';
@@ -20,7 +21,33 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Sessão lida quando não há contexto de rastreamento do motorista.
+const mockLerSessao = jest.fn();
+jest.mock('@/lib/auth/sessao', () => ({
+  lerSessao: () => mockLerSessao(),
+}));
+
 const memoria = new Map<string, string>();
+
+const CHAVE_CONTEXTO = '@rotamestre:tracking_context';
+const CHAVE_ULTIMO_USUARIO = '@rotamestre:ultimo_usuario';
+
+/** Contexto de rastreamento gravado pela task, com o motorista dado. */
+function contextoDe(motoristaId: string | null) {
+  if (motoristaId === null) {
+    memoria.delete(CHAVE_CONTEXTO);
+    return;
+  }
+  memoria.set(
+    CHAVE_CONTEXTO,
+    JSON.stringify({
+      rotaId: 'rota-a',
+      motoristaId,
+      motoristaNome: 'Motorista',
+      startedAt: '2026-10-24T12:00:00Z',
+    }),
+  );
+}
 
 const ERRO_DE_REDE = { message: 'TypeError: Network request failed' };
 const ERRO_DEFINITIVO = {
@@ -87,6 +114,8 @@ beforeEach(() => {
     },
   );
   comRede();
+  contextoDe('m1');
+  mockLerSessao.mockResolvedValue({ session: null, offline: false });
 });
 
 describe('filaPosicoes', () => {
@@ -95,9 +124,28 @@ describe('filaPosicoes', () => {
 
     expect(destino).toBe('enviada');
     expect(mockInsert).toHaveBeenCalledTimes(1);
-    // Fila vazia: o horário fica com o relógio do servidor (default NOW()).
-    expect(mockInsert).toHaveBeenCalledWith(posicao());
+    // O horário é o do GPS, não o do servidor (default NOW()): a posição pode
+    // ter sido capturada segundos antes de o insert sair.
+    expect(mockInsert).toHaveBeenCalledWith({
+      ...posicao(),
+      timestamp: iso(1),
+    });
     expect(filaGuardada()).toBeNull();
+  });
+
+  it('fix sem horário válido sai com o relógio do aparelho, em vez de se perder', async () => {
+    const agora = jest.spyOn(Date, 'now').mockReturnValue(minuto(7));
+    try {
+      const destino = await registrarPosicao(posicao(), Number.NaN, ROTULO);
+
+      expect(destino).toBe('enviada');
+      expect(mockInsert).toHaveBeenCalledWith({
+        ...posicao(),
+        timestamp: iso(7),
+      });
+    } finally {
+      agora.mockRestore();
+    }
   });
 
   it('sem rede, guarda a posição com o horário em que foi capturada', async () => {
@@ -219,6 +267,7 @@ describe('filaPosicoes', () => {
 
   it('fila de outra conta é descartada, nunca enviada', async () => {
     semRede();
+    contextoDe('outra');
     await registrarPosicao(
       posicao({ motorista_id: 'outra' }),
       minuto(1),
@@ -226,6 +275,7 @@ describe('filaPosicoes', () => {
     );
     mockInsert.mockClear();
     comRede();
+    contextoDe('m1');
 
     await registrarPosicao(posicao({ motorista_id: 'm1' }), minuto(2), ROTULO);
 
@@ -237,11 +287,13 @@ describe('filaPosicoes', () => {
 
   it('sem rede, a posição de outra conta substitui a fila antiga', async () => {
     semRede();
+    contextoDe('outra');
     await registrarPosicao(
       posicao({ motorista_id: 'outra' }),
       minuto(1),
       ROTULO,
     );
+    contextoDe('m1');
 
     await registrarPosicao(posicao({ motorista_id: 'm1' }), minuto(2), ROTULO);
 
@@ -336,6 +388,68 @@ describe('filaPosicoes', () => {
     });
   });
 
+  // Posição recusada pelo servidor (rota que não é mais do motorista: foi
+  // reatribuída, ou a loja foi desativada). O lote dela não pode prender o
+  // das outras rotas por até MAX_TENTATIVAS_POSICAO posições.
+  it('lote recusado de uma rota não prende o lote das rotas seguintes', async () => {
+    const recusada = { code: '42501', message: 'posição recusada' };
+    semRede();
+    await registrarPosicao(posicao({ rota_id: 'antiga' }), minuto(1), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(2), ROTULO);
+    mockInsert.mockClear();
+    mockInsert.mockImplementation(async (linhas: Posicao[]) =>
+      linhas[0].rota_id === 'antiga' ? { error: recusada } : { error: null },
+    );
+
+    await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(3), ROTULO);
+
+    expect(lotesEnviados()).toEqual([
+      [{ ...posicao({ rota_id: 'antiga' }), timestamp: iso(1) }],
+      [
+        { ...posicao({ rota_id: 'nova' }), timestamp: iso(2) },
+        { ...posicao({ rota_id: 'nova' }), timestamp: iso(3) },
+      ],
+    ]);
+    // O lote recusado continua guardado, contando a tentativa: a mesma
+    // recusa vem de uma sessão que saiu anônima, e aí ele precisa subir.
+    expect(filaGuardada()?.posicoes).toEqual([
+      { ...posicao({ rota_id: 'antiga' }), timestamp: iso(1), tentativas: 1 },
+    ]);
+  });
+
+  it('depois de pular o lote recusado, erro de rede na rota seguinte para o envio', async () => {
+    const recusada = { code: '42501', message: 'posição recusada' };
+    semRede();
+    await registrarPosicao(posicao({ rota_id: 'antiga' }), minuto(1), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'nova' }), minuto(2), ROTULO);
+    await registrarPosicao(posicao({ rota_id: 'terceira' }), minuto(3), ROTULO);
+    mockInsert.mockClear();
+    mockInsert.mockImplementation(async (linhas: Posicao[]) => {
+      if (linhas[0].rota_id === 'antiga') return { error: recusada };
+      if (linhas[0].rota_id === 'nova') return { error: ERRO_DE_REDE };
+      return { error: null };
+    });
+
+    const destino = await registrarPosicao(
+      posicao({ rota_id: 'terceira' }),
+      minuto(4),
+      ROTULO,
+    );
+
+    expect(destino).toBe('na_fila');
+    // A recusada foi pulada, a nova foi tentada, e a terceira nem saiu.
+    expect(lotesEnviados().map((l) => l[0].rota_id)).toEqual([
+      'antiga',
+      'nova',
+    ]);
+    expect(filaGuardada()?.posicoes).toEqual([
+      { ...posicao({ rota_id: 'antiga' }), timestamp: iso(1), tentativas: 1 },
+      { ...posicao({ rota_id: 'nova' }), timestamp: iso(2) },
+      { ...posicao({ rota_id: 'terceira' }), timestamp: iso(3) },
+      { ...posicao({ rota_id: 'terceira' }), timestamp: iso(4) },
+    ]);
+  });
+
   it('posição que esgota as tentativas sai da fila, com um logger.error por descarte', async () => {
     semRede();
     await registrarPosicao(posicao({ latitude: 0 }), minuto(0), ROTULO);
@@ -376,5 +490,197 @@ describe('filaPosicoes', () => {
 
   it('o logout apaga a fila', () => {
     expect(CHAVES_DA_CONTA).toContain(CHAVE_FILA_POSICOES);
+  });
+
+  // Sinal fraco: o insert ainda está no ar quando o logout limpa o aparelho,
+  // e só depois falha por rede. A limpeza não passa pela fila em série; sem a
+  // geração, `guardar` regravaria a fila com as posições da conta que saiu.
+  it('insert pendurado que falha por rede depois do logout não recria a fila', async () => {
+    let falhar: () => void = () => {};
+    mockInsert.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          falhar = () => resolve({ error: ERRO_DE_REDE });
+        }),
+    );
+
+    const emVoo = registrarPosicao(posicao(), minuto(1), ROTULO);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+
+    // Logout: a limpeza invalida as posições em voo e apaga as chaves da
+    // conta. O contexto, lido antes, não salva a posição: a geração a recusa.
+    invalidarPosicoesEmVoo();
+    memoria.delete(CHAVE_FILA_POSICOES);
+    memoria.delete(CHAVE_ULTIMO_USUARIO);
+    falhar();
+
+    expect(await emVoo).toBe('perdida');
+    expect(filaGuardada()).toBeNull();
+  });
+
+  // N1 + N2 da revisão: troca de conta DURANTE um envio da fila. O envio
+  // começado antes do logout não pode seguir nas rodadas seguintes.
+  describe('troca de conta durante o envio da fila', () => {
+    /** Fila guardada de `userId` com posições nos minutos dados. */
+    function guardarFila(userId: string, minutos: number[]) {
+      memoria.set(
+        CHAVE_FILA_POSICOES,
+        JSON.stringify({
+          userId,
+          estourou: false,
+          posicoes: minutos.map((n) => ({
+            ...posicao({ motorista_id: userId }),
+            timestamp: iso(n),
+          })),
+        }),
+      );
+    }
+
+    /** O 1º insert fica no ar até `soltar()`; os seguintes sobem. */
+    function primeiroInsertPendurado() {
+      let soltar: () => void = () => {};
+      mockInsert.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            soltar = () => resolve({ error: null });
+          }),
+      );
+      mockInsert.mockResolvedValue({ error: null });
+      return () => soltar();
+    }
+
+    it('N1: o envio da conta que saiu não apaga a fila da conta que entrou', async () => {
+      guardarFila('m1', [1, 2]);
+      const soltar = primeiroInsertPendurado();
+
+      const emVoo = registrarPosicao(posicao(), minuto(3), ROTULO);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+
+      // Logout de m1 e login de m2, que já guardou posição sem rede.
+      invalidarPosicoesEmVoo();
+      memoria.delete(CHAVE_FILA_POSICOES);
+      guardarFila('m2', [10]);
+      soltar();
+      await emVoo;
+
+      expect(filaGuardada()?.userId).toBe('m2');
+      expect(filaGuardada()?.posicoes).toHaveLength(1);
+    });
+
+    it('N2: a mesma conta sai e entra durante o envio, e o lote não sobe de novo', async () => {
+      guardarFila('m1', [1, 2]);
+      const soltar = primeiroInsertPendurado();
+
+      const emVoo = registrarPosicao(posicao(), minuto(3), ROTULO);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+
+      // Sai e entra de novo (a fila não foi apagada: o `remover` do envio
+      // antigo é recusado pela geração e o lote continuaria lá).
+      invalidarPosicoesEmVoo();
+      soltar();
+      await emVoo;
+
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // Corrida com o logout: a posição que estava no ar quando o motorista saiu
+  // falha por rede depois da limpeza e recriaria a fila no aparelho.
+  describe('só guarda com contexto de rastreamento ou sessão do motorista', () => {
+    it('sem contexto nem sessão, a posição em voo não recria a fila', async () => {
+      semRede();
+      contextoDe(null);
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('contexto de outro motorista não conta', async () => {
+      semRede();
+      contextoDe('outra');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    // No web o contexto de rastreamento nunca é gravado, e sem rede o
+    // `lerSessao` devolve "offline" sem ler a sessão. O último usuário (que o
+    // logout apaga) diz de quem é a posição.
+    it('web, sem rede e sem contexto: com o último usuário igual ao motorista, guarda', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+      memoria.set(CHAVE_ULTIMO_USUARIO, 'm1');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('na_fila');
+      expect(filaGuardada()?.posicoes).toHaveLength(1);
+    });
+
+    it('depois do logout (último usuário apagado), sem rede, a fila não é recriada', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('sem rede, último usuário de outra conta não conta', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: true });
+      memoria.set(CHAVE_ULTIMO_USUARIO, 'outra');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('com rede e sem sessão, o último usuário não basta (requisição anônima)', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({ session: null, offline: false });
+      memoria.set(CHAVE_ULTIMO_USUARIO, 'm1');
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('perdida');
+      expect(filaGuardada()).toBeNull();
+    });
+
+    it('sem contexto, a sessão do próprio motorista basta (navegação, broadcast)', async () => {
+      semRede();
+      contextoDe(null);
+      mockLerSessao.mockResolvedValue({
+        session: { user: { id: 'm1' } },
+        offline: false,
+      });
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('na_fila');
+      expect(filaGuardada()?.posicoes).toHaveLength(1);
+    });
+
+    it('com o contexto do motorista, guarda sem consultar a sessão', async () => {
+      semRede();
+
+      const destino = await registrarPosicao(posicao(), minuto(1), ROTULO);
+
+      expect(destino).toBe('na_fila');
+      expect(mockLerSessao).not.toHaveBeenCalled();
+    });
   });
 });

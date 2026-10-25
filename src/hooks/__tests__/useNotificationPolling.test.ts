@@ -1,45 +1,83 @@
 /**
- * Tests for useNotificationPolling
- * Polls unread notification count every 30s as a realtime fallback.
+ * Testes do useNotificationPolling: reserva do realtime de notificações.
+ *
+ * DP-5: antes ele baixava TODAS as não lidas a cada 30 s, mesmo com o realtime
+ * conectado. Agora só roda com o realtime fora (`ativo`) e busca só o que é
+ * novo desde a última notificação vista (`desde`).
  */
 
-import { renderHook, act } from "@testing-library/react-native";
+import { act, renderHook } from '@testing-library/react-native';
 
-import { useNotificationPolling } from "../useNotificationPolling";
+import { useNotificationPolling } from '../useNotificationPolling';
 
-// Mock supabase
-const mockSelect = jest.fn();
-const mockEq = jest.fn();
-const mockEq2 = jest.fn();
+type Resposta = { data: unknown[] | null; error: unknown };
 
-jest.mock("@/lib/supabase", () => ({
-  supabase: {
-    from: jest.fn(() => ({
-      select: mockSelect,
-    })),
-  },
-}));
+const mockChamadas: { metodo: string; args: unknown[] }[] = [];
+let mockResposta: Promise<Resposta> = Promise.resolve({ data: [], error: null });
 
-jest.mock("@/lib/logger", () => ({
-  logger: {
-    debug: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
-    error: jest.fn(),
-  },
-}));
-
-function setupSupabaseMock(data: unknown[] | null, error: unknown = null) {
-  mockEq2.mockResolvedValue({ data, error });
-  mockEq.mockReturnValue({ eq: mockEq2 });
-  mockSelect.mockReturnValue({ eq: mockEq });
+function mockConsulta() {
+  const builder: Record<string, unknown> = {};
+  for (const metodo of ['select', 'eq', 'gte', 'order', 'limit']) {
+    builder[metodo] = (...args: unknown[]) => {
+      mockChamadas.push({ metodo, args });
+      return builder;
+    };
+  }
+  builder.then = (
+    ok: (r: Resposta) => unknown,
+    falha?: (e: unknown) => unknown,
+  ) => mockResposta.then(ok, falha);
+  return builder;
 }
 
-describe("useNotificationPolling", () => {
+jest.mock('@/lib/supabase', () => ({
+  supabase: { from: jest.fn(() => mockConsulta()) },
+}));
+
+jest.mock('@/lib/logger', () => ({
+  logger: { debug: jest.fn(), warn: jest.fn(), info: jest.fn(), error: jest.fn() },
+}));
+
+const { supabase } = jest.requireMock('@/lib/supabase');
+const { logger } = jest.requireMock('@/lib/logger');
+
+async function esvaziarPromessas() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function avancar(ms: number) {
+  await act(async () => {
+    jest.advanceTimersByTime(ms);
+  });
+  await esvaziarPromessas();
+}
+
+type Props = Parameters<typeof useNotificationPolling>[0];
+
+function montar(inicial: Partial<Props> = {}) {
+  const onNovas = jest.fn();
+  const props: Props = {
+    userId: 'user-1',
+    ativo: true,
+    desde: '2026-10-24T10:00:00.000000+00:00',
+    onNovas,
+    ...inicial,
+  };
+  const hook = renderHook((p: Props) => useNotificationPolling(p), {
+    initialProps: props,
+  });
+  return { ...hook, onNovas, props };
+}
+
+describe('useNotificationPolling', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
-    setupSupabaseMock([]);
+    mockChamadas.length = 0;
+    mockResposta = Promise.resolve({ data: [], error: null });
   });
 
   afterEach(() => {
@@ -47,285 +85,126 @@ describe("useNotificationPolling", () => {
     jest.useRealTimers();
   });
 
-  describe("Initialization", () => {
-    it("should not poll when userId is undefined", () => {
-      const onCountChange = jest.fn();
-
-      renderHook(() =>
-        useNotificationPolling({ userId: undefined, onCountChange }),
-      );
-
-      const { supabase } = require("@/lib/supabase");
-      expect(supabase.from).not.toHaveBeenCalled();
-    });
-
-    it("should poll immediately on mount when userId is provided", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock([{ id: "1", lida: false }]);
-
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      // Flush the initial async poll
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const { supabase } = require("@/lib/supabase");
-      expect(supabase.from).toHaveBeenCalledWith("notificacoes");
-      expect(mockSelect).toHaveBeenCalledWith("id, lida");
-      expect(mockEq).toHaveBeenCalledWith("usuario_id", "user-1");
-      expect(mockEq2).toHaveBeenCalledWith("lida", false);
-    });
+  it('não consulta sem usuário', async () => {
+    montar({ userId: undefined });
+    await avancar(90_000);
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  describe("Callback invocation", () => {
-    it("should call onCountChange when count changes from 0", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock([
-        { id: "1", lida: false },
-        { id: "2", lida: false },
-      ]);
-
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      expect(onCountChange).toHaveBeenCalledWith(2, 0);
-    });
-
-    it("should not call onCountChange when count stays the same", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock([]);
-
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      // Count is 0 and lastCountRef starts at 0 - no change
-      expect(onCountChange).not.toHaveBeenCalled();
-    });
-
-    it("should detect count changes on subsequent polls", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock([]);
-
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      // Initial poll: count=0, lastCount=0 → no change
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(onCountChange).not.toHaveBeenCalled();
-
-      // Now mock 3 notifications for the next poll
-      setupSupabaseMock([
-        { id: "1", lida: false },
-        { id: "2", lida: false },
-        { id: "3", lida: false },
-      ]);
-
-      // Advance to trigger interval poll (30s)
-      await act(async () => {
-        jest.advanceTimersByTime(30000);
-        await Promise.resolve();
-      });
-
-      expect(onCountChange).toHaveBeenCalledWith(3, 0);
-    });
+  it('com o realtime conectado (ativo: false), não consulta', async () => {
+    montar({ ativo: false });
+    await avancar(90_000);
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  describe("Interval management", () => {
-    it("should set up 30s interval", () => {
-      const onCountChange = jest.fn();
-
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      // There should be at least 1 timer (the interval)
-      expect(jest.getTimerCount()).toBeGreaterThanOrEqual(1);
-    });
-
-    it("should clear interval on unmount", async () => {
-      const clearIntervalSpy = jest.spyOn(global, "clearInterval");
-      const onCountChange = jest.fn();
-
-      const { unmount } = renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      unmount();
-
-      // clearInterval should have been called during cleanup
-      expect(clearIntervalSpy).toHaveBeenCalled();
-      clearIntervalSpy.mockRestore();
-    });
-
-    it("should clear old interval and create new one when userId changes", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock([]);
-
-      const { rerender } = renderHook(
-        ({ userId }: { userId: string | undefined }) =>
-          useNotificationPolling({ userId, onCountChange }),
-        { initialProps: { userId: "user-1" } },
-      );
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const { supabase } = require("@/lib/supabase");
-      const callCountBefore = supabase.from.mock.calls.length;
-
-      // Change userId - should re-setup
-      rerender({ userId: "user-2" });
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      // Should have been called again with new userId
-      expect(mockEq).toHaveBeenCalledWith("usuario_id", "user-2");
-      expect(supabase.from.mock.calls.length).toBeGreaterThan(callCountBefore);
-    });
+  it('com o realtime fora, consulta a cada 30 s', async () => {
+    montar();
+    await avancar(30_000);
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+    await avancar(30_000);
+    expect(supabase.from).toHaveBeenCalledTimes(2);
   });
 
-  describe("Ref stability (stale closure avoidance)", () => {
-    it("should use latest onCountChange callback via ref", async () => {
-      const firstCallback = jest.fn();
-      const secondCallback = jest.fn();
-      setupSupabaseMock([]);
+  it('busca só o que é novo desde a última vista, com os detalhes da lista', async () => {
+    montar();
+    await avancar(30_000);
 
-      const { rerender } = renderHook(
-        ({
-          onCountChange,
-        }: {
-          onCountChange: (n: number, p: number) => void;
-        }) => useNotificationPolling({ userId: "user-1", onCountChange }),
-        { initialProps: { onCountChange: firstCallback } },
-      );
-
-      // Initial poll (count=0, lastCount=0, no change)
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      // Change callback (should NOT re-create interval since userId didn't change)
-      rerender({ onCountChange: secondCallback });
-
-      // Now set up data that triggers a count change
-      setupSupabaseMock([{ id: "1", lida: false }]);
-
-      // Advance to next poll
-      await act(async () => {
-        jest.advanceTimersByTime(30000);
-        await Promise.resolve();
-      });
-
-      // The second (latest) callback should be called, not the first
-      expect(secondCallback).toHaveBeenCalledWith(1, 0);
-      expect(firstCallback).not.toHaveBeenCalled();
-    });
+    expect(supabase.from).toHaveBeenCalledWith('notificacoes');
+    expect(mockChamadas).toEqual(
+      expect.arrayContaining([
+        { metodo: 'eq', args: ['usuario_id', 'user-1'] },
+        {
+          metodo: 'gte',
+          args: ['created_at', '2026-10-24T10:00:00.000000+00:00'],
+        },
+        { metodo: 'order', args: ['created_at', { ascending: false }] },
+      ]),
+    );
+    const select = mockChamadas.find((c) => c.metodo === 'select');
+    expect(String(select?.args[0])).toContain('rota:rotas');
+    // Nunca mais a varredura de todas as não lidas.
+    expect(mockChamadas).not.toContainEqual({ metodo: 'eq', args: ['lida', false] });
   });
 
-  describe("setLastCount", () => {
-    it("should return setLastCount function", () => {
-      const onCountChange = jest.fn();
+  it('usa o `desde` mais recente, sem reiniciar o intervalo', async () => {
+    const { rerender, props } = montar();
+    rerender({ ...props, desde: '2026-10-24T11:00:00.000000+00:00' });
+    await avancar(30_000);
 
-      const { result } = renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      expect(typeof result.current.setLastCount).toBe("function");
+    expect(mockChamadas).toContainEqual({
+      metodo: 'gte',
+      args: ['created_at', '2026-10-24T11:00:00.000000+00:00'],
     });
-
-    it("should update internal lastCount ref to prevent false change notifications", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock([
-        { id: "1", lida: false },
-        { id: "2", lida: false },
-      ]);
-
-      const { result } = renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      // Initial poll detects 2 unread (from 0)
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(onCountChange).toHaveBeenCalledWith(2, 0);
-      onCountChange.mockClear();
-
-      // Externally set lastCount to 2 (e.g. after manual load)
-      act(() => {
-        result.current.setLastCount(2);
-      });
-
-      // Next poll with same 2 notifications should NOT trigger change
-      await act(async () => {
-        jest.advanceTimersByTime(30000);
-        await Promise.resolve();
-      });
-
-      expect(onCountChange).not.toHaveBeenCalled();
-    });
+    expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 
-  describe("Error handling", () => {
-    it("should handle supabase query error gracefully", async () => {
-      const onCountChange = jest.fn();
-      setupSupabaseMock(null, { message: "Query failed" });
+  it('sem nenhuma vista ainda, busca a primeira página sem filtro de data', async () => {
+    montar({ desde: null });
+    await avancar(30_000);
+    expect(mockChamadas.some((c) => c.metodo === 'gte')).toBe(false);
+    expect(mockChamadas.some((c) => c.metodo === 'limit')).toBe(true);
+  });
 
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
+  it('entrega as novas a quem chamou', async () => {
+    const novas = [{ id: 'n-2', lida: false }];
+    mockResposta = Promise.resolve({ data: novas, error: null });
+    const { onNovas } = montar();
+    await avancar(30_000);
+    expect(onNovas).toHaveBeenCalledWith(novas);
+  });
 
-      await act(async () => {
-        await Promise.resolve();
-      });
+  it('não chama ninguém quando não há nada novo', async () => {
+    const { onNovas } = montar();
+    await avancar(30_000);
+    expect(onNovas).not.toHaveBeenCalled();
+  });
 
-      // Should not call onCountChange on error
-      expect(onCountChange).not.toHaveBeenCalled();
+  // Entre o último evento visto e o SUBSCRIBED o canal não ouve nada: o que
+  // chegou nesse intervalo só aparece com uma busca.
+  it('quando o realtime volta, faz uma busca de recuperação e para o intervalo', async () => {
+    const { rerender, props } = montar();
+    rerender({ ...props, ativo: false });
+    await esvaziarPromessas();
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+
+    await avancar(90_000);
+    expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it('descarta a resposta atrasada da conta anterior', async () => {
+    let responder: (r: Resposta) => void = () => {};
+    mockResposta = new Promise((r) => {
+      responder = r;
     });
+    const { rerender, props, onNovas } = montar();
+    await avancar(30_000);
 
-    it("should handle thrown errors gracefully", async () => {
-      const onCountChange = jest.fn();
-      mockEq2.mockRejectedValue(new Error("Network error"));
-      mockEq.mockReturnValue({ eq: mockEq2 });
-      mockSelect.mockReturnValue({ eq: mockEq });
-
-      renderHook(() =>
-        useNotificationPolling({ userId: "user-1", onCountChange }),
-      );
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      const { logger } = require("@/lib/logger");
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("Falha ao carregar notificações"),
-        expect.any(Error),
-      );
-      expect(onCountChange).not.toHaveBeenCalled();
+    rerender({ ...props, userId: 'user-2' });
+    await act(async () => {
+      responder({ data: [{ id: 'da-conta-antiga' }], error: null });
     });
+    await esvaziarPromessas();
+
+    expect(onNovas).not.toHaveBeenCalled();
+  });
+
+  it('erro da consulta: avisa com no máximo 2 argumentos e não entrega nada', async () => {
+    const erro = { message: 'falhou' };
+    mockResposta = Promise.resolve({ data: null, error: erro });
+    const { onNovas } = montar();
+    await avancar(30_000);
+
+    expect(onNovas).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('[Polling:Notificacoes]'),
+      erro,
+    );
+  });
+
+  it('para o intervalo ao desmontar', async () => {
+    const { unmount } = montar();
+    unmount();
+    await avancar(90_000);
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });

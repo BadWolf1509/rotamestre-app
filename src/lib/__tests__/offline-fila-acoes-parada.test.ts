@@ -207,3 +207,61 @@ it('ao entrar (SIGNED_IN), adota/sobe as fotos e depois envia as ações de para
   expect(ordem).toEqual(['foto', 'acoes']);
   parar();
 });
+
+// MOT-5: a notificação "Modo Offline" só olhava a fila genérica (que ninguém
+// alimenta) e as fotos. Conclusão/pulo guardados sem foto — o caso comum do
+// pular — não avisavam. Conta só as ações de quem está no aparelho, como as
+// fotos (`getPendingPhotosCount`): as de outra conta não sobem agora.
+describe('notificação "Modo Offline" ao perder a rede', () => {
+  const { notifyOfflineMode } = jest.requireMock('../notifications') as {
+    notifyOfflineMode: jest.Mock;
+  };
+  const { lerFilaAcoesParada } = jest.requireMock(
+    '../motorista/filaAcoesParada',
+  ) as { lerFilaAcoesParada: jest.Mock };
+
+  function acaoDe(motoristaId: string) {
+    return {
+      id: `a-${motoristaId}`,
+      tipo: 'pular',
+      paradaId: 'p1',
+      rotaId: 'rota-1',
+      motoristaId,
+      em: '2026-10-24T12:00:00.000Z',
+    };
+  }
+
+  async function perderARede() {
+    const AsyncStorage = jest.requireMock(
+      '@react-native-async-storage/async-storage',
+    );
+    AsyncStorage.__mapa.clear(); // sem foto pendente
+    notifyOfflineMode.mockClear();
+    setupOfflineSync();
+    const ouvinte = (NetInfo.addEventListener as jest.Mock).mock.calls.at(
+      -1,
+    )[0];
+    await ouvinte({ isConnected: false, isInternetReachable: false });
+  }
+
+  afterEach(() => {
+    lerFilaAcoesParada.mockResolvedValue([]);
+  });
+
+  it('avisa quando há pulo/conclusão desta conta guardado, mesmo sem foto', async () => {
+    lerFilaAcoesParada.mockResolvedValue([acaoDe('mot-1')]);
+    await perderARede();
+    expect(notifyOfflineMode).toHaveBeenCalledTimes(1);
+  });
+
+  it('não avisa por ação deixada por OUTRA conta', async () => {
+    lerFilaAcoesParada.mockResolvedValue([acaoDe('mot-2')]);
+    await perderARede();
+    expect(notifyOfflineMode).not.toHaveBeenCalled();
+  });
+
+  it('sem nada guardado, não avisa', async () => {
+    await perderARede();
+    expect(notifyOfflineMode).not.toHaveBeenCalled();
+  });
+});

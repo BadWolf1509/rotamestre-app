@@ -7,6 +7,7 @@ import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelSc
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { RouteStatusProvider } from '@/context/RouteStatusContext';
+import { useLembreteDiario } from '@/hooks/motorista/useLembreteDiario';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
@@ -20,6 +21,8 @@ export default function MotoristaLayout() {
     tentarNovamente,
   } = useRequireAuth({ role: 'motorista' });
   const { isDesktop } = useResponsive();
+  // Lembrete diário "Bom dia!": só do motorista autorizado neste layout.
+  useLembreteDiario(isReady && isAuthorized ? 'motorista' : null);
 
   // Aguardar verificação de autenticação
   if (!isReady) {

@@ -11,11 +11,16 @@ import React, {
   useContext,
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 
 import { useAuth } from "@/hooks/useAuth";
-import { useNotificationPolling } from "@/hooks/useNotificationPolling";
+import {
+  SELECT_NOTIFICACAO_COM_DETALHES,
+  useNotificationPolling,
+} from "@/hooks/useNotificationPolling";
 import { useNotificationRealtime } from "@/hooks/useNotificationRealtime";
 import { useUser } from "@/hooks/useUser";
 import { logger } from "@/lib/logger";
@@ -28,6 +33,33 @@ import { triggerNewNotificationFeedback } from "@/utils/notificationFeedback";
 import { toast } from "@/utils/toast";
 
 const PAGE_SIZE = 20;
+
+/**
+ * Junta notificações à lista sem repetir id: o mesmo INSERT pode chegar pelo
+ * realtime e pelo polling, e a paginação por offset repete itens quando a
+ * lista anda. As que já existem ficam como estão. Devolve a MESMA lista
+ * quando não há inédita.
+ */
+function mesclarSemRepetir(
+  lista: NotificacaoComDetalhes[],
+  novas: NotificacaoComDetalhes[],
+  posicao: "inicio" | "fim",
+): NotificacaoComDetalhes[] {
+  const ids = new Set(lista.map((n) => n.id));
+  const ineditas = novas.filter((n) => {
+    if (ids.has(n.id)) return false;
+    ids.add(n.id);
+    return true;
+  });
+  if (ineditas.length === 0) return lista;
+  return posicao === "inicio"
+    ? [...ineditas, ...lista]
+    : [...lista, ...ineditas];
+}
+
+function contarNaoLidas(lista: NotificacaoComDetalhes[]): number {
+  return lista.reduce((total, n) => total + (n.lida ? 0 : 1), 0);
+}
 
 interface NotificationDataContextType {
   notificacoes: NotificacaoComDetalhes[];
@@ -63,17 +95,54 @@ export function NotificationDataProvider({
 }: NotificationDataProviderProps) {
   const { userData } = useUser();
   const { session } = useAuth();
+  const userId = userData?.id;
   const [notificacoes, setNotificacoes] = useState<NotificacaoComDetalhes[]>(
     [],
   );
-  const [naoLidas, setNaoLidas] = useState(0);
+  // Contador (DP-6/AN6), fonte única: não lidas da lista + não lidas que
+  // ficaram FORA da página carregada. Derivar só da lista erraria com mais de
+  // PAGE_SIZE notificações; recontar no servidor a cada evento custaria uma
+  // requisição por evento e disputaria com a atualização otimista. O "fora"
+  // nasce do count exato da carga e só muda em loadMore, em UPDATE de
+  // notificação não carregada e no "marcar todas".
+  const [naoLidasForaDaLista, setNaoLidasForaDaLista] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  const naoLidas = useMemo(
+    () => naoLidasForaDaLista + contarNaoLidas(notificacoes),
+    [naoLidasForaDaLista, notificacoes],
+  );
+
+  // Espelhos para os handlers assíncronos: a conta da sessão AGORA (resposta
+  // de outra conta é descartada), a lista como está e o "fora da lista".
+  const usuarioAtualRef = useRef(userId);
+  const notificacoesRef = useRef(notificacoes);
+  const foraDaListaRef = useRef(naoLidasForaDaLista);
+
+  const definirLista = useCallback((lista: NotificacaoComDetalhes[]) => {
+    notificacoesRef.current = lista;
+    setNotificacoes(lista);
+  }, []);
+  const definirForaDaLista = useCallback((valor: number) => {
+    foraDaListaRef.current = Math.max(0, valor);
+    setNaoLidasForaDaLista(foraDaListaRef.current);
+  }, []);
+
+  // AN5: sem usuário (logout) ou com outro (troca de conta), nada da conta
+  // anterior fica na tela.
+  useEffect(() => {
+    usuarioAtualRef.current = userId;
+    if (notificacoesRef.current.length > 0) definirLista([]);
+    definirForaDaLista(0);
+    setHasMore(true);
+    setIsLoadingMore(false);
+  }, [userId, definirLista, definirForaDaLista]);
+
   const loadNotifications = useCallback(
     async (reset = true) => {
-      if (!userData?.id) {
+      if (!userId) {
         setLoading(false);
         return;
       }
@@ -87,49 +156,37 @@ export function NotificationDataProvider({
         const [notificacoesResult, countResult] = await Promise.all([
           supabase
             .from("notificacoes")
-            .select(
-              `
-            *,
-            rota:rotas(data, status),
-            parada:paradas(endereco, ordem),
-            incidente:incidentes(categoria, descricao)
-          `,
-            )
-            .eq("usuario_id", userData.id)
+            .select(SELECT_NOTIFICACAO_COM_DETALHES)
+            .eq("usuario_id", userId)
             .order("created_at", { ascending: false })
             .range(0, PAGE_SIZE - 1),
           // Contagem separada de TODAS as não lidas (não apenas da primeira página)
           supabase
             .from("notificacoes")
             .select("id", { count: "exact", head: true })
-            .eq("usuario_id", userData.id)
+            .eq("usuario_id", userId)
             .eq("lida", false),
         ]);
 
+        if (usuarioAtualRef.current !== userId) return;
         if (notificacoesResult.error) throw notificacoesResult.error;
 
-        const notificacoesComDetalhes = (notificacoesResult.data ||
+        const pagina = (notificacoesResult.data ||
           []) as NotificacaoComDetalhes[];
-        setNotificacoes(notificacoesComDetalhes);
-
-        // Usar contagem exata do banco, não apenas da página atual
-        const totalNaoLidas =
-          countResult.count ??
-          notificacoesComDetalhes.filter((n) => !n.lida).length;
-        setNaoLidas(totalNaoLidas);
-
-        setHasMore(notificacoesComDetalhes.length === PAGE_SIZE);
+        definirLista(pagina);
+        definirForaDaLista((countResult.count ?? 0) - contarNaoLidas(pagina));
+        setHasMore(pagina.length === PAGE_SIZE);
       } catch (error) {
         logger.error("[Notificações] Erro ao carregar", error);
       } finally {
-        setLoading(false);
+        if (usuarioAtualRef.current === userId) setLoading(false);
       }
     },
-    [userData?.id],
+    [userId, definirLista, definirForaDaLista],
   );
 
   const loadMore = useCallback(async () => {
-    if (!userData?.id || !hasMore || isLoadingMore || loading) {
+    if (!userId || !hasMore || isLoadingMore || loading) {
       return;
     }
 
@@ -139,33 +196,40 @@ export function NotificationDataProvider({
       const offset = notificacoes.length;
       const { data, error } = await supabase
         .from("notificacoes")
-        .select(
-          `
-          *,
-          rota:rotas(data, status),
-          parada:paradas(endereco, ordem),
-          incidente:incidentes(categoria, descricao)
-        `,
-        )
-        .eq("usuario_id", userData.id)
+        .select(SELECT_NOTIFICACAO_COM_DETALHES)
+        .eq("usuario_id", userId)
         .order("created_at", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
+      if (usuarioAtualRef.current !== userId) return;
       if (error) throw error;
 
-      const newNotificacoes = (data || []) as NotificacaoComDetalhes[];
+      const pagina = (data || []) as NotificacaoComDetalhes[];
 
-      if (newNotificacoes.length < PAGE_SIZE) {
+      if (pagina.length < PAGE_SIZE) {
         setHasMore(false);
       }
 
-      setNotificacoes((prev) => [...prev, ...newNotificacoes]);
+      // As inéditas saem do "fora da lista" e passam a contar pela lista.
+      const atual = notificacoesRef.current;
+      const mesclada = mesclarSemRepetir(atual, pagina, "fim");
+      const trazidasDeFora = contarNaoLidas(mesclada) - contarNaoLidas(atual);
+      definirLista(mesclada);
+      definirForaDaLista(foraDaListaRef.current - trazidasDeFora);
     } catch (error) {
       logger.error("[Notificações] Erro ao carregar mais", error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [userData?.id, hasMore, isLoadingMore, loading, notificacoes.length]);
+  }, [
+    userId,
+    hasMore,
+    isLoadingMore,
+    loading,
+    notificacoes.length,
+    definirLista,
+    definirForaDaLista,
+  ]);
 
   // Initial load
   useEffect(() => {
@@ -173,89 +237,149 @@ export function NotificationDataProvider({
   }, [loadNotifications]);
 
   // Realtime subscription (INSERT/UPDATE via Supabase postgres_changes)
-  const handleRealtimeInsert = useCallback((nova: Notificacao) => {
-    setNotificacoes((prev) => [nova as NotificacaoComDetalhes, ...prev]);
-    setNaoLidas((prev) => prev + 1);
-    triggerNewNotificationFeedback(nova);
-  }, []);
+  const handleRealtimeInsert = useCallback(
+    (nova: Notificacao) => {
+      const atual = notificacoesRef.current;
+      const mesclada = mesclarSemRepetir(
+        atual,
+        [nova as NotificacaoComDetalhes],
+        "inicio",
+      );
+      // Repetida: nem lista, nem contador, nem aviso.
+      if (mesclada === atual) return;
+      definirLista(mesclada);
+      triggerNewNotificationFeedback(nova);
+    },
+    [definirLista],
+  );
 
-  const handleRealtimeUpdate = useCallback((atualizada: Notificacao) => {
-    setNotificacoes((prev) =>
-      prev.map((n) => (n.id === atualizada.id ? { ...n, ...atualizada } : n)),
-    );
-    setNaoLidas((prev) => {
-      const delta = atualizada.lida ? -1 : 1;
-      return Math.max(0, prev + delta);
-    });
-  }, []);
+  const handleRealtimeUpdate = useCallback(
+    (atualizada: Notificacao) => {
+      const atual = notificacoesRef.current;
+      if (atual.some((n) => n.id === atualizada.id)) {
+        // Na lista: o contador acompanha sozinho (só muda se `lida` mudou).
+        definirLista(
+          atual.map((n) =>
+            n.id === atualizada.id ? { ...n, ...atualizada } : n,
+          ),
+        );
+        return;
+      }
+      // Fora da lista o valor anterior é desconhecido (o payload do UPDATE
+      // não traz o `old`). O único UPDATE que o app faz é marcar lida — e o
+      // "marcar todas" filtra `lida = false` —, então lida=true aqui é uma
+      // não lida de fora que deixou de ser.
+      if (atualizada.lida) {
+        definirForaDaLista(foraDaListaRef.current - 1);
+      }
+    },
+    [definirLista, definirForaDaLista],
+  );
 
-  useNotificationRealtime({
-    userId: userData?.id,
+  const { conectado: realtimeConectado } = useNotificationRealtime({
+    userId,
     accessToken: session?.access_token,
     onInsert: handleRealtimeInsert,
     onUpdate: handleRealtimeUpdate,
   });
 
-  // Polling fallback - checks for new unread count every 30s
-  const handlePollingCountChange = useCallback(
-    (newCount: number, previousCount: number) => {
-      setNaoLidas(newCount);
-      if (newCount > previousCount) {
-        loadNotifications(false);
-      }
+  // Polling de reserva (DP-5): só com o realtime fora, e só o que é novo.
+  const handleNovasDoPolling = useCallback(
+    (novas: NotificacaoComDetalhes[]) => {
+      const atual = notificacoesRef.current;
+      const mesclada = mesclarSemRepetir(atual, novas, "inicio");
+      if (mesclada !== atual) definirLista(mesclada);
     },
-    [loadNotifications],
+    [definirLista],
   );
 
-  const { setLastCount } = useNotificationPolling({
-    userId: userData?.id,
-    onCountChange: handlePollingCountChange,
-  });
+  const maisNovaVista = useMemo(
+    () =>
+      notificacoes.reduce<string | null>(
+        (maior, n) =>
+          maior === null || n.created_at > maior ? n.created_at : maior,
+        null,
+      ),
+    [notificacoes],
+  );
 
-  // Sync polling lastCount whenever naoLidas changes (prevents redundant reloads)
-  useEffect(() => {
-    setLastCount(naoLidas);
-  }, [naoLidas, setLastCount]);
+  useNotificationPolling({
+    userId,
+    ativo: !realtimeConectado,
+    desde: maisNovaVista,
+    onNovas: handleNovasDoPolling,
+  });
 
   const marcarComoLida = useCallback(
     async (id: string) => {
-      if (!userData?.id) return;
+      if (!userId) return;
+
+      // Otimista: a tela muda na hora, sem esperar o eco do realtime.
+      const eraNaoLida = notificacoesRef.current.some(
+        (n) => n.id === id && !n.lida,
+      );
+      const definirLida = (lida: boolean) =>
+        definirLista(
+          notificacoesRef.current.map((n) =>
+            n.id === id ? { ...n, lida } : n,
+          ),
+        );
+      if (eraNaoLida) definirLida(true);
 
       try {
         const { error } = await supabase
           .from("notificacoes")
           .update({ lida: true })
           .eq("id", id)
-          .eq("usuario_id", userData.id);
+          .eq("usuario_id", userId);
 
         if (error) throw error;
       } catch (error) {
+        if (eraNaoLida && usuarioAtualRef.current === userId) {
+          definirLida(false);
+        }
         logger.error("[Notificações] Erro ao marcar como lida", error);
         toast.error("Erro ao marcar notificação como lida");
       }
     },
-    [userData?.id],
+    [userId, definirLista],
   );
 
   const marcarTodasComoLidas = useCallback(async () => {
-    if (!userData?.id) return;
+    if (!userId) return;
+
+    // Otimista, guardando o necessário para desfazer: só as que ERAM não
+    // lidas voltam (uma nova que chegou no meio continua como veio).
+    const idsNaoLidas = new Set(
+      notificacoesRef.current.filter((n) => !n.lida).map((n) => n.id),
+    );
+    const foraAntes = foraDaListaRef.current;
+    definirLista(
+      notificacoesRef.current.map((n) => (n.lida ? n : { ...n, lida: true })),
+    );
+    definirForaDaLista(0);
 
     try {
       const { error } = await supabase
         .from("notificacoes")
         .update({ lida: true })
-        .eq("usuario_id", userData.id)
+        .eq("usuario_id", userId)
         .eq("lida", false);
 
       if (error) throw error;
-
-      setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
-      setNaoLidas(0);
     } catch (error) {
+      if (usuarioAtualRef.current === userId) {
+        definirLista(
+          notificacoesRef.current.map((n) =>
+            idsNaoLidas.has(n.id) ? { ...n, lida: false } : n,
+          ),
+        );
+        definirForaDaLista(foraAntes);
+      }
       logger.error("[Notificações] Erro ao marcar todas como lidas", error);
       toast.error("Erro ao marcar notificações como lidas");
     }
-  }, [userData?.id]);
+  }, [userId, definirLista, definirForaDaLista]);
 
   const refresh = useCallback(async () => {
     setHasMore(true);

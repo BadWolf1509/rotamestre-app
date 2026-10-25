@@ -52,10 +52,12 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     return false;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  const { status: existingStatus, canAskAgain } =
+    await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
+  // Bloqueada pelo sistema: pedir não mostra diálogo (AN12).
+  if (existingStatus !== 'granted' && canAskAgain !== false) {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
@@ -676,10 +678,10 @@ export async function initializeNotifications(): Promise<void> {
   // Configurar canais Android
   await setupNotificationChannels();
 
-  const hasPermission = await requestNotificationPermissions();
-  if (hasPermission) {
-    await scheduleRouteReminder();
-  }
+  // Só pede a permissão. O lembrete diário NÃO é agendado aqui: esta função
+  // roda na raiz, sem saber quem está logado, e o lembrete é do motorista
+  // (`useLembreteDiario`, no layout dele; o logout cancela).
+  await requestNotificationPermissions();
 }
 
 /**

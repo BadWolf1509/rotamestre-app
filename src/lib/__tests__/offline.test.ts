@@ -3,15 +3,10 @@ import NetInfo from '@react-native-community/netinfo';
 
 import {
   isOnline,
-  addToOfflineQueue,
-  getOfflineQueue,
-  clearOfflineQueue,
-  processOfflineQueue,
   saveOfflineData,
   getOfflineData,
   clearOfflineData,
   hasOfflineData,
-  getOfflineQueueSize,
   setupOfflineSync,
   getOfflinePhotosIndex,
   getPendingPhotosCount,
@@ -21,7 +16,6 @@ import {
   processOfflinePhotos,
   _resetProcessingLocks,
 } from '../offline';
-import { supabase } from '../supabase';
 
 // Mock NetInfo
 jest.mock('@react-native-community/netinfo', () => ({
@@ -150,284 +144,6 @@ describe('offline', () => {
 
       const result = await isOnline();
       expect(result).toBe(false);
-    });
-  });
-
-  describe('getOfflineQueue', () => {
-    it('deve retornar array vazio quando não há dados', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-
-      const result = await getOfflineQueue();
-      expect(result).toEqual([]);
-    });
-
-    it('deve retornar fila parseada do storage', async () => {
-      const queue = [
-        { id: '1', type: 'update_parada', data: {}, timestamp: '2024-01-01' },
-      ];
-      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(queue));
-
-      const result = await getOfflineQueue();
-      expect(result).toEqual(queue);
-    });
-
-    it('deve retornar array vazio quando há erro ao ler', async () => {
-      mockAsyncStorage.getItem.mockRejectedValueOnce(
-        new Error('Storage error'),
-      );
-
-      const result = await getOfflineQueue();
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('addToOfflineQueue', () => {
-    it('deve adicionar ação à fila vazia', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await addToOfflineQueue({
-        type: 'update_parada',
-        data: { id: '123', status: 'concluida' },
-      });
-
-      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        '@rotamestre:offline_queue',
-        expect.stringContaining('update_parada'),
-      );
-    });
-
-    it('deve adicionar ação à fila existente', async () => {
-      const existingQueue = [
-        { id: '1', type: 'insert_log', data: {}, timestamp: '2024-01-01' },
-      ];
-      mockAsyncStorage.getItem.mockResolvedValueOnce(
-        JSON.stringify(existingQueue),
-      );
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await addToOfflineQueue({
-        type: 'update_parada',
-        data: { id: '123' },
-      });
-
-      const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
-      expect(savedData).toHaveLength(2);
-    });
-
-    it('deve gerar id único para cada ação', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await addToOfflineQueue({
-        type: 'update_parada',
-        data: {},
-      });
-
-      const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
-      expect(savedData[0].id).toMatch(/^offline_\d+_[a-z0-9]+$/);
-    });
-
-    it('deve adicionar timestamp ISO à ação', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await addToOfflineQueue({
-        type: 'insert_log',
-        data: {},
-      });
-
-      const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
-      expect(savedData[0].timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    });
-
-    it('deve propagar erro quando falha ao salvar', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockRejectedValueOnce(new Error('Save failed'));
-
-      await expect(
-        addToOfflineQueue({ type: 'update_parada', data: {} }),
-      ).rejects.toThrow('Save failed');
-    });
-  });
-
-  describe('clearOfflineQueue', () => {
-    it('deve remover item do storage', async () => {
-      mockAsyncStorage.removeItem.mockResolvedValueOnce(undefined);
-
-      await clearOfflineQueue();
-
-      expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
-        '@rotamestre:offline_queue',
-      );
-    });
-
-    it('deve lidar silenciosamente com erro', async () => {
-      mockAsyncStorage.removeItem.mockRejectedValueOnce(
-        new Error('Remove failed'),
-      );
-
-      // Não deve lançar erro
-      await expect(clearOfflineQueue()).resolves.toBeUndefined();
-    });
-  });
-
-  describe('processOfflineQueue', () => {
-    it('deve retornar zeros quando offline', async () => {
-      mockNetInfo.fetch.mockResolvedValueOnce({
-        isConnected: false,
-        isInternetReachable: false,
-      } as any);
-
-      const result = await processOfflineQueue();
-
-      expect(result).toEqual({ success: 0, failed: 0, errors: [] });
-    });
-
-    it('deve processar fila quando online', async () => {
-      mockNetInfo.fetch.mockResolvedValueOnce({
-        isConnected: true,
-        isInternetReachable: true,
-      } as any);
-
-      const queue = [
-        {
-          id: '1',
-          type: 'update_parada',
-          data: { id: '123', status: 'concluida' },
-          timestamp: '2024-01-01',
-        },
-      ];
-      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(queue));
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      const result = await processOfflineQueue();
-
-      expect(result.success).toBe(1);
-      expect(result.failed).toBe(0);
-    });
-
-    /**
-     * A Migration 27 revogou `UPDATE (unidade_id)` de `rotas`. Sem
-     * allowlist, um payload que carregue essa coluna faz o Postgres
-     * derrubar o UPDATE INTEIRO — `status` e `concluida_em` junto —, a ação
-     * reenfileira, e a entrega fica registrada em lugar nenhum.
-     *
-     * Não há produtor hoje (`addToOfflineQueue` não tem chamador), mas
-     * `setupOfflineSync` drena a fila a cada reconexão: o primeiro produtor
-     * que aparecer passa por aqui.
-     */
-    it('finalizar_rota descarta coluna que o REVOKE da Migration 27 derrubaria', async () => {
-      mockNetInfo.fetch.mockResolvedValueOnce({
-        isConnected: true,
-        isInternetReachable: true,
-      } as any);
-
-      const eq = jest.fn(() => Promise.resolve({ error: null }));
-      const update = jest.fn(() => ({ eq }));
-      (supabase.from as jest.Mock).mockReturnValueOnce({ update } as any);
-
-      const queue = [
-        {
-          id: '1',
-          type: 'finalizar_rota',
-          data: {
-            rotaId: 'r1',
-            status: 'concluida',
-            concluida_em: '2026-09-08T00:00:00Z',
-            unidade_id: 'u1',
-            motorista_id: 'm1',
-          },
-          timestamp: '2026-09-08',
-        },
-      ];
-      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(queue));
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      const result = await processOfflineQueue();
-
-      expect(result.success).toBe(1);
-      expect(update).toHaveBeenCalledWith({
-        status: 'concluida',
-        concluida_em: '2026-09-08T00:00:00Z',
-      });
-    });
-
-    it('should not process queue concurrently', async () => {
-      _resetProcessingLocks();
-
-      let processCount = 0;
-
-      // Make isOnline slow enough that two calls overlap
-      mockNetInfo.fetch.mockImplementation(() => {
-        processCount++;
-        return new Promise((resolve) =>
-          setTimeout(
-            () =>
-              resolve({
-                isConnected: true,
-                isInternetReachable: true,
-              } as any),
-            50,
-          ),
-        );
-      });
-
-      // Empty queue
-      mockAsyncStorage.getItem.mockResolvedValue('[]');
-
-      const [result1, result2] = await Promise.all([
-        processOfflineQueue(),
-        processOfflineQueue(),
-      ]);
-
-      // Only one should have actually processed
-      expect(processCount).toBe(1);
-
-      // The blocked one returns early with zeros
-      const totalSuccess = result1.success + result2.success;
-      expect(totalSuccess).toBe(0);
-
-      _resetProcessingLocks();
-    });
-
-    it('should reset queue lock after processing completes', async () => {
-      _resetProcessingLocks();
-
-      // First call
-      mockNetInfo.fetch.mockResolvedValueOnce({
-        isConnected: true,
-        isInternetReachable: true,
-      } as any);
-      mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
-
-      await processOfflineQueue();
-
-      // Second call should work (lock released)
-      mockNetInfo.fetch.mockResolvedValueOnce({
-        isConnected: true,
-        isInternetReachable: true,
-      } as any);
-      mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
-
-      await processOfflineQueue();
-
-      expect(mockNetInfo.fetch).toHaveBeenCalledTimes(2);
-
-      _resetProcessingLocks();
-    });
-
-    it('deve retornar success 0 quando fila está vazia', async () => {
-      mockNetInfo.fetch.mockResolvedValueOnce({
-        isConnected: true,
-        isInternetReachable: true,
-      } as any);
-      mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
-
-      const result = await processOfflineQueue();
-
-      expect(result.success).toBe(0);
-      expect(result.failed).toBe(0);
     });
   });
 
@@ -564,34 +280,6 @@ describe('offline', () => {
 
       const result = await hasOfflineData();
       expect(result).toBe(false);
-    });
-  });
-
-  describe('getOfflineQueueSize', () => {
-    it('deve retornar 0 quando fila está vazia', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-
-      const result = await getOfflineQueueSize();
-      expect(result).toBe(0);
-    });
-
-    it('deve retornar tamanho correto da fila', async () => {
-      const queue = [
-        { id: '1', type: 'update_parada', data: {}, timestamp: '' },
-        { id: '2', type: 'insert_log', data: {}, timestamp: '' },
-        { id: '3', type: 'finalizar_rota', data: {}, timestamp: '' },
-      ];
-      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(queue));
-
-      const result = await getOfflineQueueSize();
-      expect(result).toBe(3);
-    });
-
-    it('deve retornar 0 quando há erro', async () => {
-      mockAsyncStorage.getItem.mockRejectedValueOnce(new Error('Error'));
-
-      const result = await getOfflineQueueSize();
-      expect(result).toBe(0);
     });
   });
 
@@ -914,23 +602,29 @@ describe('offline', () => {
       expect(mockUnsubscribeAuth).toHaveBeenCalled();
     });
 
-    it('deve processar fila quando reconecta', async () => {
+    it('na reconexão, dispara o envio (fotos) e não lê mais a fila genérica removida', async () => {
+      _resetProcessingLocks();
       let connectionCallback: any;
       mockNetInfo.addEventListener.mockImplementation((callback) => {
         connectionCallback = callback;
         return jest.fn();
       });
+      mockNetInfo.fetch.mockResolvedValue({
+        isConnected: true,
+        isInternetReachable: true,
+      } as any);
+      mockAsyncStorage.getItem.mockResolvedValue(null);
 
       setupOfflineSync();
 
-      // Simula reconexão
-      mockAsyncStorage.getItem.mockResolvedValueOnce('[]');
       await connectionCallback({
         isConnected: true,
         isInternetReachable: true,
       });
 
-      expect(mockAsyncStorage.getItem).toHaveBeenCalled();
+      const chavesLidas = mockAsyncStorage.getItem.mock.calls.map((c) => c[0]);
+      expect(chavesLidas).toContain('@rotamestre:offline_photos_index');
+      expect(chavesLidas).not.toContain('@rotamestre:offline_queue');
     });
 
     it('não deve processar fila quando desconectado, mas verifica pendências para notificação', async () => {
@@ -1402,17 +1096,3 @@ describe('offline', () => {
   });
 });
 
-// Legacy export para compatibilidade
-export const offlineManager = {
-  isOnline,
-  queueRequest: addToOfflineQueue,
-  getQueuedRequests: getOfflineQueue,
-};
-
-export interface QueuedRequest {
-  id: string;
-  method: string;
-  url: string;
-  data?: any;
-  timestamp: number;
-}

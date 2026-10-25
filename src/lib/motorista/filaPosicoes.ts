@@ -9,10 +9,12 @@
  *
  * COMO FUNCIONA. `registrarPosicao` é a porta única do insert:
  *
- * - **Fila vazia:** insert direto de uma linha, como antes. O horário fica com
- *   o relógio do servidor (default `NOW()` da coluna `timestamp`).
- * - **Falha de rede:** a posição vai para o AsyncStorage com o horário em que
- *   foi CAPTURADA (`timestamp`), que é a única verdade para uma posição velha.
+ * Toda linha, direta ou da fila, leva o horário em que a posição foi
+ * CAPTURADA pelo GPS (`timestamp`), nunca o relógio do servidor (default
+ * `NOW()` da coluna): o insert pode sair segundos ou horas depois do fix.
+ *
+ * - **Fila vazia:** insert direto de uma linha, como antes.
+ * - **Falha de rede:** a posição vai para o AsyncStorage, com o horário dela.
  * - **Falha que não é de rede, com a fila vazia:** a posição não entra na
  *   fila (uma posição só, como antes desta fila). Fica o `logger.error`.
  * - **Fila com algo:** a posição nova entra no fim da fila e a fila inteira é
@@ -21,23 +23,33 @@
  *   da nova faria o motorista "voltar" no mapa.
  *
  * Cada posição guardada leva o `rota_id` com que foi capturada e é enviada com
- * ele — são posições verdadeiras daquela rota, mesmo que ela já tenha sido
- * finalizada ou trocada. O lote é cortado por rota (sequências consecutivas).
- * Lote recusado:
+ * ele. A posição de uma rota que não é mais do motorista (reatribuída, loja
+ * desativada) é recusada pelo servidor. O lote é cortado por rota (sequências
+ * consecutivas). Lote recusado:
  *
  * - **por rede:** fica, e o envio para até a próxima posição;
  * - **por DADO** (`CODIGOS_RECUSA_DE_DADO`: FK de rota apagada, NOT NULL,
  *   CHECK, tipo): descartado na hora, só o lote daquela rota;
- * - **por qualquer outra coisa** (JWT vencido, RLS com a requisição saindo
- *   anônima porque o refresh do token falhou, 5xx sem texto de rede): fica, e
- *   cada posição conta uma tentativa; a que chega a `MAX_TENTATIVAS_POSICAO`
- *   sai, com um `logger.error` por descarte. É justamente na volta de um longo
- *   período sem rede que o token está vencido — descartar ali perderia a fila
- *   inteira, que é o que esta fila existe para guardar.
+ * - **por qualquer outra coisa** (rota que não é mais do motorista, JWT
+ *   vencido, requisição saindo anônima porque o refresh do token falhou, 5xx
+ *   sem texto de rede): fica, cada posição conta uma tentativa, e o envio
+ *   SEGUE com os lotes das outras rotas — a rota recusada só volta a ser
+ *   tentada na próxima posição. A que chega a `MAX_TENTATIVAS_POSICAO` sai,
+ *   com um `logger.error` por descarte. Não é descartado na hora porque a
+ *   resposta do servidor é a mesma nos dois casos, e é justamente na volta de
+ *   um longo período sem rede que o token está vencido — descartar ali
+ *   perderia a fila inteira, que é o que esta fila existe para guardar.
  *
  * - **Por conta.** A fila guarda o dono; fila de outra conta é descartada sem
- *   envio (a RLS recusaria, e não é posição desta sessão). Apagada no logout
- *   (`CHAVES_DA_CONTA` em `src/lib/auth/limparEstadoLocal.ts`).
+ *   envio (o servidor recusaria, e não é posição desta sessão). Apagada no
+ *   logout (`CHAVES_DA_CONTA` em `src/lib/auth/limparEstadoLocal.ts`).
+ * - **Só com rastreamento ou sessão do motorista.** Nada entra na fila sem o
+ *   contexto de rastreamento daquele `motorista_id` ou, na falta dele, a
+ *   sessão dele confirmada (sem rede, o último usuário) — ver
+ *   `aindaEhDoAparelho`. Fecha a corrida com o logout: a posição que
+ *   estava no ar quando o motorista saiu falharia por rede depois da limpeza
+ *   e recriaria a fila. Conferido dentro da fila em série, logo antes de
+ *   gravar, para a janela ser a menor possível.
  * - **Teto de `TETO_FILA_POSICOES`.** Estourou: saem as mais antigas, com um
  *   `logger.warn` por estouro (não por posição), até a fila voltar a caber.
  * - **Sem React.** Roda na task headless do `expo-task-manager`; o gatilho do
@@ -64,10 +76,14 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { lerSessao } from '@/lib/auth/sessao';
+import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+
+import { motoristaDoContexto } from './contextoRastreamento';
 
 export const CHAVE_FILA_POSICOES = '@rotamestre:fila_posicoes';
 export const TETO_FILA_POSICOES = 500;
@@ -79,8 +95,9 @@ export const TETO_FILA_POSICOES = 500;
  * uma posição nova (a cada 5–30 s com a rota andando), e motorista parado
  * não gasta nada. 60 tentativas cobrem de ~5 min (navegação, 5 s) a ~30 min
  * (só a task), tempo de sobra para o supabase-js renovar um token vencido ou
- * um gateway voltar de um 5xx. E um erro que nunca passa trava o envio da
- * fila por no máximo 60 posições, não para sempre.
+ * um gateway voltar de um 5xx. Um erro que nunca passa (rota que não é mais
+ * do motorista) guarda aquele lote por no máximo 60 posições, e não atrasa o
+ * envio das outras rotas.
  */
 export const MAX_TENTATIVAS_POSICAO = 60;
 
@@ -142,6 +159,34 @@ export type DestinoDaPosicao = 'enviada' | 'na_fila' | 'perdida';
 // Armazenamento (sempre em série)
 // ---------------------------------------------------------------------------
 
+/**
+ * Geração da fila: muda a cada logout e exclusão de conta
+ * (`invalidarPosicoesEmVoo`).
+ *
+ * POR QUE EXISTE. Com sinal fraco, o insert de uma posição pode estar no ar
+ * quando o logout limpa o aparelho e só falhar por rede depois. A limpeza
+ * (`multiRemove` em `limparEstadoLocalDoUsuario`) não passa pela fila em
+ * série, e conferir contexto ou último usuário antes de gravar deixa uma
+ * janela assíncrona: o contexto de rastreamento sai no logout (o
+ * `stopBackgroundTracking` o apaga antes da limpeza), mas uma posição pode
+ * tê-lo lido antes disso. Cada operação guarda a geração em que começou;
+ * o envio da fila também confere a cada rodada; `gravar` compara de
+ * forma síncrona logo antes de emitir a escrita. Ou o logout já trocou a
+ * geração (a escrita é descartada), ou a escrita sai antes do `multiRemove`,
+ * que a apaga em seguida (o AsyncStorage executa na ordem).
+ */
+let geracao = 0;
+
+/**
+ * Descarta tudo o que está em voo na fila: nenhuma operação começada antes
+ * desta chamada grava mais nada. Chamada pelo logout e pela exclusão de
+ * conta (`limparEstadoLocal.ts`), de forma síncrona, ANTES de apagar o
+ * armazenamento.
+ */
+export function invalidarPosicoesEmVoo(): void {
+  geracao++;
+}
+
 let cadeia: Promise<unknown> = Promise.resolve();
 
 /** Executa `fn` depois de toda leitura-escrita anterior da fila. */
@@ -161,8 +206,16 @@ async function ler(): Promise<Registro | null> {
   }
 }
 
-/** false = o AsyncStorage recusou; o que estava para gravar não ficou. */
-async function gravar(registro: Registro): Promise<boolean> {
+/**
+ * false = não gravou: a geração mudou desde `geracaoDeOrigem` (houve logout)
+ * ou o AsyncStorage recusou.
+ */
+async function gravar(
+  registro: Registro,
+  geracaoDeOrigem: number,
+): Promise<boolean> {
+  // Síncrono até emitir a escrita: nada pode trocar a geração no meio.
+  if (geracaoDeOrigem !== geracao) return false;
   try {
     if (registro.posicoes.length === 0) {
       await AsyncStorage.removeItem(CHAVE_FILA_POSICOES);
@@ -176,19 +229,59 @@ async function gravar(registro: Registro): Promise<boolean> {
   }
 }
 
-/** false = não ficou guardada (o AsyncStorage recusou a gravação). */
-function guardar(posicao: Posicao, capturadaEm: number): Promise<boolean> {
+/**
+ * A linha da tabela com o horário do fix do GPS (`capturadaEm`, epoch ms).
+ * Horário inválido (o `toISOString` lançaria e a posição se perderia) cai no
+ * relógio do aparelho, que ainda é mais perto da captura que o do servidor.
+ */
+function comHorario(posicao: Posicao, capturadaEm: number): LinhaGuardada {
+  const horario = Number.isFinite(capturadaEm) ? capturadaEm : Date.now();
+  return { ...posicao, timestamp: new Date(horario).toISOString() };
+}
+
+/**
+ * Ainda há rastreamento ou sessão de `motoristaId` neste aparelho, nesta
+ * ordem:
+ *
+ * 1. **Contexto de rastreamento** daquele motorista: leitura local, e é ele
+ *    que existe no caso comum do nativo (sem rede, com o token vencido, a
+ *    sessão não se confirma).
+ * 2. **Sessão confirmada** dele: cobre quem grava sem contexto (navegação,
+ *    broadcast) — no web, sempre, porque lá o contexto nunca é gravado.
+ * 3. **Sessão "offline"** só com o último usuário (`lerUltimoUsuario`) igual
+ *    ao motorista. Sem rede, `lerSessao` nem lê a sessão; o último usuário é
+ *    a prova local de dono, e o logout o apaga — então a posição em voo do
+ *    logout não passa por aqui. Com rede e sem sessão (requisição anônima),
+ *    ele não basta.
+ *
+ * Custo aceito: sem contexto, `lerSessao` roda dentro da fila em série e pode
+ * segurá-la até `PRAZO_LEITURA_SESSAO_MS` com rede ruim. Conferir fora dela
+ * alargaria a janela da corrida com o logout.
+ */
+async function aindaEhDoAparelho(motoristaId: string): Promise<boolean> {
+  if ((await motoristaDoContexto()) === motoristaId) return true;
+  const { session, offline } = await lerSessao();
+  if (session) return session.user?.id === motoristaId;
+  return offline && (await lerUltimoUsuario()) === motoristaId;
+}
+
+/**
+ * false = não ficou guardada (sem rastreamento nem sessão do motorista, ou o
+ * AsyncStorage recusou a gravação).
+ */
+function guardar(
+  linha: LinhaGuardada,
+  geracaoDeOrigem: number,
+): Promise<boolean> {
   return emSerie(async () => {
+    if (!(await aindaEhDoAparelho(linha.motorista_id))) return false;
     const atual = await ler();
     const registro: Registro =
-      atual?.userId === posicao.motorista_id
+      atual?.userId === linha.motorista_id
         ? atual
-        : { userId: posicao.motorista_id, posicoes: [], estourou: false };
+        : { userId: linha.motorista_id, posicoes: [], estourou: false };
 
-    registro.posicoes.push({
-      ...posicao,
-      timestamp: new Date(capturadaEm).toISOString(),
-    });
+    registro.posicoes.push(linha);
 
     const excesso = registro.posicoes.length - TETO_FILA_POSICOES;
     if (excesso > 0) {
@@ -202,16 +295,23 @@ function guardar(posicao: Posicao, capturadaEm: number): Promise<boolean> {
       }
     }
 
-    return gravar(registro);
+    return gravar(registro, geracaoDeOrigem);
   });
 }
 
-/** Descarta a fila se ela pertence a outra conta. */
-function descartarFilaDeOutraConta(motoristaId: string): Promise<void> {
+/**
+ * Descarta a fila se ela pertence a outra conta. Com a geração de quem pediu:
+ * depois de um logout, a fila "de outra conta" pode ser a de quem acabou de
+ * entrar, e não é este pedido antigo que a apaga.
+ */
+function descartarFilaDeOutraConta(
+  motoristaId: string,
+  geracaoDeOrigem: number,
+): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
     if (atual && atual.userId !== motoristaId) {
-      await gravar({ ...atual, posicoes: [] });
+      await gravar({ ...atual, posicoes: [] }, geracaoDeOrigem);
     }
   });
 }
@@ -223,17 +323,24 @@ const chaveDa = (p: PosicaoGuardada) =>
  * Tira da fila as posições do lote. Por identidade, não por posição na
  * lista: enquanto o lote estava no ar, o teto pode ter cortado o começo.
  */
-function remover(motoristaId: string, lote: PosicaoGuardada[]): Promise<void> {
+function remover(
+  motoristaId: string,
+  lote: PosicaoGuardada[],
+  geracaoDeOrigem: number,
+): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
     if (!atual || atual.userId !== motoristaId) return;
     const saem = new Set(lote.map(chaveDa));
     const posicoes = atual.posicoes.filter((p) => !saem.has(chaveDa(p)));
-    await gravar({
-      userId: atual.userId,
-      posicoes,
-      estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
-    });
+    await gravar(
+      {
+        userId: atual.userId,
+        posicoes,
+        estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
+      },
+      geracaoDeOrigem,
+    );
   });
 }
 
@@ -245,6 +352,7 @@ function marcarTentativa(
   motoristaId: string,
   lote: PosicaoGuardada[],
   error: unknown,
+  geracaoDeOrigem: number,
 ): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
@@ -270,11 +378,14 @@ function marcarTentativa(
         { rota_id: lote[0].rota_id, quantidade: esgotadas, error },
       );
     }
-    await gravar({
-      userId: atual.userId,
-      posicoes,
-      estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
-    });
+    await gravar(
+      {
+        userId: atual.userId,
+        posicoes,
+        estourou: atual.estourou && posicoes.length >= TETO_FILA_POSICOES,
+      },
+      geracaoDeOrigem,
+    );
   });
 }
 
@@ -288,7 +399,7 @@ function paraLinha({ tentativas: _tentativas, ...linha }: PosicaoGuardada) {
 // ---------------------------------------------------------------------------
 
 async function inserir(
-  linhas: Posicao | LinhaGuardada[],
+  linhas: LinhaGuardada | LinhaGuardada[],
 ): Promise<{ error: unknown }> {
   try {
     const { error } = await supabase.from('motorista_locations').insert(linhas);
@@ -298,38 +409,63 @@ async function inserir(
   }
 }
 
-/** Primeira sequência consecutiva de posições da mesma rota. */
-function primeiroLote(posicoes: PosicaoGuardada[]): PosicaoGuardada[] {
-  const rota = posicoes[0].rota_id;
-  const fim = posicoes.findIndex((p) => p.rota_id !== rota);
-  return fim === -1 ? posicoes : posicoes.slice(0, fim);
+/**
+ * Primeira sequência consecutiva de posições da mesma rota, pulando as rotas
+ * já recusadas neste envio. Vazia = só sobraram rotas recusadas.
+ */
+function primeiroLote(
+  posicoes: PosicaoGuardada[],
+  recusadas: ReadonlySet<string>,
+): PosicaoGuardada[] {
+  const restantes = posicoes.filter((p) => !recusadas.has(p.rota_id));
+  if (restantes.length === 0) return [];
+  const rota = restantes[0].rota_id;
+  const fim = restantes.findIndex((p) => p.rota_id !== rota);
+  return fim === -1 ? restantes : restantes.slice(0, fim);
 }
 
-/** true = a fila esvaziou; false = parou (sem rede ou recusa passageira). */
+/** true = a fila esvaziou; false = sobrou algo (sem rede ou lote recusado). */
 async function enviarFila(
   motoristaId: string,
   rotulo: string,
 ): Promise<boolean> {
+  const geracaoDoEnvio = geracao;
+  // Rotas cujo lote o servidor recusou neste envio: ficam para o próximo.
+  const recusadas = new Set<string>();
+  // Um logout no meio do envio troca a geração: este envio é da conta que
+  // saiu e não segue. Sem isto, a rodada seguinte leria a fila de quem
+  // entrou e a apagaria como "de outra conta" (N1), ou, com a mesma conta de
+  // volta, reenviaria o lote cujo `remover` a geração recusou — até
+  // `MAX_RODADAS` vezes (N2). Conferido antes e depois de ler: a leitura
+  // também espera.
+  const trocouDeConta = () => geracaoDoEnvio !== geracao;
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
+    if (trocouDeConta()) return false;
     const fila = await emSerie(ler);
+    if (trocouDeConta()) return false;
     if (!fila || fila.posicoes.length === 0) return true;
     if (fila.userId !== motoristaId) {
-      await descartarFilaDeOutraConta(motoristaId);
+      await descartarFilaDeOutraConta(motoristaId, geracaoDoEnvio);
       return true;
     }
 
-    const lote = primeiroLote(fila.posicoes);
+    const lote = primeiroLote(fila.posicoes, recusadas);
+    if (lote.length === 0) return false;
     const { error } = await inserir(lote.map(paraLinha));
     if (error && isNetworkError(error)) {
+      // Sem rede, nenhum outro lote subiria: para e tenta na próxima posição.
       logarFalha(rotulo, error);
       return false;
     }
     if (error && !ehRecusaDeDado(error)) {
-      // Pode ser passageiro (token vencido, 5xx): o lote fica, e a posição
-      // conta uma tentativa — até `MAX_TENTATIVAS_POSICAO`.
+      // Posição recusada pelo servidor: rota que não é mais do motorista, ou
+      // algo passageiro (token vencido, 5xx) — a resposta é a mesma e não dá
+      // para separar. O lote fica e conta uma tentativa (até
+      // `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
       logarFalha(rotulo, error);
-      await marcarTentativa(motoristaId, lote, error);
-      return false;
+      await marcarTentativa(motoristaId, lote, error, geracaoDoEnvio);
+      recusadas.add(lote[0].rota_id);
+      continue;
     }
     if (error) {
       // Recusa de dado (ex.: rota apagada): reenviar falharia para sempre.
@@ -342,7 +478,7 @@ async function enviarFila(
         },
       );
     }
-    await remover(motoristaId, lote);
+    await remover(motoristaId, lote, geracaoDoEnvio);
   }
   return false;
 }
@@ -379,23 +515,28 @@ export async function registrarPosicao(
   capturadaEm: number,
   rotulo: string,
 ): Promise<DestinoDaPosicao> {
+  // Antes de qualquer espera: o logout no meio do insert invalida esta.
+  const geracaoDaPosicao = geracao;
   try {
+    const linha = comHorario(posicao, capturadaEm);
     const fila = await emSerie(ler);
     const temFila =
       fila?.userId === posicao.motorista_id && fila.posicoes.length > 0;
 
     if (!temFila && !envioEmVoo) {
-      if (fila) await descartarFilaDeOutraConta(posicao.motorista_id);
-      const { error } = await inserir(posicao);
+      if (fila) {
+        await descartarFilaDeOutraConta(posicao.motorista_id, geracaoDaPosicao);
+      }
+      const { error } = await inserir(linha);
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
       if (!isNetworkError(error)) return 'perdida';
-      return (await guardar(posicao, capturadaEm)) ? 'na_fila' : 'perdida';
+      return (await guardar(linha, geracaoDaPosicao)) ? 'na_fila' : 'perdida';
     }
 
     // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a
     // remoção do lote também falharia e o mesmo lote subiria de novo.
-    if (!(await guardar(posicao, capturadaEm))) return 'perdida';
+    if (!(await guardar(linha, geracaoDaPosicao))) return 'perdida';
     const esvaziou = await esvaziarFila(posicao.motorista_id, rotulo);
     return esvaziou ? 'enviada' : 'na_fila';
   } catch (error) {

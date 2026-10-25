@@ -8,6 +8,7 @@ import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sideb
 import { NotificationBell } from '@/components/NotificationBell';
 import { SeletorUnidade } from '@/components/SeletorUnidade';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
+import { useLembreteDiario } from '@/hooks/motorista/useLembreteDiario';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
@@ -25,6 +26,8 @@ export default function GestorLayout() {
   });
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
+  // Cancela o lembrete diário que versões antigas agendaram para o gestor.
+  useLembreteDiario(isReady && isAuthorized ? 'gestor' : null);
 
   // Aguardar verificação de autenticação
   if (!isReady) {

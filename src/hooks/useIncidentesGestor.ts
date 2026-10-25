@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ShowToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { nomeDoMotorista } from '@/lib/incidentes/nomeDoMotorista';
 import { logger } from '@/lib/logger';
 import type { Theme } from '@/utils/styles';
 
@@ -131,7 +132,7 @@ function paraIncidente(inc: LinhaIncidente, unidadeNome: string): Incidente {
     foto_url: inc.foto_url,
     created_at: inc.created_at,
     observacoes_gestao: inc.observacoes_gestao,
-    motorista_nome: inc.motorista?.nome || 'Desconhecido',
+    motorista_nome: nomeDoMotorista(inc.motorista_id, inc.motorista?.nome),
     motorista_id: inc.motorista_id,
     unidade_nome: unidadeNome,
     rota_id: inc.rota?.id || null,

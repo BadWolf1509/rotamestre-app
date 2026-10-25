@@ -3,6 +3,7 @@
  * Centralized query layer for incidentes table operations
  */
 
+import { nomeDoMotorista } from '@/lib/incidentes/nomeDoMotorista';
 import { logger } from '@/lib/logger';
 
 import {
@@ -29,7 +30,8 @@ export type IncidenteCategoria =
  */
 export interface IncidenteDB {
   id: string;
-  motorista_id: string;
+  /** NULL = conta do motorista excluída (Migration 56). */
+  motorista_id: string | null;
   rota_id: string | null;
   parada_id: string | null;
   categoria: IncidenteCategoria;
@@ -63,7 +65,8 @@ export interface IncidenteWithRelations {
   created_at: string;
   observacoes_gestao: string | null;
   motorista_nome: string;
-  motorista_id: string;
+  /** NULL = conta do motorista excluída (Migration 56). */
+  motorista_id: string | null;
   unidade_nome: string;
   rota_id: string | null;
   rota_data: string | null;
@@ -122,7 +125,7 @@ interface IncidenteQueryRow {
   foto_url: string | null;
   created_at: string;
   observacoes_gestao: string | null;
-  motorista_id: string;
+  motorista_id: string | null;
   motorista: { nome: string } | null;
   rota: { id: string; data: string } | null;
   parada: { endereco: string } | null;
@@ -187,7 +190,7 @@ export async function fetchIncidentesForGestor(
         foto_url: row.foto_url,
         created_at: row.created_at,
         observacoes_gestao: row.observacoes_gestao,
-        motorista_nome: row.motorista?.nome || 'Desconhecido',
+        motorista_nome: nomeDoMotorista(row.motorista_id, row.motorista?.nome),
         motorista_id: row.motorista_id,
         unidade_nome: '',
         rota_id: row.rota?.id || null,

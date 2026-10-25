@@ -181,6 +181,38 @@ describe('incidentes queries', () => {
       expect(result.data![0].parada_endereco).toBeNull();
     });
 
+    it('motorista excluído (motorista_id NULL): nome "Motorista removido"', async () => {
+      mockFrom.mockImplementation(() =>
+        setupChain({
+          data: [
+            {
+              id: 'inc-1',
+              categoria: 'other',
+              descricao: 'Test',
+              endereco: 'Test address',
+              status: 'aberto',
+              foto_url: null,
+              created_at: '2024-01-01T10:00:00Z',
+              observacoes_gestao: null,
+              motorista_id: null,
+              motorista: null,
+              rota: null,
+              parada: null,
+            },
+          ],
+          error: null,
+        }),
+      );
+
+      const result = await fetchIncidentesForGestor({
+        motoristasIds: ['motorista-1'],
+        unidadeId: 'unidade-1',
+      });
+
+      expect(result.data![0].motorista_nome).toBe('Motorista removido');
+      expect(result.data![0].motorista_id).toBeNull();
+    });
+
     it('should handle database error', async () => {
       mockFrom.mockImplementation(() =>
         setupChain({ data: null, error: { message: 'Database error' } }),
