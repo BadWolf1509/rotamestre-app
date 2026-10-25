@@ -436,12 +436,23 @@ describe('PreRouteChecklist', () => {
           />
         );
       }
-      render(<Pai />);
-      await waitFor(() => expect(chamadas).toHaveLength(1));
-      await new Promise((r) => setTimeout(r, 20));
+      jest.useFakeTimers();
+      try {
+        render(<Pai />);
+        await waitFor(() => expect(chamadas).toHaveLength(1));
+        await jest.advanceTimersByTimeAsync(20);
 
-      expect(mockGetBatteryLevelAsync).toHaveBeenCalledTimes(1);
-      expect(chamadas).toEqual(['v0']);
+        expect(mockGetBatteryLevelAsync).toHaveBeenCalledTimes(1);
+        expect(chamadas).toEqual(['v0']);
+
+        // Outra mudança de resultado: quem é avisado é o callback do render
+        // mais recente (v1), não o da montagem.
+        mockHasServicesEnabledAsync.mockResolvedValue(false);
+        await jest.advanceTimersByTimeAsync(5000);
+        expect(chamadas).toEqual(['v0', 'v1']);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('re-checa no intervalo, avisando o pai só quando o resultado muda', async () => {
