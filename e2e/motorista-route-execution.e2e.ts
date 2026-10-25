@@ -99,35 +99,26 @@ test.describe('Motorista Route Execution E2E Tests', () => {
     });
 
     test('should display stop details if route exists', async ({ page }) => {
-      await page.waitForTimeout(2000);
-
       // Pela aba da barra inferior (page object, `getByRole('tab')`), nunca por
       // `getByText(/paradas/i).first()`: com parada em andamento o primeiro
       // casamento é o texto da Início ("3 paradas restantes • 39,2 km"), e o
       // cartão de deslizar intercepta o clique (timeout de 15 s no CI do #648).
-      if (await motoristaPage.paradasTab.isVisible()) {
-        await motoristaPage.navigateToParadas();
-        await page.waitForTimeout(2000);
-      }
+      // A aba precisa existir (navigateToParadas espera e falha se não houver).
+      await motoristaPage.navigateToParadas();
 
-      const emptyState = page
-        .getByText(/Nenhuma rota ativa no momento/i)
-        .first();
-      const paradaLabel = page.getByLabel(/Parada \d+/i).first();
+      await expect(
+        motoristaPage.paradasList.or(motoristaPage.paradasEmpty),
+      ).toBeVisible({ timeout: 15000 });
 
-      const hasEmptyState = await emptyState.isVisible().catch(() => false);
-      const hasParadaLabel = await paradaLabel.isVisible().catch(() => false);
+      // Os detalhes da parada dependem de a conta demo ter rota ativa: sem
+      // ela só existe o estado vazio, e isso é skip explícito, não passe.
+      const temLista = await motoristaPage.paradasList.isVisible();
+      test.skip(
+        !temLista,
+        'conta motorista de teste sem rota ativa: não há paradas para detalhar',
+      );
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show stop details or empty state
-      const hasStopContent =
-        hasEmptyState ||
-        hasParadaLabel ||
-        bodyText?.includes('parada') ||
-        bodyText?.includes('Parada') ||
-        bodyText?.includes('Nenhuma');
-      expect(hasStopContent).toBeTruthy();
+      await expect(page.getByLabel(/Parada \d+/i).first()).toBeVisible();
     });
   });
 

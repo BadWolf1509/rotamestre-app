@@ -1,3 +1,14 @@
+const path = require('path');
+
+// Regex absoluta dos worktrees aninhados neste repo (`<raiz>/.claude/worktrees/`).
+// Todo caractere que não é alfanumérico, '_' ou '-' vira '.', inclusive os
+// separadores: no Windows o jest troca `<rootDir>` por um caminho com barras
+// invertidas e `\.claude` vira um '.' escapado, então o padrão
+// `<rootDir>/.claude/worktrees/` nunca casa (medido: a isca plantada continuava
+// na lista). Sem barras no padrão não há o que o jest reescrever, e o resultado
+// é igual em Windows e Linux.
+const WORKTREES_ANINHADOS = `${path.join(__dirname, '.claude', 'worktrees').replace(/[^A-Za-z0-9_-]/g, '.')}.`;
+
 module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
@@ -56,7 +67,15 @@ module.exports = {
     // Alias @/ para src/
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
+  // Worktrees do Claude moram DENTRO do repo (`.claude/worktrees/<nome>/`), cada um
+  // com uma cópia inteira de src/ e dos testes: sem isto a suíte local conta tudo
+  // N vezes e o jest-haste-map acusa mocks/package.json duplicados.
+  // O padrão é relativo à raiz do repo que está rodando (ver WORKTREES_ANINHADOS),
+  // e não um `worktrees` cru: este também ignoraria o próprio repo quando ele é
+  // rodado de dentro de um worktree (o caminho absoluto contém `/worktrees/`) e
+  // zeraria a suíte. Assim só saem os worktrees aninhados. O CI não muda.
+  testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/', WORKTREES_ANINHADOS],
+  modulePathIgnorePatterns: [WORKTREES_ANINHADOS],
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}', '**/?(*.)+(spec|test).{ts,tsx}'],
   reporters: [
     'default',

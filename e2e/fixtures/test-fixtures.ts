@@ -101,16 +101,17 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
  * Helper to logout
  */
 async function logout(page: Page) {
-  // Try to open drawer menu and click logout
+  // Abre o drawer e sai. Sem o botão de menu, falha: antes, um if (visível)
+  // fazia o logout "passar" sem ter saído.
   const menuButton = page
     .locator('[data-testid="menu-button"], [aria-label*="menu"]')
     .first();
-  if (await menuButton.isVisible()) {
-    await menuButton.click();
-    await page.waitForTimeout(500);
-    await page.getByText(/sair/i).click();
-    await page.waitForURL('**/auth/login**');
-  }
+  await expect(menuButton).toBeVisible({ timeout: 30000 });
+  await menuButton.click();
+  const sair = page.getByText(/sair/i).first();
+  await expect(sair).toBeVisible({ timeout: 5000 });
+  await sair.click();
+  await page.waitForURL('**/auth/login**');
 }
 
 /**
