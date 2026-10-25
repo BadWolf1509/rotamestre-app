@@ -438,7 +438,10 @@ jobs:
         # (é o que --update-snapshots faz); exit != 0 aqui é teste quebrado de
         # verdade e não deve virar verde. O upload abaixo tem `always()`, então
         # os PNGs gerados são guardados mesmo se este step falhar.
-        run: npx playwright test --update-snapshots
+        # Só os testes @visual (run-visual-tests.cjs --update --all): o
+        # `npx playwright test` cru rodava a suíte inteira em todos os projetos,
+        # e os testes do painel do gestor (desktop) falham no mobile-chrome.
+        run: npm run test:visual:update:all
         env:
           # Mesmas envs dos steps de mapa/e2e. Sem E2E_* o projeto `setup` é pulado
           # (e2e/auth.setup.ts) e os testes autenticados falham sem storageState;
