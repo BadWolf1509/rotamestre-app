@@ -67,6 +67,7 @@ const rota: Rota = { id: 'rota-1', data: '2026-06-22', status: 'em_andamento' };
 const setup = (paradasReais: Parada[]) =>
   renderHook(() =>
     useMapaRotaHandlers({
+        showToast: mockShowToast,
       rotaId: 'rota-1',
       rota,
       paradas: paradasReais,
@@ -195,6 +196,7 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
   };
   const newOrder = [makeParada('p2', 2), makeParada('p1', 1)];
   const baseOptions = {
+    showToast: mockShowToast,
     rotaId: 'rota-1',
     paradas: [makeParada('p1', 1), makeParada('p2', 2)],
     paradasReais: [makeParada('p1', 1), makeParada('p2', 2)],
@@ -422,6 +424,7 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
   ) => {
     const { result } = renderHook(() =>
       useMapaRotaHandlers({
+        showToast: mockShowToast,
         rotaId: 'rota-1',
         rota: rotaAtiva,
         paradas: [],
@@ -520,6 +523,7 @@ describe('useMapaRotaHandlers — reativar rota', () => {
   ) => {
     const { result } = renderHook(() =>
       useMapaRotaHandlers({
+        showToast: mockShowToast,
         rotaId: 'rota-1',
         rota: rotaConcluida,
         paradas: paradasReais,
@@ -714,6 +718,7 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
   ) => {
     const { result } = renderHook(() =>
       useMapaRotaHandlers({
+        showToast: mockShowToast,
         rotaId: 'rota-1',
         rota: rotaAtiva,
         paradas: [],
@@ -816,5 +821,37 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
       'success',
     );
     expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useMapaRotaHandlers — salvar edição de parada', () => {
+  it('vínculo das entregas não desfeito: avisa o gestor em vez de mostrar só sucesso', async () => {
+    mockShowToast.mockClear();
+    const { result } = setup([makeParada('p1', 1)]);
+
+    await act(async () => {
+      await result.current.handleEditStopSave(false, true);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Parada atualizada, mas o vínculo das entregas dela não foi totalmente desfeito. Confira a ordem entre retirada e entregas.',
+      'error',
+      6000,
+    );
+  });
+
+  it('sem problema de vínculo: o toast de sucesso de sempre', async () => {
+    mockShowToast.mockClear();
+    const { result } = setup([makeParada('p1', 1)]);
+
+    await act(async () => {
+      await result.current.handleEditStopSave(false);
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Parada atualizada com sucesso',
+      'success',
+    );
   });
 });

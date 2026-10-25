@@ -30,9 +30,16 @@ const mockFrom = jest.fn((table: string) => {
   throw new Error(`useMapaRotaData.test: tabela inesperada "${table}"`);
 });
 
+// Realtime inerte (coberto em useMapaRotaData.realtime.test.ts).
+const canalInerte: Record<string, unknown> = {};
+canalInerte.on = () => canalInerte;
+canalInerte.subscribe = () => canalInerte;
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
+    channel: () => canalInerte,
+    removeChannel: () => undefined,
   },
 }));
 
@@ -75,7 +82,7 @@ describe('useMapaRotaData', () => {
   });
 
   it('inclui otimizacao_estado no select de rotas (regressão: sem isso o campo nunca chega do banco)', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -85,7 +92,7 @@ describe('useMapaRotaData', () => {
   });
 
   it('popula rota.otimizacao_estado com o valor retornado pelo banco', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 

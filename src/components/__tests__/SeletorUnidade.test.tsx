@@ -352,4 +352,66 @@ describe('SeletorUnidade', () => {
       expect(getByText('checkmark-circle')).toBeTruthy();
     });
   });
+
+  // DP-3/G13: no cabeçalho do gestor só entram as lojas em que ele é
+  // gestor — a loja em que atende como motorista não abre o painel dela.
+  describe('filtrado por papel', () => {
+    const tres = [
+      ...mockVinculacoes,
+      {
+        id: 'vinc-3',
+        unidade_id: 'unidade-3',
+        papel: 'gestor',
+        is_principal: false,
+        unidades: { id: 'unidade-3', nome: 'Unidade Norte', cidade: 'Recife' },
+      },
+    ];
+
+    it('lista só as lojas do papel pedido', () => {
+      mockUseUnidadeAtiva.mockReturnValue({
+        unidadeAtiva: 'unidade-1',
+        unidadeAtivaData: tres[0].unidades,
+        vinculacoes: tres,
+        temMultiplasUnidades: true,
+        trocarUnidade: jest.fn(),
+        loading: false,
+      });
+      const { getByText, queryByText } = render(
+        <SeletorUnidade compact papel="gestor" />,
+      );
+
+      fireEvent.press(getByText('Unidade Principal'));
+
+      expect(getByText('Unidade Norte')).toBeTruthy();
+      expect(queryByText('Unidade Secundária')).toBeNull();
+    });
+
+    // Revisão, M3: com a loja ativa fora do filtro (a de motorista), sumir o
+    // seletor deixava o gestor preso numa loja que ele não administra.
+    it('com a loja ativa fora do papel, aparece para ele poder sair dela', () => {
+      mockUseUnidadeAtiva.mockReturnValue({
+        unidadeAtiva: 'unidade-2',
+        unidadeAtivaData: mockVinculacoes[1].unidades,
+        vinculacoes: mockVinculacoes,
+        temMultiplasUnidades: true,
+        trocarUnidade: jest.fn(),
+        loading: false,
+      });
+      const { getByText } = render(<SeletorUnidade compact papel="gestor" />);
+
+      fireEvent.press(getByText('Unidade Secundária'));
+
+      expect(getByText('Unidade Principal')).toBeTruthy();
+    });
+
+    it('com uma loja só nesse papel, o compacto não aparece', () => {
+      // Duas vinculações, mas só uma como gestor.
+      const { queryByText } = render(
+        <SeletorUnidade compact papel="gestor" />,
+      );
+
+      expect(queryByText('Unidade Principal')).toBeNull();
+    });
+  });
 });
+

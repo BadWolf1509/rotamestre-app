@@ -6,7 +6,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { toLocalISODate } from '@/lib/dateUtils';
+import { contarParadasDasRotas } from '@/lib/gestor/contarParadasDasRotas';
 import { logger } from '@/lib/logger';
+import { buscarResumoDesempenho } from '@/lib/motorista/resumoDesempenho';
 import { supabase } from '@/lib/supabase';
 
 // Milestones disponíveis
@@ -67,33 +69,12 @@ export function useMilestones(
     try {
       setData((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      // 1. Buscar total de entregas (paradas concluídas) do motorista
-      const { data: rotasConcluidas, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id')
-        .eq('motorista_id', motoristaId)
-        .eq('status', 'concluida');
-
-      if (rotasError) throw rotasError;
-
-      let totalEntregas = 0;
-      const totalRotas = rotasConcluidas?.length || 0;
-
-      if (rotasConcluidas && rotasConcluidas.length > 0) {
-        const rotaIds = rotasConcluidas.map((r) => r.id);
-        // IMPORTANTE: .neq('is_checkpoint', false) não funciona em PostgreSQL
-        // porque NULL != false retorna NULL (não true), excluindo entregas reais
-        // Usamos .or() para pegar is_checkpoint IS NULL ou is_checkpoint = true
-        const { count, error: paradasError } = await supabase
-          .from('paradas')
-          .select('id', { count: 'exact', head: true })
-          .in('rota_id', rotaIds)
-          .eq('status', 'concluida')
-          .or('is_checkpoint.is.null,is_checkpoint.eq.true');
-
-        if (paradasError) throw paradasError;
-        totalEntregas = count || 0;
-      }
+      // 1. Total de entregas (paradas concluídas, sem partida/chegada, de
+      // rotas concluídas), somado no servidor (Migration 55). Antes ia por
+      // `.in('rota_id', <todas as rotas concluídas>)`: 390 ids ≈ 14 KB de URL.
+      const resumo = await buscarResumoDesempenho(motoristaId, null);
+      const totalEntregas = resumo.entregasEmRotasConcluidas;
+      const totalRotas = resumo.rotasConcluidas;
 
       // 2. Calcular milestone atual e próximo
       let currentMilestone: number | null = null;
@@ -165,34 +146,19 @@ export function useMilestones(
           }
         }
 
-        // Contar entregas por rota
+        // Contar entregas por rota: em lotes de ids e paginado, porque uma
+        // semana cheia passa de 1.000 paradas (corte do PostgREST).
         if (rotasRecentes.length > 0) {
-          const rotaIds = rotasRecentes.map((r) => r.id);
-          // Mesma correção: usar .or() ao invés de .neq() para filtrar checkpoints
-          const { data: paradasRecentes } = await supabase
-            .from('paradas')
-            .select('rota_id')
-            .in('rota_id', rotaIds)
-            .eq('status', 'concluida')
-            .or('is_checkpoint.is.null,is_checkpoint.eq.true');
+          const paradasPorRota = await contarParadasDasRotas(
+            rotasRecentes.map((r) => r.id),
+          );
 
-          if (paradasRecentes) {
-            // Mapear paradas por rota
-            const paradasPorRota = new Map<string, number>();
-            for (const p of paradasRecentes) {
-              paradasPorRota.set(
-                p.rota_id,
-                (paradasPorRota.get(p.rota_id) || 0) + 1,
-              );
-            }
-
-            // Atribuir entregas ao dia correto
-            for (const rota of rotasRecentes) {
-              const dateStr = toLocalISODate(new Date(rota.concluida_em));
-              if (dailyMap.has(dateStr)) {
-                const current = dailyMap.get(dateStr)!;
-                current.entregas += paradasPorRota.get(rota.id) || 0;
-              }
+          // Atribuir entregas ao dia correto
+          for (const rota of rotasRecentes) {
+            const dateStr = toLocalISODate(new Date(rota.concluida_em));
+            if (dailyMap.has(dateStr)) {
+              const current = dailyMap.get(dateStr)!;
+              current.entregas += paradasPorRota.get(rota.id)?.concluidas ?? 0;
             }
           }
         }

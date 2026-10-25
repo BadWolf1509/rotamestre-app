@@ -27,6 +27,14 @@ import { ordenarParadasPorRota } from '../useNovaEntrega.helpers';
 
 import type React from 'react';
 
+/**
+ * Toda ordem possível passa por um par de pontos sem rota de carro entre si
+ * (o OSRM devolve `null`: ilha, endereço fora do mapa viário). A ordem
+ * exibida não é percorrível como está; o endereço precisa ser conferido.
+ */
+const AVISO_SEM_ROTA_ENTRE_PARADAS =
+  'Alguma parada não tem rota de carro até as outras. Confira os endereços: a ordem exibida pode não ser percorrível.';
+
 export interface UseRouteOptimizationReturn {
   rotaOtimizada: RotaOtimizadaState | null;
   setRotaOtimizada: React.Dispatch<
@@ -190,13 +198,17 @@ export function useRouteOptimization({
         });
         setOrdemManual(false);
 
-        showToast(
-          isEstimated
-            ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
-            : `Rota otimizada com dependências! ${formatarDecimal(resultado.distanciaTotalMetros / 1000)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
-          isEstimated ? 'info' : 'success',
-          isEstimated ? 6000 : 4000,
-        );
+        if (resultado.semRotaEntreParadas) {
+          showToast(AVISO_SEM_ROTA_ENTRE_PARADAS, 'error', 8000);
+        } else {
+          showToast(
+            isEstimated
+              ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
+              : `Rota otimizada com dependências! ${formatarDecimal(resultado.distanciaTotalMetros / 1000)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
+            isEstimated ? 'info' : 'success',
+            isEstimated ? 6000 : 4000,
+          );
+        }
 
         return paradasAtualizadas;
       } else {
@@ -255,13 +267,17 @@ export function useRouteOptimization({
         });
         setOrdemManual(false);
 
-        showToast(
-          isEstimated
-            ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
-            : `Rota otimizada! ${formatarDecimal(resultado.distancia_total_metros / 1000)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
-          isEstimated ? 'info' : 'success',
-          isEstimated ? 6000 : 4000,
-        );
+        if (resultado.sem_rota_entre_paradas) {
+          showToast(AVISO_SEM_ROTA_ENTRE_PARADAS, 'error', 8000);
+        } else {
+          showToast(
+            isEstimated
+              ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
+              : `Rota otimizada! ${formatarDecimal(resultado.distancia_total_metros / 1000)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
+            isEstimated ? 'info' : 'success',
+            isEstimated ? 6000 : 4000,
+          );
+        }
 
         return paradasComNovaOrdem;
       }

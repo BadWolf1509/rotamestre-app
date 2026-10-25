@@ -1,4 +1,4 @@
-import { paradaSchema } from '../parada';
+import { paradaModalSchema, paradaSchema } from '../parada';
 
 describe('paradaSchema', () => {
   const validParada = {
@@ -46,7 +46,10 @@ describe('paradaSchema', () => {
   });
 
   it('trims destinatario', () => {
-    const result = paradaSchema.parse({ ...validParada, destinatario: '  João  ' });
+    const result = paradaSchema.parse({
+      ...validParada,
+      destinatario: '  João  ',
+    });
     expect(result.destinatario).toBe('João');
   });
 
@@ -60,7 +63,11 @@ describe('paradaSchema', () => {
   });
 
   it('accepts missing latitude and longitude', () => {
-    const { latitude: _lat, longitude: _lng, ...withoutCoords } = validParada as Record<string, unknown>;
+    const {
+      latitude: _lat,
+      longitude: _lng,
+      ...withoutCoords
+    } = validParada as Record<string, unknown>;
     const result = paradaSchema.safeParse(withoutCoords);
     expect(result.success).toBe(true);
   });
@@ -85,5 +92,74 @@ describe('paradaSchema', () => {
       telefone: '(11) 99988-7766',
     });
     expect(result.telefone).toBe('11999887766');
+  });
+});
+
+describe('paradaModalSchema (modais de adicionar e editar parada da rota)', () => {
+  const valida = {
+    endereco: 'Rua das Flores, 123',
+    tipo: 'entrega' as const,
+    destinatario: '',
+    telefone: '',
+    observacoes: '',
+  };
+
+  function mensagens(valores: unknown): Record<string, string> {
+    const r = paradaModalSchema.safeParse(valores);
+    if (r.success) return {};
+    return Object.fromEntries(
+      r.error.issues.map((i) => [String(i.path[0]), i.message]),
+    );
+  }
+
+  it('só endereço e tipo são obrigatórios: destinatário e telefone vazios passam', () => {
+    expect(paradaModalSchema.safeParse(valida).success).toBe(true);
+  });
+
+  it('endereço curto ou só espaços: erro no campo endereco', () => {
+    expect(mensagens({ ...valida, endereco: 'Rua' }).endereco).toBe(
+      'Informe um endereço válido.',
+    );
+    expect(mensagens({ ...valida, endereco: '     ' }).endereco).toBe(
+      'Informe um endereço válido.',
+    );
+  });
+
+  it('telefone preenchido precisa de DDD e 10 ou 11 dígitos', () => {
+    expect(mensagens({ ...valida, telefone: '(11) 9999' }).telefone).toBe(
+      'Telefone deve ter DDD e 10 ou 11 dígitos.',
+    );
+    expect(
+      paradaModalSchema.safeParse({ ...valida, telefone: '(11) 99999-8888' })
+        .success,
+    ).toBe(true);
+    expect(
+      paradaModalSchema.safeParse({ ...valida, telefone: '(11) 9999-8888' })
+        .success,
+    ).toBe(true);
+  });
+
+  it('não transforma o telefone: a máscara digitada chega intacta ao banco', () => {
+    const r = paradaModalSchema.parse({
+      ...valida,
+      telefone: '(11) 99999-8888',
+    });
+    expect(r.telefone).toBe('(11) 99999-8888');
+  });
+
+  it('observações passam de 300 caracteres: erro (o limite do campo)', () => {
+    expect(
+      mensagens({ ...valida, observacoes: 'x'.repeat(301) }).observacoes,
+    ).toBe('As observações devem ter no máximo 300 caracteres.');
+    expect(
+      paradaModalSchema.safeParse({ ...valida, observacoes: 'x'.repeat(300) })
+        .success,
+    ).toBe(true);
+  });
+
+  it('não exige coordenadas: quem decide é o salvar, que geocodifica o endereço digitado', () => {
+    expect(
+      paradaModalSchema.safeParse({ ...valida, latitude: undefined }).success,
+    ).toBe(true);
   });
 });

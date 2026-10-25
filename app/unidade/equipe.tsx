@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   DesktopPageLayout,
@@ -15,6 +16,7 @@ import {
   Text,
   Toast,
 } from '@/design-system';
+import { useBloqueioDesativacao } from '@/hooks/motoristas-gestor/useBloqueioDesativacao';
 import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -47,6 +49,8 @@ export default function EquipeScreen() {
   });
   const { toast: toastState, showToast, hideToast } = useToast();
   const { showWarning, showConfirm, AlertDialog } = useAlert();
+  const { bloqueio, mostrarSeBloqueado, fecharBloqueio } =
+    useBloqueioDesativacao();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('equipe');
   const [membros, setMembros] = useState<Membro[]>([]);
@@ -165,6 +169,8 @@ export default function EquipeScreen() {
       );
       await loadMembros();
     } catch (error) {
+      // Rota aberta (Migration 54): mostra as rotas para reatribuir/cancelar.
+      if (mostrarSeBloqueado(error, membro.nome)) return;
       logger.error('Erro ao atualizar usuário', error);
       showToast(
         mensagemRegraDoBanco(error) ?? 'Erro ao atualizar usuário',
@@ -390,6 +396,7 @@ export default function EquipeScreen() {
         </DesktopPageLayout>
         <Toast {...toastState} onDismiss={hideToast} />
         {AlertDialog}
+        <RotasAbertasModal bloqueio={bloqueio} onClose={fecharBloqueio} />
         {logoutModal}
       </ErrorBoundary>
     );
@@ -432,6 +439,7 @@ export default function EquipeScreen() {
       </ScrollView>
       <Toast {...toastState} onDismiss={hideToast} />
       {AlertDialog}
+      <RotasAbertasModal bloqueio={bloqueio} onClose={fecharBloqueio} />
       {logoutModal}
     </ErrorBoundary>
   );

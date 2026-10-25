@@ -144,6 +144,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         confirmText="Sair"
         cancelText="Cancelar"
         type="danger"
+        icon="log-out-outline"
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}
       />

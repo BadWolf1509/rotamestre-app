@@ -32,7 +32,9 @@ import {
   type FiltroCategoria,
 } from '@/hooks/useIncidentesGestor';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { styles } from '@/styles/gestor/incidentes.styles';
 import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
@@ -48,9 +50,17 @@ export default function IncidentesScreen() {
     userImageUrl: userData?.foto_url,
   });
 
+  // A página é dona do toast (useToast é estado por instância) e o injeta
+  // no hook.
+  const { toast: toastState, showToast, hideToast } = useToast();
+
   const {
     // Data
     incidentes,
+    total,
+    temMais,
+    carregandoMais,
+    carregarMais,
     loading,
     categoriaLabels,
     statusLabels,
@@ -88,12 +98,36 @@ export default function IncidentesScreen() {
     historicoLoading,
     handleVerHistoricoMotorista,
     setShowHistoricoMotoristaModal,
-    // Toast
-    toastState,
-    hideToast,
     // Helpers
     formatDate,
-  } = useIncidentesGestor(theme);
+  } = useIncidentesGestor(theme, { showToast });
+
+  // Abaixo da lista: quantos mostra de quantos, e a próxima página. Função
+  // chamada no JSX (não componente declarado no render).
+  const renderCarregarMais = () =>
+    temMais && total !== null ? (
+      <View style={styles.rodapeLista}>
+        <Text style={styles.rodapeListaTexto}>
+          {`Mostrando ${formatarDecimal(incidentes.length, 0)} de ${formatarDecimal(total, 0)} incidentes.`}
+        </Text>
+        <TouchableOpacity
+          testID="incidentes-carregar-mais"
+          style={styles.botaoCarregarMais}
+          onPress={carregarMais}
+          disabled={carregandoMais}
+          accessibilityRole="button"
+          accessibilityLabel="Carregar mais incidentes"
+          accessibilityState={{
+            disabled: carregandoMais,
+            busy: carregandoMais,
+          }}
+        >
+          <Text style={styles.mobileActionText}>
+            {carregandoMais ? 'Carregando...' : 'Carregar mais incidentes'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    ) : null;
 
   // Remarcar entrega
   const handleRemarcarEntrega = (incidente: Incidente) => {
@@ -248,7 +282,11 @@ export default function IncidentesScreen() {
         {estatisticasMotorista.length > 0 && (
           <DesktopCard
             title="Incidentes por Motorista"
-            subtitle="Top 5 motoristas com mais incidentes"
+            subtitle={
+              temMais
+                ? `Top 5 entre os ${formatarDecimal(incidentes.length, 0)} incidentes carregados`
+                : 'Top 5 motoristas com mais incidentes'
+            }
           >
             <View style={styles.motoristaStatsContainer}>
               {estatisticasMotorista.map((stat, index) => (
@@ -332,6 +370,7 @@ export default function IncidentesScreen() {
               </View>
             }
           />
+          {renderCarregarMais()}
         </DesktopCard>
       </DesktopPageLayout>
     );
@@ -411,6 +450,7 @@ export default function IncidentesScreen() {
             </MobileCard>
           );
         })}
+        {renderCarregarMais()}
       </ScrollView>
     );
   };

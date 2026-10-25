@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { NotificationBell } from '@/components/NotificationBell';
+import { SeletorUnidade } from '@/components/SeletorUnidade';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface BreadcrumbItem {
@@ -205,6 +206,8 @@ export function DesktopPageLayout({
           userMenuTrigger ||
           (actions && actions.length > 0)) && (
           <View style={styles.headerRight}>
+            {/* Só para quem é gestor de mais de uma loja (DP-3/G13). */}
+            <SeletorUnidade compact papel="gestor" />
             <NotificationBell variant="desktop" />
             {headerExtra && (
               <View style={styles.headerExtra}>{headerExtra}</View>

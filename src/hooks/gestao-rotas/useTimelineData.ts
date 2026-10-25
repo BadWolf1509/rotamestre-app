@@ -6,8 +6,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { PAGE_SIZE } from '@/components/timeline/types';
+import { useAoVoltarParaPrimeiroPlano } from '@/hooks/useAoVoltarParaPrimeiroPlano';
 import { useCachedData } from '@/hooks/useCachedData';
 import { CACHE_TTL } from '@/lib/cache';
 import { logger } from '@/lib/logger';
@@ -36,6 +38,13 @@ export interface UseTimelineDataResult {
 }
 
 const EMPTY_EVENTS: TimelineEventMapped[] = [];
+
+/**
+ * Janela que junta a reconexão (`SUBSCRIBED`) e a volta ao primeiro plano:
+ * na volta ao app os dois costumam disparar juntos, e cada um recarregava
+ * (o `refresh` ignora a deduplicação do cache). Revisão da tarefa 7, M2.
+ */
+export const DEBOUNCE_REVALIDACAO_TIMELINE_MS = 500;
 
 function sortDesc(events: TimelineEventMapped[]): TimelineEventMapped[] {
   return [...events].sort(
@@ -178,9 +187,30 @@ export function useTimelineData(
     }
   }, [loadingMore, hasMore, rotaId]);
 
+  // Revalidação (reconexão, volta ao app) com debounce: uma recarga só.
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+  const revalidacaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const agendarRevalidacao = useCallback(() => {
+    if (revalidacaoRef.current) clearTimeout(revalidacaoRef.current);
+    revalidacaoRef.current = setTimeout(() => {
+      revalidacaoRef.current = null;
+      void refreshRef.current();
+    }, DEBOUNCE_REVALIDACAO_TIMELINE_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (revalidacaoRef.current) clearTimeout(revalidacaoRef.current);
+    },
+    [],
+  );
+
   // Realtime: hook é dono do canal.
   useEffect(() => {
     if (!realtime) return;
+    let jaInscreveu = false;
     const channel = supabase
       .channel(nomeDeCanalUnico(`route-timeline-${rotaId}`))
       .on(
@@ -224,11 +254,24 @@ export function useTimelineData(
           void refresh();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // A 1ª inscrição corre junto com a carga inicial; as seguintes são
+        // reconexão, e o que mudou com o socket caído não chega por evento.
+        if (status !== 'SUBSCRIBED') return;
+        // Com o app em segundo plano não recarrega ali: a volta ao primeiro
+        // plano revalida (e já com o debounce).
+        if (jaInscreveu && AppState.currentState !== 'background') {
+          agendarRevalidacao();
+        }
+        jaInscreveu = true;
+      });
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [rotaId, realtime, refresh]);
+  }, [rotaId, realtime, refresh, agendarRevalidacao]);
+
+  // Em segundo plano o socket cai; ao voltar, recarrega a primeira página.
+  useAoVoltarParaPrimeiroPlano(agendarRevalidacao, realtime);
 
   return {
     events,

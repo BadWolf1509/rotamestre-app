@@ -30,6 +30,113 @@ import { Usuario } from '../types/usuario';
  */
 export type PerfilIndisponivel = 'conexao' | 'erro' | null;
 
+/**
+ * Busca do perfil compartilhada entre as instâncias (DP-3).
+ *
+ * POR QUE EXISTE. Layout, cabeçalho, tela e cada hook que chama `useUser`
+ * (inclusive `useUnidadeAtiva`) faziam a sua consulta — o painel do gestor
+ * abria com várias idênticas. Duas formas foram comparadas:
+ *
+ * - **Contexto** (um `UserProvider` na raiz): um estado só, mas muda o
+ *   contrato de 31 consumidores e de dezenas de testes, e o estado deste hook
+ *   é delicado (perfil conhecido offline, troca de conta A→B, janela do
+ *   onboarding sem perfil) — tudo testado por instância.
+ * - **Busca compartilhada** (esta): cada instância mantém o seu estado, mas a
+ *   ida à rede é uma só enquanto está em voo. As instâncias ficam em sincronia
+ *   pelo `profileEvents`, que dispara todas juntas — e, com isto, numa
+ *   consulta só.
+ *
+ * Escolhida a segunda: tira a consulta repetida, que era o defeito, sem mexer
+ * no estado. Refresh forçado não pega carona numa busca comum já em voo: ela
+ * pode ter saído antes da gravação que motivou o refresh.
+ *
+ * **Todo resultado fresco chega a todas as instâncias da conta** (revisão da
+ * tarefa 7, C1). O `UnidadeAtivaProvider` mora na raiz e nunca desmonta: a
+ * instância dele buscava o perfil uma vez — "sem linha", no cadastro — e o
+ * gestor entrava no painel sem loja depois do onboarding. Comparadas duas
+ * formas: (a) cada ponto que muda o perfil emite `profileEvents` — explícito,
+ * mas o ponto novo que esquecer reabre o defeito; (b) a busca avisa todas as
+ * instâncias da conta. A (b) corrige a classe: qualquer busca, de qualquer
+ * tela, atualiza também a raiz. Os pontos conhecidos emitem o evento mesmo
+ * assim (a), para não depender de outra tela buscar.
+ *
+ * Cada busca leva um número de sequência: a instância nunca troca um
+ * resultado mais novo por um mais velho. A busca de uma conta que saiu
+ * (logout, troca) é esquecida e não avisa ninguém: um login novo da mesma
+ * conta não reaproveita a promessa de antes dele (que pode voltar sem sessão).
+ */
+export interface ResultadoDePerfil {
+  seq: number;
+  perfil: Usuario | null;
+}
+interface BuscaDePerfilEmVoo {
+  promessa: Promise<ResultadoDePerfil>;
+  forcada: boolean;
+  esquecida: boolean;
+}
+type OuvinteDePerfil = (resultado: ResultadoDePerfil) => void;
+
+const buscasDePerfilEmVoo = new Map<string, BuscaDePerfilEmVoo>();
+const ouvintesDePerfil = new Map<string, Set<OuvinteDePerfil>>();
+let sequenciaDeBuscas = 0;
+
+function buscarPerfilCompartilhado(
+  userId: string,
+  forcada: boolean,
+  buscar: () => Promise<Usuario | null>,
+): Promise<ResultadoDePerfil> {
+  const emVoo = buscasDePerfilEmVoo.get(userId);
+  if (emVoo && (emVoo.forcada || !forcada)) return emVoo.promessa;
+
+  const seq = ++sequenciaDeBuscas;
+  const entrada: BuscaDePerfilEmVoo = {
+    promessa: Promise.resolve({ seq, perfil: null }),
+    forcada,
+    esquecida: false,
+  };
+  entrada.promessa = buscar()
+    .then((perfil) => {
+      const resultado = { seq, perfil };
+      if (!entrada.esquecida) {
+        ouvintesDePerfil.get(userId)?.forEach((ouvir) => ouvir(resultado));
+      }
+      return resultado;
+    })
+    .finally(() => {
+      if (buscasDePerfilEmVoo.get(userId) === entrada) {
+        buscasDePerfilEmVoo.delete(userId);
+      }
+    });
+  buscasDePerfilEmVoo.set(userId, entrada);
+  return entrada.promessa;
+}
+
+/** Só para testes: volta ao estado de processo novo (sem busca em voo). */
+export function reiniciarBuscasDePerfil(): void {
+  buscasDePerfilEmVoo.forEach((entrada) => {
+    entrada.esquecida = true;
+  });
+  buscasDePerfilEmVoo.clear();
+}
+
+/** A conta saiu desta tela (logout, troca): a busca dela não vale mais. */
+function esquecerBuscaDePerfil(userId: string): void {
+  const entrada = buscasDePerfilEmVoo.get(userId);
+  if (!entrada) return;
+  entrada.esquecida = true;
+  buscasDePerfilEmVoo.delete(userId);
+}
+
+function ouvirPerfil(userId: string, ouvir: OuvinteDePerfil): () => void {
+  const ouvintes = ouvintesDePerfil.get(userId) ?? new Set<OuvinteDePerfil>();
+  ouvintes.add(ouvir);
+  ouvintesDePerfil.set(userId, ouvintes);
+  return () => {
+    ouvintes.delete(ouvir);
+    if (ouvintes.size === 0) ouvintesDePerfil.delete(userId);
+  };
+}
+
 export function useUser() {
   const { user, loading: authLoading, usuarioOfflineId = null } = useAuth();
   // Offline (token vencido sem rede) não há `user`, mas há o dono do aparelho:
@@ -43,9 +150,16 @@ export function useUser() {
   const [perfilIndisponivel, setPerfilIndisponivel] =
     useState<PerfilIndisponivel>(null);
   const userIdRef = useRef<string | null>(userId);
-  const fetchingRef = useRef(false);
+  // Geração da carga desta instância: a mais nova vence. Antes um booleano
+  // (`fetchingRef`) fazia o refresh com carga em voo ser simplesmente
+  // ignorado — a tela ficava com o perfil de antes da gravação.
+  const geracaoRef = useRef(0);
+  // Conta da carga em voo (null = nenhuma).
+  const carregandoDeRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
   const userDataRef = useRef<Usuario | null>(null);
+  // Sequência do último resultado fresco aplicado: nada mais velho o troca.
+  const ultimoSeqRef = useRef(0);
 
   const fetchUserData = useCallback(async (): Promise<Usuario | null> => {
     if (!userId) return null;
@@ -162,14 +276,22 @@ export function useUser() {
       if (authLoading) return;
 
       if (!userId) {
+        // Logout: a carga em voo da conta que saiu deixa de valer — senão o
+        // login seguinte da MESMA conta seria pulado como "já em voo".
+        geracaoRef.current += 1;
+        carregandoDeRef.current = null;
         setUserData(null);
         setPerfilIndisponivel(null);
         setLoading(false);
         return;
       }
 
-      if (fetchingRef.current) return;
-      fetchingRef.current = true;
+      // Carga comum com outra em voo DA MESMA conta: a que está em voo já
+      // serve. Refresh (forçado) e troca de conta sempre rodam e passam à frente.
+      if (carregandoDeRef.current === userId && !forceRefresh) return;
+      const minha = ++geracaoRef.current;
+      const vigente = () => minha === geracaoRef.current;
+      carregandoDeRef.current = userId;
 
       const cacheKey = CACHE_KEYS.USER_DATA(userId);
       // O que a tela já mostra, mas só se for DESTA conta: na troca A→B o
@@ -183,7 +305,14 @@ export function useUser() {
         // outros componentes façam queries antes da sessão Supabase estar validada
         if (!forceRefresh) {
           const cached = await getCache<Usuario>(cacheKey);
-          if (cached !== null && mountedRef.current) {
+          // Conta conferida DEPOIS do await: um logout durante a leitura do
+          // cache não pode aplicar o perfil de quem saiu.
+          if (
+            cached !== null &&
+            mountedRef.current &&
+            vigente() &&
+            userIdRef.current === userId
+          ) {
             setUserData(cached);
             setFromCache(true);
             exibido = cached;
@@ -192,10 +321,19 @@ export function useUser() {
         }
 
         // 2. Buscar dados frescos (valida que a sessão Supabase está funcionando)
-        const freshData = await fetchUserData();
+        const { seq, perfil: freshData } = await buscarPerfilCompartilhado(
+          userId,
+          forceRefresh,
+          fetchUserData,
+        );
         // A conta mudou (logout, troca) durante a busca: a resposta é de quem
         // saiu e não pode virar estado nem perfil conhecido.
         if (userIdRef.current !== userId) return;
+        // Um refresh desta instância saiu depois: a resposta dele é que vale.
+        if (!vigente()) return;
+        // Resultado mais novo (de outra tela) já aplicado pelo ouvinte.
+        if (seq < ultimoSeqRef.current) return;
+        ultimoSeqRef.current = seq;
 
         if (freshData && mountedRef.current) {
           setUserData(freshData);
@@ -231,7 +369,7 @@ export function useUser() {
         const conhecido =
           exibido ??
           (falha.transitoria ? await lerPerfilConhecido(userId) : null);
-        if (mountedRef.current && userIdRef.current === userId) {
+        if (mountedRef.current && userIdRef.current === userId && vigente()) {
           setUserData(conhecido);
           setFromCache(conhecido !== null);
           setPerfilIndisponivel(
@@ -239,10 +377,10 @@ export function useUser() {
           );
         }
       } finally {
-        if (mountedRef.current) {
-          setLoading(false);
+        if (vigente()) {
+          carregandoDeRef.current = null;
+          if (mountedRef.current) setLoading(false);
         }
-        fetchingRef.current = false;
       }
     },
     // `sessaoAtiva`: offline → online recarrega sem esperar o "Tentar novamente".
@@ -255,8 +393,28 @@ export function useUser() {
     userDataRef.current = userData;
   }, [userData]);
 
+  // Conta anterior desta instância: ao trocar (logout, outra conta), a busca
+  // dela em voo é esquecida (não avisa ninguém, nenhum login novo a reusa).
+  const contaAnteriorRef = useRef<string | null>(userId);
   useEffect(() => {
+    const anterior = contaAnteriorRef.current;
+    if (anterior && anterior !== userId) esquecerBuscaDePerfil(anterior);
+    contaAnteriorRef.current = userId;
     userIdRef.current = userId;
+  }, [userId]);
+
+  // Resultado fresco de QUALQUER instância da conta chega a esta (C1).
+  useEffect(() => {
+    if (!userId) return;
+    return ouvirPerfil(userId, ({ seq, perfil }) => {
+      if (!mountedRef.current || userIdRef.current !== userId) return;
+      if (seq <= ultimoSeqRef.current) return;
+      ultimoSeqRef.current = seq;
+      setUserData(perfil);
+      setFromCache(false);
+      setPerfilIndisponivel(null);
+      setLoading(false);
+    });
   }, [userId]);
 
   // Carregar dados quando userId ou authLoading mudar

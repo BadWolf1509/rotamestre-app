@@ -1158,6 +1158,37 @@ describe('useMotoristasGestor Hook', () => {
       );
     });
 
+    it('desativar com rota aberta expõe a lista para a tela, e fechar limpa', async () => {
+      mockAlternar.mockResolvedValue({
+        data: null,
+        error: {
+          code: 'P0001',
+          message:
+            'Não dá para desativar: este motorista tem 1 rota aberta nesta loja.',
+          details: '[{"id":"r1","data":"2026-10-24","status":"em_andamento"}]',
+          hint: 'MOTORISTA_COM_ROTA_ABERTA',
+        },
+      });
+      const { result } = renderHook(() => useMotoristasGestor());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        result.current.toggleAtivo(
+          criarMotoristaMock({ ativo: true, nome: 'Joao' }),
+        );
+      });
+      await act(async () => {
+        await result.current.confirmarToggleAtivo();
+      });
+
+      expect(result.current.bloqueioDesativacao).toEqual({
+        nomeMotorista: 'Joao',
+        rotas: [{ id: 'r1', data: '2026-10-24', status: 'em_andamento' }],
+      });
+      act(() => result.current.fecharBloqueioDesativacao());
+      expect(result.current.bloqueioDesativacao).toBeNull();
+    });
+
     it('nao deve fazer nada se nao houver motoristaParaToggle', async () => {
       const { result } = renderHook(() => useMotoristasGestor());
 

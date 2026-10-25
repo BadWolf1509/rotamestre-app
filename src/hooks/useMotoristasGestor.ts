@@ -86,6 +86,12 @@ export interface UseMotoristasGestorReturn {
   confirmarToggleAtivo: () => Promise<void>;
   resetFormulario: () => void;
 
+  /** Desativação recusada por rota aberta: a tela mostra as rotas. */
+  bloqueioDesativacao: ReturnType<
+    typeof useMotoristasOperations
+  >['bloqueioDesativacao'];
+  fecharBloqueioDesativacao: () => void;
+
   // Validation
   validateEmail: (email: string) => boolean;
   handleTelefoneChange: (text: string) => void;
@@ -233,6 +239,8 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     toggleAtivo,
     confirmarToggleAtivo,
     resetFormulario: form.resetFormulario,
+    bloqueioDesativacao: operations.bloqueioDesativacao,
+    fecharBloqueioDesativacao: operations.fecharBloqueioDesativacao,
 
     // Validation
     validateEmail: form.validateEmail,

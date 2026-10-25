@@ -22,6 +22,11 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+const mockMarcarOtimizacao = jest.fn();
+jest.mock('@/lib/gestor/otimizacaoRota', () => ({
+  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+}));
+
 // Mock do Google Maps service
 const mockGetDirectionsSequential = jest.fn();
 
@@ -50,6 +55,16 @@ function createSupabaseChain(finalResult: { data?: unknown; error?: unknown }) {
       Promise.resolve(finalResult).then(resolve),
   }));
   return chain;
+}
+
+// DELETE de parada: `.delete().eq('id').eq('status', 'pendente').select('id')`.
+function cadeiaDelete(resultado: { data: unknown; error: unknown }) {
+  const cadeia = {
+    delete: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    select: jest.fn().mockResolvedValue(resultado),
+  };
+  return cadeia;
 }
 
 describe('routeUtils', () => {
@@ -469,12 +484,45 @@ describe('routeUtils', () => {
       { id: 'p1', ordem: 1, latitude: -23.56, longitude: -46.64 },
     ];
 
+    it('marca a rota otimizada como alterada quando a remoção acontece (G12)', async () => {
+      mockMarcarOtimizacao.mockResolvedValue(true);
+      mockFrom.mockReturnValueOnce(
+        cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+      );
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(mockMarcarOtimizacao).toHaveBeenCalledTimes(1);
+      expect(mockMarcarOtimizacao).toHaveBeenCalledWith(mockRotaId);
+    });
+
+    it('não marca nada quando o DELETE não apagou a parada (G12)', async () => {
+      mockFrom.mockReturnValueOnce(cadeiaDelete({ data: [], error: null }));
+
+      const result = await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(result.success).toBe(false);
+      expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
+    });
+
     it('deve confirmar remoção com ressalva se reordenação falhar', async () => {
       // Mock para delete (sucesso)
-      const deleteChain = {
-        delete: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-      };
+      const deleteChain = cadeiaDelete({
+        data: [{ id: mockParadaId }],
+        error: null,
+      });
       mockFrom.mockReturnValueOnce(deleteChain);
 
       // Mock para reordenarParadas (RPC falha)
@@ -497,10 +545,10 @@ describe('routeUtils', () => {
 
     it('deve confirmar remoção com ressalva se recálculo falhar', async () => {
       // Mock para delete (sucesso)
-      const deleteChain = {
-        delete: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-      };
+      const deleteChain = cadeiaDelete({
+        data: [{ id: mockParadaId }],
+        error: null,
+      });
       mockFrom.mockReturnValueOnce(deleteChain);
 
       // Mock para reordenarParadas (RPC sucesso)
@@ -522,13 +570,10 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se delete falhar', async () => {
-      const chain = {
-        delete: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Delete failed' },
-        }),
-      };
+      const chain = cadeiaDelete({
+        data: null,
+        error: { message: 'Delete failed' },
+      });
       mockFrom.mockReturnValue(chain);
 
       const result = await removerParadaERecalcular(
@@ -544,10 +589,10 @@ describe('routeUtils', () => {
 
     it('deve deletar, reordenar e recalcular com sucesso', async () => {
       // Mock para delete
-      const deleteChain = {
-        delete: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-      };
+      const deleteChain = cadeiaDelete({
+        data: [{ id: mockParadaId }],
+        error: null,
+      });
       mockFrom.mockReturnValueOnce(deleteChain);
 
       // Mock para reordenarParadas (RPC)
@@ -582,10 +627,10 @@ describe('routeUtils', () => {
     });
 
     it('deve registrar log quando usuarioId é fornecido', async () => {
-      const deleteChain = {
-        delete: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-      };
+      const deleteChain = cadeiaDelete({
+        data: [{ id: mockParadaId }],
+        error: null,
+      });
       const insertChain = {
         insert: jest.fn().mockResolvedValue({ data: null, error: null }),
       };
@@ -617,6 +662,75 @@ describe('routeUtils', () => {
 
       // Verificar que log foi inserido
       expect(mockFrom).toHaveBeenCalledWith('logs');
+    });
+
+    it('só apaga parada que ainda não foi finalizada (condiciona o DELETE ao status)', async () => {
+      const deleteChain = cadeiaDelete({
+        data: [{ id: mockParadaId }],
+        error: null,
+      });
+      mockFrom.mockReturnValueOnce(deleteChain);
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockFrom.mockReturnValue({
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+      });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      // Só `pendente`: é a mesma regra da tela (podeAlterarParada). Parada que o
+      // motorista já iniciou (em_andamento) também não se remove.
+      expect(deleteChain.eq).toHaveBeenCalledWith('status', 'pendente');
+    });
+
+    it('zero linhas apagadas (o motorista concluiu a parada): erro explicado, sem reordenar', async () => {
+      mockFrom.mockReturnValue(cadeiaDelete({ data: [], error: null }));
+
+      const result = await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'Esta parada não pode mais ser removida: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
+      );
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+
+    it('o banco recusa a parada finalizada (PARADA_FINALIZADA): mostra o motivo em português', async () => {
+      mockFrom.mockReturnValue(
+        cadeiaDelete({
+          data: null,
+          error: {
+            code: 'P0001',
+            message:
+              'PARADA_FINALIZADA: a parada já foi concluída e não pode ser removida.',
+          },
+        }),
+      );
+
+      const result = await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'Esta parada já foi finalizada pelo motorista e não pode ser removida.',
+      );
+      expect(result.error).not.toMatch(/PARADA_FINALIZADA|P0001/);
+      expect(mockRpc).not.toHaveBeenCalled();
     });
 
     it('deve capturar exceções', async () => {

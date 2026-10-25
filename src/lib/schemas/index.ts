@@ -46,5 +46,10 @@ export {
 } from './auth';
 
 // Domain schemas
-export { paradaSchema, type ParadaInput } from './parada';
+export {
+  paradaSchema,
+  paradaModalSchema,
+  type ParadaInput,
+  type ParadaModalFormData,
+} from './parada';
 export { motoristaSchema, type MotoristaInput } from './motorista';

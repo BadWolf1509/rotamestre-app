@@ -4,7 +4,7 @@
 
 import { useState, useCallback } from 'react';
 
-import { useToast } from '@/hooks/useToast';
+import type { ShowToast } from '@/hooks/useToast';
 import { logger } from '@/lib/logger';
 import { fetchIncidentesForGestor } from '@/lib/queries/incidentes';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +16,12 @@ interface UseIncidentesModalsOptions {
   /** Loja ativa: o histórico do motorista fica nela (Migration 43). */
   unidadeId?: string | null;
   onStatusUpdate: () => Promise<void>;
+  /**
+   * O `showToast` da instância de `useToast` que a TELA renderiza. Obrigatório de
+   * propósito: `useToast` é estado local, e um hook que criasse a própria
+   * instância mostraria o toast para ninguém.
+   */
+  showToast: ShowToast;
 }
 
 interface UseIncidentesModalsResult {
@@ -49,8 +55,6 @@ interface UseIncidentesModalsResult {
   handleVerHistoricoMotorista: (id: string, nome: string) => Promise<void>;
   setShowHistoricoMotoristaModal: (value: boolean) => void;
 
-  // Toast
-  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
 /**
@@ -60,9 +64,8 @@ export function useIncidentesModals({
   incidentes: _incidentes,
   unidadeId,
   onStatusUpdate,
+  showToast,
 }: UseIncidentesModalsOptions): UseIncidentesModalsResult {
-  const { showToast } = useToast();
-
   // Detalhes modal state
   const [incidenteSelecionado, setIncidenteSelecionado] =
     useState<Incidente | null>(null);
@@ -238,7 +241,5 @@ export function useIncidentesModals({
     handleVerHistoricoMotorista,
     setShowHistoricoMotoristaModal,
 
-    // Toast
-    showToast,
   };
 }

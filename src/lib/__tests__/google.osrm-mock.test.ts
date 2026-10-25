@@ -53,6 +53,27 @@ describe('googleMapsService - osrm null/throw paths', () => {
     });
   });
 
+  describe('par sem rota (G9)', () => {
+    it('repassa o aviso de que nenhuma ordem resolve', async () => {
+      mockGetOptimizedDirections.mockResolvedValueOnce({
+        polyline: '',
+        distancia_total_metros: 1000,
+        duracao_total_segundos: 100,
+        ordem_otimizada: [0],
+        legs: [],
+        sem_rota_entre_paradas: true,
+      });
+
+      const result = await googleMapsService.getDirectionsWithError(
+        { latitude: 0, longitude: 0 },
+        { latitude: 0, longitude: 0 },
+        [{ latitude: 1, longitude: 1 }],
+      );
+
+      expect(result.data?.sem_rota_entre_paradas).toBe(true);
+    });
+  });
+
   describe('getDirections (wrapper)', () => {
     it('deve retornar null quando osrm retorna null', async () => {
       mockGetOptimizedDirections.mockResolvedValueOnce(null);

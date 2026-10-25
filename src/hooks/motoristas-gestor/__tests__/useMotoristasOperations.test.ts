@@ -1038,6 +1038,71 @@ describe('useMotoristasOperations', () => {
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
+    it('desativação recusada por rota aberta abre a lista de rotas, sem sucesso', async () => {
+      const erroRotaAberta = {
+        code: 'P0001',
+        message:
+          'Não dá para desativar: este motorista tem 3 rotas abertas nesta loja. Reatribua a outro motorista ou cancele antes de desativar.',
+        details: JSON.stringify([
+          { id: 'r-and', data: '2026-10-24', status: 'em_andamento' },
+          { id: 'r-p1', data: '2026-10-25', status: 'pendente' },
+          { id: 'r-p2', data: '2026-10-26', status: 'pendente' },
+        ]),
+        hint: 'MOTORISTA_COM_ROTA_ABERTA',
+      };
+      mockAlternar.mockResolvedValue({ data: null, error: erroRotaAberta });
+      const mockHideToast = jest.fn();
+      (useToast as jest.Mock).mockReturnValue({
+        toast: { visible: false, message: '', type: 'success', duration: 3000 },
+        showToast: mockShowToast,
+        hideToast: mockHideToast,
+        withToast: mockWithToast,
+      });
+
+      const motorista = criarMotoristaMock({ ativo: true, nome: 'João' });
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.confirmarToggleAtivo(motorista, onSuccess);
+      });
+
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(mockLogUserAction).not.toHaveBeenCalled();
+      expect(result.current.bloqueioDesativacao).toEqual({
+        nomeMotorista: 'João',
+        rotas: [
+          { id: 'r-and', data: '2026-10-24', status: 'em_andamento' },
+          { id: 'r-p1', data: '2026-10-25', status: 'pendente' },
+          { id: 'r-p2', data: '2026-10-26', status: 'pendente' },
+        ],
+      });
+      // o aviso com a lista substitui o toast de erro
+      expect(mockHideToast).toHaveBeenCalled();
+
+      act(() => result.current.fecharBloqueioDesativacao());
+      expect(result.current.bloqueioDesativacao).toBeNull();
+    });
+
+    it('erro comum não abre a lista de rotas', async () => {
+      mockAlternar.mockResolvedValue({
+        data: null,
+        error: { code: 'P0001', message: 'outra regra' },
+      });
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.confirmarToggleAtivo(
+          criarMotoristaMock(),
+          jest.fn(),
+        );
+      });
+
+      expect(result.current.bloqueioDesativacao).toBeNull();
+    });
+
     it('does nothing without an active unit', async () => {
       (useUnidadeAtiva as jest.Mock).mockReturnValue({ unidadeAtiva: null });
       const { result } = renderHook(() => useMotoristasOperations());

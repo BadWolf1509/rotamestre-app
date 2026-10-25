@@ -17,4 +17,6 @@ export interface GoogleDirectionsResult {
   legs: GoogleDirectionsLeg[];
   /** Indica que distância e duração são apenas estimativas em linha reta. */
   is_estimated?: boolean;
+  /** Toda ordem passa por um par de pontos sem rota de carro (OSRM `null`). */
+  sem_rota_entre_paradas?: boolean;
 }

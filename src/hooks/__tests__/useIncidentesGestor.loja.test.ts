@@ -100,7 +100,9 @@ beforeEach(() => {
 describe('useIncidentesGestor — recorte pela loja', () => {
   it('mostra só os incidentes gravados nesta loja, com ou sem rota', async () => {
     const { result } = renderHook(() =>
-      useIncidentesGestor(defaultTheme as never),
+      useIncidentesGestor(defaultTheme as never, {
+        showToast: mockToast.showToast,
+      }),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -112,7 +114,9 @@ describe('useIncidentesGestor — recorte pela loja', () => {
 
   it('o histórico do motorista também fica nesta loja (a Ana atende as duas)', async () => {
     const { result } = renderHook(() =>
-      useIncidentesGestor(defaultTheme as never),
+      useIncidentesGestor(defaultTheme as never, {
+        showToast: mockToast.showToast,
+      }),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -136,7 +140,9 @@ describe('useIncidentesGestor — recorte pela loja', () => {
       },
     ];
     const { result } = renderHook(() =>
-      useIncidentesGestor(defaultTheme as never),
+      useIncidentesGestor(defaultTheme as never, {
+        showToast: mockToast.showToast,
+      }),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));

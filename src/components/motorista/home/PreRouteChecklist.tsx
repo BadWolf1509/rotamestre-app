@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Battery from 'expo-battery';
 import * as Location from 'expo-location';
 import * as Network from 'expo-network';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -53,6 +53,17 @@ export function PreRouteChecklist({
     batteryLevel: 100,
   });
   const [isChecking, setIsChecking] = useState(true);
+
+  // O callback vive numa ref (DP-10): o pai passa função inline, e como
+  // dependência ela refazia as três checagens nativas a cada render dele — e
+  // ele re-renderiza justamente porque recebeu o status, o que virava laço.
+  // Declarado antes do efeito das checagens: efeitos rodam em ordem.
+  const onStatusChangeRef = useRef(onStatusChange);
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
+  // Último resultado avisado: o pai só é chamado quando ele muda.
+  const ultimoAvisoRef = useRef<string | null>(null);
 
   const checkGPS = useCallback(async (): Promise<CheckStatus> => {
     try {
@@ -164,15 +175,20 @@ export function PreRouteChecklist({
         internetResult.status === 'ok' &&
         batteryResult.status === 'ok';
 
-      onStatusChange?.(canStart, allOk);
+      const aviso = `${canStart}:${allOk}`;
+      if (aviso !== ultimoAvisoRef.current) {
+        ultimoAvisoRef.current = aviso;
+        onStatusChangeRef.current?.(canStart, allOk);
+      }
     } catch (error) {
       logger.error('[PreRouteChecklist] Error checking status:', error);
     } finally {
       setIsChecking(false);
     }
-  }, [checkGPS, checkInternet, checkBattery, onStatusChange]);
+  }, [checkGPS, checkInternet, checkBattery]);
 
-  // Check inicial e re-check a cada 5 segundos
+  // Check inicial e re-check a cada 5 segundos (só na montagem: as checagens
+  // são estáveis e o callback vem da ref)
   useEffect(() => {
     checkAllStatus();
 

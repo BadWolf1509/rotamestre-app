@@ -38,6 +38,8 @@ const mockSeguradas: Record<string, Promise<void>> = {};
 let mockFalharRotas = false;
 // Tabelas cujas consultas devolvem erro (ex.: 'incidentes', 'usuario_unidades').
 const mockTabelasComErro = new Set<string>();
+// Registro de cada consulta (tabela + colunas pedidas).
+const mockConsultas: { tabela: string; colunas: string }[] = [];
 
 function mockValor(linha: Linha, coluna: string): unknown {
   return coluna
@@ -50,7 +52,8 @@ function mockQuery(tabela: string) {
   let contar = false;
   let statusFiltrado: string | null = null;
   const api = {
-    select: (_cols?: string, opts?: { count?: string; head?: boolean }) => {
+    select: (cols?: string, opts?: { count?: string; head?: boolean }) => {
+      mockConsultas.push({ tabela, colunas: (cols ?? '').replace(/\s+/g, ' ') });
       contar = !!opts?.head;
       return api;
     },
@@ -126,6 +129,7 @@ function rota(id: string, data: string, status = 'pendente', loja = 'loja-a') {
 }
 
 beforeEach(() => {
+  mockConsultas.length = 0;
   mockFalharRotas = false;
   mockTabelasComErro.clear();
   for (const k of Object.keys(mockSeguradas)) delete mockSeguradas[k];
@@ -290,5 +294,83 @@ describe('useDashboardData — erro de carga', () => {
     expect(result.current.erroCarga).toBeTruthy();
     expect(result.current.rotas).toHaveLength(2);
     expect(typeof result.current.dadosDe).toBe('number');
+  });
+});
+
+// DP-7: cada evento de realtime rodava as 5 consultas, inclusive as duas de
+// KPI da semana e do mês (as mais pesadas). Agora o evento atualiza só o que
+// muda com rota/parada (a lista e o "hoje"); KPIs e incidentes ficam para a
+// carga inicial, a troca de filtro e o refresh manual.
+describe('useDashboardData — eventos de realtime', () => {
+  const realtimeMock = () =>
+    jest.requireMock('@/hooks/useRealtimeRoutes').useRealtimeRoutes as jest.Mock;
+  /** O `onRouteUpdate` do último render (já com o debounce do hook). */
+  const dispararEvento = () => {
+    const chamadas = realtimeMock().mock.calls;
+    return chamadas[chamadas.length - 1][0].onRouteUpdate();
+  };
+  const consultasDeKpi = () =>
+    mockConsultas.filter(
+      (c) => c.tabela === 'rotas' && c.colunas.includes('iniciada_em'),
+    ).length;
+  const consultasDeIncidentes = () =>
+    mockConsultas.filter((c) => c.tabela === 'incidentes').length;
+
+  it('evento atualiza a lista e o "hoje" sem refazer KPIs nem incidentes', async () => {
+    const { result } = renderHook(() => useDashboardData());
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+    const kpisAntes = consultasDeKpi();
+    const incidentesAntes = consultasDeIncidentes();
+    expect(kpisAntes).toBe(2);
+
+    mockTabelas.rotas.push({
+      ...rota('hoje-3', hoje, 'concluida'),
+      paradas: [{ id: 'p', status: 'concluida', is_checkpoint: true }],
+    });
+    await act(async () => {
+      await dispararEvento();
+    });
+
+    await waitFor(() => expect(result.current.rotas).toHaveLength(3));
+    expect(result.current.todayStats.totalHoje).toBe(3);
+    // Derivados da lista acompanham o evento.
+    expect(result.current.kpis.totalParadas).toBe(1);
+    expect(result.current.kpis.taxaSucesso).toBe(100);
+    // KPIs de semana/mês e incidentes: só na carga completa.
+    expect(consultasDeKpi()).toBe(kpisAntes);
+    expect(consultasDeIncidentes()).toBe(incidentesAntes);
+    expect(result.current.kpis.rotasMes).toBe(2);
+    // O evento não liga o "atualizando" da tela.
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it('refresh manual refaz os KPIs', async () => {
+    const { result } = renderHook(() => useDashboardData());
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+    mockTabelas.rotas.push(rota('hoje-3', hoje, 'concluida'));
+
+    await act(async () => {
+      await result.current.onRefresh();
+    });
+
+    expect(consultasDeKpi()).toBe(4);
+    expect(result.current.kpis.rotasMes).toBe(3);
+  });
+
+  it('evento com a carga completa em voo não descarta os KPIs dela', async () => {
+    let soltar: () => void = () => {};
+    mockSeguradas.todas = new Promise<void>((r) => {
+      soltar = r;
+    });
+    const { result } = renderHook(() => useDashboardData());
+
+    await act(async () => {
+      void dispararEvento();
+      soltar();
+    });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
+    expect(result.current.rotas).toHaveLength(2);
   });
 });

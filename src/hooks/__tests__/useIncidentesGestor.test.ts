@@ -54,9 +54,49 @@ jest.mock('../useToast', () => ({
 // Mock Supabase
 const mockFrom = jest.fn();
 
+/**
+ * Os mocks abaixo foram escritos para a consulta antiga, que terminava em
+ * `.order()` (resolvido). A paginada continua depois dele (`.order('id')`,
+ * `.limit()`, `.returns()`). Este envoltório deixa qualquer método
+ * encadeável: guarda a 1ª promessa que um método do mock devolver e resolve
+ * com ela; método que o mock não tem vira no-op. A paginação em si é testada
+ * contra um PostgREST falso em useIncidentesGestor.paginacao.test.ts.
+ */
+function mockEncadeavel(alvo: Record<string, unknown>): unknown {
+  let resultado: PromiseLike<unknown> | null = null;
+  const proxy: unknown = new Proxy(alvo, {
+    get(obj, prop) {
+      if (prop === 'then') {
+        const fonte =
+          resultado ??
+          (typeof obj.then === 'function'
+            ? (obj as PromiseLike<unknown>)
+            : Promise.resolve({ data: [], error: null }));
+        return (ok: (v: unknown) => unknown, falha: (e: unknown) => unknown) =>
+          Promise.resolve(fonte).then(ok, falha);
+      }
+      const metodo = obj[prop as string];
+      return (...args: unknown[]) => {
+        if (typeof metodo !== 'function') return proxy;
+        const r = (metodo as (...a: unknown[]) => unknown).apply(obj, args);
+        if (r && typeof (r as PromiseLike<unknown>).then === 'function') {
+          resultado ??= r as PromiseLike<unknown>;
+          return proxy;
+        }
+        if (r && r !== obj && typeof r === 'object') {
+          return mockEncadeavel(r as Record<string, unknown>);
+        }
+        return proxy;
+      };
+    },
+  });
+  return proxy;
+}
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    from: (...args: unknown[]) => mockFrom(...args),
+    from: (...args: unknown[]) =>
+      mockEncadeavel(mockFrom(...args) as Record<string, unknown>),
   },
 }));
 
@@ -582,7 +622,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       // Valores iniciais
       expect(result.current.incidentes).toEqual([]);
@@ -612,7 +654,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       expect(result.current.categoriaLabels).toBeDefined();
       expect(result.current.categoriaLabels.accident).toEqual({
@@ -654,7 +698,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       expect(result.current.statusLabels).toBeDefined();
       expect(result.current.statusLabels.aberto).toEqual({
@@ -684,7 +730,9 @@ describe('useIncidentesGestor', () => {
     it('deve retornar early se unidadeLoading for true', async () => {
       mockUseUnidadeAtiva.loading = true;
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await act(async () => {
         await result.current.fetchIncidentes();
@@ -697,7 +745,9 @@ describe('useIncidentesGestor', () => {
     it('deve retornar early se unidadeAtiva for null', async () => {
       mockUseUnidadeAtiva.unidadeAtiva = null;
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await act(async () => {
         await result.current.fetchIncidentes();
@@ -725,7 +775,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -748,7 +800,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -772,7 +826,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -820,7 +876,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -848,7 +906,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -901,7 +961,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -955,7 +1017,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -983,7 +1047,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.handleVerDetalhes(mockIncidente);
@@ -1008,7 +1074,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.handleAlterarStatus(mockIncidente2);
@@ -1027,7 +1095,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.handleAlterarStatus(mockIncidente); // observacoes_gestao = null
@@ -1070,7 +1140,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       // Primeiro, abrir o modal com um incidente
       act(() => {
@@ -1103,7 +1175,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await act(async () => {
         await result.current.confirmarAlterarStatus();
@@ -1145,7 +1219,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.handleAlterarStatus(mockIncidente);
@@ -1174,7 +1250,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       // Abrir modal
       act(() => {
@@ -1198,7 +1276,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       // Abrir modal
       act(() => {
@@ -1228,7 +1308,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       expect(result.current.filtroStatus).toBe('todos');
 
@@ -1252,7 +1334,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       expect(result.current.filtroCategoria).toBe('todos');
 
@@ -1282,7 +1366,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       // Abrir modal primeiro
       act(() => {
@@ -1306,7 +1392,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.handleVerDetalhes(mockIncidente);
@@ -1327,7 +1415,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.handleVerDetalhes(mockIncidente);
@@ -1365,7 +1455,9 @@ describe('useIncidentesGestor', () => {
         };
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -1401,7 +1493,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       const formatted = result.current.formatDate('2025-01-15T14:30:00Z');
 
@@ -1415,30 +1509,9 @@ describe('useIncidentesGestor', () => {
   // Toast state e hideToast
   // ==========================================================================
 
-  describe('Toast', () => {
-    it('deve expor toastState e hideToast', async () => {
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        order: jest.fn().mockResolvedValue({ data: [], error: null }),
-      });
-
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
-
-      expect(result.current.toastState).toBeDefined();
-      expect(result.current.hideToast).toBeDefined();
-
-      act(() => {
-        result.current.hideToast();
-      });
-
-      expect(mockHideToast).toHaveBeenCalled();
-    });
-  });
-
-  // ==========================================================================
-  // Setters diretos
-  // ==========================================================================
+  // Toast: a página é a dona (useToast é estado por instância) e injeta o
+  // showToast — ver 'deve mostrar toast de erro quando query falha' e
+  // app/gestor/__tests__/incidentes.toast.test.tsx.
 
   describe('Setters', () => {
     it('deve atualizar novoStatus via setNovoStatus', async () => {
@@ -1448,7 +1521,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.setNovoStatus('em_analise');
@@ -1464,7 +1539,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.setObservacoes('Nova observacao');
@@ -1480,7 +1557,9 @@ describe('useIncidentesGestor', () => {
         order: jest.fn().mockResolvedValue({ data: [], error: null }),
       });
 
-      const { result } = renderHook(() => useIncidentesGestor(mockTheme));
+      const { result } = renderHook(() =>
+        useIncidentesGestor(mockTheme, { showToast: mockShowToast }),
+      );
 
       act(() => {
         result.current.setShowHistoricoMotoristaModal(true);

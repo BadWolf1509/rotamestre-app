@@ -17,8 +17,13 @@ import React from 'react';
 import UnidadeScreen from '../index';
 
 let mockUnidadeAtiva = 'loja-a';
+const mockRecarregarLojas = jest.fn();
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: mockUnidadeAtiva, loading: false }),
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockUnidadeAtiva,
+    loading: false,
+    refresh: mockRecarregarLojas,
+  }),
 }));
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({
@@ -138,5 +143,28 @@ describe('Minha Unidade — troca de loja', () => {
       mockRpc.mock.calls.filter(([nome]) => nome === 'atualizar_unidade');
     await waitFor(() => expect(salvar()).toHaveLength(1));
     expect(salvar()[0][1]).toMatchObject({ p_unidade_id: 'loja-b' });
+  });
+
+  // Revisão da tarefa 7 (C1, mesma classe): nome e sede da loja vivem nas
+  // vinculações do UnidadeAtivaProvider da raiz, que não desmonta. Sem
+  // recarregar, a Nova Rota seguia com a sede antiga até reabrir o app.
+  it('salvar recarrega as lojas do provider (nome e sede novos em todas as telas)', async () => {
+    mockRespostas['loja-b'] = Promise.resolve({
+      data: unidade('loja-b', 'Loja B'),
+      error: null,
+    });
+    mockUnidadeAtiva = 'loja-b';
+    mockRecarregarLojas.mockClear();
+
+    render(<UnidadeScreen />);
+    fireEvent.press(await screen.findByText('✏️ Editar Informações'));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Nome da unidade').props.value).toBe(
+        'Loja B',
+      ),
+    );
+    fireEvent.press(screen.getByText('Salvar'));
+
+    await waitFor(() => expect(mockRecarregarLojas).toHaveBeenCalledTimes(1));
   });
 });

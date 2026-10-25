@@ -133,6 +133,22 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   opcoesExportar: {
     gap: theme.spacing.md,
   },
+  // Abaixo da tabela: "Mostrando 100 de 437 rotas" + "Carregar mais rotas"
+  rodapeLista: {
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+  },
+  rodapeListaTexto: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+    textAlign: 'center',
+  },
+  progressoExportacao: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+    marginTop: theme.spacing.sm,
+  },
   opcoesExportarTexto: {
     fontSize: theme.typography.sm,
     color: theme.colors.gray700,

@@ -18,6 +18,7 @@ import {
   formatarTempo,
   type RotaHistorico,
 } from '@/hooks/motorista/historico';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -95,7 +96,7 @@ export default function HistoricoMotorista() {
         </View>
 
         <Text style={styles.statsSecondaryText}>
-          📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas · 🚗 {metricas.distanciaTotal} km
+          📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas · 🚗 {formatarDecimal(metricas.distanciaTotal)} km
         </Text>
       </View>
 

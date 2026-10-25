@@ -1,5 +1,7 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
+
+import { CORES_SOBRE_O_MAPA } from '@/components/motorista/home/miniMapCompartilhado';
 
 import { MotoristaMarker } from '../MotoristaMarker';
 
@@ -28,6 +30,13 @@ jest.mock('@/lib/supabase', () => {
             order: jest.fn(() => mock),
             limit: jest.fn(() => mock),
             single: jest.fn(() => Promise.resolve(mockReturnData)),
+            maybeSingle: jest.fn(() =>
+                Promise.resolve(
+                    mockReturnData.error?.code === 'PGRST116'
+                        ? { data: null, error: null }
+                        : mockReturnData,
+                ),
+            ),
         };
         return mock;
     };
@@ -127,6 +136,44 @@ describe('MotoristaMarker', () => {
 
             const time = await findByText('agora');
             expect(time).toBeTruthy();
+        });
+    });
+
+    describe('Idade da posição', () => {
+        afterEach(() => {
+            jest.useRealTimers();
+        });
+
+        it('mostra "há N min" e a idade anda sem posição nova', async () => {
+            jest.useFakeTimers();
+            jest.setSystemTime(new Date('2026-10-24T10:30:00Z'));
+            mockReturnData = {
+                data: { ...mockLocation, timestamp: '2026-10-24T10:18:00Z' },
+                error: null,
+            };
+
+            const { getByText } = render(<MotoristaMarker {...defaultProps} />);
+            await act(async () => {});
+
+            expect(getByText('há 12 min')).toBeTruthy();
+
+            act(() => {
+                jest.advanceTimersByTime(3 * 60_000);
+            });
+            expect(getByText('há 15 min')).toBeTruthy();
+        });
+    });
+
+    describe('Cores sobre o mapa', () => {
+        it('motorista parado (0 km/h) fica cinza, não azul de "sem dado"', async () => {
+            mockReturnData = { data: { ...mockLocation, velocidade: 0 }, error: null };
+
+            const { findByText } = render(<MotoristaMarker {...defaultProps} />);
+
+            const velocidade = await findByText('0 km/h');
+            expect(velocidade.props.style).toEqual(
+                expect.arrayContaining([{ color: CORES_SOBRE_O_MAPA.pendente }]),
+            );
         });
     });
 

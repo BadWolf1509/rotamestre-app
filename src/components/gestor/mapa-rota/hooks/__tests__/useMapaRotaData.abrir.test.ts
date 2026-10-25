@@ -84,7 +84,7 @@ beforeEach(() => {
 
 describe('useMapaRotaData — abrir a rota', () => {
   it('com a ordem inconsistente, não escreve no banco e só registra aviso', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1' }));
+    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 

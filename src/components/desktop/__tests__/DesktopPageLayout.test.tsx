@@ -16,6 +16,12 @@ jest.mock('expo-router', () => ({
 }));
 
 // Mock NotificationModalContext
+jest.mock('@/components/SeletorUnidade', () => ({
+  SeletorUnidade: ({ papel, compact }: { papel?: string; compact?: boolean }) => {
+    const { Text } = require('react-native');
+    return <Text>{`seletor-${papel}-${compact ? 'compacto' : 'cheio'}`}</Text>;
+  },
+}));
 jest.mock('@/context/NotificationModalContext', () => ({
   useNotificationModal: jest.fn(() => ({
     isOpen: false,
@@ -463,6 +469,20 @@ describe('DesktopPageLayout', () => {
       );
 
       expect(getByText('User Menu')).toBeTruthy();
+    });
+
+    it('cabeçalho tem o seletor de loja do gestor, ao lado do sino', () => {
+      const { getByText } = render(
+        <DesktopPageLayout
+          title="Title"
+          userMenuTrigger={<Text>User Menu</Text>}
+          userMenuItems={[{ label: 'Perfil', icon: 'person', onPress: jest.fn() }]}
+        >
+          <Text>Content</Text>
+        </DesktopPageLayout>,
+      );
+
+      expect(getByText('seletor-gestor-compacto')).toBeTruthy();
     });
 
     it('não deve renderizar menu quando userMenuItems vazio', () => {

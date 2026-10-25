@@ -11,6 +11,17 @@ import { EditStopModal, EditStopModalProps } from '../EditStopModal';
 // Mock dependencies
 const mockFrom = jest.fn();
 
+// UPDATE de parada: `.update().eq('id').eq('status').select('id')`.
+function cadeiaUpdate(resultado: { data: unknown; error: unknown }) {
+  return jest.fn().mockReturnValue({
+    eq: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        select: jest.fn().mockResolvedValue(resultado),
+      }),
+    }),
+  });
+}
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
@@ -57,6 +68,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
     onChangeText,
     onSelectAddress,
     placeholder,
+    error,
   }: {
     value: string;
     onChangeText: (text: string) => void;
@@ -66,6 +78,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
       coordinates?: { latitude: number; longitude: number },
     ) => void;
     placeholder: string;
+    error?: string;
   }) => {
     const { TextInput, TouchableOpacity, Text, View } = require('react-native');
     return (
@@ -87,6 +100,7 @@ jest.mock('@/components/AddressAutocomplete', () => ({
         >
           <Text>Rua Nova, 456</Text>
         </TouchableOpacity>
+        {error ? <Text testID="address-error">{error}</Text> : null}
       </View>
     );
   },
@@ -281,9 +295,7 @@ describe('EditStopModal', () => {
   describe('Salvamento', () => {
     beforeEach(() => {
       mockFrom.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({ data: null, error: null }),
-        }),
+        update: cadeiaUpdate({ data: [{ id: 'parada-123' }], error: null }),
         insert: jest.fn().mockResolvedValue({ data: null, error: null }),
       });
       mockRecalcularRota.mockResolvedValue({ success: true });
@@ -431,13 +443,9 @@ describe('EditStopModal', () => {
 
     it('deve lidar com erro ao salvar', async () => {
       mockFrom.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest
-            .fn()
-            .mockResolvedValue({
-              data: null,
-              error: { message: 'Update failed' },
-            }),
+        update: cadeiaUpdate({
+          data: null,
+          error: { message: 'Update failed' },
         }),
       });
 
@@ -448,6 +456,42 @@ describe('EditStopModal', () => {
       await waitFor(() => {
         // Deve chamar console.error
         expect(console.error).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('Validação Zod (G14)', () => {
+    it('telefone incompleto: erro abaixo do campo, nada é gravado', async () => {
+      mockFrom.mockImplementation(() => {
+        throw new Error('não devia gravar');
+      });
+      const { getByText, getByPlaceholderText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
+
+      fireEvent.changeText(getByPlaceholderText('(00) 00000-0000'), '11999');
+      fireEvent.press(getByText('Salvar'));
+
+      await waitFor(() => {
+        expect(
+          getByText('Telefone deve ter DDD e 10 ou 11 dígitos.'),
+        ).toBeTruthy();
+      });
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it('endereço apagado: erro no próprio campo de endereço', async () => {
+      const { getByTestId, getByText } = render(
+        <EditStopModal {...defaultProps} />,
+      );
+
+      fireEvent.changeText(getByTestId('address-input'), '');
+      fireEvent.press(getByText('Salvar'));
+
+      await waitFor(() => {
+        expect(getByTestId('address-error').props.children).toBe(
+          'Informe um endereço válido.',
+        );
       });
     });
   });
@@ -468,6 +512,87 @@ describe('EditStopModal', () => {
 
       const input = getByTestId('address-input');
       expect(input.props.value).toBe('Rua Diferente, 999');
+    });
+  });
+
+  describe('Vínculo retirada -> entrega ao trocar o tipo (G7)', () => {
+    const retirada = {
+      ...mockParada,
+      id: 'ret-1',
+      tipo: 'retirada' as const,
+      endereco: 'Rua da Coleta, 1',
+    };
+    const entregaVinculada = {
+      ...mockParada,
+      id: 'ent-1',
+      ordem: 2,
+      endereco: 'Rua da Entrega, 2',
+      vinculo_parada_id: 'ret-1',
+    };
+
+    it('mostra o aviso, não grava, e só salva depois de Confirmar', async () => {
+      const update = cadeiaUpdate({ data: [{ id: 'ret-1' }], error: null });
+      mockFrom.mockImplementation((tabela: string) =>
+        tabela === 'paradas'
+          ? {
+              update: (valores: Record<string, unknown>) =>
+                Object.keys(valores).join() === 'vinculo_parada_id'
+                  ? {
+                      in: jest.fn().mockReturnValue({
+                        select: jest
+                          .fn()
+                          .mockResolvedValue({ data: [{ id: 'ent-1' }], error: null }),
+                      }),
+                    }
+                  : update(valores),
+            }
+          : { insert: jest.fn().mockResolvedValue({ error: null }) },
+      );
+      mockRecalcularRota.mockResolvedValue({ success: true });
+      mockNotificarMotorista.mockResolvedValue({ success: true });
+      const onSave = jest.fn();
+      const { getByText, queryByText, findByText } = render(
+        <EditStopModal
+          {...defaultProps}
+          parada={retirada}
+          allParadas={[retirada, entregaVinculada]}
+          onSave={onSave}
+        />,
+      );
+
+      fireEvent.press(getByText('Entrega'));
+      fireEvent.press(getByText('Salvar'));
+
+      expect(await findByText(/Rua da Entrega, 2/)).toBeTruthy();
+      expect(update).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+
+      fireEvent.press(getByText('Confirmar e salvar'));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(queryByText('Confirmar e salvar')).toBeNull();
+    });
+
+    it('Voltar fecha o aviso sem gravar', async () => {
+      mockFrom.mockImplementation(() => {
+        throw new Error('não devia gravar');
+      });
+      const { getByText, queryByText, findByText } = render(
+        <EditStopModal
+          {...defaultProps}
+          parada={retirada}
+          allParadas={[retirada, entregaVinculada]}
+        />,
+      );
+
+      fireEvent.press(getByText('Entrega'));
+      fireEvent.press(getByText('Salvar'));
+      await findByText('Confirmar e salvar');
+      fireEvent.press(getByText('Voltar'));
+
+      expect(queryByText('Confirmar e salvar')).toBeNull();
+      expect(mockFrom).not.toHaveBeenCalled();
     });
   });
 });

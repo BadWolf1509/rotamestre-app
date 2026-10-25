@@ -325,6 +325,55 @@ describe('useRouteOptimization', () => {
       );
     });
 
+    it('avisa quando nenhuma ordem resolve (par sem rota de carro, G9)', async () => {
+      mockGetDirections.mockResolvedValueOnce({
+        distancia_total_metros: 10000,
+        duracao_total_segundos: 600,
+        legs: [],
+        polyline: '',
+        ordem_otimizada: [0, 1],
+        sem_rota_entre_paradas: true,
+      });
+      const { result } = renderHook(() => useRouteOptimization(defaultOptions));
+
+      await act(async () => {
+        await result.current.otimizarRota();
+      });
+
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        expect.stringContaining('não tem rota de carro'),
+        'error',
+        8000,
+      );
+    });
+
+    it('avisa também no caminho com dependências', async () => {
+      mockOtimizarRotaComDependencias.mockResolvedValueOnce({
+        paradasOrdenadas: [{ id: 'parada-1' }, { id: 'parada-2' }],
+        distanciaTotalMetros: 12000,
+        duracaoTotalSegundos: 720,
+        polyline: '',
+        semRotaEntreParadas: true,
+      });
+      const options = {
+        ...defaultOptions,
+        paradas: defaultOptions.paradas.map((p, i) =>
+          i === 1 ? { ...p, vinculo_parada_id: defaultOptions.paradas[0].id } : p,
+        ),
+      };
+      const { result } = renderHook(() => useRouteOptimization(options));
+
+      await act(async () => {
+        await result.current.otimizarRota();
+      });
+
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        expect.stringContaining('não tem rota de carro'),
+        'error',
+        8000,
+      );
+    });
+
     it('should show error if otimizarRotaComDependencias returns null', async () => {
       const paradasComVinculo: Parada[] = [
         {

@@ -323,3 +323,40 @@ describe("routeExportXLSX", () => {
     });
   });
 });
+
+/**
+ * G11 no XLSX: o CSV neutraliza fórmula com apóstrofo, o XLSX não precisa —
+ * e não deve (no XLSX o apóstrofo viraria parte do nome). O SheetJS grava
+ * string como célula de TEXTO (`t: 's'`, sem `f`), que a planilha não avalia.
+ * Esta guarda usa o SheetJS de verdade, ida e volta pelo arquivo.
+ */
+describe("routeExportXLSX — nome com fórmula fica texto", () => {
+  it("=HYPERLINK(...) no nome do motorista vira célula de texto no arquivo", async () => {
+    const XLSXMock = require("xlsx");
+    const XLSXReal = jest.requireActual("xlsx") as typeof import("xlsx");
+    XLSXMock.utils.aoa_to_sheet.mockClear();
+    const nome = '=HYPERLINK("http://x","clique")';
+
+    await exportRotasToXLSX({
+      rotas: [{ ...mockRota, motorista_nome: nome }],
+      filtroStatus: "todas",
+    });
+
+    const [sheetData] = XLSXMock.utils.aoa_to_sheet.mock.calls[0] as [
+      unknown[][],
+    ];
+    const wb = XLSXReal.utils.book_new();
+    XLSXReal.utils.book_append_sheet(
+      wb,
+      XLSXReal.utils.aoa_to_sheet(sheetData),
+      "Rotas",
+    );
+    const arquivo = XLSXReal.write(wb, { bookType: "xlsx", type: "array" });
+    const lido = XLSXReal.read(arquivo, { type: "array", cellFormula: true });
+    const celula = lido.Sheets.Rotas.B2;
+
+    expect(celula.t).toBe("s");
+    expect(celula.f).toBeUndefined();
+    expect(celula.v).toBe(nome);
+  });
+});

@@ -3,6 +3,9 @@
  * Usado por: mapa-rota.tsx (E2, E3, E4, E5)
  */
 
+import { getErrorMessage } from '@/lib/errorMapping';
+import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
+import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -337,19 +340,45 @@ export async function removerParadaERecalcular(
   routeRecalculationFailed?: boolean;
 }> {
   try {
-    // 1. Deletar a parada
-    const { error: deleteError } = await supabase
+    // 1. Deletar a parada. O DELETE é condicionado ao status e confere as
+    // linhas afetadas: a tela pode ter um retrato velho (o motorista acabou de
+    // concluir a parada), e zero linhas NÃO é sucesso. A trava de verdade é o
+    // gatilho da Migration 53 (sentinela PARADA_FINALIZADA), que vale também
+    // para outro cliente; este filtro só evita o erro quando o status já
+    // mudou, e dá a mensagem certa.
+    const { data: apagadas, error: deleteError } = await supabase
       .from('paradas')
       .delete()
-      .eq('id', paradaId);
+      .eq('id', paradaId)
+      .eq('status', STATUS_PARADA_ALTERAVEL)
+      .select('id');
 
     if (deleteError) {
       logger.error('[removerParadaERecalcular] Erro ao deletar', deleteError);
+      const conhecido = getErrorMessage(deleteError);
       return {
         success: false,
-        error: 'Erro ao remover parada.',
+        error:
+          conhecido.code === 'STOP_ALREADY_DONE'
+            ? conhecido.message
+            : 'Erro ao remover parada.',
       };
     }
+
+    if (!apagadas || apagadas.length === 0) {
+      logger.warn('[removerParadaERecalcular] Nenhuma parada apagada', {
+        paradaId,
+      });
+      return {
+        success: false,
+        error:
+          'Esta parada não pode mais ser removida: o motorista já a iniciou ou finalizou, ou ela não existe mais. A tela foi atualizada.',
+      };
+    }
+
+    // Remover à mão desfaz a otimização, como reordenar. Aqui, e não nos
+    // passos seguintes: a parada já saiu, mesmo que a renumeração falhe.
+    await marcarOtimizacaoAlterada(rotaId);
 
     // 2. Reordenar paradas restantes
     const reordenResult = await reordenarParadas(paradasRestantes);

@@ -4,7 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import { supabase } from '@/lib/supabase';
 
-import { useUser } from '../useUser';
+import { reiniciarBuscasDePerfil, useUser } from '../useUser';
 
 // Mock do supabase
 jest.mock('@/lib/supabase');
@@ -46,6 +46,8 @@ describe('useUser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Busca pendurada de um teste não pode servir o seguinte.
+    reiniciarBuscasDePerfil();
     // A busca só vale AUTENTICADA (sem sessão a query sai anônima e a RLS
     // devolve 0 linhas): os testes dão a sessão do usuário do useAuth.
     idDaSessao = 'user-123';
@@ -643,6 +645,222 @@ describe('useUser', () => {
 
       await new Promise((r) => setTimeout(r, 50));
       expect(guardado()).toBeNull();
+    });
+  });
+
+  // DP-3: cada tela, layout e hook que chama useUser fazia a sua própria
+  // consulta do perfil — o gestor abria o painel com várias idênticas. A
+  // busca agora é deduplicada por conta enquanto está em voo.
+  describe('busca deduplicada entre instâncias', () => {
+    function perfilControlado() {
+      const respostas: ((v: unknown) => void)[] = [];
+      (mockSupabase.from as jest.Mock).mockImplementation(() => ({
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn(
+          () =>
+            new Promise((r) => {
+              respostas.push(r);
+            }),
+        ),
+      }));
+      return respostas;
+    }
+
+    beforeEach(async () => {
+      await require('@/lib/cache').clearAllCache();
+    });
+
+    it('instâncias montadas juntas fazem uma consulta só e recebem o mesmo perfil', async () => {
+      const respostas = perfilControlado();
+      const { result } = renderHook(() => [useUser(), useUser(), useUser()]);
+
+      await waitFor(() => expect(respostas.length).toBeGreaterThan(0));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(respostas).toHaveLength(1);
+
+      await act(async () => {
+        respostas[0]({ data: mockUserData, error: null, status: 200 });
+      });
+      await waitFor(() =>
+        expect(result.current.every((u) => u.userData?.id === 'user-123')).toBe(
+          true,
+        ),
+      );
+    });
+
+    it('perfil atualizado (evento) com várias instâncias: uma consulta só', async () => {
+      const respostas = perfilControlado();
+      const { result } = renderHook(() => [useUser(), useUser(), useUser()]);
+      await waitFor(() => expect(respostas).toHaveLength(1));
+      await act(async () => {
+        respostas[0]({ data: mockUserData, error: null, status: 200 });
+      });
+      await waitFor(() =>
+        expect(result.current[2].userData?.id).toBe('user-123'),
+      );
+
+      act(() => {
+        require('@/lib/profileEvents').emitProfileUpdate();
+      });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(respostas).toHaveLength(2);
+
+      await act(async () => {
+        respostas[1]({
+          data: { ...mockUserData, nome: 'Nome Novo' },
+          error: null,
+          status: 200,
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.map((u) => u.userData?.nome)).toEqual([
+          'Nome Novo',
+          'Nome Novo',
+          'Nome Novo',
+        ]),
+      );
+    });
+
+    it('troca de conta com a busca da anterior em voo: a da nova roda e vale', async () => {
+      const respostas = perfilControlado();
+      const { result, rerender } = renderHook(() => useUser());
+      await waitFor(() => expect(respostas).toHaveLength(1));
+
+      idDaSessao = 'user-b';
+      require('../useAuth').useAuth.mockReturnValue({
+        user: { ...mockUser, id: 'user-b' },
+        loading: false,
+      });
+      rerender({});
+      await waitFor(() => expect(respostas).toHaveLength(2));
+
+      await act(async () => {
+        respostas[1]({
+          data: { ...mockUserData, id: 'user-b' },
+          error: null,
+          status: 200,
+        });
+        respostas[0]({ data: mockUserData, error: null, status: 200 });
+      });
+      await waitFor(() => expect(result.current.userData?.id).toBe('user-b'));
+    });
+
+    // Revisão, M6: a busca que falha não pode ficar guardada como "em voo".
+    it('busca rejeitada não fica guardada: a carga seguinte consulta de novo', async () => {
+      const respostas = perfilControlado();
+      const { result } = renderHook(() => useUser());
+      await waitFor(() => expect(respostas).toHaveLength(1));
+
+      const falha = {
+        data: null,
+        error: { message: 'gateway', code: '' },
+        status: 503,
+      };
+      await act(async () => {
+        respostas[0](falha);
+      });
+      // A consulta completa falhou: o hook tenta a simples, que falha também.
+      await waitFor(() => expect(respostas).toHaveLength(2));
+      await act(async () => {
+        respostas[1](falha);
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        void result.current.refresh();
+      });
+      await waitFor(() => expect(respostas).toHaveLength(3));
+      await act(async () => {
+        respostas
+          .slice(2)
+          .forEach((r) => r({ data: mockUserData, error: null, status: 200 }));
+      });
+      await waitFor(() => expect(result.current.userData?.id).toBe('user-123'));
+    });
+
+    it('logout e login da mesma conta com a busca de antes em voo: busca nova', async () => {
+      const respostas = perfilControlado();
+      const { result, rerender } = renderHook(() => useUser());
+      await waitFor(() => expect(respostas).toHaveLength(1));
+
+      const useAuth = require('../useAuth').useAuth;
+      useAuth.mockReturnValue({ user: null, loading: false });
+      rerender({});
+      useAuth.mockReturnValue({ user: mockUser, loading: false });
+      rerender({});
+
+      // A busca de antes do logout pode voltar sem sessão: não é reusada.
+      await waitFor(() => expect(respostas).toHaveLength(2));
+      await act(async () => {
+        respostas[1]({
+          data: { ...mockUserData, nome: 'Depois do login' },
+          error: null,
+          status: 200,
+        });
+        respostas[0]({ data: null, error: null, status: 200 });
+      });
+      await waitFor(() =>
+        expect(result.current.userData?.nome).toBe('Depois do login'),
+      );
+      await new Promise((r) => setTimeout(r, 20));
+      expect(result.current.userData?.nome).toBe('Depois do login');
+    });
+
+    it('logout durante a leitura do cache não aplica o perfil de quem saiu', async () => {
+      perfilControlado();
+      const cache = require('@/lib/cache');
+      let soltarCache: (v: unknown) => void = () => {};
+      const espiao = jest.spyOn(cache, 'getCache').mockImplementationOnce(
+        () =>
+          new Promise((r) => {
+            soltarCache = r;
+          }),
+      );
+      try {
+        const { result, rerender } = renderHook(() => useUser());
+        await waitFor(() => expect(espiao).toHaveBeenCalled());
+
+        require('../useAuth').useAuth.mockReturnValue({
+          user: null,
+          loading: false,
+        });
+        rerender({});
+        await act(async () => {
+          soltarCache(mockUserData);
+        });
+        await new Promise((r) => setTimeout(r, 20));
+
+        expect(result.current.userData).toBeNull();
+      } finally {
+        espiao.mockRestore();
+      }
+    });
+
+    it('refresh com uma busca comum em voo faz busca nova, e é ela que vale', async () => {
+      const respostas = perfilControlado();
+      const { result } = renderHook(() => useUser());
+      await waitFor(() => expect(respostas).toHaveLength(1));
+
+      // O refresh vem de quem acabou de gravar: a busca que já estava em voo
+      // pode ter saído antes da gravação.
+      act(() => {
+        require('@/lib/profileEvents').emitProfileUpdate();
+      });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(respostas).toHaveLength(2);
+
+      await act(async () => {
+        respostas[1]({
+          data: { ...mockUserData, nome: 'Depois da gravação' },
+          error: null,
+          status: 200,
+        });
+        respostas[0]({ data: mockUserData, error: null, status: 200 });
+      });
+      await waitFor(() =>
+        expect(result.current.userData?.nome).toBe('Depois da gravação'),
+      );
     });
   });
 });

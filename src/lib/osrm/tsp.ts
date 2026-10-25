@@ -5,12 +5,25 @@
  * nearest-neighbor + 2-opt heuristic for larger ones.
  */
 
+/**
+ * Custo do par sem rota de carro (`null` na matriz do OSRM), em metros. Finito
+ * de propósito: com `Infinity` toda ordem com um trecho impossível empataria
+ * e o 2-opt faria `Infinity - Infinity` (NaN). Assim a ordem com MENOS trechos
+ * impossíveis vence, e um total acima dele diz que nenhuma ordem resolve.
+ * 1e9 m × dezenas de trechos segue muito abaixo de 2^53.
+ */
+export const CUSTO_INALCANCAVEL = 1e9;
+
 export interface TSPResult {
   /** Ordered indices of waypoints (excludes origin) */
   order: number[];
   /** Total round-trip distance (origin -> waypoints -> origin) */
   totalDistance: number;
+  /** false = a melhor ordem ainda passa por um par sem rota (nenhuma resolve). */
+  resolvida: boolean;
 }
+
+type ResultadoDaBusca = Omit<TSPResult, 'resolvida'>;
 
 /**
  * Calculate total round-trip distance: origin -> order[0] -> order[1] -> ... -> origin
@@ -38,7 +51,7 @@ function bruteForceTSP(
   distances: number[][],
   origin: number,
   waypoints: number[],
-): TSPResult {
+): ResultadoDaBusca {
   const n = waypoints.length;
 
   if (n === 0) return { order: [], totalDistance: 0 };
@@ -156,7 +169,7 @@ function nearestNeighborWith2Opt(
   distances: number[][],
   origin: number,
   waypoints: number[],
-): TSPResult {
+): ResultadoDaBusca {
   const remaining = new Set(waypoints);
   const order: number[] = [];
   let current = origin;
@@ -203,13 +216,14 @@ export function solveTSP(
   }
 
   if (waypoints.length === 0) {
-    return { order: [], totalDistance: 0 };
+    return { order: [], totalDistance: 0, resolvida: true };
   }
 
   // Brute-force threshold: up to 10 waypoints (11x11 matrix)
-  if (waypoints.length < 11) {
-    return bruteForceTSP(distances, originIndex, waypoints);
-  }
+  const busca =
+    waypoints.length < 11
+      ? bruteForceTSP(distances, originIndex, waypoints)
+      : nearestNeighborWith2Opt(distances, originIndex, waypoints);
 
-  return nearestNeighborWith2Opt(distances, originIndex, waypoints);
+  return { ...busca, resolvida: busca.totalDistance < CUSTO_INALCANCAVEL };
 }

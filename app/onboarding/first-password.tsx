@@ -11,6 +11,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { emitProfileUpdate } from '@/lib/profileEvents';
 import { passwordSchema } from '@/lib/schemas';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -129,6 +130,9 @@ function FirstPasswordContent() {
 
       if (dbError) {
         logger.error('Erro ao atualizar primeira_senha', dbError);
+      } else {
+        // `primeira_senha` mora no perfil: as instâncias de useUser recarregam.
+        emitProfileUpdate();
       }
 
       const targetRoute =

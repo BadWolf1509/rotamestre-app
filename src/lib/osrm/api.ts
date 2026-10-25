@@ -425,6 +425,12 @@ async function getOptimizedCircularRoute(
 
   // Step 2: Solve TSP on distance matrix (optimizes by distance)
   const tspResult = solveTSP(distances, 0);
+  if (!tspResult.resolvida) {
+    logger.warn(
+      '[OSRM] Nenhuma ordem resolve: algum ponto não tem rota de carro até os outros',
+      { pontos: allPoints.length },
+    );
+  }
 
   // Convert TSP indices (1-based matrix indices) to waypoint indices (0-based)
   const waypointOrder = tspResult.order.map((idx) => idx - 1);
@@ -444,11 +450,15 @@ async function getOptimizedCircularRoute(
     // Use TSP-optimized order even in Haversine fallback
     const fallback = createFallbackDirections(origin, origin, orderedWaypoints);
     fallback.ordem_otimizada = waypointOrder;
+    if (!tspResult.resolvida) fallback.sem_rota_entre_paradas = true;
     return fallback;
   }
 
-  // Override ordem_otimizada with TSP result (Route API returns sequential order)
+  // Override ordem_otimizada with TSP result (Route API returns sequential
+  // order). Mutação de propósito: `getSimpleRoute` guardou este mesmo objeto
+  // no cache, que assim fica com a ordem do TSP e o aviso.
   routeResult.ordem_otimizada = waypointOrder;
+  if (!tspResult.resolvida) routeResult.sem_rota_entre_paradas = true;
 
   return routeResult;
 }
