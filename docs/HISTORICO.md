@@ -17,7 +17,9 @@ Cinco trilhas em paralelo, uma por PR, mescladas na `main` em 24–25/10:
 - **Motorista, 1.14.6 (#655):** o SOS chega a todos os gestores ativos das lojas do motorista; o rastreamento só roda durante a rota e é desligado quando ela acaba; as posições saem com o horário do GPS; as notificações têm um contador único; as preferências de push são por categoria (o SOS sempre chega).
 - **Gestor (#657):** a tela da rota ao vivo (inclusive a linha do tempo) segue o realtime; a reordenação não perde a ordem não salva quando o motorista conclui ou inicia uma parada; parada finalizada não pode ser apagada nem editada; a Gestão de Rotas é paginada, com busca e filtro no servidor, e exporta todas as rotas, com progresso e CSV com fórmula neutralizada; desativar motorista com rotas abertas lista as rotas; seletor de loja no cabeçalho; confirmações que não excluem não mostram lixeira; foto offline guardada sem esperar um refresh de token preso; medida de GPS fora da faixa vira `null`.
 - **Fila de posições:** #658 — cheia, ela espaça as posições pelo menor buraco no tempo em vez de descartar as mais antigas; dirigindo, as 500 posições cobriam só ~40 min de área sem sinal.
-- **CI:** #652 (testes e dependências no CI).
+- **CI:** #652 (testes e dependências no CI; o passo que regenera os snapshots visuais passou a rodar só os testes `@visual`).
+- **Banco:** #659 — Migrations 61 a 64 (o incidente mantém o motorista que o registrou e sempre tem loja; log na rota só pelo gestor da loja ou pelo motorista da rota; a API sem privilégios de manutenção nas tabelas), aplicadas em 25/10 com sonda antes e depois.
+- **Release:** #660 — 1.14.6 (versionCode 3044) na faixa interna.
 
 **Em produção:** Migrations 46 a 50 e 52 a 60 (a 50 está registrada como `20261024121500`, porque `20261024120000` é a 53; ver `npx supabase migration list` para o detalhe), `delete-account` v8 e `send-push-notification` v16. A Migration 60 (`20261025140000`) alarga `motorista_locations.velocidade`, `precisao` e `heading` para `numeric(8,2)`.
 
