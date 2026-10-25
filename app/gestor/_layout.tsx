@@ -6,6 +6,7 @@ import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelSc
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationBell } from '@/components/NotificationBell';
+import { SeletorUnidade } from '@/components/SeletorUnidade';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -113,8 +114,20 @@ function GestorStack() {
         headerLeft: ({ tintColor }) => renderMenuButton(tintColor),
         // O sino só existia no DesktopPageLayout: abaixo de 1024px o gestor
         // não tinha como ver notificação nenhuma.
+        // O seletor de loja só aparece para quem é gestor de mais de uma
+        // (filtra por papel: a loja em que ele atende como motorista não
+        // abre o painel dela). A troca vale em todas as telas (contexto).
         headerRight: () => (
-          <View style={{ paddingRight: 8, paddingVertical: 4 }}>
+          <View
+            style={{
+              paddingRight: 8,
+              paddingVertical: 4,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <SeletorUnidade compact papel="gestor" />
             <NotificationBell variant="mobile" />
           </View>
         ),

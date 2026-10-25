@@ -8,7 +8,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,14 +28,28 @@ interface SeletorUnidadeProps {
   compact?: boolean;
   /** Callback quando unidade é trocada */
   onUnidadeChange?: (unidadeId: string) => void;
+  /**
+   * Só as lojas deste papel (ex.: 'gestor' no cabeçalho do gestor: a loja em
+   * que ele atende como motorista não abre o painel dela). Sem ele, todas.
+   */
+  papel?: 'gestor' | 'motorista';
 }
 
 /**
  * Componente trigger que mostra a unidade ativa no header
  */
-export function SeletorUnidadeTrigger({ onPress }: { onPress: () => void }) {
+export function SeletorUnidadeTrigger({
+  onPress,
+  podeTrocar,
+}: {
+  onPress: () => void;
+  /** Se há para onde trocar (padrão: o usuário tem mais de uma loja). */
+  podeTrocar?: boolean;
+}) {
   const { theme } = useUnistyles();
-  const { unidadeAtivaData, temMultiplasUnidades, loading } = useUnidadeAtiva();
+  const { unidadeAtivaData, temMultiplasUnidades: multiplas, loading } =
+    useUnidadeAtiva();
+  const temMultiplasUnidades = podeTrocar ?? multiplas;
 
   if (loading) {
     return (
@@ -142,15 +156,22 @@ function UnidadeItem({
 /**
  * Componente principal: Header trigger + Modal de seleção
  */
-export function SeletorUnidade({ compact, onUnidadeChange }: SeletorUnidadeProps) {
+export function SeletorUnidade({ compact, onUnidadeChange, papel }: SeletorUnidadeProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const {
     unidadeAtiva,
-    vinculacoes,
-    temMultiplasUnidades,
+    vinculacoes: todasAsVinculacoes,
     trocarUnidade,
     loading,
   } = useUnidadeAtiva();
+  const vinculacoes = useMemo(
+    () =>
+      papel
+        ? todasAsVinculacoes.filter((v) => v.papel === papel)
+        : todasAsVinculacoes,
+    [todasAsVinculacoes, papel],
+  );
+  const temMultiplasUnidades = vinculacoes.length > 1;
 
   const handleOpenModal = useCallback(() => {
     if (temMultiplasUnidades) {
@@ -181,7 +202,10 @@ export function SeletorUnidade({ compact, onUnidadeChange }: SeletorUnidadeProps
 
   return (
     <>
-      <SeletorUnidadeTrigger onPress={handleOpenModal} />
+      <SeletorUnidadeTrigger
+        onPress={handleOpenModal}
+        podeTrocar={temMultiplasUnidades}
+      />
 
       <Modal
         visible={modalVisible}

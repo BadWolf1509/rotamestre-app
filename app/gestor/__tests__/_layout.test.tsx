@@ -25,6 +25,14 @@ jest.mock('@/components/NotificationBell', () => ({
     return <Text>{`sino-${variant}`}</Text>;
   },
 }));
+// Seletor de loja (DP-3/G13): o gestor com mais de uma loja troca pelo
+// cabeçalho; o componente decide se aparece (só lojas em que é gestor).
+jest.mock('@/components/SeletorUnidade', () => ({
+  SeletorUnidade: ({ papel, compact }: { papel?: string; compact?: boolean }) => {
+    const { Text } = require('react-native');
+    return <Text>{`seletor-${papel}-${compact ? 'compacto' : 'cheio'}`}</Text>;
+  },
+}));
 jest.mock('@/components/gestor/dashboard/_components/desktop/Sidebar', () => ({
   Sidebar: () => null,
 }));
@@ -55,5 +63,12 @@ describe('GestorLayout', () => {
     render(<GestorLayout />);
 
     expect(screen.getByText('sino-mobile')).toBeTruthy();
+  });
+
+  it('celular/tablet: cabeçalho tem o seletor de loja, só com as lojas de gestor', () => {
+    mockIsDesktop = false;
+    render(<GestorLayout />);
+
+    expect(screen.getByText('seletor-gestor-compacto')).toBeTruthy();
   });
 });
