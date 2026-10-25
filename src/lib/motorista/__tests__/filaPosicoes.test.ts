@@ -8,6 +8,7 @@ import {
   MAX_TENTATIVAS_POSICAO,
   TETO_FILA_POSICOES,
   TETO_MEDIDA_POSICAO,
+  espacarFila,
   invalidarPosicoesEmVoo,
   registrarPosicao,
   sanearPosicao,
@@ -248,23 +249,51 @@ describe('filaPosicoes', () => {
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
-  it('no teto, descarta as mais antigas e avisa uma vez por estouro', async () => {
+  it('no teto, espaça as mais antigas em vez de descartá-las, e avisa uma vez por estouro', async () => {
     semRede();
     for (let i = 0; i < TETO_FILA_POSICOES + 3; i++) {
       await registrarPosicao(posicao({ latitude: i }), minuto(i), ROTULO);
     }
 
     const guardadas = filaGuardada()!.posicoes;
+    const latitudes = guardadas.map((p) => p.latitude);
     expect(TETO_FILA_POSICOES).toBe(500);
-    expect(guardadas).toHaveLength(TETO_FILA_POSICOES);
-    expect(guardadas[0].latitude).toBe(3);
-    expect(guardadas[guardadas.length - 1].latitude).toBe(
-      TETO_FILA_POSICOES + 2,
-    );
+    expect(guardadas.length).toBeLessThanOrEqual(TETO_FILA_POSICOES);
+    // O começo do período sem rede continua lá…
+    expect(latitudes[0]).toBe(0);
+    // …a mais nova também, e as mais recentes seguem completas.
+    expect(latitudes[latitudes.length - 1]).toBe(TETO_FILA_POSICOES + 2);
+    const recentes = latitudes.slice(-TETO_FILA_POSICOES / 5);
+    recentes.forEach((lat, i) => {
+      if (i > 0) expect(lat).toBe(recentes[i - 1] + 1);
+    });
     const avisosDeTeto = (logger.warn as jest.Mock).mock.calls.filter(
       ([mensagem]) => mensagem !== ROTULO,
     );
     expect(avisosDeTeto).toHaveLength(1);
+  });
+
+  it('um período sem rede muito longo cabe no teto, do começo ao fim e em ordem', async () => {
+    semRede();
+    const total = TETO_FILA_POSICOES * 6;
+    for (let i = 0; i < total; i++) {
+      await registrarPosicao(posicao({ latitude: i }), minuto(i), ROTULO);
+    }
+
+    const latitudes = filaGuardada()!.posicoes.map((p) => p.latitude);
+    expect(latitudes.length).toBeLessThanOrEqual(TETO_FILA_POSICOES);
+    expect(latitudes[0]).toBe(0);
+    expect(latitudes[latitudes.length - 1]).toBe(total - 1);
+    latitudes.forEach((lat, i) => {
+      if (i > 0) expect(lat).toBeGreaterThan(latitudes[i - 1]);
+    });
+    // Espaçamento quase uniforme: toda hora do período tem posições.
+    for (let hora = 0; hora < total / 60; hora++) {
+      const naHora = latitudes.filter(
+        (lat) => lat >= hora * 60 && lat < (hora + 1) * 60,
+      );
+      expect(naHora.length).toBeGreaterThanOrEqual(5);
+    }
   });
 
   it('fila de outra conta é descartada, nunca enviada', async () => {
@@ -823,5 +852,42 @@ describe('sanearPosicao', () => {
     const p = posicao({ precisao: -1 });
     sanearPosicao(p);
     expect(p.precisao).toBe(-1);
+  });
+});
+
+describe('espacarFila', () => {
+  const item = (n: number, rota = 'rota-a') => ({
+    id: n,
+    rota_id: rota,
+    timestamp: iso(n),
+  });
+
+  it('fila que cabe no teto volta igual', () => {
+    const fila = [item(1), item(2), item(3)];
+    expect(espacarFila(fila, 3)).toEqual(fila);
+  });
+
+  it('acima do teto, tira a posição que abre o menor buraco e mantém as pontas e as mais recentes', () => {
+    const fila = [0, 1, 2, 10, 11, 12, 13, 14, 15, 16, 17].map((n) => item(n));
+    const resultado = espacarFila(fila, 10).map((p) => p.id);
+    // 1 sai (buraco 0→2 de 2 min), não 10 (buraco 2→11 de 9 min).
+    expect(resultado).toEqual([0, 2, 10, 11, 12, 13, 14, 15, 16, 17]);
+  });
+
+  it('mantém a primeira e a última posição de cada rota', () => {
+    const fila = [
+      ...Array.from({ length: 5 }, (_, i) => item(i, 'r1')),
+      ...Array.from({ length: 6 }, (_, i) => item(10 + i, 'r2')),
+    ];
+    const resultado = espacarFila(fila, 10).map((p) => p.id);
+    expect(resultado).toEqual(expect.arrayContaining([0, 4, 10, 15]));
+    expect(resultado.length).toBeLessThanOrEqual(10);
+  });
+
+  it('sem o que espaçar (rotas alternadas), descarta as mais antigas para caber', () => {
+    const fila = Array.from({ length: 6 }, (_, i) =>
+      item(i, i % 2 === 0 ? 'r1' : 'r2'),
+    );
+    expect(espacarFila(fila, 4).map((p) => p.id)).toEqual([2, 3, 4, 5]);
   });
 });

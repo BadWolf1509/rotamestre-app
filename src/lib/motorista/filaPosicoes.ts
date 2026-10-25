@@ -51,8 +51,9 @@
  *   estava no ar quando o motorista saiu falharia por rede depois da limpeza
  *   e recriaria a fila. Conferido dentro da fila em série, logo antes de
  *   gravar, para a janela ser a menor possível.
- * - **Teto de `TETO_FILA_POSICOES`.** Estourou: saem as mais antigas, com um
- *   `logger.warn` por estouro (não por posição), até a fila voltar a caber.
+ * - **Teto de `TETO_FILA_POSICOES`.** Estourou: as mais antigas são espaçadas
+ *   (`espacarFila`), não descartadas, com um `logger.warn` por estouro (não
+ *   por posição), até a fila voltar a caber.
  * - **Sem React.** Roda na task headless do `expo-task-manager`; o gatilho do
  *   envio é a próxima posição, sem listener que vaze.
  * - **Voo único.** Duas posições quase juntas não enviam o mesmo lote duas
@@ -323,6 +324,54 @@ async function aindaEhDoAparelho(motoristaId: string): Promise<boolean> {
 }
 
 /**
+ * Faz a fila caber em `teto` espaçando as posições, em vez de descartar as
+ * mais antigas: enquanto passa do teto, tira a posição cuja saída abre o menor
+ * buraco no tempo (o menor intervalo entre a anterior e a seguinte). O
+ * resultado tende a um espaçamento uniforme no período inteiro sem rede, de
+ * qualquer duração. Ficam sempre: a primeira e a última posição de cada rota
+ * (o envio corta o lote por rota) e as `teto / 5` mais recentes, inteiras.
+ *
+ * POR QUE. Em segundo plano o app grava a cada 50 m: dirigindo, 500 posições
+ * são ~40 min. Descartar as mais antigas apagava o começo de um período longo
+ * sem sinal; aumentar o teto custaria regravar uma fila maior a cada posição
+ * (o AsyncStorage guarda a fila num item só) e um envio enorme na volta do
+ * sinal, que costuma ser fraco. Espaçar "uma a cada duas da metade mais
+ * antiga" a cada estouro foi descartado: as horas mais antigas eram afinadas
+ * de novo a cada vez e, num período longo, ficavam com uma posição só.
+ *
+ * Custo: uma varredura da fila por posição guardada com a fila cheia (500
+ * itens), desprezível perto da regravação do AsyncStorage. Sem nada que possa
+ * sair (só pontas de rota), cai no descarte das mais antigas, para a fila
+ * nunca passar do teto.
+ */
+export function espacarFila<T extends { rota_id: string; timestamp: string }>(
+  posicoes: T[],
+  teto: number,
+): T[] {
+  const fila = [...posicoes];
+  const recentesInteiras = Math.floor(teto / 5);
+  const instante = (p: T) => Date.parse(p.timestamp);
+  while (fila.length > teto) {
+    let escolhida = -1;
+    let menorBuraco = Infinity;
+    const limite = fila.length - recentesInteiras - 1;
+    for (let i = 1; i < limite; i++) {
+      const p = fila[i];
+      if (fila[i - 1].rota_id !== p.rota_id) continue;
+      if (fila[i + 1].rota_id !== p.rota_id) continue;
+      const buraco = instante(fila[i + 1]) - instante(fila[i - 1]);
+      if (buraco < menorBuraco) {
+        menorBuraco = buraco;
+        escolhida = i;
+      }
+    }
+    if (escolhida === -1) return fila.slice(fila.length - teto);
+    fila.splice(escolhida, 1);
+  }
+  return fila;
+}
+
+/**
  * false = não ficou guardada (sem rastreamento nem sessão do motorista, ou o
  * AsyncStorage recusou a gravação).
  */
@@ -340,13 +389,12 @@ function guardar(
 
     registro.posicoes.push(linha);
 
-    const excesso = registro.posicoes.length - TETO_FILA_POSICOES;
-    if (excesso > 0) {
-      registro.posicoes.splice(0, excesso);
+    if (registro.posicoes.length > TETO_FILA_POSICOES) {
+      registro.posicoes = espacarFila(registro.posicoes, TETO_FILA_POSICOES);
       if (!registro.estourou) {
         registro.estourou = true;
         logger.warn(
-          '[FilaPosicoes] Fila de posições cheia: descartando as mais antigas',
+          '[FilaPosicoes] Fila de posições cheia: espaçando as mais antigas',
           { teto: TETO_FILA_POSICOES },
         );
       }
