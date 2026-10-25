@@ -162,6 +162,86 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
   });
 }
 
+/** Paradas e taxa de sucesso: derivados da lista, acompanham cada evento. */
+function kpisDaLista(
+  rotas: RotaResumo[],
+): Pick<KPIs, 'totalParadas' | 'paradasConcluidas' | 'taxaSucesso'> {
+  const totalParadas = rotas.reduce((sum, r) => sum + r.total_paradas, 0);
+  const paradasConcluidas = rotas.reduce(
+    (sum, r) => sum + r.paradas_concluidas,
+    0,
+  );
+  return {
+    totalParadas,
+    paradasConcluidas,
+    taxaSucesso:
+      totalParadas > 0
+        ? Math.round((paradasConcluidas / totalParadas) * 100)
+        : 0,
+  };
+}
+
+interface FiltrosDaLista {
+  unidadeId: string;
+  dataInicioStr: string | null;
+  dataFimStr: string | null;
+  filtroStatus: string | null;
+  filtroMotoristaId: string | null;
+}
+
+/**
+ * Rotas do período/filtro COM paradas numa query só (JOIN). Com
+ * `buscarTotalHoje`, é o que muda com um evento de rota/parada.
+ */
+async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
+  const hoje = getTodayISO();
+  let query = supabase
+    .from('rotas')
+    .select(
+      `
+      id,
+      data,
+      status,
+      distancia_total,
+      motorista_id,
+      usuarios!motorista_id(nome),
+      paradas(id, status, is_checkpoint)
+    `,
+    )
+    .eq('unidade_id', f.unidadeId);
+
+  // Aplicar filtros de data
+  if (!f.dataInicioStr && !f.dataFimStr) {
+    // Por padrão, só as rotas de HOJE. Era `gte(hoje)` sem limite
+    // superior: "hoje" incluía as rotas já agendadas para amanhã.
+    query = query.eq('data', hoje);
+  } else {
+    query = query.gte('data', f.dataInicioStr ?? hoje);
+    if (f.dataFimStr) {
+      query = query.lte('data', f.dataFimStr);
+    }
+  }
+  if (f.filtroStatus) query = query.eq('status', f.filtroStatus);
+  if (f.filtroMotoristaId) {
+    query = query.eq('motorista_id', f.filtroMotoristaId);
+  }
+  query = query.order('created_at', { ascending: false });
+
+  const { data: rotasData, error: rotasError } = await query;
+  if (rotasError) throw rotasError;
+  return processarRotasComParadas(rotasData || []);
+}
+
+/** Rotas de hoje da loja (ignora os filtros). null = a consulta falhou. */
+async function buscarTotalHoje(unidadeId: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('rotas')
+    .select('id')
+    .eq('unidade_id', unidadeId)
+    .eq('data', getTodayISO());
+  return !error && data ? data.length : null;
+}
+
 // ============================================================================
 // HOOK PRINCIPAL
 // ============================================================================
@@ -208,13 +288,21 @@ export function useDashboardData(
   const [erroCarga, setErroCarga] = useState<string | null>(null);
   const [dadosDe, setDadosDe] = useState<number | null>(null);
   const ultimaCargaOkRef = useRef<number | null>(null);
+  // O erro na tela veio de um evento (carga ao vivo), não da carga completa.
+  const erroDoVivoRef = useRef(false);
 
   // Refs para controle de execução
   // Contador de requisição: toda carga nova roda (troca de filtro/unidade com
   // outra em voo não é mais descartada) e só a MAIS RECENTE escreve no
   // estado — a resposta velha que chega depois é ignorada. Antes, um
   // `loadingRef` fazia a nova carga simplesmente não rodar.
-  const requisicaoRef = useRef(0);
+  //
+  // Dois contadores (DP-7): a carga ao vivo (evento de realtime) só refaz a
+  // lista e o "hoje", então só disputa com a lista da carga completa. Com um
+  // contador só, um evento no meio da carga completa descartaria os KPIs
+  // dela, que o evento não refaz.
+  const requisicaoListaRef = useRef(0);
+  const requisicaoCompletaRef = useRef(0);
   const mountedRef = useRef(true);
   // `loading` desmonta a página inteira: DesktopPageLayout e DashboardMobile
   // retornam só o spinner quando ele é true. Por isso ele vale apenas para a
@@ -229,9 +317,13 @@ export function useDashboardData(
     async (isRefresh = false) => {
       if (!mountedRef.current) return;
 
-      const minhaRequisicao = ++requisicaoRef.current;
+      const minhaLista = ++requisicaoListaRef.current;
+      const minhaCompleta = ++requisicaoCompletaRef.current;
       const vigente = () =>
-        mountedRef.current && minhaRequisicao === requisicaoRef.current;
+        mountedRef.current && minhaCompleta === requisicaoCompletaRef.current;
+      // A lista desta carga ainda é a mais nova (nenhum evento depois dela).
+      const listaVigente = () =>
+        mountedRef.current && minhaLista === requisicaoListaRef.current;
 
       // Se não há unidade, limpar dados
       if (!unidadeId) {
@@ -326,58 +418,19 @@ export function useDashboardData(
 
         const hoje = getTodayISO();
 
-        // =====================================================================
-        // QUERY OTIMIZADA: Busca rotas COM paradas em uma única query (JOIN)
-        // Elimina o problema N+1 (antes: 1 + N queries, agora: 1 query)
-        // =====================================================================
-        let query = supabase
-          .from('rotas')
-          .select(
-            `
-            id,
-            data,
-            status,
-            distancia_total,
-            motorista_id,
-            usuarios!motorista_id(nome),
-            paradas(id, status, is_checkpoint)
-          `,
-          )
-          .eq('unidade_id', unidadeId);
-
-        // Aplicar filtros de data
-        if (!dataInicioStr && !dataFimStr) {
-          // Por padrão, só as rotas de HOJE. Era `gte(hoje)` sem limite
-          // superior: "hoje" incluía as rotas já agendadas para amanhã.
-          query = query.eq('data', hoje);
-        } else {
-          query = query.gte('data', dataInicioStr ?? hoje);
-          if (dataFimStr) {
-            query = query.lte('data', dataFimStr);
-          }
-        }
-
-        // Aplicar filtro de status
-        if (filtroStatus) {
-          query = query.eq('status', filtroStatus);
-        }
-
-        // Aplicar filtro de motorista
-        if (filtroMotoristaId) {
-          query = query.eq('motorista_id', filtroMotoristaId);
-        }
-
-        query = query.order('created_at', { ascending: false });
-
-        const { data: rotasData, error: rotasError } = await query;
-
-        if (rotasError) throw rotasError;
-        if (!vigente()) return;
-
-        // Processar rotas com paradas (já vieram no JOIN)
-        const rotasComDetalhes = processarRotasComParadas(rotasData || []);
-
-        setRotas(rotasComDetalhes);
+        // Lista e "hoje" (o que um evento também refaz), em paralelo com
+        // incidentes e KPIs de semana/mês (só na carga completa).
+        const listaPromise = buscarLista({
+          unidadeId,
+          dataInicioStr,
+          dataFimStr,
+          filtroStatus,
+          filtroMotoristaId,
+        });
+        const totalHojePromise = buscarTotalHoje(unidadeId);
+        // Rejeição tratada pelo `await` abaixo; isto só evita o aviso de
+        // promessa rejeitada sem dono se a lista falhar antes.
+        totalHojePromise.catch(() => {});
 
         // =====================================================================
         // BUSCAR INCIDENTES ABERTOS (em paralelo com outras queries)
@@ -404,16 +457,8 @@ export function useDashboardData(
         })();
 
         // =====================================================================
-        // BUSCAR STATS DE HOJE (ignorando filtros de data)
-        // =====================================================================
-        const todayPromise = supabase
-          .from('rotas')
-          .select('id')
-          .eq('unidade_id', unidadeId)
-          .eq('data', hoje);
-
-        // =====================================================================
-        // BUSCAR KPIS (semana e mês) - apenas no load inicial, não no refresh
+        // BUSCAR KPIS (semana e mês) - só na carga completa (inicial, filtro,
+        // refresh manual); eventos de realtime não refazem (DP-7)
         // =====================================================================
         const agora = new Date();
         const inicioSemana = new Date(agora);
@@ -440,11 +485,20 @@ export function useDashboardData(
         ]);
 
         // Executar queries em paralelo
-        const [incidentesAbertos, todayResult, kpisResult] = await Promise.all([
+        // A lista aparece assim que chega, sem esperar o resto.
+        const rotasComDetalhes = await listaPromise;
+        // Um evento depois desta carga já trouxe lista mais nova: ela fica.
+        if (listaVigente()) setRotas(rotasComDetalhes);
+        if (!vigente()) return;
+
+        const [totalHoje, incidentesAbertos, kpisResult] = await Promise.all([
+          totalHojePromise,
           incidentesPromise,
-          todayPromise,
           kpisPromise,
         ]);
+        if (listaVigente() && totalHoje !== null) {
+          setTodayStats({ totalHoje });
+        }
 
         if (!vigente()) return;
 
@@ -465,40 +519,29 @@ export function useDashboardData(
 
         setStats(statsData);
 
-        // Stats de hoje
-        if (!todayResult.error && todayResult.data) {
-          setTodayStats({ totalHoje: todayResult.data.length });
-        }
-
         // KPIs
         const [kpiSemana, kpiMes] = kpisResult;
         const rotasSemanaData = kpiSemana.data || [];
         const rotasMesData = kpiMes.data || [];
 
-        const totalParadas = rotasComDetalhes.reduce(
-          (sum, r) => sum + r.total_paradas,
-          0,
-        );
-        const paradasConcluidas = rotasComDetalhes.reduce(
-          (sum, r) => sum + r.paradas_concluidas,
-          0,
-        );
-        const taxaSucesso =
-          totalParadas > 0
-            ? Math.round((paradasConcluidas / totalParadas) * 100)
-            : 0;
-
-        setKpis({
+        const listaEhDestaCarga = listaVigente();
+        setKpis((anteriores) => ({
           rotasSemana: rotasSemanaData.length,
           rotasMes: rotasMesData.length,
-          taxaSucesso,
           tempoMedioMinutos: calcularTempoMedio(rotasMesData),
-          totalParadas,
-          paradasConcluidas,
           motoristaDestaque: encontrarMotoristaDestaque(rotasMesData),
-        });
+          // Com lista mais nova (evento), os derivados dela continuam valendo.
+          ...(listaEhDestaCarga
+            ? kpisDaLista(rotasComDetalhes)
+            : {
+                totalParadas: anteriores.totalParadas,
+                paradasConcluidas: anteriores.paradasConcluidas,
+                taxaSucesso: anteriores.taxaSucesso,
+              }),
+        }));
         setErroCarga(null);
         setDadosDe(null);
+        erroDoVivoRef.current = false;
         ultimaCargaOkRef.current = Date.now();
       } catch (error) {
         logger.error('Erro ao carregar dashboard:', error);
@@ -539,13 +582,55 @@ export function useDashboardData(
     fetchDashboardData(false);
   }, [fetchDashboardData]);
 
+  // ============================================================================
+  // CARGA AO VIVO (evento de realtime, já com debounce em useRealtimeRoutes)
+  // ============================================================================
+  // Rota/parada mudou: refaz só a lista e o "hoje" (e os KPIs que derivam da
+  // lista). Antes cada evento rodava as 5 consultas, inclusive as de KPI da
+  // semana e do mês — as mais pesadas, e que um evento quase não muda (DP-7).
+  const carregarAoVivo = useCallback(async () => {
+    if (!mountedRef.current || !unidadeId || !isSupabaseConfigured) return;
+    const minhaLista = ++requisicaoListaRef.current;
+    const vigente = () =>
+      mountedRef.current && minhaLista === requisicaoListaRef.current;
+    try {
+      const [lista, totalHoje] = await Promise.all([
+        buscarLista({
+          unidadeId,
+          dataInicioStr,
+          dataFimStr,
+          filtroStatus,
+          filtroMotoristaId,
+        }),
+        buscarTotalHoje(unidadeId),
+      ]);
+      if (!vigente()) return;
+      setRotas(lista);
+      if (totalHoje !== null) setTodayStats({ totalHoje });
+      setKpis((anteriores) => ({ ...anteriores, ...kpisDaLista(lista) }));
+      // Só apaga o erro que um evento causou: o da carga completa (KPIs,
+      // incidentes) continua até ela dar certo.
+      if (erroDoVivoRef.current) {
+        erroDoVivoRef.current = false;
+        setErroCarga(null);
+        setDadosDe(null);
+      }
+      ultimaCargaOkRef.current = Date.now();
+    } catch (error) {
+      logger.error('Erro ao atualizar dashboard (evento):', error);
+      if (vigente()) {
+        erroDoVivoRef.current = true;
+        setErroCarga('Não foi possível carregar o painel.');
+        setDadosDe(ultimaCargaOkRef.current);
+      }
+    }
+  }, [unidadeId, dataInicioStr, dataFimStr, filtroStatus, filtroMotoristaId]);
+
   // Realtime: Escutar mudanças em rotas e paradas
   useRealtimeRoutes({
     enabled: !!unidadeId,
     onRouteUpdate: () => {
-      if (mountedRef.current) {
-        fetchDashboardData(true);
-      }
+      void carregarAoVivo();
     },
   });
 
