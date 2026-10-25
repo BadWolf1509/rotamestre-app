@@ -43,6 +43,8 @@ export interface ResultadoOtimizacao {
   ordemIndices: number[];
   /** True quando o OSRM falhou e o resultado é apenas uma estimativa. */
   isEstimated?: boolean;
+  /** Toda ordem passa por um par de pontos sem rota de carro (OSRM `null`). */
+  semRotaEntreParadas?: boolean;
 }
 
 export interface ValidacaoRotaResult {

@@ -87,6 +87,9 @@ export const googleMapsService = {
         distancia_total_metros: osrmResult.distancia_total_metros,
         duracao_total_segundos: osrmResult.duracao_total_segundos,
         is_estimated: osrmResult.is_estimated === true,
+        ...(osrmResult.sem_rota_entre_paradas
+          ? { sem_rota_entre_paradas: true }
+          : {}),
         ordem_otimizada: osrmResult.ordem_otimizada,
         legs: osrmResult.legs.map((leg) => ({
           distancia_metros: leg.distancia_metros,
