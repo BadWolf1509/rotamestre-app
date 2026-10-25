@@ -66,6 +66,22 @@ jest.mock('@/utils/errorHandling', () => ({
   showSuccess: jest.fn(),
 }));
 
+// Espião com a implementação real: o teste do formato troca por um marcador
+// (para inteiros o real sai igual a `String(n)`, e não provaria nada).
+jest.mock('@/lib/formatNumber', () => {
+  const real = jest.requireActual('@/lib/formatNumber');
+  return { ...real, formatarDecimal: jest.fn(real.formatarDecimal) };
+});
+const formatarDecimalEspiao = () =>
+  jest.requireMock('@/lib/formatNumber').formatarDecimal as jest.Mock;
+const comMarcador = () =>
+  formatarDecimalEspiao().mockImplementation((v: number) => `#${v}#`);
+afterEach(() => {
+  formatarDecimalEspiao().mockImplementation(
+    jest.requireActual('@/lib/formatNumber').formatarDecimal,
+  );
+});
+
 const mockShowToast = jest.fn();
 const opcoes = {
   statusColorMap: {} as never,
@@ -289,6 +305,24 @@ describe('useGestaoRotas — mais de 100 rotas', () => {
     expect(planilha).toHaveLength(151); // cabeçalho + 150
     expect(mockShowToast).toHaveBeenCalledWith(
       expect.stringContaining('150 rotas mais recentes de 437'),
+      'info',
+      expect.any(Number),
+    );
+  });
+
+  it('o aviso do teto mostra os números por formatarDecimal', async () => {
+    consultaMockada().TETO_EXPORTACAO_ROTAS = 150;
+    montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+    comMarcador();
+
+    await act(async () => {
+      await result.current.exportarParaXLSX();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.stringContaining('#150# rotas mais recentes de #437#'),
       'info',
       expect.any(Number),
     );

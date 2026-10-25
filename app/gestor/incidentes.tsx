@@ -33,6 +33,7 @@ import {
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { styles } from '@/styles/gestor/incidentes.styles';
 import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
@@ -106,7 +107,7 @@ export default function IncidentesScreen() {
     temMais && total !== null ? (
       <View style={styles.rodapeLista}>
         <Text style={styles.rodapeListaTexto}>
-          {`Mostrando ${incidentes.length} de ${total} incidentes.`}
+          {`Mostrando ${formatarDecimal(incidentes.length, 0)} de ${formatarDecimal(total, 0)} incidentes.`}
         </Text>
         <TouchableOpacity
           testID="incidentes-carregar-mais"

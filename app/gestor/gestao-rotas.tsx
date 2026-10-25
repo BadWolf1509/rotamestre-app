@@ -306,7 +306,7 @@ export default function GestaoRotas() {
       >
         {exportacao.total === null
           ? 'Preparando a exportação...'
-          : `Preparando a exportação: ${exportacao.carregadas} de ${exportacao.total} rotas...`}
+          : `Preparando a exportação: ${formatarDecimal(exportacao.carregadas, 0)} de ${formatarDecimal(exportacao.total, 0)} rotas...`}
       </Text>
     ) : null;
 

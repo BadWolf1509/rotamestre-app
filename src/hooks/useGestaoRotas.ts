@@ -36,6 +36,7 @@ import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import type { ShowToast, WithToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { formatarDecimal } from '@/lib/formatNumber';
 import {
   buscarRotas,
   contarRotasPorStatus,
@@ -575,7 +576,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
         if (totalDaBusca !== null && totalDaBusca > todas.length) {
           showToast(
-            `Exportadas as ${todas.length} rotas mais recentes de ${totalDaBusca}. ` +
+            `Exportadas as ${formatarDecimal(todas.length, 0)} rotas mais recentes de ${formatarDecimal(totalDaBusca, 0)}. ` +
               'Use a busca ou o filtro para exportar as demais.',
             'info',
             8000,

@@ -14,6 +14,22 @@ import React from 'react';
 
 import GestaoRotas from '../gestao-rotas';
 
+// Espião com a implementação real: o teste do formato troca por um marcador
+// (para inteiros o real sai igual a `String(n)`, e não provaria nada).
+jest.mock('@/lib/formatNumber', () => {
+  const real = jest.requireActual('@/lib/formatNumber');
+  return { ...real, formatarDecimal: jest.fn(real.formatarDecimal) };
+});
+const formatarDecimalEspiao = () =>
+  jest.requireMock('@/lib/formatNumber').formatarDecimal as jest.Mock;
+const comMarcador = () =>
+  formatarDecimalEspiao().mockImplementation((v: number) => `#${v}#`);
+afterEach(() => {
+  formatarDecimalEspiao().mockImplementation(
+    jest.requireActual('@/lib/formatNumber').formatarDecimal,
+  );
+});
+
 const mockExportarCSV = jest.fn();
 const mockExportarXLSX = jest.fn();
 const mockLoadRotas = jest.fn();
@@ -133,6 +149,21 @@ describe('GestaoRotas (mobile/tablet)', () => {
     fireEvent.press(screen.getByLabelText('Abrir menu de exportação'));
     expect(screen.queryByText('Excel (XLSX)')).toBeNull();
   });
+});
+
+it('o progresso da exportação sai por formatarDecimal', () => {
+  mockEstadoHook = {
+    rotasFiltradas: rotasFalsas(100),
+    total: 2345,
+    temMais: true,
+    exportacao: { formato: 'csv', carregadas: 1000, total: 2345 },
+  };
+  comMarcador();
+  render(<GestaoRotas />);
+
+  expect(
+    screen.getByText(/Preparando a exportação: #1000# de #2345# rotas/),
+  ).toBeTruthy();
 });
 
 function rotasFalsas(n: number) {

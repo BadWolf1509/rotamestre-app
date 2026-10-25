@@ -10,6 +10,22 @@ import React from 'react';
 
 import Incidentes from '../incidentes';
 
+// Espião com a implementação real: o teste do formato troca por um marcador
+// (para inteiros o real sai igual a `String(n)`, e não provaria nada).
+jest.mock('@/lib/formatNumber', () => {
+  const real = jest.requireActual('@/lib/formatNumber');
+  return { ...real, formatarDecimal: jest.fn(real.formatarDecimal) };
+});
+const formatarDecimalEspiao = () =>
+  jest.requireMock('@/lib/formatNumber').formatarDecimal as jest.Mock;
+const comMarcador = () =>
+  formatarDecimalEspiao().mockImplementation((v: number) => `#${v}#`);
+afterEach(() => {
+  formatarDecimalEspiao().mockImplementation(
+    jest.requireActual('@/lib/formatNumber').formatarDecimal,
+  );
+});
+
 const mockCarregarMais = jest.fn();
 let mockEstado: Record<string, unknown> = {};
 let mockIsDesktop = false;
@@ -134,6 +150,15 @@ describe.each([
     expect(screen.getByText(/Mostrando 50 de 130 incidentes/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('incidentes-carregar-mais'));
     expect(mockCarregarMais).toHaveBeenCalledTimes(1);
+  });
+
+  it('os números do "Mostrando" saem por formatarDecimal', () => {
+    mockIsDesktop = desktop;
+    mockEstado = { incidentes: incidentes(50), total: 130, temMais: true };
+    comMarcador();
+    render(<Incidentes />);
+
+    expect(screen.getByText(/Mostrando #50# de #130# incidentes/)).toBeTruthy();
   });
 
   it('com todos carregados não há aviso nem botão', () => {
