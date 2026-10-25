@@ -20,6 +20,7 @@ import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useManterPushTokenAtualizado } from '@/hooks/useManterPushTokenAtualizado';
 import { useResponsive } from '@/hooks/useResponsive';
+import { UnidadeAtivaProvider } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { setupNotificationResponseHandler } from '@/lib/notificationHandlers';
@@ -268,68 +269,72 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <NotificationDataProvider>
-        <NotificationModalProvider>
-          <ConditionalLayout>
-            <Stack
-              screenOptions={{
-                headerStyle: {
-                  backgroundColor: theme.colors.primary,
-                },
-                headerTintColor: theme.colors.white,
-                headerTitleStyle: {
-                  fontFamily: theme.typography.fontDisplay,
-                  fontSize: theme.typography.lg,
-                },
-                headerShown: false,
+      {/* Loja ativa: um estado só para o app inteiro (a troca vale em todas
+          as telas). Acima do layout, cuja Sidebar e telas leem a loja. */}
+      <UnidadeAtivaProvider>
+        <NotificationDataProvider>
+          <NotificationModalProvider>
+            <ConditionalLayout>
+              <Stack
+                screenOptions={{
+                  headerStyle: {
+                    backgroundColor: theme.colors.primary,
+                  },
+                  headerTintColor: theme.colors.white,
+                  headerTitleStyle: {
+                    fontFamily: theme.typography.fontDisplay,
+                    fontSize: theme.typography.lg,
+                  },
+                  headerShown: false,
+                }}
+              >
+                <Stack.Screen
+                  name="index"
+                  options={{
+                    title: 'Rota Mestre - Início',
+                  }}
+                />
+                <Stack.Screen
+                  name="auth"
+                  options={{
+                    title: 'Rota Mestre - Autenticação',
+                  }}
+                />
+                <Stack.Screen
+                  name="gestor"
+                  options={{
+                    title: 'Rota Mestre - Painel do Gestor',
+                  }}
+                />
+                <Stack.Screen
+                  name="motorista"
+                  options={{
+                    title: 'Rota Mestre - Motorista',
+                  }}
+                />
+                <Stack.Screen
+                  name="onboarding"
+                  options={{
+                    title: 'Rota Mestre - Configuração Inicial',
+                  }}
+                />
+              </Stack>
+            </ConditionalLayout>
+            <Toast
+              config={{
+                success: ({ text1, text2 }) =>
+                  renderToast(theme.colors.success, text1, text2),
+                error: ({ text1, text2 }) =>
+                  renderToast(theme.colors.error, text1, text2),
+                info: ({ text1, text2 }) =>
+                  renderToast(theme.colors.primary, text1, text2),
+                warning: ({ text1, text2 }) =>
+                  renderToast(theme.colors.secondary, text1, text2),
               }}
-            >
-              <Stack.Screen
-                name="index"
-                options={{
-                  title: 'Rota Mestre - Início',
-                }}
-              />
-              <Stack.Screen
-                name="auth"
-                options={{
-                  title: 'Rota Mestre - Autenticação',
-                }}
-              />
-              <Stack.Screen
-                name="gestor"
-                options={{
-                  title: 'Rota Mestre - Painel do Gestor',
-                }}
-              />
-              <Stack.Screen
-                name="motorista"
-                options={{
-                  title: 'Rota Mestre - Motorista',
-                }}
-              />
-              <Stack.Screen
-                name="onboarding"
-                options={{
-                  title: 'Rota Mestre - Configuração Inicial',
-                }}
-              />
-            </Stack>
-          </ConditionalLayout>
-          <Toast
-            config={{
-              success: ({ text1, text2 }) =>
-                renderToast(theme.colors.success, text1, text2),
-              error: ({ text1, text2 }) =>
-                renderToast(theme.colors.error, text1, text2),
-              info: ({ text1, text2 }) =>
-                renderToast(theme.colors.primary, text1, text2),
-              warning: ({ text1, text2 }) =>
-                renderToast(theme.colors.secondary, text1, text2),
-            }}
-          />
-        </NotificationModalProvider>
-      </NotificationDataProvider>
+            />
+          </NotificationModalProvider>
+        </NotificationDataProvider>
+      </UnidadeAtivaProvider>
     </SafeAreaProvider>
   );
 }

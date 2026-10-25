@@ -5,7 +5,10 @@
 
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 
-import { useUnidadeAtiva } from '../useUnidadeAtiva';
+import { UnidadeAtivaProvider, useUnidadeAtiva } from '../useUnidadeAtiva';
+
+// O estado mora no provider (um só para o app); o hook só lê o contexto.
+const wrapper = UnidadeAtivaProvider;
 
 // Mock AsyncStorage
 const mockGetItem = jest.fn();
@@ -23,6 +26,11 @@ const mockUserData = {
   papel: 'gestor',
 };
 const mockRefreshUser = jest.fn();
+const mockEmitProfileUpdate = jest.fn();
+jest.mock('@/lib/profileEvents', () => ({
+  emitProfileUpdate: () => mockEmitProfileUpdate(),
+  onProfileUpdate: () => () => {},
+}));
 
 jest.mock('../useUser', () => ({
   useUser: () => ({
@@ -98,7 +106,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -123,7 +131,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -147,7 +155,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -173,7 +181,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -195,7 +203,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -230,7 +238,7 @@ describe('useUnidadeAtiva', () => {
         };
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -242,7 +250,8 @@ describe('useUnidadeAtiva', () => {
 
       expect(mockSetItem).toHaveBeenCalledWith('@rotamestre:unidade_ativa', 'unidade-2');
       expect(result.current.unidadeAtiva).toBe('unidade-2');
-      expect(mockRefreshUser).toHaveBeenCalled();
+      // Todas as instâncias de useUser recarregam (não só uma).
+      expect(mockEmitProfileUpdate).toHaveBeenCalled();
     });
 
     it('não deve trocar para unidade sem acesso', async () => {
@@ -260,7 +269,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -289,7 +298,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -304,7 +313,7 @@ describe('useUnidadeAtiva', () => {
         throw new Error('Database error');
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -329,7 +338,7 @@ describe('useUnidadeAtiva', () => {
         returns: mockReturns,
       });
 
-      const { result } = renderHook(() => useUnidadeAtiva());
+      const { result } = renderHook(() => useUnidadeAtiva(), { wrapper });
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
