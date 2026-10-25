@@ -386,6 +386,24 @@ describe('SeletorUnidade', () => {
       expect(queryByText('Unidade Secundária')).toBeNull();
     });
 
+    // Revisão, M3: com a loja ativa fora do filtro (a de motorista), sumir o
+    // seletor deixava o gestor preso numa loja que ele não administra.
+    it('com a loja ativa fora do papel, aparece para ele poder sair dela', () => {
+      mockUseUnidadeAtiva.mockReturnValue({
+        unidadeAtiva: 'unidade-2',
+        unidadeAtivaData: mockVinculacoes[1].unidades,
+        vinculacoes: mockVinculacoes,
+        temMultiplasUnidades: true,
+        trocarUnidade: jest.fn(),
+        loading: false,
+      });
+      const { getByText } = render(<SeletorUnidade compact papel="gestor" />);
+
+      fireEvent.press(getByText('Unidade Secundária'));
+
+      expect(getByText('Unidade Principal')).toBeTruthy();
+    });
+
     it('com uma loja só nesse papel, o compacto não aparece', () => {
       // Duas vinculações, mas só uma como gestor.
       const { queryByText } = render(

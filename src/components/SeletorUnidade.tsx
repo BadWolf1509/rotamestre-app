@@ -171,7 +171,13 @@ export function SeletorUnidade({ compact, onUnidadeChange, papel }: SeletorUnida
         : todasAsVinculacoes,
     [todasAsVinculacoes, papel],
   );
-  const temMultiplasUnidades = vinculacoes.length > 1;
+  // Há para onde trocar: mais de uma loja no papel, ou a loja ativa está fora
+  // dele (ex.: a de motorista, dentro da área do gestor) — sem o seletor, ele
+  // ficaria preso numa loja que não administra (revisão, M3).
+  const ativaForaDoFiltro =
+    vinculacoes.length >= 1 &&
+    !vinculacoes.some((v) => v.unidade_id === unidadeAtiva);
+  const temMultiplasUnidades = vinculacoes.length > 1 || ativaForaDoFiltro;
 
   const handleOpenModal = useCallback(() => {
     if (temMultiplasUnidades) {
