@@ -151,6 +151,37 @@ describe('useGestaoRotas — mais de 100 rotas', () => {
     expect(result.current.rotas).toHaveLength(200);
   });
 
+  it('"carregar mais" tocado com carga em voo é ignorado: não soma páginas nem reinicia a carga', async () => {
+    const falso = montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+    const antes = falso.requisicoes.length;
+
+    await act(async () => {
+      const carga = result.current.loadRotas();
+      // Três toques impacientes enquanto a recarga não volta.
+      await Promise.all([
+        result.current.carregarMais(),
+        result.current.carregarMais(),
+        result.current.carregarMais(),
+        carga,
+      ]);
+    });
+
+    expect(result.current.rotas).toHaveLength(100);
+    // Só a recarga pediu rotas (+ a contagem por status dela).
+    const pedidosDeRotas = falso.requisicoes
+      .slice(antes)
+      .filter((r) => r.tabela === 'rotas' && r.metodo === 'GET');
+    expect(pedidosDeRotas).toHaveLength(1);
+
+    // Terminada a carga, o toque volta a valer.
+    await act(async () => {
+      await result.current.carregarMais();
+    });
+    expect(result.current.rotas).toHaveLength(200);
+  });
+
   it('busca vai ao servidor: acha rota que não estava entre as 100 carregadas', async () => {
     montar(437);
     const { result } = renderHook(() => useGestaoRotas(opcoes));

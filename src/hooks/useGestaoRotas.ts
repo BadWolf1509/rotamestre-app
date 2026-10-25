@@ -336,15 +336,18 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const temMais = total !== null && rotas.length < total;
 
   const carregarMais = useCallback(async () => {
-    if (!filtros || !temMais || maisControllerRef.current) return;
-    quantidadeRef.current += TAMANHO_PAGINA_ROTAS;
-
-    // Com uma carga em voo, o cursor de agora ficaria velho quando ela
-    // chegasse: recarrega tudo já com a quantidade nova.
-    if (cargaEmVooRef.current) {
-      await loadRotas();
+    // Com uma carga em voo o toque é ignorado: o cursor de agora ficaria
+    // velho quando ela chegasse, e recarregar a cada toque somava 100 por
+    // toque e reiniciava a carga (três toques impacientes = 400 rotas).
+    if (
+      !filtros ||
+      !temMais ||
+      maisControllerRef.current ||
+      cargaEmVooRef.current
+    ) {
       return;
     }
+    quantidadeRef.current += TAMANHO_PAGINA_ROTAS;
 
     const controller = new AbortController();
     maisControllerRef.current = controller;
@@ -374,7 +377,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       }
       if (montadoRef.current) setCarregandoMais(false);
     }
-  }, [filtros, temMais, loadRotas, showToast]);
+  }, [filtros, temMais, showToast]);
 
   // ============================================
   // EFFECTS
