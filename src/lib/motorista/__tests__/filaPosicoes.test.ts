@@ -509,7 +509,7 @@ describe('filaPosicoes', () => {
     expect(mockInsert).toHaveBeenCalledTimes(1);
 
     // Logout: a limpeza invalida as posições em voo e apaga as chaves da
-    // conta. O contexto de rastreamento é do aparelho e fica.
+    // conta. O contexto, lido antes, não salva a posição: a geração a recusa.
     invalidarPosicoesEmVoo();
     memoria.delete(CHAVE_FILA_POSICOES);
     memoria.delete(CHAVE_ULTIMO_USUARIO);
@@ -517,6 +517,74 @@ describe('filaPosicoes', () => {
 
     expect(await emVoo).toBe('perdida');
     expect(filaGuardada()).toBeNull();
+  });
+
+  // N1 + N2 da revisão: troca de conta DURANTE um envio da fila. O envio
+  // começado antes do logout não pode seguir nas rodadas seguintes.
+  describe('troca de conta durante o envio da fila', () => {
+    /** Fila guardada de `userId` com posições nos minutos dados. */
+    function guardarFila(userId: string, minutos: number[]) {
+      memoria.set(
+        CHAVE_FILA_POSICOES,
+        JSON.stringify({
+          userId,
+          estourou: false,
+          posicoes: minutos.map((n) => ({
+            ...posicao({ motorista_id: userId }),
+            timestamp: iso(n),
+          })),
+        }),
+      );
+    }
+
+    /** O 1º insert fica no ar até `soltar()`; os seguintes sobem. */
+    function primeiroInsertPendurado() {
+      let soltar: () => void = () => {};
+      mockInsert.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            soltar = () => resolve({ error: null });
+          }),
+      );
+      mockInsert.mockResolvedValue({ error: null });
+      return () => soltar();
+    }
+
+    it('N1: o envio da conta que saiu não apaga a fila da conta que entrou', async () => {
+      guardarFila('m1', [1, 2]);
+      const soltar = primeiroInsertPendurado();
+
+      const emVoo = registrarPosicao(posicao(), minuto(3), ROTULO);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+
+      // Logout de m1 e login de m2, que já guardou posição sem rede.
+      invalidarPosicoesEmVoo();
+      memoria.delete(CHAVE_FILA_POSICOES);
+      guardarFila('m2', [10]);
+      soltar();
+      await emVoo;
+
+      expect(filaGuardada()?.userId).toBe('m2');
+      expect(filaGuardada()?.posicoes).toHaveLength(1);
+    });
+
+    it('N2: a mesma conta sai e entra durante o envio, e o lote não sobe de novo', async () => {
+      guardarFila('m1', [1, 2]);
+      const soltar = primeiroInsertPendurado();
+
+      const emVoo = registrarPosicao(posicao(), minuto(3), ROTULO);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+
+      // Sai e entra de novo (a fila não foi apagada: o `remover` do envio
+      // antigo é recusado pela geração e o lote continuaria lá).
+      invalidarPosicoesEmVoo();
+      soltar();
+      await emVoo;
+
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+    });
   });
 
   // Corrida com o logout: a posição que estava no ar quando o motorista saiu

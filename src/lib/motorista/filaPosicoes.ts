@@ -160,14 +160,17 @@ export type DestinoDaPosicao = 'enviada' | 'na_fila' | 'perdida';
 // ---------------------------------------------------------------------------
 
 /**
- * Geração da fila: muda a cada logout (`invalidarPosicoesEmVoo`).
+ * Geração da fila: muda a cada logout e exclusão de conta
+ * (`invalidarPosicoesEmVoo`).
  *
  * POR QUE EXISTE. Com sinal fraco, o insert de uma posição pode estar no ar
  * quando o logout limpa o aparelho e só falhar por rede depois. A limpeza
  * (`multiRemove` em `limparEstadoLocalDoUsuario`) não passa pela fila em
  * série, e conferir contexto ou último usuário antes de gravar deixa uma
- * janela assíncrona — e o contexto de rastreamento é do aparelho, não sai no
- * logout. Cada operação guarda a geração em que começou; `gravar` compara de
+ * janela assíncrona: o contexto de rastreamento sai no logout (o
+ * `stopBackgroundTracking` o apaga antes da limpeza), mas uma posição pode
+ * tê-lo lido antes disso. Cada operação guarda a geração em que começou;
+ * o envio da fila também confere a cada rodada; `gravar` compara de
  * forma síncrona logo antes de emitir a escrita. Ou o logout já trocou a
  * geração (a escrita é descartada), ou a escrita sai antes do `multiRemove`,
  * que a apaga em seguida (o AsyncStorage executa na ordem).
@@ -176,8 +179,9 @@ let geracao = 0;
 
 /**
  * Descarta tudo o que está em voo na fila: nenhuma operação começada antes
- * desta chamada grava mais nada. Chamada pelo logout ANTES de apagar as
- * chaves da conta.
+ * desta chamada grava mais nada. Chamada pelo logout e pela exclusão de
+ * conta (`limparEstadoLocal.ts`), de forma síncrona, ANTES de apagar o
+ * armazenamento.
  */
 export function invalidarPosicoesEmVoo(): void {
   geracao++;
@@ -295,13 +299,19 @@ function guardar(
   });
 }
 
-/** Descarta a fila se ela pertence a outra conta. */
-function descartarFilaDeOutraConta(motoristaId: string): Promise<void> {
+/**
+ * Descarta a fila se ela pertence a outra conta. Com a geração de quem pediu:
+ * depois de um logout, a fila "de outra conta" pode ser a de quem acabou de
+ * entrar, e não é este pedido antigo que a apaga.
+ */
+function descartarFilaDeOutraConta(
+  motoristaId: string,
+  geracaoDeOrigem: number,
+): Promise<void> {
   return emSerie(async () => {
     const atual = await ler();
     if (atual && atual.userId !== motoristaId) {
-      // Só apaga: não há o que vazar de uma geração antiga.
-      await gravar({ ...atual, posicoes: [] }, geracao);
+      await gravar({ ...atual, posicoes: [] }, geracaoDeOrigem);
     }
   });
 }
@@ -422,11 +432,20 @@ async function enviarFila(
   const geracaoDoEnvio = geracao;
   // Rotas cujo lote o servidor recusou neste envio: ficam para o próximo.
   const recusadas = new Set<string>();
+  // Um logout no meio do envio troca a geração: este envio é da conta que
+  // saiu e não segue. Sem isto, a rodada seguinte leria a fila de quem
+  // entrou e a apagaria como "de outra conta" (N1), ou, com a mesma conta de
+  // volta, reenviaria o lote cujo `remover` a geração recusou — até
+  // `MAX_RODADAS` vezes (N2). Conferido antes e depois de ler: a leitura
+  // também espera.
+  const trocouDeConta = () => geracaoDoEnvio !== geracao;
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
+    if (trocouDeConta()) return false;
     const fila = await emSerie(ler);
+    if (trocouDeConta()) return false;
     if (!fila || fila.posicoes.length === 0) return true;
     if (fila.userId !== motoristaId) {
-      await descartarFilaDeOutraConta(motoristaId);
+      await descartarFilaDeOutraConta(motoristaId, geracaoDoEnvio);
       return true;
     }
 
@@ -505,7 +524,9 @@ export async function registrarPosicao(
       fila?.userId === posicao.motorista_id && fila.posicoes.length > 0;
 
     if (!temFila && !envioEmVoo) {
-      if (fila) await descartarFilaDeOutraConta(posicao.motorista_id);
+      if (fila) {
+        await descartarFilaDeOutraConta(posicao.motorista_id, geracaoDaPosicao);
+      }
       const { error } = await inserir(linha);
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
