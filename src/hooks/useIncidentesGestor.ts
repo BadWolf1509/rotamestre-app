@@ -175,6 +175,10 @@ export function useIncidentesGestor(
   const geracaoRef = useRef(0);
   const incidentesRef = useRef<Incidente[]>([]);
   incidentesRef.current = incidentes;
+  // Travas do "carregar mais" (as mesmas da Gestão de Rotas). Por ref, não
+  // por estado: dois toques no mesmo render veriam o mesmo `carregandoMais`.
+  const cargaEmVooRef = useRef(false);
+  const maisEmVooRef = useRef(false);
 
   const unidadeNome = userData?.unidades?.nome || '';
   const filtros = useMemo<FiltrosIncidentes | null>(
@@ -201,6 +205,7 @@ export function useIncidentesGestor(
       quantidadeRef.current = TAMANHO_PAGINA_INCIDENTES;
     }
     const geracao = ++geracaoRef.current;
+    cargaEmVooRef.current = true;
 
     try {
       setLoading(true);
@@ -228,7 +233,10 @@ export function useIncidentesGestor(
       logger.error('Erro ao buscar incidentes:', error);
       showToast('Erro ao carregar incidentes', 'error');
     } finally {
-      if (geracao === geracaoRef.current) setLoading(false);
+      if (geracao === geracaoRef.current) {
+        cargaEmVooRef.current = false;
+        setLoading(false);
+      }
     }
   }, [unidadeLoading, userData?.id, filtros, unidadeNome, showToast]);
 
@@ -239,7 +247,17 @@ export function useIncidentesGestor(
   const temMais = total !== null && incidentes.length < total;
 
   const carregarMais = useCallback(async () => {
-    if (!filtros || !temMais || carregandoMais) return;
+    // Com uma carga em voo o toque é ignorado: o cursor de agora ficaria
+    // velho quando ela chegasse e substituísse a lista.
+    if (
+      !filtros ||
+      !temMais ||
+      maisEmVooRef.current ||
+      cargaEmVooRef.current
+    ) {
+      return;
+    }
+    maisEmVooRef.current = true;
     const geracao = geracaoRef.current;
     const atuais = incidentesRef.current;
     const ultimo = atuais[atuais.length - 1];
@@ -268,9 +286,10 @@ export function useIncidentesGestor(
       logger.error('Erro ao carregar mais incidentes:', error);
       showToast('Não foi possível carregar mais incidentes.', 'error', 5000);
     } finally {
+      maisEmVooRef.current = false;
       setCarregandoMais(false);
     }
-  }, [filtros, temMais, carregandoMais, unidadeNome, showToast]);
+  }, [filtros, temMais, unidadeNome, showToast]);
 
   // Top 5 motoristas: dos incidentes carregados (a tela avisa quando há
   // mais). Os cartões de resumo vêm das contagens da loja inteira.

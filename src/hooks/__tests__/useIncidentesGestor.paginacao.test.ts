@@ -168,6 +168,57 @@ describe('useIncidentesGestor — limite e paginação', () => {
     expect(result.current.incidentes).toHaveLength(100);
   });
 
+  it('"carregar mais" tocado com carga em voo é ignorado: não pede página com cursor velho', async () => {
+    const falso = montar(130);
+    const { result } = renderizar();
+    await waitFor(() => expect(result.current.incidentes).toHaveLength(50));
+    const antes = falso.requisicoes.length;
+
+    await act(async () => {
+      const carga = result.current.fetchIncidentes();
+      // Toques impacientes enquanto a recarga (depois de alterar um status)
+      // não volta.
+      await Promise.all([
+        result.current.carregarMais(),
+        result.current.carregarMais(),
+        carga,
+      ]);
+    });
+
+    expect(result.current.incidentes).toHaveLength(50);
+    const pedidos = falso.requisicoes
+      .slice(antes)
+      .filter((r) => r.tabela === 'incidentes' && r.metodo === 'GET');
+    expect(pedidos).toHaveLength(1);
+
+    // Terminada a carga, o toque volta a valer.
+    await act(async () => {
+      await result.current.carregarMais();
+    });
+    expect(result.current.incidentes).toHaveLength(100);
+  });
+
+  it('toque duplo em "carregar mais" soma uma página só', async () => {
+    const falso = montar(130);
+    const { result } = renderizar();
+    await waitFor(() => expect(result.current.incidentes).toHaveLength(50));
+    const antes = falso.requisicoes.length;
+
+    await act(async () => {
+      await Promise.all([
+        result.current.carregarMais(),
+        result.current.carregarMais(),
+      ]);
+    });
+
+    expect(result.current.incidentes).toHaveLength(100);
+    expect(
+      falso.requisicoes
+        .slice(antes)
+        .filter((r) => r.tabela === 'incidentes' && r.metodo === 'GET'),
+    ).toHaveLength(1);
+  });
+
   it('erro na carga vai para o toast da página', async () => {
     const falso = montar(10);
     falso.falhas.incidentes = { message: 'falhou', code: '500' };
