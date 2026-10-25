@@ -121,6 +121,23 @@ function linhasDoCSV(): string[] {
   return conteudo.split('\n').slice(1);
 }
 
+/**
+ * Aguarda uma promessa com o ambiente de `act` desligado, como o `waitFor`
+ * faz por dentro: os renders acontecem um a um pelo agendador do React (sem
+ * aviso de "not wrapped in act"), e a espera termina quando a promessa
+ * termina, não quando um prazo vence.
+ */
+async function aguardarForaDoAct<T>(promessa: Promise<T>): Promise<T> {
+  const global = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  const anterior = global.IS_REACT_ACT_ENVIRONMENT;
+  global.IS_REACT_ACT_ENVIRONMENT = false;
+  try {
+    return await promessa;
+  } finally {
+    global.IS_REACT_ACT_ENVIRONMENT = anterior;
+  }
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   consultaMockada().TETO_EXPORTACAO_ROTAS = 10_000;
@@ -249,8 +266,12 @@ describe('useGestaoRotas — mais de 100 rotas', () => {
     act(() => {
       exportacao = result.current.exportarParaCSV();
     });
+    // Espera a PRÓPRIA exportação, sem prazo: um `waitFor` direto no estado
+    // estourava o 1 s padrão sob carga paralela (~25 consultas, cada uma numa
+    // macrotarefa). Fora do `act`, como o `waitFor` faz por dentro, para cada
+    // página continuar sendo um render.
+    await aguardarForaDoAct(exportacao);
     await waitFor(() => expect(result.current.exportacao).toBeNull());
-    await act(() => exportacao);
 
     expect(linhasDoCSV()).toHaveLength(2345);
     expect(progresso).toEqual(
