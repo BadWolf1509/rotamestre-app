@@ -78,6 +78,24 @@ interface EstadoDaConta {
 
 const SEM_VINCULACOES: UsuarioUnidade[] = [];
 
+/** Igualdade rasa: as colunas da loja (`SELECT_UNIDADE_APP`) são primitivas. */
+function mesmoConteudo(
+  a: Readonly<object> | null,
+  b: Readonly<object> | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const chavesA = Object.keys(a);
+  if (chavesA.length !== Object.keys(b).length) return false;
+  return chavesA.every(
+    (chave) =>
+      Object.is(
+        (a as Record<string, unknown>)[chave],
+        (b as Record<string, unknown>)[chave],
+      ),
+  );
+}
+
 const UnidadeAtivaContext = createContext<UseUnidadeAtivaReturn | null>(null);
 
 /** Dono do estado da loja ativa. Montado uma vez, na raiz (`app/_layout.tsx`). */
@@ -301,7 +319,19 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
 
   // Derivar dados da unidade ativa
   const vinculacaoAtiva = vinculacoes.find(v => v.unidade_id === unidadeAtiva);
-  const unidadeAtivaData = vinculacaoAtiva?.unidades || userData?.unidades || null;
+  // A loja do perfil (fallback sem vinculação) chega como objeto novo a cada
+  // busca fresca do perfil, mesmo igual. Quem a tem em dependência de efeito
+  // (`nova-entrega/useEnderecoUnidade`, que começa zerando o endereço)
+  // reagiria a cada recarga: guardamos o objeto anterior enquanto o conteúdo
+  // for o mesmo. Comparamos o conteúdo, não `id`/`updated_at`, para não
+  // depender de toda escrita na loja atualizar `updated_at`.
+  const unidadeDoPerfilRef = useRef<UnidadeComSede | null>(null);
+  const unidadeDoPerfil = userData?.unidades ?? null;
+  if (!mesmoConteudo(unidadeDoPerfilRef.current, unidadeDoPerfil)) {
+    unidadeDoPerfilRef.current = unidadeDoPerfil;
+  }
+  const unidadeAtivaData =
+    vinculacaoAtiva?.unidades || unidadeDoPerfilRef.current || null;
   const papelNaUnidadeAtiva = vinculacaoAtiva?.papel || userData?.papel || null;
   const temMultiplasUnidades = vinculacoes.length > 1;
 
