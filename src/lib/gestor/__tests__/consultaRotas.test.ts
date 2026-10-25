@@ -70,6 +70,7 @@ describe('interpretarBusca', () => {
     expect(interpretarBusca('ana', 2026)).toEqual({
       tipo: 'nome',
       padrao: '%ana%',
+      incluiSemMotorista: false,
     });
     expect(interpretarBusca('  ', 2026)).toEqual({ tipo: 'nenhuma' });
   });
@@ -259,6 +260,54 @@ describe('buscarRotas', () => {
     expect(new Set(await porNome('50%'))).toEqual(new Set(['50% Ana']));
     expect(new Set(await porNome('a_b'))).toEqual(new Set(['Ana_B']));
     expect(new Set(await porNome('silva, a'))).toEqual(new Set(['Silva, Ana']));
+  });
+
+  it('"sem motorista" acha as rotas sem motorista, também junto com nomes que casam', async () => {
+    // A lista mostra "Sem motorista" nessas rotas, e a busca no cliente
+    // (antes da tarefa 6) casava esse texto. Com o `!inner`, elas sumiam.
+    const nomes = ['Ana', 'Semíramis', 'Bruno'];
+    montar(
+      rotas(1500, (i) =>
+        i % 4 === 0
+          ? { motorista_id: null, usuarios: null }
+          : {
+              motorista_id: `m${i % 3}`,
+              usuarios: { id: `m${i % 3}`, nome: nomes[i % 3] },
+            },
+      ),
+    );
+
+    const busca = async (termo: string) =>
+      buscarRotas({
+        filtros: filtros({ busca: termo }),
+        quantidade: 2000,
+        contar: true,
+      });
+    const nomesDe = (r: Awaited<ReturnType<typeof busca>>) =>
+      new Set(r.rotas.map((x) => x.motorista_nome ?? null));
+
+    const semMotorista = await busca('Sem Motorista');
+    expect(nomesDe(semMotorista)).toEqual(new Set([null]));
+    // 375 rotas sem motorista, atravessando a página de 1.000 (cursor + or).
+    expect(semMotorista.rotas).toHaveLength(375);
+    expect(semMotorista.total).toBe(375);
+
+    // "sem" casa as duas coisas, como casava no cliente.
+    const sem = await busca('sem');
+    expect(nomesDe(sem)).toEqual(new Set([null, 'Semíramis']));
+    expect(new Set(sem.rotas.map((r) => r.id)).size).toBe(sem.rotas.length);
+
+    // Nome que não é pedaço de "sem motorista" não traz as sem motorista.
+    expect(nomesDe(await busca('ana'))).toEqual(new Set(['Ana']));
+
+    expect(
+      await contarRotasPorStatus(filtros({ busca: 'sem motorista' })),
+    ).toEqual({
+      concluidas: semMotorista.rotas.filter((r) => r.status === 'concluida')
+        .length,
+      pendentes: semMotorista.rotas.filter((r) => r.status !== 'concluida')
+        .length,
+    });
   });
 
   it('busca por data vai ao servidor', async () => {

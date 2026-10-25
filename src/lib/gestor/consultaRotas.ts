@@ -8,7 +8,8 @@
  *
  * - **Busca e filtro vão ao servidor** (`interpretarBusca`): texto busca o
  *   nome do motorista (`ilike` escapado, embed com `!inner` para recortar a
- *   rota); `dd/mm/aaaa`, `dd/mm`, `mm/aaaa` e `aaaa` viram filtro na coluna
+ *   rota); texto que é pedaço de "sem motorista" — o que a lista mostra na
+ *   rota sem motorista — também traz essas rotas (ver `CONDICAO_SEM_MOTORISTA`); `dd/mm/aaaa`, `dd/mm`, `mm/aaaa` e `aaaa` viram filtro na coluna
  *   `data` (`in`/intervalo). `rotas.data` é `date`: nada aqui passa por
  *   `new Date()`, as datas são montadas como texto `AAAA-MM-DD`.
  * - **Paginação estável por cursor**: `data desc, id desc`, e a página
@@ -53,6 +54,18 @@ const COLUNAS =
 const EMBED_MOTORISTA = 'usuarios!rotas_motorista_id_fkey';
 const FORMATO_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
+/** O que a lista mostra na rota sem motorista (em minúsculas). */
+const ROTULO_SEM_MOTORISTA = 'sem motorista';
+
+/**
+ * Rota sem motorista OU cujo motorista casou com o nome buscado. Sem `!inner`,
+ * o filtro no nome só anula o embed de quem não casa (a linha fica), e
+ * `usuarios.not.is.null` separa os que casaram. Só texto fixo: nada digitado
+ * entra no `or()`. Sintaxe conferida no PostgREST do projeto em 24/10/2026
+ * (200; com embed inexistente no mesmo `or`, 400 — o nome é resolvido).
+ */
+const CONDICAO_SEM_MOTORISTA = 'motorista_id.is.null,usuarios.not.is.null';
+
 export interface FiltrosRotas {
   unidadeId: string;
   status: FiltroStatus;
@@ -67,7 +80,12 @@ export interface CursorRotas {
 
 export type BuscaRotas =
   | { tipo: 'nenhuma' }
-  | { tipo: 'nome'; padrao: string }
+  | {
+      tipo: 'nome';
+      padrao: string;
+      /** O texto é pedaço de "sem motorista": traz também as sem motorista. */
+      incluiSemMotorista: boolean;
+    }
   | { tipo: 'datas'; datas: string[] }
   /** `de` inclusivo, `ate` exclusivo. */
   | { tipo: 'intervalo'; de: string; ate: string }
@@ -139,7 +157,11 @@ export function interpretarBusca(termo: string, anoAtual: number): BuscaRotas {
     };
   }
 
-  return { tipo: 'nome', padrao: `%${escaparIlike(t)}%` };
+  return {
+    tipo: 'nome',
+    padrao: `%${escaparIlike(t)}%`,
+    incluiSemMotorista: ROTULO_SEM_MOTORISTA.includes(t.toLowerCase()),
+  };
 }
 
 /** Filtro da página seguinte (`data desc, id desc`). */
@@ -154,8 +176,9 @@ function anoAtual(): number {
 
 function selectPara(busca: BuscaRotas, colunas: string): string {
   // `!inner`: sem ele, o filtro no nome só esvazia o embed e a rota de
-  // outro motorista continua na lista.
-  return busca.tipo === 'nome'
+  // outro motorista continua na lista. Com "sem motorista" no jogo o
+  // `!inner` sairia com a rota sem motorista junto: quem recorta é o `or`.
+  return busca.tipo === 'nome' && !busca.incluiSemMotorista
     ? `${colunas}, ${EMBED_MOTORISTA}!inner(id, nome)`
     : `${colunas}, ${EMBED_MOTORISTA}(id, nome)`;
 }
@@ -172,8 +195,18 @@ function aplicarFiltros(
   consulta: ConsultaRotas,
   filtros: FiltrosRotas,
   busca: BuscaRotas,
+  cursor?: CursorRotas,
 ): ConsultaRotas {
   let q = consulta.eq('unidade_id', filtros.unidadeId);
+  // Um `or` só: dois parâmetros `or` na mesma URL dependeriam de como o
+  // PostgREST junta chaves repetidas. Com os dois, vira `and(or(..),or(..))`.
+  const ous: string[] = [];
+  if (busca.tipo === 'nome' && busca.incluiSemMotorista) {
+    ous.push(CONDICAO_SEM_MOTORISTA);
+  }
+  if (cursor) ous.push(filtroDepoisDoCursor(cursor));
+  if (ous.length === 1) q = q.or(ous[0]);
+  if (ous.length > 1) q = q.or(`and(${ous.map((o) => `or(${o})`).join(',')})`);
   if (filtros.status !== 'todas') q = q.eq('status', filtros.status);
   switch (busca.tipo) {
     case 'nome':
@@ -224,8 +257,8 @@ async function buscarLinhas({
     ),
     filtros,
     busca,
+    cursor,
   );
-  if (cursor) consulta = consulta.or(filtroDepoisDoCursor(cursor));
   consulta = consulta
     .order('data', { ascending: false })
     .order('id', { ascending: false })

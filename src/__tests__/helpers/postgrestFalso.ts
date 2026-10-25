@@ -12,7 +12,10 @@
  * - filtros `eq`, `neq`, `lt`, `lte`, `gt`, `gte`, `in`, `is`, `ilike`;
  * - `or=(...)` com `and(...)` aninhado e valores entre aspas;
  * - filtro em coluna de tabela embutida (`usuarios.nome`): como no PostgREST,
- *   só recorta a linha-mãe quando o `select` pede o embed com `!inner`;
+ *   só recorta a linha-mãe quando o `select` pede o embed com `!inner`; sem
+ *   ele, o embed que não casa vem `null` e a linha fica — e `usuarios.not.is.null`
+ *   (inclusive dentro do `or`) separa as que casaram;
+ * - prefixo `not.` em qualquer operador;
  * - `order` com várias colunas, `limit`, `offset`, `Prefer: count=exact`
  *   (vira `content-range`), `HEAD` e `POST` (registrado, não grava);
  * - falha por tabela: `falhas.paradas = { message, code }` faz toda consulta
@@ -87,6 +90,10 @@ function likeParaRegExp(padrao: string): RegExp {
 }
 
 function condicaoSimples(coluna: string, expressao: string): Condicao {
+  if (expressao.startsWith('not.')) {
+    const positiva = condicaoSimples(coluna, expressao.slice(4));
+    return (l) => !positiva(l);
+  }
   const ponto = expressao.indexOf('.');
   const operador = expressao.slice(0, ponto);
   const bruto = expressao.slice(ponto + 1);
@@ -179,6 +186,8 @@ export function criarPostgrestFalso(
 
     const select = url.searchParams.get('select') ?? '*';
     const condicoes: Condicao[] = [];
+    // Filtros em embed sem `!inner`, por embed: o que não casa vira `null`.
+    const filtrosDeEmbed = new Map<string, Condicao[]>();
     for (const [chave, expressao] of url.searchParams.entries()) {
       if (PARAMETROS_DE_CONTROLE.has(chave)) continue;
       if (chave === 'or' || chave === 'and') {
@@ -191,14 +200,27 @@ export function criarPostgrestFalso(
           select,
         );
         // Sem `!inner` o PostgREST só esvazia o embed; a linha-mãe fica.
-        if (!interno) continue;
+        if (!interno) {
+          const lista = filtrosDeEmbed.get(embed) ?? [];
+          lista.push(condicaoSimples(chave, expressao));
+          filtrosDeEmbed.set(embed, lista);
+          continue;
+        }
       }
       condicoes.push(condicaoSimples(chave, expressao));
     }
 
-    let linhas = (tabelas[tabela] ?? []).filter((l) =>
-      condicoes.every((c) => c(l)),
-    );
+    let linhas = (tabelas[tabela] ?? [])
+      .map((l) => {
+        let saida = l;
+        for (const [embed, lista] of filtrosDeEmbed) {
+          if (saida[embed] != null && !lista.every((c) => c(saida))) {
+            saida = { ...saida, [embed]: null };
+          }
+        }
+        return saida;
+      })
+      .filter((l) => condicoes.every((c) => c(l)));
 
     const ordem = url.searchParams.get('order');
     if (ordem) {
