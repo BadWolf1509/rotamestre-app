@@ -2674,10 +2674,12 @@ a rota, SET com a mesma rota e criação do incidente passam; `unidade_id`
 gravado direto não muda a loja; sem sessão; catálogo, com dono `postgres`;
 termina em `RAISE`. Rollback colável.
 
-### ⏳ Migration 60: medidas da posição (velocidade, precisão, heading) em `numeric(8,2)`
+### ✅ Migration 60: medidas da posição (velocidade, precisão, heading) em `numeric(8,2)`
 
-**Arquivo:** `20261025140000_medidas_da_posicao_numeric_8_2.sql` · **⏳ a
-aplicar** (sonda antes e depois)
+**Arquivo:** `20261025140000_medidas_da_posicao_numeric_8_2.sql` · **✅
+aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como
+`20261025140000`. Sonda: FALHOU antes (casos 1, 2 e 4), 100% OK com o corpo
+na mesma transação e 100% OK depois de aplicada.
 
 **O defeito.** `motorista_locations.velocidade`, `.precisao` e `.heading`
 eram `numeric(5,2)` (teto 999,99). Medido no aparelho em 25/10/2026: logo
