@@ -19,6 +19,21 @@ export type NotificationType =
   // Notificações para AMBOS (gestor e motorista)
   | 'rota_nao_executada'; // Rota expirou sem ser executada
 
+/**
+ * Preferências de push da conta (`preferencias_notificacao`, Migration 47).
+ * Sem linha no banco, vale tudo ligado. O SOS ignora a preferência.
+ */
+export interface PreferenciasNotificacao {
+  /** Push geral: desligado cala tudo, menos o SOS. */
+  push_ativo: boolean;
+  /** Incidente reportado (gestor). */
+  incidentes: boolean;
+  /** Rota e paradas (início, conclusão, atribuição, edição...). */
+  rotas: boolean;
+  /** Resumo diário (ainda sem gatilho que o crie). */
+  resumo_diario: boolean;
+}
+
 export interface Notificacao {
   id: string;
   usuario_id: string;

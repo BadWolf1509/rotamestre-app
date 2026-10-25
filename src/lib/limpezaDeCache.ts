@@ -6,7 +6,9 @@
  * - o que só existe no aparelho e ainda não subiu: a fila de concluir/pular
  *   feitos sem rede e os avisos dela (`@rotamestre:fila_*`,
  *   `src/lib/motorista/filaAcoesParada.ts`), o índice das fotos de
- *   comprovante pendentes e a fila genérica (`src/lib/offline.ts`).
+ *   comprovante pendentes, a fila genérica (`src/lib/offline.ts`) e a
+ *   preferência de push escolhida sem rede
+ *   (`src/lib/notificacoes/preferenciasPush.ts`).
  *
  * POR QUE PRESERVAR, e não recusar a limpeza com pendência: recusar deixaria
  * a pessoa sem limpar nada enquanto uma foto estivesse presa (ex.: de outra
@@ -25,6 +27,9 @@ const PREFIXOS_PRESERVADOS = [
   '@rotamestre:fila_',
   '@rotamestre:offline_photos_index',
   '@rotamestre:offline_queue',
+  // Preferência de push escolhida sem rede, e a cópia dela (a pendência sobe
+  // a partir da cópia). Ver src/lib/notificacoes/preferenciasPush.ts.
+  '@rotamestre:preferencias_push',
 ];
 
 export function chavesParaLimparNoCache(chaves: readonly string[]): string[] {

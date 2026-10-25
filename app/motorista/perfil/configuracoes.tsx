@@ -8,8 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { NavigationSettings } from '@/components/motorista/NavigationSettings';
 import { ThemeSettings } from '@/components/ThemeSettings';
-import { MobileCard, Text } from '@/design-system';
+import { MobileCard, Text, Toast } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
+import { usePreferenciasPush } from '@/hooks/usePreferenciasPush';
+import { useToast } from '@/hooks/useToast';
 import {
   getAppVersion,
   getBuildNumber,
@@ -20,34 +22,29 @@ import {
   MENSAGEM_LIMPAR_CACHE,
 } from '@/lib/limpezaDeCache';
 import { logger } from '@/lib/logger';
+import { avisoDaGravacao } from '@/lib/notificacoes/preferenciasPush';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
-
-// Storage keys (only for settings NOT managed by NavigationSettings)
-const STORAGE_KEYS = {
-  NOTIFICATIONS_ENABLED: '@rotamestre:notifications_enabled',
-};
 
 export default function ConfiguracoesScreen() {
   const { theme } = useUnistyles();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { showSuccess, showError, showConfirm, AlertDialog } = useAlert();
+  const { toast, showToast, hideToast } = useToast();
+  // Preferência no banco (Migration 47), lida pela Edge Function de push.
+  const {
+    preferencias,
+    carregando: carregandoPreferencias,
+    alterar: alterarPreferencia,
+  } = usePreferenciasPush();
+  const notificationsEnabled = preferencias.push_ativo;
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [cacheSize, setCacheSize] = useState<string | null>(null);
 
-  // Load settings from AsyncStorage
   useEffect(() => {
     async function loadSettings() {
       try {
-        const notifications = await AsyncStorage.getItem(
-          STORAGE_KEYS.NOTIFICATIONS_ENABLED,
-        );
-
-        if (notifications !== null)
-          setNotificationsEnabled(notifications === 'true');
-
         // Estimate cache size
         const keys = await AsyncStorage.getAllKeys();
         setCacheSize(`~${keys.length} itens`);
@@ -60,16 +57,13 @@ export default function ConfiguracoesScreen() {
     loadSettings();
   }, []);
 
+  // Muda na hora; a gravação corre por trás. Sem rede, a escolha fica no
+  // aparelho e sobe depois — a tela só avisa.
   async function toggleNotifications(value: boolean) {
-    try {
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.NOTIFICATIONS_ENABLED,
-        String(value),
-      );
-      setNotificationsEnabled(value);
-    } catch (error) {
-      logger.error('Erro ao salvar configuração de notificações:', error);
-    }
+    const aviso = avisoDaGravacao(
+      await alterarPreferencia('push_ativo', value),
+    );
+    if (aviso) showToast(aviso.mensagem, aviso.tipo, 5000);
   }
 
   async function handleClearCache() {
@@ -97,7 +91,7 @@ export default function ConfiguracoesScreen() {
     }
   }
 
-  if (loading) {
+  if (loading || carregandoPreferencias) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Carregando...</Text>
@@ -128,6 +122,7 @@ export default function ConfiguracoesScreen() {
               </Text>
             </View>
             <Switch
+              testID="switch-push-ativo"
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
               trackColor={{
@@ -210,6 +205,13 @@ export default function ConfiguracoesScreen() {
         <View style={styles.footer} />
         {AlertDialog}
       </ScrollView>
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        duration={toast.duration}
+        onDismiss={hideToast}
+      />
     </ErrorBoundary>
   );
 }

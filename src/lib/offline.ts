@@ -5,22 +5,17 @@ import { Platform } from 'react-native';
 
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
-import { sincronizarFilaAcoesParada } from './motorista/filaAcoesParada';
+import {
+  lerFilaAcoesParada,
+  sincronizarFilaAcoesParada,
+} from './motorista/filaAcoesParada';
 import { notifySyncComplete, notifyOfflineMode } from './notifications';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
-const OFFLINE_QUEUE_KEY = '@rotamestre:offline_queue';
 const OFFLINE_DATA_KEY = '@rotamestre:offline_data';
 const OFFLINE_PHOTOS_DIR = `${FileSystem.documentDirectory}offline_photos/`;
 const OFFLINE_PHOTOS_INDEX_KEY = '@rotamestre:offline_photos_index';
-
-interface OfflineAction {
-  id: string;
-  type: 'update_parada' | 'insert_log' | 'finalizar_rota';
-  data: any;
-  timestamp: string;
-}
 
 interface OfflinePhotoData {
   localPath: string;
@@ -243,9 +238,9 @@ export async function queuePhotoUpload(
     paradaId,
   );
 
-  // Photos are tracked exclusively via photos index, processed by processOfflinePhotos()
-  // No addToOfflineQueue call - that caused duplicate uploads when setupOfflineSync
-  // processed both processOfflineQueue() and processOfflinePhotos()
+  // Foto só no índice de fotos (processOfflinePhotos). Até 03/2026 ela ia
+  // também para uma fila genérica, e cada foto subia duas vezes; essa fila,
+  // sem produtor desde então, foi removida na 1.14.6.
   return photoData.localPath;
 }
 
@@ -379,7 +374,7 @@ export async function getOfflinePhotoPath(
 }
 
 // ============================================================================
-// FILA OFFLINE - Funções gerais de queue
+// CONECTIVIDADE
 // ============================================================================
 
 /**
@@ -388,190 +383,6 @@ export async function getOfflinePhotoPath(
 export async function isOnline(): Promise<boolean> {
   const netInfo = await NetInfo.fetch();
   return netInfo.isConnected === true && netInfo.isInternetReachable === true;
-}
-
-/**
- * Adiciona uma ação à fila offline para ser executada quando voltar a conexão
- */
-export async function addToOfflineQueue(
-  action: Omit<OfflineAction, 'id' | 'timestamp'>,
-): Promise<void> {
-  const queue = await getOfflineQueue();
-  const newAction: OfflineAction = {
-    ...action,
-    id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    timestamp: new Date().toISOString(),
-  };
-  queue.push(newAction);
-  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-}
-
-/**
- * Obtém a fila de ações offline
- */
-export async function getOfflineQueue(): Promise<OfflineAction[]> {
-  try {
-    const queueStr = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-    return queueStr ? JSON.parse(queueStr) : [];
-  } catch (error) {
-    logger.warn('Falha ao ler fila offline', error);
-    return [];
-  }
-}
-
-/**
- * Limpa a fila de ações offline
- */
-export async function clearOfflineQueue(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
-  } catch {
-    // Silently fail
-  }
-}
-
-/**
- * Concurrency guard for processOfflineQueue.
- * Prevents duplicate action execution when setupOfflineSync fires twice.
- */
-let isProcessingQueue = false;
-
-/**
- * Processa a fila offline quando a conexão é restaurada
- */
-export async function processOfflineQueue(): Promise<{
-  success: number;
-  failed: number;
-  errors: any[];
-}> {
-  if (isProcessingQueue) {
-    return { success: 0, failed: 0, errors: [] };
-  }
-
-  isProcessingQueue = true;
-  try {
-    const online = await isOnline();
-    if (!online) {
-      return { success: 0, failed: 0, errors: [] };
-    }
-
-    const queue = await getOfflineQueue();
-    let successCount = 0;
-    let failedCount = 0;
-    const errors: any[] = [];
-    const successfulIds: Set<string> = new Set();
-
-    for (const action of queue) {
-      try {
-        await executeOfflineAction(action);
-        successCount++;
-        successfulIds.add(action.id);
-      } catch (error) {
-        failedCount++;
-        errors.push({ action, error });
-      }
-    }
-
-    // Remove apenas ações bem-sucedidas, mantém as que falharam para retry
-    if (successCount > 0) {
-      const remainingQueue = queue.filter(
-        (action) => !successfulIds.has(action.id),
-      );
-      await AsyncStorage.setItem(
-        OFFLINE_QUEUE_KEY,
-        JSON.stringify(remainingQueue),
-      );
-    }
-
-    return { success: successCount, failed: failedCount, errors };
-  } finally {
-    isProcessingQueue = false;
-  }
-}
-
-/**
- * Colunas que cada ação da fila offline pode escrever.
- *
- * POR QUE UMA ALLOWLIST, E POR QUE AGORA. Estas ações espalhavam o payload
- * inteiro (`...updateData`) no `.update()`. Como nada enfileira hoje
- * (`addToOfflineQueue` não tem chamador), é código vivo sobre dado morto — mas
- * `setupOfflineSync` drena a fila a cada reconexão, então o primeiro produtor
- * que aparecer roda por aqui.
- *
- * A armadilha é específica: a Migration 27 revogou `UPDATE (unidade_id)` de
- * `rotas`. Se uma futura conclusão offline espalhar um objeto `Rota` inteiro no
- * payload, o Postgres derruba o UPDATE **todo** — `status` e `concluida_em`
- * junto —, o `throw` reenfileira a ação, e a entrega fica registrada em lugar
- * nenhum. O motorista veria a conclusão sumir sem erro visível.
- *
- * As listas saem do que o caminho ONLINE equivalente grava, não de suposição:
- * `locationTracking.ts` (rota e parada) e `useRouteActions.ts` (parada com
- * foto). Coluna a mais no payload é sinal de produtor errado, então ela é
- * descartada E registrada — silenciar seria trocar uma falha por outra.
- */
-const COLUNAS_PARADA = ['status', 'concluida_em', 'foto_url'] as const;
-const COLUNAS_ROTA = ['status', 'concluida_em'] as const;
-
-function apenasColunasPermitidas(
-  payload: Record<string, unknown>,
-  permitidas: readonly string[],
-  acao: string,
-): Record<string, unknown> {
-  const recusadas = Object.keys(payload).filter(
-    (coluna) => !permitidas.includes(coluna),
-  );
-
-  if (recusadas.length > 0) {
-    logger.warn(
-      `[Offline] ${acao}: colunas fora da allowlist descartadas: ${recusadas.join(', ')}`,
-    );
-  }
-
-  return Object.fromEntries(
-    Object.entries(payload).filter(([coluna]) => permitidas.includes(coluna)),
-  );
-}
-
-/**
- * Executa uma ação offline específica
- */
-async function executeOfflineAction(action: OfflineAction): Promise<void> {
-  switch (action.type) {
-    case 'update_parada': {
-      const { id, ...updateData } = action.data;
-      const { error: updateError } = await supabase
-        .from('paradas')
-        .update(
-          apenasColunasPermitidas(updateData, COLUNAS_PARADA, 'update_parada'),
-        )
-        .eq('id', id);
-      if (updateError) throw updateError;
-      break;
-    }
-
-    case 'insert_log': {
-      const { error: logError } = await supabase
-        .from('logs')
-        .insert(action.data);
-      if (logError) throw logError;
-      break;
-    }
-
-    case 'finalizar_rota': {
-      const { rotaId, ...rotaData } = action.data;
-      const { error: rotaError } = await supabase
-        .from('rotas')
-        .update(
-          apenasColunasPermitidas(rotaData, COLUNAS_ROTA, 'finalizar_rota'),
-        )
-        .eq('id', rotaId);
-      if (rotaError) throw rotaError;
-      break;
-    }
-
-    default:
-      throw new Error(`Tipo de ação desconhecido: ${action.type}`);
-  }
 }
 
 /**
@@ -625,28 +436,15 @@ export async function hasOfflineData(): Promise<boolean> {
 }
 
 /**
- * Obtém o tamanho da fila offline
- */
-export async function getOfflineQueueSize(): Promise<number> {
-  try {
-    const queue = await getOfflineQueue();
-    return queue.length;
-  } catch (error) {
-    logger.warn('Falha ao obter tamanho da fila offline', error);
-    return 0;
-  }
-}
-
-/**
  * Resets concurrency locks for testing purposes only.
  * @internal Exported for tests — do not use in production code.
  */
 export function _resetProcessingLocks(): void {
   isProcessingPhotos = false;
-  isProcessingQueue = false;
   fotosEmCurso = null;
   envioEmCurso = null;
   pedirEnvioDeNovo = false;
+  hasNotifiedOffline = false;
 }
 
 // ============================================================================
@@ -707,6 +505,23 @@ export function solicitarEnvioFila(): Promise<{
 let hasNotifiedOffline = false;
 
 /**
+ * Concluir/pular guardados sem rede por quem está no aparelho. Mesmo critério
+ * das fotos (`getPendingPhotosCount`): a fila só sobe com a sessão do dono,
+ * então ação de outra conta não é "pendente" para esta pessoa.
+ */
+async function contarAcoesParadaPendentes(): Promise<number> {
+  try {
+    const dono = await donoConhecido();
+    if (!dono) return 0;
+    return (await lerFilaAcoesParada()).filter((a) => a.motoristaId === dono)
+      .length;
+  } catch (error) {
+    logger.warn('[Offline] Falha ao contar ações de parada pendentes', error);
+    return 0;
+  }
+}
+
+/**
  * Hook para monitorar status de conexão e processar fila automaticamente
  */
 export function setupOfflineSync(): () => void {
@@ -738,33 +553,22 @@ export function setupOfflineSync(): () => void {
       // Resetar flag de notificação offline
       hasNotifiedOffline = false;
 
-      // Processar fila geral
-      const queueSize = await getOfflineQueueSize();
-      let actionsSuccess = 0;
-
-      if (queueSize > 0) {
-        const result = await processOfflineQueue();
-        actionsSuccess = result.success;
-      }
-
       // Fotos e depois concluir/pular guardados sem rede: o comprovante sobe
       // antes da ação que o gestor vê (solicitarEnvioFila).
       const envio = await solicitarEnvioFila();
-      const photosSuccess = envio.fotos;
-      actionsSuccess += envio.acoes;
 
       // Notificar se houve sincronização
-      if (actionsSuccess > 0 || photosSuccess > 0) {
-        await notifySyncComplete(actionsSuccess, photosSuccess);
+      if (envio.acoes > 0 || envio.fotos > 0) {
+        await notifySyncComplete(envio.acoes, envio.fotos);
       }
     } else {
       // Notificar apenas uma vez que está offline
       if (!hasNotifiedOffline) {
-        const queueSize = await getOfflineQueueSize();
         const photosCount = await getPendingPhotosCount();
+        const acoesParada = await contarAcoesParadaPendentes();
 
         // Só notifica se tem algo pendente
-        if (queueSize > 0 || photosCount > 0) {
+        if (photosCount > 0 || acoesParada > 0) {
           await notifyOfflineMode();
           hasNotifiedOffline = true;
         }

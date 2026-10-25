@@ -17,7 +17,9 @@ import { Alert } from 'react-native';
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { CHAVE_CONTEXTO_RASTREAMENTO } from '@/lib/motorista/contextoRastreamento';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
+import { rotaRastreadaAcabou } from '@/lib/motorista/rotaRastreadaAcabou';
 import { pedirPermissao } from '@/lib/permissoes';
 import { defaultTheme } from '@/utils/styles';
 
@@ -25,7 +27,7 @@ import { defaultTheme } from '@/utils/styles';
 // CONSTANTES
 // ========================================
 const BACKGROUND_LOCATION_TASK = 'rotamestre-background-location';
-const TRACKING_CONTEXT_KEY = '@rotamestre:tracking_context';
+const TRACKING_CONTEXT_KEY = CHAVE_CONTEXTO_RASTREAMENTO;
 
 // Configurações de tracking
 const CONFIG = {
@@ -72,13 +74,34 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
   if (data) {
     const { locations } = data as { locations: Location.LocationObject[] };
-    const location = locations[0];
+    const location = maisRecente(locations);
 
     if (location) {
       await saveLocationToDatabase(location, 'background');
     }
   }
 });
+
+/**
+ * A leitura mais recente do lote entregue à task (pelo horário do GPS, sem
+ * depender da ordem do array).
+ *
+ * POR QUE SÓ ELA (e não todas). O sistema agrupa leituras (no iOS, a cada
+ * 30 s / 100 m; no Android, com 50 m de intervalo, o lote quase sempre tem
+ * uma). Gravar a primeira deixava o marcador do gestor, que segue o último
+ * INSERT, atrás de onde o motorista já estava. Gravar todas daria um trajeto
+ * mais fiel, mas multiplicaria INSERTs e linhas por entrega e mudaria a
+ * contagem das conferências da rota (uma por posição gravada); um ponto a
+ * cada ~100 m já desenha o trajeto.
+ */
+function maisRecente(
+  locations: Location.LocationObject[] | undefined,
+): Location.LocationObject | undefined {
+  if (!locations?.length) return undefined;
+  return locations.reduce((recente, atual) =>
+    atual.timestamp > recente.timestamp ? atual : recente,
+  );
+}
 
 // ========================================
 // FUNÇÕES AUXILIARES
@@ -101,7 +124,7 @@ async function saveLocationToDatabase(
 
     // Sem rede, a posição fica guardada no aparelho e sobe em lote com a
     // próxima que conseguir enviar (`filaPosicoes`).
-    await registrarPosicao(
+    const destino = await registrarPosicao(
       {
         motorista_id: context.motoristaId,
         rota_id: context.rotaId,
@@ -115,9 +138,93 @@ async function saveLocationToDatabase(
       location.timestamp,
       '[LocationTracking] Erro ao salvar',
     );
+
+    posicoesAteConferir--;
+    const desdeAUltima = POSICOES_ENTRE_CONFERENCIAS - posicoesAteConferir;
+    const recusaConfere =
+      destino === 'perdida' &&
+      desdeAUltima >= POSICOES_MINIMAS_ENTRE_CONFERENCIAS;
+    if (recusaConfere || posicoesAteConferir <= 0) {
+      await conferirRotaDoContexto(context);
+    }
   } catch (err) {
     logarFalha('[LocationTracking] Erro', err);
   }
+}
+
+// ========================================
+// CONFERÊNCIA DA ROTA RASTREADA (MOT-1)
+// ========================================
+
+/**
+ * Posições entre duas conferências da rota pela task de segundo plano.
+ *
+ * POR QUE EXISTE. Só o `completeRoute` deste aparelho parava a task. A rota
+ * que terminava em outro lugar (web, outro aparelho, expiração, reatribuição)
+ * seguia rastreada, e a tela, que agora também desliga
+ * (`useGarantirRastreamentoDaRota`), pode nem abrir: 4 rotas concluídas com
+ * 131 a 555 posições gravadas até ~21 h depois do fim.
+ *
+ * POR QUE 20. A configuração de segundo plano entrega uma posição a cada
+ * 50 m (no iOS, agrupadas a cada 30 s / 100 m): 20 posições são ~1 km
+ * rodado, de 1,5 a 10 min. Contar POSIÇÕES, e não tempo, limita
+ * diretamente o que importa — o vazamento depois do fim fica em no máximo
+ * 20 linhas por processo — e motorista parado não gasta consulta. 10
+ * dobraria a carga (um SELECT a cada 10 INSERTs) para ganhar poucos
+ * minutos; 60 deixaria vazar ~3 km de trajeto de quem já não está em rota.
+ * A primeira posição de cada processo (e de cada novo rastreamento) confere
+ * logo: é o caso da task restaurada horas depois do fim.
+ */
+export const POSICOES_ENTRE_CONFERENCIAS = 20;
+
+/**
+ * Espaçamento mínimo, em posições, entre uma conferência e a próxima
+ * disparada por posição recusada (`perdida`).
+ *
+ * POR QUE EXISTE. Na sessão anônima permanente (refresh token revogado) toda
+ * posição é recusada, e a rota nunca é dada como acabada (a sessão não se
+ * confirma): sem espaçamento, cada posição fazia INSERT + SELECT +
+ * `lerSessao` até o app abrir.
+ *
+ * POR QUE 5. ~250 m, de 20 s a 2,5 min. Corta esse custo a um quinto e
+ * mantém a resposta ao 42501 de uma rota reatribuída em até 5 posições,
+ * quatro vezes antes da contagem de 20. Por TEMPO (ex.: 60 s) exigiria o
+ * relógio e mediria outra coisa que a contagem principal; 1 (sem
+ * espaçamento) é o defeito; 10 já se aproxima da contagem de 20 e o gatilho
+ * por recusa deixaria de valer a pena.
+ */
+export const POSICOES_MINIMAS_ENTRE_CONFERENCIAS = 5;
+
+/** Começa em 0: a primeira posição do processo confere. */
+let posicoesAteConferir = 0;
+let conferenciaEmVoo: Promise<void> | null = null;
+
+/**
+ * Confere se a rota do contexto ainda está em andamento e com este motorista;
+ * se não estiver, para o rastreamento. Gatilhos: a contagem acima e a
+ * posição que o banco recusou (`perdida`). Desde a Migration 48 o INSERT
+ * com a rota de outro motorista volta 42501 — mas um 42501 também vem de
+ * token vencido, então a recusa SÓ dispara a conferência, nunca para.
+ * Sem rede (ou qualquer dúvida), não para.
+ */
+function conferirRotaDoContexto(context: TrackingContext): Promise<void> {
+  posicoesAteConferir = POSICOES_ENTRE_CONFERENCIAS;
+  if (conferenciaEmVoo) return conferenciaEmVoo;
+  const conferencia = (async () => {
+    if (!(await rotaRastreadaAcabou(context))) return;
+    // O motorista pode ter iniciado outra rota enquanto a consulta voava.
+    const atual = await getTrackingContext();
+    if (atual?.rotaId !== context.rotaId) return;
+    logger.warn(
+      '[LocationTracking] Rota rastreada não está mais em andamento; parando',
+      context.rotaId,
+    );
+    await stopBackgroundTracking();
+  })().finally(() => {
+    conferenciaEmVoo = null;
+  });
+  conferenciaEmVoo = conferencia;
+  return conferencia;
 }
 
 // ========================================
@@ -311,6 +418,9 @@ export async function stopBackgroundTracking(): Promise<void> {
     // Mesmo se parar a task falhar: o contexto é o que diz DE QUEM é a
     // posição, e uma task que sobrou não pode seguir com o de quem saiu.
     taskConfirmadaNesteProcesso = false;
+    // O próximo rastreamento confere já na primeira posição, também quando
+    // parar falhou: senão herdaria a contagem da rota anterior.
+    posicoesAteConferir = 0;
     try {
       await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
     } catch (err) {

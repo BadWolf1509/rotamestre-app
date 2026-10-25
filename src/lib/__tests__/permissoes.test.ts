@@ -66,6 +66,23 @@ describe('pedirPermissao', () => {
     expect(solicitar).toHaveBeenCalledTimes(1);
     expect(resultado.concedida).toBe(true);
   });
+
+  // AN12. Bloqueada (`canAskAgain: false` na consulta), o sistema não mostra
+  // mais diálogo: o pedido só devolveria `denied` — e, no Android, ainda
+  // abriria a activity de permissão, mandando o app a segundo plano. Quem
+  // chama a cada abertura (push no `useUser`) faria isso toda vez.
+  it('com a consulta bloqueada, não pede de novo e devolve o bloqueio', async () => {
+    const solicitar = jest.fn(async () => ({
+      status: 'denied',
+      canAskAgain: false,
+    }));
+    const resultado = await pedirPermissao(solicitar, async () => ({
+      status: 'denied',
+      canAskAgain: false,
+    }));
+    expect(solicitar).not.toHaveBeenCalled();
+    expect(resultado).toEqual({ concedida: false, podePerguntarDeNovo: false });
+  });
 });
 
 describe('abrirConfiguracoesDoApp', () => {

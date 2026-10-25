@@ -16,6 +16,7 @@
  */
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import SOSScreen from '../sos';
 
@@ -36,8 +37,12 @@ jest.mock('expo-location', () => ({
 }));
 
 const mockInsert = jest.fn();
+const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: () => ({ insert: (...a: unknown[]) => mockInsert(...a) }) },
+  supabase: {
+    from: () => ({ insert: (...a: unknown[]) => mockInsert(...a) }),
+    rpc: (...a: unknown[]) => mockRpc(...a),
+  },
 }));
 
 jest.mock('@/hooks/useUser', () => ({
@@ -78,6 +83,8 @@ describe('tela de SOS', () => {
     mockGetCurrentPositionAsync.mockResolvedValue(COORDS);
     mockWatchPositionAsync.mockResolvedValue({ remove: jest.fn() });
     mockInsert.mockResolvedValue({ error: null });
+    // registrar_sos (Migration 46) devolve quantos gestores foram avisados.
+    mockRpc.mockResolvedValue({ data: 1, error: null });
     global.mockUseAlert.showConfirm.mockResolvedValue(true);
   });
 
@@ -143,11 +150,11 @@ describe('tela de SOS', () => {
 
       await acionarSOS(getByText);
 
-      await waitFor(() => expect(mockInsert).toHaveBeenCalled());
-      const payload = mockInsert.mock.calls[0][0];
-      expect(payload.evento).toBe('sos_acionado');
+      await waitFor(() => expect(mockRpc).toHaveBeenCalled());
+      const [nome, args] = mockRpc.mock.calls[0];
+      expect(nome).toBe('registrar_sos');
       // E não inventa coordenada que não existe.
-      expect(payload.detalhes.localizacao).toBeUndefined();
+      expect(args.p_detalhes.localizacao).toBeUndefined();
     });
   });
 
@@ -187,8 +194,8 @@ describe('tela de SOS', () => {
 
       await acionarSOS(getByText);
 
-      await waitFor(() => expect(mockInsert).toHaveBeenCalled());
-      expect(mockInsert.mock.calls[0][0].detalhes.localizacao).toEqual(
+      await waitFor(() => expect(mockRpc).toHaveBeenCalled());
+      expect(mockRpc.mock.calls[0][1].p_detalhes.localizacao).toEqual(
         expect.objectContaining({
           latitude: COORDS.coords.latitude,
           longitude: COORDS.coords.longitude,
@@ -222,6 +229,184 @@ describe('tela de SOS', () => {
       const opcoes = await acionarSOS(getByText);
 
       expect(opcoes.message).toMatch(/sem sua localização/i);
+    });
+  });
+
+  /**
+   * B1 (1.14.6): sem rota, o gatilho só achava a loja pelo vínculo principal —
+   * 1 de 11 vínculos ativos de motorista tinha a marca — e ninguém era avisado.
+   * A tela dizia "Seu gestor foi notificado" do mesmo jeito. Agora o servidor
+   * devolve quantos gestores receberam, e a tela só promete o que aconteceu.
+   */
+  describe('quantos gestores receberam o SOS', () => {
+    /** O que os diálogos disseram ao motorista. */
+    function textoDosDialogos() {
+      return JSON.stringify([
+        ...(global.mockUseAlert.showSuccess as jest.Mock).mock.calls,
+        ...(global.mockUseAlert.showWarning as jest.Mock).mock.calls,
+        ...(global.mockUseAlert.showError as jest.Mock).mock.calls,
+      ]);
+    }
+
+    it('manda a descrição e a rota (ou null) para registrar_sos', async () => {
+      const { getByText, getByPlaceholderText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+      fireEvent.changeText(
+        getByPlaceholderText(/Pneu furado/i),
+        'Pneu furado na BR',
+      );
+
+      await acionarSOS(getByText);
+
+      await waitFor(() => expect(mockRpc).toHaveBeenCalled());
+      const [nome, args] = mockRpc.mock.calls[0];
+      expect(nome).toBe('registrar_sos');
+      expect(args.p_detalhes.descricao).toBe('Pneu furado na BR');
+      expect(args.p_rota_id).toBeNull();
+      // O log sai pela RPC, não por INSERT direto (que não diz quem recebeu).
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('com 1 ou mais gestores avisados, mantém a mensagem atual', async () => {
+      mockRpc.mockResolvedValue({ data: 2, error: null });
+      const { getByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      await acionarSOS(getByText);
+
+      await waitFor(() =>
+        expect(global.mockUseAlert.showSuccess).toHaveBeenCalled(),
+      );
+      const [titulo, corpo] = (global.mockUseAlert.showSuccess as jest.Mock)
+        .mock.calls[0];
+      expect(titulo).toBe('SOS Enviado');
+      expect(corpo).toMatch(/Seu gestor foi notificado da emergência/);
+    });
+
+    it('com 0 gestores avisados, nunca diz "notificado" e diz que ninguém recebeu', async () => {
+      mockRpc.mockResolvedValue({ data: 0, error: null });
+      const { getByText, findByText, queryByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      await acionarSOS(getByText);
+
+      await waitFor(() =>
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalled(),
+      );
+      expect(global.mockUseAlert.showSuccess).not.toHaveBeenCalled();
+      const [titulo, corpo] = (global.mockUseAlert.showWarning as jest.Mock)
+        .mock.calls[0];
+      expect(`${titulo} ${corpo}`).toMatch(/nenhum gestor recebeu/i);
+      expect(textoDosDialogos()).not.toMatch(/notificad/i);
+
+      // Os botões de ligar ganham destaque: o aviso fica na tela, junto deles.
+      expect(await findByText(/Nenhum gestor recebeu o seu SOS/i)).toBeTruthy();
+      expect(queryByText(/notificad/i)).toBeNull();
+    });
+
+    it('com 0 gestores e sem localização, também nunca diz "notificado"', async () => {
+      mockGetCurrentPositionAsync.mockRejectedValue(new Error('sem fix'));
+      mockRpc.mockResolvedValue({ data: 0, error: null });
+      const { getByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      await acionarSOS(getByText);
+
+      await waitFor(() =>
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalled(),
+      );
+      expect(global.mockUseAlert.showSuccess).not.toHaveBeenCalled();
+      const [titulo, corpo] = (global.mockUseAlert.showWarning as jest.Mock)
+        .mock.calls[0];
+      expect(`${titulo} ${corpo}`).toMatch(/nenhum gestor recebeu/i);
+      expect(textoDosDialogos()).not.toMatch(/notificad/i);
+    });
+
+    it('sem a RPC no servidor, registra pelo INSERT antigo e não promete aviso', async () => {
+      // App publicado antes da Migration 46: o SOS não pode se perder.
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST202', message: 'Could not find the function' },
+      });
+      const { getByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      await acionarSOS(getByText);
+
+      await waitFor(() => expect(mockInsert).toHaveBeenCalled());
+      expect(mockInsert.mock.calls[0][0].evento).toBe('sos_acionado');
+      await waitFor(() =>
+        expect(global.mockUseAlert.showWarning).toHaveBeenCalled(),
+      );
+      expect(global.mockUseAlert.showSuccess).not.toHaveBeenCalled();
+      const [titulo, corpo] = (global.mockUseAlert.showWarning as jest.Mock)
+        .mock.calls[0];
+      expect(`${titulo} ${corpo}`).toMatch(/não foi possível confirmar/i);
+      expect(textoDosDialogos()).not.toMatch(/notificad/i);
+    });
+
+    it('outro erro da RPC vira o erro de envio, sem INSERT duplicado', async () => {
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { code: '42501', message: 'sem permissão' },
+      });
+      const { getByText } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+
+      await acionarSOS(getByText);
+
+      await waitFor(() =>
+        expect(global.mockUseAlert.showError).toHaveBeenCalled(),
+      );
+      expect(mockInsert).not.toHaveBeenCalled();
+      expect(global.mockUseAlert.showSuccess).not.toHaveBeenCalled();
+    });
+
+    it('RPC rejeitada (sem rede): diz que não confirmou o envio e destaca os botões', async () => {
+      mockRpc.mockRejectedValue(new TypeError('Network request failed'));
+      const { getByText, findByText, getByTestId } = render(<SOSScreen />);
+      await waitFor(() =>
+        expect(mockGetCurrentPositionAsync).toHaveBeenCalled(),
+      );
+      const destaqueAntes = StyleSheet.flatten(
+        getByTestId('contato-emergencia-policia').props.style,
+      ).borderWidth;
+
+      await acionarSOS(getByText);
+
+      await waitFor(() =>
+        expect(global.mockUseAlert.showError).toHaveBeenCalled(),
+      );
+      const { title, message } = (global.mockUseAlert.showError as jest.Mock)
+        .mock.calls[0][0];
+      expect(`${title} ${message}`).toMatch(
+        /não foi possível confirmar o envio/i,
+      );
+      expect(textoDosDialogos()).not.toMatch(/notificad/i);
+
+      // A faixa sobre os botões, e os botões destacados, como com 0 gestores.
+      expect(
+        await findByText(/Não foi possível confirmar o envio do seu SOS/i),
+      ).toBeTruthy();
+      for (const id of ['gestor', 'policia', 'samu', 'bombeiros']) {
+        const estilo = StyleSheet.flatten(
+          getByTestId(`contato-emergencia-${id}`).props.style,
+        );
+        expect(estilo.borderWidth).toBe(2);
+        expect(estilo.borderWidth).not.toBe(destaqueAntes);
+      }
     });
   });
 
