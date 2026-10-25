@@ -156,6 +156,7 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
         confirmText="Sair"
         cancelText="Cancelar"
         type="danger"
+        icon="log-out-outline"
         onConfirm={handleLogoutConfirm}
         onCancel={() => setShowLogoutDialog(false)}
       />

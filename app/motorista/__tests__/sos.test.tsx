@@ -88,6 +88,17 @@ describe('tela de SOS', () => {
     global.mockUseAlert.showConfirm.mockResolvedValue(true);
   });
 
+  it('a confirmação usa o ícone de alerta, não a lixeira do danger', async () => {
+    const { getByText } = render(<SOSScreen />);
+    await waitFor(() => expect(mockGetCurrentPositionAsync).toHaveBeenCalled());
+
+    const opcoes = await acionarSOS(getByText);
+
+    // Sem `icon`, `type: 'danger'` desenha a lixeira (ICON_MAP.danger).
+    expect(opcoes.type).toBe('danger');
+    expect(opcoes.icon).toBe('alert-circle-outline');
+  });
+
   describe('quando NÃO há localização', () => {
     beforeEach(() => {
       // GPS frio: a permissão existe, o fix não vem.

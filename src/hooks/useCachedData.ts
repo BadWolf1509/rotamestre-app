@@ -71,22 +71,42 @@ export function useCachedData<T>(
 
   // Refs para controle
   const mountedRef = useRef(true);
-  const fetchingRef = useRef(false);
-  const keyRef = useRef(key);
+  // Contador de requisição: toda carga nova roda e só a MAIS RECENTE escreve
+  // no estado. Antes, uma guarda booleana (`fetchingRef`) fazia a carga da
+  // chave nova simplesmente não rodar quando a da velha estava em voo — e a
+  // resposta velha virava o dado (e o cache) da chave nova (DP-9).
+  const requisicaoRef = useRef(0);
+  // Chave da carga em voo: deduplica só pedidos da MESMA chave.
+  const chaveEmVooRef = useRef<string | null>(null);
+  // Espelho síncrono do dado e da chave a que ele pertence. O `update`
+  // funcional lê daqui: o `data` da closure é o do último render, e duas
+  // atualizações seguidas perdiam a primeira.
+  const dataRef = useRef<T | null>(null);
+  const chaveDoDadoRef = useRef<string | null>(null);
   const loadDataRef = useRef<(ignoreCache?: boolean) => Promise<void>>(async () => {});
 
-  // Atualizar ref da key
-  useEffect(() => {
-    keyRef.current = key;
-  }, [key]);
+  const aplicar = useCallback((valor: T | null, chave: string | null) => {
+    dataRef.current = valor;
+    chaveDoDadoRef.current = chave;
+    setData(valor);
+  }, []);
 
   const loadData = useCallback(
     async (ignoreCache = false) => {
       if (!enabled) return;
-      if (fetchingRef.current) return;
+      if (!ignoreCache && chaveEmVooRef.current === key) return;
 
-      fetchingRef.current = true;
+      const minha = ++requisicaoRef.current;
+      const vigente = () =>
+        mountedRef.current && minha === requisicaoRef.current;
+      chaveEmVooRef.current = key;
       setError(null);
+
+      // Dado de outra chave não responde por esta (troca de loja, de rota).
+      if (chaveDoDadoRef.current !== null && chaveDoDadoRef.current !== key) {
+        aplicar(null, null);
+        setIsStale(false);
+      }
 
       let hasCachedData = false;
 
@@ -94,8 +114,8 @@ export function useCachedData<T>(
       if (!ignoreCache && staleWhileRevalidate) {
         try {
           const cached = await getCache<T>(key);
-          if (cached !== null && mountedRef.current) {
-            setData(cached);
+          if (cached !== null && vigente()) {
+            aplicar(cached, key);
             setIsStale(true);
             setLoading(false);
             hasCachedData = true;
@@ -107,7 +127,7 @@ export function useCachedData<T>(
       }
 
       // Se não tem cache, mostrar loading
-      if (!hasCachedData || ignoreCache) {
+      if (vigente() && (!hasCachedData || ignoreCache)) {
         setLoading(true);
       }
 
@@ -115,16 +135,18 @@ export function useCachedData<T>(
         // 2. Buscar dados frescos
         const freshData = await fetcher();
 
-        if (!mountedRef.current) return;
+        // Carga substituída (outra chave, refresh) ou tela desmontada: a
+        // resposta não vira estado nem cache.
+        if (!vigente()) return;
 
-        setData(freshData);
+        aplicar(freshData, key);
         setIsStale(false);
         onUpdate?.(freshData);
 
         // 3. Salvar no cache
         await setCache(key, freshData, ttl);
       } catch (err) {
-        if (!mountedRef.current) return;
+        if (!vigente()) return;
 
         const fetchError = err instanceof Error ? err : new Error(String(err));
         setError(fetchError);
@@ -132,13 +154,14 @@ export function useCachedData<T>(
         // Se falhou mas tem dados do cache, manter
         // Se não tem nada, o erro será mostrado
       } finally {
-        if (mountedRef.current) {
-          setLoading(false);
-          fetchingRef.current = false;
+        // Só a carga mais recente encerra o indicador e libera a chave.
+        if (minha === requisicaoRef.current) {
+          chaveEmVooRef.current = null;
+          if (mountedRef.current) setLoading(false);
         }
       }
     },
-    [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate]
+    [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate, aplicar]
   );
 
   // Sync ref with latest loadData function
@@ -152,24 +175,26 @@ export function useCachedData<T>(
 
   const clear = useCallback(async () => {
     await clearCache(key);
-    setData(null);
+    aplicar(null, null);
     setIsStale(false);
     setError(null);
-  }, [key]);
+  }, [key, aplicar]);
 
   const update = useCallback(
     async (newData: T | ((prev: T | null) => T)) => {
+      const anterior =
+        chaveDoDadoRef.current === key ? dataRef.current : null;
       const updatedData =
         typeof newData === 'function'
-          ? (newData as (prev: T | null) => T)(data)
+          ? (newData as (prev: T | null) => T)(anterior)
           : newData;
 
-      setData(updatedData);
+      aplicar(updatedData, key);
       setIsStale(false);
       await setCache(key, updatedData, ttl);
       onUpdate?.(updatedData);
     },
-    [key, ttl, data, onUpdate]
+    [key, ttl, onUpdate, aplicar]
   );
 
   // Cleanup

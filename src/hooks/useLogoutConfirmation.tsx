@@ -33,6 +33,7 @@ export function useLogoutConfirmation() {
       confirmText="Sair"
       cancelText="Cancelar"
       type="danger"
+      icon="log-out-outline"
       loading={loading}
       onConfirm={async () => {
         await handleLogout();

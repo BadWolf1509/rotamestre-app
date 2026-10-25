@@ -177,6 +177,7 @@ export async function otimizarRotaComDependencias(
     // ordem decidida sobre distâncias em linha reta não a torna confirmável.
     isEstimated:
       resultado.is_estimated === true || medida.is_estimated === true,
+    ...(resultado.sem_rota_entre_paradas ? { semRotaEntreParadas: true } : {}),
   };
 
   salvarNoCache(hashRota, resultadoFinal).then(() => {

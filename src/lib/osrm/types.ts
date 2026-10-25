@@ -86,6 +86,11 @@ export interface DirectionsResult {
   legs: DirectionsResultLeg[];
   /** Indica fallback Haversine; não representa um percurso viário confirmado. */
   is_estimated?: boolean;
+  /**
+   * Toda ordem possível passa por algum par de pontos sem rota de carro entre
+   * si (matriz do OSRM com `null`): a ordem exibida não é confiável.
+   */
+  sem_rota_entre_paradas?: boolean;
 }
 
 export interface OSRMTripResponse {
@@ -118,8 +123,9 @@ export interface OSRMTripResponse {
 
 export interface OSRMTableResponse {
   code: string;
-  distances: number[][];
-  durations: number[][];
+  /** `null` no par sem rota de carro (ilha, coordenada fora do extrato). */
+  distances: (number | null)[][];
+  durations: (number | null)[][];
   sources: Array<{ location: [number, number] }>;
   destinations: Array<{ location: [number, number] }>;
 }

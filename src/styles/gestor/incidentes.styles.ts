@@ -93,6 +93,25 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.primary,
   },
 
+  // Abaixo da lista: "Mostrando 50 de 130 incidentes" + "Carregar mais"
+  rodapeLista: {
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  rodapeListaTexto: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.gray700,
+    textAlign: 'center',
+  },
+  botaoCarregarMais: {
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+
   // Modal de detalhes
   detalhesHeader: {
     flexDirection: 'row',

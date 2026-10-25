@@ -312,6 +312,104 @@ describe('useCachedData', () => {
       });
     });
   });
+
+  // DP-9: a guarda `fetchingRef` descartava a carga da chave nova quando a
+  // da velha ainda estava em voo, e a resposta velha virava o dado (e o cache)
+  // da chave nova.
+  describe('troca de chave com busca em voo', () => {
+    function controlada<T>() {
+      let resolver!: (v: T) => void;
+      const promessa = new Promise<T>((r) => {
+        resolver = r;
+      });
+      return { promessa, resolver };
+    }
+
+    function montarComDuasChaves() {
+      const a = controlada<string>();
+      const b = controlada<string>();
+      const buscas: Record<string, () => Promise<string>> = {
+        a: () => a.promessa,
+        b: () => b.promessa,
+      };
+      const chamadas: string[] = [];
+      const hook = renderHook(
+        ({ chave }) =>
+          useCachedData(chave, () => {
+            chamadas.push(chave);
+            return buscas[chave]();
+          }),
+        { initialProps: { chave: 'a' } },
+      );
+      return { ...hook, a, b, chamadas };
+    }
+
+    it('a carga da chave nova roda e vale, e a resposta velha que chega depois é ignorada', async () => {
+      const { result, rerender, a, b, chamadas } = montarComDuasChaves();
+      await waitFor(() => expect(chamadas).toEqual(['a']));
+
+      rerender({ chave: 'b' });
+      await waitFor(() => expect(chamadas).toEqual(['a', 'b']));
+      // Sem cache da chave nova, o dado da velha não responde por ela.
+      expect(result.current.data).toBeNull();
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        b.resolver('dado de b');
+      });
+      await waitFor(() => expect(result.current.data).toBe('dado de b'));
+      expect(result.current.loading).toBe(false);
+
+      await act(async () => {
+        a.resolver('dado de a');
+      });
+      expect(result.current.data).toBe('dado de b');
+      expect(cacheModule.setCache).not.toHaveBeenCalledWith(
+        'b',
+        'dado de a',
+        expect.anything(),
+      );
+    });
+
+    it('resposta velha que chega ANTES da nova também não vira o dado da chave nova', async () => {
+      const { result, rerender, a, b, chamadas } = montarComDuasChaves();
+      await waitFor(() => expect(chamadas).toEqual(['a']));
+      rerender({ chave: 'b' });
+      await waitFor(() => expect(chamadas).toEqual(['a', 'b']));
+
+      await act(async () => {
+        a.resolver('dado de a');
+      });
+      expect(result.current.data).toBeNull();
+      expect(result.current.loading).toBe(true);
+
+      await act(async () => {
+        b.resolver('dado de b');
+      });
+      expect(result.current.data).toBe('dado de b');
+      expect(result.current.loading).toBe(false);
+    });
+  });
+
+  it('update com função usa o dado mais recente, não o da closure', async () => {
+    const fetcher = jest.fn().mockResolvedValue(0);
+    const { result } = renderHook(() => useCachedData('contador', fetcher));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Duas atualizações antes de qualquer render: a segunda tem de ver a
+    // primeira.
+    await act(async () => {
+      const update = result.current.update;
+      await Promise.all([update((n) => (n ?? 0) + 1), update((n) => (n ?? 0) + 1)]);
+    });
+
+    expect(result.current.data).toBe(2);
+    expect(cacheModule.setCache).toHaveBeenLastCalledWith(
+      'contador',
+      2,
+      expect.anything(),
+    );
+  });
 });
 
 describe('useFreshData', () => {

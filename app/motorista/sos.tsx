@@ -307,6 +307,8 @@ export default function SOSScreen() {
       confirmText: 'CONFIRMAR SOS',
       cancelText: 'Cancelar',
       type: 'danger',
+      // Sem ícone próprio, 'danger' desenha a lixeira (é o de excluir).
+      icon: 'alert-circle-outline',
     });
     if (confirmed) {
       await enviarSOS();

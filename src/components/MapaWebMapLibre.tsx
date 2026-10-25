@@ -26,8 +26,10 @@ import React, {
 } from 'react';
 import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
+import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
+import { CORES_SOBRE_O_MAPA } from '@/components/motorista/home/miniMapCompartilhado';
 import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
@@ -250,6 +252,9 @@ export default function MapaWebMapLibre({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const motoristaMarkerRef = useRef<maplibregl.Marker | null>(null);
+  // Elementos do marcador do motorista que o relógio da idade atualiza.
+  const motoristaElementoRef = useRef<HTMLDivElement | null>(null);
+  const motoristaIdadeRef = useRef<HTMLSpanElement | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -803,6 +808,9 @@ export default function MapaWebMapLibre({
     }
   }, [chaveDoVoo, mapLoaded]);
 
+  // "há 12 min": idade da posição, recalculada por um relógio de 30 s.
+  const idadeDaPosicao = useIdadeDaPosicao(motoristaLocation?.timestamp);
+
   // Render live motorista marker as a DOM Marker.
   // On first render: creates the element and marker, stores it in motoristaMarkerRef.
   // On subsequent location changes: reuses the existing marker via setLngLat (no re-create).
@@ -814,6 +822,8 @@ export default function MapaWebMapLibre({
     if (!motoristaLocation) {
       motoristaMarkerRef.current?.remove();
       motoristaMarkerRef.current = null;
+      motoristaElementoRef.current = null;
+      motoristaIdadeRef.current = null;
       return;
     }
 
@@ -828,27 +838,48 @@ export default function MapaWebMapLibre({
       return;
     }
 
-    // First render — create element + marker
+    // First render — create element + marker. Cores de CORES_SOBRE_O_MAPA: o
+    // mapa é sempre claro, e o tema (que nem entra nas dependências) se
+    // inverteria no escuro.
     const el = document.createElement('div');
     el.className = 'motorista-marker';
     el.setAttribute('role', 'img');
-    el.setAttribute(
-      'aria-label',
-      motoristaNome ? `Motorista: ${motoristaNome}` : 'Motorista',
-    );
-    // Use the theme primary color from design tokens — no hardcoded colors
-    el.style.cssText = `width:20px;height:20px;border-radius:50%;background:${theme.colors.primary};border:3px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
+    el.style.cssText = `position:relative;width:20px;height:20px;border-radius:50%;background:${CORES_SOBRE_O_MAPA.marca};border:3px solid ${CORES_SOBRE_O_MAPA.branco};box-shadow:0 0 0 2px rgba(0,0,0,0.2);cursor:pointer;`;
+    // A idade fica abaixo do ponto, fora do fluxo: o centro do ponto segue
+    // sendo a coordenada (âncora "center" do Marker).
+    const idade = document.createElement('span');
+    idade.className = 'motorista-marker-idade';
+    idade.style.cssText = `position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;padding:1px 6px;border-radius:8px;background:${CORES_SOBRE_O_MAPA.branco};color:${CORES_SOBRE_O_MAPA.sombra};font:600 11px/16px sans-serif;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.25);pointer-events:none;`;
+    el.appendChild(idade);
+    motoristaElementoRef.current = el;
+    motoristaIdadeRef.current = idade;
 
     motoristaMarkerRef.current = new maplibregl.Marker({ element: el })
       .setLngLat(lngLat)
       .addTo(map);
-  }, [mapLoaded, motoristaLocation, motoristaNome, theme.colors.primary]);
+  }, [mapLoaded, motoristaLocation]);
+
+  // Texto da idade e rótulo acessível: só o texto muda, o marcador fica.
+  useEffect(() => {
+    const el = motoristaElementoRef.current;
+    const idade = motoristaIdadeRef.current;
+    if (!el || !idade) return;
+    idade.textContent = idadeDaPosicao;
+    idade.style.display = idadeDaPosicao ? '' : 'none';
+    const nome = motoristaNome ? `Motorista: ${motoristaNome}` : 'Motorista';
+    el.setAttribute(
+      'aria-label',
+      idadeDaPosicao ? `${nome}, posição ${idadeDaPosicao}` : nome,
+    );
+  }, [idadeDaPosicao, motoristaNome, motoristaLocation, mapLoaded]);
 
   // Unmount cleanup: remove the motorista marker if it exists
   useEffect(() => {
     return () => {
       motoristaMarkerRef.current?.remove();
       motoristaMarkerRef.current = null;
+      motoristaElementoRef.current = null;
+      motoristaIdadeRef.current = null;
     };
   }, []);
 

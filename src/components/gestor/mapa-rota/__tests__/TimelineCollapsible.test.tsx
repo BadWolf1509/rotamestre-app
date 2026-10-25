@@ -150,4 +150,113 @@ describe('TimelineCollapsible', () => {
       expect(getByText('RouteTimeline rota-3')).toBeTruthy();
     });
   });
+
+  // O resumo era buscado só na montagem: com a tela aberta, o motorista
+  // concluía paradas (cartões e mapa atualizavam pelo realtime da tela) e o
+  // resumo seguia "Parada #1 concluída" até recarregar a página.
+  it('rebusca o resumo quando o sinal de atualização da tela muda', async () => {
+    mockUseTimelineLastSeen.mockReturnValue({
+      countNewEvents: jest.fn(() => 0),
+      markAllAsSeen: jest.fn(),
+      loading: false,
+    });
+
+    let paradas: any[] = [
+      { id: 'p1', ordem: 1, status: 'concluida', concluida_em: '2024-01-01T10:00:00.000Z' },
+    ];
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'logs') return createLogsQuery([]);
+      if (table === 'paradas') return createParadasQuery(paradas);
+      if (table === 'incidentes') return createIncidentesQuery([]);
+      return createLogsQuery([]);
+    });
+
+    const { getByText, queryByText, rerender } = render(
+      <TimelineCollapsible rotaId="rota-4" sinalAtualizacao="p1:concluida" />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('Parada #1 concluída')).toBeTruthy();
+    });
+
+    paradas = [
+      ...paradas,
+      { id: 'p2', ordem: 2, status: 'concluida', concluida_em: '2024-01-01T11:00:00.000Z' },
+    ];
+    rerender(
+      <TimelineCollapsible
+        rotaId="rota-4"
+        sinalAtualizacao="p1:concluida|p2:concluida"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('Parada #2 concluída')).toBeTruthy();
+    });
+    expect(queryByText('Parada #1 concluída')).toBeNull();
+    expect(getByText('2')).toBeTruthy();
+  });
+
+  it('recalcula o selo de novos quando a rebusca traz evento novo', async () => {
+    mockUseTimelineLastSeen.mockReturnValue({
+      countNewEvents: jest.fn((eventos: unknown[]) => eventos.length),
+      markAllAsSeen: jest.fn(),
+      loading: false,
+    });
+    let paradas = [
+      { id: 'p1', ordem: 1, status: 'concluida', concluida_em: '2024-01-01T10:00:00.000Z' },
+    ];
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'logs') return createLogsQuery([]);
+      if (table === 'paradas') return createParadasQuery(paradas);
+      if (table === 'incidentes') return createIncidentesQuery([]);
+      return createLogsQuery([]);
+    });
+
+    const { getByText, rerender } = render(
+      <TimelineCollapsible rotaId="rota-6" sinalAtualizacao="p1:concluida" />,
+    );
+    await waitFor(() => expect(getByText('1 novo')).toBeTruthy());
+
+    paradas = [
+      ...paradas,
+      { id: 'p2', ordem: 2, status: 'concluida', concluida_em: '2024-01-01T11:00:00.000Z' },
+    ];
+    rerender(
+      <TimelineCollapsible
+        rotaId="rota-6"
+        sinalAtualizacao="p1:concluida|p2:concluida"
+      />,
+    );
+
+    await waitFor(() => expect(getByText('2 novos')).toBeTruthy());
+  });
+
+  it('não rebusca quando o sinal não muda', async () => {
+    mockUseTimelineLastSeen.mockReturnValue({
+      countNewEvents: jest.fn(() => 0),
+      markAllAsSeen: jest.fn(),
+      loading: false,
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'logs') return createLogsQuery([]);
+      if (table === 'paradas') return createParadasQuery([]);
+      if (table === 'incidentes') return createIncidentesQuery([]);
+      return createLogsQuery([]);
+    });
+
+    const { getByText, rerender } = render(
+      <TimelineCollapsible rotaId="rota-5" sinalAtualizacao="x" />,
+    );
+    await waitFor(() =>
+      expect(getByText('Nenhum evento registrado')).toBeTruthy(),
+    );
+    const chamadas = mockFrom.mock.calls.length;
+
+    rerender(<TimelineCollapsible rotaId="rota-5" sinalAtualizacao="x" />);
+    await waitFor(() =>
+      expect(getByText('Nenhum evento registrado')).toBeTruthy(),
+    );
+    expect(mockFrom.mock.calls.length).toBe(chamadas);
+  });
 });

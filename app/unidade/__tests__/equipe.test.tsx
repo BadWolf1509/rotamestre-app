@@ -212,4 +212,40 @@ describe('EquipeScreen', () => {
     );
     expect(mockUpdate).not.toHaveBeenCalled();
   });
+
+  it('desativação recusada por rota aberta lista as rotas e não recarrega', async () => {
+    mockRpc.mockImplementationOnce((nome: string) => {
+      // 1ª chamada: a lista; deixa o padrão responder
+      expect(nome).toBe('listar_motoristas_unidade');
+      mockCargas += 1;
+      return Promise.resolve({ data: MOTORISTAS, error: null });
+    });
+    mockRpc.mockImplementationOnce(() =>
+      Promise.resolve({
+        data: null,
+        error: {
+          code: 'P0001',
+          message:
+            'Não dá para desativar: este motorista tem 3 rotas abertas nesta loja. Reatribua a outro motorista ou cancele antes de desativar.',
+          details: JSON.stringify([
+            { id: 'r-and', data: '2026-10-24', status: 'em_andamento' },
+            { id: 'r-p1', data: '2026-10-25', status: 'pendente' },
+            { id: 'r-p2', data: '2026-10-26', status: 'pendente' },
+          ]),
+          hint: 'MOTORISTA_COM_ROTA_ABERTA',
+        },
+      }),
+    );
+    render(<EquipeScreen />);
+
+    expect(await screen.findByText('Motorista Um')).toBeTruthy();
+    fireEvent.press(screen.getByText('Desativar'));
+
+    expect(await screen.findByTestId('rota-aberta-r-and')).toBeTruthy();
+    expect(screen.getByTestId('rota-aberta-r-p1')).toBeTruthy();
+    expect(screen.getByTestId('rota-aberta-r-p2')).toBeTruthy();
+    expect(screen.getByText('24/10/2026')).toBeTruthy();
+    // não é sucesso: nada de recarregar a lista
+    expect(mockCargas).toBe(1);
+  });
 });

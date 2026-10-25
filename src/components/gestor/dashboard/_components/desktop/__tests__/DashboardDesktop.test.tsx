@@ -37,6 +37,20 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Loja ativa: o estado mora no UnidadeAtivaProvider da raiz (useMotoristas lê).
+jest.mock('@/hooks/useUnidadeAtiva', () => ({
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: null,
+    unidadeAtivaData: null,
+    vinculacoes: [],
+    temMultiplasUnidades: false,
+    papelNaUnidadeAtiva: null,
+    loading: false,
+    trocarUnidade: jest.fn(),
+    refresh: jest.fn(),
+  }),
+}));
+
 // Mock useDesktopHeaderMenu
 jest.mock('@/hooks/useDesktopHeaderMenu', () => ({
   useDesktopHeaderMenu: () => ({

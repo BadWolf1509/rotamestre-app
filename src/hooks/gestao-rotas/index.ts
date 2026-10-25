@@ -3,7 +3,7 @@
  */
 
 export { useRotasCache } from './useRotasCache';
-export { useRotasFiltering } from './useRotasFiltering';
+export { useRotasFiltering, ordenarRotas } from './useRotasFiltering';
 export { useTimelineData } from './useTimelineData';
 export type { UseTimelineDataResult } from './useTimelineData';
 export { exportRotasToCSV } from './routeExport';

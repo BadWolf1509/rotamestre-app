@@ -2,10 +2,12 @@
  * Tela de Gestão de Rotas - Gestor
  *
  * Permite visualizar e gerenciar todas as rotas da unidade:
- * - Listagem de rotas com filtros por status e busca textual
+ * - Listagem paginada no servidor ("Carregar mais", 100 por vez) com aviso de
+ *   quantas rotas mostra de quantas; filtro de status e busca no servidor
  * - Visualização de detalhes (motorista, paradas, progresso)
  * - Exclusão de rotas com confirmação
- * - Exportação para CSV ou XLSX (desktop dropdown / mobile sheet)
+ * - Exportação para CSV ou XLSX de todas as rotas do filtro, com progresso
+ *   (desktop dropdown / mobile sheet)
  * - Atualização em tempo real via Supabase Realtime
  *
  * NOTE: PDF export is intentionally NOT offered at the list level.
@@ -54,8 +56,10 @@ import {
   type RotaHistorico,
 } from '@/hooks/useGestaoRotas';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useToast } from '@/hooks/useToast';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { textoMostrando } from '@/lib/gestor/consultaRotas';
 import { styles } from '@/styles/gestor/gestao-rotas.styles';
 import { useUnistyles } from '@/utils/styles';
 
@@ -82,9 +86,19 @@ export default function GestaoRotas() {
     [theme.colors],
   );
 
+  // A página é dona do toast (useToast é estado por instância) e o injeta
+  // no hook.
+  const { toast: toastState, showToast, hideToast, withToast } = useToast();
+
   // Hook de gestão de rotas
   const {
     rotasFiltradas,
+    total,
+    temMais,
+    carregandoMais,
+    contagens,
+    exportacao,
+    carregarMais,
     loading,
     erroCarga,
     dadosDe,
@@ -104,12 +118,12 @@ export default function GestaoRotas() {
     exportarParaXLSX,
     getStatusLabel,
     getStatusColor,
-    toastState,
-    hideToast,
     handleSort,
   } = useGestaoRotas({
     statusColorMap,
     defaultStatusColor: theme.colors.gray500,
+    showToast,
+    withToast,
   });
 
   // Export dropdown state (desktop). Abaixo de 1024px: Modal com as opções —
@@ -246,29 +260,73 @@ export default function GestaoRotas() {
   // RENDER
   // ============================================
 
-  const totalRotas = rotasFiltradas.length;
-  const concluidasCount = rotasFiltradas.filter(
-    (rota) => rota.status === 'concluida',
-  ).length;
-  const pendentesCount = rotasFiltradas.filter(
-    (rota) => rota.status === 'pendente',
-  ).length;
+  // Números da loja inteira (servidor), não das rotas carregadas na lista.
+  const totalRotas = total ?? rotasFiltradas.length;
+  const concluidasCount =
+    contagens?.concluidas ??
+    rotasFiltradas.filter((rota) => rota.status === 'concluida').length;
+  const pendentesCount =
+    contagens?.pendentes ??
+    rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
+  const subtituloFiltros = `${formatarDecimal(totalRotas, 0)} rota(s) encontrada(s)`;
+
+  // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
+  // Função chamada no JSX (não componente declarado no render).
+  const renderRodapeLista = () =>
+    temMais && total !== null ? (
+      <View style={styles.rodapeLista}>
+        <Text style={styles.rodapeListaTexto}>
+          {`${textoMostrando(rotasFiltradas.length, total)}. A busca, o filtro e a exportação cobrem todas.`}
+        </Text>
+        <TouchableOpacity
+          testID="gestao-rotas-carregar-mais"
+          style={styles.cardHeaderButtonSecondary}
+          onPress={carregarMais}
+          disabled={carregandoMais}
+          accessibilityRole="button"
+          accessibilityLabel="Carregar mais rotas"
+          accessibilityState={{
+            disabled: carregandoMais,
+            busy: carregandoMais,
+          }}
+        >
+          <Text style={styles.cardHeaderButtonSecondaryText}>
+            {carregandoMais ? 'Carregando...' : 'Carregar mais rotas'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    ) : null;
+
+  const renderProgressoExportacao = () =>
+    exportacao ? (
+      <Text
+        testID="gestao-rotas-exportacao-progresso"
+        style={styles.progressoExportacao}
+        accessibilityLiveRegion="polite"
+      >
+        {exportacao.total === null
+          ? 'Preparando a exportação...'
+          : `Preparando a exportação: ${formatarDecimal(exportacao.carregadas, 0)} de ${formatarDecimal(exportacao.total, 0)} rotas...`}
+      </Text>
+    ) : null;
 
   const desktopStats = (
     <View style={styles.headerStats}>
       <View style={styles.headerStat}>
-        <Text style={styles.headerStatValue}>{totalRotas}</Text>
+        <Text style={styles.headerStatValue}>
+          {formatarDecimal(totalRotas, 0)}
+        </Text>
         <Text style={styles.headerStatLabel}>Rotas registradas</Text>
       </View>
       <View style={styles.headerStat}>
         <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>
-          {concluidasCount}
+          {formatarDecimal(concluidasCount, 0)}
         </Text>
         <Text style={styles.headerStatLabel}>Concluídas</Text>
       </View>
       <View style={styles.headerStat}>
         <Text style={[styles.headerStatValue, styles.headerStatValueWarning]}>
-          {pendentesCount}
+          {formatarDecimal(pendentesCount, 0)}
         </Text>
         <Text style={styles.headerStatLabel}>Pendentes</Text>
       </View>
@@ -284,8 +342,10 @@ export default function GestaoRotas() {
           <TouchableOpacity
             style={styles.cardHeaderButtonSecondary}
             onPress={() => setShowExportMenu((prev) => !prev)}
+            disabled={!!exportacao}
             accessibilityRole="button"
             accessibilityLabel="Abrir menu de exportação"
+            accessibilityState={{ disabled: !!exportacao, busy: !!exportacao }}
           >
             <Text style={styles.cardHeaderButtonSecondaryText}>Exportar ▾</Text>
           </TouchableOpacity>
@@ -369,11 +429,12 @@ export default function GestaoRotas() {
           loadingText="Carregando rotas..."
         >
           {avisoErroCarga}
+          {renderProgressoExportacao()}
 
           {/* Filtros */}
           <DesktopCard
             title="Filtros"
-            subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
+            subtitle={subtituloFiltros}
             icon="filter-outline"
             iconColor={theme.colors.primary}
           >
@@ -453,6 +514,7 @@ export default function GestaoRotas() {
                   )
                 }
               />
+              {renderRodapeLista()}
             </DesktopCard>
           </View>
         </DesktopPageLayout>
@@ -502,7 +564,7 @@ export default function GestaoRotas() {
           {/* Info e Filtros */}
           <MobileCard
             title="Filtros"
-            subtitle={`${rotasFiltradas.length} rota(s) encontrada(s)`}
+            subtitle={subtituloFiltros}
             variant="bordered"
           >
             {/* Search Input */}
@@ -549,8 +611,13 @@ export default function GestaoRotas() {
               <TouchableOpacity
                 style={styles.mobileActionButtonSecondary}
                 onPress={() => setMostrarOpcoesExportar(true)}
+                disabled={!!exportacao}
                 accessibilityRole="button"
                 accessibilityLabel="Abrir menu de exportação"
+                accessibilityState={{
+                  disabled: !!exportacao,
+                  busy: !!exportacao,
+                }}
               >
                 <Text style={styles.mobileActionButtonSecondaryText}>
                   Exportar
@@ -567,6 +634,7 @@ export default function GestaoRotas() {
                 </Text>
               </TouchableOpacity>
             </View>
+            {renderProgressoExportacao()}
           </MobileCard>
 
           {/* DataTable */}
@@ -603,6 +671,7 @@ export default function GestaoRotas() {
               )
             }
           />
+          {renderRodapeLista()}
         </View>
       </ScrollView>
 

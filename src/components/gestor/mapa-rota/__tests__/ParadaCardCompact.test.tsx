@@ -284,6 +284,72 @@ describe('ParadaCardCompact', () => {
     });
   });
 
+  describe('Parada feita ou rota fechada: sem Editar/Remover (G4)', () => {
+    it.each([
+      ['pulada', 'em_andamento'],
+      ['em_andamento', 'em_andamento'],
+      ['pendente', 'concluida'],
+      ['pendente', 'cancelada'],
+      ['pendente', 'nao_executada'],
+    ])('parada %s em rota %s: os botões não aparecem', (paradaStatus, rota) => {
+      const { getByText, queryByText } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={{ ...mockParada, status: paradaStatus }}
+          rotaStatus={rota}
+          onEdit={jest.fn()}
+          onRemove={jest.fn()}
+        />,
+      );
+
+      fireEvent.press(getByText(/Rua das Flores/));
+
+      expect(queryByText('Editar')).toBeNull();
+      expect(queryByText('Remover')).toBeNull();
+    });
+
+    it('o motorista conclui a parada com o card aberto: os botões somem no mesmo card', () => {
+      const props = {
+        ...defaultProps,
+        rotaStatus: 'em_andamento',
+        onEdit: jest.fn(),
+        onRemove: jest.fn(),
+      };
+      const { getByText, queryByText, rerender } = render(
+        <ParadaCardCompact {...props} />,
+      );
+      fireEvent.press(getByText(/Rua das Flores/));
+      expect(getByText('Remover')).toBeTruthy();
+
+      rerender(
+        <ParadaCardCompact
+          {...props}
+          parada={{ ...mockParada, status: 'concluida' }}
+        />,
+      );
+
+      expect(queryByText('Editar')).toBeNull();
+      expect(queryByText('Remover')).toBeNull();
+    });
+
+    it('edição feita em outra aba (destinatário) aparece no card sem remontar', () => {
+      const { getByText, queryByText, rerender } = render(
+        <ParadaCardCompact {...defaultProps} rotaStatus="pendente" />,
+      );
+      fireEvent.press(getByText(/Rua das Flores/));
+
+      rerender(
+        <ParadaCardCompact
+          {...defaultProps}
+          rotaStatus="pendente"
+          parada={{ ...mockParada, destinatario: 'Destinatário Novo' }}
+        />,
+      );
+
+      expect(queryByText(/Destinatário Novo/)).toBeTruthy();
+    });
+  });
+
   describe('Foto da entrega', () => {
     it('deve exibir thumbnail quando useSignedUrl retorna url assinada', () => {
       mockUseSignedUrl.mockReturnValue({

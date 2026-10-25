@@ -9,6 +9,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -268,51 +269,47 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             )}
 
             {/* Ações de Edição (apenas para paradas pendentes em rotas editáveis) */}
-            {parada.status === 'pendente' &&
-              (rotaStatus === 'pendente' || rotaStatus === 'em_andamento') && (
-                <View style={styles.editActions}>
-                  {onEdit && (
-                    <TouchableOpacity
-                      style={styles.editActionButton}
-                      onPress={() => onEdit(parada)}
+            {podeAlterarParada(parada.status, rotaStatus) && (
+              <View style={styles.editActions}>
+                {onEdit && (
+                  <TouchableOpacity
+                    style={styles.editActionButton}
+                    onPress={() => onEdit(parada)}
+                  >
+                    <Ionicons
+                      name="create-outline"
+                      size={16}
+                      color={theme.colors.secondary}
+                    />
+                    <Text
+                      style={[
+                        styles.actionText,
+                        { color: theme.colors.secondary },
+                      ]}
                     >
-                      <Ionicons
-                        name="create-outline"
-                        size={16}
-                        color={theme.colors.secondary}
-                      />
-                      <Text
-                        style={[
-                          styles.actionText,
-                          { color: theme.colors.secondary },
-                        ]}
-                      >
-                        Editar
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  {onRemove && (
-                    <TouchableOpacity
-                      style={[styles.editActionButton, styles.removeButton]}
-                      onPress={() => onRemove(parada)}
+                      Editar
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {onRemove && (
+                  <TouchableOpacity
+                    style={[styles.editActionButton, styles.removeButton]}
+                    onPress={() => onRemove(parada)}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={16}
+                      color={theme.colors.error}
+                    />
+                    <Text
+                      style={[styles.actionText, { color: theme.colors.error }]}
                     >
-                      <Ionicons
-                        name="trash-outline"
-                        size={16}
-                        color={theme.colors.error}
-                      />
-                      <Text
-                        style={[
-                          styles.actionText,
-                          { color: theme.colors.error },
-                        ]}
-                      >
-                        Remover
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                      Remover
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -324,6 +321,12 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       prevProps.parada.status === nextProps.parada.status &&
       prevProps.parada.foto_url === nextProps.parada.foto_url &&
       prevProps.parada.endereco === nextProps.parada.endereco &&
+      prevProps.parada.tipo === nextProps.parada.tipo &&
+      prevProps.parada.destinatario === nextProps.parada.destinatario &&
+      prevProps.parada.telefone === nextProps.parada.telefone &&
+      prevProps.parada.observacoes === nextProps.parada.observacoes &&
+      prevProps.parada.motivo_skip === nextProps.parada.motivo_skip &&
+      prevProps.parada.concluida_em === nextProps.parada.concluida_em &&
       prevProps.index === nextProps.index &&
       prevProps.selected === nextProps.selected &&
       prevProps.rotaStatus === nextProps.rotaStatus

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { logger } from '@/lib/logger';
+import { emitProfileUpdate } from '@/lib/profileEvents';
 import type { CriarUnidadeParams } from '@/lib/schemas/onboarding';
 import { supabase } from '@/lib/supabase';
 
@@ -31,6 +32,7 @@ export function useCriarUnidade() {
         // Já existe perfil: o estado desejado já está no banco. Tratar como
         // sucesso é o que torna duplo submit inofensivo.
         if (error.message?.includes(PERFIL_JA_EXISTE)) {
+          emitProfileUpdate();
           return { ok: true as const };
         }
         // `error`, não `warn`: warn é __DEV__-only e sumiria em produção,
@@ -39,6 +41,10 @@ export function useCriarUnidade() {
         throw error;
       }
 
+      // O perfil acabou de nascer: todas as instâncias de useUser (inclusive
+      // a do UnidadeAtivaProvider da raiz, que viu "sem perfil" no cadastro)
+      // recarregam, numa consulta só. Sem isto o painel abria sem loja.
+      emitProfileUpdate();
       return { ok: true as const };
     } finally {
       setLoading(false);

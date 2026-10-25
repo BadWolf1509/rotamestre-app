@@ -398,4 +398,81 @@ describe('PreRouteChecklist', () => {
       });
     });
   });
+
+  // DP-10: `onStatusChange` inline do pai entrava nas dependências do
+  // efeito: cada render do pai refazia as três checagens nativas (e o pai
+  // re-renderiza justamente porque recebe o status) e recriava o intervalo.
+  describe('quando roda as checagens', () => {
+    it('re-render do pai com callback novo não refaz as checagens', async () => {
+      const { rerender } = render(
+        <PreRouteChecklist onStatusChange={() => {}} />,
+      );
+      await waitFor(() =>
+        expect(mockGetBatteryLevelAsync).toHaveBeenCalledTimes(1),
+      );
+
+      for (let i = 0; i < 5; i++) {
+        rerender(<PreRouteChecklist onStatusChange={() => {}} />);
+      }
+      await Promise.resolve();
+
+      expect(mockGetBatteryLevelAsync).toHaveBeenCalledTimes(1);
+      expect(mockGetNetworkStateAsync).toHaveBeenCalledTimes(1);
+      expect(mockHasServicesEnabledAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it('pai que re-renderiza ao receber o status não entra em laço, e o callback novo é o chamado', async () => {
+      const chamadas: string[] = [];
+      function Pai() {
+        const [, setN] = React.useState(0);
+        const [versao, setVersao] = React.useState(0);
+        return (
+          <PreRouteChecklist
+            onStatusChange={() => {
+              chamadas.push(`v${versao}`);
+              setN((n) => n + 1);
+              setVersao((v) => v + 1);
+            }}
+          />
+        );
+      }
+      jest.useFakeTimers();
+      try {
+        render(<Pai />);
+        await waitFor(() => expect(chamadas).toHaveLength(1));
+        await jest.advanceTimersByTimeAsync(20);
+
+        expect(mockGetBatteryLevelAsync).toHaveBeenCalledTimes(1);
+        expect(chamadas).toEqual(['v0']);
+
+        // Outra mudança de resultado: quem é avisado é o callback do render
+        // mais recente (v1), não o da montagem.
+        mockHasServicesEnabledAsync.mockResolvedValue(false);
+        await jest.advanceTimersByTimeAsync(5000);
+        expect(chamadas).toEqual(['v0', 'v1']);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('re-checa no intervalo, avisando o pai só quando o resultado muda', async () => {
+      jest.useFakeTimers();
+      try {
+        const onStatusChange = jest.fn();
+        render(<PreRouteChecklist onStatusChange={onStatusChange} />);
+        await waitFor(() => expect(onStatusChange).toHaveBeenCalledTimes(1));
+
+        await jest.advanceTimersByTimeAsync(5000);
+        expect(mockGetBatteryLevelAsync).toHaveBeenCalledTimes(2);
+        expect(onStatusChange).toHaveBeenCalledTimes(1);
+
+        mockHasServicesEnabledAsync.mockResolvedValue(false);
+        await jest.advanceTimersByTimeAsync(5000);
+        expect(onStatusChange).toHaveBeenCalledTimes(2);
+        expect(onStatusChange).toHaveBeenLastCalledWith(false, false);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
 });

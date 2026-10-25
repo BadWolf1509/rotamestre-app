@@ -417,6 +417,21 @@ describe('otimizarRotaComDependencias', () => {
       );
     });
 
+    it('repassa o aviso de que nenhuma ordem resolve (par sem rota, G9)', async () => {
+      const paradas = [
+        makeParada({ id: 'r1', tipo: 'retirada', ...PONTO }),
+        makeParada({ id: 'e1', tipo: 'entrega', vinculo_parada_id: 'r1', ...PONTO }),
+      ];
+      mockGetDirections.mockResolvedValue({
+        ...mockDirectionsResponse([0]),
+        sem_rota_entre_paradas: true,
+      });
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(result!.semRotaEntreParadas).toBe(true);
+    });
+
     it('continua estimada se a ORDEM veio de estimativa, mesmo com a rota completa medida', async () => {
       const paradas = [
         makeParada({ id: 'r1', tipo: 'retirada', ...OUTRO }),

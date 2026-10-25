@@ -1,13 +1,12 @@
 /**
  * Hook for loading driver performance statistics.
- * Encapsulates Supabase queries and period filtering.
+ * Os totais vêm de `buscarResumoDesempenho` (RPC da Migration 55).
  */
 
 import { useState, useEffect, useCallback } from 'react';
 
-import { toLocalISODate } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
+import { buscarResumoDesempenho } from '@/lib/motorista/resumoDesempenho';
 
 export interface PerformanceStats {
   totalRotas: number;
@@ -52,75 +51,25 @@ export function useDesempenhoStats(
     try {
       setError(null);
 
-      // Calcular data de inicio baseado no periodo
-      let dataInicio: string | null = null;
-      const now = new Date();
+      // Totais somados no servidor (Migration 55): a busca antiga de todas as
+      // paradas por `.in('rota_id', todas)` era cortada em 1.000 linhas pelo
+      // PostgREST. O período é em dias corridos sobre `rotas.data` (o dia em
+      // que a rota roda, nunca `created_at`), contados de hoje no fuso do
+      // Brasil — ver `buscarResumoDesempenho`.
+      const dias = periodo === '7d' ? 7 : periodo === '30d' ? 30 : null;
+      const resumo = await buscarResumoDesempenho(userId, dias);
 
-      if (periodo === '7d') {
-        const date = new Date(now);
-        date.setDate(date.getDate() - 7);
-        dataInicio = toLocalISODate(date);
-      } else if (periodo === '30d') {
-        const date = new Date(now);
-        date.setDate(date.getDate() - 30);
-        dataInicio = toLocalISODate(date);
-      }
-
-      // Buscar rotas do motorista
-      let rotasQuery = supabase
-        .from('rotas')
-        .select('id, status, distancia_total')
-        .eq('motorista_id', userId);
-
-      if (dataInicio) {
-        // `rotas.data` (o dia em que a rota roda), nao `created_at` (quando o
-        // gestor criou o registro). Filtrar por created_at fazia rota planejada
-        // com antecedencia sumir do periodo mesmo tendo sido rodada dentro dele.
-        rotasQuery = rotasQuery.gte('data', dataInicio);
-      }
-
-      const { data: rotas, error: rotasError } = await rotasQuery;
-
-      if (rotasError) throw rotasError;
-
-      // Calcular estatisticas de rotas
-      const rotasData = rotas || [];
-      const totalRotas = rotasData.length;
-      const rotasConcluidas = rotasData.filter(
-        (r) => r.status === 'concluida',
-      ).length;
-      const rotasCanceladas = rotasData.filter(
-        (r) => r.status === 'cancelada',
-      ).length;
+      const {
+        totalRotas,
+        rotasConcluidas,
+        rotasCanceladas,
+        totalParadas,
+        paradasConcluidas,
+        paradasPuladas,
+      } = resumo;
       const taxaSucesso =
         totalRotas > 0 ? Math.round((rotasConcluidas / totalRotas) * 100) : 0;
-      const totalKm = rotasData.reduce(
-        (acc, r) => acc + (r.distancia_total || 0),
-        0,
-      );
-
-      // Buscar paradas das rotas
-      const rotaIds = rotasData.map((r) => r.id);
-      let paradasData: { id: string; status: string; rota_id: string }[] = [];
-
-      if (rotaIds.length > 0) {
-        const { data: paradas, error: paradasError } = await supabase
-          .from('paradas')
-          .select('id, status, rota_id')
-          .in('rota_id', rotaIds)
-          .or('is_checkpoint.is.null,is_checkpoint.eq.true');
-
-        if (paradasError) throw paradasError;
-        paradasData = paradas || [];
-      }
-
-      const totalParadas = paradasData.length;
-      const paradasConcluidas = paradasData.filter(
-        (p) => p.status === 'concluida',
-      ).length;
-      const paradasPuladas = paradasData.filter(
-        (p) => p.status === 'pulada',
-      ).length;
+      const totalKm = resumo.distanciaTotal;
       const mediaParadasPorRota =
         totalRotas > 0 ? Math.round(totalParadas / totalRotas) : 0;
 

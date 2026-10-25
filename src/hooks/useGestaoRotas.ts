@@ -2,12 +2,17 @@
  * Hook de gerenciamento de rotas para a tela de Gestão de Rotas
  *
  * Encapsula toda a lógica de estado e ações:
- * - Carregamento de rotas via Supabase
- * - Filtragem por status e busca textual
+ * - Carregamento paginado no servidor ("carregar mais", 100 por vez), com o
+ *   total da loja para a tela avisar quando a lista não mostra tudo
+ * - Filtro de status e busca aplicados no servidor (cobrem todas as rotas)
  * - Exclusão de rotas com confirmação
- * - Exportação para CSV e XLSX
+ * - Exportação para CSV e XLSX de TODAS as rotas do filtro, com progresso
  * - Atualização em tempo real
  * - Cache local para melhor UX (stale-while-revalidate)
+ *
+ * Até 24/10/2026 a lista era `.limit(100)` sem aviso, e busca, filtro e
+ * exportação só viam essas 100 rotas. A consulta mora em
+ * `src/lib/gestor/consultaRotas.ts`.
  *
  * NOTE: PDF export is intentionally NOT exposed here. exportRotaToPDF() is a
  * per-route delivery-proof function (with real stop addresses). A list-level
@@ -17,21 +22,29 @@
  *
  * Modular architecture:
  * - gestao-rotas/useRotasCache.ts: Cache management
- * - gestao-rotas/useRotasFiltering.ts: Filter and sort logic
+ * - gestao-rotas/useRotasFiltering.ts: Filter state and sort logic
  * - gestao-rotas/routeExport.ts: CSV export utility
  * - gestao-rotas/routeExportXLSX.ts: XLSX export utility
  * - gestao-rotas/routeExportPDF.ts: Per-route PDF export utility
  */
 
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
-import { useToast } from '@/hooks/useToast';
+import type { ShowToast, WithToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { contarParadasDasRotas } from '@/lib/gestor/contarParadasDasRotas';
+import { formatarDecimal } from '@/lib/formatNumber';
+import {
+  buscarRotas,
+  contarRotasPorStatus,
+  TAMANHO_PAGINA_ROTAS,
+  TETO_EXPORTACAO_ROTAS,
+  type ContagemPorStatus,
+  type FiltrosRotas,
+} from '@/lib/gestor/consultaRotas';
 import {
   excluirRota as excluirRotaNoServidor,
   ExclusaoRotaError,
@@ -50,11 +63,12 @@ import {
   type RotaStatus,
   type FiltroStatus,
 } from '@/lib/statusLabels';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 import {
   useRotasCache,
   useRotasFiltering,
+  ordenarRotas,
   exportRotasToCSV,
   exportRotasToXLSX,
 } from './gestao-rotas';
@@ -71,22 +85,61 @@ export const FILTRO_STATUS_OPTIONS = FILTRO_OPTIONS;
 interface UseGestaoRotasOptions {
   statusColorMap: Record<RotaStatus, string>;
   defaultStatusColor: string;
+  /**
+   * Toast da PÁGINA: `useToast` é estado local de cada instância, e é a
+   * página que renderiza o `<Toast>`. Obrigatório para que esquecer vire erro
+   * de tipo, não toast mudo.
+   */
+  showToast: ShowToast;
+  withToast: WithToast;
+}
+
+/** Progresso da exportação (busca de todas as páginas). */
+export interface ProgressoExportacao {
+  formato: 'csv' | 'xlsx';
+  carregadas: number;
+  /** Quantas serão exportadas (já limitado ao teto); null antes da 1ª página. */
+  total: number | null;
+}
+
+/**
+ * Cancelamento pedido pelo próprio hook (carga nova substituindo esta,
+ * "carregar mais" superado, saída da tela). Não é falha.
+ *
+ * O erro do postgrest-js NUNCA é `instanceof Error`: a biblioteca converte a
+ * rejeição do fetch num objeto plano antes de resolver a promise — ver
+ * `isPostgrestAbortShape` (queryClient.ts). Fica de fora o NOSSO timeout de
+ * 15s (fetchComTimeout.ts), que chega com a mesma forma mas é falha real (a
+ * resposta nunca voltou): `classifyError` dá a ele o tipo 'timeout'.
+ */
+function foiCancelamento(error: unknown): boolean {
+  return (
+    isPostgrestAbortShape(error) && classifyError(error).type !== 'timeout'
+  );
 }
 
 export function useGestaoRotas(options: UseGestaoRotasOptions) {
-  const { statusColorMap, defaultStatusColor } = options;
+  const { statusColorMap, defaultStatusColor, showToast, withToast } = options;
 
   const router = useRouter();
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
-  const { toast: toastState, showToast, hideToast, withToast } = useToast();
 
   // ============================================
   // STATE
   // ============================================
 
+  // Rotas carregadas, na ordem do servidor (data desc, id desc): a última é o
+  // cursor do "carregar mais". A ordenação da tabela fica em `rotasFiltradas`.
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
+  // Quantas rotas casam com o filtro na loja inteira (null = ainda não sei).
+  const [total, setTotal] = useState<number | null>(null);
+  const [contagens, setContagens] = useState<ContagemPorStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [carregandoMais, setCarregandoMais] = useState(false);
+  const [exportacao, setExportacao] = useState<ProgressoExportacao | null>(
+    null,
+  );
   // Erro da última carga (null = ok). `Alert.alert` era no-op no web: a tela
   // ficava vazia ou com dados velhos sem dizer nada.
   const [erroCarga, setErroCarga] = useState<string | null>(null);
@@ -99,8 +152,23 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
 
-  // Ref for AbortController
+  // Cancelamento: carga da lista, "carregar mais" e exportação.
   const abortControllerRef = useRef<AbortController | null>(null);
+  const maisControllerRef = useRef<AbortController | null>(null);
+  const exportControllerRef = useRef<AbortController | null>(null);
+  const montadoRef = useRef(true);
+
+  // Quantas rotas a lista mostra: cresce com "carregar mais" e é o tamanho
+  // de cada recarga (realtime, "tentar novamente"), para não fechar as
+  // páginas que o gestor abriu. Volta a uma página quando o filtro muda.
+  const quantidadeRef = useRef(TAMANHO_PAGINA_ROTAS);
+  const chaveFiltrosRef = useRef<string | null>(null);
+  const cargaEmVooRef = useRef(false);
+  const jaMostrouRef = useRef(false);
+  // Loja dos dados na tela: o seletor troca a loja sem remontar a tela.
+  const lojaDaCargaRef = useRef<string | null>(null);
+  const rotasRef = useRef<RotaHistorico[]>([]);
+  rotasRef.current = rotas;
 
   // ============================================
   // EXTRACTED HOOKS
@@ -111,43 +179,88 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     unidadeId: unidadeAtiva,
   });
 
-  // Filtering and sorting
+  // Filtros (aplicados no servidor) e ordenação das linhas carregadas
   const {
     rotasFiltradas,
     filtroStatus,
     setFiltroStatus,
     searchQuery,
+    buscaAplicada,
     setSearchQuery,
     sortColumn,
     sortDirection,
     handleSort,
   } = useRotasFiltering({ rotas });
 
+  const filtros = useMemo<FiltrosRotas | null>(
+    () =>
+      unidadeAtiva
+        ? {
+            unidadeId: unidadeAtiva,
+            status: filtroStatus,
+            busca: buscaAplicada,
+          }
+        : null,
+    [unidadeAtiva, filtroStatus, buscaAplicada],
+  );
+  // Só a visão sem filtro vai para o cache (é a que abre a tela).
+  const visaoPadrao = filtroStatus === 'todas' && !buscaAplicada.trim();
+
   // ============================================
   // DATA LOADING
   // ============================================
 
   const loadRotas = useCallback(async () => {
-    if (!unidadeAtiva) return;
+    if (!filtros) return;
 
-    // Cancel previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+    const chave = JSON.stringify(filtros);
+    if (chave !== chaveFiltrosRef.current) {
+      chaveFiltrosRef.current = chave;
+      quantidadeRef.current = TAMANHO_PAGINA_ROTAS;
     }
-    abortControllerRef.current = new AbortController();
 
-    // Stale-while-revalidate: show cache first
-    const cache = await loadFromCache();
+    // Loja trocada: a lista, o total e as contagens da anterior saem da tela
+    // e o carregamento aparece (ou o cache da loja nova, logo abaixo). Sem
+    // isso, um erro na carga ofereceria os dados da OUTRA loja como "dados
+    // de HH:MM".
+    if (lojaDaCargaRef.current !== filtros.unidadeId) {
+      if (lojaDaCargaRef.current !== null) {
+        jaMostrouRef.current = false;
+        ultimaCargaOkRef.current = null;
+        setRotas([]);
+        setTotal(null);
+        setContagens(null);
+        setErroCarga(null);
+        setDadosDe(null);
+        setLoading(true);
+      }
+      lojaDaCargaRef.current = filtros.unidadeId;
+    }
+
+    // Esta carga substitui a anterior e qualquer "carregar mais" em voo (ela
+    // já traz a quantidade aumentada).
+    abortControllerRef.current?.abort();
+    maisControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const { signal } = controller;
+    cargaEmVooRef.current = true;
+
+    // Stale-while-revalidate: show cache first (só na visão sem filtro)
+    const cache = visaoPadrao ? await loadFromCache() : null;
     const cachedData = cache?.data ?? null;
-    if (cachedData && cachedData.length > 0) {
+    const temCache = !!cachedData && cachedData.length > 0;
+    if (signal.aborted) return;
+    if (temCache && !jaMostrouRef.current) {
       setRotas(cachedData);
       setLoading(false);
-      // Continue to fetch fresh data in background
     }
 
     try {
-      // Only show loading if no cache
-      if (!cachedData || cachedData.length === 0) {
+      // Skeleton só enquanto nada foi mostrado: trocar a tela por
+      // "Carregando" a cada filtro tiraria o foco da busca no meio da
+      // digitação.
+      if (!jaMostrouRef.current && !temCache) {
         setLoading(true);
       }
 
@@ -196,115 +309,116 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         ];
 
         setRotas(mockRotas);
+        setTotal(mockRotas.length);
+        jaMostrouRef.current = true;
         setLoading(false);
         return;
       }
 
-      const signal = abortControllerRef.current.signal;
-      const rotasResult = await supabase
-        .from('rotas')
-        .select(
-          'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id, usuarios!rotas_motorista_id_fkey(id, nome)',
-        )
-        .eq('unidade_id', unidadeAtiva)
-        .order('data', { ascending: false })
-        .limit(100)
-        .abortSignal(signal);
+      const [pagina, porStatus] = await Promise.all([
+        buscarRotas({
+          filtros,
+          quantidade: quantidadeRef.current,
+          contar: true,
+          signal,
+        }),
+        contarRotasPorStatus(filtros, signal),
+      ]);
+      if (signal.aborted) return;
 
-      if (rotasResult.error) throw rotasResult.error;
-
-      // Só as paradas das rotas carregadas, paginado: a busca de todas as
-      // paradas da unidade era cortada em 1.000 linhas pelo PostgREST.
-      const paradasPorRota = await contarParadasDasRotas(
-        (rotasResult.data || []).map((r) => r.id),
-        signal,
-      );
-
-      // Build final result
-      const rotasComParadas: RotaHistorico[] = (rotasResult.data || []).map(
-        (rota) => {
-          const motorista = Array.isArray(rota.usuarios)
-            ? rota.usuarios[0]
-            : rota.usuarios;
-          const stats = paradasPorRota.get(rota.id) || {
-            total: 0,
-            concluidas: 0,
-          };
-
-          return {
-            id: rota.id,
-            data: rota.data,
-            status: rota.status,
-            distancia_total: rota.distancia_total,
-            iniciada_em: rota.iniciada_em,
-            concluida_em: rota.concluida_em,
-            motorista_id: motorista?.id,
-            motorista_nome: motorista?.nome,
-            paradas_count: stats.total,
-            paradas_concluidas: stats.concluidas,
-          };
-        },
-      );
-
-      setRotas(rotasComParadas);
+      setRotas(pagina.rotas);
+      setTotal(pagina.total);
+      setContagens(porStatus);
+      jaMostrouRef.current = true;
       setErroCarga(null);
       setDadosDe(null);
       ultimaCargaOkRef.current = Date.now();
 
       // Save to cache for future use
-      await saveToCache(rotasComParadas);
+      if (visaoPadrao) await saveToCache(pagina.rotas);
     } catch (error) {
-      // Cancelamento causado pelo PRÓPRIO hook — uma chamada nova a
-      // loadRotas substituindo esta (linhas acima) ou o cleanup de unmount
-      // (useEffect abaixo) abortando o MESMO abortControllerRef usado em
-      // `.abortSignal()` nas duas queries. Não é falha: é o cancelamento
-      // fazendo o que devia, e um Alert aqui avisaria de um erro que o
-      // próprio app decidiu ter, não que aconteceu.
-      //
-      // `rotasResult.error` (lançado acima) NUNCA é `instanceof Error`: o
-      // `@supabase/postgrest-js` não relança essa rejeição, converte num
-      // objeto plano antes de resolver a promise — ver `isPostgrestAbortShape`
-      // (queryClient.ts) para a forma medida contra a biblioteca instalada.
-      // Uma guarda por `instanceof Error` (como esta antes desta correção)
-      // nunca casava, e todo cancelamento caía no Alert abaixo.
-      //
-      // Excluído do silêncio: o NOSSO PRÓPRIO timeout de 15s
-      // (fetchComTimeout.ts) chega com a MESMA forma, mas é uma falha real
-      // — a resposta nunca voltou. `classifyError` já dá a ele o tipo
-      // dedicado 'timeout'; deixamos esse cair no Alert, em vez de
-      // desaparecer como os cancelamentos.
-      if (
-        isPostgrestAbortShape(error) &&
-        classifyError(error).type !== 'timeout'
-      ) {
-        return;
-      }
+      // Cancelamento pedido pelo próprio hook (carga nova, saída da tela):
+      // um aviso aqui seria de um erro que o app decidiu ter, não que
+      // aconteceu.
+      if (foiCancelamento(error) || signal.aborted) return;
       logger.error('Erro ao carregar rotas:', error);
       setErroCarga('Não foi possível carregar as rotas.');
       setDadosDe(
-        cachedData && cachedData.length > 0
-          ? (cache?.timestamp ?? null)
-          : ultimaCargaOkRef.current,
+        temCache ? (cache?.timestamp ?? null) : ultimaCargaOkRef.current,
       );
     } finally {
-      setLoading(false);
+      if (abortControllerRef.current === controller) {
+        cargaEmVooRef.current = false;
+        setLoading(false);
+      }
     }
-  }, [unidadeAtiva, loadFromCache, saveToCache]);
+  }, [filtros, visaoPadrao, loadFromCache, saveToCache]);
+
+  const temMais = total !== null && rotas.length < total;
+
+  const carregarMais = useCallback(async () => {
+    // Com uma carga em voo o toque é ignorado: o cursor de agora ficaria
+    // velho quando ela chegasse, e recarregar a cada toque somava 100 por
+    // toque e reiniciava a carga (três toques impacientes = 400 rotas).
+    if (
+      !filtros ||
+      !temMais ||
+      maisControllerRef.current ||
+      cargaEmVooRef.current
+    ) {
+      return;
+    }
+    quantidadeRef.current += TAMANHO_PAGINA_ROTAS;
+
+    const controller = new AbortController();
+    maisControllerRef.current = controller;
+    setCarregandoMais(true);
+    try {
+      const atuais = rotasRef.current;
+      const ultima = atuais[atuais.length - 1];
+      const { rotas: novas } = await buscarRotas({
+        filtros,
+        quantidade: TAMANHO_PAGINA_ROTAS,
+        cursor: ultima ? { data: ultima.data, id: ultima.id } : undefined,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) return;
+      setRotas((anteriores) => {
+        const vistas = new Set(anteriores.map((r) => r.id));
+        return [...anteriores, ...novas.filter((r) => !vistas.has(r.id))];
+      });
+    } catch (error) {
+      if (foiCancelamento(error) || controller.signal.aborted) return;
+      quantidadeRef.current -= TAMANHO_PAGINA_ROTAS;
+      logger.error('Erro ao carregar mais rotas:', error);
+      showToast('Não foi possível carregar mais rotas.', 'error', 5000);
+    } finally {
+      if (maisControllerRef.current === controller) {
+        maisControllerRef.current = null;
+      }
+      if (montadoRef.current) setCarregandoMais(false);
+    }
+  }, [filtros, temMais, showToast]);
 
   // ============================================
   // EFFECTS
   // ============================================
 
-  // Load routes on mount/unit change
+  // Load routes on mount, unit change and filter change
   useEffect(() => {
     loadRotas();
-
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
   }, [loadRotas]);
+
+  // Saída da tela: cancela carga, "carregar mais" e exportação.
+  useEffect(() => {
+    montadoRef.current = true;
+    return () => {
+      montadoRef.current = false;
+      abortControllerRef.current?.abort();
+      maisControllerRef.current?.abort();
+      exportControllerRef.current?.abort();
+    };
+  }, []);
 
   // Realtime: Update when routes/stops change
   useRealtimeRoutes({
@@ -432,21 +546,86 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     setRotaToDelete(null);
   }, []);
 
-  const exportarParaCSV = useCallback(async () => {
-    await exportRotasToCSV({
-      rotas: rotasFiltradas,
-      filtroStatus,
-      userId: userData?.id,
-    });
-  }, [rotasFiltradas, filtroStatus, userData?.id]);
+  /**
+   * Exporta TODAS as rotas que casam com o filtro e a busca (não só as
+   * carregadas na lista), na ordenação escolhida na tabela. Busca em páginas
+   * até o fim ou até `TETO_EXPORTACAO_ROTAS`, mostrando o progresso; sair da
+   * tela cancela sem gravar arquivo.
+   */
+  const exportar = useCallback(
+    async (formato: 'csv' | 'xlsx') => {
+      if (exportControllerRef.current) return; // já exportando
+      const gerar = formato === 'csv' ? exportRotasToCSV : exportRotasToXLSX;
 
-  const exportarParaXLSX = useCallback(async () => {
-    await exportRotasToXLSX({
-      rotas: rotasFiltradas,
+      // E2E/CI sem Supabase: exporta o que está na tela.
+      if (!isSupabaseConfigured || !filtros) {
+        await gerar({
+          rotas: rotasFiltradas,
+          filtroStatus,
+          userId: userData?.id,
+        });
+        return;
+      }
+
+      const controller = new AbortController();
+      exportControllerRef.current = controller;
+      const teto = TETO_EXPORTACAO_ROTAS;
+      setExportacao({ formato, carregadas: 0, total: null });
+      try {
+        const { rotas: todas, total: totalDaBusca } = await buscarRotas({
+          filtros,
+          quantidade: teto,
+          contar: true,
+          signal: controller.signal,
+          aoProgredir: (carregadas, totalDaLoja) => {
+            if (!montadoRef.current) return;
+            setExportacao({
+              formato,
+              carregadas,
+              total: totalDaLoja === null ? null : Math.min(totalDaLoja, teto),
+            });
+          },
+        });
+        if (controller.signal.aborted) return;
+
+        await gerar({
+          rotas: ordenarRotas(todas, sortColumn, sortDirection),
+          filtroStatus,
+          userId: userData?.id,
+        });
+
+        if (totalDaBusca !== null && totalDaBusca > todas.length) {
+          showToast(
+            `Exportadas as ${formatarDecimal(todas.length, 0)} rotas mais recentes de ${formatarDecimal(totalDaBusca, 0)}. ` +
+              'Use a busca ou o filtro para exportar as demais.',
+            'info',
+            8000,
+          );
+        }
+      } catch (error) {
+        if (foiCancelamento(error) || controller.signal.aborted) return;
+        logger.error('Erro ao buscar rotas para exportar:', error);
+        showToast('Não foi possível exportar as rotas.', 'error', 5000);
+      } finally {
+        if (exportControllerRef.current === controller) {
+          exportControllerRef.current = null;
+        }
+        if (montadoRef.current) setExportacao(null);
+      }
+    },
+    [
+      filtros,
+      rotasFiltradas,
       filtroStatus,
-      userId: userData?.id,
-    });
-  }, [rotasFiltradas, filtroStatus, userData?.id]);
+      userData?.id,
+      sortColumn,
+      sortDirection,
+      showToast,
+    ],
+  );
+
+  const exportarParaCSV = useCallback(() => exportar('csv'), [exportar]);
+  const exportarParaXLSX = useCallback(() => exportar('xlsx'), [exportar]);
 
   // ============================================
   // HELPERS
@@ -471,6 +650,11 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     // State
     rotas,
     rotasFiltradas,
+    total,
+    temMais,
+    carregandoMais,
+    contagens,
+    exportacao,
     loading,
     erroCarga,
     dadosDe,
@@ -492,6 +676,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
     // Actions
     loadRotas,
+    carregarMais,
     verDetalhes,
     excluirRota,
     handleConfirmDelete,
@@ -502,10 +687,5 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     // Helpers
     getStatusLabel,
     getStatusColor,
-
-    // Toast
-    toastState,
-    showToast,
-    hideToast,
   };
 }

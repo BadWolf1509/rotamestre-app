@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 
 import { getCacheKey, getFromCache, setCache, waitForRateLimit } from './cache';
 import { OSRM_BASE_URL } from './config';
+import { CUSTO_INALCANCAVEL } from './tsp';
 
 import type { Coordinate, OSRMTableResponse } from './types';
 
@@ -18,6 +19,20 @@ const REQUEST_TIMEOUT = 10000; // 10s — self-hosted server is fast
 export interface DistanceMatrix {
   distances: number[][];
   durations: number[][];
+}
+
+/**
+ * `null` (par sem rota de carro) vira `CUSTO_INALCANCAVEL`. Sem isso, em JS
+ * `null + 1000` vale 1000: o par impossível saía de graça e o TSP o preferia.
+ */
+function semNulos(matriz: (number | null)[][]): number[][] {
+  return matriz.map((linha) =>
+    linha.map((valor) =>
+      typeof valor === 'number' && Number.isFinite(valor)
+        ? valor
+        : CUSTO_INALCANCAVEL,
+    ),
+  );
 }
 
 export async function getDistanceMatrix(
@@ -63,8 +78,8 @@ export async function getDistanceMatrix(
     }
 
     const result: DistanceMatrix = {
-      distances: data.distances,
-      durations: data.durations,
+      distances: semNulos(data.distances),
+      durations: semNulos(data.durations),
     };
 
     setCache(cacheKey, result);

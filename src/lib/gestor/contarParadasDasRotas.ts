@@ -1,5 +1,5 @@
 /**
- * Contagem de paradas (total e concluídas) das rotas de uma lista.
+ * Contagem de paradas (total, concluídas e puladas) das rotas de uma lista.
  *
  * Por que existe: a Gestão de Rotas buscava TODAS as paradas da unidade e
  * contava no cliente. O PostgREST do Supabase corta qualquer resposta em
@@ -18,6 +18,7 @@ const IDS_POR_LOTE = 50;
 export interface ContagemParadas {
   total: number;
   concluidas: number;
+  puladas: number;
 }
 
 export async function contarParadasDasRotas(
@@ -46,9 +47,11 @@ export async function contarParadasDasRotas(
         const atual = contagem.get(parada.rota_id) ?? {
           total: 0,
           concluidas: 0,
+          puladas: 0,
         };
         atual.total++;
         if (parada.status === 'concluida') atual.concluidas++;
+        if (parada.status === 'pulada') atual.puladas++;
         contagem.set(parada.rota_id, atual);
       }
 

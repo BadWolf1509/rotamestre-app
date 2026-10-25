@@ -17,6 +17,7 @@ import {
 } from '@/__tests__/helpers/bancoFalsoRotas';
 
 import { useGestaoRotas } from '../useGestaoRotas';
+import { useToast } from '../useToast';
 
 jest.mock('@/lib/supabase', () => ({
   ...require('@/__tests__/helpers/bancoFalsoRotas').moduloSupabaseFalso,
@@ -72,8 +73,15 @@ afterAll(() => {
   Platform.OS = plataformaOriginal;
 });
 
+// Como a página: ela é dona do toast e o injeta no hook.
+function useTelaGestaoRotas() {
+  const { toast, showToast, withToast } = useToast();
+  const hook = useGestaoRotas({ ...opcoes, showToast, withToast });
+  return { ...hook, toastState: toast };
+}
+
 async function montar() {
-  const hook = renderHook(() => useGestaoRotas(opcoes));
+  const hook = renderHook(() => useTelaGestaoRotas());
   await waitFor(() => expect(hook.result.current.loading).toBe(false), {
     timeout: 3000,
   });

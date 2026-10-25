@@ -1,15 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
-import React, { useEffect, useState, useMemo, useCallback, memo } from 'react';
+import React, { useMemo, memo } from 'react';
 import { View, Text } from 'react-native';
 
-import { logger } from '@/lib/logger';
+import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
+import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
+import { CORES_SOBRE_O_MAPA } from '@/components/motorista/home/miniMapCompartilhado';
 import { toLngLat } from '@/lib/maplibre';
-import { nomeDeCanalUnico } from '@/lib/realtime';
-import { supabase } from '@/lib/supabase';
-import type { MotoristaLocation } from '@/types/notifications';
 import { withOpacity } from '@/utils/color';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MotoristaMarkerProps {
   rotaId: string;
@@ -23,90 +22,23 @@ function MotoristaMarkerComponent({
   motoristaNome,
   realtime = true,
 }: MotoristaMarkerProps) {
-  const { theme } = useUnistyles();
-  const [location, setLocation] = useState<MotoristaLocation | null>(null);
+  // Mesmo hook do mapa web: vale a posição de `timestamp` mais novo, não a
+  // última que chegou (a fila offline reenvia posições antigas).
+  const { location } = useMotoristaLocationMapLibre(rotaId, { realtime });
+  // "há 12 min", recalculado por um relógio de 30 s.
+  const timeSinceUpdate = useIdadeDaPosicao(location?.timestamp);
 
-  // Carregar última localização conhecida
-  const loadLastLocation = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('motorista_locations')
-        .select('*')
-        .eq('rota_id', rotaId)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error) {
-        if (error.code !== 'PGRST116') {
-          // PGRST116 = no rows returned
-          logger.error(
-            '[MotoristaMarker] Erro ao carregar localização:',
-            error,
-          );
-        }
-        return;
-      }
-
-      if (data) {
-        setLocation(data as MotoristaLocation);
-      }
-    } catch (err) {
-      logger.error('[MotoristaMarker] Erro:', err);
-    }
-  }, [rotaId]);
-
-  useEffect(() => {
-    loadLastLocation();
-  }, [loadLastLocation]);
-
-  useEffect(() => {
-    if (!realtime) return;
-
-    // Subscrever atualizações em tempo real
-    const channel = supabase
-      .channel(nomeDeCanalUnico(`motorista-location-${rotaId}`))
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'motorista_locations',
-          filter: `rota_id=eq.${rotaId}`,
-        },
-        (payload) => {
-          setLocation(payload.new as MotoristaLocation);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [rotaId, realtime]);
-
-  // Calcular cor baseado na velocidade (memoizado)
+  // Cor pela velocidade, da paleta clara (o mapa é sempre claro).
   const markerColor = useMemo(() => {
-    if (!location?.velocidade) return theme.colors.info; // azul padrão
-    if (location.velocidade === 0) return theme.colors.textSecondary; // cinza (parado)
-    if (location.velocidade > 60) return theme.colors.error; // vermelho (rápido)
-    if (location.velocidade > 30) return theme.colors.warning; // laranja (moderado)
-    return theme.colors.success; // verde (lento)
-  }, [location?.velocidade, theme.colors]);
-
-  // Calcular tempo desde última atualização (memoizado)
-  const timeSinceUpdate = useMemo(() => {
-    if (!location) return '';
-    const now = new Date();
-    const locationTime = new Date(location.timestamp);
-    const diffMs = now.getTime() - locationTime.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'agora';
-    if (diffMins < 60) return `${diffMins}m atrás`;
-    const diffHours = Math.floor(diffMins / 60);
-    return `${diffHours}h atrás`;
-  }, [location]);
+    const velocidade = location?.velocidade;
+    if (velocidade === null || velocidade === undefined) {
+      return CORES_SOBRE_O_MAPA.usuario; // sem dado
+    }
+    if (velocidade === 0) return CORES_SOBRE_O_MAPA.pendente; // parado
+    if (velocidade > 60) return CORES_SOBRE_O_MAPA.erro; // rápido
+    if (velocidade > 30) return CORES_SOBRE_O_MAPA.proxima; // moderado
+    return CORES_SOBRE_O_MAPA.concluida; // lento
+  }, [location?.velocidade]);
 
   // Accuracy circle size memoizado
   const accuracySize = useMemo(() => {
@@ -140,7 +72,7 @@ function MotoristaMarkerComponent({
 
         {/* Ícone do motorista */}
         <View style={[styles.iconContainer, { backgroundColor: markerColor }]}>
-          <Ionicons name="car" size={20} color={theme.colors.surface} />
+          <Ionicons name="car" size={20} color={CORES_SOBRE_O_MAPA.branco} />
         </View>
 
         {/* Seta de direção */}
@@ -180,6 +112,9 @@ function MotoristaMarkerComponent({
 // Export com React.memo para evitar re-renders desnecessários
 export const MotoristaMarker = memo(MotoristaMarkerComponent);
 
+// Cores do balão e das bordas: o estilo do mapa é sempre claro, e os tokens
+// do tema (surface, text) se invertem no tema escuro — texto claro em fundo
+// claro. Vêm de `CORES_SOBRE_O_MAPA`, como no mini-mapa da Início.
 const styles = StyleSheet.create((theme: Theme) => ({
   markerContainer: {
     alignItems: 'center',
@@ -198,8 +133,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: theme.colors.surface,
-    shadowColor: theme.colors.black,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
+    shadowColor: CORES_SOBRE_O_MAPA.sombra,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -211,13 +146,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   callout: {
     marginTop: theme.spacing['2'],
-    backgroundColor: theme.colors.surface,
+    backgroundColor: CORES_SOBRE_O_MAPA.branco,
     paddingHorizontal: theme.spacing['3'],
     paddingVertical: theme.spacing['1.5'],
     borderRadius: theme.borderRadius.sm,
     minWidth: 100,
     alignItems: 'center',
-    shadowColor: theme.colors.black,
+    shadowColor: CORES_SOBRE_O_MAPA.sombra,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -226,7 +161,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   calloutName: {
     fontSize: theme.typography.fontSize.xs,
     fontWeight: '600',
-    color: theme.colors.text,
+    color: CORES_SOBRE_O_MAPA.sombra,
   },
   calloutSpeed: {
     fontSize: theme.typography.fontSize.sm,
@@ -235,7 +170,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   calloutTime: {
     fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.textSecondary,
+    color: CORES_SOBRE_O_MAPA.pendente,
     marginTop: theme.spacing['0.5'],
   },
 }));

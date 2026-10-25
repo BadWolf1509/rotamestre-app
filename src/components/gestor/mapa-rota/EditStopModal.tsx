@@ -15,6 +15,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
+import { Controller } from 'react-hook-form';
 import {
   View,
   Text,
@@ -44,7 +45,13 @@ export interface EditStopModalProps {
   rotaId: string;
   enderecoUnidade: EnderecoUnidade | null;
   allParadas: Parada[];
-  onSave: (result: { routeRecalculationFailed: boolean }) => void;
+  onSave: (result: {
+    routeRecalculationFailed: boolean;
+    /** Só presente (true) quando o vínculo das entregas dependentes não foi solto. */
+    vinculoNaoDesfeito?: boolean;
+  }) => void;
+  /** O banco mostrou que a tela estava velha (parada já finalizada): recarregue. */
+  onDesatualizada?: () => void;
   onCancel: () => void;
   usuarioId?: string;
   motoristaId?: string | null;
@@ -57,6 +64,7 @@ export function EditStopModal({
   enderecoUnidade,
   allParadas,
   onSave,
+  onDesatualizada,
   onCancel,
   usuarioId,
   motoristaId,
@@ -66,18 +74,15 @@ export function EditStopModal({
 
   // Hook centralizado para gerenciamento do formulário
   const {
-    endereco,
-    destinatario,
-    telefone,
-    observacoes,
-    tipo,
-    setDestinatario,
-    setObservacoes,
-    setTipo,
+    control,
+    errors,
     handleAddressSelect,
     handleAddressChange,
     handlePhoneChange,
     handleSave,
+    confirmarSalvarComVinculo,
+    cancelarConfirmacaoVinculo,
+    confirmacaoVinculo,
     coordinatesChanged,
     isSaving,
     error,
@@ -88,6 +93,7 @@ export function EditStopModal({
     enderecoUnidade,
     allParadas,
     onSave,
+    onDesatualizada,
     usuarioId,
     motoristaId,
   });
@@ -121,67 +127,75 @@ export function EditStopModal({
           <Text style={[styles.label, isDesktop && styles.labelCompact]}>
             Tipo
           </Text>
-          <View
-            style={[
-              styles.tipoContainer,
-              isDesktop && styles.tipoContainerCompact,
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.tipoButton,
-                isDesktop && styles.tipoButtonCompact,
-                tipo === 'entrega' && styles.tipoButtonActive,
-              ]}
-              onPress={() => setTipo('entrega')}
-            >
-              <Ionicons
-                name="arrow-down-circle"
-                size={isDesktop ? 16 : 18}
-                color={
-                  tipo === 'entrega' ? theme.colors.white : theme.colors.info
-                }
-              />
-              <Text
+          <Controller
+            control={control}
+            name="tipo"
+            render={({ field: { onChange, value: tipo } }) => (
+              <View
                 style={[
-                  styles.tipoButtonText,
-                  isDesktop && styles.tipoButtonTextCompact,
-                  tipo === 'entrega' && styles.tipoButtonTextActive,
+                  styles.tipoContainer,
+                  isDesktop && styles.tipoContainerCompact,
                 ]}
               >
-                Entrega
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tipoButton,
-                isDesktop && styles.tipoButtonCompact,
-                styles.tipoButtonRetirada,
-                tipo === 'retirada' && styles.tipoButtonRetiradaActive,
-              ]}
-              onPress={() => setTipo('retirada')}
-            >
-              <Ionicons
-                name="arrow-up-circle"
-                size={isDesktop ? 16 : 18}
-                color={
-                  tipo === 'retirada'
-                    ? theme.colors.white
-                    : theme.colors.warning
-                }
-              />
-              <Text
-                style={[
-                  styles.tipoButtonText,
-                  isDesktop && styles.tipoButtonTextCompact,
-                  styles.tipoButtonTextRetirada,
-                  tipo === 'retirada' && styles.tipoButtonTextActive,
-                ]}
-              >
-                Retirada
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={[
+                    styles.tipoButton,
+                    isDesktop && styles.tipoButtonCompact,
+                    tipo === 'entrega' && styles.tipoButtonActive,
+                  ]}
+                  onPress={() => onChange('entrega')}
+                >
+                  <Ionicons
+                    name="arrow-down-circle"
+                    size={isDesktop ? 16 : 18}
+                    color={
+                      tipo === 'entrega'
+                        ? theme.colors.white
+                        : theme.colors.info
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.tipoButtonText,
+                      isDesktop && styles.tipoButtonTextCompact,
+                      tipo === 'entrega' && styles.tipoButtonTextActive,
+                    ]}
+                  >
+                    Entrega
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.tipoButton,
+                    isDesktop && styles.tipoButtonCompact,
+                    styles.tipoButtonRetirada,
+                    tipo === 'retirada' && styles.tipoButtonRetiradaActive,
+                  ]}
+                  onPress={() => onChange('retirada')}
+                >
+                  <Ionicons
+                    name="arrow-up-circle"
+                    size={isDesktop ? 16 : 18}
+                    color={
+                      tipo === 'retirada'
+                        ? theme.colors.white
+                        : theme.colors.warning
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.tipoButtonText,
+                      isDesktop && styles.tipoButtonTextCompact,
+                      styles.tipoButtonTextRetirada,
+                      tipo === 'retirada' && styles.tipoButtonTextActive,
+                    ]}
+                  >
+                    Retirada
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
         </View>
 
         {/* Endereço */}
@@ -189,11 +203,20 @@ export function EditStopModal({
           <Text style={[styles.label, isDesktop && styles.labelCompact]}>
             Endereço
           </Text>
-          <AddressAutocomplete
-            value={endereco}
-            onChangeText={handleAddressChange}
-            onSelectAddress={handleAddressSelect}
-            placeholder="Digite o endereço completo"
+          <Controller
+            control={control}
+            name="endereco"
+            render={({ field: { ref, value } }) => (
+              <AddressAutocomplete
+                value={value}
+                onChangeText={handleAddressChange}
+                onSelectAddress={handleAddressSelect}
+                placeholder="Digite o endereço completo"
+                error={errors.endereco?.message}
+                required
+                inputRef={ref}
+              />
+            )}
           />
           {coordinatesChanged && (
             <Text style={styles.addressChangedNote}>
@@ -208,12 +231,20 @@ export function EditStopModal({
             <Text style={[styles.label, isDesktop && styles.labelCompact]}>
               Destinatário
             </Text>
-            <TextInput
-              style={[styles.input, isDesktop && styles.inputCompact]}
-              value={destinatario}
-              onChangeText={setDestinatario}
-              placeholder="Nome do destinatário"
-              placeholderTextColor={theme.colors.gray400}
+            <Controller
+              control={control}
+              name="destinatario"
+              render={({ field: { onBlur, onChange, ref, value } }) => (
+                <TextInput
+                  style={[styles.input, isDesktop && styles.inputCompact]}
+                  value={value ?? ''}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  ref={ref}
+                  placeholder="Nome do destinatário"
+                  placeholderTextColor={theme.colors.gray400}
+                />
+              )}
             />
           </View>
 
@@ -221,39 +252,112 @@ export function EditStopModal({
             <Text style={[styles.label, isDesktop && styles.labelCompact]}>
               Telefone
             </Text>
-            <TextInput
-              style={[styles.input, isDesktop && styles.inputCompact]}
-              value={telefone}
-              onChangeText={handlePhoneChange}
-              placeholder="(00) 00000-0000"
-              placeholderTextColor={theme.colors.gray400}
-              keyboardType="phone-pad"
-              maxLength={15}
+            <Controller
+              control={control}
+              name="telefone"
+              render={({ field: { onBlur, ref, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    isDesktop && styles.inputCompact,
+                    errors.telefone && styles.inputError,
+                  ]}
+                  value={value ?? ''}
+                  onChangeText={handlePhoneChange}
+                  onBlur={onBlur}
+                  ref={ref}
+                  placeholder="(00) 00000-0000"
+                  placeholderTextColor={theme.colors.gray400}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
+              )}
             />
+            {errors.telefone && (
+              <Text
+                style={styles.fieldErrorText}
+                accessibilityLiveRegion="assertive"
+              >
+                {errors.telefone.message}
+              </Text>
+            )}
           </View>
         </DesktopFormGrid>
 
-        {/* Observações */}
+        {/* Observações - full width */}
         <View style={[styles.field, isDesktop && styles.fieldCompact]}>
           <Text style={[styles.label, isDesktop && styles.labelCompact]}>
             Observações
           </Text>
-          <TextInput
-            style={[
-              styles.input,
-              isDesktop && styles.inputCompact,
-              styles.textArea,
-              isDesktop && styles.textAreaCompact,
-            ]}
-            value={observacoes}
-            onChangeText={setObservacoes}
-            placeholder="Observações sobre a parada"
-            placeholderTextColor={theme.colors.gray400}
-            multiline
-            numberOfLines={isDesktop ? 2 : 3}
-            textAlignVertical="top"
+          <Controller
+            control={control}
+            name="observacoes"
+            render={({ field: { onBlur, onChange, ref, value } }) => (
+              <TextInput
+                style={[
+                  styles.input,
+                  isDesktop && styles.inputCompact,
+                  styles.textArea,
+                  isDesktop && styles.textAreaCompact,
+                ]}
+                value={value ?? ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                ref={ref}
+                placeholder="Observações sobre a parada"
+                placeholderTextColor={theme.colors.gray400}
+                multiline
+                numberOfLines={isDesktop ? 2 : 3}
+                textAlignVertical="top"
+                maxLength={300}
+              />
+            )}
           />
+          {errors.observacoes && (
+            <Text
+              style={styles.fieldErrorText}
+              accessibilityLiveRegion="assertive"
+            >
+              {errors.observacoes.message}
+            </Text>
+          )}
         </View>
+
+        {/* Trocar o tipo solta o vínculo retirada -> entrega: confirma antes */}
+        {confirmacaoVinculo && (
+          <View style={styles.confirmacaoContainer} accessibilityRole="alert">
+            <Ionicons name="warning" size={16} color={theme.colors.warning} />
+            <View style={styles.confirmacaoCorpo}>
+              <Text style={styles.confirmacaoTexto}>{confirmacaoVinculo}</Text>
+              <View style={styles.confirmacaoAcoes}>
+                <TouchableOpacity
+                  style={styles.confirmacaoBotao}
+                  onPress={cancelarConfirmacaoVinculo}
+                  disabled={isSaving}
+                >
+                  <Text style={styles.confirmacaoBotaoTexto}>Voltar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.confirmacaoBotao,
+                    styles.confirmacaoBotaoPrimario,
+                  ]}
+                  onPress={confirmarSalvarComVinculo}
+                  disabled={isSaving}
+                >
+                  <Text
+                    style={[
+                      styles.confirmacaoBotaoTexto,
+                      styles.confirmacaoBotaoTextoPrimario,
+                    ]}
+                  >
+                    Confirmar e salvar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Error message */}
         {error && (
@@ -272,6 +376,47 @@ export function EditStopModal({
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
+  confirmacaoContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.warningBg,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    marginTop: theme.spacing.sm,
+  },
+  confirmacaoCorpo: {
+    flex: 1,
+    gap: theme.spacing.sm,
+  },
+  confirmacaoTexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray700,
+  },
+  confirmacaoAcoes: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    justifyContent: 'flex-end',
+  },
+  confirmacaoBotao: {
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.warning,
+  },
+  confirmacaoBotaoPrimario: {
+    backgroundColor: theme.colors.warning,
+  },
+  confirmacaoBotaoTexto: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.warning,
+  },
+  confirmacaoBotaoTextoPrimario: {
+    color: theme.colors.white,
+  },
   field: {
     marginBottom: theme.spacing.lg,
   },
@@ -298,6 +443,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
+  },
+  inputError: {
+    borderColor: theme.colors.error,
+  },
+  fieldErrorText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
   },
   inputCompact: {
     height: theme.desktop.input.height,

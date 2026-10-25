@@ -47,12 +47,28 @@ type VinculacaoMotorista = {
   usuarios: MotoristaResumo | null;
 };
 
+type ErroMotoristas = { mensagem: string; podeTentarDeNovo: boolean };
+
+const ERRO_AO_CARREGAR: ErroMotoristas = {
+  mensagem: 'Não foi possível carregar os motoristas.',
+  podeTentarDeNovo: true,
+};
+// Repetir a busca não muda nada: sem botão de tentar de novo.
+const ROTA_SEM_LOJA: ErroMotoristas = {
+  mensagem: 'Esta rota não tem loja: não há motoristas para listar.',
+  podeTentarDeNovo: false,
+};
+
 export interface ChangeDriverModalProps {
   visible: boolean;
   currentMotoristaId?: string;
   currentMotoristaNome?: string;
   unidadeId: string;
-  onConfirm: (newMotoristaId: string, newMotoristaNome: string) => void;
+  /** Pode ser assíncrono: o botão fica carregando até ele terminar. */
+  onConfirm: (
+    newMotoristaId: string,
+    newMotoristaNome: string,
+  ) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -73,13 +89,25 @@ export function ChangeDriverModal({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
+  // Falha da lista: mostrada com "Tentar de novo". Antes a falha virava
+  // "Nenhum motorista cadastrado", e rota sem loja ficava carregando.
+  const [erroMotoristas, setErroMotoristas] = useState<ErroMotoristas | null>(
+    null,
+  );
 
   // Carregar motoristas da unidade
   const loadMotoristas = useCallback(async () => {
-    if (!unidadeId) return;
+    if (!unidadeId) {
+      logger.warn('[ChangeDriverModal] Rota sem loja: não há como listar motoristas');
+      setMotoristas([]);
+      setErroMotoristas(ROTA_SEM_LOJA);
+      setIsLoadingMotoristas(false);
+      return;
+    }
 
     try {
       setIsLoadingMotoristas(true);
+      setErroMotoristas(null);
 
       const { data: vinculacoesData, error: vinculacoesError } = await supabase
         .from('usuario_unidades')
@@ -105,16 +133,20 @@ export function ChangeDriverModal({
       setMotoristas(motoristasData || []);
     } catch (error) {
       logger.error('Erro ao carregar motoristas:', error);
+      setMotoristas([]);
+      setErroMotoristas(ERRO_AO_CARREGAR);
     } finally {
       setIsLoadingMotoristas(false);
     }
   }, [unidadeId]);
 
-  // Carregar motoristas ao abrir modal
+  // Carregar motoristas ao abrir modal. O componente segue montado com o
+  // modal fechado: a confirmação anterior não pode reabrir carregando.
   useEffect(() => {
     if (visible) {
       loadMotoristas();
       setSelectedMotoristaId(null);
+      setIsLoading(false);
     }
   }, [visible, loadMotoristas]);
 
@@ -136,7 +168,15 @@ export function ChangeDriverModal({
     }
 
     setIsLoading(true);
-    onConfirm(selectedMotoristaId, selectedMotorista.nome);
+    try {
+      await onConfirm(selectedMotoristaId, selectedMotorista.nome);
+    } catch (error) {
+      // Quem chama mostra o erro (toast); aqui o modal só não pode ficar
+      // preso carregando, para o gestor tentar de novo ou cancelar.
+      logger.error('[ChangeDriverModal] Falha ao trocar motorista', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const otherMotoristas = motoristas.filter((m) => m.id !== currentMotoristaId);
@@ -230,6 +270,25 @@ export function ChangeDriverModal({
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={theme.colors.primary} />
                 <Text style={styles.loadingText}>Carregando motoristas...</Text>
+              </View>
+            ) : erroMotoristas ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={32}
+                  color={theme.colors.gray400}
+                />
+                <Text style={styles.emptyText}>{erroMotoristas.mensagem}</Text>
+                {erroMotoristas.podeTentarDeNovo && (
+                  <TouchableOpacity
+                    onPress={loadMotoristas}
+                    style={styles.retryButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Tentar de novo carregar os motoristas"
+                  >
+                    <Text style={styles.retryText}>Tentar de novo</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : otherMotoristas.length === 0 ? (
               <View style={styles.emptyContainer}>
@@ -398,6 +457,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   motoristasList: {
     maxHeight: 200,
+  },
+  retryButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  retryText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
   motoristaItem: {
     flexDirection: 'row',

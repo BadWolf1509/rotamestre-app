@@ -26,6 +26,7 @@ import type {
   MotoristaPerformance,
   RotaRecente,
 } from '@/components/gestor/motorista-perfil';
+import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
 import {
   DesktopCard,
   DesktopModal,
@@ -34,6 +35,7 @@ import {
   SplitView,
   Toast,
 } from '@/design-system';
+import { useBloqueioDesativacao } from '@/hooks/motoristas-gestor/useBloqueioDesativacao';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -54,6 +56,8 @@ export default function MotoristaPerfil() {
   const { isDesktop } = useResponsive();
   const { userData } = useUser();
   const { unidadeAtiva } = useUnidadeAtiva();
+  const { bloqueio, mostrarSeBloqueado, fecharBloqueio } =
+    useBloqueioDesativacao();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -173,13 +177,18 @@ export default function MotoristaPerfil() {
       // Desativado só aqui, a RLS deixa de mostrá-lo: volta para a lista.
       if (data === 'vinculo' && !newStatus) router.back();
     } catch (error) {
+      // Rota aberta (Migration 54): troca a confirmação pela lista de rotas.
+      if (mostrarSeBloqueado(error, motorista.nome)) {
+        setShowToggleModal(false);
+        return;
+      }
       logger.error('Erro ao alterar status:', error);
       showToast(
         mensagemRegraDoBanco(error) ?? 'Não foi possível alterar o status',
         'error',
       );
     }
-  }, [motorista, router, showToast, unidadeAtiva]);
+  }, [motorista, mostrarSeBloqueado, router, showToast, unidadeAtiva]);
 
   // Open edit modal
   const handleEdit = useCallback(() => {
@@ -445,6 +454,7 @@ export default function MotoristaPerfil() {
             onCancel={() => setShowToggleModal(false)}
             type={motorista.ativo ? 'danger' : 'success'}
           />
+          <RotasAbertasModal bloqueio={bloqueio} onClose={fecharBloqueio} />
 
           {/* Logout Modal */}
           {logoutModal}
@@ -517,6 +527,7 @@ export default function MotoristaPerfil() {
           onCancel={() => setShowToggleModal(false)}
           type={motorista.ativo ? 'danger' : 'success'}
         />
+        <RotasAbertasModal bloqueio={bloqueio} onClose={fecharBloqueio} />
 
         {/* Toast */}
         <Toast {...toast} onDismiss={hideToast} />

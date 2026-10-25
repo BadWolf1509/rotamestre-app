@@ -74,7 +74,7 @@ export default function UnidadeScreen() {
   const { userData, loading: userLoading } = useUser();
   // A loja ABERTA, não o `usuarios.unidade_id` legado (gestor de várias
   // lojas editava a ficha de outra).
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const { unidadeAtiva, refresh: recarregarLojas } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -244,6 +244,10 @@ export default function UnidadeScreen() {
 
       showToast('Dados atualizados com sucesso!', 'success', 3000);
       setEditMode(false);
+      // Nome e sede da loja vivem nas vinculações do UnidadeAtivaProvider da
+      // raiz (que não desmonta): sem recarregar, a Nova Rota seguia com a sede
+      // antiga até reabrir o app.
+      void recarregarLojas();
       await loadUnidade();
     } catch (error) {
       logger.error('Erro ao atualizar unidade', error);

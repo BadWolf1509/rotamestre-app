@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
+import { lerSessao } from './auth/sessao';
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { logger } from './logger';
 import {
@@ -64,10 +65,17 @@ async function adotarFotosSemDono(userId: string): Promise<void> {
 
 /**
  * Dono de uma foto tirada agora: a sessão, ou — offline com o token vencido,
- * quando `getSession()` devolve null sem renovar — o último usuário logado.
+ * quando a sessão não renova — o último usuário logado.
+ *
+ * Lê por `lerSessao()`, nunca pelo `getSession()` cru: com o token vencido e
+ * sem rede, o cru só responde depois do recuo do refresh do auth-js (~25 s), e
+ * era isso que deixava "Enviando foto... 0%" parado ~20 s antes de a foto ir
+ * para a fila (teste no aparelho, 25/10/2026). `lerSessao` responde na hora
+ * sem rede confirmada e nunca passa de `PRAZO_LEITURA_SESSAO_MS`.
  */
 async function donoConhecido(): Promise<string | null> {
-  return (await usuarioDaSessao()) ?? (await lerUltimoUsuario());
+  const { session } = await lerSessao();
+  return session?.user?.id ?? (await lerUltimoUsuario());
 }
 
 /** Id de quem está logado neste aparelho, ou null sem sessão. */

@@ -15,6 +15,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
+import { Controller } from 'react-hook-form';
 import {
   View,
   Text,
@@ -68,15 +69,9 @@ export function AddStopModal({
 
   // Hook centralizado para gerenciamento do formulário
   const {
-    endereco,
-    destinatario,
-    telefone,
-    observacoes,
-    tipo,
+    control,
+    errors,
     posicaoInsercao,
-    setDestinatario,
-    setObservacoes,
-    setTipo,
     setPosicaoInsercao,
     handleAddressSelect,
     handleAddressChange,
@@ -161,67 +156,75 @@ export function AddStopModal({
           <Text style={[styles.label, isDesktop && styles.labelCompact]}>
             Tipo
           </Text>
-          <View
-            style={[
-              styles.tipoContainer,
-              isDesktop && styles.tipoContainerCompact,
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.tipoButton,
-                isDesktop && styles.tipoButtonCompact,
-                tipo === 'entrega' && styles.tipoButtonActive,
-              ]}
-              onPress={() => setTipo('entrega')}
-            >
-              <Ionicons
-                name="arrow-down-circle"
-                size={isDesktop ? 16 : 18}
-                color={
-                  tipo === 'entrega' ? theme.colors.white : theme.colors.info
-                }
-              />
-              <Text
+          <Controller
+            control={control}
+            name="tipo"
+            render={({ field: { onChange, value: tipo } }) => (
+              <View
                 style={[
-                  styles.tipoButtonText,
-                  isDesktop && styles.tipoButtonTextCompact,
-                  tipo === 'entrega' && styles.tipoButtonTextActive,
+                  styles.tipoContainer,
+                  isDesktop && styles.tipoContainerCompact,
                 ]}
               >
-                Entrega
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tipoButton,
-                isDesktop && styles.tipoButtonCompact,
-                styles.tipoButtonRetirada,
-                tipo === 'retirada' && styles.tipoButtonRetiradaActive,
-              ]}
-              onPress={() => setTipo('retirada')}
-            >
-              <Ionicons
-                name="arrow-up-circle"
-                size={isDesktop ? 16 : 18}
-                color={
-                  tipo === 'retirada'
-                    ? theme.colors.white
-                    : theme.colors.warning
-                }
-              />
-              <Text
-                style={[
-                  styles.tipoButtonText,
-                  isDesktop && styles.tipoButtonTextCompact,
-                  styles.tipoButtonTextRetirada,
-                  tipo === 'retirada' && styles.tipoButtonTextActive,
-                ]}
-              >
-                Retirada
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={[
+                    styles.tipoButton,
+                    isDesktop && styles.tipoButtonCompact,
+                    tipo === 'entrega' && styles.tipoButtonActive,
+                  ]}
+                  onPress={() => onChange('entrega')}
+                >
+                  <Ionicons
+                    name="arrow-down-circle"
+                    size={isDesktop ? 16 : 18}
+                    color={
+                      tipo === 'entrega'
+                        ? theme.colors.white
+                        : theme.colors.info
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.tipoButtonText,
+                      isDesktop && styles.tipoButtonTextCompact,
+                      tipo === 'entrega' && styles.tipoButtonTextActive,
+                    ]}
+                  >
+                    Entrega
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.tipoButton,
+                    isDesktop && styles.tipoButtonCompact,
+                    styles.tipoButtonRetirada,
+                    tipo === 'retirada' && styles.tipoButtonRetiradaActive,
+                  ]}
+                  onPress={() => onChange('retirada')}
+                >
+                  <Ionicons
+                    name="arrow-up-circle"
+                    size={isDesktop ? 16 : 18}
+                    color={
+                      tipo === 'retirada'
+                        ? theme.colors.white
+                        : theme.colors.warning
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.tipoButtonText,
+                      isDesktop && styles.tipoButtonTextCompact,
+                      styles.tipoButtonTextRetirada,
+                      tipo === 'retirada' && styles.tipoButtonTextActive,
+                    ]}
+                  >
+                    Retirada
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
         </View>
 
         {/* Endereço */}
@@ -250,11 +253,20 @@ export function AddStopModal({
               </View>
             )}
           </View>
-          <AddressAutocomplete
-            value={endereco}
-            onChangeText={handleAddressChange}
-            onSelectAddress={handleAddressSelect}
-            placeholder="Digite o endereço completo"
+          <Controller
+            control={control}
+            name="endereco"
+            render={({ field: { ref, value } }) => (
+              <AddressAutocomplete
+                value={value}
+                onChangeText={handleAddressChange}
+                onSelectAddress={handleAddressSelect}
+                placeholder="Digite o endereço completo"
+                error={errors.endereco?.message}
+                required
+                inputRef={ref}
+              />
+            )}
           />
         </View>
 
@@ -264,12 +276,20 @@ export function AddStopModal({
             <Text style={[styles.label, isDesktop && styles.labelCompact]}>
               Destinatário
             </Text>
-            <TextInput
-              style={[styles.input, isDesktop && styles.inputCompact]}
-              value={destinatario}
-              onChangeText={setDestinatario}
-              placeholder="Nome do destinatário"
-              placeholderTextColor={theme.colors.gray400}
+            <Controller
+              control={control}
+              name="destinatario"
+              render={({ field: { onBlur, onChange, ref, value } }) => (
+                <TextInput
+                  style={[styles.input, isDesktop && styles.inputCompact]}
+                  value={value ?? ''}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  ref={ref}
+                  placeholder="Nome do destinatário"
+                  placeholderTextColor={theme.colors.gray400}
+                />
+              )}
             />
           </View>
 
@@ -277,15 +297,35 @@ export function AddStopModal({
             <Text style={[styles.label, isDesktop && styles.labelCompact]}>
               Telefone
             </Text>
-            <TextInput
-              style={[styles.input, isDesktop && styles.inputCompact]}
-              value={telefone}
-              onChangeText={handlePhoneChange}
-              placeholder="(00) 00000-0000"
-              placeholderTextColor={theme.colors.gray400}
-              keyboardType="phone-pad"
-              maxLength={15}
+            <Controller
+              control={control}
+              name="telefone"
+              render={({ field: { onBlur, ref, value } }) => (
+                <TextInput
+                  style={[
+                    styles.input,
+                    isDesktop && styles.inputCompact,
+                    errors.telefone && styles.inputError,
+                  ]}
+                  value={value ?? ''}
+                  onChangeText={handlePhoneChange}
+                  onBlur={onBlur}
+                  ref={ref}
+                  placeholder="(00) 00000-0000"
+                  placeholderTextColor={theme.colors.gray400}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
+              )}
             />
+            {errors.telefone && (
+              <Text
+                style={styles.fieldErrorText}
+                accessibilityLiveRegion="assertive"
+              >
+                {errors.telefone.message}
+              </Text>
+            )}
           </View>
         </DesktopFormGrid>
 
@@ -294,22 +334,38 @@ export function AddStopModal({
           <Text style={[styles.label, isDesktop && styles.labelCompact]}>
             Observações (opcional)
           </Text>
-          <TextInput
-            style={[
-              styles.input,
-              isDesktop && styles.inputCompact,
-              styles.textArea,
-              isDesktop && styles.textAreaCompact,
-            ]}
-            value={observacoes}
-            onChangeText={setObservacoes}
-            placeholder="Observações sobre a parada"
-            placeholderTextColor={theme.colors.gray400}
-            multiline
-            numberOfLines={isDesktop ? 2 : 3}
-            textAlignVertical="top"
-            maxLength={300}
+          <Controller
+            control={control}
+            name="observacoes"
+            render={({ field: { onBlur, onChange, ref, value } }) => (
+              <TextInput
+                style={[
+                  styles.input,
+                  isDesktop && styles.inputCompact,
+                  styles.textArea,
+                  isDesktop && styles.textAreaCompact,
+                ]}
+                value={value ?? ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                ref={ref}
+                placeholder="Observações sobre a parada"
+                placeholderTextColor={theme.colors.gray400}
+                multiline
+                numberOfLines={isDesktop ? 2 : 3}
+                textAlignVertical="top"
+                maxLength={300}
+              />
+            )}
           />
+          {errors.observacoes && (
+            <Text
+              style={styles.fieldErrorText}
+              accessibilityLiveRegion="assertive"
+            >
+              {errors.observacoes.message}
+            </Text>
+          )}
         </View>
 
         {/* Posição na Rota */}
@@ -560,6 +616,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
+  },
+  inputError: {
+    borderColor: theme.colors.error,
+  },
+  fieldErrorText: {
+    fontSize: theme.typography.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
   },
   inputCompact: {
     height: theme.desktop.input.height,

@@ -2068,6 +2068,7 @@ M2 e gestor G; 9 casos: default ligado, upsert e releitura do dono, G não lê,
 G não altera, G não cria nem faz upsert, a linha não muda de dono, sem DELETE,
 anon sem acesso, service_role lê; só o DELETE recusado de M; termina em
 `RAISE`). Conferência só com SELECT (4 consultas) no fim da migration.
+
 ### ✅ Migration 48: logs, posições e logs de push lidos pela loja da rota
 
 **Arquivo:** `20261024110000_logs_posicoes_push_pela_loja_da_rota.sql` · **✅ aplicada em
@@ -2356,6 +2357,139 @@ principal de outra loja; formato; sem usuário; catálogo e grants; sem
 `DELETE`; termina em `RAISE`). Rollback colável com o corpo anterior inteiro,
 o comentário e os grants.
 
+### ✅ Migration 53: parada finalizada não se apaga, e a concluída não muda de lugar
+
+**Arquivo:** `20261024120000_parada_finalizada_imutavel.sql` · **✅ aplicada em 24/10/2026 pelo CLI**
+(sonda antes e depois). Gatilhos com `CREATE OR REPLACE TRIGGER`, sem
+DROP; os dois `REVOKE EXECUTE` das funções internas pedem SQL Editor se o MCP
+recusar.
+
+**Por quê.** A tela da rota do gestor trabalha com um retrato velho: o motorista
+conclui a parada 3 e o botão Remover continua na tela. A política
+`paradas_delete` só confere se o gestor é da loja, nunca o status — a entrega
+feita, com foto e log, some da rota. Editar reescrevia endereço e tipo de
+parada já entregue. O cliente passou a esconder os botões e a conferir o
+retorno, mas isso é só o cliente.
+
+**O que faz** (valem só com `auth.uid()` não nulo):
+
+1. `BEFORE DELETE` em `paradas` recusa `concluida` e `pulada` com a sentinela
+   `PARADA_FINALIZADA` (P0001) — salvo na cascata da exclusão da rota (a rota
+   da parada já não existe quando o RI trigger roda), senão nenhuma rota feita
+   poderia ser excluída.
+2. `BEFORE UPDATE OF endereco, tipo, latitude, longitude` com
+   `WHEN (OLD.status = 'concluida')` recusa a mudança com
+   `PARADA_CONCLUIDA_IMUTAVEL` (P0001). Destinatário, telefone, observações,
+   ordem e status (reabrir) seguem livres; `pulada` pode ter o endereço
+   corrigido. A coordenada entra porque o formulário a grava junto do endereço.
+
+Sem usuário (service_role, SQL Editor) segue livre — mesma escolha da
+Migration 41. O app traduz as sentinelas em `errorMapping`.
+
+**Alternativa descartada: política RESTRICTIVE.** (a) A RLS recusa DELETE sem
+erro (0 linhas), e a tela não saberia dizer por quê; (b) UPDATE não cabe em
+política — USING/WITH CHECK não enxergam OLD e NEW juntas, então "o endereço
+mudou" não se expressa; (c) exige DROP/CREATE POLICY, que o MCP recusa; (d) a
+política não distingue a cascata da rota. O gatilho dá mensagem própria, compara
+OLD e NEW e é idempotente.
+
+**Sonda** `database/sondas/20261024120000_sonda_migration53.sql` (cenário
+próprio, `authenticated` por claims, termina em `RAISE`; sem DELETE fora do que
+cria, então roda também fora do SQL Editor): 11 casos — motorista conclui (1),
+DELETE de concluída (2) e pulada (3) recusados, pendente apagada (4), endereço
+(5a), tipo (5b) e latitude (5c) da concluída recusados, destinatário editável
+(6), reabrir e reordenar passam (7), endereço da pulada corrigível (8), cascata
+da rota concluída (9), sem usuário livre (10), funções sem EXECUTE (11). Os
+itens 1 e 2 do Review Focus são os casos 1 e 2.
+
+### ✅ Migration 54: desativar motorista com rota aberta é recusado
+
+**Arquivo:** `20261024154000_desativar_motorista_com_rota_aberta.sql` · **✅ aplicada em 24/10/2026 pelo CLI**
+(sonda antes e depois). Só `CREATE OR REPLACE FUNCTION` — mesma
+assinatura e retorno, grants preservados.
+
+**Por quê.** `alternar_motorista_na_unidade` desativava o motorista (a pessoa ou
+só o vínculo desta loja) com rota `pendente` ou `em_andamento` nesta loja. Com
+o corte de acesso de quem está inativo (Migrations 48 e 49), a rota ficava
+órfã: o motorista já não a vê, e o gestor não sabia que ela existia.
+
+**O que faz.** Ao desativar (`p_ativo = false`), depois do `FOR UPDATE` e antes
+das duas vias (vínculo e pessoa), lê as rotas abertas do motorista **nesta
+loja**; havendo alguma, recusa com:
+
+- `ERRCODE P0001` e `MESSAGE` em português ("Não dá para desativar: este
+  motorista tem 3 rotas abertas nesta loja. Reatribua a outro motorista ou
+  cancele antes de desativar.") — o app já instalado mostra a MESSAGE de P0001
+  como está, então a versão antiga também entende;
+- `HINT = 'MOTORISTA_COM_ROTA_ABERTA'` (sentinela);
+- `DETAIL` = JSON `[{"id","data","status"}]`, em andamento primeiro, depois por data.
+
+O PostgREST devolve DETAIL e HINT em `details`/`hint`, e o supabase-js os
+repassa crus. O app (`src/lib/motorista/rotasAbertasDoMotorista.ts`) mostra a
+lista nas telas Motoristas, perfil e Equipe, com cada rota abrindo a tela da
+rota (trocar motorista ou cancelar). Reativar nunca é bloqueado.
+
+**Alternativa descartada: retorno json** (`{resultado, rotas}`). Exige DROP
+FUNCTION (o tipo de retorno não muda com CREATE OR REPLACE) e o app instalado
+leria a resposta como sucesso sem nada ter mudado. A exceção falha fechada nas
+duas versões.
+
+**Limite conhecido.** Atribuição que comece depois do lock passa quando ele
+cai. Pela via do vínculo, `validar_motorista_e_loja_da_rota` barra a seguinte;
+pela via da pessoa, o gatilho confere só o vínculo (não `usuarios.ativo`).
+
+**Verificação.** Guarda estática `database/__tests__/migration54-desativar-motorista-com-rota-aberta.test.ts`
+(amarra a sentinela do banco à do app); sonda
+`database/sondas/20261024154000_sonda_migration54.sql` (cenário próprio, duas
+lojas, seis motoristas, termina em `RAISE`, sem DELETE): 9 casos — o item 5 do
+Review Focus é o 1 e o 2 (uma em andamento + duas pendentes: recusado, as três
+rotas no DETAIL); sem rota aberta desativa (3); via do vínculo também bloqueada
+(4); rota de outra loja não bloqueia (5); reativar passa (6); gestor de outra
+loja segue 42501 (7); reatribuir e cancelar libera (8); grants (9).
+
+### ✅ Migration 55: totais de desempenho do motorista somados no servidor
+
+**Arquivo:** `20261024180000_resumo_desempenho_motorista.sql` · **✅ aplicada em 24/10/2026 pelo CLI**
+(sonda antes e depois). Função nova `resumo_desempenho_motorista(p_motorista_id uuid, p_dias integer DEFAULT NULL)`,
+`SECURITY DEFINER`, `STABLE`, `search_path = ''`; EXECUTE só para `authenticated`.
+
+**Por quê.** Desempenho e marcos do motorista buscavam as rotas e depois
+`paradas ... .in('rota_id', todas)`. Com o motorista de maior volume (393 rotas,
+2.235 paradas), o PostgREST corta em 1.000 linhas sem erro e a lista de ids
+passa de 14 KB na URL (marcos). O Histórico tinha o mesmo corte.
+
+**O que faz.** Devolve uma linha: `desde`, `total_rotas`, `rotas_concluidas`,
+`rotas_canceladas`, `distancia_total`, `total_paradas`, `paradas_concluidas`,
+`paradas_puladas`, `entregas_em_rotas_concluidas` (partida e chegada,
+`is_checkpoint = false`, não contam). Chama o próprio motorista com cadastro
+ativo (`usuario_atual_ativo()`, decisão da Migration 49) ou gestor com vínculo
+ativo numa loja do motorista; senão 42501. Soma só as rotas que a RLS de
+`rotas` mostraria a quem chama — o gestor da loja A vê, de quem atende A e B,
+só os números de A.
+
+**Período.** `p_dias` = dias corridos sobre `rotas.data`, a partir de hoje em
+`America/Sao_Paulo`: entra `data >= hoje_SP - p_dias`. `NULL` = desde sempre.
+
+**Decisão (RPC × paginação no cliente).** Paginar no cliente (lotes de ids +
+`range`, como `contarParadasDasRotas`) acerta, mas baixa todas as paradas para
+contá-las (~9 requisições no celular) e repete a regra de visibilidade no app.
+Os **totais** vêm da RPC (uma linha, ~19 ms no EXPLAIN do motorista grande, com
+os índices que já existem); as **listas** (cards do Histórico, gráfico da
+semana nos marcos) seguem no cliente com paginação, porque ali as linhas são
+necessárias. Enquanto a função não existir (PGRST202/42883), o app soma pela
+paginação — os mesmos totais, sem quebrar a tela.
+
+**Compatibilidade.** Função nova: o app instalado não a chama. Rollback = `DROP FUNCTION`.
+
+**Verificação.** Guarda estática `database/__tests__/migration55-resumo-desempenho-motorista.test.ts`;
+sonda `database/sondas/20261024180000_sonda_migration55.sql` (cenário próprio,
+três lojas, termina em `RAISE`, sem DELETE): 13 casos — totais e partida/chegada
+fora (1), período no fuso SP (2), gestor de cada loja vê só a sua (3, 4),
+recusas 42501 (5–8), vínculo inativo some da soma (9), zeros (10), `p_dias`
+negativo (11), grants (12) e o item 3 do Review Focus (13): o motorista real
+de maior volume, achado por SELECT, bate com o COUNT direto pela RPC chamada
+por ele e pelo gestor da loja.
+
 ### ✅ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
 
 **Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois), antes da `delete-account` v8. **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
@@ -2394,6 +2528,7 @@ passa a mostrar o incidente anonimizado como "Motorista removido", sem o link
 **Gestor único.** Não há tela para promover outro gestor (a Equipe só desativa
 motorista; "Transferir Gestão" move o principal entre gestores que já existem), então
 a mensagem manda pedir ao suporte que adicione um.
+
 ### ✅ Migration 57: foto de comprovante vinculada não é desfeita pelo motorista
 
 **Arquivo:** `20261024190000_foto_comprovante_vinculada_preservada.sql` · **✅ aplicada em 24/10/2026 pelo CLI**
@@ -2538,3 +2673,53 @@ acompanha; UPDATE comum do motorista (descrição, foto NULL → valor), desliga
 a rota, SET com a mesma rota e criação do incidente passam; `unidade_id`
 gravado direto não muda a loja; sem sessão; catálogo, com dono `postgres`;
 termina em `RAISE`. Rollback colável.
+
+### ✅ Migration 60: medidas da posição (velocidade, precisão, heading) em `numeric(8,2)`
+
+**Arquivo:** `20261025140000_medidas_da_posicao_numeric_8_2.sql` · **✅
+aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como
+`20261025140000`. Sonda: FALHOU antes (casos 1, 2 e 4), 100% OK com o corpo
+na mesma transação e 100% OK depois de aplicada.
+
+**O defeito.** `motorista_locations.velocidade`, `.precisao` e `.heading`
+eram `numeric(5,2)` (teto 999,99). Medido no aparelho em 25/10/2026: logo
+depois de abrir o app em ambiente fechado, o GPS entregou `accuracy` de
+1000 m ou mais e o insert foi recusado com 22003. Com rede, a posição se
+perdia; sem rede, entrava na fila do aparelho e prendia o lote da rota até
+`MAX_TENTATIVAS_POSICAO` reenvios, que então saía levando as posições boas.
+
+**O que faz.** Alarga as três colunas para `numeric(8,2)` (teto
+999.999,99), com `lock_timeout` de 5 s e comentários de coluna. Só a
+precisão aumenta e a escala fica: o Postgres troca o catálogo sem reescrever
+a tabela, e nenhum índice inclui estas colunas. Nenhuma view, função,
+gatilho ou policy do repositório usa as colunas (as policies leem
+`motorista_id` e `rota_id`; a retenção da Migration 37 apaga por
+`timestamp`).
+
+**Alternativas.** (a) `numeric(8,2)` — escolhida: cobre o pior accuracy real
+(posição por célula/Wi-Fi, alguns km), mantém escala e arredondamento.
+(b) `numeric` sem typmod: tira o teto que referencia o saneamento do app.
+(c) `real`/`double precision`: muda o tipo que o PostgREST devolve e reescreve
+a tabela. (d) Limitar no app a 999,99: gravaria uma precisão falsa justamente
+nas posições ruins. (e) CHECK com teto menor: recusaria a linha de novo.
+
+**App.** `sanearPosicao` (`src/lib/motorista/filaPosicoes.ts`), aplicada em
+`comHorario` (porta do insert direto e da fila): não finito, negativo,
+heading fora de [0, 360) e valor acima de `TETO_MEDIDA_POSICAO` (999999,99)
+viram null; a posição nunca é descartada. 22003 entrou em
+`CODIGOS_RECUSA_DE_DADO`: com o saneamento, só voltaria com o banco mais
+estreito que o esperado, e o lote sai na hora em vez de travar o trajeto da
+rota por até 60 reenvios. **Ordem do deploy:** aplicar esta migration antes
+de publicar a versão do app que a acompanha — com a versão nova e o banco
+antigo, uma posição sem rede com precisão entre 1000 e 999.999 m levaria o
+lote da rota na hora.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration60-medidas-da-posicao-numeric-8-2.test.ts`
+(inclui o teto do app igual ao maior valor do tipo); sonda
+`database/sondas/20261025140000_sonda_migration60.sql`: o motorista grava
+pela policy uma posição com precisão 1500,5, velocidade 1200,25 e heading
+359,99; 999999,99 entra e 1000000 sai com 22003; 12,345 arredonda para
+12,35; catálogo com as três colunas `numeric(8,2)`; termina em `RAISE`
+("FALHOU" antes, "100% OK" depois). Rollback colável, com o aviso de anular
+antes os valores acima de 999,99.

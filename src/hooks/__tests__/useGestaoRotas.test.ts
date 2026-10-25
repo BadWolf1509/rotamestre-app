@@ -3,7 +3,8 @@
  *
  * Cobre:
  * - Data Loading (com cache stale-while-revalidate)
- * - Filtragem por status e busca textual
+ * - Filtragem por status e busca textual (no servidor — ver também
+ *   useGestaoRotas.paginacao.test.ts, que roda contra um PostgREST falso)
  * - Exclusão de rotas
  * - Exportação para CSV
  */
@@ -146,10 +147,81 @@ const mockStatusColorMap: Record<RotaStatus, string> = {
   nao_executada: '#999999',
 };
 
+// Toast da página, injetado no hook (useToast é estado por instância).
+const mockShowToast = jest.fn();
+const mockWithToast = jest.fn(async (fn: () => Promise<unknown>) => fn());
+
 const defaultOptions = {
   statusColorMap: mockStatusColorMap,
   defaultStatusColor: '#666666',
+  showToast: mockShowToast,
+  withToast: mockWithToast as never,
 };
+
+/**
+ * Chamadas feitas às consultas de `rotas`, por consulta: os filtros vão ao
+ * servidor, então é aqui que o teste os confere. Só as consultas da LISTA
+ * (as que pedem `limit`) contam — as contagens do cabeçalho também filtram
+ * por status.
+ */
+const consultasRotas: { metodo: string; args: unknown[] }[][] = [];
+
+function consultasDaLista() {
+  return consultasRotas.filter((c) => c.some((ch) => ch.metodo === 'limit'));
+}
+
+function chamouRotas(metodo: string, ...args: unknown[]): boolean {
+  return consultasDaLista().some((consulta) =>
+    consulta.some(
+      (c) =>
+        c.metodo === metodo && JSON.stringify(c.args) === JSON.stringify(args),
+    ),
+  );
+}
+
+/**
+ * Consulta de `rotas` encadeável: registra as chamadas, aplica o filtro de
+ * status como o servidor (o resto só registra) e resolve com `count`.
+ */
+function cadeiaRotas(linhas: Record<string, unknown>[], erro: unknown) {
+  const filtros: ((r: Record<string, unknown>) => boolean)[] = [];
+  const chamadas: { metodo: string; args: unknown[] }[] = [];
+  consultasRotas.push(chamadas);
+  const api: Record<string, unknown> = {};
+  for (const metodo of [
+    'select',
+    'eq',
+    'in',
+    'gte',
+    'lt',
+    'ilike',
+    'or',
+    'order',
+    'limit',
+    'abortSignal',
+    'returns',
+  ]) {
+    api[metodo] = (...args: unknown[]) => {
+      chamadas.push({ metodo, args });
+      if (metodo === 'eq' && args[0] === 'status') {
+        filtros.push((r) => r.status === args[1]);
+      }
+      return api;
+    };
+  }
+  api.then = (
+    resolver: (v: unknown) => unknown,
+    rejeitar: (e: unknown) => unknown,
+  ) => {
+    const dados = linhas.filter((r) => filtros.every((f) => f(r)));
+    return Promise.resolve(
+      erro
+        ? { data: null, error: erro, count: null }
+        : { data: dados, error: null, count: dados.length },
+    ).then(resolver, rejeitar);
+  };
+  return api;
+}
 
 // ============================================
 // SETUP
@@ -228,21 +300,12 @@ function setupMocks(
   (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
 
   // Mock Supabase queries
-  const mockRotasQuery = {
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    abortSignal: jest.fn().mockResolvedValue({
-      data: rotasData?.map((r) => ({
-        ...r,
-        usuarios: r.motorista_id
-          ? { id: r.motorista_id, nome: r.motorista_nome }
-          : null,
-      })),
-      error: rotasError,
-    }),
-  };
+  const linhasRotas = (rotasData ?? []).map((r) => ({
+    ...r,
+    usuarios: r.motorista_id
+      ? { id: r.motorista_id, nome: r.motorista_nome }
+      : null,
+  }));
 
   const mockParadasQuery = {
     select: jest.fn().mockReturnThis(),
@@ -267,7 +330,10 @@ function setupMocks(
 
   (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
     if (table === 'rotas') {
-      return { ...mockRotasQuery, delete: mockDeleteQuery.delete };
+      return {
+        ...cadeiaRotas(linhasRotas, rotasError),
+        delete: mockDeleteQuery.delete,
+      };
     }
     if (table === 'paradas') {
       return mockParadasQuery;
@@ -275,11 +341,10 @@ function setupMocks(
     if (table === 'logs') {
       return mockInsertQuery;
     }
-    return mockRotasQuery;
+    return cadeiaRotas(linhasRotas, rotasError);
   });
 
   return {
-    mockRotasQuery,
     mockParadasQuery,
     mockDeleteQuery,
     mockInsertQuery,
@@ -293,6 +358,7 @@ function setupMocks(
 describe('useGestaoRotas', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    consultasRotas.length = 0;
     (Alert.alert as jest.Mock).mockClear();
   });
 
@@ -438,118 +504,82 @@ describe('useGestaoRotas', () => {
   // FILTERING TESTS
   // ============================================
 
-  describe('Filtragem', () => {
-    it('deve filtrar por status pendente', async () => {
+  describe('Filtragem (no servidor)', () => {
+    async function montarHook() {
       setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
+      const hook = renderHook(() => useGestaoRotas(defaultOptions));
       await waitFor(() => {
-        expect(result.current.loading).toBe(false);
+        expect(hook.result.current.loading).toBe(false);
       });
+      return hook;
+    }
+
+    it('filtro de status vira eq(status) na consulta e só volta esse status', async () => {
+      const { result } = await montarHook();
+      expect(chamouRotas('eq', 'status', 'pendente')).toBe(false);
 
       act(() => {
         result.current.setFiltroStatus('pendente');
       });
 
       await waitFor(() => {
-        expect(
-          result.current.rotasFiltradas.every((r) => r.status === 'pendente'),
-        ).toBe(true);
+        expect(chamouRotas('eq', 'status', 'pendente')).toBe(true);
+        expect(result.current.rotasFiltradas.map((r) => r.id)).toEqual([
+          'rota-1',
+        ]);
       });
     });
 
-    it('deve filtrar por status em_andamento', async () => {
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      act(() => {
-        result.current.setFiltroStatus('em_andamento');
-      });
-
-      await waitFor(() => {
-        expect(
-          result.current.rotasFiltradas.every(
-            (r) => r.status === 'em_andamento',
-          ),
-        ).toBe(true);
-      });
-    });
-
-    it('deve mostrar todas as rotas quando filtro é "todas"', async () => {
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
+    it('"todas" não filtra status', async () => {
+      const { result } = await montarHook();
 
       act(() => {
         result.current.setFiltroStatus('todas');
       });
 
-      await waitFor(() => {
-        expect(result.current.rotasFiltradas.length).toBe(
-          result.current.rotas.length,
-        );
-      });
+      expect(
+        consultasDaLista().some((consulta) =>
+          consulta.some((c) => c.metodo === 'eq' && c.args[0] === 'status'),
+        ),
+      ).toBe(false);
+      expect(result.current.rotasFiltradas).toHaveLength(3);
     });
 
-    it('deve filtrar por busca de nome do motorista', async () => {
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
+    it('busca por nome vira ilike no nome do motorista (embed !inner)', async () => {
+      const { result } = await montarHook();
 
       act(() => {
         result.current.setSearchQuery('Carlos');
       });
 
       await waitFor(() => {
-        expect(
-          result.current.rotasFiltradas.every((r) =>
-            r.motorista_nome?.toLowerCase().includes('carlos'),
-          ),
-        ).toBe(true);
+        expect(chamouRotas('ilike', 'usuarios.nome', '%Carlos%')).toBe(true);
       });
+      expect(
+        consultasDaLista().some((consulta) =>
+          consulta.some(
+            (c) =>
+              c.metodo === 'select' &&
+              String(c.args[0]).includes('!inner(id, nome)'),
+          ),
+        ),
+      ).toBe(true);
     });
 
-    it('deve filtrar por busca de data', async () => {
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
+    it('busca por data vira filtro na coluna data', async () => {
+      const { result } = await montarHook();
 
       act(() => {
-        result.current.setSearchQuery('02/01');
+        result.current.setSearchQuery('02/01/2026');
       });
 
       await waitFor(() => {
-        // Deve encontrar rotas de 02/01/2026
-        expect(result.current.rotasFiltradas.length).toBeGreaterThanOrEqual(0);
+        expect(chamouRotas('in', 'data', ['2026-01-02'])).toBe(true);
       });
     });
 
-    it('deve combinar filtro de status e busca textual', async () => {
-      setupMocks();
-
-      const { result } = renderHook(() => useGestaoRotas(defaultOptions));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
+    it('status e busca juntos vão na mesma consulta', async () => {
+      const { result } = await montarHook();
 
       act(() => {
         result.current.setFiltroStatus('pendente');
@@ -557,14 +587,8 @@ describe('useGestaoRotas', () => {
       });
 
       await waitFor(() => {
-        const filtradas = result.current.rotasFiltradas;
-        expect(
-          filtradas.every(
-            (r) =>
-              r.status === 'pendente' &&
-              r.motorista_nome?.toLowerCase().includes('carlos'),
-          ),
-        ).toBe(true);
+        expect(chamouRotas('eq', 'status', 'pendente')).toBe(true);
+        expect(chamouRotas('ilike', 'usuarios.nome', '%Carlos%')).toBe(true);
       });
     });
   });
@@ -601,68 +625,7 @@ describe('useGestaoRotas', () => {
     it('deve rejeitar exclusão de rota em andamento (web)', async () => {
       Platform.OS = 'web';
 
-      // Configurar mock antes de setupMocks
-      const mockShowToast = jest.fn();
-      const useToastModule = require('../useToast');
-      useToastModule.useToast.mockReturnValue({
-        toast: { visible: false, message: '', type: 'success', duration: 3000 },
-        showToast: mockShowToast,
-        hideToast: jest.fn(),
-        withToast: jest.fn().mockImplementation(async (fn) => await fn()),
-      });
-
-      // Setup outros mocks sem sobrescrever useToast
-      const useUnidadeAtiva = require('../useUnidadeAtiva').useUnidadeAtiva;
-      useUnidadeAtiva.mockReturnValue({ unidadeAtiva: 'unidade-1' });
-
-      const useUser = require('../useUser').useUser;
-      useUser.mockReturnValue({
-        userData: { id: 'user-1', nome: 'Gestor Teste', papel: 'gestor' },
-      });
-
-      const useDebounce = require('../useDebounce').useDebounce;
-      useDebounce.mockImplementation((value: string) => value);
-
-      const useRealtimeRoutes =
-        require('../useRealtimeRoutes').useRealtimeRoutes;
-      useRealtimeRoutes.mockReturnValue(undefined);
-
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
-      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
-
-      // Mock Supabase
-      (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
-        if (table === 'rotas') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            order: jest.fn().mockReturnThis(),
-            limit: jest.fn().mockReturnThis(),
-            abortSignal: jest.fn().mockResolvedValue({
-              data: mockRotas.map((r) => ({
-                ...r,
-                usuarios: r.motorista_id
-                  ? { id: r.motorista_id, nome: r.motorista_nome }
-                  : null,
-              })),
-              error: null,
-            }),
-          };
-        }
-        if (table === 'paradas') {
-          return {
-            select: jest.fn().mockReturnThis(),
-            eq: jest.fn().mockReturnThis(),
-            in: jest.fn().mockReturnThis(),
-            order: jest.fn().mockReturnThis(),
-            range: jest.fn().mockReturnThis(),
-            abortSignal: jest
-              .fn()
-              .mockResolvedValue({ data: mockParadas, error: null }),
-          };
-        }
-        return { insert: jest.fn().mockResolvedValue({ error: null }) };
-      });
+      setupMocks();
 
       const { result } = renderHook(() => useGestaoRotas(defaultOptions));
 

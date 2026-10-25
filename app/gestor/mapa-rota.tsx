@@ -40,10 +40,12 @@ import {
 } from '@/components/gestor/mapa-rota';
 import type { DraggableStopListControl } from '@/components/gestor/mapa-rota';
 import {
+  useFecharModalSemParada,
   useMapaRotaData,
   useMapaRotaHandlers,
   useMapaRotaModals,
 } from '@/components/gestor/mapa-rota/hooks';
+import { sinalLinhaDoTempo } from '@/components/gestor/mapa-rota/sinalLinhaDoTempo';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -62,6 +64,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { mensagemConfirmarRemocaoParada } from '@/lib/gestor/vinculoParada';
 import { useUnistyles } from '@/utils/styles';
 
 // Optimized map height
@@ -71,7 +74,9 @@ export default function MapaRota() {
   const { theme } = useUnistyles();
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { toast, hideToast } = useToast();
+  // A página é a dona do toast: os hooks recebem o showToast desta instância
+  // (cada useToast() é um estado local, e só o desta página é renderizado).
+  const { toast, showToast, hideToast } = useToast();
   const { isDesktop } = useResponsive();
   const { userData } = useUser();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
@@ -97,10 +102,11 @@ export default function MapaRota() {
     pontosBase,
     resumoParadas,
     enderecoUnidade,
-    loadRotaEParadas,
+    recarregarSilencioso,
   } = useMapaRotaData({
     rotaId: id,
     onError: handleDataError,
+    showToast,
   });
 
   // ===== Handlers Hook =====
@@ -135,11 +141,26 @@ export default function MapaRota() {
     paradas,
     paradasReais,
     enderecoUnidade,
-    loadRotaEParadas,
+    // Depois de cada ação a tela recarrega sem skeleton (o mapa e os modais
+    // ficam montados).
+    loadRotaEParadas: recarregarSilencioso,
+    showToast,
   });
 
   // ===== Modal State Hook =====
   const modals = useMapaRotaModals();
+  // Os handlers zeram a parada ao recusar o clique (ou quando o motorista a
+  // conclui/inicia): a flag do modal acompanha, em vez de ficar presa em true.
+  useFecharModalSemParada(
+    modals.showRemoveStopModal,
+    paradaToRemove,
+    modals.closeRemoveStopModal,
+  );
+  useFecharModalSemParada(
+    modals.showEditStopModal,
+    paradaToEdit,
+    modals.closeEditStopModal,
+  );
 
   // ===== Computed Values =====
   const statusBadgeVariant = useMemo(
@@ -151,6 +172,11 @@ export default function MapaRota() {
     [rota?.status],
   );
   const hasBaseInfo = useHasBaseInfo(pontosBase);
+  // Realtime da tela → rebusca do resumo da linha do tempo (ver o helper).
+  const sinalTimeline = useMemo(
+    () => sinalLinhaDoTempo(rota?.status, paradas),
+    [rota?.status, paradas],
+  );
   const storedRouteInfo = useMemo(
     () =>
       rota?.distancia_total != null && rota?.tempo_total != null
@@ -383,6 +409,7 @@ export default function MapaRota() {
               <TimelineCollapsible
                 rotaId={id as string}
                 rotaCreatedAt={rota?.created_at}
+                sinalAtualizacao={sinalTimeline}
               />
             </View>
 
@@ -429,6 +456,7 @@ export default function MapaRota() {
             }}
             onCancel={modals.closeCancelModal}
             type="danger"
+            icon="close-circle-outline"
           />
 
           <Dialog
@@ -462,7 +490,11 @@ export default function MapaRota() {
             visible={modals.showRemoveStopModal && !!paradaToRemove}
             variant="confirm"
             title="Remover parada"
-            message={`Tem certeza que deseja remover esta parada?\n\n${paradaToRemove?.endereco || ''}\n\nA rota será recalculada automaticamente.`}
+            message={
+              paradaToRemove
+                ? mensagemConfirmarRemocaoParada(paradas, paradaToRemove)
+                : ''
+            }
             confirmText="Sim, remover"
             cancelText="Cancelar"
             onConfirm={async () => {
@@ -482,8 +514,15 @@ export default function MapaRota() {
             rotaId={Array.isArray(id) ? id[0] : id || ''}
             enderecoUnidade={enderecoUnidade}
             allParadas={paradasReais}
-            onSave={async ({ routeRecalculationFailed }) => {
-              await handleEditStopSave(routeRecalculationFailed);
+            onDesatualizada={recarregarSilencioso}
+            onSave={async ({
+              routeRecalculationFailed,
+              vinculoNaoDesfeito,
+            }) => {
+              await handleEditStopSave(
+                routeRecalculationFailed,
+                vinculoNaoDesfeito,
+              );
               modals.closeEditStopModal();
             }}
             onCancel={() => {

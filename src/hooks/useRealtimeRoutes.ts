@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 
+import { useAoVoltarParaPrimeiroPlano } from './useAoVoltarParaPrimeiroPlano';
 import { useAuth } from './useAuth';
 import { useUnidadeAtiva } from './useUnidadeAtiva';
 
@@ -18,6 +19,8 @@ interface UseRealtimeRoutesOptions {
  * ✅ Otimizado com debounce para evitar múltiplas atualizações simultâneas
  * ✅ Aguarda autenticação antes de subscrever (fix para produção)
  * ✅ Usa refs para evitar reconexões desnecessárias
+ * ✅ Revalida na reconexão (volta a `SUBSCRIBED`) e quando o app volta ao
+ *    primeiro plano: evento perdido com o socket caído não é reenviado (DP-2)
  */
 export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
   const { enabled = true, onRouteUpdate, debounceMs = 1000 } = options;
@@ -97,6 +100,7 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     // Nome único por montagem — o porquê está em `@/lib/realtime`. Este hook
     // tinha um contador próprio; virou o compartilhado para não existirem dois
     // mecanismos fazendo a mesma coisa.
+    let jaInscreveu = false;
     const channel = supabase
       .channel(nomeDeCanalUnico(`rotas-${unidadeAtiva}`))
       .on(
@@ -126,6 +130,14 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           isSubscribed.current = false;
         }
+        if (status === 'SUBSCRIBED') {
+          // A 1ª inscrição corre junto com a carga inicial da tela; recarregar
+          // nela seria a mesma consulta duas vezes. As seguintes são
+          // reconexão: o que mudou com o socket caído não chega por evento.
+          if (jaInscreveu) triggerUpdateRef.current();
+          jaInscreveu = true;
+          isSubscribed.current = true;
+        }
       });
 
     return () => {
@@ -141,6 +153,14 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     // unidadeAtiva define o canal; hasToken dispara o subscribe inicial.
     // O valor do token e o callback são lidos via ref (não reativos aqui).
   }, [enabled, unidadeAtiva, hasToken]);
+
+  // Em segundo plano o socket cai; ao voltar, o que passou nesse meio-tempo
+  // só aparece recarregando (o SUBSCRIBED da reconexão pode nem acontecer, se
+  // o SDK não chegou a perceber a queda).
+  useAoVoltarParaPrimeiroPlano(
+    () => triggerUpdateRef.current(),
+    enabled && !!unidadeAtiva && hasToken,
+  );
 
   return { updateTrigger };
 }
