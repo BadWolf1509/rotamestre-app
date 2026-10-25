@@ -108,54 +108,41 @@ test.describe('Gestor Team Management E2E Tests', () => {
       page,
     }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
 
       const addButton = page
         .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
         .first();
+      await expect(addButton).toBeVisible({ timeout: 15000 });
+      await addButton.click();
 
-      if (await addButton.isVisible()) {
-        await addButton.click();
-        await page.waitForTimeout(1000);
-
-        // Modal should appear with form fields
-        const modal = page.locator('[role="dialog"], .modal');
-        const formInput = page.locator('input').first();
-
-        // Either modal or form should be visible
-        const hasForm =
-          (await modal.isVisible().catch(() => false)) ||
-          (await formInput.isVisible().catch(() => false));
-
-        expect(hasForm).toBeTruthy();
-      }
+      // O modal precisa abrir com o formulário (antes, um input qualquer
+      // da página já bastava).
+      await expect(
+        page.getByPlaceholder(/Digite o nome completo/i).first(),
+      ).toBeVisible({ timeout: 15000 });
     });
   });
 
   test.describe('Motorista Form Validation', () => {
     test('should display motorista form fields', async ({ page }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
 
       const addButton = page
         .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
         .first();
+      await expect(addButton).toBeVisible({ timeout: 15000 });
+      await addButton.click();
 
-      if (await addButton.isVisible()) {
-        await addButton.click();
-        await page.waitForTimeout(1000);
-
-        // Look for form fields
-        const bodyText = await page.locator('body').textContent();
-
-        // Form should have name, email, phone, password fields
-        const hasFormFields =
-          bodyText?.includes('Nome') ||
-          bodyText?.includes('Email') ||
-          bodyText?.includes('Telefone') ||
-          bodyText?.includes('Senha');
-
-        expect(hasFormFields).toBeTruthy();
+      // Nome, email, telefone e senha: os campos, não só a palavra no body.
+      for (const placeholder of [
+        /Digite o nome completo/i,
+        /email@exemplo\.com/i,
+        /\(00\) 00000-0000/,
+        /Mínimo 6 caracteres/i,
+      ]) {
+        await expect(page.getByPlaceholder(placeholder).first()).toBeVisible({
+          timeout: 15000,
+        });
       }
     });
 

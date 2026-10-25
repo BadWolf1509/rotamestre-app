@@ -91,17 +91,14 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
       page,
     }) => {
       await gestorPage.gotoInicio();
-      await page.waitForTimeout(2000);
 
-      const createRouteButton = page
-        .getByText(/nova.*entrega|criar.*rota|adicionar.*rota/i)
-        .first();
+      // "Nova Rota de Entrega" é a primeira ação rápida do painel (o teste
+      // acima já exige que ela exista); aqui ela precisa levar à criação.
+      const createRouteButton = page.getByText('Nova Rota de Entrega').first();
+      await expect(createRouteButton).toBeVisible({ timeout: 15000 });
+      await createRouteButton.click();
 
-      if (await createRouteButton.isVisible().catch(() => false)) {
-        await createRouteButton.click();
-        await page.waitForTimeout(2000);
-        await gestorPage.expectOnNovaEntrega();
-      }
+      await gestorPage.expectOnNovaEntrega();
     });
   });
 });
@@ -223,17 +220,15 @@ test.describe('Real-time Tracking E2E Tests', () => {
   test.describe('Route Map View', () => {
     test('should access map view for route tracking', async ({ page }) => {
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
+      await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
+        timeout: 15000,
+      });
 
-      const viewButton = page.getByText(/ver.*detalhes|mapa|detalhes/i).first();
+      // Ação de linha da tabela, com o rótulo exato (antes um regex solto
+      // /ver.*detalhes|mapa|detalhes/ pegava o primeiro texto que casasse).
+      await page.getByText('Ver Detalhes').first().click();
 
-      if (await viewButton.isVisible().catch(() => false)) {
-        await viewButton.click();
-        await page.waitForTimeout(2000);
-
-        const currentUrl = page.url();
-        expect(currentUrl).toContain('gestor');
-      }
+      await expect(page).toHaveURL(/mapa-rota/, { timeout: 15000 });
     });
   });
 });

@@ -2723,3 +2723,165 @@ pela policy uma posição com precisão 1500,5, velocidade 1200,25 e heading
 12,35; catálogo com as três colunas `numeric(8,2)`; termina em `RAISE`
 ("FALHOU" antes, "100% OK" depois). Rollback colável, com o aviso de anular
 antes os valores acima de 999,99.
+
+### ✅ Migration 61: o incidente mantém o motorista que o registrou
+
+**Arquivo:** `20261025150000_incidente_mantem_o_motorista.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025150000`. Sonda: 8 FALHOU antes, tudo OK com o corpo na mesma transação e 14/14 OK depois de aplicada.
+
+**O que faz.** Gatilho BEFORE UPDATE OF `motorista_id` em `incidentes`, quando
+a coluna muda (cláusula WHEN). Com sessão, a troca é recusada com `42501`, para
+qualquer papel — para outra pessoa e para NULL; sem sessão (chave secreta do
+painel e das Edge Functions, jobs), nada muda. O NULL gravado pela ação ON
+DELETE SET NULL da FK, ao excluir a conta (Migration 56), passa: ela roda
+dentro do gatilho de integridade de `usuarios` (`pg_trigger_depth() > 1`), e o
+UPDATE direto chega com 1. Função SECURITY DEFINER com `search_path` vazio e
+dono `postgres`, sem EXECUTE para PUBLIC, `anon` e `authenticated`; não lê
+tabela.
+
+**Por quê.** `motorista_id` é quem registrou o incidente, e é por ela que a
+pessoa lê e edita o próprio incidente. A criação já amarra a coluna a quem
+chama; o UPDATE do gestor da loja aceitava gravar outra pessoa (o
+`incidentes_confere_rota_parada` só confere a troca quando há rota, e aceita o
+motorista para quem a rota foi reatribuída).
+
+**Alternativas.** (a) Recusar com sessão toda troca para outra pessoa —
+escolhida: nenhum fluxo troca o motorista. (b) Aceitar motorista com vínculo
+ativo na loja: a coluna continuaria regravável, e quem relatou deixaria de ser
+confiável para a auditoria. (c) WITH CHECK em `incidentes_update`: sem OLD, e
+exigir `motorista_id = auth.uid()` tiraria do gestor a resolução. (d)
+Privilégio de coluna: o UPDATE é concedido na tabela inteira, e toda coluna
+nova passaria a exigir GRANT.
+
+**Efeito no que já existe.** O app não grava `motorista_id` em UPDATE (o
+gestor resolve com `status`, `observacoes_gestao`, `resolvido_em`,
+`updated_at`; o motorista cria por INSERT). Nenhuma função do banco faz UPDATE
+em `incidentes`. Exclusão de conta: ON DELETE SET NULL, aceito pela
+profundidade do gatilho (conferido numa réplica local, apagando a conta por
+`auth.users` e por `usuarios` com sessão ativa). Liberar todo NULL na cláusula
+WHEN foi descartado: deixaria o gestor apagar o autor do incidente.
+
+**Medido em 25/10/2026.** 26 incidentes, nenhum sem motorista; os 3 sem rota
+têm motorista com vínculo ativo na loja do incidente.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration61-incidente-mantem-o-motorista.test.ts`; sonda
+`database/sondas/20261025150000_sonda_migration61.sql`, com casos
+independentes: gestor não põe pessoa de outra loja num incidente sem rota, essa
+pessoa não o lê, e o incidente fica com o motorista original; gestor não troca
+nem por outro motorista da loja, nem pelo novo motorista de uma rota
+reatribuída, nem por NULL; o motorista também não grava NULL; gestor resolve,
+motorista edita, sem sessão, `service_role` e INSERT passam; catálogo, com dono
+`postgres`; termina em `RAISE`. A sonda não apaga linha, então a exclusão de
+conta fica fora dela. Sem a migration: 8 FALHOU; com ela: 14 OK (conferido
+numa réplica local do esquema). Rollback colável.
+
+### ✅ Migration 62: todo incidente tem loja
+
+**Arquivo:** `20261025151000_incidente_sempre_com_loja.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025151000`. Sonda: 2 FALHOU antes, tudo OK com o corpo na mesma transação e 7/7 OK depois de aplicada.
+
+**O que faz.** `incidentes.unidade_id` vira NOT NULL, com `lock_timeout` de 3 s
+(se houver transação longa na tabela, falha limpa em vez de enfileirar a
+criação de incidentes). Antes de alterar, confere
+que não há incidente sem loja e, se houver, para sem mudar nada (não há
+backfill). O `incidentes_define_unidade` continua gravando a loja (rota ou
+vínculo ativo do motorista); quando o cálculo não acha loja — motorista sem
+vínculo ativo, incidente sem rota — o INSERT passa a ser recusado (`23502`) em
+vez de gravar um incidente que nenhum gestor enxerga.
+
+**Alternativas.** (a) `SET NOT NULL` — escolhida: a regra fica no catálogo, e a
+tabela é pequena (varredura de milissegundos). (b) CHECK NOT VALID + VALIDATE:
+serve para tabela grande; aqui só acrescenta um objeto. (c) RAISE dentro do
+`incidentes_define_unidade`: reescreve uma função que roda em toda criação.
+
+**Efeito no que já existe.** Motorista com vínculo ativo, ou incidente com
+rota, continua gravando com loja. O ramo `OLD.unidade_id IS NULL` do
+`incidentes_define_unidade` deixa de ser alcançável (a função não muda). FK da
+loja é ON DELETE CASCADE, nunca grava NULL.
+
+**Medido em 25/10/2026.** 26 de 26 incidentes com loja; 0 motoristas ativos sem
+vínculo ativo.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration62-incidente-sempre-com-loja.test.ts`; sonda
+`database/sondas/20261025151000_sonda_migration62.sql`: catálogo; motorista sem
+vínculo ativo não cria incidente sem loja (`23502`); incidente sem rota e na
+rota gravam a loja; gravar `unidade_id` NULL direto e desligar a rota mantêm a
+loja; sem sessão; termina em `RAISE`. Sem a migration: 2 FALHOU; com ela: 7 OK
+(réplica local). Rollback colável.
+
+### ✅ Migration 63: log na rota pelo gestor da loja ou pelo motorista da rota
+
+**Arquivo:** `20261025152000_log_na_rota_pelo_motorista_da_rota.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025152000`. Sonda: 4 FALHOU antes, tudo OK com o corpo na mesma transação e 11/11 OK depois de aplicada.
+
+**O que faz.** Novo corpo de `pode_registrar_log_na_rota(uuid)` (mesma
+assinatura, STABLE, SECURITY DEFINER, `search_path` vazio): fora do gestor
+ativo da loja da rota, só o motorista da própria rota (`rotas.motorista_id =
+auth.uid()`), com vínculo e pessoa ativos, grava log ligado a ela — a mesma
+regra de `rotas_select` e `paradas_update`. Vale para os três chamadores: a
+policy `logs_insert_optimized`, o `registrar_sos` e o gatilho
+`logs_sos_sem_rota_quando_recusada`.
+
+**Alternativas.** (a) Mudar o corpo da função — escolhida: os três chamadores
+seguem a mesma regra, sem recriar policy. (b) Só na WITH CHECK da policy: o
+SOS continuaria aceitando a rota alheia. (c) Gatilho que recusa: duplicaria a
+regra e poderia derrubar o SOS.
+
+**Efeito no que já existe.** O motorista grava log só na rota dele; o gestor,
+nas rotas da loja — os dois seguem passando. O SOS de quem cita a rota de outro
+motorista continua gravado e avisado, sem a rota (`rota_recusada: true`).
+Motorista de quem a rota foi reatribuída deixa de gravar log nela.
+
+**Medido em 25/10/2026.** Nenhum log com rota gravado por uma pessoa que não
+seja o motorista da rota nem gestor da loja (histórico inteiro); fora isso, 1
+registro sem usuário, gravado por gatilho.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration63-log-na-rota-pelo-motorista-da-rota.test.ts`;
+sonda `database/sondas/20261025152000_sonda_migration63.sql`: colega da loja
+não grava log na rota de outro motorista (e a função responde false); o
+motorista e o gestor da loja gravam; gestor de outra loja, pessoa desativada e
+vínculo inativo não gravam; SOS do colega grava sem a rota alheia, SOS do
+motorista grava com a rota; log sem rota passa; catálogo; termina em `RAISE`.
+Sem a migration: 4 FALHOU; com ela: 11 OK (réplica local). Rollback colável
+(corpo da Migration 49).
+
+### ✅ Migration 64: API sem privilégios de manutenção nas tabelas
+
+**Arquivo:** `20261025153000_api_sem_privilegios_de_manutencao.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025153000`. Sonda: 7 FALHOU antes, tudo OK com o corpo na mesma transação e 9/9 OK depois de aplicada.
+
+**O que faz.** Tira TRUNCATE, TRIGGER, REFERENCES e MAINTAIN de `anon` e
+`authenticated` em todas as tabelas e visões de public, e dos
+privilégios-padrão do `postgres` em public (tabela nova já nasce sem eles).
+SELECT/INSERT/UPDATE/DELETE, `service_role` e `postgres` não mudam.
+
+**Alternativas.** (a) Os quatro em ALL TABLES + padrão do `postgres` —
+escolhida: fecha a classe inteira. (b) Só TRUNCATE e TRIGGER em `unidades`:
+deixaria as outras onze tabelas e toda tabela nova iguais. (c) REVOKE ALL +
+GRANT tabela a tabela: reescreveria os privilégios de coluna já ajustados.
+
+**Limites.** Os privilégios-padrão do `supabase_admin` não mudam (o `postgres`
+não pode alterá-los); hoje todas as tabelas de public são do `postgres`, e
+todas essas concessões têm o `postgres` como grantor.
+
+**Medido em 25/10/2026.** 12 tabelas com os quatro para a API (11 para `anon`
+e `authenticated`, `rascunhos_rota` só para `authenticated`); `usuario_unidades`
+e as visões `vw_*` com TRIGGER, REFERENCES e MAINTAIN.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration64-api-sem-privilegios-de-manutencao.test.ts`;
+sonda `database/sondas/20261025153000_sonda_migration64.sql`, só de catálogo
+(não executa TRUNCATE): nenhum dos quatro em public para a API; `unidades` em
+particular; o que o app usa segue concedido (conferido por coluna, para valer
+também com privilégio de coluna, como o UPDATE de `rotas` e `usuarios` e o
+SELECT de `unidades` depois da Migration 51); `service_role` intocado; padrão do
+`postgres` sem eles; tabela criada na sonda nasce sem eles. Sem a migration: 7
+FALHOU; com ela: 9 OK (réplica local). Rollback colável, tabela a tabela, com
+o que foi medido.

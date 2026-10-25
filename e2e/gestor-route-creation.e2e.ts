@@ -28,43 +28,34 @@ test.describe('Gestor Route Creation E2E Tests', () => {
 
     test('should display route creation form elements', async ({ page }) => {
       await gestorPage.gotoNovaEntrega();
-      await page.waitForTimeout(2000);
 
-      // Should have delivery type selector
-      const bodyText = await page.locator('body').textContent();
-      expect(bodyText).toBeTruthy();
-
-      // Check for key form elements (may have different text based on implementation)
-      const hasDeliveryForm =
-        bodyText?.includes('Entrega') ||
-        bodyText?.includes('parada') ||
-        bodyText?.includes('endereço');
-      expect(hasDeliveryForm).toBeTruthy();
+      // A tela precisa trazer o formulário de entrega (texto casa em
+      // qualquer momento do carregamento: toContainText re-tenta).
+      await expect(page.locator('body')).toContainText(
+        /Entrega|parada|endereço/,
+        { timeout: 15000 },
+      );
     });
 
     test('should have address input field', async ({ page }) => {
       await gestorPage.gotoNovaEntrega();
-      await page.waitForTimeout(2000);
 
       // Look for any input that could be address-related
       const addressInput = page.locator('input').first();
-      await expect(addressInput).toBeVisible({ timeout: 10000 });
+      await expect(addressInput).toBeVisible({ timeout: 15000 });
     });
   });
 
   test.describe('Route Form Interaction', () => {
     test('should be able to interact with form fields', async ({ page }) => {
       await gestorPage.gotoNovaEntrega();
-      await page.waitForTimeout(2000);
 
-      // Find the first input and try to interact with it
+      // O primeiro input precisa existir e aceitar digitação.
       const firstInput = page.locator('input').first();
-      if (await firstInput.isVisible()) {
-        await firstInput.click();
-        await firstInput.fill('Test Input');
-        const value = await firstInput.inputValue();
-        expect(value).toBe('Test Input');
-      }
+      await expect(firstInput).toBeVisible({ timeout: 15000 });
+      await firstInput.click();
+      await firstInput.fill('Test Input');
+      await expect(firstInput).toHaveValue('Test Input');
     });
 
     test('a nova parada oferece os tipos entrega e retirada', async ({
@@ -86,26 +77,32 @@ test.describe('Gestor Route Creation E2E Tests', () => {
     test('should have address input with autocomplete functionality', async ({
       page,
     }) => {
+      // A busca vai para a Edge Function do Google Places (paga). O teste
+      // responde por ela com lista vazia: o custo é zero e o resultado não
+      // depende de serviço externo. O que se prova é o campo existir e
+      // aceitar digitação.
+      await page.route('**/functions/v1/google-places-autocomplete', (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ predictions: [], status: 'ZERO_RESULTS' }),
+        }),
+      );
+
       await gestorPage.gotoNovaEntrega();
-      await page.waitForTimeout(2000);
 
-      // Look for address-related input
-      const addressInput = page
-        .locator('input[placeholder*="endereço"], input[placeholder*="Digite"]')
-        .first();
+      // O placeholder real é "Endereço ou CEP" (E maiúsculo, que o seletor
+      // antigo não casava); o rótulo de acessibilidade é a âncora estável.
+      const addressInput = page.getByLabel('Campo de endereço');
+      await expect(addressInput).toBeVisible({ timeout: 15000 });
+      await addressInput.click();
+      await addressInput.fill('Avenida Paulista');
 
-      if (await addressInput.isVisible()) {
-        await addressInput.click();
-        await addressInput.fill('Avenida Paulista');
-        await page.waitForTimeout(1500); // Wait for autocomplete suggestions
-
-        // NÃO se afirma aqui que sugestões apareceram: elas vêm do Google
-        // Places por Edge Function, e um teste que dependesse dessa resposta
-        // ficaria vermelho por indisponibilidade externa, não por defeito
-        // nosso. A contagem de sugestões era computada e descartada — saiu.
-        const inputValue = await addressInput.inputValue();
-        expect(inputValue).toContain('Paulista');
-      }
+      // NÃO se afirma aqui que sugestões apareceram: elas vêm do Google
+      // Places por Edge Function, e um teste que dependesse dessa resposta
+      // ficaria vermelho por indisponibilidade externa, não por defeito
+      // nosso.
+      await expect(addressInput).toHaveValue(/Paulista/);
     });
   });
 
@@ -114,41 +111,24 @@ test.describe('Gestor Route Creation E2E Tests', () => {
       page,
     }) => {
       await gestorPage.gotoNovaEntrega();
-      await page.waitForTimeout(3000);
-
-      // Look for any button related to route optimization
-      const bodyText = await page.locator('body').textContent();
 
       // Check page has route-related content
-      const hasRouteContent =
-        bodyText?.includes('rota') ||
-        bodyText?.includes('Rota') ||
-        bodyText?.includes('entrega') ||
-        bodyText?.includes('Entrega');
-
-      expect(hasRouteContent).toBeTruthy();
+      await expect(page.locator('body')).toContainText(/rota|entrega/i, {
+        timeout: 15000,
+      });
     });
   });
 
   test.describe('Navigation from Menu', () => {
     test('should navigate to nova-entrega from dashboard', async ({ page }) => {
       await gestorPage.gotoInicio();
-      await page.waitForTimeout(2000);
 
-      // Look for link to create new route
-      const novaEntregaLink = page
-        .getByText(/nova.*entrega|criar.*rota|adicionar.*rota/i)
-        .first();
+      // A ação rápida do painel precisa existir e levar à criação de rota.
+      const novaEntregaLink = page.getByText('Nova Rota de Entrega').first();
+      await expect(novaEntregaLink).toBeVisible({ timeout: 15000 });
+      await novaEntregaLink.click();
 
-      if (await novaEntregaLink.isVisible()) {
-        await novaEntregaLink.click();
-        await page.waitForTimeout(2000);
-        await gestorPage.expectOnNovaEntrega();
-      } else {
-        // Alternative: navigate via menu/sidebar
-        await gestorPage.gotoNovaEntrega();
-        await gestorPage.expectOnNovaEntrega();
-      }
+      await gestorPage.expectOnNovaEntrega();
     });
   });
 });

@@ -1,3 +1,4 @@
+import '@/lib/zodSemEval';
 import {
   NunitoSans_300Light,
   NunitoSans_400Regular,
