@@ -29,7 +29,8 @@
  *
  * - **por rede:** fica, e o envio para até a próxima posição;
  * - **por DADO** (`CODIGOS_RECUSA_DE_DADO`: FK de rota apagada, NOT NULL,
- *   CHECK, tipo): descartado na hora, só o lote daquela rota;
+ *   CHECK, tipo, número fora da faixa): descartado na hora, só o lote daquela
+ *   rota;
  * - **por qualquer outra coisa** (rota que não é mais do motorista, JWT
  *   vencido, requisição saindo anônima porque o refresh do token falhou, 5xx
  *   sem texto de rede): fica, cada posição conta uma tentativa, e o envio
@@ -104,11 +105,24 @@ export const MAX_TENTATIVAS_POSICAO = 60;
 /**
  * Códigos do Postgres de recusa determinística de DADO: reenviar a mesma
  * linha dá sempre o mesmo erro. 23503 (FK: rota apagada), 23502 (NOT NULL),
- * 23514 (CHECK), 22P02 (texto que não converte para o tipo). Só estes
- * descartam o lote na hora; qualquer outro erro (JWT vencido, RLS com a
- * requisição saindo anônima, 5xx sem texto de rede) pode ser passageiro.
+ * 23514 (CHECK), 22P02 (texto que não converte para o tipo), 22003 (número
+ * fora da faixa da coluna). Só estes descartam o lote na hora; qualquer outro
+ * erro (JWT vencido, RLS com a requisição saindo anônima, 5xx sem texto de
+ * rede) pode ser passageiro.
+ *
+ * 22003: com `sanearPosicao` nenhuma medida passa do teto de `numeric(8,2)`,
+ * então ele só volta se o banco tiver um tipo mais estreito que o esperado.
+ * Fora desta lista, o lote da rota ficaria até `MAX_TENTATIVAS_POSICAO`
+ * reenvios (de ~5 a ~30 min) e sairia do mesmo jeito, com o trajeto daquela
+ * rota parado para o gestor nesse meio tempo.
  */
-const CODIGOS_RECUSA_DE_DADO = new Set(['23503', '23502', '23514', '22P02']);
+const CODIGOS_RECUSA_DE_DADO = new Set([
+  '23503',
+  '23502',
+  '23514',
+  '22P02',
+  '22003',
+]);
 
 function ehRecusaDeDado(error: unknown): boolean {
   if (typeof error !== 'object' || error === null || !('code' in error)) {

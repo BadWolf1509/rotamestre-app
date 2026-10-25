@@ -730,6 +730,33 @@ describe('filaPosicoes', () => {
         },
       ]);
     });
+
+    it('lote recusado por 22003 (fora da faixa do tipo) é descartado na hora, e as outras rotas seguem', async () => {
+      const ERRO_FAIXA = {
+        code: '22003',
+        message:
+          'A field with precision 5, scale 2 must round to an absolute value less than 10^3.',
+      };
+      semRede();
+      await registrarPosicao(posicao({ rota_id: 'estreita' }), minuto(1), ROTULO);
+      await registrarPosicao(posicao({ rota_id: 'viva' }), minuto(2), ROTULO);
+      mockInsert.mockClear();
+      mockInsert.mockImplementation(async (linhas: Posicao[]) =>
+        linhas[0].rota_id === 'estreita'
+          ? { error: ERRO_FAIXA }
+          : { error: null },
+      );
+
+      await registrarPosicao(posicao({ rota_id: 'viva' }), minuto(3), ROTULO);
+
+      expect(lotesEnviados().map((l) => l.length)).toEqual([1, 2]);
+      // Não fica contando tentativas: reenviar daria sempre o mesmo erro.
+      expect(filaGuardada()).toBeNull();
+      expect(logger.error).toHaveBeenCalledWith(
+        '[FilaPosicoes] Banco recusou posições guardadas; descartadas',
+        expect.objectContaining({ rota_id: 'estreita', quantidade: 1 }),
+      );
+    });
   });
 });
 
