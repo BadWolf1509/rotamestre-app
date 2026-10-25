@@ -166,6 +166,18 @@ it('o progresso da exportação sai por formatarDecimal', () => {
   ).toBeTruthy();
 });
 
+it('o total de rotas encontradas sai por formatarDecimal', () => {
+  mockEstadoHook = {
+    rotasFiltradas: rotasFalsas(100),
+    total: 2345,
+    temMais: true,
+  };
+  comMarcador();
+  render(<GestaoRotas />);
+
+  expect(screen.getByText('#2345# rota(s) encontrada(s)')).toBeTruthy();
+});
+
 function rotasFalsas(n: number) {
   return Array.from({ length: n }, (_, i) => ({
     id: `r${i}`,

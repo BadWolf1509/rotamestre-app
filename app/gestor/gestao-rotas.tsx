@@ -268,7 +268,7 @@ export default function GestaoRotas() {
   const pendentesCount =
     contagens?.pendentes ??
     rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
-  const subtituloFiltros = `${totalRotas} rota(s) encontrada(s)`;
+  const subtituloFiltros = `${formatarDecimal(totalRotas, 0)} rota(s) encontrada(s)`;
 
   // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
   // Função chamada no JSX (não componente declarado no render).
@@ -313,18 +313,20 @@ export default function GestaoRotas() {
   const desktopStats = (
     <View style={styles.headerStats}>
       <View style={styles.headerStat}>
-        <Text style={styles.headerStatValue}>{totalRotas}</Text>
+        <Text style={styles.headerStatValue}>
+          {formatarDecimal(totalRotas, 0)}
+        </Text>
         <Text style={styles.headerStatLabel}>Rotas registradas</Text>
       </View>
       <View style={styles.headerStat}>
         <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>
-          {concluidasCount}
+          {formatarDecimal(concluidasCount, 0)}
         </Text>
         <Text style={styles.headerStatLabel}>Concluídas</Text>
       </View>
       <View style={styles.headerStat}>
         <Text style={[styles.headerStatValue, styles.headerStatValueWarning]}>
-          {pendentesCount}
+          {formatarDecimal(pendentesCount, 0)}
         </Text>
         <Text style={styles.headerStatLabel}>Pendentes</Text>
       </View>

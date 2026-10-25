@@ -284,7 +284,7 @@ export default function IncidentesScreen() {
             title="Incidentes por Motorista"
             subtitle={
               temMais
-                ? `Top 5 entre os ${incidentes.length} incidentes carregados`
+                ? `Top 5 entre os ${formatarDecimal(incidentes.length, 0)} incidentes carregados`
                 : 'Top 5 motoristas com mais incidentes'
             }
           >

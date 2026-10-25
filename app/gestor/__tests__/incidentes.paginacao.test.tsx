@@ -189,3 +189,21 @@ it('Top 5 por motorista avisa que conta só os incidentes carregados', () => {
     screen.getByText(/Top 5 entre os 50 incidentes carregados/),
   ).toBeTruthy();
 });
+
+it('o número do Top 5 sai por formatarDecimal', () => {
+  mockIsDesktop = true;
+  mockEstado = {
+    incidentes: incidentes(50),
+    total: 130,
+    temMais: true,
+    estatisticasMotorista: [
+      { id: 'm1', nome: 'João', total: 50, abertos: 50, resolvidos: 0 },
+    ],
+  };
+  comMarcador();
+  render(<Incidentes />);
+
+  expect(
+    screen.getByText(/Top 5 entre os #50# incidentes carregados/),
+  ).toBeTruthy();
+});
