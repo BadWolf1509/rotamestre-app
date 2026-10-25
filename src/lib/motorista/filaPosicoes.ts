@@ -426,7 +426,8 @@ const chaveDa = (p: PosicaoGuardada) =>
 
 /**
  * Tira da fila as posições do lote. Por identidade, não por posição na
- * lista: enquanto o lote estava no ar, o teto pode ter cortado o começo.
+ * lista: enquanto o lote estava no ar, o teto pode ter espaçado a fila
+ * (`espacarFila`) e tirado posições do meio.
  */
 function remover(
   motoristaId: string,

@@ -258,7 +258,7 @@ describe('filaPosicoes', () => {
     const guardadas = filaGuardada()!.posicoes;
     const latitudes = guardadas.map((p) => p.latitude);
     expect(TETO_FILA_POSICOES).toBe(500);
-    expect(guardadas.length).toBeLessThanOrEqual(TETO_FILA_POSICOES);
+    expect(guardadas).toHaveLength(TETO_FILA_POSICOES);
     // O começo do período sem rede continua lá…
     expect(latitudes[0]).toBe(0);
     // …a mais nova também, e as mais recentes seguem completas.
@@ -281,9 +281,17 @@ describe('filaPosicoes', () => {
     }
 
     const latitudes = filaGuardada()!.posicoes.map((p) => p.latitude);
-    expect(latitudes.length).toBeLessThanOrEqual(TETO_FILA_POSICOES);
+    expect(latitudes).toHaveLength(TETO_FILA_POSICOES);
     expect(latitudes[0]).toBe(0);
     expect(latitudes[latitudes.length - 1]).toBe(total - 1);
+    // As mais recentes seguem inteiras, mesmo depois de muitos estouros.
+    const recentes = latitudes.slice(-TETO_FILA_POSICOES / 5);
+    expect(recentes).toEqual(
+      Array.from(
+        { length: TETO_FILA_POSICOES / 5 },
+        (_, i) => total - TETO_FILA_POSICOES / 5 + i,
+      ),
+    );
     latitudes.forEach((lat, i) => {
       if (i > 0) expect(lat).toBeGreaterThan(latitudes[i - 1]);
     });
@@ -874,14 +882,15 @@ describe('espacarFila', () => {
     expect(resultado).toEqual([0, 2, 10, 11, 12, 13, 14, 15, 16, 17]);
   });
 
-  it('mantém a primeira e a última posição de cada rota', () => {
+  it('mantém a primeira e a última posição de cada rota, mesmo quando são o menor buraco', () => {
+    // A troca de rota (20 → 21) é o menor buraco da fila (11 min); sem a
+    // regra das pontas, sairia o 20 ou o 21. Com ela, sai o 10 (buraco de 20).
     const fila = [
-      ...Array.from({ length: 5 }, (_, i) => item(i, 'r1')),
-      ...Array.from({ length: 6 }, (_, i) => item(10 + i, 'r2')),
+      ...[0, 10, 20].map((n) => item(n, 'r1')),
+      ...[21, 31, 41, 51, 61, 71, 81, 91].map((n) => item(n, 'r2')),
     ];
     const resultado = espacarFila(fila, 10).map((p) => p.id);
-    expect(resultado).toEqual(expect.arrayContaining([0, 4, 10, 15]));
-    expect(resultado.length).toBeLessThanOrEqual(10);
+    expect(resultado).toEqual([0, 20, 21, 31, 41, 51, 61, 71, 81, 91]);
   });
 
   it('sem o que espaçar (rotas alternadas), descarta as mais antigas para caber', () => {
