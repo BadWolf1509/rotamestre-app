@@ -323,6 +323,59 @@ describe('ChangeDriverModal', () => {
     });
   });
 
+  describe('Confirmação que falha (G10)', () => {
+    async function selecionarEConfirmar(
+      utils: ReturnType<typeof render>,
+    ): Promise<void> {
+      await waitFor(() => {
+        expect(utils.getByText('Maria Santos')).toBeTruthy();
+      });
+      fireEvent.press(utils.getByText('Maria Santos'));
+      await act(async () => {
+        fireEvent.press(utils.getByText('Confirmar'));
+      });
+    }
+
+    it('onConfirm que falha devolve os botões, sem ficar carregando', async () => {
+      const onConfirm = jest.fn().mockRejectedValue(new Error('rede'));
+      const utils = render(
+        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} />,
+      );
+
+      await selecionarEConfirmar(utils);
+
+      expect(onConfirm).toHaveBeenCalled();
+      expect(
+        utils.getByTestId('primary-button').props.accessibilityState?.disabled,
+      ).toBeFalsy();
+      expect(
+        utils.getByTestId('secondary-button').props.accessibilityState?.disabled,
+      ).toBeFalsy();
+    });
+
+    it('reabrir depois de uma troca não começa carregando', async () => {
+      const onConfirm = jest.fn().mockResolvedValue(undefined);
+      const utils = render(
+        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} />,
+      );
+      await selecionarEConfirmar(utils);
+
+      utils.rerender(
+        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} visible={false} />,
+      );
+      utils.rerender(
+        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} visible />,
+      );
+
+      await waitFor(() => {
+        expect(utils.getByText('Maria Santos')).toBeTruthy();
+      });
+      expect(
+        utils.getByTestId('secondary-button').props.accessibilityState?.disabled,
+      ).toBeFalsy();
+    });
+  });
+
   describe('Motorista que nunca entrou no app', () => {
     beforeEach(() => {
       // clearAllMocks mantém implementações: o teste de cancelar não pode vazar.
@@ -434,25 +487,50 @@ describe('ChangeDriverModal', () => {
       expect(mockFrom).not.toHaveBeenCalled();
     });
 
-    it('deve lidar com erro ao carregar motoristas', async () => {
+    // Até 24/10/2026 a falha virava "Nenhum motorista cadastrado na unidade":
+    // o gestor lia uma loja sem motoristas, sem como tentar de novo (G10).
+    it('falha ao carregar mostra o erro e "Tentar de novo", que recarrega', async () => {
+      const returns = jest
+        .fn()
+        .mockResolvedValueOnce({ data: null, error: { message: 'Database error' } })
+        .mockResolvedValueOnce({
+          data: mockMotoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
+          error: null,
+        });
       mockFrom.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
-        returns: jest.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Database error' },
-        }),
+        returns,
       });
 
-      const { getByText } = render(<ChangeDriverModal {...defaultProps} />);
+      const { getByText, queryByText } = render(
+        <ChangeDriverModal {...defaultProps} />,
+      );
 
       await waitFor(() => {
-        expect(
-          getByText('Nenhum motorista cadastrado na unidade'),
-        ).toBeTruthy();
+        expect(getByText('Não foi possível carregar os motoristas.')).toBeTruthy();
       });
-
+      expect(queryByText('Nenhum motorista cadastrado na unidade')).toBeNull();
+      expect(queryByText('Carregando motoristas...')).toBeNull();
       expect(console.error).toHaveBeenCalled();
+
+      fireEvent.press(getByText('Tentar de novo'));
+
+      await waitFor(() => {
+        expect(getByText('Maria Santos')).toBeTruthy();
+      });
+      expect(queryByText('Não foi possível carregar os motoristas.')).toBeNull();
+    });
+
+    it('rota sem loja não fica em "Carregando motoristas..." para sempre', async () => {
+      const { getByText, queryByText } = render(
+        <ChangeDriverModal {...defaultProps} unidadeId="" />,
+      );
+
+      await waitFor(() => {
+        expect(queryByText('Carregando motoristas...')).toBeNull();
+      });
+      expect(getByText('Não foi possível carregar os motoristas.')).toBeTruthy();
     });
 
     it('deve filtrar motoristas inativos', async () => {
