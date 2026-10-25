@@ -6,6 +6,8 @@ import {
 } from '@testing-library/react-native';
 
 import { googlePlacesService } from '@/lib/googlePlaces';
+import { logger } from '@/lib/logger';
+import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import { supabase } from '@/lib/supabase';
 
 import UnidadeScreen from '../index';
@@ -140,7 +142,6 @@ const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 const UNIDADE_MOCK = {
   id: 'unidade-ativa', // a linha é a da loja ATIVA (o que `.eq('id', ativa)` devolve)
   nome: 'Unidade Teste',
-  cnpj: '12345678000199',
   telefone: '11999998888',
   endereco: 'Rua Um, 100',
   cidade: 'São Paulo',
@@ -150,11 +151,15 @@ const UNIDADE_MOCK = {
 };
 
 const mockEqUnidades = jest.fn();
+const mockSelectUnidades = jest.fn();
 const mockEqMembros = jest.fn();
 
 function unidadesQueryBuilder() {
   const builder = {
-    select: jest.fn().mockReturnThis(),
+    select: jest.fn((colunas?: string) => {
+      mockSelectUnidades(colunas);
+      return builder;
+    }),
     eq: jest.fn((col: string, val: unknown) => {
       mockEqUnidades(col, val);
       return builder;
@@ -227,6 +232,109 @@ describe('tela Minha Unidade', () => {
     expect(mockEqUnidades).not.toHaveBeenCalledWith('id', 'unidade-1');
     expect(mockSupabase.from).toHaveBeenCalledWith('usuario_unidades');
     expect(mockEqMembros).toHaveBeenCalledWith('unidade_id', 'unidade-ativa');
+  });
+
+  it('pede à tabela só as colunas da lista do app, nunca o asterisco', async () => {
+    render(<UnidadeScreen />);
+
+    expect(await screen.findByText('✏️ Editar Informações')).toBeTruthy();
+    expect(mockSelectUnidades).toHaveBeenCalledWith(SELECT_UNIDADE_APP);
+    expect(mockSelectUnidades).not.toHaveBeenCalledWith('*');
+  });
+
+  it('mostra o CNPJ obtido pela RPC do gestor', async () => {
+    mockSupabase.rpc = jest.fn((nome: string) =>
+      Promise.resolve(
+        nome === 'cnpj_da_unidade'
+          ? { data: '12345678000199', error: null }
+          : { data: [], error: null },
+      ),
+    ) as unknown as typeof mockSupabase.rpc;
+
+    render(<UnidadeScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Não informado').props.value).toBe(
+        '12.345.678/0001-99',
+      ),
+    );
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('cnpj_da_unidade', {
+      p_unidade_id: 'unidade-ativa',
+    });
+  });
+
+  it('CNPJ indisponível não impede a tela de carregar', async () => {
+    mockSupabase.rpc = jest.fn((nome: string) =>
+      Promise.resolve(
+        nome === 'cnpj_da_unidade'
+          ? { data: null, error: { message: 'SEM_PERMISSAO', code: '42501' } }
+          : { data: [], error: null },
+      ),
+    ) as unknown as typeof mockSupabase.rpc;
+
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Nome da unidade').props.value).toBe(
+        'Unidade Teste',
+      ),
+    );
+    expect(screen.getByPlaceholderText('Não informado').props.value).toBe('');
+    expect(screen.queryByText('Erro ao carregar dados da unidade')).toBeNull();
+  });
+
+  it('RPC do CNPJ indisponível (PGRST202): "Não informado", sem aviso no log', async () => {
+    const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    mockSupabase.rpc = jest.fn((nome: string) =>
+      Promise.resolve(
+        nome === 'cnpj_da_unidade'
+          ? {
+              data: null,
+              error: {
+                message: 'Could not find the function',
+                code: 'PGRST202',
+              },
+            }
+          : { data: [], error: null },
+      ),
+    ) as unknown as typeof mockSupabase.rpc;
+
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Nome da unidade').props.value).toBe(
+        'Unidade Teste',
+      ),
+    );
+    expect(screen.getByPlaceholderText('Não informado').props.value).toBe('');
+    expect(aviso).not.toHaveBeenCalledWith(
+      'CNPJ da unidade indisponível',
+      expect.anything(),
+    );
+    aviso.mockRestore();
+  });
+
+  it('outra falha da RPC do CNPJ fica registrada no log', async () => {
+    const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    mockSupabase.rpc = jest.fn((nome: string) =>
+      Promise.resolve(
+        nome === 'cnpj_da_unidade'
+          ? { data: null, error: { message: 'SEM_PERMISSAO', code: '42501' } }
+          : { data: [], error: null },
+      ),
+    ) as unknown as typeof mockSupabase.rpc;
+
+    render(<UnidadeScreen />);
+
+    await waitFor(() =>
+      expect(aviso).toHaveBeenCalledWith(
+        'CNPJ da unidade indisponível',
+        expect.objectContaining({ code: '42501' }),
+      ),
+    );
+    aviso.mockRestore();
   });
 
   it('mostra o botão de editar para gestor (hoje some para todos)', async () => {
