@@ -287,6 +287,64 @@ describe('useTimelineData — revalidação', () => {
     await waitFor(() => expect(cargasDaPagina1()).toBe(antes + 1));
   });
 
+  // Revisão, M2: na volta ao app a reconexão e o primeiro plano costumam
+  // disparar juntos, e cada um recarregava (refresh ignora a deduplicação).
+  it('reconexão e volta ao primeiro plano juntas: uma recarga só', async () => {
+    const disparar = espiarAppState();
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const status = (supabase.subscribe as jest.Mock).mock.calls[0][0] as (
+      s: string,
+    ) => void;
+    await act(async () => status('SUBSCRIBED'));
+    const antes = cargasDaPagina1();
+
+    await act(async () => {
+      status('CHANNEL_ERROR');
+      disparar('background');
+      disparar('active');
+      status('SUBSCRIBED');
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 800));
+    });
+
+    expect(cargasDaPagina1()).toBe(antes + 1);
+  });
+
+  it('reconexão com o app em segundo plano não recarrega ali', async () => {
+    espiarAppState();
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const status = (supabase.subscribe as jest.Mock).mock.calls[0][0] as (
+      s: string,
+    ) => void;
+    await act(async () => status('SUBSCRIBED'));
+    const antes = cargasDaPagina1();
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'background',
+      configurable: true,
+    });
+    try {
+      await act(async () => {
+        status('TIMED_OUT');
+        status('SUBSCRIBED');
+        await new Promise((r) => setTimeout(r, 800));
+      });
+      expect(cargasDaPagina1()).toBe(antes);
+    } finally {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        configurable: true,
+      });
+    }
+  });
+
   it('sem realtime, voltar ao primeiro plano não recarrega', async () => {
     const disparar = espiarAppState();
     const { result } = renderHook(() =>
