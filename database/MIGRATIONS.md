@@ -2231,7 +2231,7 @@ o comentário e os grants.
 
 ### ✅ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
 
-**Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **✅ aplicada em24/10/2026 pelo CLI** (sonda antes e depois), antes da `delete-account` v8. **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
+**Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois), antes da `delete-account` v8. **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
 tem `REVOKE`/`DELETE`), DEPOIS publicar a `delete-account`.** Com a função nova no
 ar e a FK ainda `CASCADE`, a guarda deixa passar o motorista sem rota em
 andamento e a exclusão apagaria os incidentes dele. A migration sozinha é
