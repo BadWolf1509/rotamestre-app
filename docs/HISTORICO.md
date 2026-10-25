@@ -8,6 +8,44 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Varredura de 24–25/10/2026 e release 1.14.6
+
+Cinco trilhas em paralelo, uma por PR, mescladas na `main` em 24–25/10:
+
+- **Conta (#653):** exclusão de conta com guardas, login de conta desativada, "Sair" que para o rastreamento e regra única de senha.
+- **Permissões no banco (#654 e #656):** Migrations 48, 49, 50, 52, 57, 58 e 59. Logs, posições e logs de push passam a ser lidos pela loja da rota; rotas e paradas do motorista valem pelo vínculo ativo com a loja; o comprovante vinculado é preservado; parada e incidente só mudam de rota pelo gestor das lojas de origem e de destino. Junto, o app passou a ler `unidades` só pelas colunas de `SELECT_UNIDADE_APP`.
+- **Motorista, 1.14.6 (#655):** o SOS chega a todos os gestores ativos das lojas do motorista; o rastreamento só roda durante a rota e é desligado quando ela acaba; as posições saem com o horário do GPS; as notificações têm um contador único; as preferências de push são por categoria (o SOS sempre chega).
+- **Gestor (#657):** a tela da rota ao vivo (inclusive a linha do tempo) segue o realtime; a reordenação não perde a ordem não salva quando o motorista conclui ou inicia uma parada; parada finalizada não pode ser apagada nem editada; a Gestão de Rotas é paginada, com busca e filtro no servidor, e exporta todas as rotas, com progresso e CSV com fórmula neutralizada; desativar motorista com rotas abertas lista as rotas; seletor de loja no cabeçalho; confirmações que não excluem não mostram lixeira; foto offline guardada sem esperar um refresh de token preso; medida de GPS fora da faixa vira `null`.
+- **Fila de posições:** #658 — cheia, ela espaça as posições pelo menor buraco no tempo em vez de descartar as mais antigas; dirigindo, as 500 posições cobriam só ~40 min de área sem sinal.
+- **CI:** #652 (testes e dependências no CI; o passo que regenera os snapshots visuais passou a rodar só os testes `@visual`).
+- **Banco:** #659 — Migrations 61 a 64 (o incidente mantém o motorista que o registrou e sempre tem loja; log na rota só pelo gestor da loja ou pelo motorista da rota; a API sem privilégios de manutenção nas tabelas), aplicadas em 25/10 com sonda antes e depois.
+- **Release:** #660 — 1.14.6 (versionCode 3044) na faixa interna.
+
+**Em produção:** Migrations 46 a 50 e 52 a 60 (a 50 está registrada como `20261024121500`, porque `20261024120000` é a 53; ver `npx supabase migration list` para o detalhe), `delete-account` v8 e `send-push-notification` v16. A Migration 60 (`20261025140000`) alarga `motorista_locations.velocidade`, `precisao` e `heading` para `numeric(8,2)`.
+
+**Validação no dev build (aparelho Android, 25/10):**
+
+- offline por ~13 h e volta com o rastreamento vivo;
+- reabrir o app sem rede;
+- rota cancelada pela web com o app em segundo plano: o rastreamento é desligado na abertura;
+- SOS com e sem rede;
+- reordenação × realtime;
+- tela ao vivo do gestor;
+- desativar motorista com rota aberta.
+
+**Achados da validação:**
+
+- a linha do tempo da rota ao vivo ficava parada (corrigido no #657);
+- a confirmação que não exclui mostrava lixeira (#657);
+- a foto offline levava ~25 s para sair da fila, esperando um refresh de token preso (#657);
+- `velocidade/precisao/heading` estouravam `numeric(5,2)`: o GPS entrega precisão acima de 1000 m logo depois de abrir o app em ambiente fechado, o insert era recusado (22003) e, sem rede, a posição ruim prendia o lote da rota inteira na fila (Migration 60 e `sanearPosicao`; o #658 trata o resto da fila);
+- reabrir o app com Wi-Fi conectado e sem internet leva ~1 min (pendência 27).
+
+**Lições:**
+
+- Registrar migration aplicada à mão com `ON CONFLICT DO NOTHING` escondeu uma colisão de versão; use `RETURNING` e confira a linha.
+- Teste no aparelho sem rede com Wi-Fi sem internet (DNS inválido) é mais duro que o modo avião: nenhum atalho de "sem rede" dispara.
+
 ## Release 1.14.4 e validação offline (23–24/10/2026)
 
 - **#641:** pendências menores (rollback de foto relê antes de apagar, mensagem "parada indisponível", listener de abort, guarda CRLF da M43, histórico fail-closed).
