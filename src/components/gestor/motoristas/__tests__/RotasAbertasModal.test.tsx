@@ -30,6 +30,37 @@ describe('RotasAbertasModal', () => {
     expect(screen.getByText(/reatribua.*ou cancele/i)).toBeTruthy();
   });
 
+  it('não promete trocar o motorista da rota em andamento: ela só pode ser cancelada', () => {
+    render(<RotasAbertasModal bloqueio={bloqueio} onClose={jest.fn()} />);
+
+    expect(
+      screen.getByText(
+        'João Silva tem 3 rotas abertas nesta loja. Antes de desativar, reatribua a outro motorista ou cancele as pendentes; a em andamento só pode ser cancelada.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Toque numa rota para abrir. Na pendente dá para trocar o motorista ou cancelar; na em andamento, só cancelar.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('só uma rota em andamento: o texto fala só em cancelar', () => {
+    render(
+      <RotasAbertasModal
+        bloqueio={{ nomeMotorista: 'Ana', rotas: [bloqueio.rotas[0]] }}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'Ana tem 1 rota em andamento nesta loja. Rota em andamento não troca de motorista: antes de desativar, cancele-a.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/reatribua/)).toBeNull();
+  });
+
   it('tocar numa rota fecha o aviso e abre a tela da rota', () => {
     const onClose = jest.fn();
     render(<RotasAbertasModal bloqueio={bloqueio} onClose={onClose} />);
@@ -67,12 +98,22 @@ describe('RotasAbertasModal', () => {
     ).toBeTruthy();
   });
 
-  it('com várias rotas, o texto conta e fica no plural', () => {
-    render(<RotasAbertasModal bloqueio={bloqueio} onClose={jest.fn()} />);
+  it('com várias rotas pendentes, o texto conta e fica no plural', () => {
+    render(
+      <RotasAbertasModal
+        bloqueio={{ nomeMotorista: 'João Silva', rotas: bloqueio.rotas.slice(1) }}
+        onClose={jest.fn()}
+      />,
+    );
 
     expect(
       screen.getByText(
-        'João Silva tem 3 rotas abertas nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.',
+        'João Silva tem 2 rotas abertas nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Toque numa rota para abrir e trocar o motorista ou cancelar.',
       ),
     ).toBeTruthy();
   });

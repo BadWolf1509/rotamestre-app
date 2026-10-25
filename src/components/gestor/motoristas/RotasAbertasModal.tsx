@@ -1,7 +1,8 @@
 /**
  * Aviso de desativação recusada: o motorista tem rota pendente ou em
  * andamento nesta loja (Migration 54). Lista as rotas; cada uma abre a tela da
- * rota, onde o gestor troca o motorista ou cancela. Depois, desativa de novo.
+ * rota, onde o gestor troca o motorista (só da pendente) ou cancela. Depois,
+ * desativa de novo.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -15,13 +16,45 @@ import type { BloqueioDesativacao } from '@/hooks/motoristas-gestor/useBloqueioD
 import { formatDateBR } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-/** O texto conta as rotas (singular com uma); sem lista legível, não conta. */
-function textoDoBloqueio(nome: string, total: number): string {
-  if (total === 1) {
-    return `${nome} tem 1 rota aberta nesta loja. Antes de desativar, reatribua a rota a outro motorista ou cancele-a.`;
+/**
+ * O texto conta as rotas (singular com uma); sem lista legível, não conta.
+ * Só promete o que a tela da rota permite: trocar o motorista vale para a
+ * pendente; a em andamento só pode ser cancelada (`RouteInfoHeaderCompact`).
+ */
+function textoDoBloqueio(
+  nome: string,
+  rotas: BloqueioDesativacao['rotas'],
+): string {
+  const total = rotas.length;
+  const emAndamento = rotas.filter((r) => r.status === 'em_andamento').length;
+  if (total === 0) {
+    return `${nome} tem rotas abertas nesta loja. Antes de desativar, reatribua a outro motorista ou cancele as pendentes; as em andamento só podem ser canceladas.`;
   }
-  const quantas = total > 1 ? `${total} rotas abertas` : 'rotas abertas';
-  return `${nome} tem ${quantas} nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.`;
+  if (emAndamento === 0) {
+    return total === 1
+      ? `${nome} tem 1 rota aberta nesta loja. Antes de desativar, reatribua a rota a outro motorista ou cancele-a.`
+      : `${nome} tem ${total} rotas abertas nesta loja. Antes de desativar, reatribua cada rota a outro motorista ou cancele-a.`;
+  }
+  if (emAndamento === total) {
+    return total === 1
+      ? `${nome} tem 1 rota em andamento nesta loja. Rota em andamento não troca de motorista: antes de desativar, cancele-a.`
+      : `${nome} tem ${total} rotas em andamento nesta loja. Rota em andamento não troca de motorista: antes de desativar, cancele cada uma.`;
+  }
+  const cauda =
+    emAndamento === 1
+      ? 'a em andamento só pode ser cancelada'
+      : 'as em andamento só podem ser canceladas';
+  return `${nome} tem ${total} rotas abertas nesta loja. Antes de desativar, reatribua a outro motorista ou cancele as pendentes; ${cauda}.`;
+}
+
+function dicaDoBloqueio(rotas: BloqueioDesativacao['rotas']): string {
+  const temEmAndamento = rotas.some((r) => r.status === 'em_andamento');
+  const temPendente = rotas.some((r) => r.status !== 'em_andamento');
+  if (temEmAndamento && temPendente) {
+    return 'Toque numa rota para abrir. Na pendente dá para trocar o motorista ou cancelar; na em andamento, só cancelar.';
+  }
+  if (temEmAndamento) return 'Toque na rota para abrir e cancelar.';
+  return 'Toque numa rota para abrir e trocar o motorista ou cancelar.';
 }
 
 const ROTULO_STATUS: Record<string, string> = {
@@ -60,12 +93,10 @@ export function RotasAbertasModal({
       {bloqueio && (
         <View style={styles.corpo}>
           <Text style={styles.texto}>
-            {textoDoBloqueio(nome, rotas.length)}
+            {textoDoBloqueio(nome, rotas)}
           </Text>
           {rotas.length > 0 && (
-            <Text style={styles.dica}>
-              Toque numa rota para abrir e trocar o motorista ou cancelar.
-            </Text>
+            <Text style={styles.dica}>{dicaDoBloqueio(rotas)}</Text>
           )}
           {/* No aparelho o DesktopModal (bottom sheet) não rola o corpo:
               a lista rola sozinha, com altura limitada. */}
