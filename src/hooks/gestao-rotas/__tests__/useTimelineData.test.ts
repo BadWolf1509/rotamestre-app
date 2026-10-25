@@ -1,4 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -224,5 +225,80 @@ describe('useTimelineData — realtime', () => {
 
     expect(result.current.events[0].id).toBe('log-999');
     expect(result.current.events.length).toBe(before + 1);
+  });
+});
+
+// DP-2: o canal da timeline não revalidava na reconexão nem na volta do app
+// ao primeiro plano — evento perdido com o socket caído nunca aparecia.
+describe('useTimelineData — revalidação', () => {
+  const cargasDaPagina1 = () =>
+    (supabase.from as jest.Mock).mock.calls.filter(([t]) => t === 'logs')
+      .length;
+
+  function espiarAppState() {
+    const ouvintes: ((estado: string) => void)[] = [];
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+    });
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_e: string, cb: (estado: string) => void) => {
+        ouvintes.push(cb);
+        return { remove: jest.fn() } as never;
+      });
+    return (estado: string) => ouvintes.forEach((cb) => cb(estado));
+  }
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('recarrega na volta a SUBSCRIBED, não no primeiro', async () => {
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const status = (supabase.subscribe as jest.Mock).mock.calls[0][0] as (
+      s: string,
+    ) => void;
+    const antes = cargasDaPagina1();
+
+    await act(async () => status('SUBSCRIBED'));
+    expect(cargasDaPagina1()).toBe(antes);
+
+    await act(async () => {
+      status('TIMED_OUT');
+      status('SUBSCRIBED');
+    });
+    await waitFor(() => expect(cargasDaPagina1()).toBe(antes + 1));
+  });
+
+  it('recarrega quando o app volta ao primeiro plano', async () => {
+    const disparar = espiarAppState();
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const antes = cargasDaPagina1();
+
+    await act(async () => {
+      disparar('background');
+      disparar('active');
+    });
+    await waitFor(() => expect(cargasDaPagina1()).toBe(antes + 1));
+  });
+
+  it('sem realtime, voltar ao primeiro plano não recarrega', async () => {
+    const disparar = espiarAppState();
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: false }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const antes = cargasDaPagina1();
+
+    await act(async () => {
+      disparar('background');
+      disparar('active');
+    });
+    expect(cargasDaPagina1()).toBe(antes);
   });
 });

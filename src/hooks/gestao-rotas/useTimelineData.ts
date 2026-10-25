@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { PAGE_SIZE } from '@/components/timeline/types';
+import { useAoVoltarParaPrimeiroPlano } from '@/hooks/useAoVoltarParaPrimeiroPlano';
 import { useCachedData } from '@/hooks/useCachedData';
 import { CACHE_TTL } from '@/lib/cache';
 import { logger } from '@/lib/logger';
@@ -181,6 +182,7 @@ export function useTimelineData(
   // Realtime: hook é dono do canal.
   useEffect(() => {
     if (!realtime) return;
+    let jaInscreveu = false;
     const channel = supabase
       .channel(nomeDeCanalUnico(`route-timeline-${rotaId}`))
       .on(
@@ -224,11 +226,22 @@ export function useTimelineData(
           void refresh();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // A 1ª inscrição corre junto com a carga inicial; as seguintes são
+        // reconexão, e o que mudou com o socket caído não chega por evento.
+        if (status !== 'SUBSCRIBED') return;
+        if (jaInscreveu) void refresh();
+        jaInscreveu = true;
+      });
     return () => {
       supabase.removeChannel(channel);
     };
   }, [rotaId, realtime, refresh]);
+
+  // Em segundo plano o socket cai; ao voltar, recarrega a primeira página.
+  useAoVoltarParaPrimeiroPlano(() => {
+    void refresh();
+  }, realtime);
 
   return {
     events,

@@ -1,4 +1,5 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { AppState } from 'react-native';
 
 import { useRealtimeRoutes } from '../useRealtimeRoutes';
 
@@ -140,5 +141,90 @@ describe('useRealtimeRoutes', () => {
 
     const { supabase } = require('@/lib/supabase');
     expect(supabase.channel).not.toHaveBeenCalled();
+  });
+});
+
+// DP-2: sem isto, evento perdido com o socket caído (ou com o app em segundo
+// plano) nunca chegava, e a tela ficava com o dado velho até outro evento.
+describe('useRealtimeRoutes — revalidação', () => {
+  function espiarAppState() {
+    const ouvintes: ((estado: string) => void)[] = [];
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+    });
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_e: string, cb: (estado: string) => void) => {
+        ouvintes.push(cb);
+        return { remove: jest.fn() } as never;
+      });
+    return (estado: string) => ouvintes.forEach((cb) => cb(estado));
+  }
+
+  /** Callback do `.subscribe(status => ...)` do canal criado. */
+  const statusDoCanal = () =>
+    mockSubscribe.mock.calls[mockSubscribe.mock.calls.length - 1][0] as (
+      status: string,
+    ) => void;
+
+  beforeEach(() => {
+    // Os testes acima trocam useAuth/useUnidadeAtiva por spyOn sem restaurar.
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('o primeiro SUBSCRIBED não recarrega; a volta a SUBSCRIBED (reconexão) recarrega', () => {
+    const onRouteUpdate = jest.fn();
+    renderHook(() =>
+      useRealtimeRoutes({ enabled: true, onRouteUpdate, debounceMs: 100 }),
+    );
+
+    act(() => statusDoCanal()('SUBSCRIBED'));
+    act(() => jest.advanceTimersByTime(200));
+    expect(onRouteUpdate).not.toHaveBeenCalled();
+
+    act(() => {
+      statusDoCanal()('CHANNEL_ERROR');
+      statusDoCanal()('SUBSCRIBED');
+    });
+    act(() => jest.advanceTimersByTime(200));
+    expect(onRouteUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('o app voltar ao primeiro plano recarrega (com debounce)', () => {
+    const disparar = espiarAppState();
+    const onRouteUpdate = jest.fn();
+    renderHook(() =>
+      useRealtimeRoutes({ enabled: true, onRouteUpdate, debounceMs: 100 }),
+    );
+
+    act(() => {
+      disparar('background');
+      disparar('active');
+    });
+    expect(onRouteUpdate).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(200));
+    expect(onRouteUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('desligado, voltar ao primeiro plano não recarrega', () => {
+    const disparar = espiarAppState();
+    const onRouteUpdate = jest.fn();
+    renderHook(() =>
+      useRealtimeRoutes({ enabled: false, onRouteUpdate, debounceMs: 100 }),
+    );
+
+    act(() => {
+      disparar('background');
+      disparar('active');
+      jest.advanceTimersByTime(200);
+    });
+    expect(onRouteUpdate).not.toHaveBeenCalled();
   });
 });
