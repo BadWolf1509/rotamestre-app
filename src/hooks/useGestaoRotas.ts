@@ -165,6 +165,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const chaveFiltrosRef = useRef<string | null>(null);
   const cargaEmVooRef = useRef(false);
   const jaMostrouRef = useRef(false);
+  // Loja dos dados na tela: o seletor troca a loja sem remontar a tela.
+  const lojaDaCargaRef = useRef<string | null>(null);
   const rotasRef = useRef<RotaHistorico[]>([]);
   rotasRef.current = rotas;
 
@@ -215,6 +217,24 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     if (chave !== chaveFiltrosRef.current) {
       chaveFiltrosRef.current = chave;
       quantidadeRef.current = TAMANHO_PAGINA_ROTAS;
+    }
+
+    // Loja trocada: a lista, o total e as contagens da anterior saem da tela
+    // e o carregamento aparece (ou o cache da loja nova, logo abaixo). Sem
+    // isso, um erro na carga ofereceria os dados da OUTRA loja como "dados
+    // de HH:MM".
+    if (lojaDaCargaRef.current !== filtros.unidadeId) {
+      if (lojaDaCargaRef.current !== null) {
+        jaMostrouRef.current = false;
+        ultimaCargaOkRef.current = null;
+        setRotas([]);
+        setTotal(null);
+        setContagens(null);
+        setErroCarga(null);
+        setDadosDe(null);
+        setLoading(true);
+      }
+      lojaDaCargaRef.current = filtros.unidadeId;
     }
 
     // Esta carga substitui a anterior e qualquer "carregar mais" em voo (ela
