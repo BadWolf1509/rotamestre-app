@@ -13,6 +13,25 @@ jest.mock('../notifications', () => ({
   unregisterPushToken: jest.fn(async (id: string) => {
     mockOrdem.push(`unregister:${id}`);
   }),
+  cancelRouteReminder: jest.fn(async () => {
+    mockOrdem.push('lembrete');
+  }),
+}));
+
+jest.mock('@/services/unifiedLocationTracking', () => ({
+  stopBackgroundTracking: jest.fn(async () => {
+    mockOrdem.push('para-segundo-plano');
+  }),
+}));
+
+jest.mock('@/services/locationTracking', () => ({
+  __esModule: true,
+  default: {
+    stopTracking: jest.fn(async () => {
+      mockOrdem.push('para-navegacao');
+      return true;
+    }),
+  },
 }));
 
 jest.mock('../auth/limparEstadoLocal', () => ({
@@ -30,9 +49,12 @@ jest.mock('../logger', () => ({
   },
 }));
 
+import LocationTrackingService from '@/services/locationTracking';
+import { stopBackgroundTracking } from '@/services/unifiedLocationTracking';
+
 import { authService, PRAZO_LIMPEZA_PUSH_MS } from '../auth';
 import { limparEstadoLocalDoUsuario } from '../auth/limparEstadoLocal';
-import { unregisterPushToken } from '../notifications';
+import { cancelRouteReminder, unregisterPushToken } from '../notifications';
 import { supabase } from '../supabase';
 
 const auth = supabase.auth as jest.Mocked<typeof supabase.auth>;
@@ -54,8 +76,42 @@ describe('authService.signOut', () => {
   it('limpa o token com a sessão viva, sai só deste aparelho e limpa o estado', async () => {
     await authService.signOut();
 
-    expect(mockOrdem).toEqual(['unregister:user-1', 'signOut', 'limpar']);
+    expect(mockOrdem).toEqual([
+      'para-segundo-plano',
+      'para-navegacao',
+      'lembrete',
+      'unregister:user-1',
+      'signOut',
+      'limpar',
+    ]);
     expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('para a task de segundo plano e o modo navegação, e cancela o lembrete, antes de limpar o estado', async () => {
+    await authService.signOut();
+
+    expect(stopBackgroundTracking).toHaveBeenCalledTimes(1);
+    expect(LocationTrackingService.stopTracking).toHaveBeenCalledTimes(1);
+    expect(cancelRouteReminder).toHaveBeenCalledTimes(1);
+    expect(mockOrdem.indexOf('limpar')).toBeGreaterThan(
+      mockOrdem.indexOf('para-navegacao'),
+    );
+    expect(mockOrdem.indexOf('limpar')).toBeGreaterThan(
+      mockOrdem.indexOf('lembrete'),
+    );
+  });
+
+  it('falha ao parar o rastreamento ou cancelar o lembrete não impede o logout', async () => {
+    (stopBackgroundTracking as jest.Mock).mockRejectedValueOnce(new Error('x'));
+    (LocationTrackingService.stopTracking as jest.Mock).mockRejectedValueOnce(
+      new Error('y'),
+    );
+    (cancelRouteReminder as jest.Mock).mockRejectedValueOnce(new Error('z'));
+
+    await authService.signOut();
+
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(limparEstadoLocalDoUsuario).toHaveBeenCalled();
   });
 
   it('sem sessão não tenta limpar token, mas limpa o estado local', async () => {
@@ -67,7 +123,13 @@ describe('authService.signOut', () => {
     await authService.signOut();
 
     expect(unregisterPushToken).not.toHaveBeenCalled();
-    expect(mockOrdem).toEqual(['signOut', 'limpar']);
+    expect(mockOrdem).toEqual([
+      'para-segundo-plano',
+      'para-navegacao',
+      'lembrete',
+      'signOut',
+      'limpar',
+    ]);
   });
 
   it('falha ao limpar o token não impede o logout', async () => {

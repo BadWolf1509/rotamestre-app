@@ -82,16 +82,40 @@ export function useRouteActions({
     try {
       const now = new Date().toISOString();
 
-      // 1. Atualizar status da rota
-      const { error } = await supabase
+      // 1. Atualizar status da rota — só se ainda estiver pendente e for
+      // deste motorista. A tela pode estar velha (gestor cancelou, passou a
+      // outro motorista, ou já iniciada em outro aparelho), e a RLS recusa
+      // com 0 linhas, sem erro. Erro de rede chega em `error` e segue como
+      // antes: vai para a tela (iniciar não entra na fila offline).
+      const { data: iniciadas, error } = await supabase
         .from('rotas')
         .update({
           status: 'em_andamento',
           iniciada_em: now,
         })
-        .eq('id', route.id);
+        .eq('id', route.id)
+        .eq('status', 'pendente')
+        .eq('motorista_id', userData.id)
+        .select('id');
 
       if (error) throw error;
+
+      if (!iniciadas || iniciadas.length === 0) {
+        // O servidor respondeu e nada mudou: sem "Rota iniciada", sem
+        // rastreamento (nem o contexto dele) e sem mexer nas paradas. A
+        // recarga traz o estado real; falhar nela não pode engolir o aviso.
+        try {
+          await loadActiveRoute();
+        } catch (erroRecarga) {
+          logger.warn(
+            '[RouteStatus] startRoute: falha ao recarregar a rota que mudou',
+            erroRecarga,
+          );
+        }
+        throw new Error(
+          'ROTA_NAO_PENDENTE: a rota não está mais pendente para este motorista',
+        );
+      }
 
       // 2. Marcar ponto de partida (ordem 0) como concluído
       const checkpointPartida = paradas.find(
@@ -275,9 +299,14 @@ export function useRouteActions({
 
     // Conclusão guardada sem rede ainda não chegou ao banco: a RPC recusaria
     // com "paradas pendentes", e o motorista não entenderia por quê. Tenta
-    // enviar antes de recusar.
+    // enviar antes de recusar. Só as ações DESTA conta: a fila só sobe com a
+    // sessão do dono (`processarFilaAcoesParada`), então a de outra conta na
+    // mesma rota nunca sairia daqui e recusaria o Finalizar para sempre.
+    // Mesmo id com que `completeStop`/`skipStop` gravam o `motoristaId`.
     const contarNaFila = async () =>
-      (await lerFilaAcoesParada()).filter((a) => a.rotaId === route.id).length;
+      (await lerFilaAcoesParada()).filter(
+        (a) => a.rotaId === route.id && a.motoristaId === userData?.id,
+      ).length;
     let naFila = await contarNaFila();
     if (naFila > 0) {
       // Com teto: o envio pode incluir foto (até minutos em rede ruim), e o

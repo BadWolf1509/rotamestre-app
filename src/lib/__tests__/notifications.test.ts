@@ -164,6 +164,21 @@ describe('notifications', () => {
       expect(result).toBe(true);
     });
 
+    // AN12: roda a cada abertura do app (`initializeNotifications`). Com o
+    // pedido bloqueado pelo sistema, pedir de novo não mostra diálogo nenhum e,
+    // no Android, ainda abre a activity de permissão (o app pausa).
+    it('não pede de novo quando o sistema diz que não dá mais (canAskAgain false)', async () => {
+      mockGetPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+        canAskAgain: false,
+      });
+
+      const result = await requestNotificationPermissions();
+
+      expect(mockRequestPermissionsAsync).not.toHaveBeenCalled();
+      expect(result).toBe(false);
+    });
+
     it('should return false when permission denied', async () => {
       mockGetPermissionsAsync.mockResolvedValue({ status: 'denied' });
       mockRequestPermissionsAsync.mockResolvedValue({ status: 'denied' });
@@ -612,7 +627,7 @@ describe('notifications', () => {
       );
     });
 
-    it('should schedule route reminder when permissions granted', async () => {
+    it('não agenda o lembrete diário: ele é do motorista e sai no logout (useLembreteDiario)', async () => {
       mockGetPermissionsAsync.mockResolvedValue({ status: 'granted' });
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({ routeReminder: true, reminderTime: '08:00' }),
@@ -620,7 +635,7 @@ describe('notifications', () => {
 
       await initializeNotifications();
 
-      expect(mockScheduleNotificationAsync).toHaveBeenCalled();
+      expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
     });
   });
 

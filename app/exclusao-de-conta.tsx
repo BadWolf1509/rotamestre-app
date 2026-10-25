@@ -19,6 +19,7 @@ import {
 import { Text } from '@/design-system';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/lib/auth';
+import { ExclusaoRecusadaError } from '@/lib/auth/exclusaoRecusada';
 import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -48,8 +49,23 @@ function ExclusaoDeContaContent() {
         type: 'success',
       });
     } catch (error) {
-      logger.error('[AccountDeletion] Falha ao excluir conta', error);
       setConfirmVisible(false);
+      if (error instanceof ExclusaoRecusadaError) {
+        // Guarda do servidor: não é falha, é um aviso do que fazer antes. A
+        // mensagem vem pronta da função e substitui o 'escreva ao suporte'.
+        logger.warn('[AccountDeletion] Exclusão recusada', error.codigo);
+        setResult({
+          visible: true,
+          title:
+            error.codigo === 'GUARDA_INDISPONIVEL'
+              ? 'Tente novamente em instantes'
+              : 'Não é possível excluir agora',
+          message: error.message,
+          type: 'error',
+        });
+        return;
+      }
+      logger.error('[AccountDeletion] Falha ao excluir conta', error);
       setResult({
         visible: true,
         title: 'Não foi possível excluir',
@@ -87,6 +103,16 @@ function ExclusaoDeContaContent() {
           <LegalBullet>
             Avatar, preferências, tokens de notificação e localização vinculada
             diretamente ao usuário, quando não houver obrigação de retenção.
+          </LegalBullet>
+        </LegalSection>
+
+        <LegalSection title="Antes de excluir">
+          <LegalBullet>
+            Gestor único de uma loja: peça ao suporte para adicionar outro gestor antes.
+          </LegalBullet>
+          <LegalBullet>
+            Motorista com rota em andamento: finalize a rota, ou peça ao gestor
+            que a reatribua.
           </LegalBullet>
         </LegalSection>
 

@@ -137,10 +137,12 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     },
   );
 
-  // Religa o rastreamento em segundo plano que uma reinstalação apagou
+  // Religa o rastreamento em segundo plano que uma reinstalação apagou, e o
+  // desliga quando o banco diz que a rota não está mais em andamento
   const rastreamentoSegundoPlano = useGarantirRastreamentoDaRota({
     route,
     motorista: userData ? { id: userData.id, nome: userData.nome } : null,
+    cargaConfirmada: !loading && !error,
   });
 
   // Realtime subscription

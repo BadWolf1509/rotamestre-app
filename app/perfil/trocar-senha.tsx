@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { useController, useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,7 +12,14 @@ import { Button, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { classificarFalhaSenhaAtual } from '@/lib/auth/falhaSenhaAtual';
 import { logger } from '@/lib/logger';
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_SPECIAL_REGEX,
+  trocarSenhaSchema,
+  type TrocarSenhaInput,
+} from '@/lib/schemas';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -22,6 +31,12 @@ export default function AlterarSenha() {
   );
 }
 
+interface EstilosRequisito {
+  tipRow: object;
+  tipText: object;
+  tipTextValid: object;
+}
+
 function AlterarSenhaContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -30,41 +45,28 @@ function AlterarSenhaContent() {
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [saving, setSaving] = useState(false);
 
-  const [senhaAtual, setSenhaAtual] = useState('');
-  const [novaSenha, setNovaSenha] = useState('');
-  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const { control, handleSubmit } = useForm<TrocarSenhaInput>({
+    resolver: zodResolver(trocarSenhaSchema),
+    defaultValues: { senhaAtual: '', novaSenha: '', confirmarSenha: '' },
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
+  // `useController` (e não `Controller`) porque os dois layouts, mobile e
+  // desktop, leem os mesmos três campos.
+  const atual = useController({ control, name: 'senhaAtual' });
+  const nova = useController({ control, name: 'novaSenha' });
+  const confirmacao = useController({ control, name: 'confirmarSenha' });
+  const novaSenha = nova.field.value;
+  const confirmarSenha = confirmacao.field.value;
 
   const [showSenhaAtual, setShowSenhaAtual] = useState(false);
   const [showNovaSenha, setShowNovaSenha] = useState(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
-  async function handleSave() {
-    if (!senhaAtual) {
-      showWarning('Erro', 'Digite sua senha atual');
-      return;
-    }
-
-    if (!novaSenha) {
-      showWarning('Erro', 'Digite a nova senha');
-      return;
-    }
-
-    const validation = validatePassword(novaSenha);
-    if (!validation.isValid) {
-      showWarning('Erro', validation.message);
-      return;
-    }
-
-    if (novaSenha !== confirmarSenha) {
-      showWarning('Erro', 'As senhas não coincidem');
-      return;
-    }
-
-    if (senhaAtual === novaSenha) {
-      showWarning('Erro', 'A nova senha deve ser diferente da atual');
-      return;
-    }
-
+  async function onSubmit({
+    senhaAtual,
+    novaSenha: novaDigitada,
+  }: TrocarSenhaInput) {
     setSaving(true);
 
     try {
@@ -75,11 +77,20 @@ function AlterarSenhaContent() {
 
       try {
         await authService.signIn(session.user.email, senhaAtual);
-      } catch {
-        throw new Error('Senha atual incorreta');
+      } catch (erroLogin) {
+        // Antes, TODA falha aqui virava "Senha atual incorreta". Agora: senha
+        // recusada, sem rede ou servidor fora (cada um com a sua mensagem), e
+        // perfil que não carregou DEPOIS de a senha ser aceita, que segue com
+        // a troca. Ver `falhaSenhaAtual.ts`, igual à tela do motorista.
+        const falha = classificarFalhaSenhaAtual(erroLogin);
+        if (falha) {
+          logger.warn('[AlterarSenha] Senha atual não conferida', erroLogin);
+          showWarning(falha.titulo, falha.mensagem);
+          return;
+        }
       }
 
-      await authService.updatePassword(novaSenha);
+      await authService.updatePassword(novaDigitada);
 
       await supabase
         .from('usuarios')
@@ -89,7 +100,9 @@ function AlterarSenhaContent() {
         })
         .eq('id', session.user.id);
 
-      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () => router.back());
+      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () =>
+        router.back(),
+      );
     } catch (error: unknown) {
       logger.error('Erro ao alterar senha', error);
       showError(error);
@@ -98,56 +111,59 @@ function AlterarSenhaContent() {
     }
   }
 
-  function validatePassword(password: string): {
-    isValid: boolean;
-    message: string;
-    strength: 'weak' | 'medium' | 'strong' | 'invalid';
-  } {
-    if (password.length < 8) {
-      return { isValid: false, message: 'Mínimo 8 caracteres', strength: 'invalid' };
-    }
+  const passwordsMatch =
+    !!novaSenha && !!confirmarSenha && novaSenha === confirmarSenha;
 
-    if (!/[A-Z]/.test(password)) {
-      return { isValid: false, message: 'Deve conter letra maiúscula', strength: 'invalid' };
-    }
+  // Os requisitos obrigatórios são exatamente os do `passwordSchema`.
+  const requisitos = [
+    {
+      ok: novaSenha.length >= PASSWORD_MIN_LENGTH,
+      texto: `Mínimo de ${PASSWORD_MIN_LENGTH} caracteres`,
+    },
+    { ok: /[A-Z]/.test(novaSenha), texto: 'Letra maiúscula' },
+    { ok: /[a-z]/.test(novaSenha), texto: 'Letra minúscula' },
+    { ok: /[0-9]/.test(novaSenha), texto: 'Número' },
+    {
+      ok: PASSWORD_SPECIAL_REGEX.test(novaSenha),
+      texto: 'Caractere especial (@, #, $, etc.)',
+    },
+  ];
+  const bonus = [
+    { ok: novaSenha.length >= 12, texto: '12 ou mais caracteres' },
+  ];
 
-    if (!/[a-z]/.test(password)) {
-      return { isValid: false, message: 'Deve conter letra minúscula', strength: 'invalid' };
-    }
-
-    if (!/[0-9]/.test(password)) {
-      return { isValid: false, message: 'Deve conter número', strength: 'invalid' };
-    }
-
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    const isLong = password.length >= 12;
-
-    if (hasSpecialChar && isLong) {
-      return { isValid: true, message: 'Senha forte', strength: 'strong' };
-    }
-
-    if (hasSpecialChar || isLong) {
-      return { isValid: true, message: 'Senha media', strength: 'medium' };
-    }
-
-    return { isValid: true, message: 'Senha valida', strength: 'weak' };
+  // Função chamada como {renderLinhas()}, nunca <Linhas />: ver CLAUDE.md.
+  function renderLinhas(
+    itens: { ok: boolean; texto: string }[],
+    estilos: EstilosRequisito,
+  ) {
+    return itens.map(({ ok, texto }) => (
+      <View key={texto} style={estilos.tipRow}>
+        <Ionicons
+          name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+          size={16}
+          color={ok ? theme.colors.success : theme.colors.gray400}
+        />
+        <Text style={[estilos.tipText, ok && estilos.tipTextValid]}>
+          {texto}
+        </Text>
+      </View>
+    ));
   }
-
-  const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
-  const passwordsMatch = novaSenha && confirmarSenha && novaSenha === confirmarSenha;
 
   if (isDesktop) {
     const fields = [
       {
         label: 'Senha Atual',
-        value: senhaAtual,
+        value: atual.field.value,
         placeholder: 'Digite sua senha atual',
         secureTextEntry: !showSenhaAtual,
         showPasswordToggle: true,
         isPasswordVisible: showSenhaAtual,
         onTogglePassword: () => setShowSenhaAtual(!showSenhaAtual),
-        onChange: setSenhaAtual,
+        onChange: atual.field.onChange,
         autoCapitalize: 'none' as const,
+        error: atual.fieldState.error?.message,
       },
       {
         label: 'Nova Senha',
@@ -157,11 +173,9 @@ function AlterarSenhaContent() {
         showPasswordToggle: true,
         isPasswordVisible: showNovaSenha,
         onTogglePassword: () => setShowNovaSenha(!showNovaSenha),
-        onChange: setNovaSenha,
+        onChange: nova.field.onChange,
         autoCapitalize: 'none' as const,
-        helperText: passwordStrength?.isValid ? passwordStrength.message : undefined,
-        helperTextType: passwordStrength?.strength === 'strong' ? 'success' as const : passwordStrength?.strength === 'medium' ? 'warning' as const : undefined,
-        error: passwordStrength && !passwordStrength.isValid ? passwordStrength.message : undefined,
+        error: nova.fieldState.error?.message,
       },
       {
         label: 'Confirmar Nova Senha',
@@ -171,82 +185,28 @@ function AlterarSenhaContent() {
         showPasswordToggle: true,
         isPasswordVisible: showConfirmarSenha,
         onTogglePassword: () => setShowConfirmarSenha(!showConfirmarSenha),
-        onChange: setConfirmarSenha,
+        onChange: confirmacao.field.onChange,
         autoCapitalize: 'none' as const,
-        helperText: confirmarSenha && passwordsMatch ? 'Senhas coincidem' : undefined,
-        helperTextType: passwordsMatch ? 'success' as const : undefined,
-        error: confirmarSenha && !passwordsMatch ? 'Senhas não coincidem' : undefined,
+        helperText: passwordsMatch ? 'Senhas coincidem' : undefined,
+        helperTextType: passwordsMatch ? ('success' as const) : undefined,
+        error: confirmacao.fieldState.error?.message,
       },
     ];
 
     const sidePanel = (
       <View style={desktopStyles(theme).sidePanel}>
         <View style={desktopStyles(theme).tipsCard}>
-          <Text style={desktopStyles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
+          <Text style={desktopStyles(theme).tipsTitle}>
+            Requisitos obrigatórios:
+          </Text>
           <View style={desktopStyles(theme).tipsList}>
-            <View style={desktopStyles(theme).tipRow}>
-              <Ionicons
-                name={novaSenha.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={novaSenha.length >= 8 ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[desktopStyles(theme).tipText, novaSenha.length >= 8 && desktopStyles(theme).tipTextValid]}>
-                Minimo de 8 caracteres
-              </Text>
-            </View>
-            <View style={desktopStyles(theme).tipRow}>
-              <Ionicons
-                name={/[A-Z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[A-Z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[desktopStyles(theme).tipText, /[A-Z]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Letra maiuscula
-              </Text>
-            </View>
-            <View style={desktopStyles(theme).tipRow}>
-              <Ionicons
-                name={/[a-z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[a-z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[desktopStyles(theme).tipText, /[a-z]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Letra minuscula
-              </Text>
-            </View>
-            <View style={desktopStyles(theme).tipRow}>
-              <Ionicons
-                name={/[0-9]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[0-9]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[desktopStyles(theme).tipText, /[0-9]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Numero
-              </Text>
-            </View>
+            {renderLinhas(requisitos, desktopStyles(theme))}
           </View>
-          <Text style={desktopStyles(theme).tipsSectionTitle}>Para senha forte:</Text>
+          <Text style={desktopStyles(theme).tipsSectionTitle}>
+            Para senha forte:
+          </Text>
           <View style={desktopStyles(theme).tipsList}>
-            <View style={desktopStyles(theme).tipRow}>
-              <Ionicons
-                name={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[desktopStyles(theme).tipText, /[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) && desktopStyles(theme).tipTextValid]}>
-                Caractere especial (@, #, $, etc.)
-              </Text>
-            </View>
-            <View style={desktopStyles(theme).tipRow}>
-              <Ionicons
-                name={novaSenha.length >= 12 ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={novaSenha.length >= 12 ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[desktopStyles(theme).tipText, novaSenha.length >= 12 && desktopStyles(theme).tipTextValid]}>
-                12 ou mais caracteres
-              </Text>
-            </View>
+            {renderLinhas(bonus, desktopStyles(theme))}
           </View>
         </View>
       </View>
@@ -259,15 +219,8 @@ function AlterarSenhaContent() {
           subtitle="Crie uma senha forte para proteger sua conta"
           fields={fields}
           primaryButtonText="Alterar Senha"
-          primaryButtonDisabled={
-            saving ||
-            !senhaAtual ||
-            !novaSenha ||
-            !confirmarSenha ||
-            !passwordsMatch ||
-            (passwordStrength ? !passwordStrength.isValid : true)
-          }
-          onPrimaryPress={handleSave}
+          primaryButtonDisabled={saving}
+          onPrimaryPress={handleSubmit(onSubmit)}
           secondaryButtonText="Cancelar"
           onSecondaryPress={() => router.push('/perfil')}
           loading={saving}
@@ -283,7 +236,9 @@ function AlterarSenhaContent() {
     <View style={styles(theme).container}>
       <ScrollView
         style={styles(theme).scrollView}
-        contentContainerStyle={{ paddingBottom: Math.max(20, insets.bottom + 20) }}
+        contentContainerStyle={{
+          paddingBottom: Math.max(20, insets.bottom + 20),
+        }}
       >
         <View style={styles(theme).header}>
           <View style={styles(theme).headerContent}>
@@ -298,13 +253,15 @@ function AlterarSenhaContent() {
             label="Senha Atual"
             required
             placeholder="Digite sua senha atual"
-            value={senhaAtual}
-            onChangeText={setSenhaAtual}
+            value={atual.field.value}
+            onChangeText={atual.field.onChange}
+            onBlur={atual.field.onBlur}
             secureTextEntry={!showSenhaAtual}
             autoCapitalize="none"
             autoCorrect={false}
             rightIcon={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
             onRightIconPress={() => setShowSenhaAtual(!showSenhaAtual)}
+            error={atual.fieldState.error?.message}
           />
 
           <Input
@@ -312,115 +269,48 @@ function AlterarSenhaContent() {
             required
             placeholder="Digite a nova senha"
             value={novaSenha}
-            onChangeText={setNovaSenha}
+            onChangeText={nova.field.onChange}
+            onBlur={nova.field.onBlur}
             secureTextEntry={!showNovaSenha}
             autoCapitalize="none"
             autoCorrect={false}
             rightIcon={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
             onRightIconPress={() => setShowNovaSenha(!showNovaSenha)}
+            error={nova.fieldState.error?.message}
           />
-          {passwordStrength && (
-            <Text
-              style={[
-                styles(theme).helperText,
-                passwordStrength.strength === 'strong' && styles(theme).helperTextSuccess,
-                passwordStrength.strength === 'medium' && styles(theme).helperTextWarning,
-                !passwordStrength.isValid && styles(theme).helperTextError,
-              ]}
-            >
-              {passwordStrength.message}
-            </Text>
-          )}
 
           <Input
             label="Confirmar Nova Senha"
             required
             placeholder="Digite a senha novamente"
             value={confirmarSenha}
-            onChangeText={setConfirmarSenha}
+            onChangeText={confirmacao.field.onChange}
+            onBlur={confirmacao.field.onBlur}
             secureTextEntry={!showConfirmarSenha}
             autoCapitalize="none"
             autoCorrect={false}
             rightIcon={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
             onRightIconPress={() => setShowConfirmarSenha(!showConfirmarSenha)}
+            error={confirmacao.fieldState.error?.message}
           />
-          {confirmarSenha && (
+          {passwordsMatch && (
             <Text
-              style={[
-                styles(theme).helperText,
-                passwordsMatch
-                  ? styles(theme).helperTextSuccess
-                  : styles(theme).helperTextError,
-              ]}
+              style={[styles(theme).helperText, styles(theme).helperTextSuccess]}
             >
-              {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
+              Senhas coincidem
             </Text>
           )}
 
           <View style={styles(theme).tipsContainer}>
-            <Text style={styles(theme).tipsTitle}>Requisitos obrigatórios:</Text>
-            <View style={styles(theme).tipRow}>
-              <Ionicons
-                name={novaSenha.length >= 8 ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={novaSenha.length >= 8 ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[styles(theme).tipText, novaSenha.length >= 8 && styles(theme).tipTextValid]}>
-                Minimo de 8 caracteres
-              </Text>
-            </View>
-            <View style={styles(theme).tipRow}>
-              <Ionicons
-                name={/[A-Z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[A-Z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[styles(theme).tipText, /[A-Z]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Letra maiuscula
-              </Text>
-            </View>
-            <View style={styles(theme).tipRow}>
-              <Ionicons
-                name={/[a-z]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[a-z]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[styles(theme).tipText, /[a-z]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Letra minuscula
-              </Text>
-            </View>
-            <View style={styles(theme).tipRow}>
-              <Ionicons
-                name={/[0-9]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[0-9]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[styles(theme).tipText, /[0-9]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Numero
-              </Text>
-            </View>
+            <Text style={styles(theme).tipsTitle}>
+              Requisitos obrigatórios:
+            </Text>
+            {renderLinhas(requisitos, styles(theme))}
 
-            <Text style={[styles(theme).tipsTitle, { marginTop: 12 }]}>Para senha forte:</Text>
-            <View style={styles(theme).tipRow}>
-              <Ionicons
-                name={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={/[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[styles(theme).tipText, /[!@#$%^&*(),.?":{}|<>]/.test(novaSenha) && styles(theme).tipTextValid]}>
-                Caractere especial (@, #, $, etc.)
-              </Text>
-            </View>
-            <View style={styles(theme).tipRow}>
-              <Ionicons
-                name={novaSenha.length >= 12 ? 'checkmark-circle' : 'ellipse-outline'}
-                size={16}
-                color={novaSenha.length >= 12 ? theme.colors.success : theme.colors.gray400}
-              />
-              <Text style={[styles(theme).tipText, novaSenha.length >= 12 && styles(theme).tipTextValid]}>
-                12 ou mais caracteres
-              </Text>
-            </View>
+            <Text style={[styles(theme).tipsTitle, { marginTop: 12 }]}>
+              Para senha forte:
+            </Text>
+            {renderLinhas(bonus, styles(theme))}
           </View>
 
           <View style={styles(theme).buttonsContainer}>
@@ -435,9 +325,9 @@ function AlterarSenhaContent() {
             <Button
               title="Salvar"
               variant="secondary"
-              onPress={handleSave}
+              onPress={handleSubmit(onSubmit)}
               loading={saving}
-              disabled={saving || !passwordStrength?.isValid || !passwordsMatch || !senhaAtual}
+              disabled={saving}
               style={styles(theme).buttonPrimary}
             />
           </View>

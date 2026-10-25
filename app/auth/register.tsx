@@ -11,6 +11,7 @@ import { Button, Card, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { contaComoTentativaDeCadastro } from '@/lib/auth/tentativaDeCadastro';
 import { signupRateLimiter } from '@/lib/rateLimiter';
 import {
   PASSWORD_MIN_LENGTH,
@@ -68,8 +69,11 @@ function RegisterContent() {
         () => router.replace('/auth/login'),
       );
     } catch (error: unknown) {
-      // Registrar tentativa falha
-      await signupRateLimiter.recordAttempt(email, false);
+      // Só conta a tentativa que chegou ao servidor e foi recusada por abuso
+      // ou pelo e-mail: rede fora e senha fraca não trancam ninguém.
+      if (contaComoTentativaDeCadastro(error)) {
+        await signupRateLimiter.recordAttempt(email, false);
+      }
 
       // Usar error mapping para mensagem amigável
       showError(error);
@@ -190,7 +194,7 @@ function RegisterContent() {
                 accessibilityRole="link"
               >
                 <Text tone="primary" style={styles.backLinkText}>
-                  Ja tem uma conta? Faca login
+                  Já tem uma conta? Faça login
                 </Text>
               </TouchableOpacity>
             </View>

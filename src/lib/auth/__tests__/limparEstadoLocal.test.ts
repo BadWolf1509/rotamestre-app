@@ -11,6 +11,14 @@ import {
   limparEstadoLocalDoUsuario,
 } from '../limparEstadoLocal';
 
+// Ordem das chamadas que importam: invalidar as posições em voo ANTES de
+// apagar o armazenamento, senão um insert que falha por rede logo depois
+// regravaria a fila da conta que saiu.
+const ordem: string[] = [];
+jest.mock('../../motorista/filaPosicoes', () => ({
+  invalidarPosicoesEmVoo: () => ordem.push('invalidar'),
+}));
+
 const DA_PESSOA = [
   '@cache_user_data_u1',
   '@cache_rotas_list_un1',
@@ -60,8 +68,13 @@ beforeEach(() => {
     disco.delete(k);
   });
   (AsyncStorage.multiRemove as jest.Mock).mockImplementation(async (ks) => {
+    ordem.push('apagar');
     for (const k of ks) disco.delete(k);
   });
+  (AsyncStorage.clear as jest.Mock).mockImplementation(async () => {
+    ordem.push('apagar');
+  });
+  ordem.length = 0;
 });
 
 describe('limparEstadoLocalDoUsuario', () => {
@@ -73,6 +86,11 @@ describe('limparEstadoLocalDoUsuario', () => {
   it('preserva preferências do aparelho e a fila de fotos offline', async () => {
     await limparEstadoLocalDoUsuario();
     expect([...disco.keys()].sort()).toEqual([...DO_APARELHO].sort());
+  });
+
+  it('invalida as posições em voo antes de apagar as chaves da conta', async () => {
+    await limparEstadoLocalDoUsuario();
+    expect(ordem).toEqual(['invalidar', 'apagar']);
   });
 
   it('não lança se o armazenamento falhar: o logout tem de seguir', async () => {
@@ -132,11 +150,17 @@ describe('limparAparelhoAoExcluirConta', () => {
       },
     );
     (AsyncStorage.clear as jest.Mock).mockImplementation(async () => {
+      ordem.push('apagar');
       disco.clear();
     });
   });
 
   const ler = (k: string) => JSON.parse(disco.get(k) ?? '[]');
+
+  it('invalida as posições em voo antes de apagar o aparelho', async () => {
+    await limparAparelhoAoExcluirConta('quem-sai');
+    expect(ordem).toEqual(['invalidar', 'apagar']);
+  });
 
   it('apaga tudo do aparelho, mas guarda as pendências de OUTRAS contas', async () => {
     await limparAparelhoAoExcluirConta('quem-sai');

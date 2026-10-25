@@ -308,4 +308,36 @@ describe('completeRoute com envios pendentes', () => {
     const erro = await completeRoute().catch((e) => e);
     expect(getErrorMessage(erro).code).toBe('ROUTE_SENDS_PENDING');
   });
+
+  // MOT-4: a fila só sobe com a sessão do dono (`processarFilaAcoesParada`
+  // filtra por `motoristaId`). Ação de OUTRA conta na mesma rota — rota
+  // passada a outro motorista no mesmo aparelho — nunca sairia daqui, e o
+  // Finalizar ficaria recusado para sempre.
+  it('ação da mesma rota deixada por OUTRA conta não trava o Finalizar', async () => {
+    const banco = criarBancoFake();
+    await enfileirarAcaoParada(
+      criarAcaoParada({
+        tipo: 'concluir',
+        paradaId: 'p1',
+        rotaId: 'route-1',
+        motoristaId: 'user-2',
+        em: '2026-10-23T12:00:00.000Z',
+      }),
+    );
+    const supabase = jest.requireMock('@/lib/supabase').supabase;
+    supabase.rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+    const { completeRoute } = setup(banco.porta, [
+      { ...paradas[0], status: 'concluida' },
+    ]);
+
+    await completeRoute();
+
+    // Nem espera o envio (até 20 s): não há nada desta conta para subir.
+    expect(mockSolicitarEnvioFila).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith('finalizar_rota', {
+      p_rota_id: 'route-1',
+    });
+    // A ação da outra conta continua guardada: não é desta pessoa apagá-la.
+    expect(await lerFilaAcoesParada()).toHaveLength(1);
+  });
 });

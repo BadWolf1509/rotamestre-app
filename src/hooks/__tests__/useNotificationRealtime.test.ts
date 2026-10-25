@@ -5,7 +5,7 @@
  * KEPT LIGHTWEIGHT to avoid OOM issues with heavy renderHook + realtime tests.
  */
 
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { useNotificationRealtime } from '../useNotificationRealtime';
 
@@ -282,10 +282,10 @@ describe('useNotificationRealtime', () => {
       subscribeCallback('CHANNEL_ERROR', null);
 
       const { logger } = require('@/lib/logger');
+      // logger.warn aceita no máximo 2 argumentos.
       expect(logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Conexão falhou'),
         'CHANNEL_ERROR',
-        expect.any(String),
       );
     });
 
@@ -296,11 +296,70 @@ describe('useNotificationRealtime', () => {
       subscribeCallback('TIMED_OUT', null);
 
       const { logger } = require('@/lib/logger');
+      // logger.warn aceita no máximo 2 argumentos.
       expect(logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('Conexão falhou'),
         'TIMED_OUT',
-        expect.any(String),
       );
+    });
+
+    // DP-5: o polling de reserva só roda com o realtime fora, então o
+    // provider precisa saber se o canal está de pé.
+    it('expõe conectado: false até o SUBSCRIBED, true depois', () => {
+      const { result } = renderHook(() =>
+        useNotificationRealtime(defaultProps),
+      );
+      expect(result.current.conectado).toBe(false);
+
+      const subscribeCallback = mockChannel.subscribe.mock.calls[0][0];
+      act(() => subscribeCallback('SUBSCRIBED', null));
+
+      expect(result.current.conectado).toBe(true);
+    });
+
+    it.each(['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'])(
+      'volta a conectado: false com %s',
+      (status) => {
+        const { result } = renderHook(() =>
+          useNotificationRealtime(defaultProps),
+        );
+        const subscribeCallback = mockChannel.subscribe.mock.calls[0][0];
+        act(() => subscribeCallback('SUBSCRIBED', null));
+
+        act(() => subscribeCallback(status, null));
+
+        expect(result.current.conectado).toBe(false);
+      },
+    );
+
+    it('sem usuário (logout), conectado volta a false', () => {
+      const { result, rerender } = renderHook(
+        (props) => useNotificationRealtime(props),
+        { initialProps: defaultProps },
+      );
+      const subscribeCallback = mockChannel.subscribe.mock.calls[0][0];
+      act(() => subscribeCallback('SUBSCRIBED', null));
+
+      rerender({ ...defaultProps, userId: undefined });
+
+      expect(result.current.conectado).toBe(false);
+    });
+
+    it('CLOSED atrasado do canal antigo (troca de conta) não derruba o novo', () => {
+      const { result, rerender } = renderHook(
+        (props) => useNotificationRealtime(props),
+        { initialProps: defaultProps },
+      );
+      const callbackAntigo = mockChannel.subscribe.mock.calls[0][0];
+      act(() => callbackAntigo('SUBSCRIBED', null));
+
+      rerender({ ...defaultProps, userId: 'user-2' });
+      const callbackNovo = mockChannel.subscribe.mock.calls[1][0];
+      act(() => callbackNovo('SUBSCRIBED', null));
+      // O removeChannel é assíncrono: o fechamento do antigo chega agora.
+      act(() => callbackAntigo('CLOSED', null));
+
+      expect(result.current.conectado).toBe(true);
     });
 
     it('should log debug on CLOSED status', () => {

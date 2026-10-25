@@ -74,3 +74,33 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+// ============================================================================
+// TROCAR SENHA (logado: gestor e motorista)
+// ============================================================================
+
+/**
+ * Troca de senha com a pessoa logada. A regra da NOVA senha é o
+ * `passwordSchema` — a mesma do cadastro e da redefinição. Antes, a tela do
+ * motorista aceitava 6 caracteres e a do gestor tinha uma regra própria.
+ *
+ * Os dois `refine` só rodam com todos os campos válidos (comportamento do Zod
+ * em objeto): a mensagem de "não coincidem" aparece quando a senha já passou
+ * na regra, igual ao cadastro.
+ */
+export const trocarSenhaSchema = z
+  .object({
+    senhaAtual: z.string().min(1, 'Digite sua senha atual'),
+    novaSenha: passwordSchema,
+    confirmarSenha: z.string().min(1, 'Confirme a nova senha'),
+  })
+  .refine((data) => data.novaSenha === data.confirmarSenha, {
+    message: 'As senhas não coincidem',
+    path: ['confirmarSenha'],
+  })
+  .refine((data) => data.novaSenha !== data.senhaAtual, {
+    message: 'A nova senha deve ser diferente da atual',
+    path: ['novaSenha'],
+  });
+
+export type TrocarSenhaInput = z.infer<typeof trocarSenhaSchema>;

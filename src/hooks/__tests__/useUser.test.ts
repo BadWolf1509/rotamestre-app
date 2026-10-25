@@ -1,6 +1,7 @@
 import { User } from '@supabase/supabase-js';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import { supabase } from '@/lib/supabase';
 
 import { useUser } from '../useUser';
@@ -193,12 +194,40 @@ describe('useUser', () => {
       renderHook(() => useUser());
 
       await waitFor(() => {
-        // Verifica que a query inclui unidades e usuario_unidades (multi-unidade)
+        // Verifica que a query inclui unidades e usuario_unidades (multi-unidade).
+        // `unidades` vai com a lista explícita de colunas, nunca `unidades(*)`
+        // (fonte única: `SELECT_UNIDADE_APP`).
         expect(mockSelect).toHaveBeenCalledWith(
+          expect.stringContaining(`unidades(${SELECT_UNIDADE_APP})`),
+        );
+        expect(mockSelect).not.toHaveBeenCalledWith(
           expect.stringContaining('unidades(*)'),
         );
         expect(mockSelect).toHaveBeenCalledWith(
           expect.stringContaining('usuario_unidades('),
+        );
+      });
+    });
+
+    it('o fallback simples também pede só as colunas da lista do app de unidades', async () => {
+      const mockSelect = jest.fn().mockReturnThis();
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        select: mockSelect,
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest
+          .fn()
+          .mockResolvedValueOnce({
+            data: null,
+            error: { message: 'falha no join', code: 'XX000' },
+          })
+          .mockResolvedValue({ data: mockUserData, error: null, status: 200 }),
+      });
+
+      renderHook(() => useUser());
+
+      await waitFor(() => {
+        expect(mockSelect).toHaveBeenCalledWith(
+          `*, unidades(${SELECT_UNIDADE_APP})`,
         );
       });
     });

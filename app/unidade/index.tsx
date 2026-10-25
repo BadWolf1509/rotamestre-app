@@ -34,6 +34,7 @@ import {
 import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { cleanPhone, formatPhone } from '@/lib/phone';
+import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import { supabase } from '@/lib/supabase';
 import { maskCEP } from '@/lib/viacep';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -41,7 +42,6 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 interface UnidadeData {
   id: string;
   nome: string;
-  cnpj: string;
   telefone: string;
   endereco: string;
   cidade: string;
@@ -49,6 +49,11 @@ interface UnidadeData {
   cep: string;
   sede_endereco?: string | null;
 }
+
+const codigoDoErro = (erro: unknown): string | undefined =>
+  typeof erro === 'object' && erro !== null && 'code' in erro
+    ? String((erro as { code: unknown }).code)
+    : undefined;
 
 const formatCnpj = (value?: string | null): string => {
   if (!value) return '';
@@ -79,6 +84,9 @@ export default function UnidadeScreen() {
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('minhaUnidade');
   const [unidade, setUnidade] = useState<UnidadeData | null>(null);
+  // O CNPJ vem da RPC de gestor `cnpj_da_unidade` (gestor com vínculo ativo
+  // na loja); sem ela, o campo mostra "Não informado".
+  const [cnpj, setCnpj] = useState('');
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -121,11 +129,17 @@ export default function UnidadeScreen() {
 
     try {
       setLoading(true);
+      setCnpj('');
+      // Em paralelo com a ficha (o builder só dispara no `then`, daí o
+      // Promise.resolve); a falha do CNPJ não impede a tela.
+      const cnpjEmVoo = Promise.resolve(
+        supabase.rpc('cnpj_da_unidade', { p_unidade_id: unidadeId }),
+      ).catch((erro: unknown) => ({ data: null, error: erro }));
       const { data, error } = await supabase
         .from('unidades')
-        .select('*')
+        .select(SELECT_UNIDADE_APP)
         .eq('id', unidadeId)
-        .single();
+        .single<UnidadeData>();
 
       if (minhaCarga !== cargaUnidadeRef.current) return;
       if (error) throw error;
@@ -138,6 +152,19 @@ export default function UnidadeScreen() {
       setEstado(data.uf || '');
       setCep(maskCEP(data.cep || ''));
       setSedeEndereco(data.sede_endereco || '');
+
+      // Campo só de leitura: sem CNPJ a tela segue, com "Não informado".
+      const { data: cnpjDaLoja, error: erroCnpj } = await cnpjEmVoo;
+      if (minhaCarga !== cargaUnidadeRef.current) return;
+      if (erroCnpj) {
+        // PGRST202 = RPC indisponível: o campo fica "Não informado", sem
+        // log, como os demais campos vazios.
+        if (codigoDoErro(erroCnpj) !== 'PGRST202') {
+          logger.warn('CNPJ da unidade indisponível', erroCnpj);
+        }
+      } else if (typeof cnpjDaLoja === 'string') {
+        setCnpj(cnpjDaLoja);
+      }
     } catch (error) {
       logger.error('Erro ao carregar unidade', error);
       showToast('Erro ao carregar dados da unidade', 'error', 4000);
@@ -386,7 +413,7 @@ export default function UnidadeScreen() {
               isDesktopView && styles.inputDesktop,
               styles.inputDisabled,
             ]}
-            value={formatCnpj(unidade?.cnpj)}
+            value={formatCnpj(cnpj)}
             editable={false}
             placeholder="Não informado"
           />

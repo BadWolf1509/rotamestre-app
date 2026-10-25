@@ -36,6 +36,17 @@ const FORMAS_SEM_ACENTO = [
   'senha unica',
   'senha sera usada',
   'suas informacoes',
+  // Com maiúscula inicial: a lista é sensível a caixa, e 'Suas informacoes'
+  // (minor adiado da 1.14.5) passava por 'suas informacoes'.
+  'Suas informacoes',
+  'Ja tem uma conta',
+  'Faca login',
+  // Troca de senha do gestor (AN11).
+  'Senha media',
+  'Senha valida',
+  'Minimo de',
+  'Letra maiuscula',
+  'Letra minuscula',
   'Requisitos de Seguranca',
   '- Minimo de',
   'letra maiuscula',
@@ -47,6 +58,24 @@ const FORMAS_SEM_ACENTO = [
   'para uma rota e ${',
   'e ${parada.tipo}',
 ];
+
+/**
+ * Palavras curtas que também são pedaço de identificador (`numeroParada`):
+ * só valem como a linha inteira de um texto JSX ou como string literal.
+ */
+const FORMAS_EM_REGEX: Array<[string, RegExp]> = [
+  ['Numero (texto de tela)', /^\s*Numero\s*$|['"`]Numero['"`]/],
+];
+
+/** O que, numa linha de código, é texto sem acento conhecido. */
+export function formasSemAcentoNaLinha(linha: string): string[] {
+  // Comentário não é texto de tela.
+  if (/^\s*(\/\/|\*|\/\*)/.test(linha)) return [];
+  return [
+    ...FORMAS_SEM_ACENTO.filter((forma) => linha.includes(forma)),
+    ...FORMAS_EM_REGEX.filter(([, re]) => re.test(linha)).map(([n]) => n),
+  ];
+}
 
 function listarFontes(dir: string): string[] {
   const achados: string[] = [];
@@ -73,19 +102,49 @@ describe('texto visível ao usuário leva acento', () => {
         readFileSync(arquivo, 'utf8')
           .split('\n')
           .forEach((linha, i) => {
-            // Comentário não é texto de tela.
-            if (/^\s*(\/\/|\*|\/\*)/.test(linha)) return;
-            for (const forma of FORMAS_SEM_ACENTO) {
-              if (linha.includes(forma)) {
-                violacoes.push(
-                  `${relative(RAIZ, arquivo)}:${i + 1} -> "${forma}"`,
-                );
-              }
+            for (const forma of formasSemAcentoNaLinha(linha)) {
+              violacoes.push(
+                `${relative(RAIZ, arquivo)}:${i + 1} -> "${forma}"`,
+              );
             }
           });
       }
     }
     expect(violacoes).toEqual([]);
+  });
+
+  it('a guarda reconhece as formas sem acento da troca de senha e do "Suas informacoes"', () => {
+    const exemplos = [
+      '<Text>Senha media</Text>',
+      "message: 'Senha valida'",
+      "{ texto: 'Minimo de 8 caracteres' }",
+      '  Letra maiuscula',
+      '  Letra minuscula',
+      '                Numero',
+      "texto: 'Numero'",
+      '<Text>Suas informacoes foram salvas</Text>',
+      'Ja tem uma conta? Faca login',
+    ];
+    for (const linha of exemplos) {
+      expect({ linha, achou: formasSemAcentoNaLinha(linha).length > 0 }).toEqual(
+        { linha, achou: true },
+      );
+    }
+    // Identificador e forma com acento passam.
+    for (const linha of [
+      'const numeroParada = 3;',
+      '<Text>Senha média</Text>',
+      '<Text>Suas informações foram salvas</Text>',
+    ]) {
+      expect(formasSemAcentoNaLinha(linha)).toEqual([]);
+    }
+  });
+
+  it('a varredura enxerga a troca de senha do gestor (não é cega)', () => {
+    const arquivos = listarFontes(join(RAIZ, 'app')).map((a) =>
+      relative(RAIZ, a).split(sep).join('/'),
+    );
+    expect(arquivos).toContain('app/perfil/trocar-senha.tsx');
   });
 
   it('a varredura enxerga o arquivo de notificações (não é cega)', () => {

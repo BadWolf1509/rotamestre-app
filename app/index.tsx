@@ -5,6 +5,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { authService } from '@/lib/auth';
+import { ContaDesativada } from '@/lib/auth/contaAtiva';
 import { classificarFalhaPerfil } from '@/lib/auth/falhaPerfil';
 import {
   apagarPerfilConhecido,
@@ -140,6 +141,19 @@ function IndexContent() {
           await apagarPerfilConhecido(session.user.id);
           hasRedirected.current = true;
           router.replace('/onboarding/criar-unidade');
+          return;
+        }
+
+        // Perfil que o servidor acabou de devolver: só com ele se pode afirmar
+        // que a conta foi desativada. O ramo offline (perfil conhecido) não
+        // passa por aqui de propósito.
+        try {
+          await authService.garantirContaAtiva(usuario);
+        } catch (erroConta) {
+          if (!(erroConta instanceof ContaDesativada)) throw erroConta;
+          logger.warn('[index] Conta desativada → login com aviso');
+          hasRedirected.current = true;
+          router.replace('/auth/login?conta=desativada');
           return;
         }
 
