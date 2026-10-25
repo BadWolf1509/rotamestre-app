@@ -108,6 +108,16 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
   const [carregando, setCarregando] = useState(true);
   // Só a carga mais recente escreve (troca de conta com outra em voo).
   const requisicaoRef = useRef(0);
+  // `usuarios.unidade_id` só serve de fallback: lido por ref, fora das
+  // dependências da carga (revisão, M1). A troca de loja grava esse campo e
+  // recarrega o perfil; como dependência, a carga das vinculações rodava de
+  // novo e o `loading` piscava.
+  const unidadeLegadaRef = useRef<string | null>(userData?.unidade_id ?? null);
+  unidadeLegadaRef.current = userData?.unidade_id ?? null;
+  const papel = userData?.papel ?? null;
+  // Dono do estado já carregado: recarga da MESMA conta não liga o loading
+  // (stale-while-revalidate) — só a primeira carga de cada conta.
+  const donoCarregadoRef = useRef<string | null>(null);
 
   const loadVinculacoes = useCallback(async () => {
     const minha = ++requisicaoRef.current;
@@ -123,12 +133,12 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
     }
 
     try {
-      setCarregando(true);
+      if (donoCarregadoRef.current !== userId) setCarregando(true);
 
       // For E2E/CI: Return mock vinculações
       if (!isSupabaseConfigured) {
         const mockUnidadeId = 'mock-unidade-id';
-        const isGestor = userData?.papel === 'gestor';
+        const isGestor = papel === 'gestor';
 
         const mockVinculacoes: UsuarioUnidade[] = [{
           id: 'vinculo-mock-1',
@@ -160,6 +170,15 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
         return;
       }
 
+      // Motorista: nenhuma tela dele lê as vinculações, e offline a consulta
+      // falhava a cada abertura do app (revisão, M4). Comparado com só
+      // rebaixar o log para `warn`: aquilo tiraria o ruído, mas não a ida à
+      // rede inútil. A loja dele é a do perfil, como no fallback.
+      if (papel !== 'gestor') {
+        aplicar(unidadeLegadaRef.current, SEM_VINCULACOES);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('usuario_unidades')
         .select(`
@@ -180,7 +199,7 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
       if (error) {
         logger.error('[UnidadeAtiva] Erro ao carregar vinculações:', error);
         // Fallback: usar unidade_id do usuário se existir
-        aplicar(userData?.unidade_id ?? null, SEM_VINCULACOES);
+        aplicar(unidadeLegadaRef.current, SEM_VINCULACOES);
         return;
       }
 
@@ -212,7 +231,7 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
         }
       } else {
         // Fallback para unidade_id legado
-        const legado = userData?.unidade_id ?? null;
+        const legado = unidadeLegadaRef.current;
         aplicar(legado, SEM_VINCULACOES);
         if (legado && vigente()) {
           await AsyncStorage.setItem(STORAGE_KEY, legado);
@@ -221,11 +240,14 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
     } catch (error) {
       logger.error('[UnidadeAtiva] Erro ao carregar vinculações:', error);
       // Fallback
-      aplicar(userData?.unidade_id ?? null, SEM_VINCULACOES);
+      aplicar(unidadeLegadaRef.current, SEM_VINCULACOES);
     } finally {
-      if (vigente()) setCarregando(false);
+      if (vigente()) {
+        donoCarregadoRef.current = userId;
+        setCarregando(false);
+      }
     }
-  }, [userId, userData?.unidade_id, userData?.papel]);
+  }, [userId, papel]);
 
   // O estado só vale para a conta a que pertence: na troca de conta, até a
   // carga da nova chegar, nada da anterior responde por ela.

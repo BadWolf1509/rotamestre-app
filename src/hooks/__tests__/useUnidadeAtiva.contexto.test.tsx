@@ -127,6 +127,92 @@ describe('UnidadeAtivaProvider', () => {
     expect(mockEmitProfileUpdate).toHaveBeenCalledTimes(1);
   });
 
+  // Revisão, M1: `usuarios.unidade_id` estava nas dependências da carga. A
+  // troca grava esse campo e recarrega o perfil; com o campo novo, a carga
+  // das vinculações rodava de novo e o `loading` piscava (spinner no seletor
+  // e recarga dos incidentes, que dependem dele).
+  it('trocar de loja não recarrega as vinculações nem liga o loading', async () => {
+    const loadings: boolean[] = [];
+    function Espia() {
+      loadings.push(useUnidadeAtiva().loading);
+      return null;
+    }
+    const tela = render(
+      <UnidadeAtivaProvider>
+        <Trocador />
+        <Espia />
+        <Leitor id="tela" />
+      </UnidadeAtivaProvider>,
+    );
+    await waitFor(() =>
+      expect(tela.getByTestId('tela').props.children).toBe('loja-1'),
+    );
+    loadings.length = 0;
+
+    await act(async () => {
+      await trocar('loja-2');
+    });
+    // O perfil recarregado já traz a loja nova em `usuarios.unidade_id`.
+    mockUserData = { id: 'g1', unidade_id: 'loja-2', papel: 'gestor' };
+    tela.rerender(
+      <UnidadeAtivaProvider>
+        <Trocador />
+        <Espia />
+        <Leitor id="tela" />
+      </UnidadeAtivaProvider>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(tela.getByTestId('tela').props.children).toBe('loja-2');
+    expect(consultasDeVinculos).toBe(1);
+    expect(loadings).not.toContain(true);
+  });
+
+  it('recarregar as lojas (refresh) não pisca o loading', async () => {
+    const loadings: boolean[] = [];
+    let recarregar: () => Promise<void> = async () => {};
+    function Espia() {
+      const v = useUnidadeAtiva();
+      loadings.push(v.loading);
+      recarregar = v.refresh;
+      return null;
+    }
+    render(
+      <UnidadeAtivaProvider>
+        <Espia />
+      </UnidadeAtivaProvider>,
+    );
+    await waitFor(() => expect(loadings[loadings.length - 1]).toBe(false));
+    loadings.length = 0;
+
+    // `act` síncrono: o render de logo depois do pedido, antes de a consulta
+    // voltar (o assíncrono juntaria os renders e esconderia a piscada).
+    act(() => {
+      void recarregar();
+    });
+    expect(loadings).not.toContain(true);
+    await waitFor(() => expect(consultasDeVinculos).toBe(2));
+    expect(loadings).not.toContain(true);
+  });
+
+  // Revisão, M4: nenhuma tela do motorista lê as vinculações, e offline a
+  // consulta falhava a cada abertura do app (com logger.error).
+  it('motorista: não consulta as vinculações; a loja é a do perfil', async () => {
+    mockUserData = { id: 'm1', unidade_id: 'loja-7', papel: 'motorista' };
+    const tela = render(
+      <UnidadeAtivaProvider>
+        <Leitor id="tela" />
+      </UnidadeAtivaProvider>,
+    );
+
+    await waitFor(() =>
+      expect(tela.getByTestId('tela').props.children).toBe('loja-7'),
+    );
+    expect(consultasDeVinculos).toBe(0);
+  });
+
   it('o valor do contexto é estável entre renders sem mudança', async () => {
     const valores: unknown[] = [];
     function Coletor() {
