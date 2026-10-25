@@ -6,7 +6,13 @@
 import { render, screen } from '@testing-library/react-native';
 import React from 'react';
 
+import { useLembreteDiario } from '@/hooks/motorista/useLembreteDiario';
+
 import GestorLayout from '../_layout';
+
+jest.mock('@/hooks/motorista/useLembreteDiario', () => ({
+  useLembreteDiario: jest.fn(),
+}));
 
 jest.mock('@/hooks/useRequireAuth', () => ({
   useRequireAuth: () => ({
@@ -55,5 +61,12 @@ describe('GestorLayout', () => {
     render(<GestorLayout />);
 
     expect(screen.getByText('sino-mobile')).toBeTruthy();
+  });
+
+  it('cancela o lembrete diário antigo do gestor (papel gestor)', () => {
+    mockIsDesktop = false;
+    render(<GestorLayout />);
+
+    expect(useLembreteDiario).toHaveBeenCalledWith('gestor');
   });
 });

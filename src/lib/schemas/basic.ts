@@ -37,6 +37,9 @@ import { z } from 'zod';
 // ============================================================================
 
 export const PASSWORD_MIN_LENGTH = 8;
+/** Caractere especial aceito: uma definição só, usada pelo schema e pelas telas. */
+export const PASSWORD_SPECIAL_REGEX =
+  /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/;
 export const PASSWORD_REQUIREMENTS = {
   minLength: PASSWORD_MIN_LENGTH,
   requireUppercase: true,
@@ -82,7 +85,7 @@ export const passwordSchema = z
   .refine((val) => /[0-9]/.test(val), {
     message: 'Senha deve conter pelo menos um número',
   })
-  .refine((val) => /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/.test(val), {
+  .refine((val) => PASSWORD_SPECIAL_REGEX.test(val), {
     message: 'Senha deve conter pelo menos um caractere especial (!@#$%...)',
   });
 
@@ -113,13 +116,13 @@ export function validatePassword(password: string): {
   }
 
   // Caractere especial agora é obrigatório
-  if (!/[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/.test(password)) {
+  if (!PASSWORD_SPECIAL_REGEX.test(password)) {
     errors.push('Precisa de caractere especial (!@#$%...)');
   }
 
   // Calculate strength
   let strength: 'weak' | 'medium' | 'strong' = 'weak';
-  const hasSpecial = /[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/~`]/.test(password);
+  const hasSpecial = PASSWORD_SPECIAL_REGEX.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasUpper = /[A-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);

@@ -1,6 +1,12 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import {
+  contaEstaAtiva,
+  ContaDesativada,
+  MENSAGEM_CONTA_DESATIVADA,
+} from './auth/contaAtiva';
+import { lerRecusaDaExclusao } from './auth/exclusaoRecusada';
 import { classificarFalhaPerfil } from './auth/falhaPerfil';
 import {
   limparAparelhoAoExcluirConta,
@@ -9,9 +15,11 @@ import {
 import { exigirSessaoDe, lerSessao } from './auth/sessao';
 import { obterSessaoComTimeout } from './auth/sessaoComTimeout';
 import { logger } from './logger';
-import { unregisterPushToken } from './notifications';
+import { cancelRouteReminder, unregisterPushToken } from './notifications';
 import { supabase, isSupabaseConfigured } from './supabase';
 import { setMockSession } from '../hooks/useAuth';
+import LocationTrackingService from '../services/locationTracking';
+import { stopBackgroundTracking } from '../services/unifiedLocationTracking';
 import { Usuario, TipoUsuario, UnidadeDB } from '../types/usuario';
 
 import type { Session } from '@supabase/supabase-js';
@@ -34,6 +42,68 @@ async function limparPushDestaConta(): Promise<void> {
   } = await supabase.auth.getSession();
   const userId = session?.user?.id;
   if (userId) await unregisterPushToken(userId);
+}
+
+export { ContaDesativada, MENSAGEM_CONTA_DESATIVADA };
+
+/**
+ * Para o que segue rodando em nome de quem sai: a task de localização em
+ * segundo plano (com o contexto dela) e o modo navegação. Parar é melhor
+ * esforço e não prende o logout: a falha de cada um é só registrada. Quem
+ * entrar depois com rota em andamento é religado pelo
+ * `useGarantirRastreamentoDaRota`.
+ */
+async function pararRastreamentoDaConta(): Promise<void> {
+  // Na web não há rastreamento em segundo plano, e o expo-location web nem tem
+  // `hasStartedLocationUpdatesAsync`: tentar parar gravava um `logger.error`
+  // em todo "Sair". Pular aqui (e não dentro de cada serviço) mantém o guarda
+  // num lugar só, o que o logout chama.
+  if (Platform.OS === 'web') return;
+
+  const paradas = await Promise.allSettled([
+    stopBackgroundTracking(),
+    LocationTrackingService.stopTracking(),
+  ]);
+  for (const p of paradas) {
+    if (p.status === 'rejected') {
+      logger.warn('[Logout] Falha ao parar o rastreamento', p.reason);
+    }
+  }
+}
+
+/**
+ * Desliga neste aparelho o que roda em nome da conta que sai: rastreamento
+ * (segundo plano e modo navegação), lembrete diário e token de push. Usado
+ * pelo "Sair" e pela exclusão de conta, para os dois desligarem a MESMA lista
+ * (a exclusão tinha caminho próprio e deixava o lembrete agendado).
+ *
+ * Ordem importa: o push sai por último e ainda com a sessão viva (depois do
+ * `auth.signOut` o UPDATE iria anônimo e a RLS filtraria 0 linhas). Tudo é
+ * melhor esforço e nunca lança: nenhuma falha aqui pode prender o logout nem
+ * deixar a exclusão pela metade.
+ */
+async function desligarOQueRodaPelaConta(): Promise<void> {
+  await pararRastreamentoDaConta();
+  try {
+    await cancelRouteReminder();
+  } catch (error) {
+    logger.warn('[Logout] Falha ao cancelar o lembrete diário', error);
+  }
+
+  try {
+    await obterSessaoComTimeout(
+      limparPushDestaConta,
+      PRAZO_LIMPEZA_PUSH_MS,
+      () =>
+        logger.warn(
+          '[Logout] Limpeza do push passou do prazo',
+          PRAZO_LIMPEZA_PUSH_MS,
+        ),
+    );
+  } catch (error) {
+    // Push é opcional: falhar aqui não pode prender a pessoa logada.
+    logger.warn('[Logout] Falha ao remover token de push', error);
+  }
 }
 
 const FALLBACK_WEB_BASE_URL = 'https://app.rotamestre.tec.br';
@@ -104,6 +174,7 @@ export const authService = {
     // Buscar dados do usuário na tabela usuarios
     if (data.user) {
       const usuario = await this.getUsuario(data.user.id);
+      if (usuario) await this.garantirContaAtiva(usuario);
       await supabase
         .from('usuarios')
         .update({ ultimo_login: new Date().toISOString() })
@@ -112,6 +183,23 @@ export const authService = {
     }
 
     return { session: data.session, usuario: null };
+  },
+
+  /**
+   * Portão da conta desativada: se o servidor não reconhece nenhum vínculo
+   * ativo, sai DESTE aparelho (limpando o estado) e lança `ContaDesativada`.
+   * Chame só com perfil vindo do servidor, nunca com o perfil conhecido do
+   * aparelho (ver `auth/contaAtiva.ts`).
+   */
+  async garantirContaAtiva(usuario: Usuario): Promise<void> {
+    if (await contaEstaAtiva(usuario)) return;
+    try {
+      await this.signOut();
+    } catch (error) {
+      // O que importa é não entrar; o signOut limpa o estado local no finally.
+      logger.warn('[Auth] Falha ao sair da conta desativada', error);
+    }
+    throw new ContaDesativada();
   },
 
   // Registro
@@ -143,6 +231,11 @@ export const authService = {
    * Logout deste aparelho — o ÚNICO caminho de "Sair" (guarda em
    * `__tests__/signout-so-neste-aparelho.test.ts`).
    *
+   * 0. Para o rastreamento (task de segundo plano e modo navegação) e cancela
+   *    o lembrete diário: nada segue rodando em nome de quem saiu. O contexto
+   *    do rastreamento (`@rotamestre:tracking_context`) é apagado por
+   *    `stopBackgroundTracking`, junto com a task — não por varredura de
+   *    chaves em `limparEstadoLocal.ts` (ver o comentário de lá).
    * 1. Tira o token de push do banco ANTES do `auth.signOut`: depois dele o
    *    UPDATE vai anônimo e a RLS filtra 0 linhas sem erro — o aparelho
    *    seguia recebendo push da conta que saiu. Melhor esforço, com prazo
@@ -152,20 +245,7 @@ export const authService = {
    * 3. Limpa o estado local da conta, mesmo se o passo 2 falhar.
    */
   async signOut() {
-    try {
-      await obterSessaoComTimeout(
-        limparPushDestaConta,
-        PRAZO_LIMPEZA_PUSH_MS,
-        () =>
-          logger.warn(
-            '[Logout] Limpeza do push passou do prazo',
-            PRAZO_LIMPEZA_PUSH_MS,
-          ),
-      );
-    } catch (error) {
-      // Push é opcional: falhar aqui não pode prender a pessoa logada.
-      logger.warn('[Logout] Falha ao remover token de push', error);
-    }
+    await desligarOQueRodaPelaConta();
 
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
@@ -208,13 +288,19 @@ export const authService = {
       method: 'POST',
     });
 
-    if (error) throw error;
+    if (error) {
+      // Guarda do servidor (último gestor, rota em andamento): vai com a
+      // mensagem que diz o que fazer, não com o erro genérico do supabase-js.
+      throw (await lerRecusaDaExclusao(error)) ?? error;
+    }
     if (!data?.success) {
       throw new Error(data?.error || 'Não foi possível excluir a conta.');
     }
 
-    // A conta já não existe no servidor. Limpa a sessão local sem depender de
-    // outra chamada de rede e remove caches que possam conter dados pessoais.
+    // A conta já não existe no servidor. Desliga o que rodava por ela (mesma
+    // lista do "Sair"), limpa a sessão local sem depender de outra chamada de
+    // rede e remove caches que possam conter dados pessoais.
+    await desligarOQueRodaPelaConta();
     await supabase.auth.signOut({ scope: 'local' });
     await limparAparelhoAoExcluirConta(usuarioId);
     setMockSession(null, null);
@@ -258,12 +344,43 @@ export const authService = {
     if (error) throw error;
   },
 
-  // Atualizar senha
+  /**
+   * Atualiza a senha e encerra as OUTRAS sessões da conta.
+   *
+   * É o caminho único das quatro telas (troca do gestor, troca do motorista, primeira senha e
+   * redefinição por e-mail): quem tinha a senha antiga num aparelho perdido
+   * não pode seguir logado depois da troca. Ficar aqui, e não em cada tela,
+   * impede que uma tela futura esqueça.
+   *
+   * `scope: 'others'` é OUTRA coisa que o "Sair" (`signOut`): mantém a sessão
+   * deste aparelho e não passa por `signOut`, que pararia o rastreamento,
+   * cancelaria o lembrete e limparia o estado local de quem continua logado.
+   *
+   * Melhor esforço: a senha JÁ foi trocada neste ponto, então falhar ao
+   * encerrar as outras (rede, token) não pode fazer a troca parecer falha.
+   */
   async updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
     if (error) throw error;
+
+    try {
+      const { error: erroOutras } = await supabase.auth.signOut({
+        scope: 'others',
+      });
+      if (erroOutras) {
+        logger.warn(
+          '[Auth] Senha trocada, mas não encerrou as outras sessões',
+          erroOutras,
+        );
+      }
+    } catch (erroOutras) {
+      logger.warn(
+        '[Auth] Senha trocada, mas não encerrou as outras sessões',
+        erroOutras,
+      );
+    }
   },
 
   /**

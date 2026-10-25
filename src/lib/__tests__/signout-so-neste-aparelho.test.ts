@@ -60,10 +60,12 @@ describe('signOut só neste aparelho', () => {
     expect(fora).toEqual([]);
   });
 
-  it("toda chamada a auth.signOut passa scope: 'local'", () => {
+  // 'others' é a troca de senha (`updatePassword`): derruba as OUTRAS sessões
+  // e mantém esta. Nunca é global — esse é o que este guarda existe para barrar.
+  it("toda chamada a auth.signOut passa scope: 'local' ou 'others'", () => {
     const sem_escopo = fontes.flatMap((f) =>
       [...readFileSync(f, 'utf8').matchAll(CHAMADA)]
-        .filter((m) => !/scope:\s*'local'/.test(m[1]))
+        .filter((m) => !/scope:\s*'(local|others)'/.test(m[1]))
         .map((m) => `${relative(RAIZ, f)}: ${m[0]}`),
     );
     expect(sem_escopo).toEqual([]);

@@ -612,7 +612,7 @@ describe('notifications', () => {
       );
     });
 
-    it('should schedule route reminder when permissions granted', async () => {
+    it('não agenda o lembrete diário: ele é do motorista e sai no logout (useLembreteDiario)', async () => {
       mockGetPermissionsAsync.mockResolvedValue({ status: 'granted' });
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
         JSON.stringify({ routeReminder: true, reminderTime: '08:00' }),
@@ -620,7 +620,7 @@ describe('notifications', () => {
 
       await initializeNotifications();
 
-      expect(mockScheduleNotificationAsync).toHaveBeenCalled();
+      expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
     });
   });
 

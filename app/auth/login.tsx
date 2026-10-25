@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -26,6 +26,10 @@ import { TesterLoginLink } from '@/components/testar/TesterLoginLink';
 import { Dialog } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import {
+  ContaDesativada,
+  MENSAGEM_CONTA_DESATIVADA,
+} from '@/lib/auth/contaAtiva';
 import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 import { getErrorMessage } from '@/lib/errorMapping';
 import {
@@ -114,6 +118,21 @@ function LoginContent() {
   function hideAlert() {
     setAlertConfig((prev) => ({ ...prev, visible: false }));
   }
+
+  // O portão da abertura (`app/index.tsx`) manda para cá com `?conta=desativada`
+  // depois de sair da conta: sem o aviso a pessoa cairia no login sem saber o
+  // porquê.
+  const { conta } = useLocalSearchParams<{ conta?: string }>();
+  useEffect(() => {
+    if (conta === 'desativada') {
+      setAlertConfig({
+        visible: true,
+        title: 'Conta desativada',
+        message: MENSAGEM_CONTA_DESATIVADA,
+        type: 'warning',
+      });
+    }
+  }, [conta]);
 
   /**
    * Reenvia o email de confirmação de cadastro.
@@ -255,6 +274,15 @@ function LoginContent() {
         router.replace('/onboarding/criar-unidade');
       }
     } catch (error: unknown) {
+      // A senha foi aceita, mas a conta está desativada em todas as lojas:
+      // `signIn` já saiu deste aparelho. Não é credencial errada, então não
+      // conta no limitador.
+      if (error instanceof ContaDesativada) {
+        await loginRateLimiter.recordAttempt(email, true);
+        showAlert('Conta desativada', error.message, 'warning');
+        return;
+      }
+
       // A senha foi aceita e só a busca do perfil falhou (`signIn` lança
       // `FalhaAoCarregarPerfil`): não é credencial errada nem erro genérico.
       if (error instanceof FalhaAoCarregarPerfil) {

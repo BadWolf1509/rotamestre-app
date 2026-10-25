@@ -1,11 +1,13 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import { authService } from '@/lib/auth';
+import { ContaDesativada } from '@/lib/auth/contaAtiva';
 import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 
 import Login from '../login';
 
 const mockReplace = jest.fn();
+let mockParams: Record<string, string> = {};
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
@@ -13,6 +15,7 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     back: jest.fn(),
   }),
+  useLocalSearchParams: () => mockParams,
 }));
 
 jest.mock('@/lib/auth', () => ({
@@ -109,6 +112,40 @@ describe('portão de onboarding em app/auth/login', () => {
       await findByText(
         'Você entrou, mas não conseguimos carregar seu perfil. Verifique a conexão e tente de novo.',
       ),
+    ).toBeTruthy();
+  });
+});
+
+describe('conta desativada em app/auth/login', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockParams = {};
+  });
+
+  it('login recusado por conta desativada mostra a mensagem clara e não navega', async () => {
+    mockAuth.signIn.mockRejectedValue(new ContaDesativada());
+
+    const { getByPlaceholderText, getByText, findByText } = render(<Login />);
+    fireEvent.changeText(
+      getByPlaceholderText('seu@email.com'),
+      'motorista@rotamestre.com',
+    );
+    fireEvent.changeText(getByPlaceholderText('••••••••'), 'senha123');
+    fireEvent.press(getByText('Entrar'));
+
+    expect(
+      await findByText('Sua conta está desativada. Fale com o gestor.'),
+    ).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('vindo do portão da abertura (?conta=desativada) já abre com a mensagem', async () => {
+    mockParams = { conta: 'desativada' };
+
+    const { findByText } = render(<Login />);
+
+    expect(
+      await findByText('Sua conta está desativada. Fale com o gestor.'),
     ).toBeTruthy();
   });
 });

@@ -96,7 +96,7 @@ describe('Register Screen', () => {
     it('deve renderizar link de voltar para login', () => {
       const { getByText } = render(<Register />);
 
-      expect(getByText('Ja tem uma conta? Faca login')).toBeTruthy();
+      expect(getByText('Já tem uma conta? Faça login')).toBeTruthy();
     });
   });
 
@@ -563,7 +563,7 @@ describe('Register Screen', () => {
   describe('Navegação', () => {
     it('deve voltar ao clicar no link de login', () => {
       const { getByText } = render(<Register />);
-      const backLink = getByText('Ja tem uma conta? Faca login');
+      const backLink = getByText('Já tem uma conta? Faça login');
 
       fireEvent.press(backLink);
 

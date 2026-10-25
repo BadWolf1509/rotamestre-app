@@ -3,6 +3,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { verificarGuardas } from './guardasExclusao.ts';
 import { chaveSecreta } from '../_shared/chaves.ts';
 
 const corsHeaders = {
@@ -65,6 +66,16 @@ serve(async (req) => {
 
     if (authError || !user) {
       return jsonResponse({ error: 'Sessão inválida ou expirada' }, 401);
+    }
+
+    // Antes de qualquer coisa irreversível (avatar, usuário): o último gestor
+    // de uma loja e quem está com rota em andamento não são apagados.
+    const recusa = await verificarGuardas(supabaseAdmin, user.id);
+    if (recusa) {
+      return jsonResponse(
+        { error: recusa.mensagem, code: recusa.codigo },
+        recusa.status,
+      );
     }
 
     const { data: profile, error: profileError } = await supabaseAdmin

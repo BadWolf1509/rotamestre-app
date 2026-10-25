@@ -4,6 +4,7 @@ import { View, TouchableOpacity, ScrollView } from 'react-native';
 
 import {
   AlterarStatusModal,
+  EstatisticaMotoristaCard,
   HistoricoMotoristaModal,
   IncidenteDetalhesModal,
 } from '@/components/gestor/incidentes';
@@ -251,29 +252,12 @@ export default function IncidentesScreen() {
           >
             <View style={styles.motoristaStatsContainer}>
               {estatisticasMotorista.map((stat, index) => (
-                <TouchableOpacity
-                  key={stat.id}
-                  style={styles.motoristaStat}
-                  onPress={() =>
-                    handleVerHistoricoMotorista(stat.id, stat.nome)
-                  }
-                >
-                  <View style={styles.motoristaRank}>
-                    <Text style={styles.motoristaRankText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.motoristaInfo}>
-                    <Text style={styles.motoristaNome}>{stat.nome}</Text>
-                    <Text style={styles.motoristaStats}>
-                      {stat.total} incidentes ({stat.abertos} abertos,{' '}
-                      {stat.resolvidos} resolvidos)
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={theme.colors.gray400}
-                  />
-                </TouchableOpacity>
+                <EstatisticaMotoristaCard
+                  key={stat.id ?? 'removido'}
+                  stat={stat}
+                  index={index}
+                  onVerHistorico={handleVerHistoricoMotorista}
+                />
               ))}
             </View>
           </DesktopCard>

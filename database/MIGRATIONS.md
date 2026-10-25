@@ -2229,6 +2229,44 @@ principal de outra loja; formato; sem usuário; catálogo e grants; sem
 `DELETE`; termina em `RAISE`). Rollback colável com o corpo anterior inteiro,
 o comentário e os grants.
 
+### ✅ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
+
+**Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois), antes da `delete-account` v8. **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
+tem `REVOKE`/`DELETE`), DEPOIS publicar a `delete-account`.** Com a função nova no
+ar e a FK ainda `CASCADE`, a guarda deixa passar o motorista sem rota em
+andamento e a exclusão apagaria os incidentes dele. A migration sozinha é
+segura (a função antiga só passa a anonimizar em vez de apagar). A sonda roda
+no **SQL Editor** (tem `DELETE` de usuário que ela cria, termina em `RAISE`).
+`SET LOCAL lock_timeout = '5s'`.
+
+**Por quê.** `incidentes.motorista_id` era `NOT NULL ... ON DELETE CASCADE`:
+excluir a conta do motorista apagava os incidentes que ele reportou, contra o
+que `app/exclusao-de-conta.tsx` promete (registros "anonimizados").
+
+**O que faz.** `motorista_id` aceita NULL e a FK vira `ON DELETE SET NULL`. O
+gatilho `incidentes_confere_rota_parada` (Migration 38) recusaria o SET NULL
+(reconfere "a rota é deste motorista" e `rota.motorista_id = NULL` nunca é
+verdadeiro): passa a pular a conferência da rota com motorista NULL e, em troca,
+recusa NULL no INSERT (23502) — o `NOT NULL` que saiu da coluna. A loja
+(`unidade_id`) e a rota ficam, então o gestor segue vendo o registro pela policy.
+
+**Campos pessoais.** Só `motorista_id` identifica a pessoa e vira NULL.
+`descricao`, `foto_url`, `endereco`, `observacoes_gestao` e demais ficam: são o
+registro da loja. Alternativa descartada: mascarar descrição e foto (tiraria do
+incidente a função para a qual a tela promete preservá-lo).
+
+**Guardas na função.** `delete-account` recusa antes de apagar qualquer coisa:
+409 `ULTIMO_GESTOR` (único gestor ativo de alguma loja), 409
+`ROTA_EM_ANDAMENTO`, 503 `GUARDA_INDISPONIVEL` (a consulta falhou: não libera).
+Lógica em `supabase/functions/delete-account/guardasExclusao.ts`.
+
+**App.** A lista de incidentes do gestor já filtra pela loja (`unidade_id`) e
+passa a mostrar o incidente anonimizado como "Motorista removido", sem o link
+"Ver histórico do motorista" (`src/lib/incidentes/nomeDoMotorista.ts`).
+
+**Gestor único.** Não há tela para promover outro gestor (a Equipe só desativa
+motorista; "Transferir Gestão" move o principal entre gestores que já existem), então
+a mensagem manda pedir ao suporte que adicione um.
 ### ✅ Migration 57: foto de comprovante vinculada não é desfeita pelo motorista
 
 **Arquivo:** `20261024190000_foto_comprovante_vinculada_preservada.sql` · **✅ aplicada em 24/10/2026 pelo CLI**

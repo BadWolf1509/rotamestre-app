@@ -141,6 +141,34 @@ describe('IncidenteDetalhesModal', () => {
     });
   });
 
+  describe('motorista excluído (motorista_id NULL)', () => {
+    const anonimizado = {
+      ...incidente,
+      motorista_id: null,
+      motorista_nome: 'Motorista removido',
+    };
+
+    it('mostra o nome "Motorista removido" e não oferece o histórico, que não existe sem a conta', () => {
+      const { getByText, queryByText } = render(
+        <IncidenteDetalhesModal {...defaultProps} incidente={anonimizado} />,
+      );
+
+      expect(getByText('Motorista removido')).toBeTruthy();
+      expect(
+        queryByText('Ver histórico de incidentes deste motorista'),
+      ).toBeNull();
+    });
+
+    it('com motorista, o histórico continua disponível', () => {
+      const { getByText } = render(
+        <IncidenteDetalhesModal {...defaultProps} />,
+      );
+      expect(
+        getByText('Ver histórico de incidentes deste motorista'),
+      ).toBeTruthy();
+    });
+  });
+
   describe('useSignedUrl integration', () => {
     it('passes foto_url to useSignedUrl', () => {
       render(<IncidenteDetalhesModal {...defaultProps} />);

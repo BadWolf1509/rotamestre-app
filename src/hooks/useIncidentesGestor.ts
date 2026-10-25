@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { nomeDoMotorista } from '@/lib/incidentes/nomeDoMotorista';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { Theme } from '@/utils/styles';
@@ -168,7 +169,10 @@ export function useIncidentesGestor(theme: Theme): UseIncidentesGestorReturn {
         foto_url: inc.foto_url,
         created_at: inc.created_at,
         observacoes_gestao: inc.observacoes_gestao,
-        motorista_nome: inc.motorista?.nome || 'Desconhecido',
+        motorista_nome: nomeDoMotorista(
+          inc.motorista_id,
+          inc.motorista?.nome,
+        ),
         motorista_id: inc.motorista_id,
         unidade_nome: userData?.unidades?.nome || '',
         rota_id: inc.rota?.id || null,

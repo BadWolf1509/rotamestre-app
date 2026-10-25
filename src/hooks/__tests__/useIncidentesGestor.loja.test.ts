@@ -125,4 +125,27 @@ describe('useIncidentesGestor — recorte pela loja', () => {
       'da-loja-a',
     ]);
   });
+
+  it('incidente de motorista excluído (motorista_id NULL, Migration 56) continua na lista, como "Motorista removido"', async () => {
+    tabelasFalsas.incidentes = [
+      ...tabelasFalsas.incidentes,
+      {
+        ...incidente('anonimizado', 'x', 'loja-a', null, '2026-10-24T10:00:00Z'),
+        motorista_id: null,
+        motorista: null,
+      },
+    ];
+    const { result } = renderHook(() =>
+      useIncidentesGestor(defaultTheme as never),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const anon = result.current.incidentes.find((i) => i.id === 'anonimizado');
+    expect(anon).toBeDefined();
+    expect(anon?.motorista_nome).toBe('Motorista removido');
+    expect(anon?.motorista_id).toBeNull();
+    // e entra nos números do resumo
+    expect(result.current.resumoGeral.total).toBe(3);
+  });
 });

@@ -1,16 +1,18 @@
-import { isAuthRetryableFetchError } from '@supabase/supabase-js';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
 import { Button, Input, Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { authService } from '@/lib/auth';
-import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
-import { isNetworkError } from '@/lib/errorMapping';
+import { classificarFalhaSenhaAtual } from '@/lib/auth/falhaSenhaAtual';
 import { logger } from '@/lib/logger';
+import { trocarSenhaSchema, type TrocarSenhaInput } from '@/lib/schemas';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -21,40 +23,25 @@ export default function AlterarSenha() {
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const [saving, setSaving] = useState(false);
 
-  const [senhaAtual, setSenhaAtual] = useState('');
-  const [novaSenha, setNovaSenha] = useState('');
-  const [confirmarSenha, setConfirmarSenha] = useState('');
+  const {
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<TrocarSenhaInput>({
+    resolver: zodResolver(trocarSenhaSchema),
+    defaultValues: { senhaAtual: '', novaSenha: '', confirmarSenha: '' },
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
+  });
+  const novaSenha = watch('novaSenha');
+  const confirmarSenha = watch('confirmarSenha');
 
   const [showSenhaAtual, setShowSenhaAtual] = useState(false);
   const [showNovaSenha, setShowNovaSenha] = useState(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
 
-  async function handleSave() {
-    if (!senhaAtual) {
-      showWarning('Erro', 'Digite sua senha atual');
-      return;
-    }
-
-    if (!novaSenha) {
-      showWarning('Erro', 'Digite a nova senha');
-      return;
-    }
-
-    if (novaSenha.length < 6) {
-      showWarning('Erro', 'A nova senha deve ter no mínimo 6 caracteres');
-      return;
-    }
-
-    if (novaSenha !== confirmarSenha) {
-      showWarning('Erro', 'As senhas não coincidem');
-      return;
-    }
-
-    if (senhaAtual === novaSenha) {
-      showWarning('Erro', 'A nova senha deve ser diferente da atual');
-      return;
-    }
-
+  async function onSubmit({ senhaAtual, novaSenha: nova }: TrocarSenhaInput) {
     setSaving(true);
 
     try {
@@ -66,34 +53,18 @@ export default function AlterarSenha() {
       try {
         await authService.signIn(session.user.email, senhaAtual);
       } catch (erroLogin) {
-        // Antes, toda falha aqui virava "Senha atual incorreta". Três casos:
-        // - `FalhaAoCarregarPerfil`: a senha foi ACEITA (a sessão foi criada);
-        //   só o perfil não carregou, e a troca não depende dele → segue.
-        // - sem rede: não deu para conferir — dizer "incorreta" levava a
-        //   pessoa a duvidar da senha certa.
-        // - o resto (credencial recusada): aí sim, senha atual incorreta.
-        if (!(erroLogin instanceof FalhaAoCarregarPerfil)) {
-          const semRede =
-            isAuthRetryableFetchError(erroLogin) ||
-            erroLogin instanceof TypeError ||
-            isNetworkError(erroLogin);
+        // Quatro leituras (ver `falhaSenhaAtual.ts`): senha recusada, sem
+        // rede, servidor fora — e perfil que não carregou DEPOIS de a senha
+        // ser aceita, que devolve null e segue com a troca.
+        const falha = classificarFalhaSenhaAtual(erroLogin);
+        if (falha) {
           logger.warn('[AlterarSenha] Senha atual não conferida', erroLogin);
-          if (semRede) {
-            showWarning(
-              'Sem conexão',
-              'Não foi possível conferir sua senha atual. Verifique a conexão e tente de novo.',
-            );
-          } else {
-            showWarning(
-              'Senha atual incorreta',
-              'Confira a senha atual e tente de novo.',
-            );
-          }
+          showWarning(falha.titulo, falha.mensagem);
           return;
         }
       }
 
-      await authService.updatePassword(novaSenha);
+      await authService.updatePassword(nova);
 
       await supabase
         .from('usuarios')
@@ -114,29 +85,8 @@ export default function AlterarSenha() {
     }
   }
 
-  function validatePassword(password: string): {
-    isValid: boolean;
-    message: string;
-  } {
-    if (password.length < 6) {
-      return { isValid: false, message: 'Mínimo 6 caracteres' };
-    }
-    if (password.length >= 6 && password.length < 8) {
-      return { isValid: true, message: 'Senha fraca' };
-    }
-    if (
-      !/[A-Z]/.test(password) ||
-      !/[a-z]/.test(password) ||
-      !/[0-9]/.test(password)
-    ) {
-      return { isValid: true, message: 'Senha média' };
-    }
-    return { isValid: true, message: 'Senha forte' };
-  }
-
-  const passwordStrength = novaSenha ? validatePassword(novaSenha) : null;
   const passwordsMatch =
-    novaSenha && confirmarSenha && novaSenha === confirmarSenha;
+    !!novaSenha && !!confirmarSenha && novaSenha === confirmarSenha;
 
   return (
     <ErrorBoundary>
@@ -156,86 +106,94 @@ export default function AlterarSenha() {
           </View>
 
           <View style={styles(theme).form}>
-            <Input
-              label="Senha Atual"
-              required
-              placeholder="Digite sua senha atual"
-              value={senhaAtual}
-              onChangeText={setSenhaAtual}
-              secureTextEntry={!showSenhaAtual}
-              autoCapitalize="none"
-              autoCorrect={false}
-              rightIcon={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
-              onRightIconPress={() => setShowSenhaAtual(!showSenhaAtual)}
+            <Controller
+              control={control}
+              name="senhaAtual"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Input
+                  label="Senha Atual"
+                  required
+                  placeholder="Digite sua senha atual"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry={!showSenhaAtual}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  rightIcon={showSenhaAtual ? 'eye-off-outline' : 'eye-outline'}
+                  onRightIconPress={() => setShowSenhaAtual(!showSenhaAtual)}
+                  error={errors.senhaAtual?.message}
+                />
+              )}
             />
 
-            <Input
-              label="Nova Senha"
-              required
-              placeholder="Digite a nova senha"
-              value={novaSenha}
-              onChangeText={setNovaSenha}
-              secureTextEntry={!showNovaSenha}
-              autoCapitalize="none"
-              autoCorrect={false}
-              rightIcon={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
-              onRightIconPress={() => setShowNovaSenha(!showNovaSenha)}
+            <Controller
+              control={control}
+              name="novaSenha"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Input
+                  label="Nova Senha"
+                  required
+                  placeholder="Digite a nova senha"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry={!showNovaSenha}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  rightIcon={showNovaSenha ? 'eye-off-outline' : 'eye-outline'}
+                  onRightIconPress={() => setShowNovaSenha(!showNovaSenha)}
+                  error={errors.novaSenha?.message}
+                />
+              )}
             />
-            {passwordStrength && (
-              <Text
-                style={[
-                  styles(theme).helperText,
-                  passwordStrength.message === 'Senha forte' &&
-                    styles(theme).helperTextSuccess,
-                  passwordStrength.message === 'Senha media' &&
-                    styles(theme).helperTextWarning,
-                  !passwordStrength.isValid && styles(theme).helperTextError,
-                ]}
-              >
-                {passwordStrength.message}
-              </Text>
-            )}
+            <PasswordStrengthIndicator password={novaSenha} />
 
-            <Input
-              label="Confirmar Nova Senha"
-              required
-              placeholder="Digite a senha novamente"
-              value={confirmarSenha}
-              onChangeText={setConfirmarSenha}
-              secureTextEntry={!showConfirmarSenha}
-              autoCapitalize="none"
-              autoCorrect={false}
-              rightIcon={showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'}
-              onRightIconPress={() =>
-                setShowConfirmarSenha(!showConfirmarSenha)
-              }
+            <Controller
+              control={control}
+              name="confirmarSenha"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <Input
+                  label="Confirmar Nova Senha"
+                  required
+                  placeholder="Digite a senha novamente"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  secureTextEntry={!showConfirmarSenha}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  rightIcon={
+                    showConfirmarSenha ? 'eye-off-outline' : 'eye-outline'
+                  }
+                  onRightIconPress={() =>
+                    setShowConfirmarSenha(!showConfirmarSenha)
+                  }
+                  error={errors.confirmarSenha?.message}
+                />
+              )}
             />
-            {confirmarSenha && (
+            {passwordsMatch && (
               <Text
-                style={[
-                  styles(theme).helperText,
-                  passwordsMatch
-                    ? styles(theme).helperTextSuccess
-                    : styles(theme).helperTextError,
-                ]}
+                style={[styles(theme).helperText, styles(theme).helperTextSuccess]}
               >
-                {passwordsMatch ? 'Senhas coincidem' : 'Senhas não coincidem'}
+                Senhas coincidem
               </Text>
             )}
 
             <View style={styles(theme).tipsContainer}>
               <Text style={styles(theme).tipsTitle}>
-                Dicas para uma senha forte:
+                Requisitos da senha:
               </Text>
               <Text style={styles(theme).tipText}>
-                - Mínimo de 6 caracteres
+                - Mínimo de 8 caracteres
               </Text>
               <Text style={styles(theme).tipText}>
-                - Use letras maiúsculas e minúsculas
+                - Letras maiúsculas e minúsculas
               </Text>
-              <Text style={styles(theme).tipText}>- Inclua numeros</Text>
+              <Text style={styles(theme).tipText}>- Pelo menos um número</Text>
               <Text style={styles(theme).tipText}>
-                - Adicione caracteres especiais (@, #, $, etc.)
+                - Pelo menos um caractere especial (@, #, $, etc.)
               </Text>
             </View>
 
@@ -251,14 +209,9 @@ export default function AlterarSenha() {
               <Button
                 title="Salvar"
                 variant="secondary"
-                onPress={handleSave}
+                onPress={handleSubmit(onSubmit)}
                 loading={saving}
-                disabled={
-                  saving ||
-                  !passwordStrength?.isValid ||
-                  !passwordsMatch ||
-                  !senhaAtual
-                }
+                disabled={saving}
                 style={styles(theme).buttonPrimary}
               />
             </View>
