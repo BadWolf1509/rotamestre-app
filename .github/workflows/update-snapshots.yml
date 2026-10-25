@@ -10,6 +10,7 @@ jobs:
   update-snapshots:
     name: Update Snapshots (Linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -55,8 +56,16 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          # Add all snapshot files from both test directories
-          git add e2e/design-system.e2e.ts-snapshots/ e2e/visual-critical.e2e.ts-snapshots/ 2>/dev/null || true
+          # As duas pastas existem no repo; sem `|| true`, um pathspec que
+          # deixe de casar (pasta renomeada) falha o step em vez de sumir.
+          git add e2e/design-system.e2e.ts-snapshots/ e2e/visual-critical.e2e.ts-snapshots/
           git status
-          git diff --staged --quiet || git commit -m "chore: update visual snapshots (linux) [skip ci]"
-          git push || echo "Nothing to push"
+          # "Nada a commitar" é o único caso que sai com 0 sem push. Qualquer
+          # falha de commit ou de push (proteção de branch, PAT sem permissão,
+          # corrida com outro push) derruba o job, em vez de virar um eco.
+          if git diff --staged --quiet; then
+            echo "Nenhum snapshot mudou; nada a commitar."
+            exit 0
+          fi
+          git commit -m "chore: update visual snapshots (linux) [skip ci]"
+          git push

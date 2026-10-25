@@ -14,6 +14,7 @@ jobs:
   quality:
     name: TypeScript & Linting
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -158,6 +159,7 @@ jobs:
   bundle-size:
     name: Bundle Size Check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Only run on PRs to show size diff
     if: github.event_name == 'pull_request'
 

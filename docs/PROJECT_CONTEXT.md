@@ -418,9 +418,12 @@ app.rotamestre.tec.br ── Expo Web / React Native
   `configureMaplibreWorker()` e o step explícito no job de visual regression)
   está em [`../CLAUDE.md`](../CLAUDE.md). O e2e `renders motorista mapa` cobre
   isso desde 25/08/2026, **mas não em PR do Dependabot**: secrets de bot são um
-  store separado e vazio, o step sai com `exit 0` e o `Visual Regression` fica
-  verde sem ter aberto o mapa (medido no #519 e no #536, os dois bumps de
-  `maplibre-gl`). **O push na `main` roda de verdade** — então um bump quebrado
+  store separado e vazio, e o mapa roda no job `E2E autenticado`, que o `if:` de
+  job **pula** para Dependabot e fork: ele aparece cinza ("Skipped") na lista de
+  checks, e o `Visual Regression (22.x)` (mesmo nome, depende dele) sai verde
+  sem ter aberto o mapa (medido no #519 e no #536, os dois bumps de
+  `maplibre-gl`, quando o pulo era um `exit 0` invisível). Humano sem secret
+  falha. **O push na `main` roda de verdade** — então um bump quebrado
   passa verde no PR, entra, e só acende com o deploy já disparado. Para validar
   antes, rode o e2e local (`npx playwright test e2e/visual-critical.e2e.ts -g
 "mapa"`, com `.env` preenchido). Como distinguir no log um step que rodou de
@@ -498,8 +501,9 @@ app.rotamestre.tec.br ── Expo Web / React Native
 4. Se houver release Android no escopo, consulte o Play Console e o EAS — não
    gere build só para descobrir o estado.
 5. Se houver worktrees de sessões paralelas em `.claude/worktrees/`, o Jest da
-   checkout principal os varre (suíte em dobro, mocks duplicados): rode com
-   `--testPathIgnorePatterns=worktrees --modulePathIgnorePatterns=worktrees`.
+   checkout principal os varre; o `jest.config.js` já os ignora por regex, então
+   basta `npx jest`. **Não passe `--testPathIgnorePatterns`**: a flag de CLI
+   sobrescreve a config e, rodada de dentro de um worktree, zera a suíte.
 6. Execute a menor validação proporcional à mudança, e registre aqui o que for
    durável: regra que pode regredir vai para "Armadilhas" ou "Regras que não
    podem regredir"; relato datado vai para [HISTORICO.md](HISTORICO.md).

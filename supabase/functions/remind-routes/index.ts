@@ -17,17 +17,14 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import {
+  estatisticasDoLembrete,
+  urgenciaDoCorpo,
+  type EstatisticasDoLembrete,
+  type Urgencia,
+} from './lembreteRotas.ts';
 import { chaveSecreta } from '../_shared/chaves.ts';
 import { requireCronSecret } from '../_shared/cronAuth.ts';
-
-interface RemindResult {
-  routes_found: number;
-  reminders_sent: number;
-}
-
-interface RequestBody {
-  urgency?: 'normal' | 'final';
-}
 
 Deno.serve(async (req) => {
   // Verificar método
@@ -44,12 +41,9 @@ Deno.serve(async (req) => {
 
   try {
     // Parse request body to get urgency level
-    let urgency: 'normal' | 'final' = 'normal';
+    let urgency: Urgencia = 'normal';
     try {
-      const body: RequestBody = await req.json();
-      if (body.urgency === 'final') {
-        urgency = 'final';
-      }
+      urgency = urgenciaDoCorpo(await req.json());
     } catch {
       // No body or invalid JSON, use default
     }
@@ -81,8 +75,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const result = data as RemindResult[] | null;
-    const stats = result?.[0] || { routes_found: 0, reminders_sent: 0 };
+    const stats = estatisticasDoLembrete(
+      data as EstatisticasDoLembrete[] | null,
+    );
 
     console.log(
       `Found ${stats.routes_found} pending routes, sent ${stats.reminders_sent} reminders`,
