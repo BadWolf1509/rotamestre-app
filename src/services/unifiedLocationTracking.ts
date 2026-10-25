@@ -15,13 +15,12 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
-import { lerSessao } from '@/lib/auth/sessao';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { CHAVE_CONTEXTO_RASTREAMENTO } from '@/lib/motorista/contextoRastreamento';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
+import { rotaRastreadaAcabou } from '@/lib/motorista/rotaRastreadaAcabou';
 import { pedirPermissao } from '@/lib/permissoes';
-import { supabase } from '@/lib/supabase';
 import { defaultTheme } from '@/utils/styles';
 
 // ========================================
@@ -212,7 +211,7 @@ function conferirRotaDoContexto(context: TrackingContext): Promise<void> {
   posicoesAteConferir = POSICOES_ENTRE_CONFERENCIAS;
   if (conferenciaEmVoo) return conferenciaEmVoo;
   const conferencia = (async () => {
-    if (!(await rotaDoContextoAcabou(context))) return;
+    if (!(await rotaRastreadaAcabou(context))) return;
     // O motorista pode ter iniciado outra rota enquanto a consulta voava.
     const atual = await getTrackingContext();
     if (atual?.rotaId !== context.rotaId) return;
@@ -226,46 +225,6 @@ function conferirRotaDoContexto(context: TrackingContext): Promise<void> {
   });
   conferenciaEmVoo = conferencia;
   return conferencia;
-}
-
-/** A sessão lida agora é a deste motorista. */
-async function sessaoDoMotorista(motoristaId: string): Promise<boolean> {
-  const { session } = await lerSessao();
-  return session?.user?.id === motoristaId;
-}
-
-/** true só com certeza de que a rota acabou ou não é mais deste motorista. */
-async function rotaDoContextoAcabou(context: TrackingContext): Promise<boolean> {
-  try {
-    // Lida ANTES do SELECT também: ver o caso "sem linha" abaixo.
-    const sessaoAntes = await sessaoDoMotorista(context.motoristaId);
-    const { data, error } = await supabase
-      .from('rotas')
-      .select('status, motorista_id')
-      .eq('id', context.rotaId)
-      .maybeSingle<{ status: string; motorista_id: string | null }>();
-    if (error) {
-      // Sem rede ou recusa passageira: na dúvida, segue rastreando.
-      logarFalha('[LocationTracking] Falha ao conferir a rota rastreada', error);
-      return false;
-    }
-    if (data) {
-      return (
-        data.status !== 'em_andamento' ||
-        data.motorista_id !== context.motoristaId
-      );
-    }
-    // Sem linha: rota apagada, ou reatribuída (a RLS de `rotas` esconde a
-    // de outro motorista). Mas a consulta que sai anônima (refresh do token
-    // falhou) também volta vazia, sem erro — só a sessão deste motorista
-    // confirmada torna o "vazio" uma resposta. Antes E depois do SELECT: só
-    // depois, um token renovado logo após a consulta anônima confirmaria um
-    // vazio que não era resposta sobre este motorista.
-    return sessaoAntes && (await sessaoDoMotorista(context.motoristaId));
-  } catch (err) {
-    logarFalha('[LocationTracking] Falha ao conferir a rota rastreada', err);
-    return false;
-  }
 }
 
 // ========================================

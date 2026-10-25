@@ -25,6 +25,25 @@ jest.mock('@/lib/auth/sessao', () => ({
   lerSessao: () => mockLerSessao(),
 }));
 
+// Consulta da rota do contexto pelo id (`rotaRastreadaAcabou`): o vazio da
+// carga não basta para parar.
+let mockRotaPeloId: { data: unknown; error: unknown };
+const mockConsultasPeloId = jest.fn();
+jest.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({
+        eq: (_coluna: string, id: string) => ({
+          maybeSingle: () => {
+            mockConsultasPeloId(id);
+            return Promise.resolve(mockRotaPeloId);
+          },
+        }),
+      }),
+    }),
+  },
+}));
+
 let ouvintesAppState: Array<(estado: string) => void> = [];
 
 function voltarAoPrimeiroPlano() {
@@ -69,6 +88,7 @@ describe('useGarantirRastreamentoDaRota', () => {
       session: { user: { id: 'motorista-1' } },
       offline: false,
     });
+    mockRotaPeloId = { data: null, error: null };
   });
 
   it('garante o rastreamento ao abrir com rota própria em andamento', async () => {
@@ -343,6 +363,95 @@ describe('useGarantirRastreamentoDaRota', () => {
       );
 
       await waitFor(() => expect(mockLerSessao).toHaveBeenCalled());
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    // Important 1 da revisão final: a rede volta com o refresh em cooldown,
+    // a carga sai anônima e volta vazia SEM erro; logo depois o token
+    // renova e a sessão confirma. Só a sessão lida DEPOIS da carga não
+    // distingue isso de "a rota acabou" — a rota do contexto, consultada
+    // pelo id, ainda anda.
+    it('carga anônima vazia e sessão que confirma depois: confere a rota pelo id e NÃO para a rota viva', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockTaskAtiva.mockResolvedValue(true);
+      mockRotaPeloId = {
+        data: { status: 'em_andamento', motorista_id: 'motorista-1' },
+        error: null,
+      };
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockLerSessao).toHaveBeenCalled());
+      await act(async () => {});
+      await new Promise((r) => setTimeout(r, 0));
+      expect(mockConsultasPeloId).toHaveBeenCalledWith('rota-1');
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('sem rota: a rota do contexto que já acabou (conferida pelo id) para', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockRotaPeloId = {
+        data: { status: 'concluida', motorista_id: 'motorista-1' },
+        error: null,
+      };
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockParar).toHaveBeenCalledTimes(1));
+      expect(mockConsultasPeloId).toHaveBeenCalledWith('rota-1');
+    });
+
+    it('sem rota e a consulta pelo id falha (sem rede): não para', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockRotaPeloId = {
+        data: null,
+        error: { message: 'TypeError: Network request failed' },
+      };
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockConsultasPeloId).toHaveBeenCalled());
+      await act(async () => {});
+      expect(mockParar).not.toHaveBeenCalled();
+    });
+
+    it('sem rota, vazio pelo id com a sessão só confirmada DEPOIS da consulta: não para', async () => {
+      mockGetContexto.mockResolvedValue(contextoGravado);
+      mockLerSessao
+        .mockResolvedValueOnce({ session: null, offline: true })
+        .mockResolvedValue({
+          session: { user: { id: 'motorista-1' } },
+          offline: false,
+        });
+
+      renderHook(() =>
+        useGarantirRastreamentoDaRota({
+          route: null,
+          motorista,
+          cargaConfirmada: true,
+        }),
+      );
+
+      await waitFor(() => expect(mockConsultasPeloId).toHaveBeenCalled());
       await act(async () => {});
       expect(mockParar).not.toHaveBeenCalled();
     });

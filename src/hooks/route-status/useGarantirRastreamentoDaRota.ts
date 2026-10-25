@@ -20,9 +20,12 @@
  * sem rede) não decide nada: a rota pode estar andando, e parar ali apagaria
  * o contexto de uma rota viva. E "nenhuma rota" só vale com a sessão do
  * motorista confirmada: com o token vencido e o refresh falhando, a consulta
- * sai com a chave publishable e a RLS devolve vazio SEM erro — mesmo
- * critério da task. A task headless tem a sua própria conferência
- * (`unifiedLocationTracking`), para quando a tela nem abre.
+ * sai com a chave publishable e a RLS devolve vazio SEM erro. Por isso o
+ * vazio da carga não decide sozinho: a rota do contexto é conferida pelo id
+ * (`rotaRastreadaAcabou`, a mesma regra da task headless), com a sessão lida
+ * antes E depois dessa consulta. Ler a sessão só depois da carga não bastava:
+ * na volta da rede o token renova logo após a consulta anônima, a sessão
+ * confirma e a tela parava uma rota viva (Important 1, revisão da 1.14.6).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
@@ -30,6 +33,7 @@ import { AppState, Platform } from 'react-native';
 import type { RouteData } from '@/context/route-status/types';
 import { lerSessao } from '@/lib/auth/sessao';
 import { logger } from '@/lib/logger';
+import { rotaRastreadaAcabou } from '@/lib/motorista/rotaRastreadaAcabou';
 import {
   garantirRastreamentoDaRota,
   getTrackingContext,
@@ -161,8 +165,11 @@ export function useGarantirRastreamentoDaRota({
  * presa). Sem nada rodando, não chama o stop.
  *
  * `semRota`: a carga voltou vazia, a única resposta ambígua (ver o topo do
- * arquivo) — exige a sessão deste motorista. Uma linha visível fora de
- * `em_andamento` já é resposta autenticada.
+ * arquivo). Com contexto gravado, quem decide é a rota DELE, conferida pelo
+ * id com a sessão antes e depois (`rotaRastreadaAcabou`): o vazio da carga
+ * pode ter sido anônimo. Sem contexto (só a task registrada, que não grava
+ * posição sem ele), não há rota a proteger: basta a sessão deste motorista.
+ * Uma linha visível fora de `em_andamento` já é resposta autenticada.
  */
 async function desligarRastreamentoSobrando({
   semRota,
@@ -174,8 +181,17 @@ async function desligarRastreamentoSobrando({
   const contexto = await getTrackingContext();
   if (!contexto && !(await isBackgroundTrackingActive())) return;
   if (semRota) {
-    const { session } = await lerSessao();
-    if (!motoristaId || session?.user?.id !== motoristaId) return;
+    if (!motoristaId) return;
+    if (contexto) {
+      const acabou = await rotaRastreadaAcabou({
+        rotaId: contexto.rotaId,
+        motoristaId,
+      });
+      if (!acabou) return;
+    } else {
+      const { session } = await lerSessao();
+      if (session?.user?.id !== motoristaId) return;
+    }
   }
   // O `startRoute` pode ter gravado o contexto de uma rota nova enquanto as
   // leituras acima voavam: parar ali mataria a rota recém-iniciada.
