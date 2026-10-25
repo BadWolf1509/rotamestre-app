@@ -2068,6 +2068,7 @@ M2 e gestor G; 9 casos: default ligado, upsert e releitura do dono, G não lê,
 G não altera, G não cria nem faz upsert, a linha não muda de dono, sem DELETE,
 anon sem acesso, service_role lê; só o DELETE recusado de M; termina em
 `RAISE`). Conferência só com SELECT (4 consultas) no fim da migration.
+
 ### ✅ Migration 48: logs, posições e logs de push lidos pela loja da rota
 
 **Arquivo:** `20261024110000_logs_posicoes_push_pela_loja_da_rota.sql` · **✅ aplicada em

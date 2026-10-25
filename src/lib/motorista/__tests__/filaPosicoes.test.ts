@@ -738,7 +738,11 @@ describe('filaPosicoes', () => {
           'A field with precision 5, scale 2 must round to an absolute value less than 10^3.',
       };
       semRede();
-      await registrarPosicao(posicao({ rota_id: 'estreita' }), minuto(1), ROTULO);
+      await registrarPosicao(
+        posicao({ rota_id: 'estreita' }),
+        minuto(1),
+        ROTULO,
+      );
       await registrarPosicao(posicao({ rota_id: 'viva' }), minuto(2), ROTULO);
       mockInsert.mockClear();
       mockInsert.mockImplementation(async (linhas: Posicao[]) =>

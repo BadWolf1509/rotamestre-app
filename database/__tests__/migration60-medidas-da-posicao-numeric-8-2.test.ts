@@ -70,7 +70,8 @@ describe('Migration 60: medidas da posição em numeric(8,2)', () => {
   it('o teto que o app saneia é o maior valor do tipo novo', () => {
     const [, precisao, escala] =
       executavel.match(/TYPE numeric\((\d+),\s*(\d+)\)/) ?? [];
-    const teto = 10 ** (Number(precisao) - Number(escala)) - 10 ** -Number(escala);
+    const teto =
+      10 ** (Number(precisao) - Number(escala)) - 10 ** -Number(escala);
     expect(TETO_MEDIDA_POSICAO).toBeCloseTo(teto, 2);
   });
 
