@@ -45,6 +45,7 @@ import {
   useMapaRotaHandlers,
   useMapaRotaModals,
 } from '@/components/gestor/mapa-rota/hooks';
+import { sinalLinhaDoTempo } from '@/components/gestor/mapa-rota/sinalLinhaDoTempo';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -171,6 +172,11 @@ export default function MapaRota() {
     [rota?.status],
   );
   const hasBaseInfo = useHasBaseInfo(pontosBase);
+  // Realtime da tela → rebusca do resumo da linha do tempo (ver o helper).
+  const sinalTimeline = useMemo(
+    () => sinalLinhaDoTempo(rota?.status, paradas),
+    [rota?.status, paradas],
+  );
   const storedRouteInfo = useMemo(
     () =>
       rota?.distancia_total != null && rota?.tempo_total != null
@@ -403,6 +409,7 @@ export default function MapaRota() {
               <TimelineCollapsible
                 rotaId={id as string}
                 rotaCreatedAt={rota?.created_at}
+                sinalAtualizacao={sinalTimeline}
               />
             </View>
 

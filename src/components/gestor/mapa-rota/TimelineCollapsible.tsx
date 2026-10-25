@@ -39,9 +39,20 @@ interface TimelineCollapsibleProps {
   /** Timestamp de criação da rota - usado como baseline para badges "novo" */
   rotaCreatedAt?: string;
   initialExpanded?: boolean;
+  /**
+   * Muda quando a tela vê a rota ou as paradas mudarem (realtime da tela).
+   * O resumo é rebuscado a cada mudança — sem isso ele ficava parado no que
+   * havia na montagem. Reaproveita o canal da tela em vez de abrir outro.
+   */
+  sinalAtualizacao?: string;
 }
 
-export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = false }: TimelineCollapsibleProps) {
+export function TimelineCollapsible({
+  rotaId,
+  rotaCreatedAt,
+  initialExpanded = false,
+  sinalAtualizacao,
+}: TimelineCollapsibleProps) {
   const { theme } = useUnistyles();
   const [expanded, setExpanded] = useState(initialExpanded);
   const [preview, setPreview] = useState<TimelinePreview>({
@@ -156,7 +167,8 @@ export function TimelineCollapsible({ rotaId, rotaCreatedAt, initialExpanded = f
     return () => {
       cancelled = true;
     };
-  }, [rotaId]);
+    // `sinalAtualizacao` não é lido no efeito: é o gatilho da rebusca.
+  }, [rotaId, sinalAtualizacao]);
 
   // Calcular eventos não vistos separadamente (após preview e lastSeen carregarem)
   useEffect(() => {
