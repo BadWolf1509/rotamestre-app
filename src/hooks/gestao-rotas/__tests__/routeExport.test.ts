@@ -169,6 +169,56 @@ describe('routeExport', () => {
         });
       });
 
+      /**
+       * G11: aspas dentro da célula fechavam o campo (RFC 4180 manda dobrar),
+       * e célula começando por = + - @ (ou tab/CR) vira fórmula no Excel e
+       * no LibreOffice — o nome do motorista é cadastrado pelo gestor e pode
+       * carregar `=HYPERLINK(...)`. A célula ganha um apóstrofo na frente.
+       */
+      describe('célula segura (RFC 4180 e fórmula)', () => {
+        function csvGerado(): string {
+          const chamada = ((global as any).Blob as jest.Mock).mock.calls[0];
+          return chamada[0][0] as string;
+        }
+        async function exportarComNome(nome: string): Promise<string> {
+          ((global as any).Blob as jest.Mock).mockClear();
+          await exportRotasToCSV({
+            rotas: [{ ...mockRota, motorista_nome: nome }],
+            filtroStatus: 'todas',
+          });
+          return csvGerado();
+        }
+
+        it('aspas dentro da célula são dobradas', async () => {
+          expect(await exportarComNome('Zé "Bigode"')).toContain(
+            ';"Zé ""Bigode""";',
+          );
+        });
+
+        it('fórmula vira texto, com as aspas internas dobradas', async () => {
+          expect(
+            await exportarComNome('=HYPERLINK("http://x","clique")'),
+          ).toContain(`;"'=HYPERLINK(""http://x"",""clique"")";`);
+        });
+
+        it.each(['+1+1', '-1+1', '@SUM(A1)', '\t=1', '\r=1'])(
+          'neutraliza %j no começo da célula',
+          async (nome) => {
+            expect(await exportarComNome(nome)).toContain(`;"'${nome}";`);
+          },
+        );
+
+        it('o marcador "-" (sem distância) segue como está', async () => {
+          ((global as any).Blob as jest.Mock).mockClear();
+          await exportRotasToCSV({
+            rotas: [{ ...mockRota, distancia_total: null as never }],
+            filtroStatus: 'todas',
+          });
+          expect(csvGerado()).toContain(';"-";');
+          expect(csvGerado()).not.toContain("'-");
+        });
+      });
+
       it('logs export action when userId is provided', async () => {
         const { supabase } = require('@/lib/supabase');
 

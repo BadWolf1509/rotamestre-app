@@ -100,10 +100,34 @@ function buildCSVContent(rotas: RotaHistorico[]): string {
   return (
     '\uFEFF' +
     [
-      headers.map((cabecalho) => `"${cabecalho}"`).join(';'),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(';')),
+      headers.map(celulaCSV).join(';'),
+      ...rows.map((row) => row.map(celulaCSV).join(';')),
     ].join('\n')
   );
+}
+
+/** Come\u00E7o de c\u00E9lula que o Excel e o LibreOffice leem como f\u00F3rmula. */
+const INICIO_DE_FORMULA = /^[=+\-@\t\r]/;
+/** N\u00E3o formam f\u00F3rmula: o marcador "-" (sem valor) e n\u00FAmero puro. */
+const SEM_RISCO_DE_FORMULA = /^(-|-?\d+(?:[.,]\d+)?)$/;
+
+/**
+ * C\u00E9lula entre aspas, com as aspas internas dobradas (RFC 4180) e f\u00F3rmula
+ * neutralizada por um ap\u00F3strofo na frente (OWASP, "CSV injection"): o nome do
+ * motorista \u00E9 texto livre e `=HYPERLINK(...)` viraria link clic\u00E1vel na
+ * planilha do gestor. O XLSX n\u00E3o passa por aqui: o SheetJS grava string como
+ * c\u00E9lula de texto, que n\u00E3o \u00E9 avaliada (guarda em `routeExportXLSX.test.ts`).
+ */
+function celulaCSV(valor: string | number | null | undefined): string {
+  let texto = valor === null || valor === undefined ? '' : String(valor);
+  if (
+    typeof valor === 'string' &&
+    INICIO_DE_FORMULA.test(texto) &&
+    !SEM_RISCO_DE_FORMULA.test(texto)
+  ) {
+    texto = `'${texto}`;
+  }
+  return `"${texto.replace(/"/g, '""')}"`;
 }
 
 /**
