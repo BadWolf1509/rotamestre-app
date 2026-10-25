@@ -136,6 +136,41 @@ export interface Posicao {
   fonte?: 'foreground' | 'background';
 }
 
+/**
+ * Maior valor que `velocidade`, `precisao` e `heading` aceitam no banco:
+ * `numeric(8,2)` desde a Migration 60. Até ela eram `numeric(5,2)` (999,99), e
+ * o `accuracy` de 1000 m+ que o GPS entrega logo ao abrir o app em ambiente
+ * fechado era recusado com 22003 (medido no aparelho em 25/10/2026).
+ */
+export const TETO_MEDIDA_POSICAO = 999999.99;
+
+function medida(valor: number | null, valida: (v: number) => boolean) {
+  return valor !== null && Number.isFinite(valor) && valida(valor)
+    ? valor
+    : null;
+}
+
+const naFaixa = (v: number) => v >= 0 && v <= TETO_MEDIDA_POSICAO;
+
+/**
+ * As medidas do GPS no formato que o banco aceita: o que não é medida (não
+ * finito, negativo — o iOS manda -1 para "inválido" —, `heading` fora de
+ * [0, 360), acima de `TETO_MEDIDA_POSICAO`) vira null. A posição em si nunca é
+ * descartada: latitude e longitude continuam valendo para o trajeto.
+ *
+ * Null, e não o teto: gravar 999999,99 numa precisão de 2.000 km, ou 359,99
+ * num heading de 720, registraria uma medida que o GPS não fez; null é o que
+ * a coluna já usa para "sem medida" (velocidade parada, heading sem bússola).
+ */
+export function sanearPosicao(posicao: Posicao): Posicao {
+  return {
+    ...posicao,
+    velocidade: medida(posicao.velocidade, naFaixa),
+    precisao: medida(posicao.precisao, naFaixa),
+    heading: medida(posicao.heading, (v) => v >= 0 && v < 360),
+  };
+}
+
 /** Linha da tabela para uma posição guardada: com o horário de captura. */
 type LinhaGuardada = Posicao & { timestamp: string };
 
@@ -230,13 +265,21 @@ async function gravar(
 }
 
 /**
- * A linha da tabela com o horário do fix do GPS (`capturadaEm`, epoch ms).
- * Horário inválido (o `toISOString` lançaria e a posição se perderia) cai no
- * relógio do aparelho, que ainda é mais perto da captura que o do servidor.
+ * A linha da tabela com o horário do fix do GPS (`capturadaEm`, epoch ms) e as
+ * medidas saneadas (`sanearPosicao`). Horário inválido (o `toISOString`
+ * lançaria e a posição se perderia) cai no relógio do aparelho, que ainda é
+ * mais perto da captura que o do servidor.
+ *
+ * É a porta das duas vias — o insert direto e a fila —, então uma medida fora
+ * da faixa não chega nem ao banco nem ao AsyncStorage, onde envenenaria o
+ * lote da rota a cada reenvio.
  */
 function comHorario(posicao: Posicao, capturadaEm: number): LinhaGuardada {
   const horario = Number.isFinite(capturadaEm) ? capturadaEm : Date.now();
-  return { ...posicao, timestamp: new Date(horario).toISOString() };
+  return {
+    ...sanearPosicao(posicao),
+    timestamp: new Date(horario).toISOString(),
+  };
 }
 
 /**

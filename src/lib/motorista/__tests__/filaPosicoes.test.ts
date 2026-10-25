@@ -7,8 +7,10 @@ import {
   CHAVE_FILA_POSICOES,
   MAX_TENTATIVAS_POSICAO,
   TETO_FILA_POSICOES,
+  TETO_MEDIDA_POSICAO,
   invalidarPosicoesEmVoo,
   registrarPosicao,
+  sanearPosicao,
   type Posicao,
 } from '../filaPosicoes';
 
@@ -682,5 +684,113 @@ describe('filaPosicoes', () => {
       expect(destino).toBe('na_fila');
       expect(mockLerSessao).not.toHaveBeenCalled();
     });
+  });
+
+  // Medido no aparelho em 25/10/2026: logo ao abrir o app em ambiente
+  // fechado, o GPS entregou `accuracy` >= 1000 m e o banco recusou a linha com
+  // 22003 (as colunas eram numeric(5,2)). A Migration 60 alarga para
+  // numeric(8,2); o app garante que nada passa do teto do tipo novo.
+  describe('saneamento das medidas do GPS', () => {
+    it('precisão ruim, mas dentro do teto, vai como veio (a posição não se perde)', async () => {
+      const ruim = posicao({ precisao: 1500.5, velocidade: 12.6, heading: 90 });
+
+      const destino = await registrarPosicao(ruim, minuto(1), ROTULO);
+
+      expect(destino).toBe('enviada');
+      expect(mockInsert).toHaveBeenCalledWith({ ...ruim, timestamp: iso(1) });
+    });
+
+    it('com rede, medida inválida sai como null no insert direto', async () => {
+      await registrarPosicao(
+        posicao({ velocidade: -3.6, precisao: -1, heading: -1 }),
+        minuto(1),
+        ROTULO,
+      );
+
+      expect(mockInsert).toHaveBeenCalledWith({
+        ...posicao({ velocidade: null, precisao: null, heading: null }),
+        timestamp: iso(1),
+      });
+    });
+
+    it('sem rede, a fila guarda a posição já saneada', async () => {
+      semRede();
+
+      const destino = await registrarPosicao(
+        posicao({ precisao: TETO_MEDIDA_POSICAO + 1, heading: 360 }),
+        minuto(1),
+        ROTULO,
+      );
+
+      expect(destino).toBe('na_fila');
+      expect(filaGuardada()?.posicoes).toEqual([
+        {
+          ...posicao({ precisao: null, heading: null }),
+          timestamp: iso(1),
+        },
+      ]);
+    });
+  });
+});
+
+describe('sanearPosicao', () => {
+  it('o teto é o maior valor de numeric(8,2)', () => {
+    expect(TETO_MEDIDA_POSICAO).toBe(999999.99);
+  });
+
+  it('valores válidos passam intactos, inclusive nos limites', () => {
+    const p = posicao({ velocidade: 0, precisao: 0, heading: 0 });
+    expect(sanearPosicao(p)).toEqual(p);
+    const limites = posicao({
+      velocidade: TETO_MEDIDA_POSICAO,
+      precisao: TETO_MEDIDA_POSICAO,
+      heading: 359.99,
+    });
+    expect(sanearPosicao(limites)).toEqual(limites);
+  });
+
+  it.each([
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['-Infinity', Number.NEGATIVE_INFINITY],
+  ])('%s vira null nos três campos', (_nome, valor) => {
+    expect(
+      sanearPosicao(
+        posicao({ velocidade: valor, precisao: valor, heading: valor }),
+      ),
+    ).toEqual(posicao({ velocidade: null, precisao: null, heading: null }));
+  });
+
+  it('negativos viram null (o iOS manda -1 para "inválido")', () => {
+    expect(
+      sanearPosicao(posicao({ velocidade: -3.6, precisao: -1, heading: -1 })),
+    ).toEqual(posicao({ velocidade: null, precisao: null, heading: null }));
+  });
+
+  it('heading fora de [0, 360) vira null', () => {
+    expect(sanearPosicao(posicao({ heading: 360 })).heading).toBeNull();
+    expect(sanearPosicao(posicao({ heading: 720 })).heading).toBeNull();
+  });
+
+  it('acima do teto vira null, em vez de virar o teto (seria uma medida falsa)', () => {
+    expect(
+      sanearPosicao(
+        posicao({
+          velocidade: TETO_MEDIDA_POSICAO + 0.01,
+          precisao: 1e7,
+        }),
+      ),
+    ).toEqual(posicao({ velocidade: null, precisao: null }));
+  });
+
+  it('null continua null, e o resto da linha não muda', () => {
+    const p = posicao({ fonte: 'background', velocidade: null, heading: null });
+    expect(sanearPosicao(p)).toEqual(p);
+  });
+
+  it('não altera o objeto recebido', () => {
+    const p = posicao({ precisao: -1 });
+    sanearPosicao(p);
+    expect(p.precisao).toBe(-1);
   });
 });
