@@ -197,6 +197,41 @@ describe('TimelineCollapsible', () => {
     expect(getByText('2')).toBeTruthy();
   });
 
+  it('recalcula o selo de novos quando a rebusca traz evento novo', async () => {
+    mockUseTimelineLastSeen.mockReturnValue({
+      countNewEvents: jest.fn((eventos: unknown[]) => eventos.length),
+      markAllAsSeen: jest.fn(),
+      loading: false,
+    });
+    let paradas = [
+      { id: 'p1', ordem: 1, status: 'concluida', concluida_em: '2024-01-01T10:00:00.000Z' },
+    ];
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'logs') return createLogsQuery([]);
+      if (table === 'paradas') return createParadasQuery(paradas);
+      if (table === 'incidentes') return createIncidentesQuery([]);
+      return createLogsQuery([]);
+    });
+
+    const { getByText, rerender } = render(
+      <TimelineCollapsible rotaId="rota-6" sinalAtualizacao="p1:concluida" />,
+    );
+    await waitFor(() => expect(getByText('1 novo')).toBeTruthy());
+
+    paradas = [
+      ...paradas,
+      { id: 'p2', ordem: 2, status: 'concluida', concluida_em: '2024-01-01T11:00:00.000Z' },
+    ];
+    rerender(
+      <TimelineCollapsible
+        rotaId="rota-6"
+        sinalAtualizacao="p1:concluida|p2:concluida"
+      />,
+    );
+
+    await waitFor(() => expect(getByText('2 novos')).toBeTruthy());
+  });
+
   it('não rebusca quando o sinal não muda', async () => {
     mockUseTimelineLastSeen.mockReturnValue({
       countNewEvents: jest.fn(() => 0),

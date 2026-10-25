@@ -176,7 +176,9 @@ export function TimelineCollapsible({
 
     const unseenEvents = countNewEvents(allEventsRef.current);
     setUnseenCount(unseenEvents);
-  }, [lastSeenLoading, countNewEvents, preview.loading]);
+    // `preview` (objeto novo a cada busca) recalcula depois da rebusca do
+    // realtime; os eventos estão num ref, que não dispara efeito.
+  }, [lastSeenLoading, countNewEvents, preview]);
 
   // Ref para evitar cliques múltiplos
   const isTogglingRef = useRef(false);
