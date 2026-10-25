@@ -56,16 +56,39 @@ export interface UseReorderStateReturn {
   cancelChanges: () => void;
 }
 
+const COMO_SAIU: Record<string, string> = {
+  em_andamento: 'iniciada',
+  concluida: 'concluída',
+  pulada: 'pulada',
+};
+
+/** Avisa que o motorista mexeu numa parada do preview enquanto o gestor editava. */
+function mensagemSaiuDoPreview(paradas: Parada[]): string {
+  const quais = paradas
+    .map((p) => {
+      const nome = p.endereco?.trim() || 'sem endereço';
+      return `${nome} (${COMO_SAIU[p.status] ?? p.status})`;
+    })
+    .join(', ');
+  const plural = paradas.length > 1;
+  return (
+    `O motorista atualizou ${plural ? 'as paradas' : 'a parada'} ${quais}, ` +
+    `que ${plural ? 'ficaram fixas' : 'ficou fixa'}. O resto da sua ordem foi mantido; confira antes de salvar.`
+  );
+}
+
 export function useReorderState({
   paradas,
   onReorder,
   rotaStatus,
   onWebChangesChange,
 }: UseReorderStateOptions): UseReorderStateReturn {
-  // Estado local para reordenação na web (permite preview antes de salvar)
-  const [webReorderList, setWebReorderList] = useState<Parada[] | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
+  // Preview da reordenação na web (antes de salvar): guarda só a ORDEM dos
+  // ids. A lista mostrada é derivada das paradas frescas a cada render, porque
+  // a tela grava um array novo a cada evento do realtime — um reset por
+  // identidade do array jogava fora a ordem que o gestor acabou de montar.
+  const [ordemLocal, setOrdemLocal] = useState<string[] | null>(null);
+  const [avisoVinculo, setAviso] = useState<string | null>(null);
   const [resetToken, setResetToken] = useState(0);
 
   // Separar paradas fixas (concluídas/puladas) das reordenáveis
@@ -95,8 +118,38 @@ export function useReorderState({
     return { fixedParadas: fixed, reorderableParadas: reorderable };
   }, [paradas]);
 
-  // Lista atual para web (local ou original)
-  const currentWebList = webReorderList || reorderableParadas;
+  // Lista atual para web: a ordem do gestor aplicada às pendentes de agora.
+  // Parada que deixou de ser pendente (o motorista iniciou, concluiu ou pulou)
+  // sai do preview e passa às fixas pelo split acima; pendente que não estava
+  // no preview entra no fim. O resto da ordem do gestor fica.
+  const { currentWebList, sairamDoPreview } = useMemo(() => {
+    if (!ordemLocal) {
+      return { currentWebList: reorderableParadas, sairamDoPreview: [] };
+    }
+    const pendentes = new Map(reorderableParadas.map((p) => [p.id, p]));
+    const naOrdem = ordemLocal.flatMap((id) => {
+      const parada = pendentes.get(id);
+      return parada ? [parada] : [];
+    });
+    const novas = reorderableParadas.filter((p) => !ordemLocal.includes(p.id));
+    const fixasPorId = new Map(fixedParadas.map((p) => [p.id, p]));
+    const sairam = ordemLocal.flatMap((id) => {
+      const parada = fixasPorId.get(id);
+      return parada ? [parada] : [];
+    });
+    return { currentWebList: [...naOrdem, ...novas], sairamDoPreview: sairam };
+  }, [ordemLocal, reorderableParadas, fixedParadas]);
+
+  // Mudança pendente = a ordem mostrada difere da gravada.
+  const hasChanges =
+    ordemLocal !== null &&
+    currentWebList.some((p, i) => p.id !== reorderableParadas[i]?.id);
+
+  const aviso =
+    avisoVinculo ??
+    (sairamDoPreview.length > 0
+      ? mensagemSaiuDoPreview(sairamDoPreview)
+      : null);
 
   // Verificar se a reordenação é permitida
   const canReorder = rotaStatus === 'pendente' || rotaStatus === 'em_andamento';
@@ -105,13 +158,6 @@ export function useReorderState({
   useEffect(() => {
     onWebChangesChange?.(hasChanges);
   }, [hasChanges, onWebChangesChange]);
-
-  // Resetar estado local quando paradas mudam externamente
-  useEffect(() => {
-    setWebReorderList(null);
-    setHasChanges(false);
-    setAviso(null);
-  }, [paradas]);
 
   // A entrega não pode ir antes da retirada de que depende. Compara a ordem
   // inteira (fixas + reordenáveis) e só recusa violação NOVA: rota que já veio
@@ -161,8 +207,7 @@ export function useReorderState({
       const list = [...currentWebList];
       [list[index - 1], list[index]] = [list[index], list[index - 1]];
       if (recusaPorVinculo(currentWebList, list)) return;
-      setWebReorderList(list);
-      setHasChanges(true);
+      setOrdemLocal(list.map((p) => p.id));
     },
     [currentWebList, recusaPorVinculo],
   );
@@ -174,17 +219,16 @@ export function useReorderState({
       const list = [...currentWebList];
       [list[index], list[index + 1]] = [list[index + 1], list[index]];
       if (recusaPorVinculo(currentWebList, list)) return;
-      setWebReorderList(list);
-      setHasChanges(true);
+      setOrdemLocal(list.map((p) => p.id));
     },
     [currentWebList, recusaPorVinculo],
   );
 
   // Salvar alterações da web
   const saveChanges = useCallback(async () => {
-    if (!webReorderList || !hasChanges) return;
+    if (!ordemLocal || !hasChanges) return;
 
-    const newOrder = webReorderList.map((p, idx) => ({
+    const newOrder = currentWebList.map((p, idx) => ({
       ...p,
       ordem: fixedParadas.length + idx + 1,
     }));
@@ -192,19 +236,18 @@ export function useReorderState({
     try {
       await onReorder([...fixedParadas, ...newOrder]);
       // Only clear state if save was successful
-      setWebReorderList(null);
-      setHasChanges(false);
+      setOrdemLocal(null);
+      setAviso(null);
     } catch (error) {
       // Error is handled by onReorder (handleReorderParadas)
       // Don't clear state so user can retry
       logger.error('[useReorderState] Error saving:', error);
     }
-  }, [webReorderList, hasChanges, fixedParadas, onReorder]);
+  }, [ordemLocal, hasChanges, currentWebList, fixedParadas, onReorder]);
 
   // Cancelar alterações da web
   const cancelChanges = useCallback(() => {
-    setWebReorderList(null);
-    setHasChanges(false);
+    setOrdemLocal(null);
     setAviso(null);
   }, []);
 
