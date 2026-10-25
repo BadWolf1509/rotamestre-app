@@ -1941,9 +1941,9 @@ tem `DELETE` só de tokens que ela cria, então roda no SQL Editor;
 termina em `RAISE`). Roteiro de conferência só com SELECT (9 consultas) no fim
 da migration. Sintaxe validada com o parser do Postgres (libpg-query).
 
-### ⏳ Migration 46: o SOS chega a um gestor, ou o motorista sabe que não chegou
+### ✅ Migration 46: o SOS chega a um gestor, ou o motorista sabe que não chegou
 
-**Arquivo:** `20261024100000_sos_chega_a_um_gestor.sql` · **⏳ pendente.**
+**Arquivo:** `20261024100000_sos_chega_a_um_gestor.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois).
 Rodar pelo **SQL Editor** como `postgres` (tem `REVOKE`, que o MCP recusa),
 numa execução só, e depois a sonda. Pode ir antes ou depois do merge: sem a
 RPC, o app novo volta ao INSERT direto e diz que não conseguiu confirmar o
@@ -2019,9 +2019,9 @@ UPDATE da contagem, os avisos que ficam; sem `DELETE` nem `DROP`; termina em `RA
 Conferência só com SELECT (4 consultas) no fim da migration. Sintaxe validada
 com o parser do Postgres (libpg-query).
 
-### ⏳ Migration 47: preferências de push por conta, que só o dono lê e grava
+### ✅ Migration 47: preferências de push por conta, que só o dono lê e grava
 
-**Arquivo:** `20261024200000_preferencias_notificacao.sql` · **⏳ pendente.**
+**Arquivo:** `20261024200000_preferencias_notificacao.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois).
 Rodar pelo **SQL Editor** como `postgres` (tem `REVOKE`, que o MCP recusa),
 numa execução só, e depois a sonda. A ordem com a função e o app não importa:
 a função sem a tabela envia tudo (consulta que falha = envia), e o app sem a
@@ -2068,3 +2068,377 @@ M2 e gestor G; 9 casos: default ligado, upsert e releitura do dono, G não lê,
 G não altera, G não cria nem faz upsert, a linha não muda de dono, sem DELETE,
 anon sem acesso, service_role lê; só o DELETE recusado de M; termina em
 `RAISE`). Conferência só com SELECT (4 consultas) no fim da migration.
+### ✅ Migration 48: logs, posições e logs de push lidos pela loja da rota
+
+**Arquivo:** `20261024110000_logs_posicoes_push_pela_loja_da_rota.sql` · **✅ aplicada em
+24/10/2026 pelo CLI** (sonda antes e depois).
+
+**O que faz.** `ALTER POLICY` (nomes mantidos, todas `TO authenticated`) em
+`logs_select`, `motorista_locations_select_optimized` e
+`push_notification_logs_select_scoped`, no formato que `incidentes` usa desde a
+Migration 42: o dono lê o que é seu (autor do log, motorista da posição); o
+gestor lê a linha quando a rota dela é de uma loja onde ele é gestor ativo
+(`usuario_unidades.unidade_id = rotas.unidade_id`). `push_notification_logs`
+não tem rota: vale a da notificação, consultada pelo helper
+`notificacao_da_loja_do_gestor(uuid)` (SECURITY DEFINER, `search_path` vazio,
+devolve só booleano; EXECUTE para `authenticated`, que a policy exige, e não
+para `anon`), porque `notificacoes` só é legível pelo destinatário. O log de
+push segue sem leitura do próprio motorista, como antes.
+
+**Escrita de posição.** Como a leitura segue `rota_id`,
+`motorista_locations_insert_optimized` (`public` → `authenticated`) passa a
+exigir, além de `motorista_id = auth.uid()`, que `rota_id` seja NULL ou de uma
+rota cujo `motorista_id` é quem grava. Medido em 24/10/2026: 59.056 posições,
+nenhuma fora dessa regra; posição recusada fica na fila offline
+(`filaPosicoes`), que reenvia até um limite de tentativas. Alternativa: exigir
+também vínculo ativo na loja da rota — ficou de fora
+porque o acesso de quem tem vínculo desativado é decidido pelo RLS de `rotas`,
+que a subconsulta já respeita; seriam duas fontes para o mesmo critério.
+`logs_insert_optimized` não muda (já confere a rota por
+`pode_registrar_log_na_rota`).
+
+**Linhas sem rota: só o dono.** Medido em 24/10/2026: 411 de 8.196 logs sem
+rota (gestão de usuários e logs de rotas apagadas, FK `ON DELETE SET NULL`), 0
+posições sem rota (FK `ON DELETE CASCADE`) e 3 de 3.118 logs de push de
+notificação sem rota. Nenhuma consulta do app lê log sem rota, e o SOS chega ao
+gestor pela notificação do gatilho `notify_sos_acionado`, não pela leitura de
+`logs`. Alternativas: (a) loja de um vínculo ativo em comum entre gestor e
+autor — a linha sem rota de um motorista de duas lojas ficaria legível nas
+duas; (b) loja gravada na linha, como a Migration 43 fez em `incidentes` —
+coluna e gatilho em três tabelas para um dado que nenhuma tela usa. Se uma tela
+vier a precisar, o caminho é (b).
+
+**Efeito visível.** Nas rotas da sua loja, o gestor passa a ler também os logs
+sem autor (conta apagada, `usuario_id` → NULL; 1.575 em rotas existentes,
+nenhum repetindo um log com autor) e os de motorista com vínculo desativado.
+Aparecem no histórico de rotas antigas.
+
+**App.** Todas as leituras filtram por `rota_id` de rota que o gestor já
+enxerga e seguem servidas: histórico da rota (`useTimelineData`, página e
+"carregar mais"), prévia do mapa (`TimelineCollapsible`), marcador do motorista
+(`MotoristaMarker`, `useMotoristaLocationMapLibre`, consulta e realtime). Só
+`motorista_locations` está na publicação `supabase_realtime`; `logs` não está,
+então a assinatura de `logs` do histórico não recebe eventos (estado anterior,
+não muda aqui). O registro de foto sem vínculo (`src/lib/storage.ts`) faz `INSERT
+… RETURNING` como autor e segue lendo a própria linha. `push_notification_logs`
+não é lido pelo app (o painel usa service role).
+
+**Índices.** Nenhum novo; conferidos com `EXPLAIN`: `idx_logs_rota`,
+`idx_motorista_locations_rota_timestamp`, `rotas_pkey`, `idx_uu_ativo`,
+`notificacoes_pkey`.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration48-leitura-pela-loja-da-rota.test.ts`; sonda
+`database/sondas/20261024110000_sonda_migration48.sql` (lojas A/B/C, motorista
+em A e B, colega só em A, gestor com vínculo desativado; o motorista grava
+posição e log nas duas rotas; 34 casos, inclusive linhas sem rota, log sem
+autor, posição na rota de outro motorista recusada e `anon`; sem `DELETE`;
+termina em `RAISE`). Roteiro de conferência só com SELECT (6 consultas) no fim
+da migration.
+
+### ✅ Migration 49: rotas e paradas do motorista pelo vínculo ativo com a loja
+
+**Arquivo:** `20261024111000_rotas_paradas_pelo_vinculo_ativo.sql` · **✅ aplicada em
+24/10/2026 pelo CLI** (sonda antes e depois).
+
+**O que faz.** `ALTER POLICY` (nomes mantidos, todas `TO authenticated`) em
+`rotas_select`, `rotas_update`, `paradas_select` e `paradas_update`, com uma
+regra só: quem consulta tem vínculo ativo (`usuario_unidades.ativo`) na loja da
+rota e é gestor dessa loja **ou** é o motorista da rota e está ativo como
+pessoa (`usuarios.ativo`). O motorista que atende duas lojas e tem o vínculo
+desativado numa delas lê e atualiza só as rotas da outra; o motorista
+desativado como pessoa (caminho "pessoa" de `alternar_motorista_na_unidade`,
+que mantém o vínculo) não lê nem atualiza nenhuma. Reativado, volta a ver. O
+gestor não muda. `INSERT`/`DELETE` de `rotas` e `paradas` já eram só do gestor
+ativo.
+
+**Helper `usuario_atual_ativo()`.** STABLE, SECURITY DEFINER, `search_path`
+vazio; devolve só o `usuarios.ativo` de quem chama (sem linha: false). Entra no
+ramo do motorista como `(SELECT public.usuario_atual_ativo())`, que vira
+initplan (uma avaliação por consulta). EXECUTE para `authenticated` e
+`service_role`, não para `anon`. Alternativa: desativar também o vínculo no
+caminho "pessoa" da RPC — mudaria a tela de Motoristas (vínculo inativo
+esconde perfil e edição) e pediria backfill; fica como passo separado.
+
+**Funções do motorista.** As SECURITY DEFINER que ele chama sobre a rota ou a
+parada passam a conferir vínculo e pessoa ativos: `finalizar_rota` (no `WHERE`
+do `SELECT … FOR NO KEY UPDATE`; sem eles, o mesmo `ROTA_NAO_ENCONTRADA`),
+`reordenar_paradas` (ramo do motorista) e `pode_registrar_log_na_rota` (usada
+por `logs_insert_optimized` e `registrar_sos`; passa a ser "vínculo ativo na
+loja da rota, e gestor dela ou pessoa ativa"). Conferidas sem mudança:
+`inserir_parada`, `criar_rota_com_paradas`, `criar_notificacao`,
+`alternar_motorista_na_unidade`, `listar_motoristas_unidade` (só gestor ativo);
+`estatisticas_rota`, `obter_paradas_ordenadas`, `rotas_ativas_motorista` (sem
+EXECUTE para `authenticated`). Herdam pelo RLS de `rotas`: a posição
+(`motorista_locations_insert_optimized`, Migration 48) e o embed
+`paradas → rotas` do app.
+
+**SOS nunca é recusado pela rota.** Se quem aciona o SOS não pode mais
+registrar na rota informada (rota guardada no aparelho), o SOS é gravado sem
+rota, com `detalhes.rota_recusada = true` e sem `rota_id`/`rota_status` em
+`detalhes`; `notify_sos_acionado` → `avisar_gestores_do_sos` trata rota NULL
+como SOS sem rota e avisa os gestores das lojas onde ele tem vínculo ativo.
+Dois caminhos: gatilho BEFORE INSERT `logs_sos_sem_rota_quando_recusada` em
+`logs` (SECURITY DEFINER, `search_path` vazio; só `evento = 'sos_acionado'`
+com rota e com usuário na sessão), para o INSERT direto das versões do app
+sem a RPC — o nome ordena antes de `prevent_duplicate_log_trigger`, e o WITH
+CHECK de `logs_insert_optimized` é avaliado depois dos BEFORE, pelo ramo
+`rota_id IS NULL`; e `registrar_sos` (Migration 46), redefinida a partir do
+corpo em produção, com a recusa trocada pela mesma queda. Nos dois, a checagem
+da rota roda num bloco `EXCEPTION WHEN OTHERS`: se ela falhar, o SOS segue sem
+rota, com a mesma marcação, e o motivo vai para o log do Postgres (WARNING).
+Alternativas: tornar `pode_registrar_log_na_rota` à prova de erro (função SQL
+não captura exceção, nem cobre a função ausente) ou repetir a regra inline no
+gatilho (duas fontes, e a consulta inline também pode falhar). A subtransação
+só existe no INSERT de SOS com rota.
+
+**Alternativas.** (a) Manter os dois ramos (`motorista_id = auth.uid() OR
+gestor`) e acrescentar as condições ao do motorista — mesma semântica, duas
+subconsultas; (b) helper SECURITY DEFINER único para a regra inteira — uma
+fonte só, mas chamada opaca por linha e mais um RPC exposto; (c) só `rotas` e
+deixar `paradas` herdar pelo RLS da subconsulta — a regra de `paradas`
+passaria a depender de outra policy. Escolhido: um `EXISTS` por policy no
+vínculo ativo, com gestor/motorista dentro dele, o helper de pessoa só no ramo
+do motorista, e a mesma condição nas três funções.
+
+**Medido em 24/10/2026.** 873 rotas; 652 com motorista de vínculo ativo na loja
+da rota; 3 `nao_executada` com o vínculo desativado, que somem para o
+motorista; nenhuma pendente ou em andamento afetada; nenhuma rota com motorista
+sem linha em `usuario_unidades`; `usuarios.ativo` sem NULL.
+
+**App.** As consultas do motorista filtram por `motorista_id` ou `rota_id` e
+seguem servidas com vínculo e pessoa ativos: rota ativa e paradas
+(`useLoadActiveRoute`), ações e fila offline de paradas (`useRouteActions`,
+`filaAcoesParada`), finalizar (`finalizar_rota`), histórico, estatísticas,
+streak e marcos (`useHistoricoData`, `useMotoristaStats`, `useDesempenhoStats`,
+`useMotoristaStreak`, `useMilestones`, `useLastRoute`, `useExpiredRoute`),
+realtime (`useRouteRealtimeSubscription`), geofence (`locationTracking`), fotos
+(`storage.ts`) e SOS (`app/motorista/sos.tsx`, INSERT direto). Desativado, as
+rotas daquela loja saem dessas telas e números, e ação offline pendente nelas
+é descartada pela fila (a parada não é mais legível). `reordenar_paradas` só é
+chamada pelo gestor.
+
+**Índices.** Nenhum novo; conferidos com `EXPLAIN`: `idx_paradas_ordem`,
+`rotas_pkey`, `idx_rotas_motorista` ou `idx_rotas_unidade` na lista do
+motorista (sub-milissegundo; se crescer, `rotas(unidade_id, motorista_id)`);
+`usuario_unidades` (21 linhas) por seq scan; `auth.uid()` e o helper em
+initplan.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration49-rotas-paradas-pelo-vinculo-ativo.test.ts`; sonda
+`database/sondas/20261024111000_sonda_migration49.sql` (lojas A/B, motorista com
+o vínculo de A desativado, motorista desativado como pessoa com vínculo ativo,
+gestor com vínculo desativado; leitura e UPDATE de rota e parada, as três
+funções, log direto, SOS com a rota recusada pelo INSERT direto e pela RPC
+(aceito sem rota, avisa o gestor de B, nenhum de A), SOS de quem não tem loja
+ativa (gravado, 0 avisados), ramo do gestor pelo vínculo de gestor ativo,
+checagem da rota com erro forçado (o SOS segue sem rota), posição, gestores,
+reativação, ordem dos gatilhos e `anon`; sem `DELETE`; termina em `RAISE`).
+Rollback colável, com o corpo inteiro das quatro funções redefinidas.
+Roteiro de conferência só com SELECT (4 consultas) no fim da migration.
+
+### ✅ Migration 50: bucket fotos-entrega — comprovante vinculado é preservado
+
+**Arquivo:** `20261024121500_fotos_entrega_comprovante_preservado.sql` · **✅ aplicada em
+24/10/2026 pelo CLI** (sonda antes e depois).
+
+**O que faz.** Troca as três policies do bucket `fotos-entrega` em
+`storage.objects` (DROP + CREATE na mesma transação, nomes mantidos, todas
+`TO authenticated`; continua sem policy de UPDATE):
+
+- `"fotos-entrega delete"`: o dono remove o próprio objeto quando nada o
+  referencia — `paradas.foto_url`, `paradas.foto_comprovante` ou
+  `incidentes.foto_url`, por path ou URL legada terminada em `/<path>` (a mesma
+  regra de casamento da policy de SELECT), ou o caminho que a fila offline
+  registra em `logs` quando não liga a foto à parada
+  (`evento = 'foto_comprovante_sem_vinculo'`, `detalhes->>'foto_path'`). O
+  desfazer de
+  `uploadELinkFotoParada` (upload que não chegou a ser vinculado) e a troca da
+  foto de perfil seguem funcionando. A foto de perfil fica fora de propósito:
+  a troca de avatar apaga a atual antes de subir a nova.
+- `"fotos-entrega select"` e `"fotos-entrega insert"`: o ramo por loja (1º
+  segmento do path) passa de `get_my_unidade_ids()` para
+  `minhas_unidades_com_acesso()` — lojas com vínculo ativo em que a pessoa é
+  gestor ou está ativa no cadastro, a mesma regra de `rotas`/`paradas` na
+  Migration 49. Os ramos do dono, de perfil e de incidente não mudam.
+
+**Helpers.** Os dois STABLE, SECURITY DEFINER, `search_path` vazio, EXECUTE
+para `authenticated` e `service_role`, não para `anon`:
+`minhas_unidades_com_acesso()` (SETOF uuid, mesma forma de
+`get_my_unidade_ids()`) e `pode_apagar_foto_entrega(text)` (true quando o
+objeto do bucket é de quem chama e nada o referencia; lê `paradas` e
+`incidentes` inteiras e o registro da fila em `logs`, sem depender do RLS de
+quem chama — o dono precisa ter BYPASSRLS (`postgres`) —, e não responde sobre
+objeto de outra pessoa).
+
+**Alternativas.** DELETE: `NOT EXISTS` inline na policy (dependeria do RLS de
+quem apaga) ou janela de tempo desde o upload (objeto vinculado dentro da
+janela continuaria removível; desfazer atrasado seria recusado). SELECT/INSERT:
+`usuario_atual_ativo()` no ramo inteiro (cortaria também o gestor, que segue
+lendo rotas e paradas pela Migration 49) ou deixar para uma tarefa à parte
+(reabriria as mesmas policies).
+
+**Medido em 24/10/2026.** 2.319 objetos no bucket; 2.106 referenciados por
+paradas e 9 por incidentes. A checagem do DELETE varre `paradas` (a URL legada
+não usa índice): ~7 ms no pior caso, com 5.036 paradas; DELETE no bucket é
+raro. Se crescer muito, índice de expressão no caminho normalizado da foto.
+Em `logs` (8.196 linhas) a busca entra por `idx_logs_evento` (~0,1 ms).
+
+**App.** Sem mudança de código. Leitura por `useSignedUrl` (avatar, perfil,
+incidente e comprovante na tela do gestor; foto própria do motorista pelo ramo
+do dono), uploads de entrega, perfil e incidente (`storage.ts`), remoção em
+`deletarFoto` (desfazer) e `deletarFotoPerfil` (troca de avatar). O painel e a
+Edge Function `delete-account` usam a chave secreta, que ignora RLS.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration50-fotos-entrega.test.ts`; sonda
+`database/sondas/20261024121500_sonda_migration50.sql` (remoção pelo dono:
+parada por path e por URL legada, `foto_comprovante`, incidente, registro da
+fila em `logs`, dono que não enxerga a parada, em lote,
+upload sem vínculo, foto de perfil, upload e desfazer como no app, correção
+da foto pelo gestor; quem não é dono; o helper sobre objeto próprio e alheio; leitura e
+upload por loja para gestor, gestor e motorista inativos no cadastro, motorista
+com vínculo desativado e motorista de outra loja; perfil e incidente; `anon`;
+catálogo; termina em `RAISE`). Rollback colável com as três policies vivas e o
+DROP dos helpers.
+
+### ✅ Migration 52: contato do gestor segue o vínculo ativo
+
+**Arquivo:** `20261024140000_contato_do_gestor_pelo_vinculo_ativo.sql` · **✅ aplicada em
+24/10/2026 pelo CLI** (sonda antes e depois).
+
+**O que faz.** Redefine `get_gestor_contato()` (botão "Falar com o gestor" do
+menu do motorista) a partir do corpo vivo, com a mesma assinatura e o mesmo
+retorno (`TABLE(nome text, telefone text, email text)`, no máximo uma linha):
+
+- quem chama precisa estar ativo no cadastro (`usuario_atual_ativo()`,
+  Migration 49); senão, nenhuma linha;
+- a loja é sempre uma em que quem chama tem vínculo ativo, nesta ordem: a rota
+  aberta que o app mostra no card da Início (`em_andamento` antes de
+  `pendente`, depois `data`, `created_at`, `id`); sem rota aberta, a loja da
+  rota mais recente; sem rota, o vínculo ativo (`is_principal`, depois o mais
+  antigo, depois `unidade_id`). Rota de loja sem vínculo ativo não conta;
+- o gestor é ativo no cadastro e tem vínculo ativo de gestor naquela loja:
+  primeiro o gestor principal da loja (definição de
+  `transferir_gestao_principal`), depois o vínculo mais antigo;
+- sem loja ou sem gestor: nenhuma linha (antes, "sem loja" era exceção).
+  "Não autenticado" segue como exceção, agora com ERRCODE 42501.
+
+As colunas `usuarios.unidade_id` e `usuarios.papel` deixam de decidir a loja
+e o gestor. Passa a STABLE; SECURITY DEFINER com `search_path` vazio e nomes
+qualificados; EXECUTE para `authenticated` e `service_role`, como antes.
+
+**Alternativas.** Loja: vínculo mais recente (a regra anterior; com duas lojas,
+aponta para a recém-vinculada mesmo sem rota lá) ou só a rota `em_andamento`
+(com a rota pendente na tela, o contato poderia ser de outra loja). Gestor: a
+flag `is_gestor_principal` sozinha (é da pessoa, não da loja) ou só o vínculo
+mais antigo (ignoraria a transferência de gestão). Sem loja: manter a exceção
+(o app teria de separar erro de estado esperado pela mensagem).
+
+**Medido em 24/10/2026.** Nas 9 lojas com vínculo ativo, o gestor escolhido é
+o mesmo da regra anterior. A loja muda para os 4 motoristas inativos no
+cadastro (ficam sem contato) e para 2 dos 3 motoristas com duas lojas ativas,
+sem rota aberta (passam à loja onde trabalham). Cada consulta < 1 ms.
+
+**App.** `useDrawerContact` passa a usar `.maybeSingle()` e mostra mensagem
+própria quando não há gestor. O app já instalado usa `.single()`: zero linhas
+vira erro e ele mostra "Não foi possível obter os dados do gestor", o mesmo de
+antes para "sem loja".
+
+**Verificação.** Guarda estática
+`database/__tests__/migration52-contato-do-gestor-pelo-vinculo.test.ts`;
+sonda `database/sondas/20261024140000_sonda_migration52.sql` (rota em
+andamento, rota pendente, só rota antiga, sem rota, vínculo principal, rota de
+loja com vínculo desativado, sem vínculo ativo, inativo no cadastro, loja sem
+gestor com vínculo ativo, gestor chamando; gestor principal × vínculo mais
+antigo, gestores com vínculo desativado ou inativos no cadastro, flag de
+principal de outra loja; formato; sem usuário; catálogo e grants; sem
+`DELETE`; termina em `RAISE`). Rollback colável com o corpo anterior inteiro,
+o comentário e os grants.
+
+### ✅ Migration 56: o incidente sobrevive à exclusão do motorista (anonimizado)
+
+**Arquivo:** `20261024130000_incidente_sobrevive_ao_motorista.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois), antes da `delete-account` v8. **Ordem: PRIMEIRO aplicar a Migration 56 (`apply_migration`, não
+tem `REVOKE`/`DELETE`), DEPOIS publicar a `delete-account`.** Com a função nova no
+ar e a FK ainda `CASCADE`, a guarda deixa passar o motorista sem rota em
+andamento e a exclusão apagaria os incidentes dele. A migration sozinha é
+segura (a função antiga só passa a anonimizar em vez de apagar). A sonda roda
+no **SQL Editor** (tem `DELETE` de usuário que ela cria, termina em `RAISE`).
+`SET LOCAL lock_timeout = '5s'`.
+
+**Por quê.** `incidentes.motorista_id` era `NOT NULL ... ON DELETE CASCADE`:
+excluir a conta do motorista apagava os incidentes que ele reportou, contra o
+que `app/exclusao-de-conta.tsx` promete (registros "anonimizados").
+
+**O que faz.** `motorista_id` aceita NULL e a FK vira `ON DELETE SET NULL`. O
+gatilho `incidentes_confere_rota_parada` (Migration 38) recusaria o SET NULL
+(reconfere "a rota é deste motorista" e `rota.motorista_id = NULL` nunca é
+verdadeiro): passa a pular a conferência da rota com motorista NULL e, em troca,
+recusa NULL no INSERT (23502) — o `NOT NULL` que saiu da coluna. A loja
+(`unidade_id`) e a rota ficam, então o gestor segue vendo o registro pela policy.
+
+**Campos pessoais.** Só `motorista_id` identifica a pessoa e vira NULL.
+`descricao`, `foto_url`, `endereco`, `observacoes_gestao` e demais ficam: são o
+registro da loja. Alternativa descartada: mascarar descrição e foto (tiraria do
+incidente a função para a qual a tela promete preservá-lo).
+
+**Guardas na função.** `delete-account` recusa antes de apagar qualquer coisa:
+409 `ULTIMO_GESTOR` (único gestor ativo de alguma loja), 409
+`ROTA_EM_ANDAMENTO`, 503 `GUARDA_INDISPONIVEL` (a consulta falhou: não libera).
+Lógica em `supabase/functions/delete-account/guardasExclusao.ts`.
+
+**App.** A lista de incidentes do gestor já filtra pela loja (`unidade_id`) e
+passa a mostrar o incidente anonimizado como "Motorista removido", sem o link
+"Ver histórico do motorista" (`src/lib/incidentes/nomeDoMotorista.ts`).
+
+**Gestor único.** Não há tela para promover outro gestor (a Equipe só desativa
+motorista; "Transferir Gestão" move o principal entre gestores que já existem), então
+a mensagem manda pedir ao suporte que adicione um.
+### ✅ Migration 57: foto de comprovante vinculada não é desfeita pelo motorista
+
+**Arquivo:** `20261024190000_foto_comprovante_vinculada_preservada.sql` · **✅ aplicada em 24/10/2026 pelo CLI**
+(sonda antes e depois).
+
+**O que faz.** Dois gatilhos BEFORE UPDATE, um em `paradas` e um em
+`incidentes`, que valem para quem tem sessão e não é gestor com vínculo ativo
+na loja da linha (loja da rota da parada, ou `incidentes.unidade_id`):
+
+- `paradas` (`foto_url`, `foto_comprovante`, `status`): foto preenchida não
+  volta a NULL; em parada finalizada (`concluida` ou `pulada`), a foto não é
+  trocada e a parada com foto não volta a um status aberto. A ligação tardia
+  NULL → valor da fila offline (`subirFotoDaFilaOffline`, UPDATE só com
+  `foto_url` nula, inclusive em parada concluída) e a nova foto enquanto a
+  parada está aberta (`uploadELinkFotoParada`: o "Voltar" do
+  `StopCompletionFlow` e a parada reaberta pelo gestor) seguem valendo.
+- `incidentes` (`foto_url`): só NULL → valor.
+
+O gestor ativo da loja corrige qualquer uma dessas colunas, e quem não tem
+sessão (chave secreta do painel e das Edge Functions, jobs) não é afetado.
+Funções SECURITY DEFINER com `search_path` vazio (a conferência de gestor não
+depende do RLS de quem atualiza), sem EXECUTE para `anon` e `authenticated`.
+Erro: `P0001`, mensagem iniciada por `FOTO_VINCULADA:`. Junto com a Migration
+50, o objeto referenciado continua no bucket.
+
+**Alternativas.** (a) Só NULL → valor em qualquer parada — recusaria a nova
+foto antes de concluir, e o app apagaria o upload novo. (b) O helper
+`pode_apagar_foto_entrega` contar também a foto já referenciada antes — o log
+`log_parada_status` não carrega o caminho da foto. Escolhido: regra pelo estado
+da parada, porque a foto vira prova na conclusão; só o gestor reabre parada no
+app, e a fila do motorista só atualiza parada aberta.
+
+**Medido em 24/10/2026.** 2.186 paradas concluídas e 1 pulada com `foto_url`;
+nenhuma aberta com foto; `foto_comprovante` vazia em todas. Nenhuma função do
+banco grava essas colunas. A cláusula WHEN limita a execução às linhas em que
+algo dessas colunas muda.
+
+**App.** Sem mudança de código. A fixture do e2e (`garantir-rota-do-mapa`)
+reabre as paradas logada como gestor.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration57-foto-vinculada-preservada.test.ts`; sonda
+`database/sondas/20261024190000_sonda_migration57.sql` (motorista: foto da
+parada concluída, reabertura com e sem troca, foto e `foto_comprovante` da
+parada aberta, foto do incidente; ligação tardia na forma do app, mesmo valor,
+nova foto em parada aberta, NULL → valor no incidente, conclusão e outra
+coluna; gestor corrige e reabre; com a Migration 50, objeto e referência
+continuam; sem sessão; catálogo; termina em `RAISE`). Rollback colável.

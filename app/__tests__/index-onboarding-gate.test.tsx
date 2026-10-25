@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react-native';
 
 import { authService } from '@/lib/auth';
+import { ContaDesativada } from '@/lib/auth/contaAtiva';
 import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 import {
   apagarPerfilConhecido,
@@ -30,6 +31,7 @@ jest.mock('@/lib/auth', () => ({
   authService: {
     lerSessao: jest.fn(),
     getUsuario: jest.fn(),
+    garantirContaAtiva: jest.fn(),
   },
 }));
 
@@ -59,9 +61,53 @@ const motorista = (primeira_senha = false) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAuth.garantirContaAtiva.mockResolvedValue(undefined);
   mockLerPerfil.mockResolvedValue(null);
   mockApagarPerfil.mockResolvedValue(undefined);
   mockUltimo.mockResolvedValue(null);
+});
+
+describe('conta desativada em app/index', () => {
+  it('desativado em todas as lojas vai ao login com o aviso, nunca à área logada', async () => {
+    comSessao('m1');
+    mockAuth.getUsuario.mockResolvedValue(motorista() as never);
+    mockAuth.garantirContaAtiva.mockRejectedValue(new ContaDesativada());
+
+    render(<Index />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/auth/login?conta=desativada');
+    });
+    expect(mockReplace).not.toHaveBeenCalledWith('/motorista');
+  });
+
+  it('ativo segue para a área do papel', async () => {
+    comSessao('m1');
+    mockAuth.getUsuario.mockResolvedValue(motorista() as never);
+
+    render(<Index />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/motorista');
+    });
+    expect(mockAuth.garantirContaAtiva).toHaveBeenCalled();
+  });
+
+  it('offline com perfil conhecido não passa pelo portão (modo offline da 1.14.4)', async () => {
+    mockAuth.lerSessao.mockResolvedValue({
+      session: null,
+      offline: true,
+    } as never);
+    mockUltimo.mockResolvedValue('m1');
+    mockLerPerfil.mockResolvedValue(motorista());
+
+    render(<Index />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/motorista');
+    });
+    expect(mockAuth.garantirContaAtiva).not.toHaveBeenCalled();
+  });
 });
 
 describe('portão de onboarding em app/index', () => {

@@ -453,12 +453,20 @@ export async function stopBackgroundTracking(): Promise<void> {
     if (isTracking) {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     }
-    taskConfirmadaNesteProcesso = false;
-    // O próximo rastreamento confere já na primeira posição.
-    posicoesAteConferir = 0;
-    await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
   } catch (err) {
     logger.error('[LocationTracking] Erro ao parar', err);
+  } finally {
+    // Mesmo se parar a task falhar: o contexto é o que diz DE QUEM é a
+    // posição, e uma task que sobrou não pode seguir com o de quem saiu.
+    taskConfirmadaNesteProcesso = false;
+    // O próximo rastreamento confere já na primeira posição, também quando
+    // parar falhou: senão herdaria a contagem da rota anterior.
+    posicoesAteConferir = 0;
+    try {
+      await AsyncStorage.removeItem(TRACKING_CONTEXT_KEY);
+    } catch (err) {
+      logger.error('[LocationTracking] Erro ao apagar o contexto', err);
+    }
   }
 }
 

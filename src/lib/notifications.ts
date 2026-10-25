@@ -678,10 +678,10 @@ export async function initializeNotifications(): Promise<void> {
   // Configurar canais Android
   await setupNotificationChannels();
 
-  const hasPermission = await requestNotificationPermissions();
-  if (hasPermission) {
-    await scheduleRouteReminder();
-  }
+  // Só pede a permissão. O lembrete diário NÃO é agendado aqui: esta função
+  // roda na raiz, sem saber quem está logado, e o lembrete é do motorista
+  // (`useLembreteDiario`, no layout dele; o logout cancela).
+  await requestNotificationPermissions();
 }
 
 /**

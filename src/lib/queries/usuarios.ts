@@ -4,6 +4,7 @@
  */
 
 import { getCache, setCache, CACHE_TTL } from '@/lib/cache';
+import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import type { TipoUsuario } from '@/types/usuario';
 
 import {
@@ -95,7 +96,7 @@ export async function fetchCurrentUser(
       .select(
         `
         *,
-        unidades(*),
+        unidades(${SELECT_UNIDADE_APP}),
         usuario_unidades(
           id, usuario_id, unidade_id, papel, is_principal, ativo,
           unidades(id, nome, cidade, ativa)

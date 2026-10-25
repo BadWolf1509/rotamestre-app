@@ -413,6 +413,15 @@ describe('unifiedLocationTracking', () => {
       expect(mockRemoveItem).toHaveBeenCalled();
     });
 
+    it('remove o contexto mesmo quando parar a task falha (a task não segue com contexto de quem saiu)', async () => {
+      mockHasStartedLocationUpdates.mockResolvedValueOnce(true);
+      mockStopLocationUpdates.mockRejectedValueOnce(new Error('falha ao parar'));
+
+      await expect(stopBackgroundTracking()).resolves.toBeUndefined();
+
+      expect(mockRemoveItem).toHaveBeenCalledWith('@rotamestre:tracking_context');
+    });
+
     it('deve apenas remover contexto se não está rastreando', async () => {
       mockHasStartedLocationUpdates.mockResolvedValueOnce(false);
 
@@ -878,6 +887,17 @@ describe('unifiedLocationTracking', () => {
       await umaPosicao();
 
       expect(mockStopLocationUpdates).not.toHaveBeenCalled();
+    });
+
+    it('parar com falha também zera a contagem: o próximo rastreamento confere na 1ª posição', async () => {
+      await umaPosicao();
+      expect(selectsDaRota).toBe(1);
+
+      mockHasStartedLocationUpdates.mockRejectedValueOnce(new Error('boom'));
+      await expect(stopBackgroundTracking()).resolves.toBeUndefined();
+
+      await umaPosicao();
+      expect(selectsDaRota).toBe(2);
     });
 
     it(`confere na primeira posição e depois a cada ${POSICOES_ENTRE_CONFERENCIAS}`, async () => {
