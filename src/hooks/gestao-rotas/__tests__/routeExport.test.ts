@@ -208,6 +208,12 @@ describe('routeExport', () => {
           },
         );
 
+        // Número negativo puro não forma fórmula: o apóstrofo o viraria texto
+        // e a coluna deixaria de somar.
+        it.each(['-3', '-3,5'])('número negativo %j segue sem apóstrofo', async (valor) => {
+          expect(await exportarComNome(valor)).toContain(`;"${valor}";`);
+        });
+
         it('o marcador "-" (sem distância) segue como está', async () => {
           ((global as any).Blob as jest.Mock).mockClear();
           await exportRotasToCSV({

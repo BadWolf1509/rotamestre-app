@@ -19,18 +19,29 @@ function instante(timestamp: string | null | undefined): number {
 }
 
 /**
+ * Teto de relógio: posição atual com `timestamp` mais de 2 min à frente de
+ * agora veio de um aparelho com relógio adiantado. Se o relógio for corrigido
+ * no meio da rota (NTP), as posições seguintes têm `timestamp` menor e seriam
+ * recusadas até o horário adiantado passar, congelando o marcador. Uma atual
+ * "do futuro" não bloqueia a próxima posição válida.
+ */
+const TOLERANCIA_RELOGIO_MS = 2 * 60_000;
+
+/**
  * A posição que o marcador deve mostrar entre a atual e uma que chegou.
  * Devolve a própria `atual` quando ela continua valendo (sem render à toa).
  */
 export function posicaoMaisRecente<T extends ComTimestamp>(
   atual: T | null,
   nova: T,
+  agoraMs: number = Date.now(),
 ): T {
   if (!atual) return nova;
   const deAtual = instante(atual.timestamp);
   const daNova = instante(nova.timestamp);
   if (Number.isNaN(daNova)) return Number.isNaN(deAtual) ? nova : atual;
   if (Number.isNaN(deAtual)) return nova;
+  if (deAtual > agoraMs + TOLERANCIA_RELOGIO_MS) return nova;
   return daNova > deAtual ? nova : atual;
 }
 

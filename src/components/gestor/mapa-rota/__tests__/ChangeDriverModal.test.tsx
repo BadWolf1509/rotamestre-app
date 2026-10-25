@@ -530,7 +530,9 @@ describe('ChangeDriverModal', () => {
       await waitFor(() => {
         expect(queryByText('Carregando motoristas...')).toBeNull();
       });
-      expect(getByText('Não foi possível carregar os motoristas.')).toBeTruthy();
+      // Mensagem própria e sem "Tentar de novo": repetir não muda nada.
+      expect(getByText('Esta rota não tem loja: não há motoristas para listar.')).toBeTruthy();
+      expect(queryByText('Tentar de novo')).toBeNull();
     });
 
     it('deve filtrar motoristas inativos', async () => {

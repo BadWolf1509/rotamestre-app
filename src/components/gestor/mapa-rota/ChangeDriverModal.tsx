@@ -47,7 +47,17 @@ type VinculacaoMotorista = {
   usuarios: MotoristaResumo | null;
 };
 
-const ERRO_AO_CARREGAR = 'Não foi possível carregar os motoristas.';
+type ErroMotoristas = { mensagem: string; podeTentarDeNovo: boolean };
+
+const ERRO_AO_CARREGAR: ErroMotoristas = {
+  mensagem: 'Não foi possível carregar os motoristas.',
+  podeTentarDeNovo: true,
+};
+// Repetir a busca não muda nada: sem botão de tentar de novo.
+const ROTA_SEM_LOJA: ErroMotoristas = {
+  mensagem: 'Esta rota não tem loja: não há motoristas para listar.',
+  podeTentarDeNovo: false,
+};
 
 export interface ChangeDriverModalProps {
   visible: boolean;
@@ -81,14 +91,16 @@ export function ChangeDriverModal({
   const [isLoadingMotoristas, setIsLoadingMotoristas] = useState(true);
   // Falha da lista: mostrada com "Tentar de novo". Antes a falha virava
   // "Nenhum motorista cadastrado", e rota sem loja ficava carregando.
-  const [erroMotoristas, setErroMotoristas] = useState<string | null>(null);
+  const [erroMotoristas, setErroMotoristas] = useState<ErroMotoristas | null>(
+    null,
+  );
 
   // Carregar motoristas da unidade
   const loadMotoristas = useCallback(async () => {
     if (!unidadeId) {
       logger.warn('[ChangeDriverModal] Rota sem loja: não há como listar motoristas');
       setMotoristas([]);
-      setErroMotoristas(ERRO_AO_CARREGAR);
+      setErroMotoristas(ROTA_SEM_LOJA);
       setIsLoadingMotoristas(false);
       return;
     }
@@ -266,15 +278,17 @@ export function ChangeDriverModal({
                   size={32}
                   color={theme.colors.gray400}
                 />
-                <Text style={styles.emptyText}>{erroMotoristas}</Text>
-                <TouchableOpacity
-                  onPress={loadMotoristas}
-                  style={styles.retryButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Tentar de novo carregar os motoristas"
-                >
-                  <Text style={styles.retryText}>Tentar de novo</Text>
-                </TouchableOpacity>
+                <Text style={styles.emptyText}>{erroMotoristas.mensagem}</Text>
+                {erroMotoristas.podeTentarDeNovo && (
+                  <TouchableOpacity
+                    onPress={loadMotoristas}
+                    style={styles.retryButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Tentar de novo carregar os motoristas"
+                  >
+                    <Text style={styles.retryText}>Tentar de novo</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : otherMotoristas.length === 0 ? (
               <View style={styles.emptyContainer}>

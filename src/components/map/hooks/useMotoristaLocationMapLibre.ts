@@ -36,10 +36,10 @@ export function useMotoristaLocationMapLibre(
 
   // Load last known location when rotaId becomes available
   useEffect(() => {
-    if (!rotaId) {
-      setLocation(null);
-      return;
-    }
+    // Rota nova começa sem posição: o comparador recusaria a de B se o último
+    // ponto da rota anterior (outro motorista) fosse mais novo.
+    setLocation(null);
+    if (!rotaId) return;
 
     let cancelled = false;
 
