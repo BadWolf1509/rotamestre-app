@@ -4,7 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import { supabase } from '@/lib/supabase';
 
-import { useUser } from '../useUser';
+import { reiniciarBuscasDePerfil, useUser } from '../useUser';
 
 // Mock do supabase
 jest.mock('@/lib/supabase');
@@ -46,6 +46,8 @@ describe('useUser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Busca pendurada de um teste não pode servir o seguinte.
+    reiniciarBuscasDePerfil();
     // A busca só vale AUTENTICADA (sem sessão a query sai anônima e a RLS
     // devolve 0 linhas): os testes dão a sessão do usuário do useAuth.
     idDaSessao = 'user-123';
@@ -742,6 +744,97 @@ describe('useUser', () => {
         respostas[0]({ data: mockUserData, error: null, status: 200 });
       });
       await waitFor(() => expect(result.current.userData?.id).toBe('user-b'));
+    });
+
+    // Revisão, M6: a busca que falha não pode ficar guardada como "em voo".
+    it('busca rejeitada não fica guardada: a carga seguinte consulta de novo', async () => {
+      const respostas = perfilControlado();
+      const { result } = renderHook(() => useUser());
+      await waitFor(() => expect(respostas).toHaveLength(1));
+
+      const falha = {
+        data: null,
+        error: { message: 'gateway', code: '' },
+        status: 503,
+      };
+      await act(async () => {
+        respostas[0](falha);
+      });
+      // A consulta completa falhou: o hook tenta a simples, que falha também.
+      await waitFor(() => expect(respostas).toHaveLength(2));
+      await act(async () => {
+        respostas[1](falha);
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        void result.current.refresh();
+      });
+      await waitFor(() => expect(respostas).toHaveLength(3));
+      await act(async () => {
+        respostas
+          .slice(2)
+          .forEach((r) => r({ data: mockUserData, error: null, status: 200 }));
+      });
+      await waitFor(() => expect(result.current.userData?.id).toBe('user-123'));
+    });
+
+    it('logout e login da mesma conta com a busca de antes em voo: busca nova', async () => {
+      const respostas = perfilControlado();
+      const { result, rerender } = renderHook(() => useUser());
+      await waitFor(() => expect(respostas).toHaveLength(1));
+
+      const useAuth = require('../useAuth').useAuth;
+      useAuth.mockReturnValue({ user: null, loading: false });
+      rerender({});
+      useAuth.mockReturnValue({ user: mockUser, loading: false });
+      rerender({});
+
+      // A busca de antes do logout pode voltar sem sessão: não é reusada.
+      await waitFor(() => expect(respostas).toHaveLength(2));
+      await act(async () => {
+        respostas[1]({
+          data: { ...mockUserData, nome: 'Depois do login' },
+          error: null,
+          status: 200,
+        });
+        respostas[0]({ data: null, error: null, status: 200 });
+      });
+      await waitFor(() =>
+        expect(result.current.userData?.nome).toBe('Depois do login'),
+      );
+      await new Promise((r) => setTimeout(r, 20));
+      expect(result.current.userData?.nome).toBe('Depois do login');
+    });
+
+    it('logout durante a leitura do cache não aplica o perfil de quem saiu', async () => {
+      perfilControlado();
+      const cache = require('@/lib/cache');
+      let soltarCache: (v: unknown) => void = () => {};
+      const espiao = jest.spyOn(cache, 'getCache').mockImplementationOnce(
+        () =>
+          new Promise((r) => {
+            soltarCache = r;
+          }),
+      );
+      try {
+        const { result, rerender } = renderHook(() => useUser());
+        await waitFor(() => expect(espiao).toHaveBeenCalled());
+
+        require('../useAuth').useAuth.mockReturnValue({
+          user: null,
+          loading: false,
+        });
+        rerender({});
+        await act(async () => {
+          soltarCache(mockUserData);
+        });
+        await new Promise((r) => setTimeout(r, 20));
+
+        expect(result.current.userData).toBeNull();
+      } finally {
+        espiao.mockRestore();
+      }
     });
 
     it('refresh com uma busca comum em voo faz busca nova, e é ela que vale', async () => {

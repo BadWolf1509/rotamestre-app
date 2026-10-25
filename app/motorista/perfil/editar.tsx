@@ -7,6 +7,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Button, Dialog, Input, Text } from '@/design-system';
 import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
+import { emitProfileUpdate } from '@/lib/profileEvents';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -122,6 +123,10 @@ export default function EditarPerfil() {
         .eq('id', usuario.id);
 
       if (error) throw error;
+
+      // As outras instâncias de useUser (cabeçalho, menu, a da raiz) seguiam
+      // com o nome antigo: recarregam todas, numa consulta só.
+      emitProfileUpdate();
 
       showAlert({
         title: 'Perfil atualizado',
