@@ -2315,3 +2315,99 @@ parada aberta, foto do incidente; ligação tardia na forma do app, mesmo valor,
 nova foto em parada aberta, NULL → valor no incidente, conclusão e outra
 coluna; gestor corrige e reabre; com a Migration 50, objeto e referência
 continuam; sem sessão; catálogo; termina em `RAISE`). Rollback colável.
+
+### ✅ Migration 58: parada só muda de rota pelo gestor das lojas das duas rotas
+
+**Arquivo:** `20261024210000_parada_muda_de_rota_pelo_gestor.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois).
+
+**O que faz.** Gatilho BEFORE UPDATE OF `rota_id` em `paradas`, só quando a
+rota muda de fato (cláusula WHEN). Com sessão, a troca de rota vale apenas para
+quem é gestor com vínculo ativo na loja da rota de origem **e** na loja da rota
+de destino; os demais recebem `42501`. Sem sessão (chave secreta do painel e
+das Edge Functions, jobs), nada muda. Função SECURITY DEFINER com
+`search_path` vazio (a conferência de gestor não depende do RLS de quem
+atualiza), sem EXECUTE para PUBLIC, `anon` e `authenticated`.
+
+**Alternativas.** (a) Gatilho que compara OLD e NEW — escolhido. (b) WITH
+CHECK em `paradas_update`: a expressão só enxerga a linha nova, então não
+confere a loja de origem nem que a rota continua a mesma. (c) Privilégio de
+coluna: fecharia a troca também para o gestor das duas lojas, e toda coluna
+nova de `paradas` passaria a exigir GRANT.
+
+**Efeito no que já existe.** Nenhuma RPC muda `rota_id` (`inserir_parada`,
+`reordenar_paradas`, `finalizar_rota` e `criar_rota_com_paradas` gravam só
+`ordem`, `status`, `concluida_em` e `vinculo_parada_id`), e nenhum fluxo do app
+troca a rota de uma parada. Apagar a rota não passa por aqui (FK ON DELETE
+CASCADE, coluna NOT NULL). A fixture do e2e (`garantir-rota-do-mapa`) só reabre
+paradas da mesma rota.
+
+**Medido em 24/10/2026.** 3 motoristas com vínculo ativo em mais de uma loja;
+nenhum gestor nessa situação.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration58-parada-muda-de-rota-pelo-gestor.test.ts`; sonda
+`database/sondas/20261024210000_sonda_migration58.sql`, com casos
+independentes (cada um monta as próprias rotas): motorista com vínculo nas
+duas lojas, gestor de uma loja só e gestor com vínculo inativo no destino não
+mudam a parada de rota; gestor de uma loja só move entre rotas da mesma loja;
+gestor das duas lojas muda; `inserir_parada` e `reordenar_paradas` seguem
+funcionando; UPDATE comum do motorista e SET com a mesma rota passam; sem
+sessão; catálogo, com dono `postgres`; termina em `RAISE`. A guarda confere o
+SQLSTATE `42501` dos casos recusados. Rollback colável.
+
+### ✅ Migration 59: incidente só muda de rota pelo gestor das lojas de origem e de destino
+
+**Arquivo:** `20261024220000_incidente_muda_de_rota_pelo_gestor.sql` · **✅ aplicada em 24/10/2026 pelo CLI** (sonda antes e depois)
+
+**O que faz.** Gatilho BEFORE UPDATE OF `rota_id` em `incidentes`, só quando o
+incidente vai para outra rota não nula (cláusula WHEN). Com sessão, a troca
+vale apenas para quem é gestor com vínculo ativo na loja de origem do
+incidente (`OLD.unidade_id`; sem ela, a loja da rota antiga) **e** na loja da
+rota de destino; os demais recebem `42501`. Mesmo molde da Migration 58. Sem
+sessão (chave secreta do painel e das Edge Functions, jobs), nada muda.
+Função SECURITY DEFINER com `search_path` vazio e dono `postgres`, sem EXECUTE
+para PUBLIC, `anon` e `authenticated`.
+
+**Por que a origem vem de OLD.** O `incidentes_define_unidade` reescreve
+`NEW.unidade_id` pela rota nova. O gatilho lê OLD e a loja da rota nova em
+`rotas`, então o resultado não depende da ordem alfabética dos gatilhos
+BEFORE. `unidade_id` fica fora da lista OF: gravar a coluna direto não muda a
+loja, porque o `incidentes_define_unidade` devolve `OLD.unidade_id` quando a
+rota não muda (a sonda confere).
+
+**Alternativas.** (a) Gatilho próprio com origem em OLD e destino pela rota —
+escolhido. (b) Comparar `OLD.unidade_id` com o `NEW.unidade_id` já
+recalculado: depende de disparar depois do `incidentes_define_unidade`, e um
+renomear desfaria a regra sem erro. (c) RAISE dentro do
+`incidentes_define_unidade`: mistura cálculo de loja com permissão numa função
+que também roda na criação. (d) WITH CHECK em `incidentes_update`: sem OLD, e
+o próprio motorista continua passando. (e) Privilégio de coluna: fecharia a
+troca também para o gestor das duas lojas.
+
+**Efeito no que já existe.** Nenhum fluxo do app troca `rota_id` de incidente:
+a criação (envio e restauração do rascunho) é INSERT, que não passa por
+gatilho de UPDATE; as atualizações gravam `status`, `observacoes_gestao`,
+`resolvido_em` e `updated_at`, e a ligação tardia da foto (Migration 57) grava
+só `foto_url`. Nenhuma função do banco faz UPDATE em `incidentes`. Desligar a
+rota (NULL), inclusive o ON DELETE SET NULL ao apagar a rota, fica fora da
+cláusula WHEN e mantém a loja.
+
+**Medido em 24/10/2026.** 26 incidentes, nenhum sem loja gravada e nenhum com
+loja diferente da loja da rota; 3 sem rota.
+
+**App.** Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration59-incidente-muda-de-rota-pelo-gestor.test.ts`;
+sonda `database/sondas/20261024220000_sonda_migration59.sql`, com casos
+independentes (cada um monta as próprias rotas e o próprio incidente):
+motorista com vínculo nas duas lojas não muda o incidente de rota (nem na
+mesma loja, nem ligando um incidente sem rota a outra loja); gestor de uma
+loja só e gestor com vínculo inativo no destino não mudam; gestor de uma loja
+só move entre rotas da mesma loja; gestor das duas lojas muda e a loja
+acompanha; UPDATE comum do motorista (descrição, foto NULL → valor), desligar
+a rota, SET com a mesma rota e criação do incidente passam; `unidade_id`
+gravado direto não muda a loja; sem sessão; catálogo, com dono `postgres`;
+termina em `RAISE`. Rollback colável.
