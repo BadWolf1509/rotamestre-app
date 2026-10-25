@@ -2672,3 +2672,51 @@ acompanha; UPDATE comum do motorista (descrição, foto NULL → valor), desliga
 a rota, SET com a mesma rota e criação do incidente passam; `unidade_id`
 gravado direto não muda a loja; sem sessão; catálogo, com dono `postgres`;
 termina em `RAISE`. Rollback colável.
+
+### ⏳ Migration 60: medidas da posição (velocidade, precisão, heading) em `numeric(8,2)`
+
+**Arquivo:** `20261025140000_medidas_da_posicao_numeric_8_2.sql` · **⏳ a
+aplicar** (sonda antes e depois)
+
+**O defeito.** `motorista_locations.velocidade`, `.precisao` e `.heading`
+eram `numeric(5,2)` (teto 999,99). Medido no aparelho em 25/10/2026: logo
+depois de abrir o app em ambiente fechado, o GPS entregou `accuracy` de
+1000 m ou mais e o insert foi recusado com 22003. Com rede, a posição se
+perdia; sem rede, entrava na fila do aparelho e prendia o lote da rota até
+`MAX_TENTATIVAS_POSICAO` reenvios, que então saía levando as posições boas.
+
+**O que faz.** Alarga as três colunas para `numeric(8,2)` (teto
+999.999,99), com `lock_timeout` de 5 s e comentários de coluna. Só a
+precisão aumenta e a escala fica: o Postgres troca o catálogo sem reescrever
+a tabela, e nenhum índice inclui estas colunas. Nenhuma view, função,
+gatilho ou policy do repositório usa as colunas (as policies leem
+`motorista_id` e `rota_id`; a retenção da Migration 37 apaga por
+`timestamp`).
+
+**Alternativas.** (a) `numeric(8,2)` — escolhida: cobre o pior accuracy real
+(posição por célula/Wi-Fi, alguns km), mantém escala e arredondamento.
+(b) `numeric` sem typmod: tira o teto que referencia o saneamento do app.
+(c) `real`/`double precision`: muda o tipo que o PostgREST devolve e reescreve
+a tabela. (d) Limitar no app a 999,99: gravaria uma precisão falsa justamente
+nas posições ruins. (e) CHECK com teto menor: recusaria a linha de novo.
+
+**App.** `sanearPosicao` (`src/lib/motorista/filaPosicoes.ts`), aplicada em
+`comHorario` (porta do insert direto e da fila): não finito, negativo,
+heading fora de [0, 360) e valor acima de `TETO_MEDIDA_POSICAO` (999999,99)
+viram null; a posição nunca é descartada. 22003 entrou em
+`CODIGOS_RECUSA_DE_DADO`: com o saneamento, só voltaria com o banco mais
+estreito que o esperado, e o lote sai na hora em vez de travar o trajeto da
+rota por até 60 reenvios. **Ordem do deploy:** aplicar esta migration antes
+de publicar a versão do app que a acompanha — com a versão nova e o banco
+antigo, uma posição sem rede com precisão entre 1000 e 999.999 m levaria o
+lote da rota na hora.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration60-medidas-da-posicao-numeric-8-2.test.ts`
+(inclui o teto do app igual ao maior valor do tipo); sonda
+`database/sondas/20261025140000_sonda_migration60.sql`: o motorista grava
+pela policy uma posição com precisão 1500,5, velocidade 1200,25 e heading
+359,99; 999999,99 entra e 1000000 sai com 22003; 12,345 arredonda para
+12,35; catálogo com as três colunas `numeric(8,2)`; termina em `RAISE`
+("FALHOU" antes, "100% OK" depois). Rollback colável, com o aviso de anular
+antes os valores acima de 999,99.
