@@ -175,16 +175,17 @@ export default function AlterarSenha() {
             />
             {passwordsMatch && (
               <Text
-                style={[styles(theme).helperText, styles(theme).helperTextSuccess]}
+                style={[
+                  styles(theme).helperText,
+                  styles(theme).helperTextSuccess,
+                ]}
               >
                 Senhas coincidem
               </Text>
             )}
 
             <View style={styles(theme).tipsContainer}>
-              <Text style={styles(theme).tipsTitle}>
-                Requisitos da senha:
-              </Text>
+              <Text style={styles(theme).tipsTitle}>Requisitos da senha:</Text>
               <Text style={styles(theme).tipText}>
                 - Mínimo de 8 caracteres
               </Text>
@@ -201,7 +202,7 @@ export default function AlterarSenha() {
               <Button
                 title="Cancelar"
                 variant="outline"
-                onPress={() => router.push('/motorista/perfil')}
+                onPress={() => router.back()}
                 disabled={saving}
                 style={styles(theme).buttonSecondary}
               />
