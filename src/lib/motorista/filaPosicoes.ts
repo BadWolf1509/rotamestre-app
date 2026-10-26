@@ -89,6 +89,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lerSessao } from '@/lib/auth/sessao';
 import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { isNetworkError } from '@/lib/errorMapping';
+import { lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -290,6 +291,7 @@ function emSerie<T>(fn: () => Promise<T>): Promise<T> {
   return resultado;
 }
 
+/** Só para ler: na falha devolve null. Quem regrava usa `lerParaGravar`. */
 async function ler(): Promise<Registro | null> {
   try {
     const bruto = await AsyncStorage.getItem(CHAVE_FILA_POSICOES);
@@ -298,6 +300,15 @@ async function ler(): Promise<Registro | null> {
     logger.warn('[FilaPosicoes] Falha ao ler a fila de posições', error);
     return null;
   }
+}
+
+/**
+ * Leitura de quem regrava a fila em seguida (OFF-4): a falha do `getItem`
+ * lança `FalhaDeLeituraLocal`, em vez de virar "fila vazia" e o `guardar`
+ * gravar por cima a fila que estava lá.
+ */
+function lerParaGravar(): Promise<Registro | null> {
+  return lerJsonParaGravar<Registro | null>(CHAVE_FILA_POSICOES, null);
 }
 
 /**
@@ -427,7 +438,14 @@ function guardar(
 ): Promise<boolean> {
   return emSerie(async () => {
     if (!(await aindaEhDoAparelho(linha.motorista_id))) return false;
-    const atual = await ler();
+    let atual: Registro | null;
+    try {
+      atual = await lerParaGravar();
+    } catch (error) {
+      // Fila ilegível: a posição nova se perde ('perdida'), a fila não.
+      logger.warn('[FilaPosicoes] Fila ilegível; posição não guardada', error);
+      return false;
+    }
     const registro: Registro =
       atual?.userId === linha.motorista_id
         ? atual
@@ -485,7 +503,7 @@ function remover(
   geracaoDeOrigem: number,
 ): Promise<void> {
   return emSerie(async () => {
-    const atual = await ler();
+    const atual = await lerParaGravar();
     if (!atual || atual.userId !== motoristaId) return;
     const saem = new Set(lote.map(chaveDa));
     const posicoes = atual.posicoes.filter((p) => !saem.has(chaveDa(p)));
@@ -647,7 +665,14 @@ async function enviarFila(
         },
       );
     }
-    await remover(motoristaId, lote, geracaoDoEnvio);
+    try {
+      await remover(motoristaId, lote, geracaoDoEnvio);
+    } catch (falha) {
+      // Fila ilegível (OFF-4): o lote subiu mas não saiu da fila. Parar aqui
+      // evita reenviá-lo nas próximas rodadas; a próxima posição tenta de novo.
+      logger.warn('[FilaPosicoes] Fila ilegível; lote enviado ficou', falha);
+      return false;
+    }
   }
   return false;
 }

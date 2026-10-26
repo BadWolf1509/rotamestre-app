@@ -35,6 +35,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
 import { lerSessao, type EstadoSessao } from '@/lib/auth/sessao';
+import { lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -122,6 +123,7 @@ function emSerie<T>(fn: () => Promise<T>): Promise<T> {
   return proxima;
 }
 
+/** Só para ler/exibir: na falha devolve vazio. Quem regrava usa `lerParaGravar`. */
 async function lerLista<T>(chave: string): Promise<T[]> {
   try {
     const bruto = await AsyncStorage.getItem(chave);
@@ -130,6 +132,14 @@ async function lerLista<T>(chave: string): Promise<T[]> {
     logger.warn('[FilaParada] Falha ao ler a fila', error);
     return [];
   }
+}
+
+/**
+ * Leitura de quem regrava a lista em seguida (OFF-4): leitura que falha lança
+ * `FalhaDeLeituraLocal` e nada é gravado — "vazio" ali apagaria a fila.
+ */
+function lerParaGravar<T>(chave: string): Promise<T[]> {
+  return lerJsonParaGravar<T[]>(chave, []);
 }
 
 async function gravarLista<T>(chave: string, lista: T[]): Promise<void> {
@@ -173,7 +183,7 @@ export function lerFilaAcoesParada(): Promise<AcaoParada[]> {
 
 export async function enfileirarAcaoParada(acao: AcaoParada): Promise<void> {
   await emSerie(async () => {
-    const fila = await lerLista<AcaoParada>(CHAVE_FILA);
+    const fila = await lerParaGravar<AcaoParada>(CHAVE_FILA);
     // A primeira decisão sobre a parada vale: a tela já a mostra resolvida.
     // Por conta: a ação de outra pessoa para a mesma parada (rota passada a
     // esta conta no mesmo aparelho) vai ser descartada no envio dela, e não
@@ -201,7 +211,7 @@ export async function lerDescartesDaFila(
 
 export async function dispensarDescartes(motoristaId: string): Promise<void> {
   await emSerie(async () => {
-    const todos = await lerLista<DescarteDeAcao>(CHAVE_DESCARTES);
+    const todos = await lerParaGravar<DescarteDeAcao>(CHAVE_DESCARTES);
     await gravarLista(
       CHAVE_DESCARTES,
       todos.filter((d) => d.acao.motoristaId !== motoristaId),
@@ -427,7 +437,7 @@ export interface ResultadoProcessamento {
 
 async function removerDaFila(id: string): Promise<void> {
   await emSerie(async () => {
-    const fila = await lerLista<AcaoParada>(CHAVE_FILA);
+    const fila = await lerParaGravar<AcaoParada>(CHAVE_FILA);
     await gravarLista(
       CHAVE_FILA,
       fila.filter((a) => a.id !== id),
@@ -437,7 +447,7 @@ async function removerDaFila(id: string): Promise<void> {
 
 async function contarTentativa(id: string): Promise<number> {
   return emSerie(async () => {
-    const fila = await lerLista<AcaoParada>(CHAVE_FILA);
+    const fila = await lerParaGravar<AcaoParada>(CHAVE_FILA);
     let tentativas = 0;
     const nova = fila.map((a) => {
       if (a.id !== id) return a;
@@ -451,7 +461,7 @@ async function contarTentativa(id: string): Promise<number> {
 
 async function registrarDescarte(descarte: DescarteDeAcao): Promise<void> {
   await emSerie(async () => {
-    const todos = await lerLista<DescarteDeAcao>(CHAVE_DESCARTES);
+    const todos = await lerParaGravar<DescarteDeAcao>(CHAVE_DESCARTES);
     todos.push(descarte);
     await gravarLista(CHAVE_DESCARTES, todos);
   });
