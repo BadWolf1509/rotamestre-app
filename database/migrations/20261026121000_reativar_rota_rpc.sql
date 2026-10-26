@@ -130,6 +130,11 @@ BEGIN
     RETURN 'situacao_mudou';
   END IF;
 
+  -- Trava as paradas da rota antes de mexer (o mesmo cuidado de
+  -- cancelar_rota e finalizar_rota): uma escrita do motorista ainda sem
+  -- commit numa parada concluida não casaria com o filtro abaixo.
+  PERFORM 1 FROM public.paradas p WHERE p.rota_id = p_rota_id FOR NO KEY UPDATE;
+
   v_hoje := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
 
   UPDATE public.rotas
@@ -178,6 +183,8 @@ COMMIT;
 -- ============================================================================
 
 -- ROLLBACK:
+-- (Volte antes o app que chama reativar_rota: sem a função, a reativação
+-- do gestor 1.14.8 deixa de funcionar.)
 -- BEGIN;
 -- DROP FUNCTION IF EXISTS public.reativar_rota(uuid);
 -- COMMIT;
