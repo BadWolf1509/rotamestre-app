@@ -106,3 +106,49 @@ describe('test.yml: e2e autenticado pulado de forma visível', () => {
     expect(update).toContain('E2E_GESTOR_PASSWORD');
   });
 });
+
+// Actions fixadas por SHA de commit (repositório público). Tag móvel (`@v7`)
+// deixa quem controla a tag trocar o código que roda com os secrets do job.
+// O comentário `# vX.Y.Z` mantém a versão legível e deixa o Dependabot
+// atualizar SHA e comentário juntos.
+describe.each([
+  'test.yml',
+  'quality.yml',
+  'expire-routes.yml',
+  'eas-build-android.yml',
+  'update-snapshots.yml',
+])('%s: actions fixadas por SHA', (nome) => {
+  it('toda linha `uses:` usa SHA de 40 hex e comentário com a versão completa', () => {
+    const linhas = ler(nome)
+      .split('\n')
+      .filter((l) => /^\s*(-\s+)?uses:/.test(l));
+    for (const linha of linhas) {
+      expect(linha).toMatch(
+        /uses:\s*[\w.-]+\/[\w./-]+@[0-9a-f]{40}\s+#\s*v\d+\.\d+\.\d+/,
+      );
+    }
+  });
+});
+
+// O corpo da resposta das Edge Functions não vai ao log: o repositório é
+// público e o log de Actions é legível por qualquer pessoa. Só contadores.
+describe('expire-routes.yml: cron sem corpo de resposta no log público', () => {
+  const fonte = ler('expire-routes.yml').replace(/\r\n/g, '\n');
+  const executado = fonte
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('#'))
+    .join('\n');
+
+  it('não imprime o corpo da resposta', () => {
+    expect(executado).not.toContain('echo "Response: $body"');
+    expect(executado).not.toContain('echo "$body"');
+  });
+
+  it('cada um dos 3 jobs grava a resposta em arquivo e exige success == true', () => {
+    expect((executado.match(/-o resposta\.json/g) ?? []).length).toBe(3);
+    expect(
+      (executado.match(/jq -e '\.success == true' resposta\.json/g) ?? [])
+        .length,
+    ).toBe(3);
+  });
+});
