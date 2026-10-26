@@ -11,6 +11,7 @@
 import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import { gerarUuid } from '@/lib/uuid';
 
 import type { PlaceSuggestion } from './google-shared';
 import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
@@ -320,13 +321,18 @@ export const googlePlacesService = {
   async autocompleteWithCoordinates(
     input: string,
   ): Promise<(GooglePlaceSuggestion & { coordinates: Coordenadas }) | null> {
-    const suggestions = await this.autocompleteAddress(input);
+    // Consulta e detalhe na mesma sessão do Places (cobrados juntos).
+    const sessaoPlaces = gerarUuid();
+    const suggestions = await this.autocompleteAddress(input, sessaoPlaces);
 
     if (suggestions.length === 0) {
       return null;
     }
 
-    const details = await this.getPlaceDetails(suggestions[0].place_id);
+    const details = await this.getPlaceDetails(
+      suggestions[0].place_id,
+      sessaoPlaces,
+    );
 
     if (!details?.coordenadas) {
       return null;

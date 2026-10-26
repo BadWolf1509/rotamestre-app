@@ -9,6 +9,7 @@ import type {
 } from '@/components/gestor/nova-entrega/types';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
+import { gerarUuid } from '@/lib/uuid';
 import type { GoogleDirectionsLeg } from '@/types/google-directions';
 
 export interface ParadaParaInserir {
@@ -85,18 +86,7 @@ export function generateUniqueId(): string {
 }
 
 export function generateRequestId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-    /[xy]/g,
-    (character) => {
-      const random = Math.floor(Math.random() * 16);
-      const value = character === 'x' ? random : (random & 0x3) | 0x8;
-      return value.toString(16);
-    },
-  );
+  return gerarUuid();
 }
 
 export function criarParadaCheckpoint({
