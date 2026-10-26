@@ -511,7 +511,11 @@ export function _resetProcessingLocks(): void {
 // ENVIO DO QUE FICOU NO APARELHO (fotos + ações de parada)
 // ============================================================================
 
-let envioEmCurso: Promise<{ fotos: number; acoes: number }> | null = null;
+let envioEmCurso: Promise<{
+  fotos: number;
+  acoes: number;
+  descartadas: number;
+}> | null = null;
 let pedirEnvioDeNovo = false;
 
 /**
