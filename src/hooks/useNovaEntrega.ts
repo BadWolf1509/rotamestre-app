@@ -160,6 +160,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     motoristaSelecionado,
     setMotoristaSelecionado,
     isLoading: isLoadingMotoristas,
+    reload: recarregarMotoristas,
   } = useMotoristaSelection(handleError);
 
   const routeOptimization = useRouteOptimization({
@@ -315,6 +316,14 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     ],
   );
 
+  // O banco recusou o motorista escolhido: a seleção não vale mais e a lista
+  // na tela está velha. O recarregamento zera a seleção; limpar aqui cobre o
+  // intervalo até a lista nova chegar.
+  const aoMotoristaIndisponivel = useCallback(() => {
+    setMotoristaSelecionado('');
+    void recarregarMotoristas();
+  }, [recarregarMotoristas, setMotoristaSelecionado]);
+
   const { gerarRota } = useRouteCreation({
     paradas,
     enderecoUnidade,
@@ -329,6 +338,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     setIsLoading: setRouteLoading,
     showToast,
     onSuccess: clearAfterSuccess,
+    onMotoristaIndisponivel: aoMotoristaIndisponivel,
   });
 
   const onAddParada = useCallback(

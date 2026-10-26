@@ -8,6 +8,7 @@ import type {
 } from '@/components/gestor/nova-entrega/types';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { supabase } from '@/lib/supabase';
 import type { OtimizacaoEstado } from '@/types/rota';
 
@@ -39,7 +40,16 @@ export interface UseRouteCreationOptions {
     duration?: number,
   ) => void;
   onSuccess: (rotaId: string) => void;
+  /**
+   * O banco recusou o motorista escolhido (saiu da loja ou foi desativado
+   * depois de a lista carregar): quem chama limpa a seleção e recarrega a lista.
+   */
+  onMotoristaIndisponivel?: () => void;
 }
+
+/** Frase que a RPC `criar_rota_com_paradas` levanta (P0001) para o motorista. */
+const FRASE_MOTORISTA_INDISPONIVEL =
+  'Motorista indisponível para a unidade selecionada.';
 
 interface AtomicRouteResult {
   success: boolean;
@@ -79,6 +89,7 @@ export function useRouteCreation({
   setIsLoading,
   showToast,
   onSuccess,
+  onMotoristaIndisponivel,
 }: UseRouteCreationOptions): UseRouteCreationReturn {
   const requestIdRef = useRef<string | null>(null);
   const requestSignatureRef = useRef<string | null>(null);
@@ -261,11 +272,19 @@ export function useRouteCreation({
       return true;
     } catch (error) {
       logger.error('[useRouteCreation] Erro ao criar rota atômica', error);
+      // A frase do banco já está em português e diz o que corrigir (data no
+      // passado, motorista fora da loja): mostrá-la vale mais que um texto
+      // genérico. Só P0001 — erro técnico (permissão, rede) não vaza para a tela.
+      const motivo = mensagemRegraDoBanco(error);
       showToast(
-        'Não foi possível concluir a criação. O rascunho foi preservado para uma nova tentativa.',
+        motivo ??
+          'Não foi possível concluir a criação. O rascunho foi preservado para uma nova tentativa.',
         'error',
         6000,
       );
+      if (motivo === FRASE_MOTORISTA_INDISPONIVEL) {
+        onMotoristaIndisponivel?.();
+      }
       return false;
     } finally {
       setIsLoading(false);
@@ -276,6 +295,7 @@ export function useRouteCreation({
     enderecoUnidade,
     isLoading,
     motoristaSelecionado,
+    onMotoristaIndisponivel,
     onSuccess,
     ordemManual,
     paradas,

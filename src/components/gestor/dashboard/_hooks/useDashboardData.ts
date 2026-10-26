@@ -4,6 +4,7 @@ import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO, toLocalISODate } from '@/lib/dateUtils';
+import { ROTULO_MOTORISTA_OCULTO } from '@/lib/gestor/consultaRotas';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -21,10 +22,13 @@ export interface TodayStats {
 }
 
 export interface KPIs {
-  rotasSemana: number;
-  rotasMes: number;
+  /** null = indisponível (a consulta falhou); a tela mostra "—", nunca 0. */
+  rotasSemana: number | null;
+  /** null = indisponível (a consulta do mês falhou). */
+  rotasMes: number | null;
   taxaSucesso: number;
-  tempoMedioMinutos: number;
+  /** null = indisponível (a consulta do mês falhou). */
+  tempoMedioMinutos: number | null;
   totalParadas: number;
   paradasConcluidas: number;
   motoristaDestaque: {
@@ -151,7 +155,11 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
       id: rota.id,
       data: rota.data,
       status: rota.status,
-      motorista_nome: rota.usuarios?.nome || 'Sem motorista',
+      // Embed vazio com `motorista_id` preenchido = a RLS escondeu o motorista
+      // (saiu da loja): "Sem motorista" seria falso. Só vale com id nulo.
+      motorista_nome:
+        rota.usuarios?.nome ||
+        (rota.motorista_id ? ROTULO_MOTORISTA_OCULTO : 'Sem motorista'),
       motorista_id: rota.motorista_id,
       total_paradas: paradasReais.length,
       paradas_concluidas: paradasReais.filter(
@@ -546,15 +554,30 @@ export function useDashboardData(
 
         // KPIs
         const [kpiSemana, kpiMes] = kpisResult;
-        const rotasSemanaData = kpiSemana.data || [];
-        const rotasMesData = kpiMes.data || [];
+        // Erro vira INDISPONÍVEL (null), nunca 0: "0 rotas" seria falso. Mesmo
+        // modelo de `incidentesAbertos`.
+        if (kpiSemana.error) {
+          logger.warn(
+            '[Dashboard] KPI da semana indisponível',
+            kpiSemana.error,
+          );
+        }
+        if (kpiMes.error) {
+          logger.warn('[Dashboard] KPI do mês indisponível', kpiMes.error);
+        }
+        const rotasSemanaData = kpiSemana.error ? null : kpiSemana.data || [];
+        const rotasMesData = kpiMes.error ? null : kpiMes.data || [];
 
         const listaEhDestaCarga = listaVigente();
         setKpis((anteriores) => ({
-          rotasSemana: rotasSemanaData.length,
-          rotasMes: rotasMesData.length,
-          tempoMedioMinutos: calcularTempoMedio(rotasMesData),
-          motoristaDestaque: encontrarMotoristaDestaque(rotasMesData),
+          rotasSemana: rotasSemanaData ? rotasSemanaData.length : null,
+          rotasMes: rotasMesData ? rotasMesData.length : null,
+          tempoMedioMinutos: rotasMesData
+            ? calcularTempoMedio(rotasMesData)
+            : null,
+          motoristaDestaque: rotasMesData
+            ? encontrarMotoristaDestaque(rotasMesData)
+            : null,
           // Com lista mais nova (evento), os derivados dela continuam valendo.
           ...(listaEhDestaCarga
             ? kpisDaLista(rotasComDetalhes)

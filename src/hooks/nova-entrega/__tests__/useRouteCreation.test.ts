@@ -170,6 +170,99 @@ describe('useRouteCreation', () => {
     expect(defaultOptions.setIsLoading).toHaveBeenLastCalledWith(false);
   });
 
+  describe('erro devolvido pelo banco', () => {
+    const erroGenerico =
+      'Não foi possível concluir a criação. O rascunho foi preservado para uma nova tentativa.';
+
+    it('regra de negócio (P0001): o toast diz o motivo que o banco escreveu', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          code: 'P0001',
+          message: 'A data da rota não pode estar no passado.',
+        },
+      });
+      const { result } = renderHook(() => useRouteCreation(defaultOptions));
+
+      await act(async () => {
+        expect(await result.current.gerarRota()).toBe(false);
+      });
+
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        'A data da rota não pode estar no passado.',
+        'error',
+        6000,
+      );
+    });
+
+    it('motorista indisponível: mostra a frase e pede para limpar a seleção e recarregar', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          code: 'P0001',
+          message: 'Motorista indisponível para a unidade selecionada.',
+        },
+      });
+      const onMotoristaIndisponivel = jest.fn();
+      const { result } = renderHook(() =>
+        useRouteCreation({ ...defaultOptions, onMotoristaIndisponivel }),
+      );
+
+      await act(async () => {
+        expect(await result.current.gerarRota()).toBe(false);
+      });
+
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        'Motorista indisponível para a unidade selecionada.',
+        'error',
+        6000,
+      );
+      expect(onMotoristaIndisponivel).toHaveBeenCalledTimes(1);
+    });
+
+    it('outra regra do banco não limpa o motorista', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          code: 'P0001',
+          message: 'A data da rota não pode estar no passado.',
+        },
+      });
+      const onMotoristaIndisponivel = jest.fn();
+      const { result } = renderHook(() =>
+        useRouteCreation({ ...defaultOptions, onMotoristaIndisponivel }),
+      );
+
+      await act(async () => {
+        await result.current.gerarRota();
+      });
+
+      expect(onMotoristaIndisponivel).not.toHaveBeenCalled();
+    });
+
+    it('erro técnico (sem P0001): mantém a mensagem genérica e não vaza o texto do banco', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { code: '42501', message: 'permission denied for table rotas' },
+      });
+      const onMotoristaIndisponivel = jest.fn();
+      const { result } = renderHook(() =>
+        useRouteCreation({ ...defaultOptions, onMotoristaIndisponivel }),
+      );
+
+      await act(async () => {
+        expect(await result.current.gerarRota()).toBe(false);
+      });
+
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        erroGenerico,
+        'error',
+        6000,
+      );
+      expect(onMotoristaIndisponivel).not.toHaveBeenCalled();
+    });
+  });
+
   it('reuses the same request key after an ambiguous failure', async () => {
     (supabase.rpc as jest.Mock)
       .mockResolvedValueOnce({

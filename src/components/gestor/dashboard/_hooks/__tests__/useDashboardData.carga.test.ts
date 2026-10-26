@@ -40,6 +40,9 @@ let mockFalharRotas = false;
 const mockTabelasComErro = new Set<string>();
 // Registro de cada consulta (tabela + colunas pedidas).
 const mockConsultas: { tabela: string; colunas: string }[] = [];
+// Qual consulta de KPI (a 1ª é a da semana, a 2ª a do mês) devolve erro.
+let mockKpiComErro: 'semana' | 'mes' | null = null;
+let mockKpiContador = 0;
 
 function mockValor(linha: Linha, coluna: string): unknown {
   return coluna
@@ -51,9 +54,16 @@ function mockQuery(tabela: string) {
   const filtros: ((l: Linha) => boolean)[] = [];
   let contar = false;
   let statusFiltrado: string | null = null;
+  let kpiDesta: 'semana' | 'mes' | null = null;
   const api = {
     select: (cols?: string, opts?: { count?: string; head?: boolean }) => {
-      mockConsultas.push({ tabela, colunas: (cols ?? '').replace(/\s+/g, ' ') });
+      if (tabela === 'rotas' && (cols ?? '').includes('iniciada_em')) {
+        kpiDesta = mockKpiContador++ % 2 === 0 ? 'semana' : 'mes';
+      }
+      mockConsultas.push({
+        tabela,
+        colunas: (cols ?? '').replace(/\s+/g, ' '),
+      });
       contar = !!opts?.head;
       return api;
     },
@@ -86,6 +96,9 @@ function mockQuery(tabela: string) {
         .then(() => {
           if (tabela === 'rotas' && mockFalharRotas) {
             return { data: null, error: { message: 'rede' } };
+          }
+          if (kpiDesta && kpiDesta === mockKpiComErro) {
+            return { data: null, error: { message: 'kpi falhou' } };
           }
           if (mockTabelasComErro.has(tabela)) {
             return { data: null, count: null, error: { message: 'falhou' } };
@@ -131,6 +144,8 @@ function rota(id: string, data: string, status = 'pendente', loja = 'loja-a') {
 beforeEach(() => {
   mockConsultas.length = 0;
   mockFalharRotas = false;
+  mockKpiComErro = null;
+  mockKpiContador = 0;
   mockTabelasComErro.clear();
   for (const k of Object.keys(mockSeguradas)) delete mockSeguradas[k];
   mockTabelas.rotas = [
@@ -194,6 +209,42 @@ beforeEach(() => {
       unidade_id: 'loja-b',
     },
   ];
+});
+
+describe('useDashboardData — KPI que falha', () => {
+  it('consulta da semana com erro: rotasSemana é null (não 0) e o mês segue', async () => {
+    mockKpiComErro = 'semana';
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.rotasSemana).toBeNull();
+    expect(result.current.kpis.rotasMes).toBe(2);
+  });
+
+  it('consulta do mês com erro: rotasMes, tempo médio e destaque ficam null', async () => {
+    mockKpiComErro = 'mes';
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.rotasMes).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    expect(result.current.kpis.motoristaDestaque).toBeNull();
+    expect(result.current.kpis.rotasSemana).not.toBeNull();
+  });
+
+  it('motorista_id com embed escondido pela RLS não vira "Sem motorista"', async () => {
+    mockTabelas.rotas = [
+      { ...rota('oculta', hoje), usuarios: null },
+      { ...rota('sem', hoje), motorista_id: null, usuarios: null },
+    ];
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const nome = (id: string) =>
+      result.current.rotas.find((r) => r.id === id)?.motorista_nome;
+    expect(nome('oculta')).toBe('Motorista removido da loja');
+    expect(nome('sem')).toBe('Sem motorista');
+  });
 });
 
 describe('useDashboardData — período "hoje"', () => {
@@ -303,7 +354,8 @@ describe('useDashboardData — erro de carga', () => {
 // carga inicial, a troca de filtro e o refresh manual.
 describe('useDashboardData — eventos de realtime', () => {
   const realtimeMock = () =>
-    jest.requireMock('@/hooks/useRealtimeRoutes').useRealtimeRoutes as jest.Mock;
+    jest.requireMock('@/hooks/useRealtimeRoutes')
+      .useRealtimeRoutes as jest.Mock;
   /** O `onRouteUpdate` do último render (já com o debounce do hook). */
   const dispararEvento = () => {
     const chamadas = realtimeMock().mock.calls;
