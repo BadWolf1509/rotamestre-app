@@ -42,6 +42,8 @@
 --   9. catálogo: retorno TABLE(rota_id uuid, nome text), STABLE, SECURITY
 --      DEFINER, search_path vazio, dono postgres, anon sem EXECUTE, proacl sem
 --      PUBLIC, authenticated e service_role com EXECUTE
+--  10. authenticated sem `sub` nas claims pede [R1] → 0 linhas, sem erro
+--  11. chamada real como `anon` → erro 42501 (sem EXECUTE)
 -- ============================================================================
 DO $$
 DECLARE
@@ -285,11 +287,44 @@ BEGIN
          AND has_function_privilege('service_role', p.oid, 'EXECUTE');
       r := r || CASE WHEN v_n = 1
         THEN ' | 9 OK: TABLE(rota_id uuid, nome text), STABLE, SECURITY DEFINER, search_path vazio, dono postgres, EXECUTE só de authenticated e service_role'
-        ELSE ' | 9 FALHOU: catálogo fora do esperado (' || coalesce((SELECT pg_get_function_result(p.oid) || ' / ' || p.provolatile || ' / ' || coalesce(p.proacl::text, 'proacl nulo') FROM pg_proc p WHERE p.oid = v_fn), 'sem linha') || ')' END;
+        ELSE ' | 9 FALHOU: catálogo fora do esperado (' || coalesce((SELECT pg_get_function_result(p.oid) || ' / ' || p.provolatile::text || ' / ' || coalesce(p.proacl::text, 'proacl nulo') FROM pg_proc p WHERE p.oid = v_fn), 'sem linha') || ')' END;
     END IF;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 9 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
   END;
+
+  -- ---------------------------------------------------------------------------
+  -- 10. authenticated sem `sub` nas claims pede [R1]
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    SELECT count(*) INTO v_n FROM public.nomes_motoristas_das_rotas(ARRAY[v_r1]) x;
+    RESET ROLE;
+    r := r || CASE WHEN v_n = 0
+      THEN ' | 10 OK: sessão sem usuário recebe zero linhas, sem erro'
+      ELSE ' | 10 FALHOU: sessão sem usuário recebeu ' || v_n || ' linha(s)' END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 10 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- 11. chamada real como anon
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+    SET LOCAL ROLE anon;
+    SELECT count(*) INTO v_n FROM public.nomes_motoristas_das_rotas(ARRAY[v_r1]) x;
+    RESET ROLE;
+    r := r || ' | 11 FALHOU: anon executou a função (' || v_n || ' linha(s))';
+  EXCEPTION WHEN OTHERS THEN
+    r := r || CASE WHEN SQLSTATE = '42501'
+      THEN ' | 11 OK: anon recebe 42501 ao chamar a função'
+      ELSE ' | 11 FALHOU: anon recebeu erro diferente de 42501 (' || SQLSTATE || ' ' || SQLERRM || ')' END;
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
 
   RAISE EXCEPTION 'SONDA M72 (desfeita):%', r;
 END

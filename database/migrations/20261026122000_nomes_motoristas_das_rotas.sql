@@ -46,6 +46,9 @@
 --     Linguagem: `plpgsql` (escolhida) porque o teto de 1000 ids precisa de
 --       RAISE com ERRCODE próprio; em `LANGUAGE sql` o teto exigiria um
 --       artifício (divisão por zero, cast inválido) com SQLSTATE sem relação.
+--     Tipo do nome: `usuarios.nome` é `varchar(255)`; a função converte com
+--       `u.nome::text` (escolhido) em vez de declarar `nome varchar` no
+--       RETURNS TABLE, para que a assinatura não dependa do tamanho da coluna.
 --     Ordem das conferências: o teto vem antes da sessão, para que a mesma
 --       lista dê o mesmo erro com ou sem usuário.
 --
@@ -70,25 +73,29 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_uid uuid;
 BEGIN
   IF cardinality(p_rota_ids) > 1000 THEN
     RAISE EXCEPTION 'LISTA_GRANDE: no máximo 1000 rotas por chamada.' USING ERRCODE = '22023';
   END IF;
 
-  IF auth.uid() IS NULL OR p_rota_ids IS NULL OR cardinality(p_rota_ids) = 0 THEN
+  v_uid := auth.uid();
+
+  IF v_uid IS NULL OR p_rota_ids IS NULL OR cardinality(p_rota_ids) = 0 THEN
     RETURN;
   END IF;
 
   RETURN QUERY
-  SELECT r.id, u.nome
+  SELECT r.id, u.nome::text
     FROM public.rotas r
     JOIN public.usuarios u ON u.id = r.motorista_id
    WHERE r.id = ANY (p_rota_ids)
      AND EXISTS (
        SELECT 1 FROM public.usuario_unidades g
-        WHERE g.usuario_id = auth.uid()
+        WHERE g.usuario_id = v_uid
           AND g.unidade_id = r.unidade_id
-          AND g.papel::text = 'gestor'
+          AND g.papel = 'gestor'
           AND g.ativo = true
      )
      AND EXISTS (

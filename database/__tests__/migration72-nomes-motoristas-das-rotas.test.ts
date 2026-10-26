@@ -73,7 +73,9 @@ describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
   });
 
   it('exige gestor ativo da loja da rota e vínculo (ativo ou não) do motorista na mesma loja', () => {
-    expect(executavel).toMatch(/auth\.uid\(\)/);
+    // A sessão é lida uma vez, depois do teto, e usada no filtro do gestor.
+    expect(executavel).toMatch(/v_uid := auth\.uid\(\);/);
+    expect(executavel).toMatch(/g\.usuario_id = v_uid/);
     expect(executavel).toMatch(/papel[^;]*'gestor'[^;]*ativo = true/);
     // o vínculo do motorista NÃO filtra por ativo
     expect(executavel).toMatch(
@@ -83,7 +85,9 @@ describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
 
   it('só devolve rota_id e nome (nada de email/telefone)', () => {
     expect(executavel).not.toMatch(/\b(email|telefone|foto_url)\b/);
-    expect(executavel).toMatch(/RETURN QUERY\s+SELECT r\.id, u\.nome\s+FROM/);
+    // `usuarios.nome` é varchar(255): sem o cast, o RETURN QUERY não bate
+    // com o RETURNS TABLE (42804).
+    expect(executavel).toMatch(/RETURN QUERY\s+SELECT r\.id, u\.nome::text\s+FROM/);
     // Só leitura.
     expect(executavel).not.toMatch(/\b(INSERT INTO|UPDATE public|DELETE FROM)\b/);
   });
@@ -112,9 +116,9 @@ describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
     );
   });
 
-  it('a sonda cobre os 9 casos e termina desfeita por RAISE', () => {
+  it('a sonda cobre os 11 casos e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M72 \(desfeita\)/);
-    for (let caso = 1; caso <= 9; caso += 1) {
+    for (let caso = 1; caso <= 11; caso += 1) {
       expect(sonda).toContain(`' | ${caso} OK: `);
     }
     // Catálogo lido sem abortar quando a função ainda não existe.
@@ -122,6 +126,8 @@ describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
       /to_regprocedure\('public\.nomes_motoristas_das_rotas\(uuid\[\]\)'\)/,
     );
     expect(sonda).toMatch(/sonda-m72-/);
+    // Chamada real como anon, esperando 42501.
+    expect(sonda).toMatch(/SET LOCAL ROLE anon;[\s\S]*'42501'/);
     const ultimoRaise = sonda.lastIndexOf('RAISE EXCEPTION');
     expect(sonda.slice(ultimoRaise)).toMatch(
       /^RAISE EXCEPTION 'SONDA M72 \(desfeita\):%', r;\s*END\s*\$\$;\s*$/,
