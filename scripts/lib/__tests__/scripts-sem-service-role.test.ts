@@ -1,7 +1,7 @@
 // Guarda estática: a chave JWT `service_role` foi desligada em 22/10/2026.
 // Script que ainda lê a variável dessa chave falha na primeira
-// chamada ao banco, e ninguém percebe porque o CI não executa `scripts/` nem
-// `tools/`. Quem precisa de acesso privilegiado usa a chave secreta
+// chamada ao banco, e ninguém percebe porque o CI não executa `scripts/`, `tools/`
+// nem os `database/*.js`. Quem precisa de acesso privilegiado usa a chave secreta
 // (`sb_secret_`) — nas Edge Functions, via `supabase/functions/_shared/chaves.ts`.
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
@@ -15,20 +15,20 @@ const PROIBIDA = 'SUPABASE_SERVICE_' + 'ROLE_KEY';
 function arquivosVersionados(): string[] {
   let saida: string;
   try {
-    saida = execSync('git ls-files scripts tools', {
+    saida = execSync('git ls-files scripts tools database', {
       cwd: RAIZ,
       encoding: 'utf8',
     });
   } catch (erro) {
     throw new Error(
-      'A guarda precisa do git para listar scripts/ e tools/ (git ls-files falhou): ' +
+      'A guarda precisa do git para listar scripts/, tools/ e database/ (git ls-files falhou): ' +
         String(erro),
     );
   }
   return saida.split(/\r?\n/).filter((f) => EXTENSOES.test(f));
 }
 
-describe('scripts/ e tools/ sem a service_role desligada', () => {
+describe('scripts/, tools/ e database/ sem a service_role desligada', () => {
   const arquivos = arquivosVersionados();
 
   it('varre os scripts (não está cega)', () => {

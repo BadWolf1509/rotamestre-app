@@ -29,20 +29,15 @@ test.describe('Gestor Route Creation E2E Tests', () => {
     test('should display route creation form elements', async ({ page }) => {
       await gestorPage.gotoNovaEntrega();
 
-      // A tela precisa trazer o formulário de entrega (texto casa em
-      // qualquer momento do carregamento: toContainText re-tenta).
-      await expect(page.locator('body')).toContainText(
-        /Entrega|parada|endereço/,
-        { timeout: 15000 },
-      );
-    });
-
-    test('should have address input field', async ({ page }) => {
-      await gestorPage.gotoNovaEntrega();
-
-      // Look for any input that could be address-related
-      const addressInput = page.locator('input').first();
-      await expect(addressInput).toBeVisible({ timeout: 15000 });
+      // Âncoras do FormularioParada (accessibilityLabel vira aria-label na
+      // web). O texto no body não servia: o título e o menu já traziam
+      // "Entrega". O campo de endereço, o tipo e o botão de adicionar só
+      // existem se o formulário montou.
+      await expect(page.getByLabel('Campo de endereço')).toBeVisible({
+        timeout: 15000,
+      });
+      await expect(page.getByLabel('Selecionar tipo entrega')).toBeVisible();
+      await expect(page.getByLabel('Adicionar parada à lista')).toBeVisible();
     });
   });
 
@@ -107,15 +102,22 @@ test.describe('Gestor Route Creation E2E Tests', () => {
   });
 
   test.describe('Route Optimization', () => {
-    test('should display optimization button when addresses are added', async ({
+    test('sem paradas adicionadas, o botão de otimizar ainda não aparece', async ({
       page,
     }) => {
       await gestorPage.gotoNovaEntrega();
 
-      // Check page has route-related content
-      await expect(page.locator('body')).toContainText(/rota|entrega/i, {
+      // O botão "Otimizar" só existe com ao menos uma parada na lista
+      // (`ParadasListAndActions`). Adicionar uma parada de verdade exigiria
+      // endereço validado pelo Google Places (pago, e o teste o mocka vazio),
+      // então este teste afirma o lado que dá para provar: o formulário está
+      // lá e a lista de paradas ainda não.
+      await expect(page.getByLabel('Adicionar parada à lista')).toBeVisible({
         timeout: 15000,
       });
+      await expect(
+        page.getByLabel('Otimizar rota para o melhor percurso'),
+      ).toHaveCount(0);
     });
   });
 

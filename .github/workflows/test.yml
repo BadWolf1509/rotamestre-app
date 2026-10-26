@@ -22,6 +22,19 @@ on:
 permissions:
   contents: read
 
+# Um push novo no mesmo PR cancela a execução anterior: sem isto, cada push
+# empilhava um e2e completo, e cada um escreve na rota demo de produção
+# (`garantirRotaDoMapa`). Só PR cancela; push na main e dispatch seguem até o
+# fim, para a main nunca ficar sem veredito.
+#
+# Cancelar no meio do e2e é seguro para o banco: o fixture é idempotente e
+# compare-and-set, e relê o estado a cada execução (ver
+# e2e/fixtures/garantir-rota-do-mapa.ts). O pior caso é a rota demo ficar
+# `pendente` entre a cópia e o início, que a execução seguinte conserta.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   design-system-audit:
     name: Design System Drift Check
@@ -41,16 +54,6 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-
-      - name: Cache dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -90,16 +93,6 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-
-      - name: Cache dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -178,16 +171,6 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-
-      - name: Cache dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -344,6 +327,20 @@ jobs:
           E2E_GESTOR_EMAIL: ${{ secrets.E2E_GESTOR_EMAIL }}
           E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
 
+      - name: Upload e2e screenshots
+        # Evidência da falha (antes não havia nenhuma: só o log de texto). SÓ
+        # PNG, pelo mesmo motivo do upload do job visual-regression: trace,
+        # relatório HTML e error-context podem carregar a senha das contas E2E
+        # e tokens, e o artefato de um repositório público é baixável por
+        # qualquer conta logada.
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-screenshots
+          path: test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 7
+
   visual-regression:
     name: Visual Regression
     runs-on: ubuntu-latest
@@ -370,16 +367,6 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-
-      - name: Cache dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.npm
-            node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -533,14 +520,19 @@ jobs:
             e2e/**/*-snapshots/**/*.png
           retention-days: 30
 
-      - name: Upload visual regression report
+      - name: Upload visual regression screenshots
+        # SÓ PNG, de propósito. O repositório é público e o artefato é baixável
+        # por qualquer conta logada no GitHub. O relatório HTML e o trace
+        # guardam o texto dos `fill` (a senha das contas E2E no login) e os
+        # cabeçalhos de rede com o token; `error-context.md` guarda o
+        # instantâneo da página. A captura de tela só mostra o que a tela
+        # mostrava (a senha aparece mascarada).
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-report
-          path: |
-            e2e-report
-            test-results
+          name: playwright-screenshots
+          path: test-results/**/*.png
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Resultado do e2e autenticado (portão do check obrigatório)

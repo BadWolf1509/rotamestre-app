@@ -45,14 +45,16 @@ export default defineConfig({
     // Base URL to use in actions like `await page.goto('/')`
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082',
 
-    // Collect trace when retrying the failed test
-    trace: 'on-first-retry',
+    // Trace e vídeo só fora do CI. O trace grava o texto digitado nos `fill`
+    // (a senha das contas E2E) e os cabeçalhos de rede com o token, e o
+    // repositório é público: artefato de CI é baixável por qualquer conta
+    // logada. No CI a evidência é a captura de tela (a senha vai mascarada).
+    trace: process.env.CI ? 'off' : 'on-first-retry',
 
     // Screenshot on failure
     screenshot: 'only-on-failure',
 
-    // Video on failure
-    video: 'on-first-retry',
+    video: process.env.CI ? 'off' : 'on-first-retry',
 
     // Viewport size
     viewport: { width: 1280, height: 720 },

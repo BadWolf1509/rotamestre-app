@@ -17,8 +17,10 @@ module.exports = {
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
-    // Incluir apenas hooks e utilitários do app/, não as páginas/layouts
-    'app/**/__tests__/**/*.{ts,tsx}',
+    // As telas do motorista concentram lógica (navegação, conclusão em
+    // sequência, restauração pós-câmera) e têm testes próprios: entram na
+    // medida. As demais páginas do app/ seguem de fora (cola do Expo Router).
+    'app/motorista/_screens/*.tsx',
     // Exclusões
     // Variantes .web: o Jest resolve a versão nativa, então estas nunca são
     // carregadas na suíte. As de mapa (NavigationMode.web, MiniMap.web) usam
@@ -40,13 +42,19 @@ module.exports = {
     '!**/node_modules/**',
     '!**/__tests__/**',
     '!**/__mocks__/**',
-    // Excluir páginas do Expo Router (são integration points, não lógica)
-    '!app/**/*.tsx',
+    // Excluir páginas do Expo Router (são integration points, não lógica),
+    // menos app/motorista/_screens (ver acima).
+    '!app/*.tsx',
+    '!app/auth/**/*.tsx',
+    '!app/gestor/**/*.tsx',
+    '!app/onboarding/**/*.tsx',
+    '!app/perfil/**/*.tsx',
+    '!app/unidade/**/*.tsx',
+    '!app/motorista/*.tsx',
+    '!app/motorista/perfil/**/*.tsx',
     '!app/**/_layout.tsx',
     '!app/**/+html.tsx',
     '!app/**/(tabs)/**',
-    '!app/**/(gestor)/**',
-    '!app/**/(motorista)/**',
     '!app/**/auth/**',
   ],
   coverageReporters: ['text', 'lcov', 'json-summary', 'html'],
