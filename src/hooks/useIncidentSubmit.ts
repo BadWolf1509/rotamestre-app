@@ -35,7 +35,12 @@ import { pedirPermissao } from '@/lib/permissoes';
 import { photonService } from '@/lib/photon';
 import { createIncidente, logIncidenteAction } from '@/lib/queries';
 import type { IncidenteCategoria } from '@/lib/queries';
+import { semRedeConfirmada } from '@/lib/semRede';
 import { storageService } from '@/lib/storage';
+
+/** Incidente não tem fila offline: o motorista tenta de novo com sinal. */
+export const MENSAGEM_SEM_INTERNET =
+  'Sem internet: o reporte não foi enviado. Tente de novo quando o sinal voltar.';
 
 // Configuração de retry
 const UPLOAD_MAX_RETRIES = 3;
@@ -179,6 +184,13 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
       setUploadRetryCount(0);
 
       try {
+        // Sem rede confirmada (modo avião, ou Wi-Fi sem internet já
+        // observado): falha agora, em vez de esperar posição, Photon, três
+        // uploads e o insert desistirem um a um. O wizard guarda o rascunho.
+        if (await semRedeConfirmada()) {
+          throw new Error(MENSAGEM_SEM_INTERNET);
+        }
+
         let uploadedPhotoUrl = '';
         let fotoPerdida = false;
         let finalEndereco = data.endereco || 'Localização não informada';
@@ -228,6 +240,9 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         });
 
         if (!result.success) {
+          if (result.error.type === 'network') {
+            throw new Error(MENSAGEM_SEM_INTERNET);
+          }
           throw new Error(`Erro ao salvar incidente: ${result.error.message}`);
         }
 

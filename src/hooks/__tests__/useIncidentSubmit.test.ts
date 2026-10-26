@@ -56,11 +56,82 @@ jest.mock('@/lib/photon', () => ({
   },
 }));
 
+// "Sem rede" confirmado (queda observada ou NetInfo desconectado)
+const mockSemRede = jest.fn();
+jest.mock('@/lib/semRede', () => ({
+  semRedeConfirmada: () => mockSemRede(),
+}));
+
 describe('useIncidentSubmit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSemRede.mockResolvedValue(false);
     mockUploadIncidentPhoto.mockResolvedValue('https://storage.com/photo.jpg');
     mockSingle.mockResolvedValue({ data: { id: 'incident-123' }, error: null });
+  });
+
+  describe('sem internet', () => {
+    it('com a falta de rede confirmada, falha na hora com mensagem clara e não tenta nada', async () => {
+      mockSemRede.mockResolvedValue(true);
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      let r: { success: boolean; error?: string } | undefined;
+      await act(async () => {
+        r = await result.current.submit({
+          category: 'accident',
+          description: 'Pneu furado',
+          photoUri: 'file://photo.jpg',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(r!.success).toBe(false);
+      expect(r!.error).toMatch(/^Sem internet/);
+      expect(mockUploadIncidentPhoto).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('a falha de rede do insert chega em português, sem o erro técnico', async () => {
+      mockSingle.mockResolvedValue({
+        data: null,
+        error: { message: 'TypeError: Network request failed', code: '' },
+      });
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      let r: { success: boolean; error?: string } | undefined;
+      await act(async () => {
+        r = await result.current.submit({
+          category: 'accident',
+          description: 'Pneu furado',
+          endereco: 'Rua A',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(r!.success).toBe(false);
+      expect(r!.error).toMatch(/^Sem internet/);
+      expect(r!.error).not.toMatch(/TypeError/);
+    });
+
+    it('o insert não é repetido: a repetição gravaria o incidente duas vezes', async () => {
+      // 5xx de gateway depois do commit: a resposta se perde, a linha não
+      mockSingle.mockResolvedValue({
+        data: null,
+        error: { message: 'upstream', code: '503' },
+      });
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      await act(async () => {
+        await result.current.submit({
+          category: 'accident',
+          description: 'Pneu furado',
+          endereco: 'Rua A',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Estado inicial', () => {
