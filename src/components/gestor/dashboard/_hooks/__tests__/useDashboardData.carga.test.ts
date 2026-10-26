@@ -39,7 +39,7 @@ let mockFalharRotas = false;
 // Tabelas cujas consultas devolvem erro (ex.: 'incidentes', 'usuario_unidades').
 const mockTabelasComErro = new Set<string>();
 // Registro de cada consulta (tabela + colunas pedidas).
-const mockConsultas: { tabela: string; colunas: string }[] = [];
+const mockConsultas: { tabela: string; colunas: string; head: boolean }[] = [];
 // Qual consulta de KPI (a 1ª é a da semana, a 2ª a do mês) devolve erro.
 let mockKpiComErro: 'semana' | 'mes' | null = null;
 let mockKpiContador = 0;
@@ -63,6 +63,7 @@ function mockQuery(tabela: string) {
       mockConsultas.push({
         tabela,
         colunas: (cols ?? '').replace(/\s+/g, ' '),
+        head: !!opts?.head,
       });
       contar = !!opts?.head;
       return api;
@@ -264,6 +265,59 @@ describe('useDashboardData — período "hoje"', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.kpis.rotasMes).toBe(2);
+  });
+
+  it('o total de hoje sai de contagem HEAD (sem baixar as linhas)', async () => {
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const contagensDeRotas = mockConsultas.filter(
+      (c) => c.tabela === 'rotas' && c.head && c.colunas === 'id',
+    );
+    expect(contagensDeRotas).toHaveLength(1);
+    expect(
+      mockConsultas.some(
+        (c) => c.tabela === 'rotas' && !c.head && c.colunas === 'id',
+      ),
+    ).toBe(false);
+    expect(result.current.todayStats.totalHoje).toBe(2);
+  });
+
+  it('período com só dataInicio tem teto de 60 dias à frente de hoje', async () => {
+    const em = (dias: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + dias);
+      return toLocalISODate(d);
+    };
+    mockTabelas.rotas.push(
+      rota('daqui-30', em(30)),
+      rota('daqui-60', em(60)),
+      rota('daqui-90', em(90)),
+    );
+    const { result } = renderHook(() =>
+      useDashboardData({ filters: { dataInicio: new Date() } }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const ids = result.current.rotas.map((r) => r.id);
+    expect(ids).toContain('daqui-30');
+    expect(ids).toContain('daqui-60');
+    expect(ids).not.toContain('daqui-90');
+  });
+
+  it('com dataFim explícita, o teto não corta o que o gestor pediu', async () => {
+    const dLonge = new Date();
+    dLonge.setDate(dLonge.getDate() + 90);
+    const longe = toLocalISODate(dLonge);
+    mockTabelas.rotas.push(rota('daqui-90', longe));
+    const { result } = renderHook(() =>
+      useDashboardData({
+        filters: { dataInicio: new Date(), dataFim: dLonge },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.rotas.map((r) => r.id)).toContain('daqui-90');
   });
 });
 

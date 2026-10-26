@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { getTodayISO, toLocalISODate } from '@/lib/dateUtils';
+import { getTodayISO, parseLocalDate, toLocalISODate } from '@/lib/dateUtils';
 import { ROTULO_MOTORISTA_OCULTO } from '@/lib/gestor/consultaRotas';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -189,6 +189,22 @@ function kpisDaLista(
   };
 }
 
+/**
+ * Janela máxima de um período aberto (só `dataInicio`), em dias à frente do
+ * início efetivo. Alternativa comparada: limite de linhas + aviso "mostrando
+ * as N mais recentes". Ficou o teto de data porque (a) a consulta carrega as
+ * paradas embutidas e o custo cresce com as rotas futuras, (b) corte por linhas
+ * esconderia rotas de forma arbitrária e exigiria estado/aviso novo na tela, e
+ * (c) rota agendada com mais de 60 dias é rara; quem precisa informa `dataFim`.
+ */
+const JANELA_PERIODO_ABERTO_DIAS = 60;
+
+function tetoDoPeriodoAberto(inicio: string): string {
+  const base = parseLocalDate(inicio) ?? new Date();
+  base.setDate(base.getDate() + JANELA_PERIODO_ABERTO_DIAS);
+  return toLocalISODate(base);
+}
+
 interface FiltrosDaLista {
   unidadeId: string;
   dataInicioStr: string | null;
@@ -224,10 +240,13 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
     // superior: "hoje" incluía as rotas já agendadas para amanhã.
     query = query.eq('data', hoje);
   } else {
-    query = query.gte('data', f.dataInicioStr ?? hoje);
-    if (f.dataFimStr) {
-      query = query.lte('data', f.dataFimStr);
-    }
+    const inicio = f.dataInicioStr ?? hoje;
+    query = query.gte('data', inicio);
+    // Sem dataFim a consulta não tinha teto; a partir de hoje (ou do início,
+    // se for futuro) vale a janela fixa.
+    const fim =
+      f.dataFimStr ?? tetoDoPeriodoAberto(inicio > hoje ? inicio : hoje);
+    query = query.lte('data', fim);
   }
   if (f.filtroStatus) query = query.eq('status', f.filtroStatus);
   if (f.filtroMotoristaId) {
@@ -242,12 +261,13 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
 
 /** Rotas de hoje da loja (ignora os filtros). null = a consulta falhou. */
 async function buscarTotalHoje(unidadeId: string): Promise<number | null> {
-  const { data, error } = await supabase
+  // Contagem HEAD: só o total, sem baixar as linhas.
+  const { count, error } = await supabase
     .from('rotas')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('unidade_id', unidadeId)
     .eq('data', getTodayISO());
-  return !error && data ? data.length : null;
+  return !error && count !== null ? count : null;
 }
 
 // Estado de "nada carregado ainda" (e de "loja trocada"): objetos no módulo,
