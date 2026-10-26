@@ -69,6 +69,42 @@ describe('lerSessao com rede caída observada', () => {
     expect(getSession).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * A queda observada só encurta a espera do REFRESH; não substitui a leitura
+   * local. Com o token válido o getSession nem vai à rede — responder offline
+   * deixaria o useAuth sem sessão (e sem realtime) por até 20 s com rede boa.
+   */
+  it('sinal JÁ ligado e getSession com sessão válida: devolve a sessão', async () => {
+    registrarFalhaDeRede();
+    getSession.mockResolvedValue({
+      data: { session: { user: { id: 'u1' } } },
+      error: null,
+    });
+
+    await expect(lerSessao()).resolves.toEqual({
+      session: { user: { id: 'u1' } },
+      offline: false,
+    });
+    expect(getSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('sinal JÁ ligado e getSession preso: só o prazo (ou queda nova) decide', async () => {
+    registrarFalhaDeRede();
+    getSession.mockReturnValue(new Promise(() => {}));
+    let resultado: unknown = 'pendente';
+    void lerSessao().then((r) => {
+      resultado = r;
+    });
+
+    await act(100);
+    expect(resultado).toBe('pendente');
+
+    // Queda registrada DEPOIS do início da leitura encurta a espera.
+    registrarFalhaDeRede();
+    await act(0);
+    expect(resultado).toEqual({ session: null, offline: true });
+  });
+
   it('consulta terminada: o ouvinte da queda é cancelado (não vaza)', async () => {
     getSession.mockResolvedValue({
       data: { session: { user: { id: 'u1' } } },

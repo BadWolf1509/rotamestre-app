@@ -54,7 +54,12 @@ let leituraEmCurso: Promise<EstadoSessao> | null = null;
 async function consultarSessao(): Promise<EstadoSessao> {
   // Sem rede confirmada (modo avião): não há o que esperar. O auth-js nem é
   // consultado — ele só responderia depois de desistir do refresh.
-  if (await semRedeConfirmada()) return OFFLINE;
+  //
+  // A queda OBSERVADA não entra aqui: com o token válido o getSession lê o
+  // storage e responde na hora, sem rede. Atalhar por ela deixava o useAuth
+  // sem sessão (e sem realtime) por até 20 s com a rede já boa. A queda só
+  // encurta a espera do REFRESH preso — é a corrida de `lerSessao`.
+  if (await semRedeConfirmada({ ignorarQuedaObservada: true })) return OFFLINE;
   try {
     const { data, error } = await supabase.auth.getSession();
     const session = data?.session ?? null;
@@ -88,14 +93,22 @@ export function lerSessao(): Promise<EstadoSessao> {
   // entrar na fila do auth-js. A alternativa — correr dentro de
   // `consultarSessao` — liberaria a vaga na queda, e passada a janela da
   // queda o próximo leitor voltaria a esperar o getSession preso.
+  //
+  // Só quedas FUTURAS (registradas depois do início desta leitura): o sinal
+  // já ligado não prova que o getSession vá à rede — com token válido ele
+  // responde do storage. Se ele de fato tentar o refresh sem rede, a falha
+  // desse refresh é uma queda nova e encurta a espera do mesmo jeito.
   let cancelarOuvinte: () => void = () => {};
   const quedaDeRede = new Promise<EstadoSessao>((resolve) => {
-    cancelarOuvinte = aoCairRede(() => {
-      logger.warn(
-        '[Auth] Rede caiu durante a leitura da sessão — modo offline',
-      );
-      resolve(OFFLINE);
-    });
+    cancelarOuvinte = aoCairRede(
+      () => {
+        logger.warn(
+          '[Auth] Rede caiu durante a leitura da sessão — modo offline',
+        );
+        resolve(OFFLINE);
+      },
+      { ignorarQuedaAtual: true },
+    );
   });
 
   const leitura = obterSessaoComTimeout(

@@ -96,6 +96,17 @@ describe('redeObservada', () => {
     expect(ouvinte).toHaveBeenCalledTimes(1);
   });
 
+  it('ignorarQuedaAtual: com a rede já caída, espera a PRÓXIMA queda', () => {
+    registrarFalhaDeRede();
+    const ouvinte = jest.fn();
+    const cancelar = aoCairRede(ouvinte, { ignorarQuedaAtual: true });
+    expect(ouvinte).not.toHaveBeenCalled();
+
+    registrarFalhaDeRede();
+    expect(ouvinte).toHaveBeenCalledTimes(1);
+    cancelar();
+  });
+
   it('base lazy: usa o fetch global da hora da chamada', async () => {
     const original = global.fetch;
     const trocado = jest.fn().mockResolvedValue(new Response('{}'));

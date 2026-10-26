@@ -60,13 +60,26 @@ export function registrarRespostaDaRede(): void {
   ultimaFalhaEm = null;
 }
 
+export interface OpcoesAoCairRede {
+  /**
+   * Só quedas registradas DEPOIS desta chamada contam; a já ligada não avisa
+   * na hora. Para quem tem uma resposta local a ganhar mesmo com a rede
+   * caída (a leitura da sessão com token válido não usa rede).
+   */
+  ignorarQuedaAtual?: boolean;
+}
+
 /**
  * Avisa na próxima queda (uma vez só). Se a rede já está caída, avisa na
- * hora. Devolve o cancelamento — quem registra tem de chamá-lo quando deixar
- * de esperar, senão o ouvinte fica preso no módulo até a próxima queda.
+ * hora (salvo `ignorarQuedaAtual`). Devolve o cancelamento — quem registra
+ * tem de chamá-lo quando deixar de esperar, senão o ouvinte fica preso no
+ * módulo até a próxima queda.
  */
-export function aoCairRede(ouvinte: () => void): () => void {
-  if (redeCaidaObservada()) {
+export function aoCairRede(
+  ouvinte: () => void,
+  opcoes?: OpcoesAoCairRede,
+): () => void {
+  if (!opcoes?.ignorarQuedaAtual && redeCaidaObservada()) {
     ouvinte();
     return () => {};
   }
