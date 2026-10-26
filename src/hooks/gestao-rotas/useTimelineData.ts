@@ -66,6 +66,7 @@ function dedupeById(events: TimelineEventMapped[]): TimelineEventMapped[] {
 
 async function fetchTimelinePage1(
   rotaId: string,
+  paginas = 1,
 ): Promise<TimelineCachePayload> {
   const [logsRes, paradasRes, incidentesRes] = await Promise.all([
     supabase
@@ -73,7 +74,7 @@ async function fetchTimelinePage1(
       .select('id, evento, timestamp, detalhes')
       .eq('rota_id', rotaId)
       .order('timestamp', { ascending: false })
-      .limit(PAGE_SIZE),
+      .limit(PAGE_SIZE * paginas),
     supabase
       .from('paradas')
       .select(
@@ -112,7 +113,7 @@ async function fetchTimelinePage1(
 
   return {
     events: dedupeById(sortDesc(events)),
-    hasMore: (logsRes.data?.length || 0) >= PAGE_SIZE,
+    hasMore: (logsRes.data?.length || 0) >= PAGE_SIZE * paginas,
   };
 }
 
@@ -122,7 +123,19 @@ export function useTimelineData(
 ): UseTimelineDataResult {
   const { realtime = true } = opts;
 
-  const fetcher = useCallback(() => fetchTimelinePage1(rotaId), [rotaId]);
+  const currentPageRef = useRef(1);
+  // Páginas a recarregar: o refresh grava aqui quantas páginas de "Carregar
+  // mais" estão abertas e o fetcher consome (volta a 1). Carga inicial e troca
+  // de rota ficam em 1. Alternativas: (a) refazer só a página 1 e mesclar com
+  // o que estava na tela — mantém evento apagado e hasMore velho; (b) recarregar
+  // as N páginas de uma vez (escolhida) — a lista visível é exatamente o que o
+  // banco tem agora, e o evento ao vivo não descarta o que o gestor abriu.
+  const paginasDaRecargaRef = useRef(1);
+  const fetcher = useCallback(() => {
+    const paginas = paginasDaRecargaRef.current;
+    paginasDaRecargaRef.current = 1;
+    return fetchTimelinePage1(rotaId, paginas);
+  }, [rotaId]);
 
   const {
     data,
@@ -141,18 +154,19 @@ export function useTimelineData(
   }, [update]);
 
   const [loadingMore, setLoadingMore] = useState(false);
-  const currentPageRef = useRef(1);
 
   // Reset de paginação ao trocar de rota.
   useEffect(() => {
     currentPageRef.current = 1;
+    paginasDaRecargaRef.current = 1;
   }, [rotaId]);
 
   const events = data?.events ?? EMPTY_EVENTS;
   const hasMore = data?.hasMore ?? false;
 
   const refresh = useCallback(async () => {
-    currentPageRef.current = 1;
+    // Mantém as páginas abertas (currentPageRef não zera).
+    paginasDaRecargaRef.current = currentPageRef.current;
     await cachedRefresh();
   }, [cachedRefresh]);
 

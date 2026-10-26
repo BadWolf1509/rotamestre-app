@@ -30,7 +30,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockResolvedValue(mockData);
 
       const { result } = renderHook(() =>
-        useCachedData('test_key', fetcher, { enabled: true })
+        useCachedData('test_key', fetcher, { enabled: true }),
       );
 
       expect(result.current.loading).toBe(true);
@@ -49,7 +49,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockResolvedValue({});
 
       const { result } = renderHook(() =>
-        useCachedData('test_key', fetcher, { enabled: false })
+        useCachedData('test_key', fetcher, { enabled: false }),
       );
 
       expect(result.current.loading).toBe(false);
@@ -72,7 +72,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockReturnValue(fetcherPromise);
 
       const { result } = renderHook(() =>
-        useCachedData('swr_key', fetcher, { staleWhileRevalidate: true })
+        useCachedData('swr_key', fetcher, { staleWhileRevalidate: true }),
       );
 
       // Deve mostrar dados do cache primeiro
@@ -102,14 +102,18 @@ describe('useCachedData', () => {
       const ttl = 60000;
 
       const { result } = renderHook(() =>
-        useCachedData('save_key', fetcher, { ttl })
+        useCachedData('save_key', fetcher, { ttl }),
       );
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
 
-      expect(cacheModule.setCache).toHaveBeenCalledWith('save_key', mockData, ttl);
+      expect(cacheModule.setCache).toHaveBeenCalledWith(
+        'save_key',
+        mockData,
+        ttl,
+      );
     });
   });
 
@@ -119,7 +123,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockRejectedValue(error);
 
       const { result } = renderHook(() =>
-        useCachedData('error_key', fetcher, { enabled: true })
+        useCachedData('error_key', fetcher, { enabled: true }),
       );
 
       await waitFor(() => {
@@ -138,7 +142,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockRejectedValue(error);
 
       const { result } = renderHook(() =>
-        useCachedData('fallback_key', fetcher, { staleWhileRevalidate: true })
+        useCachedData('fallback_key', fetcher, { staleWhileRevalidate: true }),
       );
 
       await waitFor(() => {
@@ -164,7 +168,7 @@ describe('useCachedData', () => {
       });
 
       const { result } = renderHook(() =>
-        useCachedData('refresh_key', fetcher)
+        useCachedData('refresh_key', fetcher),
       );
 
       await waitFor(() => {
@@ -181,14 +185,76 @@ describe('useCachedData', () => {
     });
   });
 
+  describe('recarga com dado da mesma chave na tela', () => {
+    it('refresh mantém loading false e data presente, e liga refreshing só durante a recarga', async () => {
+      let liberar: (v: { n: number }) => void = () => {};
+      const fetcher = jest
+        .fn()
+        .mockResolvedValueOnce({ n: 1 })
+        .mockImplementationOnce(
+          () => new Promise((resolve) => (liberar = resolve)),
+        );
+
+      const { result } = renderHook(() =>
+        useCachedData('mesma_chave', fetcher),
+      );
+      await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.refreshing).toBe(false);
+
+      let promessa: Promise<void> = Promise.resolve();
+      act(() => {
+        promessa = result.current.refresh();
+      });
+
+      // Recarga em voo: dado continua, sem skeleton.
+      expect(result.current.loading).toBe(false);
+      expect(result.current.data).toEqual({ n: 1 });
+      expect(result.current.refreshing).toBe(true);
+
+      await act(async () => {
+        liberar({ n: 2 });
+        await promessa;
+      });
+
+      expect(result.current.loading).toBe(false);
+      expect(result.current.refreshing).toBe(false);
+      expect(result.current.data).toEqual({ n: 2 });
+    });
+
+    it('refresh sem dado nenhum (primeira carga falhou) ainda liga loading', async () => {
+      let liberar: (v: { n: number }) => void = () => {};
+      const fetcher = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('falhou'))
+        .mockImplementationOnce(
+          () => new Promise((resolve) => (liberar = resolve)),
+        );
+
+      const { result } = renderHook(() => useCachedData('sem_dado', fetcher));
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+
+      let promessa: Promise<void> = Promise.resolve();
+      act(() => {
+        promessa = result.current.refresh();
+      });
+      expect(result.current.loading).toBe(true);
+      expect(result.current.refreshing).toBe(false);
+
+      await act(async () => {
+        liberar({ n: 1 });
+        await promessa;
+      });
+      expect(result.current.loading).toBe(false);
+    });
+  });
+
   describe('clear', () => {
     it('deve limpar cache e dados', async () => {
       const mockData = { id: 1 };
       const fetcher = jest.fn().mockResolvedValue(mockData);
 
-      const { result } = renderHook(() =>
-        useCachedData('clear_key', fetcher)
-      );
+      const { result } = renderHook(() => useCachedData('clear_key', fetcher));
 
       await waitFor(() => {
         expect(result.current.data).toEqual(mockData);
@@ -211,7 +277,9 @@ describe('useCachedData', () => {
       const ttl = 60000;
 
       const { result } = renderHook(() =>
-        useCachedData<{ id: number; count: number }>('update_key', fetcher, { ttl })
+        useCachedData<{ id: number; count: number }>('update_key', fetcher, {
+          ttl,
+        }),
       );
 
       await waitFor(() => {
@@ -225,7 +293,11 @@ describe('useCachedData', () => {
 
       expect(result.current.data).toEqual(newData);
       expect(result.current.isStale).toBe(false);
-      expect(cacheModule.setCache).toHaveBeenCalledWith('update_key', newData, ttl);
+      expect(cacheModule.setCache).toHaveBeenCalledWith(
+        'update_key',
+        newData,
+        ttl,
+      );
     });
 
     it('deve aceitar função de atualização', async () => {
@@ -233,7 +305,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockResolvedValue(mockData);
 
       const { result } = renderHook(() =>
-        useCachedData<{ count: number }>('func_update_key', fetcher)
+        useCachedData<{ count: number }>('func_update_key', fetcher),
       );
 
       await waitFor(() => {
@@ -241,7 +313,9 @@ describe('useCachedData', () => {
       });
 
       await act(async () => {
-        await result.current.update((prev) => ({ count: (prev?.count || 0) + 10 }));
+        await result.current.update((prev) => ({
+          count: (prev?.count || 0) + 10,
+        }));
       });
 
       expect(result.current.data).toEqual({ count: 11 });
@@ -255,7 +329,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockResolvedValue(mockData);
 
       const { result } = renderHook(() =>
-        useCachedData('callback_key', fetcher, { onUpdate })
+        useCachedData('callback_key', fetcher, { onUpdate }),
       );
 
       await waitFor(() => {
@@ -271,7 +345,7 @@ describe('useCachedData', () => {
       const fetcher = jest.fn().mockResolvedValue(mockData);
 
       const { result } = renderHook(() =>
-        useCachedData('manual_callback_key', fetcher, { onUpdate })
+        useCachedData('manual_callback_key', fetcher, { onUpdate }),
       );
 
       await waitFor(() => {
@@ -295,7 +369,7 @@ describe('useCachedData', () => {
 
       const { result, rerender } = renderHook(
         ({ key }) => useCachedData(key, fetcher),
-        { initialProps: { key: 'key1' } }
+        { initialProps: { key: 'key1' } },
       );
 
       await waitFor(() => {
@@ -400,7 +474,10 @@ describe('useCachedData', () => {
     // primeira.
     await act(async () => {
       const update = result.current.update;
-      await Promise.all([update((n) => (n ?? 0) + 1), update((n) => (n ?? 0) + 1)]);
+      await Promise.all([
+        update((n) => (n ?? 0) + 1),
+        update((n) => (n ?? 0) + 1),
+      ]);
     });
 
     expect(result.current.data).toBe(2);
@@ -426,9 +503,7 @@ describe('useFreshData', () => {
     (cacheModule.getCache as jest.Mock).mockResolvedValue(cachedData);
     const fetcher = jest.fn().mockResolvedValue(freshData);
 
-    const { result } = renderHook(() =>
-      useFreshData('fresh_key', fetcher)
-    );
+    const { result } = renderHook(() => useFreshData('fresh_key', fetcher));
 
     // Deve mostrar loading até ter dados frescos
     expect(result.current.loading).toBe(true);

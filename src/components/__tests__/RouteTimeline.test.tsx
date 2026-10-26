@@ -175,6 +175,18 @@ jest.mock('@expo/vector-icons', () => ({
   Ionicons: 'Ionicons',
 }));
 
+// Permite um teste forçar o resultado do hook (loading true COM eventos);
+// sem sobrescrita, usa o hook de verdade.
+let mockSobrescritaTimeline: unknown = null;
+jest.mock('@/hooks/gestao-rotas/useTimelineData', () => {
+  const actual = jest.requireActual('@/hooks/gestao-rotas/useTimelineData');
+  return {
+    ...actual,
+    useTimelineData: (...args: unknown[]) =>
+      mockSobrescritaTimeline ?? actual.useTimelineData(...args),
+  };
+});
+
 describe('RouteTimeline', () => {
   const mockLogs = [
     {
@@ -321,7 +333,7 @@ describe('RouteTimeline', () => {
   // fica (antes virava skeleton enquanto a recarga estava em voo).
   it('recarga em voo com eventos na tela não troca a lista por skeleton', async () => {
     const { getByText, queryByText } = render(
-      <RouteTimeline rotaId='123' realtime={true} />,
+      <RouteTimeline rotaId="123" realtime={true} />,
     );
     await waitFor(() => expect(getByText('Rota Iniciada')).toBeTruthy(), {
       timeout: 5000,
@@ -349,5 +361,33 @@ describe('RouteTimeline', () => {
 
     expect(queryByText('Rota Iniciada')).toBeTruthy();
     expect(queryByText('Parada #1 Concluída')).toBeTruthy();
+  });
+
+  it('loading true com eventos presentes renderiza os eventos, não o skeleton', () => {
+    mockSobrescritaTimeline = {
+      events: [
+        {
+          id: 'e1',
+          type: 'status_change',
+          timestamp: '2023-01-01T10:00:00Z',
+          title: 'Rota Iniciada',
+          description: 'Início',
+          icon: 'flag',
+          colorKey: 'success',
+        },
+      ],
+      loading: true,
+      isStale: false,
+      hasMore: false,
+      loadingMore: false,
+      loadMore: jest.fn(),
+      refresh: jest.fn(),
+    };
+    try {
+      const { getByText } = render(<RouteTimeline rotaId="123" />);
+      expect(getByText('Rota Iniciada')).toBeTruthy();
+    } finally {
+      mockSobrescritaTimeline = null;
+    }
   });
 });

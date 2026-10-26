@@ -14,7 +14,13 @@
  * );
  */
 
-import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DependencyList,
+} from 'react';
 
 import { getCache, setCache, clearCache, CACHE_TTL } from '@/lib/cache';
 
@@ -34,8 +40,10 @@ export interface UseCachedDataOptions {
 export interface UseCachedDataReturn<T> {
   /** Dados (do cache ou frescos) */
   data: T | null;
-  /** Indica se está carregando */
+  /** Indica se está carregando SEM nada para mostrar (skeleton) */
   loading: boolean;
+  /** Recarga em andamento com dado da mesma chave já na tela (não é skeleton) */
+  refreshing: boolean;
   /** Indica se os dados atuais são do cache (stale) */
   isStale: boolean;
   /** Erro ocorrido */
@@ -54,7 +62,7 @@ export interface UseCachedDataReturn<T> {
 export function useCachedData<T>(
   key: string,
   fetcher: () => Promise<T>,
-  options: UseCachedDataOptions = {}
+  options: UseCachedDataOptions = {},
 ): UseCachedDataReturn<T> {
   const {
     ttl = CACHE_TTL.USER_DATA,
@@ -66,6 +74,7 @@ export function useCachedData<T>(
 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
+  const [refreshing, setRefreshing] = useState(false);
   const [isStale, setIsStale] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -83,7 +92,9 @@ export function useCachedData<T>(
   // atualizações seguidas perdiam a primeira.
   const dataRef = useRef<T | null>(null);
   const chaveDoDadoRef = useRef<string | null>(null);
-  const loadDataRef = useRef<(ignoreCache?: boolean) => Promise<void>>(async () => {});
+  const loadDataRef = useRef<(ignoreCache?: boolean) => Promise<void>>(
+    async () => {},
+  );
 
   const aplicar = useCallback((valor: T | null, chave: string | null) => {
     dataRef.current = valor;
@@ -126,9 +137,18 @@ export function useCachedData<T>(
         }
       }
 
-      // Se não tem cache, mostrar loading
-      if (vigente() && (!hasCachedData || ignoreCache)) {
-        setLoading(true);
+      // Recarga com dado da MESMA chave na tela (refresh, revalidação, evento
+      // ao vivo) não vira `loading`: o consumidor troca a lista por skeleton
+      // quando `loading` é true, e o dado visível sumia a cada evento (DAT-1).
+      // Descartado: `refresh` nunca ligar `loading` — sem dado nenhum (1ª
+      // carga falhou) a tela ficaria vazia durante a nova tentativa.
+      const temDadoDaChave = chaveDoDadoRef.current === key;
+      if (vigente()) {
+        if (temDadoDaChave) {
+          if (ignoreCache || !hasCachedData) setRefreshing(true);
+        } else if (!hasCachedData || ignoreCache) {
+          setLoading(true);
+        }
       }
 
       try {
@@ -157,11 +177,14 @@ export function useCachedData<T>(
         // Só a carga mais recente encerra o indicador e libera a chave.
         if (minha === requisicaoRef.current) {
           chaveEmVooRef.current = null;
-          if (mountedRef.current) setLoading(false);
+          if (mountedRef.current) {
+            setLoading(false);
+            setRefreshing(false);
+          }
         }
       }
     },
-    [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate, aplicar]
+    [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate, aplicar],
   );
 
   // Sync ref with latest loadData function
@@ -182,8 +205,7 @@ export function useCachedData<T>(
 
   const update = useCallback(
     async (newData: T | ((prev: T | null) => T)) => {
-      const anterior =
-        chaveDoDadoRef.current === key ? dataRef.current : null;
+      const anterior = chaveDoDadoRef.current === key ? dataRef.current : null;
       const updatedData =
         typeof newData === 'function'
           ? (newData as (prev: T | null) => T)(anterior)
@@ -194,7 +216,7 @@ export function useCachedData<T>(
       await setCache(key, updatedData, ttl);
       onUpdate?.(updatedData);
     },
-    [key, ttl, onUpdate, aplicar]
+    [key, ttl, onUpdate, aplicar],
   );
 
   // Cleanup
@@ -217,6 +239,7 @@ export function useCachedData<T>(
   return {
     data,
     loading,
+    refreshing,
     isStale,
     error,
     refresh,
@@ -231,7 +254,7 @@ export function useCachedData<T>(
 export function useFreshData<T>(
   key: string,
   fetcher: () => Promise<T>,
-  options: Omit<UseCachedDataOptions, 'staleWhileRevalidate'> = {}
+  options: Omit<UseCachedDataOptions, 'staleWhileRevalidate'> = {},
 ): UseCachedDataReturn<T> {
   return useCachedData(key, fetcher, {
     ...options,
