@@ -319,6 +319,52 @@ describe('useIncidentesModals', () => {
       expect(result.current.showAlterarStatusModal).toBe(true);
     });
 
+    describe('resolvido_em segue a transição de status', () => {
+      async function salvar(anterior: string, novo: string) {
+        const { supabase } = jest.requireMock('@/lib/supabase');
+        (supabase.from as jest.Mock).mockClear();
+        const { result } = renderHook(() =>
+          useIncidentesModals({
+            showToast: mockShowToast,
+            incidentes: mockIncidentes,
+            onStatusUpdate: mockOnStatusUpdate,
+          }),
+        );
+        act(() =>
+          result.current.handleAlterarStatus({
+            ...mockIncidente,
+            status: anterior,
+          } as Incidente),
+        );
+        act(() => result.current.setNovoStatus(novo));
+        await act(async () => {
+          await result.current.confirmarAlterarStatus();
+        });
+        const consulta = (supabase.from as jest.Mock).mock.results[0].value;
+        return consulta.update.mock.calls[0][0] as Record<string, unknown>;
+      }
+
+      it('grava a data ao resolver um incidente aberto', async () => {
+        const payload = await salvar('aberto', 'resolvido');
+        expect(typeof payload.resolvido_em).toBe('string');
+      });
+
+      it('não regrava a data quando o incidente já estava resolvido', async () => {
+        const payload = await salvar('resolvido', 'resolvido');
+        expect(payload).not.toHaveProperty('resolvido_em');
+      });
+
+      it('limpa a data ao reabrir um incidente resolvido', async () => {
+        const payload = await salvar('resolvido', 'em_analise');
+        expect(payload.resolvido_em).toBeNull();
+      });
+
+      it('não mexe na data entre status não resolvidos', async () => {
+        const payload = await salvar('aberto', 'em_analise');
+        expect(payload).not.toHaveProperty('resolvido_em');
+      });
+    });
+
     it('UPDATE que altera a linha confirma o sucesso', async () => {
       mockLinhasAfetadas = [{ id: 'inc-1' }];
       const { result } = renderHook(() =>
