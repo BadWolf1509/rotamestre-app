@@ -2929,7 +2929,12 @@ Upload não muda. Sem mudança de código.
 a foto da rota de outro motorista e, na pasta da loja, só vê os próprios
 objetos; o motorista lê o próprio upload e a foto da própria rota enviada por
 outra conta; o gestor da loja lê as 5 fotos; o gestor de outra loja, a pessoa
-desativada e o vínculo inativo não leem; o upload na pasta da própria rota e a
-leitura do avatar do gestor seguem; catálogo da função e da policy. Sem a
-migration: casos 1, 2 e 11 FALHOU. Rollback colável com a policy viva de
+desativada, o vínculo inativo e o gestor com vínculo de gestor inativo não
+leem; foto em pasta de loja diferente da loja da rota não é lida pelo motorista
+da rota; o upload na pasta da própria rota segue; o ramo `perfis` não muda (o
+gestor lê o próprio avatar; o motorista não vê a linha do gestor em `usuarios`,
+então não lê o avatar dele, antes e depois); `foto_de_rota_minha` responde
+false, sem erro, para nome fora do formato `<loja>/<rota>/<arquivo>`; catálogo
+da função e da policy. Sem a migration: casos 1, 2, 11 e 14 FALHOU. Rollback
+colável com a policy viva de
 25/10/2026, o DROP da função e o COMMENT antigo do helper.

@@ -159,8 +159,22 @@ describe('Migration 65: fotos de entrega pelo gestor da loja e pelo motorista da
 
   it('a sonda cobre os cenários e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M65 \(desfeita\)/);
-    for (let caso = 1; caso <= 11; caso++) {
+    // 1 a 14 e o 10b (o gestor lê o próprio avatar)
+    const casos = [
+      ...Array.from({ length: 14 }, (_, i) => String(i + 1)),
+      '10b',
+    ];
+    expect(casos).toHaveLength(15);
+    for (const caso of casos) {
       expect(sonda).toContain(`' | ${caso} OK: `);
+    }
+    // 10: inalterado — o motorista não lê o avatar do gestor (espera 0)
+    expect(sonda).toMatch(
+      /name = o_perfil;\s*r := r \|\| CASE WHEN v_n = 0\s*THEN ' \| 10 OK: /,
+    );
+    // 14: formato do nome, sem erro
+    for (const nome of ["'perfis/x.jpg'", "'zzz/yyy/x.jpg'", "'/sub/x.jpg'"]) {
+      expect(sonda).toContain(nome);
     }
     const ultimoRaise = sonda.lastIndexOf('RAISE EXCEPTION');
     expect(sonda.slice(ultimoRaise)).toMatch(

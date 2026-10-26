@@ -5,21 +5,23 @@
 -- Banco único = produção, sem pgTAP. Rodar com a Migration 65 já valendo na
 -- mesma sessão: depois de aplicá-la, ou, para conferir antes, na MESMA
 -- execução que o corpo da migration (sem o BEGIN/COMMIT dela), para que o
--- RAISE do fim desfaça as duas coisas. Sem a migration, os casos 1, 2 e 11
--- saem FALHOU (é o vermelho esperado).
+-- RAISE do fim desfaça as duas coisas. Sem a migration, os casos 1, 2, 11 e
+-- 14 saem FALHOU (é o vermelho esperado; o 14 chama a função nova).
 --
 -- Cenário comum (não depende de dado real): lojas A e B; motorista M, ativo
 -- em A, com a rota RM; motorista C, colega ativo em A, com a rota RC; gestor
 -- GA, gestor ativo de A, com foto de perfil; gestor GB, gestor ativo só de B;
 -- motorista D, com vínculo ativo em A mas desativado como pessoa
 -- (`usuarios.ativo = false`), com a rota RD; motorista E, com o vínculo em A
--- inativo, com a rota RE. Objetos (só metadados em `storage.objects`, entram
--- como postgres; nada vai para o armazenamento de arquivos):
+-- inativo, com a rota RE; gestor GX, com o vínculo de gestor em A inativo.
+-- Objetos (só metadados em `storage.objects`, entram como postgres; nada vai
+-- para o armazenamento de arquivos):
 --   A/RM/x_1.jpg  dono M
 --   A/RC/x_2.jpg  dono C
 --   A/RM/x_3.jpg  dono C (foto da rota de M tirada por outra conta)
 --   A/RD/x_4.jpg  dono C
 --   A/RE/x_5.jpg  dono C
+--   B/RM/x_7.jpg  dono C (pasta de loja diferente da loja da rota)
 --   perfis/perfil_<GA>_1.jpg  dono GA, referenciado em usuarios.foto_url
 -- As leituras rodam como `authenticated` (SET LOCAL ROLE + claims do JWT),
 -- como a Storage API faz ao assinar a URL. O bloco termina SEMPRE em RAISE
@@ -35,10 +37,19 @@
 --   7. D (pessoa desativada) lê A/RD/x_4.jpg (rota dele, dono C) → 0
 --   8. E (vínculo inativo) lê A/RE/x_5.jpg (rota dele, dono C) → 0
 --   9. M sobe A/RM/x_6.jpg (dono M) → 1 linha (INSERT inalterado)
---  10. M lê a foto de perfil de GA → 1 (ramo perfis inalterado)
+--  10. M lê a foto de perfil de GA → 0 (inalterado: a policy
+--      `usuario_unidades_select` só mostra ao motorista os próprios vínculos,
+--      então ele não vê a linha do gestor em `usuarios` e o ramo perfis não
+--      casa — antes e depois desta migration)
+--  10b. GA lê a própria foto de perfil → 1
 --  11. catálogo: foto_de_rota_minha DEFINER, `search_path` vazio, dono
 --      postgres, EXECUTE para authenticated e não para anon; a policy de
 --      SELECT sem minhas_unidades_com_acesso e com o helper novo
+--  12. GX (vínculo de gestor em A inativo) lê A/RM/x_1.jpg → 0
+--  13. M lê B/RM/x_7.jpg (rota dele, mas na pasta de outra loja) → 0
+--  14. como M, foto_de_rota_minha responde false, sem erro, para
+--      'perfis/x.jpg', 'zzz/yyy/x.jpg' e '<A>/<RM>/sub/x.jpg', e true para
+--      A/RM/x_1.jpg
 -- ============================================================================
 DO $$
 DECLARE
@@ -52,6 +63,7 @@ DECLARE
   v_gb uuid := gen_random_uuid();     -- gestor só de B
   v_d uuid := gen_random_uuid();      -- motorista desativado como pessoa
   v_e uuid := gen_random_uuid();      -- motorista com vínculo inativo
+  v_gx uuid := gen_random_uuid();     -- gestor com o vínculo de A inativo
   v_rm uuid := gen_random_uuid();     -- rota de M em A
   v_rc uuid := gen_random_uuid();     -- rota de C em A
   v_rd uuid := gen_random_uuid();     -- rota de D em A
@@ -62,8 +74,13 @@ DECLARE
   o_4 text;   -- A/RD, dono C
   o_5 text;   -- A/RE, dono C
   o_6 text;   -- A/RM, enviado por M como authenticated
+  o_7 text;   -- B/RM, dono C
   o_perfil text;
   v_n int;
+  v_b1 boolean;
+  v_b2 boolean;
+  v_b3 boolean;
+  v_b4 boolean;
 BEGIN
   o_1 := v_ua || '/' || v_rm || '/x_1.jpg';
   o_2 := v_ua || '/' || v_rc || '/x_2.jpg';
@@ -71,6 +88,7 @@ BEGIN
   o_4 := v_ua || '/' || v_rd || '/x_4.jpg';
   o_5 := v_ua || '/' || v_re || '/x_5.jpg';
   o_6 := v_ua || '/' || v_rm || '/x_6.jpg';
+  o_7 := v_ub || '/' || v_rm || '/x_7.jpg';
   o_perfil := 'perfis/perfil_' || v_ga || '_1.jpg';
 
   -- ---------------------------------------------------------------------------
@@ -82,7 +100,8 @@ BEGIN
     (v_ga, 'sonda-m65-ga-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
     (v_gb, 'sonda-m65-gb-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
     (v_d,  'sonda-m65-d-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
-    (v_e,  'sonda-m65-e-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
+    (v_e,  'sonda-m65-e-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
+    (v_gx, 'sonda-m65-gx-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
 
   INSERT INTO public.unidades (id, nome, cidade) VALUES
     (v_ua, 'Sonda M65 A', 'Sonda'),
@@ -94,7 +113,8 @@ BEGIN
     (v_ga, 'Sonda gestor A',    'sonda-m65-ga-' || v_sufixo || '@example.invalid', 'gestor',    v_ua, true,  o_perfil),
     (v_gb, 'Sonda gestor B',    'sonda-m65-gb-' || v_sufixo || '@example.invalid', 'gestor',    v_ub, true,  NULL),
     (v_d,  'Sonda motorista D', 'sonda-m65-d-'  || v_sufixo || '@example.invalid', 'motorista', v_ua, false, NULL),
-    (v_e,  'Sonda motorista E', 'sonda-m65-e-'  || v_sufixo || '@example.invalid', 'motorista', v_ua, true,  NULL);
+    (v_e,  'Sonda motorista E', 'sonda-m65-e-'  || v_sufixo || '@example.invalid', 'motorista', v_ua, true,  NULL),
+    (v_gx, 'Sonda gestor X',    'sonda-m65-gx-' || v_sufixo || '@example.invalid', 'gestor',    v_ua, true,  NULL);
 
   INSERT INTO public.usuario_unidades (usuario_id, unidade_id, papel, ativo, is_principal) VALUES
     (v_m,  v_ua, 'motorista', true, true),
@@ -102,7 +122,8 @@ BEGIN
     (v_ga, v_ua, 'gestor',    true, true),
     (v_gb, v_ub, 'gestor',    true, true),
     (v_d,  v_ua, 'motorista', true, true),
-    (v_e,  v_ua, 'motorista', true, true);
+    (v_e,  v_ua, 'motorista', true, true),
+    (v_gx, v_ua, 'gestor',    false, true);
 
   INSERT INTO public.rotas (id, unidade_id, motorista_id, status) VALUES
     (v_rm, v_ua, v_m, 'em_andamento'),
@@ -122,6 +143,7 @@ BEGIN
     ('fotos-entrega', o_3,      v_c,  v_c::text),
     ('fotos-entrega', o_4,      v_c,  v_c::text),
     ('fotos-entrega', o_5,      v_c,  v_c::text),
+    ('fotos-entrega', o_7,      v_c,  v_c::text),
     ('fotos-entrega', o_perfil, v_ga, v_ga::text);
 
   -- ---------------------------------------------------------------------------
@@ -271,18 +293,33 @@ BEGIN
   RESET ROLE;
 
   -- ---------------------------------------------------------------------------
-  -- 10. M lê a foto de perfil do gestor (ramo perfis inalterado)
+  -- 10. M lê a foto de perfil do gestor (ramo perfis inalterado: o motorista
+  --     não vê a linha do gestor em usuarios, antes e depois)
   -- ---------------------------------------------------------------------------
   BEGIN
     PERFORM set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
     SET LOCAL ROLE authenticated;
     SELECT count(*) INTO v_n FROM storage.objects
      WHERE bucket_id = 'fotos-entrega' AND name = o_perfil;
-    r := r || CASE WHEN v_n = 1
-      THEN ' | 10 OK: o motorista lê a foto de perfil do gestor da loja (1)'
-      ELSE ' | 10 FALHOU: o motorista lê ' || v_n || ' da foto de perfil do gestor' END;
+    r := r || CASE WHEN v_n = 0
+      THEN ' | 10 OK: ramo perfis inalterado: o motorista não lê a foto de perfil do gestor (0)'
+      ELSE ' | 10 FALHOU: o motorista lê ' || v_n || ' da foto de perfil do gestor (esperado 0, inalterado)' END;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 10 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- 10b. GA lê a própria foto de perfil
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_ga, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    SELECT count(*) INTO v_n FROM storage.objects
+     WHERE bucket_id = 'fotos-entrega' AND name = o_perfil;
+    r := r || CASE WHEN v_n = 1
+      THEN ' | 10b OK: o gestor lê a própria foto de perfil (1)'
+      ELSE ' | 10b FALHOU: o gestor lê ' || v_n || ' da própria foto de perfil' END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 10b FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
   END;
   RESET ROLE;
 
@@ -307,6 +344,59 @@ BEGIN
   r := r || CASE WHEN v_n = 2
     THEN ' | 11 OK: função DEFINER, search_path vazio, dono postgres, EXECUTE só para authenticated; policy de SELECT pela rota própria'
     ELSE ' | 11 FALHOU: ' || v_n || ' de 2 conferências de catálogo' END;
+
+  -- ---------------------------------------------------------------------------
+  -- 12. GX (vínculo de gestor em A inativo) lê a foto da loja
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_gx, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    SELECT count(*) INTO v_n FROM storage.objects
+     WHERE bucket_id = 'fotos-entrega' AND name = o_1;
+    r := r || CASE WHEN v_n = 0
+      THEN ' | 12 OK: o gestor com vínculo inativo não lê a foto da loja (0)'
+      ELSE ' | 12 FALHOU: o gestor com vínculo inativo lê ' || v_n END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 12 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- 13. M lê a foto da própria rota guardada na pasta de outra loja
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    SELECT count(*) INTO v_n FROM storage.objects
+     WHERE bucket_id = 'fotos-entrega' AND name = o_7;
+    r := r || CASE WHEN v_n = 0
+      THEN ' | 13 OK: pasta de loja diferente da loja da rota não é lida pelo motorista da rota (0)'
+      ELSE ' | 13 FALHOU: o motorista lê ' || v_n || ' na pasta de outra loja' END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 13 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+
+  -- ---------------------------------------------------------------------------
+  -- 14. formato do nome: false sem erro fora de <loja>/<rota>/<arquivo>
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    v_b1 := public.foto_de_rota_minha('perfis/x.jpg');
+    v_b2 := public.foto_de_rota_minha('zzz/yyy/x.jpg');
+    v_b3 := public.foto_de_rota_minha(v_ua || '/' || v_rm || '/sub/x.jpg');
+    v_b4 := public.foto_de_rota_minha(o_1);
+    r := r || CASE WHEN v_b1 IS FALSE AND v_b2 IS FALSE AND v_b3 IS FALSE AND v_b4 IS TRUE
+      THEN ' | 14 OK: foto_de_rota_minha responde false fora do formato e true para a própria rota'
+      ELSE ' | 14 FALHOU: perfis ' || COALESCE(v_b1::text, 'NULL')
+        || ', zzz ' || COALESCE(v_b2::text, 'NULL')
+        || ', subpasta ' || COALESCE(v_b3::text, 'NULL')
+        || ', própria rota ' || COALESCE(v_b4::text, 'NULL') END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 14 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
 
   RAISE EXCEPTION 'SONDA M65 (desfeita):%', r;
 END
