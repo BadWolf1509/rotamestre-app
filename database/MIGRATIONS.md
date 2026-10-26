@@ -3307,9 +3307,9 @@ migration saem FALHOU os casos 1, 2, 3 e 10. Rollback colável no arquivo.
 
 ---
 
-### ⏳ Migration 76: status da rota pelo gestor (o motorista só inicia e conclui)
+### ✅ Migration 76: status da rota pelo gestor (o motorista só inicia e conclui)
 
-**Arquivo:** `20261027100000_rota_status_pelo_gestor.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 2, 3 e 9, e 9/9 OK depois.
+**Arquivo:** `20261027100000_rota_status_pelo_gestor.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo. Sonda: esperados FALHOU antes nos casos 2, 3 e 9, e 9/9 OK depois.
 
 **O que faz.** Cria o gatilho `trg_rota_status_pelo_gestor` (BEFORE UPDATE OF
 status em `rotas`, por linha, `WHEN` o status muda) com a função
@@ -3351,9 +3351,9 @@ com o corpo de `startRoute`; conclusão direta da 1.14.2; `finalizar_rota` e
 
 ---
 
-### ⏳ Migration 77: parada de rota encerrada não muda de status pela API
+### ✅ Migration 77: parada de rota encerrada não muda de status pela API
 
-**Arquivo:** `20261027101000_parada_de_rota_encerrada_nao_muda.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3, 6, 10 e 11, e 11/11 OK depois.
+**Arquivo:** `20261027101000_parada_de_rota_encerrada_nao_muda.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3, 6, 10 e 11, e 11/11 OK depois.
 
 **O que faz.** Cria o gatilho `trg_parada_de_rota_encerrada_nao_muda` (BEFORE
 UPDATE OF status em `paradas`, por linha, `WHEN` o status muda) com a função
@@ -3394,9 +3394,9 @@ concluída. Rollback colável.
 
 ---
 
-### ⏳ Migration 78: `reativar_rota` confere o motorista
+### ✅ Migration 78: `reativar_rota` confere o motorista
 
-**Arquivo:** `20261027102000_reativar_rota_motorista_indisponivel.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2 e 7, e 7/7 OK depois.
+**Arquivo:** `20261027102000_reativar_rota_motorista_indisponivel.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo. Sonda: FALHOU antes nos casos 1, 2, 6 e 7, e 7/7 OK depois.
 
 **O que faz.** Depois da trava e do `situacao_mudou`, e antes de mexer em
 qualquer linha, a RPC confere o motorista com a regra de
@@ -3423,9 +3423,9 @@ Rollback colável (corpo da Migration 71).
 
 ---
 
-### ⏳ Migration 79: `criar_notificacao` avisa quando não grava e confere o incidente
+### ✅ Migration 79: `criar_notificacao` avisa quando não grava e confere o incidente
 
-**Arquivo:** `20261027103000_criar_notificacao_confere_incidente.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1 e 6, e 6/6 OK depois.
+**Arquivo:** `20261027103000_criar_notificacao_confere_incidente.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1 e 6, e 6/6 OK depois.
 
 **O que faz.** O INSERT que não grava faz `RAISE WARNING` (SQLSTATE e
 mensagem) antes do `RETURN NULL` — os gatilhos e `avisar_gestores_do_sos`
@@ -3450,9 +3450,9 @@ prova o NULL sem erro e confere o corpo vivo no catálogo. Rollback colável
 
 ---
 
-### ⏳ Migration 80: desempenho do motorista pelo realizado (`vw_performance_motoristas`)
+### ✅ Migration 80: desempenho do motorista pelo realizado (`vw_performance_motoristas`)
 
-**Arquivo:** `20261027104000_desempenho_motorista_pelo_realizado.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3 e 5, e 5/5 OK depois.
+**Arquivo:** `20261027104000_desempenho_motorista_pelo_realizado.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3 e 5, e 5/5 OK depois.
 
 **O que faz.** `CREATE OR REPLACE VIEW` com as mesmas colunas e tipos:
 `distancia_total_km` soma só as rotas `concluida`; `tempo_medio_minutos` passa
