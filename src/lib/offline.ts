@@ -8,6 +8,7 @@ import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { lerJsonParaGravar } from './leituraLocal';
 import { logger } from './logger';
 import {
+  ehErroDefinitivo,
   lerFilaAcoesParada,
   sincronizarFilaAcoesParada,
 } from './motorista/filaAcoesParada';
@@ -16,6 +17,7 @@ import {
   notifySyncComplete,
   notifyOfflineMode,
 } from './notifications';
+import { redeCaidaObservada } from './redeObservada';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
@@ -42,27 +44,43 @@ interface OfflinePhotoData {
    * comprovante em nome de outra pessoa. Distingue-a da foto antiga sem dono.
    */
   semDono?: true;
-  /** Envios que falharam com o aparelho online (ver `LIMITE_FALHAS_FOTO`). */
+  /** Recusas que NÃO foram de rede (ver `RECUO_REENVIO_FOTO_MS`). */
   falhas?: number;
-  /** Quando foi a última falha (ms desde a época). */
+  /** Quando foi a última recusa (ms desde a época). */
   ultimaFalhaEm?: number;
 }
 
 /**
  * Foto que nunca consegue subir (vínculo com a loja desativado, a policy do
- * bucket recusa) era reenviada inteira a cada gatilho, para sempre. Depois de
- * `LIMITE_FALHAS_FOTO` falhas, no máximo um reenvio por
- * `ESPACO_REENVIO_FOTO_MS`. Nunca apaga: é comprovante. Alternativa
- * descartada: caminho estável no bucket com `upsert` (evitaria objetos
- * órfãos do upload que passa e da ligação que falha), mas pede UPDATE em
- * `storage.objects`, que a policy do bucket não dá — fica para o banco.
+ * bucket recusa) era reenviada inteira a cada gatilho, para sempre. Cada
+ * recusa espera o recuo da vez antes do próximo reenvio: 1, 5, 15 e, dali em
+ * diante, 60 min. Falha de REDE não conta (queda observada pelo `fetch`, ou
+ * erro sem resposta definitiva): quando o sinal volta, o comprovante sobe na
+ * hora — `isOnline()` sozinho não prova rede. Nunca apaga: é comprovante.
+ * Alternativa descartada: caminho estável no bucket com `upsert` (evitaria
+ * objetos órfãos do upload que passa e da ligação que falha), mas pede UPDATE
+ * em `storage.objects`, que a policy do bucket não dá — fica para o banco.
  */
-export const LIMITE_FALHAS_FOTO = 5;
-export const ESPACO_REENVIO_FOTO_MS = 60 * 60 * 1000;
+export const RECUO_REENVIO_FOTO_MS = [1, 5, 15, 60].map((min) => min * 60_000);
 
 function fotoEmEspera(photo: OfflinePhotoData, agora: number): boolean {
-  if ((photo.falhas ?? 0) < LIMITE_FALHAS_FOTO) return false;
-  return agora - (photo.ultimaFalhaEm ?? 0) < ESPACO_REENVIO_FOTO_MS;
+  const falhas = photo.falhas ?? 0;
+  if (falhas === 0) return false;
+  const recuo =
+    RECUO_REENVIO_FOTO_MS[Math.min(falhas, RECUO_REENVIO_FOTO_MS.length) - 1];
+  return agora - (photo.ultimaFalhaEm ?? 0) < recuo;
+}
+
+/**
+ * A falha desta tentativa foi de rede? `subirFotoDaFilaOffline` devolve null
+ * sem dizer por quê; a queda observada pelo `fetch` do Supabase (que passa
+ * pelo Storage) responde por ela. Erro lançado conta só se for resposta
+ * definitiva do servidor (`ehErroDefinitivo`): rede, sessão e 5xx, não.
+ */
+function falhaFoiDeRede(erro?: unknown): boolean {
+  if (redeCaidaObservada()) return true;
+  if (erro === undefined) return false;
+  return !ehErroDefinitivo(erro);
 }
 
 /** Foto que a sessão `usuarioAtual` pode subir/contar. */
@@ -427,12 +445,12 @@ export async function processOfflinePhotos(): Promise<{
           success++;
         } else {
           failed++;
-          await registrarFalhaDaFoto(photo);
+          if (!falhaFoiDeRede()) await registrarFalhaDaFoto(photo);
         }
       } catch (error) {
         logger.warn('Falha ao processar foto offline', error);
         failed++;
-        await registrarFalhaDaFoto(photo);
+        if (!falhaFoiDeRede(error)) await registrarFalhaDaFoto(photo);
       }
     }
 

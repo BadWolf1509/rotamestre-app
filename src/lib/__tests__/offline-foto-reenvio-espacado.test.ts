@@ -2,20 +2,21 @@
  * Foto que nunca consegue subir (ex.: vínculo com a loja desativado, a policy
  * do bucket recusa) era reenviada inteira — 1 a 3 MB, em dados móveis — a
  * cada abertura, volta ao primeiro plano, puxar para atualizar e mudança de
- * rede, para sempre. Agora a fila conta as falhas por foto e, passado o
- * limite, espaça os reenvios. NUNCA apaga: é comprovante de entrega.
+ * rede, para sempre. Agora a fila conta as recusas por foto e espaça os
+ * reenvios com recuo curto (1, 5, 15, 60 min). Falha de REDE não conta: com o
+ * sinal de volta, o comprovante sobe na hora. NUNCA apaga: é comprovante.
  */
 import * as FileSystem from 'expo-file-system/legacy';
 
 import {
   _resetProcessingLocks,
-  ESPACO_REENVIO_FOTO_MS,
-  LIMITE_FALHAS_FOTO,
   processOfflinePhotos,
+  RECUO_REENVIO_FOTO_MS,
 } from '../offline';
 import { subirFotoDaFilaOffline } from '../storage';
 
 const CHAVE_FOTOS = '@rotamestre:offline_photos_index';
+const MIN = 60 * 1000;
 
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(async () => ({
@@ -45,6 +46,12 @@ jest.mock('expo-file-system/legacy', () => ({
   deleteAsync: jest.fn(async () => undefined),
 }));
 
+/** Resposta da leitura da loja da rota (antes do upload). */
+let mockRota: { data: unknown; error: unknown } = {
+  data: { unidade_id: 'u1' },
+  error: null,
+};
+
 jest.mock('../supabase', () => ({
   supabase: {
     auth: {
@@ -58,14 +65,17 @@ jest.mock('../supabase', () => ({
     from: jest.fn(() => ({
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({
-            data: { unidade_id: 'u1' },
-            error: null,
-          }),
+          maybeSingle: async () => mockRota,
         }),
       }),
     })),
   },
+}));
+
+/** Queda de rede observada pelo `fetch` do Supabase (nativo). */
+let mockRedeCaida = false;
+jest.mock('../redeObservada', () => ({
+  redeCaidaObservada: () => mockRedeCaida,
 }));
 
 jest.mock('../storage', () => ({ subirFotoDaFilaOffline: jest.fn() }));
@@ -98,6 +108,8 @@ beforeEach(() => {
   disco().set(CHAVE_FOTOS, JSON.stringify([FOTO]));
   agora = Date.parse('2026-10-26T12:00:00Z');
   jest.spyOn(Date, 'now').mockImplementation(() => agora);
+  mockRedeCaida = false;
+  mockRota = { data: { unidade_id: 'u1' }, error: null };
   (subirFotoDaFilaOffline as jest.Mock).mockResolvedValue(null);
 });
 
@@ -105,38 +117,86 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-async function rodadas(n: number) {
-  for (let i = 0; i < n; i++) await processOfflinePhotos();
-}
+const enviar = () => processOfflinePhotos();
 
-it('cada falha fica contada na foto, e a foto continua no aparelho', async () => {
-  await rodadas(2);
-  expect(indice()).toEqual([expect.objectContaining({ falhas: 2 })]);
+it('o recuo é curto e cresce: 1, 5, 15 e 60 min', () => {
+  expect(RECUO_REENVIO_FOTO_MS).toEqual([1 * MIN, 5 * MIN, 15 * MIN, 60 * MIN]);
+});
+
+it('recusa que não é de rede conta, e a foto continua no aparelho', async () => {
+  await enviar();
+  expect(indice()).toEqual([expect.objectContaining({ falhas: 1 })]);
   expect(FileSystem.deleteAsync).not.toHaveBeenCalled();
 });
 
-it('passado o limite, não reenvia a cada gatilho: espera o intervalo', async () => {
-  await rodadas(LIMITE_FALHAS_FOTO);
-  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(LIMITE_FALHAS_FOTO);
+it('falha com a queda de rede observada NÃO conta: volta o sinal, sobe na hora', async () => {
+  mockRedeCaida = true;
+  await enviar();
+  await enviar();
+  expect(indice()[0].falhas ?? 0).toBe(0);
 
-  // Gatilhos seguidos (abrir, voltar ao primeiro plano, puxar): nada sobe
-  await rodadas(3);
-  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(LIMITE_FALHAS_FOTO);
-
-  // Passado o intervalo, tenta de novo — e nunca apaga
-  agora += ESPACO_REENVIO_FOTO_MS + 1;
-  await rodadas(1);
-  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(LIMITE_FALHAS_FOTO + 1);
-  expect(indice()).toHaveLength(1);
-});
-
-it('quando enfim sobe, sai do índice como qualquer outra', async () => {
-  await rodadas(LIMITE_FALHAS_FOTO);
-  agora += ESPACO_REENVIO_FOTO_MS + 1;
+  // Sinal de volta, logo em seguida: tenta já, sem esperar recuo nenhum
+  mockRedeCaida = false;
   (subirFotoDaFilaOffline as jest.Mock).mockResolvedValue({
     resultado: 'ligada',
     path: 'u1/rota-1/p1.jpg',
   });
-  await rodadas(1);
+  await enviar();
   expect(indice()).toEqual([]);
+});
+
+it('erro de rede lançado (leitura da rota) também não conta', async () => {
+  mockRota = {
+    data: null,
+    error: { message: 'TypeError: Network request failed', code: '' },
+  };
+  await enviar();
+  expect(indice()[0].falhas ?? 0).toBe(0);
+});
+
+it('erro definitivo lançado (ex.: 42501) conta', async () => {
+  mockRota = {
+    data: null,
+    error: { message: 'permission denied', code: '42501' },
+  };
+  await enviar();
+  expect(indice()[0].falhas).toBe(1);
+});
+
+it('entre recusas, espera o recuo da vez antes de reenviar', async () => {
+  await enviar(); // 1ª recusa: espera 1 min
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+
+  await enviar(); // gatilho logo depois: não reenvia
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+
+  agora += 1 * MIN + 1;
+  await enviar(); // 2ª recusa: espera 5 min
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(2);
+
+  agora += 1 * MIN + 1;
+  await enviar(); // só 1 min depois: ainda esperando
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(2);
+
+  agora += 4 * MIN;
+  await enviar();
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(3);
+  expect(indice()).toHaveLength(1);
+});
+
+it('depois da 4ª recusa, no máximo um reenvio por hora — nunca apaga', async () => {
+  for (const espera of [0, 1, 5, 15]) {
+    agora += espera * MIN + 1;
+    await enviar();
+  }
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(4);
+
+  agora += 30 * MIN;
+  await enviar();
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(4);
+
+  agora += 30 * MIN + 1;
+  await enviar();
+  expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(5);
+  expect(indice()).toHaveLength(1);
 });
