@@ -94,6 +94,7 @@ describe('verificarGuardas', () => {
           { unidade_id: 'loja-2', usuario_id: 'g3' },
         ]),
       ],
+      usuarios: sucesso([{ id: 'g2' }, { id: 'g3' }]),
       rotas: sucesso([]),
     });
 
@@ -106,6 +107,7 @@ describe('verificarGuardas', () => {
         sucesso([{ unidade_id: 'loja-1' }, { unidade_id: 'loja-2' }]),
         sucesso([{ unidade_id: 'loja-1', usuario_id: 'g2' }]),
       ],
+      usuarios: sucesso([{ id: 'g2' }]),
       unidades: sucesso([{ id: 'loja-2', nome: 'Loja Norte' }]),
       rotas: sucesso([]),
     });
@@ -119,7 +121,7 @@ describe('verificarGuardas', () => {
   it('recusa quem tem rota em andamento: finalizar ou pedir a reatribuição', async () => {
     const { cliente, filtros } = clienteFalso({
       usuario_unidades: sucesso([]), // não é gestor de loja nenhuma
-      rotas: sucesso([{ id: 'r1' }]),
+      rotas: sucesso([{ id: 'r1', status: 'em_andamento' }]),
     });
 
     const recusa = await verificarGuardas(cliente, 'u1');
@@ -135,9 +137,9 @@ describe('verificarGuardas', () => {
     });
     expect(filtros).toContainEqual({
       tabela: 'rotas',
-      op: 'eq',
+      op: 'in',
       coluna: 'status',
-      valor: 'em_andamento',
+      valor: ['pendente', 'em_andamento'],
     });
   });
 
@@ -158,7 +160,10 @@ describe('verificarGuardas', () => {
 
     const recusa = await verificarGuardas(cliente, 'u1');
 
-    expect(recusa).toMatchObject({ codigo: 'GUARDA_INDISPONIVEL', status: 503 });
+    expect(recusa).toMatchObject({
+      codigo: 'GUARDA_INDISPONIVEL',
+      status: 503,
+    });
   });
 
   it('falha na consulta de rotas também não libera', async () => {
@@ -183,5 +188,111 @@ describe('verificarGuardas', () => {
 
     expect(recusa?.codigo).toBe('ULTIMO_GESTOR');
     expect(recusa?.mensagem).toMatch(/outro gestor ativo.*suporte/i);
+  });
+
+  it('recusa quem tem rota pendente atribuída, com o código que o app 1.14.x reconhece', async () => {
+    const { cliente, filtros } = clienteFalso({
+      usuario_unidades: sucesso([]),
+      rotas: sucesso([{ id: 'r1', status: 'pendente' }]),
+    });
+
+    const recusa = await verificarGuardas(cliente, 'u1');
+
+    expect(recusa).toEqual({
+      codigo: 'ROTA_EM_ANDAMENTO',
+      status: 409,
+      mensagem: expect.stringContaining('reatribua'),
+    });
+    expect(recusa!.mensagem).toContain('ainda não foi feita');
+    expect(filtros).toContainEqual({
+      tabela: 'rotas',
+      op: 'in',
+      coluna: 'status',
+      valor: ['pendente', 'em_andamento'],
+    });
+  });
+
+  it('com rota em andamento e pendente, a mensagem é a de rota em andamento', async () => {
+    const { cliente } = clienteFalso({
+      usuario_unidades: sucesso([]),
+      rotas: sucesso([
+        { id: 'r1', status: 'pendente' },
+        { id: 'r2', status: 'em_andamento' },
+      ]),
+    });
+
+    const recusa = await verificarGuardas(cliente, 'u1');
+
+    expect(recusa?.codigo).toBe('ROTA_EM_ANDAMENTO');
+    expect(recusa?.mensagem).toContain('Finalize a rota');
+  });
+
+  it('recusa o último gestor quando o outro gestor da loja está com o cadastro inativo', async () => {
+    const { cliente, filtros } = clienteFalso({
+      usuario_unidades: [
+        sucesso([{ unidade_id: 'L1' }]),
+        sucesso([{ unidade_id: 'L1', usuario_id: 'G2' }]),
+      ],
+      usuarios: sucesso([]),
+      unidades: sucesso([{ id: 'L1', nome: 'Loja Centro' }]),
+      rotas: sucesso([]),
+    });
+
+    const recusa = await verificarGuardas(cliente, 'u1');
+
+    expect(recusa?.codigo).toBe('ULTIMO_GESTOR');
+    expect(filtros).toContainEqual({
+      tabela: 'usuarios',
+      op: 'in',
+      coluna: 'id',
+      valor: ['G2'],
+    });
+    expect(filtros).toContainEqual({
+      tabela: 'usuarios',
+      op: 'eq',
+      coluna: 'ativo',
+      valor: true,
+    });
+  });
+
+  it('libera o gestor quando o outro gestor da loja está ativo', async () => {
+    const { cliente } = clienteFalso({
+      usuario_unidades: [
+        sucesso([{ unidade_id: 'L1' }]),
+        sucesso([{ unidade_id: 'L1', usuario_id: 'G2' }]),
+      ],
+      usuarios: sucesso([{ id: 'G2' }]),
+      rotas: sucesso([]),
+    });
+
+    expect(await verificarGuardas(cliente, 'u1')).toBeNull();
+  });
+
+  it('não libera quando a conferência do cadastro do outro gestor falha', async () => {
+    const { cliente } = clienteFalso({
+      usuario_unidades: [
+        sucesso([{ unidade_id: 'L1' }]),
+        sucesso([{ unidade_id: 'L1', usuario_id: 'G2' }]),
+      ],
+      usuarios: { error: { message: 'boom' } },
+      rotas: sucesso([]),
+    });
+
+    expect(await verificarGuardas(cliente, 'u1')).toMatchObject({
+      codigo: 'GUARDA_INDISPONIVEL',
+      status: 503,
+    });
+  });
+
+  it('sem outro vínculo de gestor, não consulta usuarios', async () => {
+    const { cliente, filtros } = clienteFalso({
+      usuario_unidades: [sucesso([{ unidade_id: 'L1' }]), sucesso([])],
+      unidades: sucesso([{ id: 'L1', nome: 'Loja Centro' }]),
+      rotas: sucesso([]),
+    });
+
+    await verificarGuardas(cliente, 'u1');
+
+    expect(filtros.some((f) => f.tabela === 'usuarios')).toBe(false);
   });
 });

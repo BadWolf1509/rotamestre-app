@@ -2885,3 +2885,202 @@ SELECT de `unidades` depois da Migration 51); `service_role` intocado; padrão d
 `postgres` sem eles; tabela criada na sonda nasce sem eles. Sem a migration: 7
 FALHOU; com ela: 9 OK (réplica local). Rollback colável, tabela a tabela, com
 o que foi medido.
+
+### ✅ Migration 65: fotos de entrega lidas pelo gestor da loja e pelo motorista da rota
+
+**Arquivo:** `20261025160000_fotos_entrega_pela_propria_rota.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025160000`. Sonda: 4 FALHOU antes (1, 2, 11, 14), tudo OK com o corpo na mesma transação e 15/15 OK depois de aplicada.
+
+**O que faz.** Divide o ramo por loja da policy `"fotos-entrega select"` (em
+`storage.objects`) para seguir a regra das policies de `rotas`/`paradas` da
+Migration 49: (b1) o gestor com vínculo ativo de gestor na loja do 1º segmento
+do path lê as fotos da loja; (b2) o motorista lê as fotos das próprias rotas
+(2º segmento), com vínculo ativo na loja da rota e cadastro ativo, conferido
+pelo helper novo `foto_de_rota_minha(text)` (SECURITY DEFINER, `search_path`
+vazio, dono `postgres`, EXECUTE só para `authenticated` e `service_role`; confere
+o formato uuid dos segmentos antes do cast). Os ramos do dono, de `perfis` e de
+`incidentes` ficam iguais. O INSERT e o DELETE do bucket não mudam;
+`minhas_unidades_com_acesso()` segue no INSERT e só o COMMENT dela muda.
+
+**Alternativas.** (a) Gestor pela loja + motorista pela própria rota —
+escolhida: mesma regra de `rotas`/`paradas`, e o motorista atual segue lendo a
+foto da rota tirada por outra conta (rota reatribuída, outro aparelho). (b) Só o
+dono: igual hoje para as fotos com dono, mas o motorista deixaria de ler a foto
+da própria rota enviada por outra conta e as 71 fotos sem dono. (c) Restringir
+`minhas_unidades_com_acesso()` a gestor: o INSERT do motorista em
+`<loja>/<rota>/` passaria a ser recusado.
+
+**Medido em 25/10/2026.** 2.301 objetos em pasta de loja; 2.273 em pasta de
+rota existente. Nas rotas com motorista: 0 com dono diferente do motorista
+atual, 71 sem dono (o motorista passa a lê-los pelo ramo da rota), 13 em pasta
+de loja diferente da loja da rota (todos do próprio motorista, seguem pelo ramo
+do dono). 217 em rota sem motorista e 28 em rota apagada seguem legíveis pelo
+dono e pelo gestor.
+
+**App.** O app lê foto só por `useSignedUrl` → `createSignedUrlForFoto`
+(`src/lib/storage.ts`, `createSignedUrl`). No motorista, os usos são o próprio
+avatar (`DrawerHeader`, `Avatar`, `AvatarEditable`; ramo do dono); as telas que
+mostram comprovante (`ParadaCard*`, `IncidenteDetalhesModal`) são do gestor
+(ramo b1). O único `list()` é `deletarFotoPerfil`, em `perfis` (ramo do dono).
+Upload não muda. Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration65-fotos-da-propria-rota.test.ts`; sonda
+`database/sondas/20261025160000_sonda_migration65.sql`: o colega da loja não lê
+a foto da rota de outro motorista e, na pasta da loja, só vê os próprios
+objetos; o motorista lê o próprio upload e a foto da própria rota enviada por
+outra conta; o gestor da loja lê as 5 fotos; o gestor de outra loja, a pessoa
+desativada, o vínculo inativo e o gestor com vínculo de gestor inativo não
+leem; foto em pasta de loja diferente da loja da rota não é lida pelo motorista
+da rota; o upload na pasta da própria rota segue; o ramo `perfis` não muda (o
+gestor lê o próprio avatar; o motorista não vê a linha do gestor em `usuarios`,
+então não lê o avatar dele, antes e depois); `foto_de_rota_minha` responde
+false, sem erro, para nome fora do formato `<loja>/<rota>/<arquivo>`; catálogo
+da função e da policy. Sem a migration: casos 1, 2, 11 e 14 FALHOU. Rollback
+colável com a policy viva de
+25/10/2026, o DROP da função e o COMMENT antigo do helper.
+
+### ✅ Migration 66: incidente atualizado só pelo gestor da loja
+
+**Arquivo:** `20261025161000_incidente_atualizado_pelo_gestor.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025161000`. Sonda: 4 FALHOU antes (1, 2, 3, 8), tudo OK com o corpo na mesma transação e 8/8 OK depois de aplicada.
+
+**O que faz.** Recria a policy `incidentes_update` (mesmo nome, `FOR UPDATE TO
+authenticated`) sem o ramo `motorista_id = auth.uid()`: USING e WITH CHECK
+passam a exigir vínculo ativo de gestor na loja do incidente
+(`incidentes.unidade_id`), a mesma condição do ramo do gestor em
+`incidentes_select` e em `incidentes_delete_optimized`. O incidente é aberto
+pelo motorista no INSERT e atualizado pelo gestor da loja, como a Migration 61
+documenta. SELECT, INSERT, DELETE e os gatilhos de `incidentes` (Migrations 57,
+59, 61 e 62) não mudam.
+
+**Alternativas.** (a) Tirar o ramo do motorista — escolhida: nenhum fluxo do
+app atualiza incidente como motorista; a policy fica com uma só condição.
+(b) Manter o ramo e acrescentar um gatilho de colunas que deixe o motorista
+mudar só `descricao` com `status = 'aberto'`: guardaria uma edição que ninguém
+usa, com função nova e lista de colunas a manter (YAGNI); é o caminho se o app
+oferecer "editar o relato". (c) Privilégio de coluna só em `descricao`:
+quebraria o UPDATE do gestor (`status`, `observacoes_gestao`, `resolvido_em`) e
+toda coluna nova passaria a exigir GRANT.
+
+**App.** O motorista só faz INSERT (`createIncidente`,
+`src/lib/queries/incidentes.ts`, via `useIncidentSubmit`, que já envia
+`foto_url` no INSERT). `updateIncidente` e `updateIncidenteStatus` não têm
+chamador fora de `src/lib/queries/index.ts`; o UPDATE do gestor é
+`src/hooks/incidentes-gestor/useIncidentesModals.ts` (ramo mantido). Sem mudança
+de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration66-incidente-atualizado-pelo-gestor.test.ts`; sonda
+`database/sondas/20261025161000_sonda_migration66.sql`: o motorista não muda
+status, observações da gestão nem descrição do próprio incidente (0 linhas); o
+gestor da loja atualiza (1 linha); o gestor de outra loja não atualiza; o
+motorista lê o próprio incidente e cria incidente na própria rota; catálogo da
+policy sem `motorista_id` em USING e WITH CHECK e com uma única policy de
+UPDATE. Sem a migration: casos 1, 2, 3 e 8 FALHOU. Rollback colável com a
+policy viva de 25/10/2026 (ramo do motorista em USING e WITH CHECK).
+
+### ✅ Migration 68: posição gravada em rota em andamento, com margem para a fila offline
+
+**Arquivo:** `20261025163000_posicao_em_rota_em_andamento.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025163000`. Sonda: 5 FALHOU antes (4, 5, 6, 9b, 11), tudo OK com o corpo na mesma transação e 12/12 OK depois de aplicada.
+
+> A Migration 67 (Tarefa 3 do plano de 25/10) não foi feita; o número fica sem
+> arquivo para manter os timestamps do plano.
+
+**O que faz.** Recria a policy `motorista_locations_insert_optimized` (mesmo
+nome, `FOR INSERT TO authenticated`). Passa a exigir cadastro ativo de quem
+grava (`usuario_atual_ativo()`), também na posição sem rota; com rota, a rota é
+de quem grava, com vínculo ativo na loja da rota, e está `em_andamento`, ou
+`concluida` com o horário da posição (`"timestamp"`, o horário do GPS) até
+10 minutos depois de `concluida_em`. `pendente`, `cancelada` e `nao_executada`
+recusam. A policy de SELECT não muda.
+
+**Alternativas.** (a) Só `em_andamento`: recusa a trilha do fim da rota que a
+fila offline envia depois da conclusão. (b) Margem pelo horário da posição —
+escolhida: a fila offline sobe a trilha do fim da rota mesmo horas depois.
+(c) Margem por `now()`: recusa a mesma fila se ela subir mais de 10 minutos
+depois. Na forma, subconsulta direta (as condições são as do ramo do motorista
+em `rotas_select` ou mais estritas, então o resultado não depende daquela
+policy) em vez de um helper SECURITY DEFINER, que aqui seria só uma função a
+mais.
+
+**Medido em 25/10/2026 (7 dias).** 11.569 posições em rota `em_andamento` e
+6.264 em `concluida`; destas, 137 com horário do GPS depois de `concluida_em` e
+118 mais de 10 minutos depois (passam a ser recusadas), todas de uma única
+rota; 0 em `pendente`/`cancelada`/`nao_executada`; 0 sem rota; 0 de cadastro
+inativo.
+
+**App.** O único INSERT é `src/lib/motorista/filaPosicoes.ts` (envio da fila).
+A recusa por RLS (42501) já é tratada: o lote daquela rota conta uma tentativa,
+sai depois de `MAX_TENTATIVAS_POSICAO` (60) tentativas com `logger.error` e não
+bloqueia as outras rotas. O rastreamento começa depois de a rota virar
+`em_andamento` (`useRouteActions.ts`). Na versão que segue rastreando depois de
+concluir, as posições além da margem passam a ser recusadas. O lote é a
+sequência de posições da mesma rota, sem teto de tamanho: um lote que misture
+posições dentro e além da margem é recusado inteiro. Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration68-posicao-em-rota-em-andamento.test.ts`; sonda
+`database/sondas/20261025163000_sonda_migration68.sql` (11 casos, cada um grava
+a própria posição como `authenticated`): aceita em rota em andamento, na rota
+concluída 5 min antes e 5 min depois da conclusão, e sem rota; recusa (42501)
+além da margem, em rota pendente e cancelada, de pessoa desativada (com e sem
+rota), com vínculo inativo e na rota de outro motorista; catálogo da policy com
+`usuario_atual_ativo` e `concluida_em`, sem `now()`. Sem a migration: casos 4,
+5, 6, 9b e 11 FALHOU. Rollback colável com a policy viva de 25/10/2026.
+
+### ✅ Migration 69: privilégios-padrão da API — função nova sem EXECUTE para PUBLIC/anon, `anon` só leitura
+
+**Arquivo:** `20261025164000_privilegios_padrao_da_api.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025164000`. Sonda: 6 FALHOU antes (1, 4, 5, 6, 7, 9), tudo OK com o corpo na mesma transação e 9/9 OK depois de aplicada; a sonda da Migration 64 seguiu 9/9.
+
+**O que faz.** Cinco instruções: (1) privilégio-padrão global do `postgres`
+sem EXECUTE para PUBLIC em função; (2) privilégio-padrão do `postgres` em
+public sem EXECUTE para `anon` em função; (3) REVOKE de INSERT, UPDATE e
+DELETE de `anon` em todas as tabelas de public; (4) o mesmo no
+privilégio-padrão de tabelas do `postgres` em public; (5) padrão do
+`postgres` em `extensions` com EXECUTE para `authenticated` e `service_role`
+(as 49 funções de extensão do `postgres` — uuid-ossp, pgcrypto,
+pg_stat_statements — hoje executam só via PUBLIC; sem isso, extensão futura
+nasceria sem EXECUTE para eles). Função nova do
+`postgres` em public nasce com EXECUTE só para `postgres`, `authenticated` e
+`service_role`; tabela nova dá a `anon` só SELECT. `authenticated`,
+`service_role`, o SELECT de `anon` e a ACL das funções existentes não mudam.
+O PUBLIC sai pelo padrão global (sem `IN SCHEMA`) porque padrão por schema só
+soma ao global, e o EXECUTE de PUBLIC é o padrão embutido.
+
+**Alternativas.** (a) Privilégio-padrão + REVOKE em ALL TABLES — escolhida:
+função e tabela novas já nascem certas mesmo quando a migration esquece o
+REVOKE. (b) Só o checklist da skill `/new-migration`: depende de memória e não
+alcança as tabelas existentes. (c) REVOKE de EXECUTE em ALL FUNCTIONS de
+`anon`: mexeria em funções que já têm o REVOKE onde precisam. Para
+`extensions`: só documentar (depende de alguém notar) ou o padrão para
+`authenticated`/`service_role` — escolhido.
+
+**Limites.** Ficam fora o padrão do `supabase_admin` (o `postgres` não pode
+alterá-lo), o padrão de storage e o EXECUTE de
+`anon`/PUBLIC nas três funções SECURITY INVOKER existentes
+(`calcular_distancia`, `normalizar_telefone`, `update_updated_at_column`).
+`CREATE OR REPLACE` de função existente preserva a ACL, então o
+`REVOKE ... FROM PUBLIC, anon` explícito continua obrigatório.
+
+**Medido em 25/10/2026.** `anon` com DELETE, INSERT e UPDATE em `admin_logs`,
+`incidentes`, `logs`, `motorista_locations`, `paradas`, `plan_prices`,
+`push_notification_logs` e `unidades`; DELETE e INSERT em `rotas`; só DELETE
+em `notificacoes` e `usuarios` (todas com `postgres` como grantor, nenhuma via
+PUBLIC, sem ACL de coluna para `anon`). Padrão do `postgres` em public: `f` com
+`anon=X`, `r` com `anon=arwd`; sem entrada global. A CLI roda como `postgres`.
+
+**App.** Sem mudança de código. As telas pré-login (`app/auth/*`,
+`app/index.tsx`, `app/exclusao-de-conta.tsx`) não escrevem nem chamam `.rpc(`;
+as escritas de `src/lib/auth.ts` rodam com sessão; o e2e escreve logado como
+gestor.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration69-privilegios-padrao-da-api.test.ts`; sonda
+`database/sondas/20261025164000_sonda_migration69.sql` (9 casos, catálogo +
+duas funções e uma tabela de nome único desfeitas pelo RAISE; casos 6, 7 e 9
+conferem que rodam como `postgres`): nenhuma escrita de `anon` em public;
+`authenticated` mantém o que o app usa; `anon` mantém SELECT; padrões de tabela
+e função do `postgres`; função e tabela novas; `finalizar_rota` e
+`calcular_distancia` intocadas; função nova em `extensions` com EXECUTE para
+`authenticated`/`service_role`. Sem a migration: casos 1, 4, 5, 6, 7 e 9
+FALHOU.
+Rollback colável, tabela a tabela, com o que foi medido.

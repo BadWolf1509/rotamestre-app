@@ -12,6 +12,12 @@ import {
   respostaEmailJaCadastrado,
 } from './emailExistente.ts';
 import {
+  decidirPermissao,
+  MSG_CORPO_INVALIDO,
+  MSG_PERMISSAO_INDISPONIVEL,
+  validarCorpo,
+} from './entrada.ts';
+import {
   ehViolacaoTelefoneUnico,
   MSG_TELEFONE_OUTRA_LOJA,
   CODIGO_TELEFONE_JA_CADASTRADO,
@@ -24,6 +30,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
 };
+
+const resposta = (status: number, corpo: unknown) =>
+  new Response(JSON.stringify(corpo), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -68,6 +80,19 @@ serve(async (req) => {
       });
     }
 
+    // Corpo: lido e validado antes de qualquer consulta (400 diz o campo).
+    let corpo: unknown;
+    try {
+      corpo = await req.json();
+    } catch {
+      return resposta(400, { error: MSG_CORPO_INVALIDO });
+    }
+    const corpoValidado = validarCorpo(corpo);
+    if (!corpoValidado.ok) {
+      return resposta(corpoValidado.status, { error: corpoValidado.error });
+    }
+    const { nome, email, senha, telefone } = corpoValidado.dados;
+
     // Buscar dados do gestor
     const { data: gestorData, error: gestorError } = await supabaseClient
       .from('usuarios')
@@ -75,33 +100,13 @@ serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    const proibido = () =>
-      new Response(
-        JSON.stringify({ error: 'Apenas gestores podem criar motoristas' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
-
-    if (
-      gestorError ||
-      !gestorData ||
-      gestorData.papel !== 'gestor' ||
-      !gestorData.ativo
-    ) {
-      return proibido();
-    }
-
-    // Obter dados do novo motorista do body
-    const { nome, email, senha, telefone, unidade_id } = await req.json();
-
     // A loja é a que o gestor tem aberta na tela (`unidade_id`); app antigo não
     // manda e cai na principal. Nos dois casos, só com vínculo de gestor ATIVO
     // nela: esta função é a única porta de escrita em usuario_unidades, e o
     // papel/unidade_id de `usuarios` sobrevivem ao gestor sair da loja.
-    const unidadeId: string | null = unidade_id ?? gestorData.unidade_id;
-    const { data: vinculoGestor } = unidadeId
+    const unidadeId: string | null =
+      corpoValidado.dados.unidadeId ?? gestorData?.unidade_id ?? null;
+    const { data: vinculoGestor, error: vinculoGestorError } = unidadeId
       ? await supabaseAdmin
           .from('usuario_unidades')
           .select('id')
@@ -110,20 +115,25 @@ serve(async (req) => {
           .eq('papel', 'gestor')
           .eq('ativo', true)
           .maybeSingle()
-      : { data: null };
+      : { data: null, error: null };
 
-    if (!unidadeId || !vinculoGestor) {
-      return proibido();
+    const permissao = decidirPermissao({
+      erroGestor: gestorError,
+      gestor: gestorData,
+      unidadeId,
+      erroVinculo: vinculoGestorError,
+      vinculo: vinculoGestor,
+    });
+    if (permissao === 'indisponivel') {
+      return new Response(JSON.stringify({ error: MSG_PERMISSAO_INDISPONIVEL }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
-
-    if (!nome || !email || !senha) {
-      return new Response(
-        JSON.stringify({ error: 'Nome, email e senha são obrigatórios' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+    if (permissao === 'proibido') {
+      return resposta(403, {
+        error: 'Apenas gestores podem criar motoristas',
+      });
     }
 
     const emailNormalizado = normalizarEmail(email);

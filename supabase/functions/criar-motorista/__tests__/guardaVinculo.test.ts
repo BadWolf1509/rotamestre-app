@@ -58,3 +58,26 @@ describe('criar-motorista: guarda do vínculo', () => {
     expect(MSG_TELEFONE_OUTRA_LOJA).toMatch(/fale com o suporte/);
   });
 });
+
+describe('criar-motorista: entrada e permissão', () => {
+  it('usa validarCorpo e decidirPermissao do módulo puro', () => {
+    expect(fonte).toMatch(
+      /import\s*\{[^}]*\bvalidarCorpo\b[^}]*\}\s*from\s*'\.\/entrada\.ts'/,
+    );
+    expect(fonte).toMatch(
+      /import\s*\{[^}]*\bdecidirPermissao\b[^}]*\}\s*from\s*'\.\/entrada\.ts'/,
+    );
+  });
+
+  it('guarda o erro da consulta do vínculo', () => {
+    expect(fonte).not.toMatch(/const\s*\{\s*data:\s*vinculoGestor\s*\}\s*=/);
+  });
+
+  it('responde 503 quando não consegue conferir a permissão', () => {
+    expect(fonte).toMatch(/status: 503/);
+  });
+
+  it('lê o corpo dentro de try', () => {
+    expect(fonte).toMatch(/try\s*\{\s*corpo = await req\.json\(\)/);
+  });
+});
