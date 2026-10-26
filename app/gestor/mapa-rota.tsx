@@ -636,14 +636,14 @@ export default function MapaRota() {
               </Text>
             </View>
           </View>
-          {rota.distancia_total && (
+          {rota.distancia_total != null && rota.distancia_total > 0 ? (
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Distância Total:</Text>
               <Text style={styles.infoValue}>
                 {formatarDecimal(rota.distancia_total)} km
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {paradas.length > 0 ? (

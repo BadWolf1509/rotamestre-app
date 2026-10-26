@@ -195,7 +195,7 @@ export function RouteInfoHeader({
           </View>
 
           {/* Distância */}
-          {rota.distancia_total && (
+          {rota.distancia_total != null && rota.distancia_total > 0 ? (
             <View
               style={{
                 flexDirection: 'row',
@@ -208,10 +208,10 @@ export function RouteInfoHeader({
                 {formatarDecimal(rota.distancia_total)} km
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Tempo Estimado */}
-          {rota.tempo_total && (
+          {rota.tempo_total != null && rota.tempo_total > 0 ? (
             <View
               style={{
                 flexDirection: 'row',
@@ -224,7 +224,7 @@ export function RouteInfoHeader({
                 {formatTempoTotal(rota.tempo_total)}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Paradas */}
           <View

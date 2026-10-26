@@ -105,7 +105,7 @@ export function RouteInfoHeaderCompact({
       {/* Métricas */}
       <View style={styles.metrics}>
         {/* Distância */}
-        {rota.distancia_total && (
+        {rota.distancia_total != null && rota.distancia_total > 0 ? (
           <View style={styles.metric}>
             <Ionicons
               name="speedometer-outline"
@@ -116,10 +116,10 @@ export function RouteInfoHeaderCompact({
               {formatarDecimal(rota.distancia_total)} km
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Tempo estimado */}
-        {rota.tempo_total && (
+        {rota.tempo_total != null && rota.tempo_total > 0 ? (
           <View style={styles.metric}>
             <Ionicons
               name="hourglass-outline"
@@ -130,7 +130,7 @@ export function RouteInfoHeaderCompact({
               {formatTempoTotal(rota.tempo_total)}
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Paradas */}
         <View style={styles.metric}>
