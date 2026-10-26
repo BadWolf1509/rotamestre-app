@@ -3,6 +3,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { caminhoDoAvatarDaConta } from './avatarDaConta.ts';
 import { verificarGuardas } from './guardasExclusao.ts';
 import { chaveSecreta } from '../_shared/chaves.ts';
 
@@ -18,23 +19,6 @@ function jsonResponse(body: Record<string, unknown>, status: number) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-}
-
-function getAvatarPath(value: unknown): string | null {
-  if (typeof value !== 'string' || value.length === 0) return null;
-
-  if (value.startsWith('perfis/')) return value;
-
-  const marker = '/fotos-entrega/';
-  const markerIndex = value.indexOf(marker);
-  if (markerIndex === -1) return null;
-
-  const path = value.slice(markerIndex + marker.length).split('?')[0];
-  try {
-    return decodeURIComponent(path);
-  } catch {
-    return path;
-  }
 }
 
 serve(async (req) => {
@@ -91,7 +75,7 @@ serve(async (req) => {
       });
     }
 
-    const avatarPath = getAvatarPath(profile?.foto_url);
+    const avatarPath = caminhoDoAvatarDaConta(profile?.foto_url, user.id);
     if (avatarPath) {
       const { error: avatarError } = await supabaseAdmin.storage
         .from('fotos-entrega')
