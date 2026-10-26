@@ -58,7 +58,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
       onClose();
       router.push(path);
     },
-    [onClose, router]
+    [onClose, router],
   );
 
   // Menu action handler
@@ -68,27 +68,74 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         handleContactGestor();
       }
     },
-    [handleContactGestor]
+    [handleContactGestor],
   );
 
   // Menu items configuration
   const gestorMenuItems: MenuItem[] = useMemo(
     () => [
       { icon: '🏠', label: 'Início', path: '/gestor/inicio', show: true },
-      { icon: '📦', label: 'Nova Rota', path: '/gestor/nova-entrega', show: true },
-      { icon: '📋', label: 'Gestão de Rotas', path: '/gestor/gestao-rotas', show: true },
-      { icon: '⚠️', label: 'Incidentes', path: '/gestor/incidentes', show: true },
-      { icon: '🧑‍✈️', label: 'Motoristas', path: '/gestor/motoristas', show: true },
-      { icon: '🏢', label: 'Minha Unidade', path: '/unidade', show: profile?.papel === 'gestor' },
-      { icon: '👥', label: 'Equipe', path: '/unidade/equipe', show: profile?.papel === 'gestor' },
+      {
+        icon: '📦',
+        label: 'Nova Rota',
+        path: '/gestor/nova-entrega',
+        show: true,
+      },
+      {
+        icon: '📋',
+        label: 'Gestão de Rotas',
+        path: '/gestor/gestao-rotas',
+        show: true,
+      },
+      {
+        icon: '⚠️',
+        label: 'Incidentes',
+        path: '/gestor/incidentes',
+        show: true,
+      },
+      {
+        icon: '🧑‍✈️',
+        label: 'Motoristas',
+        path: '/gestor/motoristas',
+        show: true,
+      },
+      {
+        icon: '🏢',
+        label: 'Minha Unidade',
+        path: '/unidade',
+        show: profile?.papel === 'gestor',
+      },
+      {
+        icon: '👥',
+        label: 'Equipe',
+        path: '/unidade/equipe',
+        show: profile?.papel === 'gestor',
+      },
+      {
+        icon: '⚙️',
+        label: 'Configurações',
+        path: '/gestor/configuracoes',
+        show: true,
+      },
+      { icon: '❓', label: 'Ajuda', path: '/gestor/ajuda', show: true },
     ],
-    [profile?.papel]
+    [profile?.papel],
   );
 
   const motoristaMenuItems: MenuItem[] = useMemo(
     () => [
-      { icon: '👤', label: 'Meu Perfil', path: '/motorista/perfil', show: true },
-      { icon: '📊', label: 'Meu Desempenho', path: '/motorista/desempenho', show: true },
+      {
+        icon: '👤',
+        label: 'Meu Perfil',
+        path: '/motorista/perfil',
+        show: true,
+      },
+      {
+        icon: '📊',
+        label: 'Meu Desempenho',
+        path: '/motorista/desempenho',
+        show: true,
+      },
       {
         icon: '📞',
         label: 'Falar com Gestor',
@@ -96,19 +143,41 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         action: 'contactGestor',
         show: true,
       },
-      { icon: '🆘', label: 'SOS / Emergência', path: '/motorista/sos', show: true, danger: true },
+      {
+        icon: '🆘',
+        label: 'SOS / Emergência',
+        path: '/motorista/sos',
+        show: true,
+        danger: true,
+      },
       { icon: '❓', label: 'Ajuda', path: '/motorista/ajuda', show: true },
-      { icon: '⚙️', label: 'Configurações', path: '/motorista/perfil/configuracoes', show: true },
+      {
+        icon: '⚙️',
+        label: 'Configurações',
+        path: '/motorista/perfil/configuracoes',
+        show: true,
+      },
     ],
-    []
+    [],
   );
 
   const isMotorista = profile?.papel === 'motorista';
   const menuItems = isMotorista ? motoristaMenuItems : gestorMenuItems;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} accessibilityLabel="Fechar menu" accessibilityRole="button">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={onClose}
+        accessibilityLabel="Fechar menu"
+        accessibilityRole="button"
+      >
         <TouchableOpacity
           activeOpacity={1}
           style={styles.drawer}

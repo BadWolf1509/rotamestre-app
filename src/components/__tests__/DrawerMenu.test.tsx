@@ -76,7 +76,7 @@ describe('DrawerMenu Component', () => {
   describe('Renderização Básica', () => {
     it('deve renderizar quando visible=true', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -86,7 +86,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve exibir email do usuário', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -96,7 +96,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve exibir inicial do nome no avatar', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -106,7 +106,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve exibir nome da unidade', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -118,7 +118,7 @@ describe('DrawerMenu Component', () => {
   describe('Menu Items Básicos', () => {
     it('deve renderizar item Início', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -129,7 +129,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve renderizar item Nova Rota', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -140,7 +140,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve renderizar item Gestão de Rotas', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -151,7 +151,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve renderizar item Motoristas', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -162,7 +162,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve renderizar item Meu Perfil', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -191,7 +191,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve renderizar Minha Unidade para gestor', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -202,12 +202,29 @@ describe('DrawerMenu Component', () => {
 
     it('deve renderizar Equipe para gestor', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
         expect(getByText('Equipe')).toBeTruthy();
       });
+    });
+
+    // Sem estes itens, as preferências de push e o suporte do gestor não
+    // tinham porta no celular/tablet.
+    it.each([
+      ['Configurações', '/gestor/configuracoes'],
+      ['Ajuda', '/gestor/ajuda'],
+    ])('leva o gestor a %s', async (rotulo, caminho) => {
+      const { getByText } = render(
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
+      );
+
+      await waitFor(() => {
+        fireEvent.press(getByText(rotulo));
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(caminho);
     });
   });
 
@@ -228,7 +245,7 @@ describe('DrawerMenu Component', () => {
       });
 
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -238,7 +255,7 @@ describe('DrawerMenu Component', () => {
 
     it('não deve exibir badge quando is_gestor_principal=false', async () => {
       const { queryByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -250,7 +267,7 @@ describe('DrawerMenu Component', () => {
   describe('Navegação', () => {
     it('deve navegar ao clicar em Início', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -263,7 +280,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve navegar ao clicar em Nova Rota', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -276,7 +293,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve navegar ao clicar em Meu Perfil', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -291,7 +308,7 @@ describe('DrawerMenu Component', () => {
   describe('Logout', () => {
     it('deve renderizar botão de logout', async () => {
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -304,7 +321,7 @@ describe('DrawerMenu Component', () => {
       const { supabase } = require('@/lib/supabase');
 
       const { getByText, getAllByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -333,7 +350,7 @@ describe('DrawerMenu Component', () => {
       supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
 
       const { getByText, getAllByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -350,14 +367,16 @@ describe('DrawerMenu Component', () => {
       await waitFor(() => {
         expect(loggerErrorSpy).toHaveBeenCalledWith(
           'Erro ao fazer logout:',
-          expect.any(Error)
+          expect.any(Error),
         );
       });
 
       // Verificar que o dialog de erro apareceu
       await waitFor(() => {
         expect(getByText('Erro ao sair')).toBeTruthy();
-        expect(getByText('Não foi possível encerrar sua sessão. Tente novamente.')).toBeTruthy();
+        expect(
+          getByText('Não foi possível encerrar sua sessão. Tente novamente.'),
+        ).toBeTruthy();
       });
 
       // Fechar dialog de erro clicando em "Entendi"
@@ -375,9 +394,11 @@ describe('DrawerMenu Component', () => {
 
       supabase.auth.signOut.mockRejectedValueOnce(new Error('Erro de rede'));
 
-      const { getByText, getAllByText, queryByText: _queryByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
-      );
+      const {
+        getByText,
+        getAllByText,
+        queryByText: _queryByText,
+      } = render(<DrawerMenu visible={true} onClose={mockOnClose} />);
 
       await waitFor(() => {
         fireEvent.press(getByText('Sair'));
@@ -404,7 +425,7 @@ describe('DrawerMenu Component', () => {
       const { supabase } = require('@/lib/supabase');
 
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       // Abrir dialog de logout
@@ -430,7 +451,7 @@ describe('DrawerMenu Component', () => {
   describe('Visibilidade', () => {
     it('deve carregar perfil quando drawer fica visível', async () => {
       const { rerender, getByText } = render(
-        <DrawerMenu visible={false} onClose={mockOnClose} />
+        <DrawerMenu visible={false} onClose={mockOnClose} />,
       );
 
       rerender(<DrawerMenu visible={true} onClose={mockOnClose} />);
@@ -459,7 +480,7 @@ describe('DrawerMenu Component', () => {
       });
 
       const { getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -471,7 +492,7 @@ describe('DrawerMenu Component', () => {
   describe('Fechamento do Drawer', () => {
     it('deve renderizar Modal com prop onRequestClose', async () => {
       const { root } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -483,7 +504,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve impedir propagação ao clicar dentro do drawer', async () => {
       const { UNSAFE_getAllByType, getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {
@@ -500,7 +521,7 @@ describe('DrawerMenu Component', () => {
         (t, index) =>
           index > 0 &&
           t.props.activeOpacity === 1 &&
-          typeof t.props.onPress === 'function'
+          typeof t.props.onPress === 'function',
       );
 
       expect(drawerTouchable).toBeTruthy();
@@ -518,7 +539,7 @@ describe('DrawerMenu Component', () => {
 
     it('deve fechar ao clicar no overlay (fora do drawer)', async () => {
       const { UNSAFE_getAllByType, getByText } = render(
-        <DrawerMenu visible={true} onClose={mockOnClose} />
+        <DrawerMenu visible={true} onClose={mockOnClose} />,
       );
 
       await waitFor(() => {

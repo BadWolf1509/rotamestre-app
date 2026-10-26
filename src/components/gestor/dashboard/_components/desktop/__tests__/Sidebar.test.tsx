@@ -7,229 +7,242 @@ import { Sidebar } from '../Sidebar';
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
-    useRouter: () => ({
-        push: mockPush,
-        replace: mockReplace,
-    }),
-    usePathname: () => '/gestor/inicio',
+  useRouter: () => ({
+    push: mockPush,
+    replace: mockReplace,
+  }),
+  usePathname: () => '/gestor/inicio',
 }));
 
 // Mock auth service
 jest.mock('@/lib/auth', () => ({
-    authService: {
-        signOut: jest.fn().mockResolvedValue(undefined),
-    },
+  authService: {
+    signOut: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 // Mock Dialog
 jest.mock('@/components/Dialog', () => ({
-    Dialog: ({ visible, onConfirm, onCancel }: any) => {
-        if (!visible) return null;
-        const { View, TouchableOpacity, Text } = require('react-native');
-        return (
-            <View testID="confirm-dialog">
-                <TouchableOpacity testID="confirm-btn" onPress={onConfirm}>
-                    <Text>Confirmar</Text>
-                </TouchableOpacity>
-                {onCancel && (
-                    <TouchableOpacity testID="cancel-btn" onPress={onCancel}>
-                        <Text>Cancelar</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        );
-    },
+  Dialog: ({ visible, onConfirm, onCancel }: any) => {
+    if (!visible) return null;
+    const { View, TouchableOpacity, Text } = require('react-native');
+    return (
+      <View testID="confirm-dialog">
+        <TouchableOpacity testID="confirm-btn" onPress={onConfirm}>
+          <Text>Confirmar</Text>
+        </TouchableOpacity>
+        {onCancel && (
+          <TouchableOpacity testID="cancel-btn" onPress={onCancel}>
+            <Text>Cancelar</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  },
 }));
 
 // Mock styles with useUnistyles
 jest.mock('@/utils/styles', () => {
-    const { defaultTheme } = require('@/utils/styles.base');
-    const theme = {
-        ...defaultTheme,
-        layout: {
-            ...defaultTheme.layout,
-            sidebarWidth: 280,
-        },
-    };
+  const { defaultTheme } = require('@/utils/styles.base');
+  const theme = {
+    ...defaultTheme,
+    layout: {
+      ...defaultTheme.layout,
+      sidebarWidth: 280,
+    },
+  };
 
-    return {
-        useUnistyles: () => ({ theme }),
-        StyleSheet: {
-            create: (fn: any) => {
-                return typeof fn === 'function' ? fn(theme) : fn;
-            },
-        },
-        defaultTheme: theme,
-    };
+  return {
+    useUnistyles: () => ({ theme }),
+    StyleSheet: {
+      create: (fn: any) => {
+        return typeof fn === 'function' ? fn(theme) : fn;
+      },
+    },
+    defaultTheme: theme,
+  };
 });
 
 describe('Sidebar', () => {
-    const defaultProps = {
-        onNavigate: jest.fn(),
-        userData: {
-            id: 'user-1',
-            nome: 'Admin User',
-            papel: 'gestor',
-        },
-    };
+  const defaultProps = {
+    onNavigate: jest.fn(),
+    userData: {
+      id: 'user-1',
+      nome: 'Admin User',
+      papel: 'gestor',
+    },
+  };
 
-    beforeEach(() => {
-        jest.clearAllMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Rendering', () => {
+    it('deve renderizar o logo', () => {
+      const { toJSON } = render(<Sidebar {...defaultProps} />);
+
+      expect(toJSON()).toBeTruthy();
     });
 
-    describe('Rendering', () => {
-        it('deve renderizar o logo', () => {
-            const { toJSON } = render(<Sidebar {...defaultProps} />);
+    it('deve renderizar Painel do Gestor', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
 
-            expect(toJSON()).toBeTruthy();
-        });
-
-        it('deve renderizar Painel do Gestor', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            expect(getByText('Painel do Gestor')).toBeTruthy();
-        });
-
-        it('deve renderizar itens de navegação', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            expect(getByText('Início')).toBeTruthy();
-            expect(getByText('Nova Rota')).toBeTruthy();
-            expect(getByText('Gestão de Rotas')).toBeTruthy();
-            expect(getByText('Incidentes')).toBeTruthy();
-            expect(getByText('Motoristas')).toBeTruthy();
-        });
-
-        it('deve mostrar itens exclusivos de gestor', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            expect(getByText('Minha Unidade')).toBeTruthy();
-            expect(getByText('Equipe')).toBeTruthy();
-        });
-
-        it('não deve mostrar itens exclusivos de gestor para motorista', () => {
-            const props = {
-                ...defaultProps,
-                userData: { ...defaultProps.userData, papel: 'motorista' },
-            };
-
-            const { queryByText } = render(<Sidebar {...props} />);
-
-            expect(queryByText('Minha Unidade')).toBeNull();
-        });
+      expect(getByText('Painel do Gestor')).toBeTruthy();
     });
 
-    describe('Navigation', () => {
-        it('deve navegar para Início ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
+    it('deve renderizar itens de navegação', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
 
-            fireEvent.press(getByText('Início'));
-
-            expect(mockPush).toHaveBeenCalledWith('/gestor/inicio');
-            expect(defaultProps.onNavigate).toHaveBeenCalled();
-        });
-
-        it('deve navegar para Nova Rota ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            fireEvent.press(getByText('Nova Rota'));
-
-            expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
-        });
-
-        it('deve navegar para Gestão de Rotas ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            fireEvent.press(getByText('Gestão de Rotas'));
-
-            expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
-        });
-
-        it('deve navegar para Incidentes ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            fireEvent.press(getByText('Incidentes'));
-
-            expect(mockPush).toHaveBeenCalledWith('/gestor/incidentes');
-        });
-
-        it('deve navegar para Motoristas ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            fireEvent.press(getByText('Motoristas'));
-
-            expect(mockPush).toHaveBeenCalledWith('/gestor/motoristas');
-        });
-
-        it('deve navegar para Minha Unidade ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            fireEvent.press(getByText('Minha Unidade'));
-
-            expect(mockPush).toHaveBeenCalledWith('/unidade');
-        });
-
-        it('deve navegar para Equipe ao clicar', () => {
-            const { getByText } = render(<Sidebar {...defaultProps} />);
-
-            fireEvent.press(getByText('Equipe'));
-
-            expect(mockPush).toHaveBeenCalledWith('/unidade/equipe');
-        });
+      expect(getByText('Início')).toBeTruthy();
+      expect(getByText('Nova Rota')).toBeTruthy();
+      expect(getByText('Gestão de Rotas')).toBeTruthy();
+      expect(getByText('Incidentes')).toBeTruthy();
+      expect(getByText('Motoristas')).toBeTruthy();
     });
 
-    describe('Icons', () => {
-        it('deve mostrar Ionicons nos itens de navegação', () => {
-            const { UNSAFE_getAllByType } = render(<Sidebar {...defaultProps} />);
-            const { Ionicons } = require('@expo/vector-icons');
+    it('deve mostrar itens exclusivos de gestor', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
 
-            // Sidebar agora usa Ionicons ao invés de emojis
-            const icons = UNSAFE_getAllByType(Ionicons);
-            expect(icons.length).toBeGreaterThan(0);
-        });
+      expect(getByText('Minha Unidade')).toBeTruthy();
+      expect(getByText('Equipe')).toBeTruthy();
     });
 
-    describe('onNavigate callback', () => {
-        it('deve chamar onNavigate quando item é clicado', () => {
-            const onNavigate = jest.fn();
+    it('não deve mostrar itens exclusivos de gestor para motorista', () => {
+      const props = {
+        ...defaultProps,
+        userData: { ...defaultProps.userData, papel: 'motorista' },
+      };
 
-            const { getByText } = render(
-                <Sidebar {...defaultProps} onNavigate={onNavigate} />
-            );
+      const { queryByText } = render(<Sidebar {...props} />);
 
-            fireEvent.press(getByText('Início'));
+      expect(queryByText('Minha Unidade')).toBeNull();
+    });
+  });
 
-            expect(onNavigate).toHaveBeenCalled();
-        });
+  describe('Navigation', () => {
+    it('deve navegar para Início ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
 
-        it('não deve quebrar quando onNavigate não é fornecido', () => {
-            const { getByText } = render(
-                <Sidebar userData={defaultProps.userData} />
-            );
+      fireEvent.press(getByText('Início'));
 
-            fireEvent.press(getByText('Início'));
-
-            expect(mockPush).toHaveBeenCalledWith('/gestor/inicio');
-        });
+      expect(mockPush).toHaveBeenCalledWith('/gestor/inicio');
+      expect(defaultProps.onNavigate).toHaveBeenCalled();
     });
 
-    describe('userData handling', () => {
-        it('não deve quebrar quando userData é undefined', () => {
-            const { getByText } = render(<Sidebar />);
+    it('deve navegar para Nova Rota ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
 
-            expect(getByText('Início')).toBeTruthy();
-        });
+      fireEvent.press(getByText('Nova Rota'));
 
-        it('deve filtrar itens baseado no papel do usuário', () => {
-            const props = {
-                ...defaultProps,
-                userData: { papel: 'admin' },
-            };
-
-            const { queryByText } = render(<Sidebar {...props} />);
-
-            // Admin não vê itens exclusivos de gestor
-            expect(queryByText('Minha Unidade')).toBeNull();
-        });
+      expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });
+
+    it('deve navegar para Gestão de Rotas ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      fireEvent.press(getByText('Gestão de Rotas'));
+
+      expect(mockPush).toHaveBeenCalledWith('/gestor/gestao-rotas');
+    });
+
+    it('deve navegar para Incidentes ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      fireEvent.press(getByText('Incidentes'));
+
+      expect(mockPush).toHaveBeenCalledWith('/gestor/incidentes');
+    });
+
+    it('deve navegar para Motoristas ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      fireEvent.press(getByText('Motoristas'));
+
+      expect(mockPush).toHaveBeenCalledWith('/gestor/motoristas');
+    });
+
+    it('deve navegar para Minha Unidade ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      fireEvent.press(getByText('Minha Unidade'));
+
+      expect(mockPush).toHaveBeenCalledWith('/unidade');
+    });
+
+    it('deve navegar para Equipe ao clicar', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      fireEvent.press(getByText('Equipe'));
+
+      expect(mockPush).toHaveBeenCalledWith('/unidade/equipe');
+    });
+
+    // As telas existiam sem nenhuma porta: as preferências de push e o
+    // suporte do gestor ficavam inalcançáveis.
+    it.each([
+      ['Configurações', '/gestor/configuracoes'],
+      ['Ajuda', '/gestor/ajuda'],
+    ])('deve navegar para %s ao clicar', (rotulo, caminho) => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      fireEvent.press(getByText(rotulo));
+
+      expect(mockPush).toHaveBeenCalledWith(caminho);
+    });
+  });
+
+  describe('Icons', () => {
+    it('deve mostrar Ionicons nos itens de navegação', () => {
+      const { UNSAFE_getAllByType } = render(<Sidebar {...defaultProps} />);
+      const { Ionicons } = require('@expo/vector-icons');
+
+      // Sidebar agora usa Ionicons ao invés de emojis
+      const icons = UNSAFE_getAllByType(Ionicons);
+      expect(icons.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('onNavigate callback', () => {
+    it('deve chamar onNavigate quando item é clicado', () => {
+      const onNavigate = jest.fn();
+
+      const { getByText } = render(
+        <Sidebar {...defaultProps} onNavigate={onNavigate} />,
+      );
+
+      fireEvent.press(getByText('Início'));
+
+      expect(onNavigate).toHaveBeenCalled();
+    });
+
+    it('não deve quebrar quando onNavigate não é fornecido', () => {
+      const { getByText } = render(
+        <Sidebar userData={defaultProps.userData} />,
+      );
+
+      fireEvent.press(getByText('Início'));
+
+      expect(mockPush).toHaveBeenCalledWith('/gestor/inicio');
+    });
+  });
+
+  describe('userData handling', () => {
+    it('não deve quebrar quando userData é undefined', () => {
+      const { getByText } = render(<Sidebar />);
+
+      expect(getByText('Início')).toBeTruthy();
+    });
+
+    it('deve filtrar itens baseado no papel do usuário', () => {
+      const props = {
+        ...defaultProps,
+        userData: { papel: 'admin' },
+      };
+
+      const { queryByText } = render(<Sidebar {...props} />);
+
+      // Admin não vê itens exclusivos de gestor
+      expect(queryByText('Minha Unidade')).toBeNull();
+    });
+  });
 });
