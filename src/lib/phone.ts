@@ -178,3 +178,25 @@ export const isValidTelefone = validatePhone;
 
 /** @deprecated Use formatPhone instead */
 export const formatTelefone = formatPhone;
+
+/**
+ * Telefone em formato internacional, só dígitos, com um único `55`:
+ * 10/11 dígitos ganham o `55`; 12/13 dígitos começando em `55` ficam como
+ * estão (mesma regra de `normalizar_telefone` no banco, que tira o `55` nesses
+ * casos). Menos de 10 dígitos não é telefone discável: devolve `null`.
+ *
+ * Serve a `tel:+<n>` e a `wa.me/<n>` / `whatsapp://send?phone=<n>`.
+ */
+export function telefoneInternacional(
+  phone: string | null | undefined,
+): string | null {
+  const digitos = cleanPhone(phone ?? '');
+  if (
+    (digitos.length === 12 || digitos.length === 13) &&
+    digitos.startsWith('55')
+  ) {
+    return digitos;
+  }
+  if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
+  return null;
+}

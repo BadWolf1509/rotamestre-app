@@ -94,7 +94,7 @@ describe('SOS: contato do gestor', () => {
     fireEvent.press(getByTestId('contato-emergencia-gestor'));
 
     await waitFor(() =>
-      expect(openURL).toHaveBeenCalledWith('tel:83999991234'),
+      expect(openURL).toHaveBeenCalledWith('tel:+5583999991234'),
     );
   });
 
@@ -107,7 +107,9 @@ describe('SOS: contato do gestor', () => {
 
     await waitFor(() => expect(openURL).toHaveBeenCalled());
     const url = openURL.mock.calls[0][0] as string;
-    expect(url).toMatch(/^(whatsapp:\/\/send\?phone=|https:\/\/wa\.me\/)55\d+/);
+    expect(url).toMatch(
+      /^(whatsapp:..send.phone=|https:..wa.me.)5583999991234&/,
+    );
     expect(url).toContain('5583999991234');
     expect(decodeURIComponent(url)).toContain('EMERGÊNCIA: Preciso de ajuda!');
   });
@@ -124,6 +126,59 @@ describe('SOS: contato do gestor', () => {
       expect(global.mockUseAlert.showWarning).toHaveBeenCalled(),
     );
     expect(global.mockUseAlert.showWarning.mock.calls[0][0]).toMatch(/gestor/i);
+    expect(openURL).not.toHaveBeenCalled();
+  });
+
+  it('cadastro que já traz +55 não duplica o DDI', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: { ...GESTOR, telefone: '+55 83 99999-1234' },
+      error: null,
+    });
+    const { getByTestId } = await renderComGestor();
+    await waitFor(() => expect(mockMaybeSingle).toHaveBeenCalled());
+    await Promise.resolve();
+
+    fireEvent.press(getByTestId('contato-emergencia-gestor'));
+
+    await waitFor(() =>
+      expect(openURL).toHaveBeenCalledWith('tel:+5583999991234'),
+    );
+  });
+
+  it('RPC com erro: mensagem de erro, não "Nenhum gestor disponível"', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { message: 'falhou', code: '500' },
+    });
+    const { getByTestId } = await renderComGestor();
+    await waitFor(() => expect(mockMaybeSingle).toHaveBeenCalled());
+    await Promise.resolve();
+
+    fireEvent.press(getByTestId('contato-emergencia-gestor'));
+
+    await waitFor(() =>
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalled(),
+    );
+    const [titulo, corpo] = global.mockUseAlert.showWarning.mock.calls[0];
+    expect(`${titulo} ${corpo}`).toMatch(/não foi possível carregar/i);
+    expect(`${titulo} ${corpo}`).not.toMatch(/nenhum gestor disponível/i);
+    // O toque no erro tenta a RPC de novo.
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledTimes(2));
+    expect(openURL).not.toHaveBeenCalled();
+  });
+
+  it('toque antes da RPC responder não afirma que não há gestor', async () => {
+    mockMaybeSingle.mockReturnValue(new Promise(() => undefined));
+    const { getByTestId } = await renderComGestor();
+
+    fireEvent.press(getByTestId('contato-emergencia-gestor'));
+
+    await waitFor(() =>
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalled(),
+    );
+    const [titulo, corpo] = global.mockUseAlert.showWarning.mock.calls[0];
+    expect(`${titulo} ${corpo}`).toMatch(/carregando|buscando/i);
+    expect(`${titulo} ${corpo}`).not.toMatch(/nenhum gestor disponível/i);
     expect(openURL).not.toHaveBeenCalled();
   });
 

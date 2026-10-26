@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,10 +28,13 @@ import {
   pedirPermissao,
   type ResultadoPermissao,
 } from '@/lib/permissoes';
+import { telefoneInternacional } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+type EstadoGestor = 'carregando' | 'erro' | 'vazio' | 'ok';
 
 // Contatos de emergência
 const EMERGENCY_CONTACTS = [
@@ -160,6 +163,7 @@ export default function SOSScreen() {
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [permissao, setPermissao] = useState<ResultadoPermissao | null>(null);
   const [gestorTelefone, setGestorTelefone] = useState<string | null>(null);
+  const [gestorEstado, setGestorEstado] = useState<EstadoGestor>('carregando');
   const [gestorNome, setGestorNome] = useState<string | null>(null);
   /** Faixa sobre os botões de ligar quando nenhum gestor confirmou o SOS. */
   const [avisoSemGestor, setAvisoSemGestor] = useState<string | null>(null);
@@ -243,43 +247,66 @@ export default function SOSScreen() {
   // tabela direto devolvia vazio. Alternativa descartada: filtrar `usuarios` por
   // vínculo ativo no cliente — duplicaria a regra que a RPC já tem. Zero linhas é
   // estado esperado (loja sem gestor ativo), por isso `.maybeSingle()`.
-  useEffect(() => {
-    let ativo = true;
-    async function loadGestor() {
-      try {
-        const { data, error } = await supabase
-          .rpc('get_gestor_contato')
-          .maybeSingle<GestorData>();
+  const carregarGestor = useCallback(async () => {
+    setGestorEstado('carregando');
+    try {
+      const { data, error } = await supabase
+        .rpc('get_gestor_contato')
+        .maybeSingle<GestorData>();
 
-        if (!ativo) return;
-        if (error) {
-          logger.warn('[SOS] Erro ao carregar gestor', error);
-          return;
-        }
-        if (data) {
-          setGestorNome(data.nome);
-          setGestorTelefone(data.telefone?.replace(/[^0-9]/g, '') || null);
-        }
-      } catch (error) {
+      if (error) {
         logger.warn('[SOS] Erro ao carregar gestor', error);
+        setGestorEstado('erro');
+        return;
       }
+      if (!data) {
+        setGestorEstado('vazio');
+        return;
+      }
+      setGestorNome(data.nome);
+      setGestorTelefone(telefoneInternacional(data.telefone));
+      setGestorEstado('ok');
+    } catch (error) {
+      logger.warn('[SOS] Erro ao carregar gestor', error);
+      setGestorEstado('erro');
     }
-    loadGestor();
-    return () => {
-      ativo = false;
-    };
   }, []);
+
+  useEffect(() => {
+    carregarGestor();
+  }, [carregarGestor]);
 
   async function handleEmergencyCall(contactId: string, number: string | null) {
     await warningHaptic();
 
     if (contactId === 'gestor' || contactId === 'gestor-whatsapp') {
+      if (gestorEstado === 'carregando') {
+        showWarning(
+          'Carregando contato do gestor',
+          'Ainda estamos buscando o contato do seu gestor. Tente de novo em instantes ou ligue para os números de emergência abaixo.',
+        );
+        return;
+      }
+      if (gestorEstado === 'erro') {
+        showWarning(
+          'Contato do gestor indisponível',
+          'Não foi possível carregar o contato do gestor. Tente de novo.',
+        );
+        // O toque seguinte já encontra o resultado da nova tentativa.
+        void carregarGestor();
+        return;
+      }
+      if (gestorEstado === 'vazio') {
+        showWarning(
+          'Nenhum gestor disponível',
+          'Não há gestor ativo cadastrado para a sua loja no momento. Ligue para os números de emergência abaixo.',
+        );
+        return;
+      }
       if (!gestorTelefone) {
         showWarning(
-          gestorNome ? 'Telefone não cadastrado' : 'Nenhum gestor disponível',
-          gestorNome
-            ? `O gestor ${gestorNome} não possui telefone cadastrado.`
-            : 'Não há gestor ativo cadastrado para a sua loja no momento. Ligue para os números de emergência abaixo.',
+          'Telefone não cadastrado',
+          `O gestor ${gestorNome ?? ''} não possui telefone válido cadastrado.`,
         );
         return;
       }
@@ -288,15 +315,15 @@ export default function SOSScreen() {
       // outro toque nem depender do WhatsApp instalado. O WhatsApp é um
       // botão à parte, com o texto pronto.
       if (contactId === 'gestor') {
-        await Linking.openURL(`tel:${gestorTelefone}`);
+        await Linking.openURL(`tel:+${gestorTelefone}`);
         return;
       }
 
       const texto = encodeURIComponent('EMERGÊNCIA: Preciso de ajuda!');
       const whatsappUrl = Platform.select({
-        ios: `whatsapp://send?phone=55${gestorTelefone}&text=${texto}`,
-        android: `whatsapp://send?phone=55${gestorTelefone}&text=${texto}`,
-        default: `https://wa.me/55${gestorTelefone}?text=${texto}`,
+        ios: `whatsapp://send?phone=${gestorTelefone}&text=${texto}`,
+        android: `whatsapp://send?phone=${gestorTelefone}&text=${texto}`,
+        default: `https://wa.me/${gestorTelefone}?text=${texto}`,
       });
 
       try {
@@ -304,12 +331,12 @@ export default function SOSScreen() {
         await Linking.openURL(
           canOpen
             ? whatsappUrl
-            : `https://wa.me/55${gestorTelefone}?text=${texto}`,
+            : `https://wa.me/${gestorTelefone}?text=${texto}`,
         );
       } catch (error) {
         // WhatsApp indisponível: a ligação ainda resolve.
         logger.warn('[SOS] WhatsApp indisponível; ligando', error);
-        await Linking.openURL(`tel:${gestorTelefone}`);
+        await Linking.openURL(`tel:+${gestorTelefone}`);
       }
     } else if (number) {
       await Linking.openURL(`tel:${number}`);

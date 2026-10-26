@@ -9,6 +9,7 @@ import {
   validatePhone,
   maskPhone,
   getPhoneErrorMessage,
+  telefoneInternacional,
 } from '../phone';
 
 describe('phone utils', () => {
@@ -145,15 +146,37 @@ describe('phone utils', () => {
     });
 
     it('deve retornar mensagem para celular sem 9 inicial', () => {
-      expect(getPhoneErrorMessage('11887654321')).toBe('Celular deve começar com 9');
+      expect(getPhoneErrorMessage('11887654321')).toBe(
+        'Celular deve começar com 9',
+      );
     });
 
     it('deve retornar "Celular deve começar com 9" para dígitos repetidos', () => {
-      expect(getPhoneErrorMessage('11111111111')).toBe('Celular deve começar com 9');
+      expect(getPhoneErrorMessage('11111111111')).toBe(
+        'Celular deve começar com 9',
+      );
     });
 
     it('deve retornar null para string vazia', () => {
       expect(getPhoneErrorMessage('')).toBeNull();
     });
+  });
+});
+
+describe('telefoneInternacional', () => {
+  it.each([
+    ['83999991234', '5583999991234'],
+    ['5583999991234', '5583999991234'],
+    ['(83) 3333-4444', '558333334444'],
+    ['+55 83 99999-1234', '5583999991234'],
+    ['+55 (83) 3333-4444', '558333334444'],
+  ])('%s -> %s', (entrada, esperado) => {
+    expect(telefoneInternacional(entrada)).toBe(esperado);
+  });
+
+  it('devolve null para vazio ou curto demais', () => {
+    expect(telefoneInternacional(null)).toBeNull();
+    expect(telefoneInternacional('')).toBeNull();
+    expect(telefoneInternacional('12345')).toBeNull();
   });
 });
