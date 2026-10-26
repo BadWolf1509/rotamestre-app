@@ -37,8 +37,6 @@ export interface IncidenteDB {
   categoria: IncidenteCategoria;
   descricao: string;
   endereco: string;
-  latitude: number | null;
-  longitude: number | null;
   foto_url: string | null;
   status: IncidenteStatus;
   observacoes_gestao: string | null;
@@ -81,8 +79,6 @@ export interface IncidenteInsert {
   categoria: IncidenteCategoria;
   descricao: string;
   endereco: string;
-  latitude?: number | null;
-  longitude?: number | null;
   foto_url?: string | null;
   rota_id?: string | null;
   parada_id?: string | null;

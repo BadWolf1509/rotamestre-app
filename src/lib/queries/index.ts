@@ -28,9 +28,6 @@ export {
   type QueryResult,
   type QueryError,
   type QueryErrorType,
-  ROTA_SELECT_FIELDS,
-  PARADA_SELECT_FIELDS,
-  USUARIO_SELECT_FIELDS,
 } from './queryClient';
 
 // Paradas queries
@@ -44,12 +41,7 @@ export type {
 
 // Usuarios queries
 export * as usuariosQueries from './usuarios';
-export type {
-  UsuarioDB,
-  UsuarioUpdate as UsuarioUpdateType,
-  UsuarioWithUnidades,
-  MotoristaListItem,
-} from './usuarios';
+export type { UsuarioDB, UsuarioUpdate as UsuarioUpdateType } from './usuarios';
 
 // Incidentes queries
 export * as incidentesQueries from './incidentes';
@@ -89,17 +81,7 @@ export {
 
 export {
   // Usuarios
-  fetchCurrentUser,
-  fetchCurrentUserWithCache,
-  fetchMotoristasByUnidade,
-  fetchMotoristasWithCache,
-  fetchUsuarioById,
-  fetchUsuariosByPapel,
   updateUsuario,
-  updateUltimoAcesso,
-  updateAvatarUrl,
-  checkEmailExists,
-  fetchMotoristaKPIs,
 } from './usuarios';
 
 export {
