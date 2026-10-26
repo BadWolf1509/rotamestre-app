@@ -8,6 +8,7 @@ import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
+import { maisRecente } from '@/lib/motorista/posicaoMaisRecente';
 import { supabase } from '@/lib/supabase';
 import {
   checkLocationPermissions,
@@ -550,7 +551,7 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }) => {
 
   if (data) {
     const { locations } = data as { locations: Location.LocationObject[] };
-    const location = locations[0];
+    const location = maisRecente(locations);
 
     if (location) {
       const service = LocationTrackingService.getInstance();
