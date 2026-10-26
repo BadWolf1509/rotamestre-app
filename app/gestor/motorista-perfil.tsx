@@ -3,7 +3,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import {
   View,
@@ -99,9 +99,16 @@ export default function MotoristaPerfil() {
     ],
   };
 
-  // Load all data
-  const loadData = useCallback(async () => {
-    if (!motoristaId) return;
+  // Contador de requisição: a carga depende da loja aberta, e trocar de loja
+  // com o perfil aberto dispara outra. Só a mais recente grava; a resposta
+  // lenta da loja anterior chegaria depois e sobrescreveria a atual.
+  const requisicaoRef = useRef(0);
+
+  // Load all data. Devolve false quando outra carga começou depois desta.
+  const loadData = useCallback(async (): Promise<boolean> => {
+    const minha = ++requisicaoRef.current;
+    const obsoleta = () => minha !== requisicaoRef.current;
+    if (!motoristaId) return true;
 
     try {
       // 1. Fetch motorista data
@@ -111,13 +118,17 @@ export default function MotoristaPerfil() {
         .eq('id', motoristaId)
         .single();
 
+      if (obsoleta()) return false;
       if (motoristaError) throw motoristaError;
       setMotorista(motoristaData);
 
       // 2. Performance (view sem linha para motorista inativo → taxa "—")
-      setPerformance(
-        await buscarPerformanceMotorista(motoristaId, motoristaData.nome),
+      const performanceData = await buscarPerformanceMotorista(
+        motoristaId,
+        motoristaData.nome,
       );
+      if (obsoleta()) return false;
+      setPerformance(performanceData);
 
       // 3. Rotas recentes DESTA loja: o motorista que atende outra loja
       // traria as rotas dela, e o toque abriria rota que esta não gerencia.
@@ -132,20 +143,24 @@ export default function MotoristaPerfil() {
             .limit(10)
         : { data: [], error: null };
 
+      if (obsoleta()) return false;
       if (rotasError) throw rotasError;
       setRotasRecentes(rotasData || []);
+      return true;
     } catch (error) {
+      if (obsoleta()) return false;
       logger.error('Erro ao carregar dados:', error);
       showToast('Não foi possível carregar os dados do motorista', 'error');
+      return true;
     }
   }, [motoristaId, showToast, unidadeAtiva]);
 
-  // Initial load
+  // Initial load (e de novo na troca de loja). A carga substituída não
+  // desliga o spinner da que a substituiu.
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await loadData();
-      setLoading(false);
+      if (await loadData()) setLoading(false);
     };
     load();
   }, [loadData]);
