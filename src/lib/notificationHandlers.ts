@@ -1,11 +1,36 @@
 /**
  * Handler para navegação quando usuário clica em notificação push
- * Implementa deep linking baseado no tipo de notificação
+ * Implementa deep linking baseado no tipo de notificação e no papel de quem
+ * recebe (ver `destinoDaNotificacao`).
  */
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 
+import { lerPerfilConhecido } from './auth/perfilConhecido';
 import { logger } from './logger';
+import { destinoDaNotificacao } from './notificacoes/destinoDaNotificacao';
 import { addNotificationResponseListener } from './notifications';
+import { supabase } from './supabase';
+
+import type { TipoUsuario } from '../types/usuario';
+
+/**
+ * Papel de quem está logado, sem rede: sessão local + último perfil lido
+ * neste aparelho. Null quando não dá para saber — o destino então segue o
+ * destinatário do tipo.
+ */
+async function papelDoAparelho(): Promise<TipoUsuario | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    if (!userId) return null;
+    const perfil = await lerPerfilConhecido(userId);
+    return perfil?.papel ?? null;
+  } catch (error) {
+    // Não crítico: sem papel, o destino cai no destinatário do tipo.
+    logger.warn('[NotificationHandler] Papel indisponível', error);
+    return null;
+  }
+}
 
 /**
  * Configura o handler de resposta a notificações
@@ -14,61 +39,27 @@ import { addNotificationResponseListener } from './notifications';
  * @returns Subscription que pode ser removida com .remove()
  */
 export function setupNotificationResponseHandler() {
-  return addNotificationResponseListener((response) => {
+  return addNotificationResponseListener(async (response) => {
     const data = response.notification.request.content.data;
-    const tipo = data?.tipo as string;
-    const rotaId = data?.rota_id as string;
+    const tipo = data?.tipo as string | undefined;
+    const rotaId = data?.rota_id as string | undefined;
 
     logger.info('[NotificationHandler] Notification tapped', { tipo, rotaId });
 
-    switch (tipo) {
-      // ========== MOTORISTA ==========
+    // Tipo desconhecido não navega (nem consulta o papel).
+    if (!destinoDaNotificacao(tipo, rotaId, null)) {
+      logger.warn('[NotificationHandler] Unknown notification type', { tipo });
+      return;
+    }
 
-      // Nova rota atribuída - ir para home do motorista
-      case 'nova_rota_atribuida':
-      case 'lembrete_rota_pendente':
-      case 'lembrete_rota_urgente':
-        router.push('/motorista');
-        break;
+    const destino = destinoDaNotificacao(tipo, rotaId, await papelDoAparelho());
+    if (!destino) return;
 
-      // Parada pulada ou reaberta - ir para checkpoints
-      case 'parada_pulada':
-      case 'parada_reaberta':
-        router.push('/motorista/_screens/checkpoints');
-        break;
-
-      // ========== GESTOR - Rotas ==========
-
-      // Eventos de rota - ir para mapa da rota
-      case 'rota_iniciada':
-      case 'rota_concluida':
-      case 'rota_atrasada':
-      case 'rota_nao_executada':
-      case 'rota_parada_adicionada':
-      case 'rota_parada_removida':
-      case 'rota_parada_editada':
-      case 'rota_reordenada':
-        if (rotaId) {
-          router.push(`/gestor/mapa-rota?id=${rotaId}`);
-        } else {
-          router.push('/gestor/gestao-rotas');
-        }
-        break;
-
-      // ========== GESTOR - Emergências ==========
-
-      // SOS ou incidente - ir para tela de incidentes
-      case 'sos_acionado':
-      case 'incidente_reportado':
-        router.push('/gestor/incidentes');
-        break;
-
-      // ========== DEFAULT ==========
-
-      default:
-        logger.warn('[NotificationHandler] Unknown notification type', { tipo });
-        // Não navegar para lugar nenhum se tipo desconhecido
-        break;
+    const caminho = destino.caminho as Href;
+    if (destino.modo === 'navigate') {
+      router.navigate(caminho);
+    } else {
+      router.push(caminho);
     }
   });
 }

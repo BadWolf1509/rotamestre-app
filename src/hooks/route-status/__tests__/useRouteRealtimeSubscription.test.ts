@@ -460,4 +460,46 @@ describe('useRouteRealtimeSubscription', () => {
       expect(loadActiveRoute).not.toHaveBeenCalled();
     });
   });
+  describe('rota nova (INSERT em rotas)', () => {
+    const disparaInsert = async () => {
+      const chamada = mockChannel.on.mock.calls.find(
+        (c: unknown[]) =>
+          (c[1] as { event: string; table: string }).event === 'INSERT' &&
+          (c[1] as { table: string }).table === 'rotas',
+      );
+      const handler = chamada?.[2] as (p: {
+        new: Record<string, unknown>;
+      }) => Promise<void>;
+      await handler({ new: { id: 'rota-nova', motorista_id: 'driver-1' } });
+    };
+
+    it('no nativo não dispara notificação local: o push do servidor já avisa', async () => {
+      const { notifyRoutePending } = jest.requireMock('@/lib/notifications');
+      const { warningHaptic } = jest.requireMock('@/utils/haptics');
+      renderHook(() => useRouteRealtimeSubscription(defaultProps));
+
+      await disparaInsert();
+
+      expect(notifyRoutePending).not.toHaveBeenCalled();
+      expect(warningHaptic).toHaveBeenCalled();
+    });
+
+    it('no web avisa sem o nome da loja (o payload do realtime não traz o embed)', async () => {
+      const { Platform } = jest.requireActual('react-native');
+      const original = Platform.OS;
+      Platform.OS = 'web';
+      try {
+        const { notifyNewRouteWeb } = jest.requireMock(
+          '@/utils/browserNotification',
+        );
+        renderHook(() => useRouteRealtimeSubscription(defaultProps));
+
+        await disparaInsert();
+
+        expect(notifyNewRouteWeb).toHaveBeenCalledWith();
+      } finally {
+        Platform.OS = original;
+      }
+    });
+  });
 });

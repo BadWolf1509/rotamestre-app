@@ -1,10 +1,17 @@
 /**
  * Tests for notificationHandlers
+ *
+ * O destino depende de quem recebe (ver `destinoDaNotificacao`): o papel vem
+ * do perfil conhecido do aparelho, lido pela sessão local (sem rede).
  */
 
-import { router } from 'expo-router';
+const mockRouter = { push: jest.fn(), navigate: jest.fn(), replace: jest.fn() };
+jest.mock('expo-router', () => ({
+  get router() {
+    return mockRouter;
+  },
+}));
 
-// Mock logger
 jest.mock('../logger', () => ({
   logger: {
     info: jest.fn(),
@@ -13,8 +20,18 @@ jest.mock('../logger', () => ({
   },
 }));
 
-// Mock notifications with __esModule
-let notificationCallback: ((response: any) => void) | null = null;
+const mockGetSession = jest.fn();
+jest.mock('../supabase', () => ({
+  supabase: { auth: { getSession: () => mockGetSession() } },
+}));
+
+const mockLerPerfilConhecido = jest.fn();
+jest.mock('../auth/perfilConhecido', () => ({
+  lerPerfilConhecido: (id: string) => mockLerPerfilConhecido(id),
+}));
+
+let notificationCallback: ((response: unknown) => Promise<void> | void) | null =
+  null;
 const mockAddNotificationResponseListener = jest.fn((callback) => {
   notificationCallback = callback;
   return { remove: jest.fn() };
@@ -22,200 +39,131 @@ const mockAddNotificationResponseListener = jest.fn((callback) => {
 
 jest.mock('../notifications', () => ({
   __esModule: true,
-  addNotificationResponseListener: (...args: unknown[]) => mockAddNotificationResponseListener(...args),
+  addNotificationResponseListener: (...args: unknown[]) =>
+    mockAddNotificationResponseListener(...(args as [never])),
 }));
 
 import { logger } from '../logger';
 import { setupNotificationResponseHandler } from '../notificationHandlers';
 
+const resposta = (tipo: string | undefined, rotaId?: string) => ({
+  notification: { request: { content: { data: { tipo, rota_id: rotaId } } } },
+});
+
+function comPapel(papel: 'gestor' | 'motorista' | null) {
+  mockGetSession.mockResolvedValue({
+    data: { session: { user: { id: 'u1' } } },
+  });
+  mockLerPerfilConhecido.mockResolvedValue(papel ? { id: 'u1', papel } : null);
+}
+
+async function toca(tipo: string | undefined, rotaId?: string) {
+  await notificationCallback!(resposta(tipo, rotaId));
+}
+
 describe('notificationHandlers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     notificationCallback = null;
+    setupNotificationResponseHandler();
   });
 
-  const createNotificationResponse = (tipo: string, rotaId?: string) => ({
-    notification: {
-      request: {
-        content: {
-          data: {
-            tipo,
-            rota_id: rotaId,
-          },
-        },
-      },
-    },
+  it('registra o listener e devolve a inscrição', () => {
+    const result = setupNotificationResponseHandler();
+    expect(mockAddNotificationResponseListener).toHaveBeenCalledWith(
+      expect.any(Function),
+    );
+    expect(typeof result.remove).toBe('function');
   });
 
-  describe('setupNotificationResponseHandler', () => {
-    it('should register notification response listener', () => {
-      setupNotificationResponseHandler();
+  describe('motorista', () => {
+    beforeEach(() => comPapel('motorista'));
 
-      expect(mockAddNotificationResponseListener).toHaveBeenCalledWith(
-        expect.any(Function)
+    it('nova rota vai à Início pela aba existente (navigate, sem empilhar)', async () => {
+      await toca('nova_rota_atribuida', 'r1');
+      expect(mockRouter.navigate).toHaveBeenCalledWith('/motorista');
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
+    it('edição da rota pelo gestor vai à aba Paradas, não à área do gestor', async () => {
+      await toca('rota_reordenada', 'r1');
+      expect(mockRouter.navigate).toHaveBeenCalledWith('/motorista/paradas');
+      expect(mockRouter.push).not.toHaveBeenCalled();
+    });
+
+    it('rota não executada vai ao histórico', async () => {
+      await toca('rota_nao_executada', 'r1');
+      expect(mockRouter.navigate).toHaveBeenCalledWith('/motorista/historico');
+    });
+  });
+
+  describe('gestor', () => {
+    beforeEach(() => comPapel('gestor'));
+
+    it('parada pulada abre o mapa da rota, não a tela privada do motorista', async () => {
+      await toca('parada_pulada', 'rota-123');
+      expect(mockRouter.push).toHaveBeenCalledWith(
+        '/gestor/mapa-rota?id=rota-123',
       );
     });
 
-    it('should return subscription object', () => {
-      const result = setupNotificationResponseHandler();
-
-      expect(result).toHaveProperty('remove');
-      expect(typeof result.remove).toBe('function');
-    });
-  });
-
-  describe('motorista notifications', () => {
-    beforeEach(() => {
-      setupNotificationResponseHandler();
-    });
-
-    it('should navigate to /motorista for nova_rota_atribuida', () => {
-      notificationCallback!(createNotificationResponse('nova_rota_atribuida'));
-
-      expect(router.push).toHaveBeenCalledWith('/motorista');
-      expect(logger.info).toHaveBeenCalledWith(
-        '[NotificationHandler] Notification tapped',
-        { tipo: 'nova_rota_atribuida', rotaId: undefined }
+    it('rota não executada abre o mapa da rota', async () => {
+      await toca('rota_nao_executada', 'rota-9');
+      expect(mockRouter.push).toHaveBeenCalledWith(
+        '/gestor/mapa-rota?id=rota-9',
       );
     });
 
-    it('should navigate to /motorista for lembrete_rota_pendente', () => {
-      notificationCallback!(createNotificationResponse('lembrete_rota_pendente'));
-
-      expect(router.push).toHaveBeenCalledWith('/motorista');
+    it('sem rota_id cai na gestão de rotas', async () => {
+      await toca('rota_concluida');
+      expect(mockRouter.push).toHaveBeenCalledWith('/gestor/gestao-rotas');
     });
 
-    it('should navigate to /motorista for lembrete_rota_urgente', () => {
-      notificationCallback!(createNotificationResponse('lembrete_rota_urgente'));
-
-      expect(router.push).toHaveBeenCalledWith('/motorista');
-    });
-
-    it('should navigate to /motorista/_screens/checkpoints for parada_pulada', () => {
-      notificationCallback!(createNotificationResponse('parada_pulada'));
-
-      expect(router.push).toHaveBeenCalledWith('/motorista/_screens/checkpoints');
-    });
-
-    it('should navigate to /motorista/_screens/checkpoints for parada_reaberta', () => {
-      notificationCallback!(createNotificationResponse('parada_reaberta'));
-
-      expect(router.push).toHaveBeenCalledWith('/motorista/_screens/checkpoints');
+    it('SOS abre os incidentes', async () => {
+      await toca('sos_acionado', 'r1');
+      expect(mockRouter.push).toHaveBeenCalledWith('/gestor/incidentes');
     });
   });
 
-  describe('gestor route notifications', () => {
-    beforeEach(() => {
-      setupNotificationResponseHandler();
+  describe('sem perfil conhecido', () => {
+    it('tipo exclusivo decide pelo destinatário', async () => {
+      comPapel(null);
+      await toca('parada_reaberta', 'r7');
+      expect(mockRouter.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=r7');
     });
 
-    it('should navigate to mapa-rota with id for rota_iniciada', () => {
-      notificationCallback!(createNotificationResponse('rota_iniciada', 'rota-123'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-123');
+    it('sem sessão, tipo dos dois papéis vai à raiz', async () => {
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      await toca('rota_nao_executada', 'r1');
+      expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+      expect(mockLerPerfilConhecido).not.toHaveBeenCalled();
     });
 
-    it('should navigate to mapa-rota with id for rota_concluida', () => {
-      notificationCallback!(createNotificationResponse('rota_concluida', 'rota-456'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-456');
-    });
-
-    it('should navigate to mapa-rota with id for rota_atrasada', () => {
-      notificationCallback!(createNotificationResponse('rota_atrasada', 'rota-789'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-789');
-    });
-
-    it('should navigate to mapa-rota with id for rota_nao_executada', () => {
-      notificationCallback!(createNotificationResponse('rota_nao_executada', 'rota-abc'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-abc');
-    });
-
-    it('should navigate to mapa-rota with id for rota_parada_adicionada', () => {
-      notificationCallback!(createNotificationResponse('rota_parada_adicionada', 'rota-def'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-def');
-    });
-
-    it('should navigate to mapa-rota with id for rota_parada_removida', () => {
-      notificationCallback!(createNotificationResponse('rota_parada_removida', 'rota-ghi'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-ghi');
-    });
-
-    it('should navigate to mapa-rota with id for rota_parada_editada', () => {
-      notificationCallback!(createNotificationResponse('rota_parada_editada', 'rota-jkl'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-jkl');
-    });
-
-    it('should navigate to mapa-rota with id for rota_reordenada', () => {
-      notificationCallback!(createNotificationResponse('rota_reordenada', 'rota-mno'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-mno');
-    });
-
-    it('should navigate to gestao-rotas when no rotaId for rota_iniciada', () => {
-      notificationCallback!(createNotificationResponse('rota_iniciada'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/gestao-rotas');
-    });
-
-    it('should navigate to gestao-rotas when no rotaId for rota_concluida', () => {
-      notificationCallback!(createNotificationResponse('rota_concluida'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/gestao-rotas');
+    it('falha ao ler a sessão não impede a navegação', async () => {
+      mockGetSession.mockRejectedValue(new Error('x'));
+      await toca('rota_reordenada', 'r1');
+      expect(mockRouter.navigate).toHaveBeenCalledWith('/motorista/paradas');
     });
   });
 
-  describe('gestor emergency notifications', () => {
-    beforeEach(() => {
-      setupNotificationResponseHandler();
-    });
+  describe('tipo desconhecido', () => {
+    beforeEach(() => comPapel('gestor'));
 
-    it('should navigate to /gestor/incidentes for sos_acionado', () => {
-      notificationCallback!(createNotificationResponse('sos_acionado'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/incidentes');
-    });
-
-    it('should navigate to /gestor/incidentes for incidente_reportado', () => {
-      notificationCallback!(createNotificationResponse('incidente_reportado'));
-
-      expect(router.push).toHaveBeenCalledWith('/gestor/incidentes');
-    });
-  });
-
-  describe('unknown notifications', () => {
-    beforeEach(() => {
-      setupNotificationResponseHandler();
-    });
-
-    it('should log warning for unknown notification type', () => {
-      notificationCallback!(createNotificationResponse('unknown_type'));
-
+    it('loga e não navega', async () => {
+      await toca('unknown_type');
       expect(logger.warn).toHaveBeenCalledWith(
         '[NotificationHandler] Unknown notification type',
-        { tipo: 'unknown_type' }
+        { tipo: 'unknown_type' },
       );
-      expect(router.push).not.toHaveBeenCalled();
+      expect(mockRouter.push).not.toHaveBeenCalled();
+      expect(mockRouter.navigate).not.toHaveBeenCalled();
     });
 
-    it('should not navigate for undefined tipo', () => {
-      notificationCallback!({
-        notification: {
-          request: {
-            content: {
-              data: {},
-            },
-          },
-        },
-      });
-
+    it('sem tipo não navega', async () => {
+      await toca(undefined);
       expect(logger.warn).toHaveBeenCalled();
-      expect(router.push).not.toHaveBeenCalled();
+      expect(mockRouter.push).not.toHaveBeenCalled();
+      expect(mockRouter.navigate).not.toHaveBeenCalled();
     });
   });
 });

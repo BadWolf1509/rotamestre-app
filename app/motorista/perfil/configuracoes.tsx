@@ -23,6 +23,7 @@ import {
 } from '@/lib/limpezaDeCache';
 import { logger } from '@/lib/logger';
 import { avisoDaGravacao } from '@/lib/notificacoes/preferenciasPush';
+import { coresDoSwitch } from '@/utils/coresDoSwitch';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 export default function ConfiguracoesScreen() {
@@ -125,15 +126,7 @@ export default function ConfiguracoesScreen() {
               testID="switch-push-ativo"
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary + '60',
-              }}
-              thumbColor={
-                notificationsEnabled
-                  ? theme.colors.primary
-                  : theme.colors.gray400
-              }
+              {...coresDoSwitch(theme, notificationsEnabled)}
             />
           </View>
         </MobileCard>

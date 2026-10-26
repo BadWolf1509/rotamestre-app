@@ -134,20 +134,6 @@ export async function sendLocalNotification(
 }
 
 /**
- * Notificação de rota pendente
- */
-export async function notifyRoutePending(unidadeNome: string): Promise<void> {
-  const settings = await getNotificationSettings();
-  if (!settings.routeReminder) return;
-
-  await sendLocalNotification(
-    'Rota Pendente',
-    `Você tem uma rota pendente para ${unidadeNome}. Toque para iniciar.`,
-    { type: 'route_pending' },
-  );
-}
-
-/**
  * Notificação de rota concluída
  */
 export async function notifyRouteComplete(
@@ -705,7 +691,6 @@ export const notificationService = {
 
   // Notificações locais
   send: sendLocalNotification,
-  notifyRoutePending,
   notifyRouteComplete,
   notifyOfflineMode,
   notifySyncComplete,

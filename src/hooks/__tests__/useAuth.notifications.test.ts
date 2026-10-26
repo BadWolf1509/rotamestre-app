@@ -27,7 +27,6 @@ jest.mock('../../lib/notifications', () => ({
   getNotificationSettings: jest.fn().mockResolvedValue({}),
   saveNotificationSettings: jest.fn().mockResolvedValue(undefined),
   sendLocalNotification: jest.fn().mockResolvedValue(null),
-  notifyRoutePending: jest.fn().mockResolvedValue(undefined),
   notifyRouteComplete: jest.fn().mockResolvedValue(undefined),
   notifyOfflineMode: jest.fn().mockResolvedValue(undefined),
   notifySyncComplete: jest.fn().mockResolvedValue(undefined),

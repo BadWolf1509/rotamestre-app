@@ -140,3 +140,26 @@ describe('editar perfil do motorista', () => {
     expect(emitProfileUpdate).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('editar perfil do motorista: volta ao perfil que já está embaixo', () => {
+  it('depois de salvar, o OK do sucesso volta (não empilha outro perfil)', async () => {
+    await abrirTela();
+    fireEvent.press(screen.getByText('Salvar'));
+    await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled());
+
+    const aoFechar = mockShowSuccess.mock.calls[0][2] as () => void;
+    aoFechar();
+
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it('Cancelar volta (não empilha outro perfil)', async () => {
+    await abrirTela();
+    fireEvent.press(screen.getByText('Cancelar'));
+
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+});
