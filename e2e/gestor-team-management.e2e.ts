@@ -138,7 +138,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
         /Digite o nome completo/i,
         /email@exemplo\.com/i,
         /\(00\) 00000-0000/,
-        /Mínimo 6 caracteres/i,
+        /Mín\. 8 caracteres/i,
       ]) {
         await expect(page.getByPlaceholder(placeholder).first()).toBeVisible({
           timeout: 15000,
@@ -166,7 +166,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
         /Digite o nome completo/i,
         /email@exemplo\.com/i,
         /\(00\) 00000-0000/,
-        /Mínimo 6 caracteres/i,
+        /Mín\. 8 caracteres/i,
       ]) {
         await expect(page.getByPlaceholder(placeholder).first()).toBeVisible({
           timeout: 15000,
