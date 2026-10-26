@@ -90,9 +90,15 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
 
   // Puxar para atualizar também tenta enviar (sem esperar: foto pode demorar;
   // quando a fila encolher, o efeito abaixo recarrega).
+  //
+  // `refreshRoute` é sempre um pedido do motorista (puxar, "Tentar
+  // novamente", depois de concluir/relatar): a queda observada não o
+  // responde com SEM_REDE na hora. A marca fica AQUI, e não nas telas,
+  // porque `onAction={refreshRoute}` repassaria o evento do toque como
+  // opção; as cargas automáticas (inicial, realtime, fila) seguem sem ela.
   const atualizarRota = useCallback(async () => {
     enviarFila();
-    await loadActiveRoute();
+    await loadActiveRoute({ pedidoDoUsuario: true });
   }, [enviarFila, loadActiveRoute]);
 
   // A fila encolheu (enviada ou descartada): o banco mudou, recarrega.

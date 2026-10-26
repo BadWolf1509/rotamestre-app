@@ -2264,6 +2264,46 @@ describe('RouteStatusContext actions', () => {
         expect(getByTestId('routeStatus').props.children).toBe('active');
       });
     });
+
+    // Queda observada e nada em memória: a carga inicial usa o atalho, mas
+    // "puxar para atualizar" é pedido do usuário e vai à rede.
+    it('com queda observada e sem memória, refreshRoute consulta o banco', async () => {
+      const { registrarFalhaDeRede, _resetRedeObservada } = jest.requireActual<
+        typeof import('@/lib/redeObservada')
+      >('@/lib/redeObservada');
+      const { supabase } = jest.requireMock('@/lib/supabase');
+      mockRotasData = [createMockRoute({ status: 'pendente' })];
+      mockParadasData = [];
+      registrarFalhaDeRede();
+
+      try {
+        const { getByTestId } = render(
+          <RouteStatusProvider>
+            <TestComponentWithActions />
+          </RouteStatusProvider>,
+        );
+        await act(async () => {
+          await Promise.resolve();
+        });
+        const consultasDeRota = () =>
+          (supabase.from as jest.Mock).mock.calls.filter(
+            ([tabela]: [string]) => tabela === 'rotas',
+          ).length;
+        expect(consultasDeRota()).toBe(0);
+        expect(getByTestId('routeStatus').props.children).not.toBe('pending');
+
+        await act(async () => {
+          fireEvent.press(getByTestId('refreshRoute'));
+        });
+
+        await waitFor(() => {
+          expect(consultasDeRota()).toBeGreaterThan(0);
+          expect(getByTestId('routeStatus').props.children).toBe('pending');
+        });
+      } finally {
+        _resetRedeObservada();
+      }
+    });
   });
 });
 

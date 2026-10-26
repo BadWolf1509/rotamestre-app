@@ -125,6 +125,29 @@ describe('useLoadActiveRoute com rede caída observada', () => {
     expect(hook.result.current.error).not.toBeNull();
   });
 
+  /**
+   * Sem nada em memória, "puxar para atualizar" e "Tentar novamente" eram
+   * respondidos com SEM_REDE na hora, por até 20 s depois da volta da rede.
+   * A carga pedida pelo usuário vai à rede; a automática mantém o atalho.
+   */
+  it('sem memória: a carga pedida pelo usuário consulta o banco; a automática não', async () => {
+    registrarFalhaDeRede();
+    const hook = montar();
+
+    await carregar(hook);
+    expect(supabase.from).not.toHaveBeenCalled();
+
+    filas.rotas = [{ data: [rota('r1')], error: null }];
+    filas.paradas = [{ data: [parada('p1')], error: null }];
+    await act(async () => {
+      await hook.result.current.loadActiveRoute({ pedidoDoUsuario: true });
+    });
+
+    expect(supabase.from).toHaveBeenCalledWith('rotas');
+    expect(hook.result.current.route?.id).toBe('r1');
+    expect(hook.result.current.error).toBeNull();
+  });
+
   it('com dado em memória: a recarga consulta o banco mesmo com o sinal ligado', async () => {
     filas.rotas = [{ data: [rota('r1')], error: null }];
     filas.paradas = [{ data: [parada('p1')], error: null }];

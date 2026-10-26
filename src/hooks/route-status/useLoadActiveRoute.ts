@@ -53,6 +53,16 @@ interface UseLoadActiveRouteOptions {
   motoristaId: string | undefined;
 }
 
+export interface OpcoesCargaDaRota {
+  /**
+   * Carga pedida pelo motorista (puxar para atualizar, "Tentar novamente"):
+   * a queda OBSERVADA não vale como atalho nem sem dado em memória — ele
+   * pediu para ir à rede, e só uma resposta limpa o sinal. O modo avião
+   * (NetInfo) continua atalho.
+   */
+  pedidoDoUsuario?: boolean;
+}
+
 export interface EstadoDaRotaAtiva {
   route: RouteData | null;
   paradas: ParadaData[];
@@ -63,7 +73,7 @@ export interface EstadoDaRotaAtiva {
   error: Error | null;
   /** Epoch (ms) da última carga bem-sucedida; null se nunca carregou. */
   atualizadoEm: number | null;
-  loadActiveRoute: () => Promise<void>;
+  loadActiveRoute: (opcoes?: OpcoesCargaDaRota) => Promise<void>;
   /**
    * Ações de parada que já subiram (a fila esvaziou) entram no estado base
    * (memória e retrato guardado), até uma carga fresca trazer o banco.
@@ -212,88 +222,96 @@ export function useLoadActiveRoute({
   // do disco só entra quando a memória está vazia para esta conta.
   const carregadoParaRef = useRef<string | null>(null);
 
-  const loadActiveRoute = useCallback(async () => {
-    const chamada = ++ultimaChamadaRef.current;
+  const loadActiveRoute = useCallback(
+    async (opcoes?: OpcoesCargaDaRota) => {
+      const chamada = ++ultimaChamadaRef.current;
 
-    // Aguardar carregamento completo do userData antes de fazer queries
-    if (userLoading || !motoristaId) {
-      if (!userLoading && !motoristaId) {
-        carregadoParaRef.current = null;
-        setRoute(null);
-        setParadas([]);
-        setPendingRoutesCount(0);
-        setError(null);
-        setAtualizadoEm(null);
-        setLoading(false);
+      // Aguardar carregamento completo do userData antes de fazer queries
+      if (userLoading || !motoristaId) {
+        if (!userLoading && !motoristaId) {
+          carregadoParaRef.current = null;
+          setRoute(null);
+          setParadas([]);
+          setPendingRoutesCount(0);
+          setError(null);
+          setAtualizadoEm(null);
+          setLoading(false);
+        }
+        return;
       }
-      return;
-    }
 
-    try {
-      // Sem rede confirmada (modo avião), a busca só falharia depois de o
-      // supabase-js esperar o refresh preso e do timeout de 15 s do cliente:
-      // falha já, e o retrato guardado entra na hora. NetInfo "conectado" não
-      // prova rede — aí a busca segue e o guardado só entra se ela falhar.
-      //
-      // Com dado desta conta em memória, a queda OBSERVADA não vale como
-      // atalho: sem ir à rede, nenhuma resposta limparia o sinal, e recarga e
-      // "Tentar novamente" ficariam inertes até 20 s depois da volta da rede.
-      // Se a busca falhar, a memória fica (regra 1). Na carga inicial vale o
-      // atalho completo, e o retrato entra na hora.
-      const temDadoEmMemoria = carregadoParaRef.current === motoristaId;
-      if (
-        await semRedeConfirmada({ ignorarQuedaObservada: temDadoEmMemoria })
-      ) {
-        throw new Error(SEM_REDE);
-      }
-      const snapshot = await buscarSnapshot(motoristaId);
-      if (chamada !== ultimaChamadaRef.current) return;
-
-      const agora = Date.now();
-      carregadoParaRef.current = motoristaId;
-      // Tudo no mesmo tick: o React agrupa, e a tela nunca vê rota nova com
-      // paradas velhas.
-      setRoute(snapshot.route);
-      setParadas((anteriores) =>
-        preservarIdentidade(anteriores, snapshot.paradas),
-      );
-      setPendingRoutesCount(snapshot.pendingRoutesCount);
-      setError(null);
-      setAtualizadoEm(agora);
-      // Sem await: a tela não espera o disco. `gravarRotaGuardada` não lança.
-      void gravarRotaGuardada(motoristaId, { ...snapshot, guardadoEm: agora });
-    } catch (erro) {
-      if (chamada !== ultimaChamadaRef.current) return;
-      // Crítico, mas com fallback: o estado anterior fica na tela, marcado
-      // como desatualizado pelo `error`.
-      // Falha de rede (inclusive o `SEM_REDE` daqui) é esperada: vira warn.
-      logarFalha('[RouteStatus] Erro ao carregar rota', erro);
-
-      // Memória sem dado desta conta (reaberto do zero, ou dado de outra
-      // conta): vale o retrato guardado; sem retrato, nada — nunca o que
-      // estava na memória para outra conta. Qualquer falha conta, não só
-      // "rede": é a mesma regra 1 de quem tem o dado em memória, e classificar
-      // a mensagem do erro seria frágil.
-      if (carregadoParaRef.current !== motoristaId) {
-        const guardado = await lerRotaGuardada(motoristaId);
+      try {
+        // Sem rede confirmada (modo avião), a busca só falharia depois de o
+        // supabase-js esperar o refresh preso e do timeout de 15 s do cliente:
+        // falha já, e o retrato guardado entra na hora. NetInfo "conectado" não
+        // prova rede — aí a busca segue e o guardado só entra se ela falhar.
+        //
+        // Com dado desta conta em memória, a queda OBSERVADA não vale como
+        // atalho: sem ir à rede, nenhuma resposta limparia o sinal, e recarga e
+        // "Tentar novamente" ficariam inertes até 20 s depois da volta da rede.
+        // Se a busca falhar, a memória fica (regra 1). Na carga inicial vale o
+        // atalho completo, e o retrato entra na hora — salvo se o motorista
+        // pediu a carga (`pedidoDoUsuario`): sem isso, puxar para atualizar
+        // sem nada em memória voltava SEM_REDE na hora por até 20 s.
+        const temDadoEmMemoria = carregadoParaRef.current === motoristaId;
+        const ignorarQuedaObservada =
+          temDadoEmMemoria || opcoes?.pedidoDoUsuario === true;
+        if (await semRedeConfirmada({ ignorarQuedaObservada })) {
+          throw new Error(SEM_REDE);
+        }
+        const snapshot = await buscarSnapshot(motoristaId);
         if (chamada !== ultimaChamadaRef.current) return;
-        carregadoParaRef.current = guardado ? motoristaId : null;
-        setRoute(guardado?.route ?? null);
+
+        const agora = Date.now();
+        carregadoParaRef.current = motoristaId;
+        // Tudo no mesmo tick: o React agrupa, e a tela nunca vê rota nova com
+        // paradas velhas.
+        setRoute(snapshot.route);
         setParadas((anteriores) =>
-          guardado
-            ? guardado.paradas
-            : anteriores.length === 0
-              ? anteriores
-              : [],
+          preservarIdentidade(anteriores, snapshot.paradas),
         );
-        setPendingRoutesCount(guardado?.pendingRoutesCount ?? 0);
-        setAtualizadoEm(guardado?.guardadoEm ?? null);
+        setPendingRoutesCount(snapshot.pendingRoutesCount);
+        setError(null);
+        setAtualizadoEm(agora);
+        // Sem await: a tela não espera o disco. `gravarRotaGuardada` não lança.
+        void gravarRotaGuardada(motoristaId, {
+          ...snapshot,
+          guardadoEm: agora,
+        });
+      } catch (erro) {
+        if (chamada !== ultimaChamadaRef.current) return;
+        // Crítico, mas com fallback: o estado anterior fica na tela, marcado
+        // como desatualizado pelo `error`.
+        // Falha de rede (inclusive o `SEM_REDE` daqui) é esperada: vira warn.
+        logarFalha('[RouteStatus] Erro ao carregar rota', erro);
+
+        // Memória sem dado desta conta (reaberto do zero, ou dado de outra
+        // conta): vale o retrato guardado; sem retrato, nada — nunca o que
+        // estava na memória para outra conta. Qualquer falha conta, não só
+        // "rede": é a mesma regra 1 de quem tem o dado em memória, e classificar
+        // a mensagem do erro seria frágil.
+        if (carregadoParaRef.current !== motoristaId) {
+          const guardado = await lerRotaGuardada(motoristaId);
+          if (chamada !== ultimaChamadaRef.current) return;
+          carregadoParaRef.current = guardado ? motoristaId : null;
+          setRoute(guardado?.route ?? null);
+          setParadas((anteriores) =>
+            guardado
+              ? guardado.paradas
+              : anteriores.length === 0
+                ? anteriores
+                : [],
+          );
+          setPendingRoutesCount(guardado?.pendingRoutesCount ?? 0);
+          setAtualizadoEm(guardado?.guardadoEm ?? null);
+        }
+        setError(comoErro(erro));
+      } finally {
+        if (chamada === ultimaChamadaRef.current) setLoading(false);
       }
-      setError(comoErro(erro));
-    } finally {
-      if (chamada === ultimaChamadaRef.current) setLoading(false);
-    }
-  }, [userLoading, motoristaId]);
+    },
+    [userLoading, motoristaId],
+  );
 
   // Sem tocar em `error`/`atualizadoEm`: os dados continuam sendo os daquela
   // hora, só sem a volta a "pendente" de uma ação que o banco já aceitou.
