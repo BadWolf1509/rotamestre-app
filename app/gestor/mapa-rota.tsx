@@ -68,6 +68,7 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { mensagemConfirmarRemocaoParada } from '@/lib/gestor/vinculoParada';
 import { useUnistyles } from '@/utils/styles';
 
@@ -646,7 +647,7 @@ export default function MapaRota() {
       <>
         <View style={styles.rotaInfo}>
           <Text style={styles.motoristaData}>
-            {rota?.motorista?.nome || 'Sem motorista'}{' '}
+            {nomeMotoristaDaRota(rota?.motorista?.nome, rota?.motorista_id)}{' '}
             {formatDateBR(rota?.data)}
           </Text>
           <View style={styles.infoRow}>

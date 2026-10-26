@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
 import { formatarDecimal } from '@/lib/formatNumber';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import type { StatusRota } from '@/types/rota';
 import { useUnistyles, type Theme } from '@/utils/styles';
 
@@ -159,7 +160,7 @@ export function RouteInfoHeader({
           <View>
             <Text style={styles.driverLabel}>Motorista</Text>
             <Text style={styles.driverName}>
-              {rota?.motorista?.nome || 'Sem motorista'}
+              {nomeMotoristaDaRota(rota?.motorista?.nome, rota?.motorista_id)}
             </Text>
           </View>
         </View>

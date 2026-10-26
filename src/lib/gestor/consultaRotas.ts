@@ -60,6 +60,19 @@ const FORMATO_DATA = /^\d{4}-\d{2}-\d{2}$/;
  */
 export const ROTULO_MOTORISTA_OCULTO = 'Motorista removido da loja';
 
+/**
+ * Nome do motorista para exibir numa rota. Embed vazio com `motorista_id`
+ * preenchido = a RLS escondeu o motorista (saiu da loja): "Sem motorista"
+ * seria falso. Um helper só para as telas não divergirem — a regra inline
+ * em cada uma já deixou quatro delas para trás.
+ */
+export function nomeMotoristaDaRota(
+  nome: string | null | undefined,
+  motoristaId: string | null | undefined,
+): string {
+  return nome || (motoristaId ? ROTULO_MOTORISTA_OCULTO : 'Sem motorista');
+}
+
 /** O que a lista mostra na rota sem motorista (em minúsculas). */
 const ROTULO_SEM_MOTORISTA = 'sem motorista';
 

@@ -93,6 +93,20 @@ describe('RouteInfoHeaderCompact', () => {
       expect(getByText('Sem motorista')).toBeTruthy();
     });
 
+    it('rota com motorista_id e motorista escondido pela RLS não mostra "Sem motorista"', () => {
+      const rotaOculta = {
+        ...mockRota,
+        motorista_id: 'mot-1',
+        motorista: undefined,
+      };
+      const { getByText, queryByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaOculta} />,
+      );
+
+      expect(getByText('Motorista removido da loja')).toBeTruthy();
+      expect(queryByText('Sem motorista')).toBeNull();
+    });
+
     it('deve exibir status Pendente', () => {
       const { getByText } = render(
         <RouteInfoHeaderCompact {...defaultProps} />,

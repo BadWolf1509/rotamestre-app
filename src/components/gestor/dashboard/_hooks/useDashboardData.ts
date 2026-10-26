@@ -4,7 +4,7 @@ import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO, parseLocalDate, toLocalISODate } from '@/lib/dateUtils';
-import { ROTULO_MOTORISTA_OCULTO } from '@/lib/gestor/consultaRotas';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -155,11 +155,10 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
       id: rota.id,
       data: rota.data,
       status: rota.status,
-      // Embed vazio com `motorista_id` preenchido = a RLS escondeu o motorista
-      // (saiu da loja): "Sem motorista" seria falso. Só vale com id nulo.
-      motorista_nome:
-        rota.usuarios?.nome ||
-        (rota.motorista_id ? ROTULO_MOTORISTA_OCULTO : 'Sem motorista'),
+      motorista_nome: nomeMotoristaDaRota(
+        rota.usuarios?.nome,
+        rota.motorista_id,
+      ),
       motorista_id: rota.motorista_id,
       total_paradas: paradasReais.length,
       paradas_concluidas: paradasReais.filter(

@@ -18,6 +18,7 @@ import {
   escaparIlike,
   filtroDepoisDoCursor,
   interpretarBusca,
+  nomeMotoristaDaRota,
   ROTULO_MOTORISTA_OCULTO,
   TAMANHO_PAGINA_ROTAS,
   TETO_EXPORTACAO_ROTAS,
@@ -397,5 +398,22 @@ describe('contarRotasPorStatus', () => {
       { concluidas: 0, pendentes: 20 },
     );
     expect(falso.requisicoes).toHaveLength(1);
+  });
+});
+
+describe('nomeMotoristaDaRota', () => {
+  it('mostra o nome quando o embed trouxe o motorista', () => {
+    expect(nomeMotoristaDaRota('Ana', 'm1')).toBe('Ana');
+  });
+
+  it('rota com motorista_id e embed escondido pela RLS não vira "Sem motorista"', () => {
+    expect(nomeMotoristaDaRota(undefined, 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(nomeMotoristaDaRota(null, 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(nomeMotoristaDaRota('', 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+  });
+
+  it('só é "Sem motorista" quando a rota não tem motorista_id', () => {
+    expect(nomeMotoristaDaRota(undefined, null)).toBe('Sem motorista');
+    expect(nomeMotoristaDaRota(null, undefined)).toBe('Sem motorista');
   });
 });

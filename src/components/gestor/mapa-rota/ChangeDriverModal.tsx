@@ -26,6 +26,7 @@ import {
 import { DesktopModal } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { logger } from '@/lib/logger';
 import {
   confirmarMotoristaNuncaEntrou,
@@ -243,7 +244,7 @@ export function ChangeDriverModal({
                   isDesktop && styles.currentDriverNameCompact,
                 ]}
               >
-                {currentMotoristaNome || 'Sem motorista'}
+                {nomeMotoristaDaRota(currentMotoristaNome, currentMotoristaId)}
               </Text>
             </View>
           </View>

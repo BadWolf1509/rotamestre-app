@@ -12,6 +12,7 @@ import {
   type RouteStatusType,
 } from '@/constants/statusConfig';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { permissoesRota } from './permissoesRota';
@@ -67,7 +68,7 @@ export function RouteInfoHeaderCompact({
       <View style={styles.driverSection}>
         <Ionicons name="person-circle" size={24} color={theme.colors.primary} />
         <Text style={styles.driverName} numberOfLines={1}>
-          {rota.motorista?.nome || 'Sem motorista'}
+          {nomeMotoristaDaRota(rota.motorista?.nome, rota.motorista_id)}
         </Text>
         {canChangeDriver && onChangeDriverPress && (
           <TouchableOpacity
