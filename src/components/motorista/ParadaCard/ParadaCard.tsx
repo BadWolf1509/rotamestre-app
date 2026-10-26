@@ -11,7 +11,11 @@ import { successHaptic } from '@/utils/haptics';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './ParadaCard.styles';
-import { getStatusLabel, type ParadaCardProps } from './ParadaCard.types';
+import {
+  getStatusLabel,
+  type Parada,
+  type ParadaCardProps,
+} from './ParadaCard.types';
 import {
   ConcluirPularActions,
   PrimaryActions,
@@ -22,6 +26,14 @@ import {
 import { ParadaCardAddress } from './ParadaCardAddress';
 import { ParadaCardDetails } from './ParadaCardDetails';
 import { ParadaCardHeader } from './ParadaCardHeader';
+
+/** Comparação rasa campo a campo: campo novo no tipo entra sem lembrar daqui. */
+function paradaIgual(a: Parada, b: Parada): boolean {
+  if (a === b) return true;
+  const chavesA = Object.keys(a) as (keyof Parada)[];
+  if (chavesA.length !== Object.keys(b).length) return false;
+  return chavesA.every((chave) => a[chave] === b[chave]);
+}
 
 export const ParadaCard = memo<ParadaCardProps>(
   ({
@@ -251,8 +263,9 @@ export const ParadaCard = memo<ParadaCardProps>(
             {!isSummary && envioPendente && <SeloEnvioPendente />}
 
             {/* Retomar button for skipped cards. Com o pulo ainda na fila,
-                retomar agora seria desfeito quando a fila subisse. */}
-            {!isSummary && isPulada && !envioPendente && (
+                retomar agora seria desfeito quando a fila subisse. Com a rota
+                encerrada, a parada reaberta não teria mais como ser feita. */}
+            {!isSummary && isPulada && !envioPendente && rotaEmAndamento && (
               <RetomarButton onRetomar={handleRetomar} retomando={retomando} />
             )}
 
@@ -263,12 +276,12 @@ export const ParadaCard = memo<ParadaCardProps>(
       </Animated.View>
     );
   },
-  // Custom comparison to avoid unnecessary re-renders
+  // Ignora a identidade dos callbacks (recriados pelas telas), mas compara
+  // TODOS os campos da parada: o gestor edita endereço, coordenada, instrução
+  // e ordem com o status igual, e o "Como Chegar" tem de ir ao local novo.
   (prevProps, nextProps) => {
     return (
-      prevProps.parada.id === nextProps.parada.id &&
-      prevProps.parada.status === nextProps.parada.status &&
-      prevProps.parada.observacao_pulo === nextProps.parada.observacao_pulo &&
+      paradaIgual(prevProps.parada, nextProps.parada) &&
       prevProps.concluindo === nextProps.concluindo &&
       prevProps.pulando === nextProps.pulando &&
       prevProps.retomando === nextProps.retomando &&

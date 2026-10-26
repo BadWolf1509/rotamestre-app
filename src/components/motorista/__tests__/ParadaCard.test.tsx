@@ -348,6 +348,85 @@ describe('ParadaCard', () => {
 
       expect(queryByText('Retomar Parada')).toBeNull();
     });
+
+    it('NÃO mostra Retomar quando a rota não está mais em andamento', () => {
+      const { queryByText } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={mockParadaPulada}
+          rotaEmAndamento={false}
+        />,
+      );
+
+      expect(queryByText('Retomar Parada')).toBeNull();
+    });
+  });
+
+  describe('Edição do gestor com o mesmo status', () => {
+    it('re-renderiza com endereço novo e o Como Chegar usa a coordenada nova', () => {
+      const onNavegar = jest.fn();
+      const { getByText, queryByText, rerender } = render(
+        <ParadaCard {...defaultProps} onNavegar={onNavegar} />,
+      );
+
+      const editada: Parada = {
+        ...mockParadaPendente,
+        endereco: 'Avenida Nova, 900',
+        latitude: -23.6,
+        longitude: -46.7,
+      };
+      rerender(
+        <ParadaCard {...defaultProps} parada={editada} onNavegar={onNavegar} />,
+      );
+
+      expect(getByText('Avenida Nova, 900')).toBeTruthy();
+      expect(queryByText('Rua Teste, 123 - Centro')).toBeNull();
+      fireEvent.press(getByText('Como Chegar'));
+      expect(onNavegar).toHaveBeenCalledWith(editada);
+    });
+
+    it('re-renderiza quando a instrução do gestor ou a ordem mudam', () => {
+      const { getByText, rerender } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={{ ...mockParadaPendente, observacoes: 'Portão azul' }}
+        />,
+      );
+
+      rerender(
+        <ParadaCard
+          {...defaultProps}
+          parada={{
+            ...mockParadaPendente,
+            observacoes: 'Interfone 12',
+            ordem: 7,
+          }}
+        />,
+      );
+
+      expect(getByText('Interfone 12')).toBeTruthy();
+      expect(getByText('7')).toBeTruthy();
+    });
+
+    it('não re-renderiza com um objeto novo de conteúdo igual', () => {
+      const onNavegar = jest.fn();
+      const { getByText, rerender } = render(
+        <ParadaCard {...defaultProps} onNavegar={onNavegar} />,
+      );
+      const outroNavegar = jest.fn();
+      rerender(
+        <ParadaCard
+          {...defaultProps}
+          parada={{ ...mockParadaPendente }}
+          onNavegar={outroNavegar}
+        />,
+      );
+
+      // Mesmo conteúdo: o memo segura o render, e o callback antigo segue
+      fireEvent.press(getByText('Como Chegar'));
+      expect(onNavegar).toHaveBeenCalled();
+      expect(outroNavegar).not.toHaveBeenCalled();
+    });
   });
 
   describe('Swipe Hint', () => {
