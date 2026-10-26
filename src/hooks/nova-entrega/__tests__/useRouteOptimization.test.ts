@@ -2,7 +2,7 @@
  * Tests for useRouteOptimization hook
  */
 
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 import type {
   Parada,
@@ -124,6 +124,58 @@ describe('useRouteOptimization', () => {
       expect(result.current.rotaOtimizada).toBeNull();
       expect(result.current.isOptimizing).toBe(false);
       expect(result.current.ordemManual).toBe(false);
+    });
+  });
+
+  describe('lista alterada durante o cálculo', () => {
+    it('descarta o resultado e avisa quando as paradas mudaram no meio da otimização', async () => {
+      let responder: (v: unknown) => void = () => {};
+      mockGetDirections.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            responder = resolve;
+          }),
+      );
+      const showToast = jest.fn();
+      const { result, rerender } = renderHook(
+        (props: { paradas: Parada[] }) =>
+          useRouteOptimization({ ...defaultOptions, showToast, ...props }),
+        { initialProps: { paradas: mockParadas } },
+      );
+
+      let promessa: Promise<Parada[] | null> = Promise.resolve(null);
+      act(() => {
+        promessa = result.current.otimizarRota();
+      });
+
+      // O gestor adiciona uma parada enquanto o OSRM calcula.
+      const novaParada: Parada = {
+        ...mockParadas[0],
+        id: 'parada-3',
+        ordem: 3,
+      };
+      rerender({ paradas: [...mockParadas, novaParada] });
+      await waitFor(() => expect(mockGetDirections).toHaveBeenCalled());
+
+      let retorno: Parada[] | null = [];
+      await act(async () => {
+        responder({
+          distancia_total_metros: 5000,
+          duracao_total_segundos: 300,
+          legs: [],
+          polyline: 'p',
+          ordem_otimizada: [1, 0],
+        });
+        retorno = await promessa;
+      });
+
+      expect(retorno).toBeNull();
+      expect(result.current.rotaOtimizada).toBeNull();
+      expect(showToast).toHaveBeenCalledWith(
+        expect.stringMatching(/lista de paradas mudou/i),
+        'info',
+        expect.any(Number),
+      );
     });
   });
 
@@ -358,7 +410,9 @@ describe('useRouteOptimization', () => {
       const options = {
         ...defaultOptions,
         paradas: defaultOptions.paradas.map((p, i) =>
-          i === 1 ? { ...p, vinculo_parada_id: defaultOptions.paradas[0].id } : p,
+          i === 1
+            ? { ...p, vinculo_parada_id: defaultOptions.paradas[0].id }
+            : p,
         ),
       };
       const { result } = renderHook(() => useRouteOptimization(options));
