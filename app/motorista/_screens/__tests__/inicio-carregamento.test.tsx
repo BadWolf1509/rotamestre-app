@@ -180,9 +180,6 @@ jest.mock('@/components/motorista/home/StatusSection', () => {
     ),
   };
 });
-jest.mock('@/components/motorista/OptimizationAlert', () => ({
-  OptimizationAlert: () => null,
-}));
 jest.mock('@/components/IncidentReportWizard', () => ({
   IncidentReportWizard: () => null,
 }));

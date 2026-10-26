@@ -11,6 +11,7 @@ import { AvisoBateriaRestrita } from '@/components/motorista/home/AvisoBateriaRe
 import { AvisoRastreamentoSegundoPlano } from '@/components/motorista/home/AvisoRastreamentoSegundoPlano';
 import { AvisosDaFilaDeParadas } from '@/components/motorista/home/AvisosDaFilaDeParadas';
 import { MainCard } from '@/components/motorista/home/MainCard';
+import { calculateSuccessRate } from '@/components/motorista/home/MainCard/MainCard.utils';
 import { MiniMap } from '@/components/motorista/home/MiniMap';
 import {
   ESPACO_SOB_O_FAB,
@@ -19,7 +20,6 @@ import {
 import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
-import { OptimizationAlert } from '@/components/motorista/OptimizationAlert';
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
 import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
 import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
@@ -48,6 +48,10 @@ import { useUser } from '@/hooks/useUser';
 import { formatarMomentoDosDados } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import {
+  deveSairDoModoNavegacao,
+  mensagemFinalizarRota,
+} from '@/lib/motorista/modoNavegacao';
+import {
   chegouPelaParadaAnterior,
   paradasDaVisita,
 } from '@/lib/motorista/visitaNoLocal';
@@ -57,7 +61,6 @@ import {
   pedirPermissao,
   REMEDIO_CADEADO_WEB,
 } from '@/lib/permissoes';
-import DynamicReroutingService from '@/services/dynamicRerouting';
 import LocationTrackingService from '@/services/locationTracking';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -125,7 +128,15 @@ function MotoristaInicioContent() {
 
   // Navegação em tela cheia: o layout de abas esconde cabeçalho e abas.
   const { setTelaCheia } = useNavegacaoTelaCheia();
-  const emNavegacao = modals.navigationMode && !!currentStop;
+  // O modo navegação acaba com a rota: sem parada atual ou fora de
+  // 'em_andamento' o estado é desligado (não só escondido), senão a próxima rota
+  // em andamento abriria a tela cheia sozinha e subiria o rastreamento.
+  const saiDoModoNavegacao = deveSairDoModoNavegacao(route, currentStop);
+  const { navigationMode, setNavigationMode } = modals;
+  useEffect(() => {
+    if (navigationMode && saiDoModoNavegacao) setNavigationMode(false);
+  }, [navigationMode, saiDoModoNavegacao, setNavigationMode]);
+  const emNavegacao = modals.navigationMode && !saiDoModoNavegacao;
   useEffect(() => {
     setTelaCheia(emNavegacao);
   }, [emNavegacao, setTelaCheia]);
@@ -471,36 +482,6 @@ function MotoristaInicioContent() {
     modals.setNavigationMode(false);
   };
 
-  // Handle optimization acceptance
-  const handleAcceptOptimization = async () => {
-    if (!modals.optimization || !route) return;
-
-    try {
-      // Apply the optimization
-      await DynamicReroutingService.applyOptimization(
-        route.id,
-        modals.optimization.newOrder,
-      );
-
-      // Refresh route data
-      await refreshRoute();
-
-      showSuccess(
-        'Sucesso',
-        `Rota otimizada! Você economizará ${modals.optimization.timeSaved} minutos.`,
-      );
-      modals.clearOptimization();
-    } catch (error) {
-      showError(error);
-    }
-  };
-
-  // Handle optimization rejection
-  const handleRejectOptimization = () => {
-    modals.dismissOptimization();
-    // Keep optimization in memory for potential later use
-  };
-
   // Modais que concluem ou pulam a parada atual. Moram numa função (e não num
   // componente declarado aqui dentro — ver CLAUDE.md) porque os DOIS ramos
   // abaixo precisam deles: "Concluir" e "Pular" existem tanto no card quanto
@@ -541,7 +522,7 @@ function MotoristaInicioContent() {
   );
 
   // If in navigation mode, show full-screen navigation
-  if (modals.navigationMode && currentStop) {
+  if (modals.navigationMode && !saiDoModoNavegacao && currentStop) {
     return (
       <>
         <NavigationMode
@@ -731,18 +712,11 @@ function MotoristaInicioContent() {
           paradaId={modals.selectedParadaForIncident?.id ?? currentStop?.id}
           rotaId={route?.id}
           motoristaId={userData?.id || ''}
-          endereco={currentStop?.endereco}
+          endereco={
+            modals.selectedParadaForIncident?.endereco ?? currentStop?.endereco
+          }
         />
       )}
-
-      <OptimizationAlert
-        visible={modals.showOptimization}
-        optimization={modals.optimization}
-        currentOrder={paradas.filter((p) => p.status === 'pendente')}
-        onAccept={handleAcceptOptimization}
-        onReject={handleRejectOptimization}
-        onClose={modals.dismissOptimization}
-      />
 
       <SupportModal
         visible={modals.showSupportModal}
@@ -754,7 +728,7 @@ function MotoristaInicioContent() {
         visible={modals.showCompleteRouteModal}
         variant="confirm"
         title="Finalizar Rota"
-        message="Todas as paradas foram concluídas. Deseja finalizar a rota?"
+        message={mensagemFinalizarRota(calculateSuccessRate(paradas).puladas)}
         type="success"
         confirmText="Finalizar"
         cancelText="Cancelar"

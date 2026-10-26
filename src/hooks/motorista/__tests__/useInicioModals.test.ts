@@ -5,83 +5,78 @@
  * Covers all 18 actions, initial state, combined states, and RESET_ALL.
  */
 
-import { renderHook, act } from "@testing-library/react-native";
+import { renderHook, act } from '@testing-library/react-native';
 
-import type { ParadaData } from "@/context/RouteStatusContext";
+import type { ParadaData } from '@/context/RouteStatusContext';
 
-import { useInicioModals } from "../useInicioModals";
+import { useInicioModals } from '../useInicioModals';
 
 const mockParada: ParadaData = {
-  id: "parada-1",
-  endereco: "Rua Teste, 123",
+  id: 'parada-1',
+  endereco: 'Rua Teste, 123',
   ordem: 1,
-  status: "pendente",
-  tipo: "entrega",
+  status: 'pendente',
+  tipo: 'entrega',
   latitude: -23.55,
   longitude: -46.63,
 };
 
 const mockParada2: ParadaData = {
-  id: "parada-2",
-  endereco: "Rua Outro, 456",
+  id: 'parada-2',
+  endereco: 'Rua Outro, 456',
   ordem: 2,
-  status: "pendente",
-  tipo: "entrega",
+  status: 'pendente',
+  tipo: 'entrega',
   latitude: -23.56,
   longitude: -46.64,
 };
 
-describe("useInicioModals", () => {
-  describe("initial state", () => {
-    it("returns all modals as closed initially", () => {
+describe('useInicioModals', () => {
+  describe('initial state', () => {
+    it('returns all modals as closed initially', () => {
       const { result } = renderHook(() => useInicioModals());
 
       expect(result.current.showIncidentWizard).toBe(false);
-      expect(result.current.showOptimization).toBe(false);
       expect(result.current.showCompletionFlow).toBe(false);
       expect(result.current.showSupportModal).toBe(false);
       expect(result.current.showCompleteRouteModal).toBe(false);
       expect(result.current.showSkipModal).toBe(false);
     });
 
-    it("returns UI toggles as off initially", () => {
+    it('returns UI toggles as off initially', () => {
       const { result } = renderHook(() => useInicioModals());
 
       expect(result.current.navigationMode).toBe(false);
       expect(result.current.miniMapExpanded).toBe(false);
     });
 
-    it("returns null for associated data initially", () => {
+    it('returns null for associated data initially', () => {
       const { result } = renderHook(() => useInicioModals());
 
       expect(result.current.selectedParadaForCompletion).toBeNull();
       expect(result.current.selectedParadaForSkip).toBeNull();
-      expect(result.current.optimization).toBeNull();
     });
 
-    it("returns all action functions", () => {
+    it('returns all action functions', () => {
       const { result } = renderHook(() => useInicioModals());
 
-      expect(typeof result.current.openIncidentWizard).toBe("function");
-      expect(typeof result.current.closeIncidentWizard).toBe("function");
-      expect(typeof result.current.openCompletionFlow).toBe("function");
-      expect(typeof result.current.closeCompletionFlow).toBe("function");
-      expect(typeof result.current.openSupport).toBe("function");
-      expect(typeof result.current.closeSupport).toBe("function");
-      expect(typeof result.current.openCompleteRoute).toBe("function");
-      expect(typeof result.current.closeCompleteRoute).toBe("function");
-      expect(typeof result.current.openSkipModal).toBe("function");
-      expect(typeof result.current.closeSkipModal).toBe("function");
-      expect(typeof result.current.setNavigationMode).toBe("function");
-      expect(typeof result.current.toggleMiniMap).toBe("function");
-      expect(typeof result.current.setOptimization).toBe("function");
-      expect(typeof result.current.dismissOptimization).toBe("function");
-      expect(typeof result.current.clearOptimization).toBe("function");
+      expect(typeof result.current.openIncidentWizard).toBe('function');
+      expect(typeof result.current.closeIncidentWizard).toBe('function');
+      expect(typeof result.current.openCompletionFlow).toBe('function');
+      expect(typeof result.current.closeCompletionFlow).toBe('function');
+      expect(typeof result.current.openSupport).toBe('function');
+      expect(typeof result.current.closeSupport).toBe('function');
+      expect(typeof result.current.openCompleteRoute).toBe('function');
+      expect(typeof result.current.closeCompleteRoute).toBe('function');
+      expect(typeof result.current.openSkipModal).toBe('function');
+      expect(typeof result.current.closeSkipModal).toBe('function');
+      expect(typeof result.current.setNavigationMode).toBe('function');
+      expect(typeof result.current.toggleMiniMap).toBe('function');
     });
   });
 
-  describe("incident wizard", () => {
-    it("opens incident wizard", () => {
+  describe('incident wizard', () => {
+    it('opens incident wizard', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -91,7 +86,7 @@ describe("useInicioModals", () => {
       expect(result.current.showIncidentWizard).toBe(true);
     });
 
-    it("closes incident wizard", () => {
+    it('closes incident wizard', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -106,8 +101,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("completion flow", () => {
-    it("opens completion flow with parada data", () => {
+  describe('completion flow', () => {
+    it('opens completion flow with parada data', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -118,7 +113,7 @@ describe("useInicioModals", () => {
       expect(result.current.selectedParadaForCompletion).toEqual(mockParada);
     });
 
-    it("closes completion flow and clears parada data", () => {
+    it('closes completion flow and clears parada data', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -134,8 +129,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("support modal", () => {
-    it("opens and closes support modal", () => {
+  describe('support modal', () => {
+    it('opens and closes support modal', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -150,8 +145,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("complete route modal", () => {
-    it("opens and closes complete route modal", () => {
+  describe('complete route modal', () => {
+    it('opens and closes complete route modal', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -166,8 +161,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("skip modal", () => {
-    it("opens skip modal with parada data", () => {
+  describe('skip modal', () => {
+    it('opens skip modal with parada data', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -178,7 +173,7 @@ describe("useInicioModals", () => {
       expect(result.current.selectedParadaForSkip).toEqual(mockParada);
     });
 
-    it("closes skip modal and clears parada data", () => {
+    it('closes skip modal and clears parada data', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -194,8 +189,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("navigation mode", () => {
-    it("enables navigation mode", () => {
+  describe('navigation mode', () => {
+    it('enables navigation mode', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -205,7 +200,7 @@ describe("useInicioModals", () => {
       expect(result.current.navigationMode).toBe(true);
     });
 
-    it("disables navigation mode", () => {
+    it('disables navigation mode', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -220,8 +215,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("mini map", () => {
-    it("toggles mini map expanded state", () => {
+  describe('mini map', () => {
+    it('toggles mini map expanded state', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -236,54 +231,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("optimization", () => {
-    it("sets optimization data and shows optimization modal", () => {
-      const optData = { routes: [1, 2, 3], savings: "30%" };
-      const { result } = renderHook(() => useInicioModals());
-
-      act(() => {
-        result.current.setOptimization(optData);
-      });
-
-      expect(result.current.showOptimization).toBe(true);
-      expect(result.current.optimization).toEqual(optData);
-    });
-
-    it("dismissOptimization hides modal but keeps data", () => {
-      const optData = { routes: [1, 2, 3] };
-      const { result } = renderHook(() => useInicioModals());
-
-      act(() => {
-        result.current.setOptimization(optData);
-      });
-
-      act(() => {
-        result.current.dismissOptimization();
-      });
-
-      expect(result.current.showOptimization).toBe(false);
-      expect(result.current.optimization).toEqual(optData);
-    });
-
-    it("clearOptimization hides modal and clears data", () => {
-      const optData = { routes: [1, 2, 3] };
-      const { result } = renderHook(() => useInicioModals());
-
-      act(() => {
-        result.current.setOptimization(optData);
-      });
-
-      act(() => {
-        result.current.clearOptimization();
-      });
-
-      expect(result.current.showOptimization).toBe(false);
-      expect(result.current.optimization).toBeNull();
-    });
-  });
-
-  describe("combined states", () => {
-    it("supports multiple modals open simultaneously", () => {
+  describe('combined states', () => {
+    it('supports multiple modals open simultaneously', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -299,7 +248,7 @@ describe("useInicioModals", () => {
       expect(result.current.showCompletionFlow).toBe(false);
     });
 
-    it("opening completion and skip modals with different paradas", () => {
+    it('opening completion and skip modals with different paradas', () => {
       const { result } = renderHook(() => useInicioModals());
 
       act(() => {
@@ -312,8 +261,8 @@ describe("useInicioModals", () => {
     });
   });
 
-  describe("RESET_ALL", () => {
-    it("resets all state to initial values", () => {
+  describe('RESET_ALL', () => {
+    it('resets all state to initial values', () => {
       const { result } = renderHook(() => useInicioModals());
 
       // Open multiple modals and set data
@@ -324,7 +273,6 @@ describe("useInicioModals", () => {
         result.current.openCompleteRoute();
         result.current.openSkipModal(mockParada2);
         result.current.setNavigationMode(true);
-        result.current.setOptimization({ data: "test" });
       });
 
       // Verify some are open
@@ -342,7 +290,6 @@ describe("useInicioModals", () => {
         result.current.closeCompleteRoute();
         result.current.closeSkipModal();
         result.current.setNavigationMode(false);
-        result.current.clearOptimization();
       });
 
       expect(result.current.showIncidentWizard).toBe(false);
@@ -354,12 +301,11 @@ describe("useInicioModals", () => {
       expect(result.current.miniMapExpanded).toBe(false);
       expect(result.current.selectedParadaForCompletion).toBeNull();
       expect(result.current.selectedParadaForSkip).toBeNull();
-      expect(result.current.optimization).toBeNull();
     });
   });
 
-  describe("action stability", () => {
-    it("returns stable function references across re-renders", () => {
+  describe('action stability', () => {
+    it('returns stable function references across re-renders', () => {
       const { result, rerender } = renderHook(() => useInicioModals());
 
       const firstRender = {
