@@ -208,7 +208,9 @@ jobs:
 
       - name: Versão do Playwright (chave do cache)
         id: pw
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "imagem=${ImageVersion:-sem-versao}" >> "$GITHUB_OUTPUT"
 
       - name: Cache dos navegadores do Playwright
         # O download dos navegadores é a maior parte do `playwright install`
@@ -220,6 +222,25 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
+      - name: Cache dos pacotes apt do Playwright
+        # O espelho apt da Azure já entregou 45 kB/s (26/10/2026): as ~26 MB de
+        # libs do Chromium levavam quase 10 min e o passo estourava o prazo. Com
+        # os .deb guardados, o apt só baixa o que mudou. A chave leva a imagem do
+        # runner: imagem nova, pacotes novos, cache novo.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-playwright
+          key: ${{ runner.os }}-apt-playwright-${{ steps.pw.outputs.version }}-${{ steps.pw.outputs.imagem }}
+
+      - name: Devolver os .deb guardados ao apt
+        run: |
+          # O apt-get descarta o .deb depois de instalar se houver docker-clean.
+          sudo rm -f /etc/apt/apt.conf.d/docker-clean
+          echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99-manter-deb > /dev/null
+          if compgen -G "$HOME/apt-playwright/*.deb" > /dev/null; then
+            sudo cp "$HOME"/apt-playwright/*.deb /var/cache/apt/archives/
+          fi
 
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
@@ -238,6 +259,13 @@ jobs:
         # de 30 min do job (26/10/2026, três vezes no mesmo dia).
         timeout-minutes: 10
         run: npx playwright install-deps chromium
+
+      - name: Guardar os .deb para o próximo job
+        run: |
+          mkdir -p "$HOME/apt-playwright"
+          if compgen -G "/var/cache/apt/archives/*.deb" > /dev/null; then
+            cp /var/cache/apt/archives/*.deb "$HOME/apt-playwright/"
+          fi
 
       - name: Construir o bundle web
         # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
@@ -372,7 +400,9 @@ jobs:
 
       - name: Versão do Playwright (chave do cache)
         id: pw
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "imagem=${ImageVersion:-sem-versao}" >> "$GITHUB_OUTPUT"
 
       - name: Cache dos navegadores do Playwright
         # O download dos navegadores é a maior parte do `playwright install`
@@ -384,6 +414,25 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
+      - name: Cache dos pacotes apt do Playwright
+        # O espelho apt da Azure já entregou 45 kB/s (26/10/2026): as ~26 MB de
+        # libs do Chromium levavam quase 10 min e o passo estourava o prazo. Com
+        # os .deb guardados, o apt só baixa o que mudou. A chave leva a imagem do
+        # runner: imagem nova, pacotes novos, cache novo.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-playwright
+          key: ${{ runner.os }}-apt-playwright-${{ steps.pw.outputs.version }}-${{ steps.pw.outputs.imagem }}
+
+      - name: Devolver os .deb guardados ao apt
+        run: |
+          # O apt-get descarta o .deb depois de instalar se houver docker-clean.
+          sudo rm -f /etc/apt/apt.conf.d/docker-clean
+          echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99-manter-deb > /dev/null
+          if compgen -G "$HOME/apt-playwright/*.deb" > /dev/null; then
+            sudo cp "$HOME"/apt-playwright/*.deb /var/cache/apt/archives/
+          fi
 
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
@@ -402,6 +451,13 @@ jobs:
         # de 30 min do job (26/10/2026, três vezes no mesmo dia).
         timeout-minutes: 10
         run: npx playwright install-deps chromium
+
+      - name: Guardar os .deb para o próximo job
+        run: |
+          mkdir -p "$HOME/apt-playwright"
+          if compgen -G "/var/cache/apt/archives/*.deb" > /dev/null; then
+            cp /var/cache/apt/archives/*.deb "$HOME/apt-playwright/"
+          fi
 
       - name: Construir o bundle web
         # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
