@@ -10,10 +10,8 @@
  *   (desktop dropdown / mobile sheet)
  * - Atualização em tempo real via Supabase Realtime
  *
- * NOTE: PDF export is intentionally NOT offered at the list level.
- * exportRotaToPDF() produces a per-route delivery-proof document (with real
- * stop addresses). A bulk list-to-PDF would misuse that function. Wire it
- * from a route-detail screen or per-row action in a future PR.
+ * Não há exportação em PDF: o comprovante por rota (pdfmake) nunca foi ligado
+ * a uma tela e saiu em 26/10/2026 junto com a dependência; está no git.
  *
  * @layout Desktop: DesktopPageLayout com DataTable
  * @layout Mobile: ScrollView com MobileCards

@@ -1,5 +1,5 @@
 /**
- * Carga sob demanda de bibliotecas pesadas (pdfmake, xlsx).
+ * Carga sob demanda de bibliotecas pesadas (xlsx).
  *
  * Só o `import()` fica dentro do try: qualquer falha ali é falha de carga do
  * chunk (típico no web: aba aberta antes de um deploy pede um chunk com hash
