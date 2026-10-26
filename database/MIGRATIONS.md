@@ -2885,3 +2885,51 @@ SELECT de `unidades` depois da Migration 51); `service_role` intocado; padrão d
 `postgres` sem eles; tabela criada na sonda nasce sem eles. Sem a migration: 7
 FALHOU; com ela: 9 OK (réplica local). Rollback colável, tabela a tabela, com
 o que foi medido.
+
+### ⏳ Migration 65: fotos de entrega lidas pelo gestor da loja e pelo motorista da rota
+
+**Arquivo:** `20261025160000_fotos_entrega_pela_propria_rota.sql` · **⏳ aguardando aplicação**
+
+**O que faz.** Divide o ramo por loja da policy `"fotos-entrega select"` (em
+`storage.objects`) para seguir a regra das policies de `rotas`/`paradas` da
+Migration 49: (b1) o gestor com vínculo ativo de gestor na loja do 1º segmento
+do path lê as fotos da loja; (b2) o motorista lê as fotos das próprias rotas
+(2º segmento), com vínculo ativo na loja da rota e cadastro ativo, conferido
+pelo helper novo `foto_de_rota_minha(text)` (SECURITY DEFINER, `search_path`
+vazio, dono `postgres`, EXECUTE só para `authenticated` e `service_role`; confere
+o formato uuid dos segmentos antes do cast). Os ramos do dono, de `perfis` e de
+`incidentes` ficam iguais. O INSERT e o DELETE do bucket não mudam;
+`minhas_unidades_com_acesso()` segue no INSERT e só o COMMENT dela muda.
+
+**Alternativas.** (a) Gestor pela loja + motorista pela própria rota —
+escolhida: mesma regra de `rotas`/`paradas`, e o motorista atual segue lendo a
+foto da rota tirada por outra conta (rota reatribuída, outro aparelho). (b) Só o
+dono: igual hoje para as fotos com dono, mas o motorista deixaria de ler a foto
+da própria rota enviada por outra conta e as 71 fotos sem dono. (c) Restringir
+`minhas_unidades_com_acesso()` a gestor: o INSERT do motorista em
+`<loja>/<rota>/` passaria a ser recusado.
+
+**Medido em 25/10/2026.** 2.301 objetos em pasta de loja; 2.273 em pasta de
+rota existente. Nas rotas com motorista: 0 com dono diferente do motorista
+atual, 71 sem dono (o motorista passa a lê-los pelo ramo da rota), 13 em pasta
+de loja diferente da loja da rota (todos do próprio motorista, seguem pelo ramo
+do dono). 217 em rota sem motorista e 28 em rota apagada seguem legíveis pelo
+dono e pelo gestor.
+
+**App.** O app lê foto só por `useSignedUrl` → `createSignedUrlForFoto`
+(`src/lib/storage.ts`, `createSignedUrl`). No motorista, os usos são o próprio
+avatar (`DrawerHeader`, `Avatar`, `AvatarEditable`; ramo do dono); as telas que
+mostram comprovante (`ParadaCard*`, `IncidenteDetalhesModal`) são do gestor
+(ramo b1). O único `list()` é `deletarFotoPerfil`, em `perfis` (ramo do dono).
+Upload não muda. Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration65-fotos-da-propria-rota.test.ts`; sonda
+`database/sondas/20261025160000_sonda_migration65.sql`: o colega da loja não lê
+a foto da rota de outro motorista e, na pasta da loja, só vê os próprios
+objetos; o motorista lê o próprio upload e a foto da própria rota enviada por
+outra conta; o gestor da loja lê as 5 fotos; o gestor de outra loja, a pessoa
+desativada e o vínculo inativo não leem; o upload na pasta da própria rota e a
+leitura do avatar do gestor seguem; catálogo da função e da policy. Sem a
+migration: casos 1, 2 e 11 FALHOU. Rollback colável com a policy viva de
+25/10/2026, o DROP da função e o COMMENT antigo do helper.
