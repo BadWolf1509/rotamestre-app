@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react';
 import type { ShowToast } from '@/hooks/useToast';
 import { logger } from '@/lib/logger';
 import { fetchIncidentesForGestor } from '@/lib/queries/incidentes';
+import { observacoesIncidenteSchema } from '@/lib/schemas/incidente';
 import { supabase } from '@/lib/supabase';
 
 import type { Incidente } from './types';
@@ -54,7 +55,6 @@ interface UseIncidentesModalsResult {
   historicoLoading: boolean;
   handleVerHistoricoMotorista: (id: string, nome: string) => Promise<void>;
   setShowHistoricoMotoristaModal: (value: boolean) => void;
-
 }
 
 /**
@@ -125,6 +125,15 @@ export function useIncidentesModals({
 
   const confirmarAlterarStatus = useCallback(async () => {
     if (!incidenteSelecionado) return;
+
+    // O campo já corta em 1000 caracteres; isto pega a observação antiga, que
+    // veio do banco maior que o limite. O modal fica aberto para o gestor
+    // encurtar o texto, sem gravar nada.
+    const validacao = observacoesIncidenteSchema.safeParse(observacoes);
+    if (!validacao.success) {
+      showToast(validacao.error.issues[0].message, 'error');
+      return;
+    }
 
     try {
       setAtualizando(true);
@@ -240,6 +249,5 @@ export function useIncidentesModals({
     historicoLoading,
     handleVerHistoricoMotorista,
     setShowHistoricoMotoristaModal,
-
   };
 }

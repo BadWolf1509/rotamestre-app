@@ -3,12 +3,17 @@
  * Extracted from app/gestor/incidentes.tsx for maintainability.
  */
 
-import { View, TouchableOpacity, TextInput } from "react-native";
+import { View, TouchableOpacity, TextInput } from 'react-native';
 
-import { Text } from "@/components/Text";
-import { DesktopModal } from "@/design-system";
-import type { Incidente, StatusLabel } from "@/hooks/incidentes-gestor/types";
-import { styles } from "@/styles/gestor/incidentes.styles";
+import { FieldError } from '@/components/auth/FieldError';
+import { Text } from '@/components/Text';
+import { DesktopModal } from '@/design-system';
+import type { Incidente, StatusLabel } from '@/hooks/incidentes-gestor/types';
+import {
+  LIMITE_OBSERVACOES_INCIDENTE,
+  MENSAGEM_LIMITE_OBSERVACOES_INCIDENTE,
+} from '@/lib/schemas/incidente';
+import { styles } from '@/styles/gestor/incidentes.styles';
 
 interface AlterarStatusModalProps {
   incidente: Incidente | null;
@@ -37,6 +42,8 @@ export function AlterarStatusModal({
 }: AlterarStatusModalProps) {
   if (!incidente) return null;
 
+  const acimaDoLimite = observacoes.length > LIMITE_OBSERVACOES_INCIDENTE;
+
   return (
     <DesktopModal
       visible={visible}
@@ -44,12 +51,12 @@ export function AlterarStatusModal({
       title="Alterar Status do Incidente"
       maxWidth={500}
       primaryButton={{
-        text: "Salvar",
+        text: 'Salvar',
         onPress: onConfirmar,
         loading: atualizando,
       }}
       secondaryButton={{
-        text: "Cancelar",
+        text: 'Cancelar',
         onPress: onClose,
         disabled: atualizando,
       }}
@@ -87,9 +94,25 @@ export function AlterarStatusModal({
           placeholder="Adicione observações sobre a resolução..."
           value={observacoes}
           onChangeText={setObservacoes}
+          maxLength={LIMITE_OBSERVACOES_INCIDENTE}
           multiline
           numberOfLines={4}
           textAlignVertical="top"
+        />
+        {/* O maxLength impede digitar além; o contador avisa antes do corte,
+            e o erro cobre observação antiga que já veio maior do banco. */}
+        <Text
+          style={[
+            styles.observacoesContador,
+            acimaDoLimite && styles.observacoesContadorErro,
+          ]}
+        >
+          {`${observacoes.length}/${LIMITE_OBSERVACOES_INCIDENTE}`}
+        </Text>
+        <FieldError
+          message={
+            acimaDoLimite ? MENSAGEM_LIMITE_OBSERVACOES_INCIDENTE : undefined
+          }
         />
       </View>
     </DesktopModal>
