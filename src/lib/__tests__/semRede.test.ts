@@ -72,4 +72,15 @@ describe('semRedeConfirmada com rede caída observada', () => {
     await expect(semRedeConfirmada()).resolves.toBe(true);
     expect(fetchNetInfo).not.toHaveBeenCalled();
   });
+
+  // Recarga com dado em memória: tem de ir à rede para a resposta limpar o
+  // sinal. Só a queda observada é pulada; o modo avião segue valendo.
+  it('ignorarQuedaObservada pula a queda e consulta o NetInfo', async () => {
+    fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+    registrarFalhaDeRede();
+    await expect(
+      semRedeConfirmada({ ignorarQuedaObservada: true }),
+    ).resolves.toBe(false);
+    expect(fetchNetInfo).toHaveBeenCalledTimes(1);
+  });
 });

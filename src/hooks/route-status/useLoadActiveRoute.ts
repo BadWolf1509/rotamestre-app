@@ -234,7 +234,18 @@ export function useLoadActiveRoute({
       // supabase-js esperar o refresh preso e do timeout de 15 s do cliente:
       // falha já, e o retrato guardado entra na hora. NetInfo "conectado" não
       // prova rede — aí a busca segue e o guardado só entra se ela falhar.
-      if (await semRedeConfirmada()) throw new Error(SEM_REDE);
+      //
+      // Com dado desta conta em memória, a queda OBSERVADA não vale como
+      // atalho: sem ir à rede, nenhuma resposta limparia o sinal, e recarga e
+      // "Tentar novamente" ficariam inertes até 20 s depois da volta da rede.
+      // Se a busca falhar, a memória fica (regra 1). Na carga inicial vale o
+      // atalho completo, e o retrato entra na hora.
+      const temDadoEmMemoria = carregadoParaRef.current === motoristaId;
+      if (
+        await semRedeConfirmada({ ignorarQuedaObservada: temDadoEmMemoria })
+      ) {
+        throw new Error(SEM_REDE);
+      }
       const snapshot = await buscarSnapshot(motoristaId);
       if (chamada !== ultimaChamadaRef.current) return;
 

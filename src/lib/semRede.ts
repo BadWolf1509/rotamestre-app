@@ -36,9 +36,20 @@ import { redeCaidaObservada } from './redeObservada';
 /** Guarda contra um NetInfo que não responde; não é prazo de rede. */
 export const PRAZO_NETINFO_MS = 2_000;
 
-export async function semRedeConfirmada(): Promise<boolean> {
+export interface OpcoesSemRede {
+  /**
+   * Pula só a fonte 1 (queda observada); o NetInfo segue valendo, e o modo
+   * avião continua atalho. Para quem precisa ir à rede para que uma resposta
+   * limpe o sinal — a recarga com dado em memória (`useLoadActiveRoute`).
+   */
+  ignorarQuedaObservada?: boolean;
+}
+
+export async function semRedeConfirmada(
+  opcoes?: OpcoesSemRede,
+): Promise<boolean> {
   // Wi-Fi sem internet: o fetch já falhou, e o NetInfo diria "conectado".
-  if (redeCaidaObservada()) return true;
+  if (!opcoes?.ignorarQuedaObservada && redeCaidaObservada()) return true;
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const guarda = new Promise<null>((resolve) => {
