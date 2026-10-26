@@ -176,3 +176,21 @@ it('outra rota não é afetada pela partição', async () => {
     ['R', 4, 1],
   ]);
 });
+
+it('rota inteira além da margem: no máximo 2 inserts por envio', async () => {
+  // Lote em ordem de tempo: se a posição mais antiga é recusada, todas são.
+  await guardarSemRede([1, 2, 3, 4, 5, 6, 7].map((n) => ['R', n]));
+  bancoComMargem(0);
+
+  const destino = await registrarPosicao(posicao('R', 8), minuto(8), ROTULO);
+
+  expect(destino).toBe('na_fila');
+  // O lote inteiro, depois só a mais antiga — sem a bissecção até o fim.
+  expect(lotesEnviados().map((l) => l.map((p) => p.latitude))).toEqual([
+    [1, 2, 3, 4, 5, 6, 7, 8],
+    [1],
+  ]);
+  expect(filaGuardada().map((p) => p.tentativas)).toEqual(
+    [1, 2, 3, 4, 5, 6, 7, 8].map(() => 1),
+  );
+});

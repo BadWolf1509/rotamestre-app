@@ -36,7 +36,9 @@
  *   CHECK, tipo, número fora da faixa): descartado na hora, só o lote daquela
  *   rota;
  * - **por 42501** (`ehRecusaNoTempo`: rota encerrada há mais de 10 min corta
- *   o lote num instante): partido ao meio, metade mais antiga primeiro; o que
+ *   o lote num instante): na 1ª recusa, sonda só a posição mais antiga (se
+ *   ela cai, a sequência inteira está além do corte); se passa, o lote é
+ *   partido ao meio, metade mais antiga primeiro; o que
  *   sobe sai da fila. Lote de 1 recusado = o resto da sequência é a cauda
  *   além da margem, e segue a regra abaixo. As partições gastam `MAX_RODADAS`;
  * - **por qualquer outra coisa** (rota que não é mais do motorista, JWT
@@ -609,6 +611,10 @@ async function enviarFila(
   // Tamanho máximo do lote de cada rota recusada com 42501, só neste envio:
   // metade a cada recusa (ver `ehRecusaNoTempo`).
   const limite = new Map<string, number>();
+  // Rotas cuja posição mais antiga já foi sondada neste envio, e o limite da
+  // bissecção que retoma se a sonda passar (ver o primeiro 42501 abaixo).
+  const sondadas = new Set<string>();
+  const bisseccaoAposSonda = new Map<string, number>();
   // Um logout no meio do envio troca a geração: este envio é da conta que
   // saiu e não segue. Sem isto, a rodada seguinte leria a fila de quem
   // entrou e a apagaria como "de outra conta" (N1), ou, com a mesma conta de
@@ -637,9 +643,23 @@ async function enviarFila(
       return false;
     }
     if (error && ehRecusaNoTempo(error) && lote.length > 1) {
+      const metade = Math.floor(lote.length / 2);
+      if (!sondadas.has(rota)) {
+        // Primeiro 42501 da rota: sonda SÓ a posição mais antiga. O lote vai
+        // em ordem de tempo, então se ela é recusada a sequência inteira está
+        // além do corte — o lote de 1 recusado conta a tentativa de todas
+        // (2 requisições, em vez de ~log2(n)+1 da bissecção até o fim, que é
+        // o caso comum: rota encerrada há muito). Comparado: bissecção pura
+        // (sem sonda) gasta mais requisições justamente nesse caso; sondar a
+        // MAIS NOVA não decide nada quando ela é recusada.
+        sondadas.add(rota);
+        bisseccaoAposSonda.set(rota, metade);
+        limite.set(rota, 1);
+        continue;
+      }
       // Pode ser o corte da rota encerrada no meio do lote: tenta a metade
       // mais antiga. Sem log nem tentativa — ainda não se sabe o que é.
-      limite.set(rota, Math.floor(lote.length / 2));
+      limite.set(rota, metade);
       continue;
     }
     if (error && !ehRecusaDeDado(error)) {
@@ -672,6 +692,13 @@ async function enviarFila(
       // evita reenviá-lo nas próximas rodadas; a próxima posição tenta de novo.
       logger.warn('[FilaPosicoes] Fila ilegível; lote enviado ficou', falha);
       return false;
+    }
+    // A sonda saiu da fila: o corte está mais adiante, e a bissecção retoma
+    // de onde a recusa do lote inteiro a deixaria.
+    const retomar = bisseccaoAposSonda.get(rota);
+    if (retomar !== undefined) {
+      bisseccaoAposSonda.delete(rota);
+      limite.set(rota, retomar);
     }
   }
   return false;
