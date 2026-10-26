@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 
-import { logger } from "@/lib/logger";
-import { supabase } from "@/lib/supabase";
-import type { NotificacaoComDetalhes } from "@/types/notifications";
+import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
+import type { NotificacaoComDetalhes } from '@/types/notifications';
 
 /** Mesmo recorte da lista do provider: a notificação nova entra pronta. */
 export const SELECT_NOTIFICACAO_COM_DETALHES = `
@@ -22,6 +22,12 @@ interface UseNotificationPollingOptions {
   /** `created_at` da notificação mais nova já vista; null se nenhuma. */
   desde: string | null;
   onNovas: (novas: NotificacaoComDetalhes[]) => void;
+  /**
+   * Chamado uma vez quando o realtime volta, além da busca das novas: a busca
+   * só traz INSERTs, e o que mudou enquanto o canal esteve fora (lida, apagada)
+   * só aparece recarregando a lista.
+   */
+  onRecuperar?: () => void;
 }
 
 /**
@@ -35,23 +41,29 @@ interface UseNotificationPollingOptions {
  *
  * Quando o realtime volta (`ativo` true → false) faz UMA busca de recuperação:
  * entre o último evento e o SUBSCRIBED o canal não ouviu nada. É também o que
- * fecha a janela entre a carga inicial e a primeira inscrição.
+ * fecha a janela entre a carga inicial e a primeira inscrição. Se `onRecuperar`
+ * existir, ele roda junto, para a lista inteira ser recarregada.
  */
 export function useNotificationPolling({
   userId,
   ativo,
   desde,
   onNovas,
+  onRecuperar,
 }: UseNotificationPollingOptions) {
   // Refs: mudar a última vista ou o callback não reinicia o intervalo.
   const desdeRef = useRef(desde);
   const onNovasRef = useRef(onNovas);
+  const onRecuperarRef = useRef(onRecuperar);
   useEffect(() => {
     desdeRef.current = desde;
   }, [desde]);
   useEffect(() => {
     onNovasRef.current = onNovas;
   }, [onNovas]);
+  useEffect(() => {
+    onRecuperarRef.current = onRecuperar;
+  }, [onRecuperar]);
 
   // Contador de geração: resposta de uma conta anterior (ou de um hook já
   // desmontado) não entrega nada.
@@ -69,25 +81,25 @@ export function useNotificationPolling({
     const geracao = geracaoRef.current;
     try {
       let consulta = supabase
-        .from("notificacoes")
+        .from('notificacoes')
         .select(SELECT_NOTIFICACAO_COM_DETALHES)
-        .eq("usuario_id", userId);
+        .eq('usuario_id', userId);
       if (desdeRef.current) {
-        consulta = consulta.gte("created_at", desdeRef.current);
+        consulta = consulta.gte('created_at', desdeRef.current);
       }
       const { data, error } = await consulta
-        .order("created_at", { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(LIMITE_POR_BUSCA);
 
       if (geracao !== geracaoRef.current) return;
       if (error) {
-        logger.warn("[Polling:Notificacoes] Falha ao buscar novas", error);
+        logger.warn('[Polling:Notificacoes] Falha ao buscar novas', error);
         return;
       }
       const novas = (data ?? []) as NotificacaoComDetalhes[];
       if (novas.length > 0) onNovasRef.current(novas);
     } catch (error) {
-      logger.warn("[Polling:Notificacoes] Falha ao buscar novas", error);
+      logger.warn('[Polling:Notificacoes] Falha ao buscar novas', error);
     }
   };
 
@@ -108,6 +120,9 @@ export function useNotificationPolling({
   useEffect(() => {
     const voltou = ativoAnteriorRef.current && !ativo;
     ativoAnteriorRef.current = ativo;
-    if (voltou && userId) buscarNovasRef.current?.();
+    if (voltou && userId) {
+      buscarNovasRef.current?.();
+      onRecuperarRef.current?.();
+    }
   }, [ativo, userId]);
 }

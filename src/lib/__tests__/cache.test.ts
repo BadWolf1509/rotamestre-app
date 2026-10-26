@@ -3,7 +3,7 @@
  * Sistema de Cache com TTL (Time To Live)
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   getCache,
@@ -11,24 +11,29 @@ import {
   clearCache,
   clearAllCache,
   cleanExpiredCache,
+  reiniciarLimpezaDeCacheParaTeste,
+  INTERVALO_LIMPEZA_CACHE_MS,
   getCacheWithFetch,
   invalidateRelatedCaches,
   CACHE_TTL,
   CACHE_KEYS,
-} from "../cache";
+} from '../cache';
 
 // Mock AsyncStorage
-jest.mock("@react-native-async-storage/async-storage", () => ({
+jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
   getAllKeys: jest.fn(),
+  multiGet: jest.fn(),
   multiRemove: jest.fn(),
 }));
 
-describe("cache", () => {
+describe('cache', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    reiniciarLimpezaDeCacheParaTeste();
+    (AsyncStorage.multiGet as jest.Mock).mockResolvedValue([]);
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
@@ -36,8 +41,8 @@ describe("cache", () => {
     (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
   });
 
-  describe("CACHE_TTL constants", () => {
-    it("should have correct TTL values", () => {
+  describe('CACHE_TTL constants', () => {
+    it('should have correct TTL values', () => {
       expect(CACHE_TTL.USER_DATA).toBe(5 * 60 * 1000);
       expect(CACHE_TTL.DASHBOARD).toBe(2 * 60 * 1000);
       expect(CACHE_TTL.ROUTES_LIST).toBe(3 * 60 * 1000);
@@ -47,45 +52,45 @@ describe("cache", () => {
     });
   });
 
-  describe("CACHE_KEYS", () => {
-    it("should generate correct keys", () => {
-      expect(CACHE_KEYS.USER_DATA("user-1")).toBe("user_user-1");
-      expect(CACHE_KEYS.DASHBOARD("unidade-1")).toBe("dashboard_unidade-1");
-      expect(CACHE_KEYS.ROTAS_LIST("unidade-1")).toBe("rotas_unidade-1");
-      expect(CACHE_KEYS.MOTORISTAS("unidade-1")).toBe("motoristas_unidade-1");
-      expect(CACHE_KEYS.INCIDENTES("unidade-1")).toBe("incidentes_unidade-1");
+  describe('CACHE_KEYS', () => {
+    it('should generate correct keys', () => {
+      expect(CACHE_KEYS.USER_DATA('user-1')).toBe('user_user-1');
+      expect(CACHE_KEYS.DASHBOARD('unidade-1')).toBe('dashboard_unidade-1');
+      expect(CACHE_KEYS.ROTAS_LIST('unidade-1')).toBe('rotas_unidade-1');
+      expect(CACHE_KEYS.MOTORISTAS('unidade-1')).toBe('motoristas_unidade-1');
+      expect(CACHE_KEYS.INCIDENTES('unidade-1')).toBe('incidentes_unidade-1');
     });
   });
 
-  describe("setCache", () => {
-    it("should save data to AsyncStorage with prefix", async () => {
-      await setCache("test-key", { value: 123 }, 60000);
+  describe('setCache', () => {
+    it('should save data to AsyncStorage with prefix', async () => {
+      await setCache('test-key', { value: 123 }, 60000);
 
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-        "@cache_test-key",
+        '@cache_test-key',
         expect.any(String),
       );
     });
 
-    it("should save with correct structure", async () => {
+    it('should save with correct structure', async () => {
       const now = Date.now();
-      jest.spyOn(Date, "now").mockReturnValue(now);
+      jest.spyOn(Date, 'now').mockReturnValue(now);
 
-      await setCache("my-key", { data: "test" }, 30000);
+      await setCache('my-key', { data: 'test' }, 30000);
 
       const savedData = JSON.parse(
         (AsyncStorage.setItem as jest.Mock).mock.calls[0][1],
       );
 
-      expect(savedData.data).toEqual({ data: "test" });
+      expect(savedData.data).toEqual({ data: 'test' });
       expect(savedData.timestamp).toBe(now);
       expect(savedData.ttl).toBe(30000);
 
       jest.restoreAllMocks();
     });
 
-    it("should use default TTL when not specified", async () => {
-      await setCache("default-ttl", { value: 1 });
+    it('should use default TTL when not specified', async () => {
+      await setCache('default-ttl', { value: 1 });
 
       const savedData = JSON.parse(
         (AsyncStorage.setItem as jest.Mock).mock.calls[0][1],
@@ -94,32 +99,32 @@ describe("cache", () => {
       expect(savedData.ttl).toBe(CACHE_TTL.USER_DATA);
     });
 
-    it("should handle storage error gracefully", async () => {
-      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+    it('should handle storage error gracefully', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       (AsyncStorage.setItem as jest.Mock).mockRejectedValue(
-        new Error("Storage full"),
+        new Error('Storage full'),
       );
 
-      await setCache("error-key", { value: 1 });
+      await setCache('error-key', { value: 1 });
 
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });
 
-  describe("getCache", () => {
-    it("should return null when cache does not exist", async () => {
+  describe('getCache', () => {
+    it('should return null when cache does not exist', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
-      const result = await getCache("non-existent");
+      const result = await getCache('non-existent');
 
       expect(result).toBeNull();
     });
 
-    it("should return data when cache is valid", async () => {
+    it('should return data when cache is valid', async () => {
       const now = Date.now();
       const cacheEntry = {
-        data: { value: "cached" },
+        data: { value: 'cached' },
         timestamp: now - 1000, // 1 second ago
         ttl: 60000, // 1 minute TTL
       };
@@ -127,15 +132,15 @@ describe("cache", () => {
         JSON.stringify(cacheEntry),
       );
 
-      const result = await getCache("valid-cache");
+      const result = await getCache('valid-cache');
 
-      expect(result).toEqual({ value: "cached" });
+      expect(result).toEqual({ value: 'cached' });
     });
 
-    it("should return null and remove when cache is expired", async () => {
+    it('should return null and remove when cache is expired', async () => {
       const now = Date.now();
       const cacheEntry = {
-        data: { value: "old" },
+        data: { value: 'old' },
         timestamp: now - 120000, // 2 minutes ago
         ttl: 60000, // 1 minute TTL (expired)
       };
@@ -143,19 +148,19 @@ describe("cache", () => {
         JSON.stringify(cacheEntry),
       );
 
-      const result = await getCache("expired-cache");
+      const result = await getCache('expired-cache');
 
       expect(result).toBeNull();
       expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
-        "@cache_expired-cache",
+        '@cache_expired-cache',
       );
     });
 
-    it("should handle parse error gracefully", async () => {
-      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue("invalid json");
+    it('should handle parse error gracefully', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('invalid json');
 
-      const result = await getCache("invalid");
+      const result = await getCache('invalid');
 
       expect(result).toBeNull();
       expect(consoleSpy).toHaveBeenCalled();
@@ -163,42 +168,42 @@ describe("cache", () => {
     });
   });
 
-  describe("clearCache", () => {
-    it("should remove specific cache key", async () => {
-      await clearCache("to-remove");
+  describe('clearCache', () => {
+    it('should remove specific cache key', async () => {
+      await clearCache('to-remove');
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_to-remove");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_to-remove');
     });
 
-    it("should handle error gracefully", async () => {
-      const consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+    it('should handle error gracefully', async () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       (AsyncStorage.removeItem as jest.Mock).mockRejectedValue(
-        new Error("Error"),
+        new Error('Error'),
       );
 
-      await clearCache("error-key");
+      await clearCache('error-key');
 
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });
   });
 
-  describe("clearAllCache", () => {
-    it("should remove all cache keys", async () => {
+  describe('clearAllCache', () => {
+    it('should remove all cache keys', async () => {
       (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([
-        "@cache_key1",
-        "@cache_key2",
-        "@other_key", // Not a cache key
+        '@cache_key1',
+        '@cache_key2',
+        '@other_key', // Not a cache key
       ]);
 
       await clearAllCache();
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_key1");
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_key2");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_key1');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_key2');
     });
 
-    it("should not call removeItem when no cache keys", async () => {
-      (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue(["@other_key"]);
+    it('should not call removeItem when no cache keys', async () => {
+      (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue(['@other_key']);
 
       await clearAllCache();
 
@@ -206,41 +211,72 @@ describe("cache", () => {
     });
   });
 
-  describe("cleanExpiredCache", () => {
-    it("should remove only expired entries", async () => {
-      const now = Date.now();
+  describe('cleanExpiredCache', () => {
+    function entrada(chave: string, idadeMs: number, ttl = 60000) {
+      return [
+        chave,
+        JSON.stringify({ data: chave, timestamp: Date.now() - idadeMs, ttl }),
+      ];
+    }
 
+    it('should remove only expired entries', async () => {
       (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([
-        "@cache_valid",
-        "@cache_expired",
+        '@cache_valid',
+        '@cache_expired',
       ]);
-
-      // Valid entry
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(
-          JSON.stringify({
-            data: "valid",
-            timestamp: now - 1000,
-            ttl: 60000,
-          }),
-        )
-        // Expired entry
-        .mockResolvedValueOnce(
-          JSON.stringify({
-            data: "expired",
-            timestamp: now - 120000,
-            ttl: 60000,
-          }),
-        );
+      (AsyncStorage.multiGet as jest.Mock).mockResolvedValue([
+        entrada('@cache_valid', 1000),
+        entrada('@cache_expired', 120000),
+      ]);
 
       await cleanExpiredCache();
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_expired");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledTimes(1);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_expired');
+    });
+
+    it('lê as chaves de uma vez com multiGet, sem getItem por chave', async () => {
+      (AsyncStorage.getAllKeys as jest.Mock).mockResolvedValue([
+        '@cache_a',
+        '@cache_b',
+        'outra_coisa',
+      ]);
+
+      await cleanExpiredCache();
+
+      expect(AsyncStorage.multiGet).toHaveBeenCalledTimes(1);
+      expect(AsyncStorage.multiGet).toHaveBeenCalledWith([
+        '@cache_a',
+        '@cache_b',
+      ]);
+      expect(AsyncStorage.getItem).not.toHaveBeenCalled();
+    });
+
+    it('duas chamadas concorrentes dividem uma só varredura', async () => {
+      await Promise.all([cleanExpiredCache(), cleanExpiredCache()]);
+
+      expect(AsyncStorage.getAllKeys).toHaveBeenCalledTimes(1);
+    });
+
+    it('não varre de novo dentro do intervalo, e varre depois dele', async () => {
+      jest.useFakeTimers({ now: new Date('2026-10-26T12:00:00Z') });
+      try {
+        await cleanExpiredCache();
+        jest.setSystemTime(Date.now() + INTERVALO_LIMPEZA_CACHE_MS - 1000);
+        await cleanExpiredCache();
+        expect(AsyncStorage.getAllKeys).toHaveBeenCalledTimes(1);
+
+        jest.setSystemTime(Date.now() + 2000);
+        await cleanExpiredCache();
+        expect(AsyncStorage.getAllKeys).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
-  describe("getCacheWithFetch", () => {
-    it("should return cached data when available", async () => {
+  describe('getCacheWithFetch', () => {
+    it('should return cached data when available', async () => {
       const now = Date.now();
       const cacheEntry = {
         data: { cached: true },
@@ -253,26 +289,26 @@ describe("cache", () => {
 
       const fetcher = jest.fn().mockResolvedValue({ fresh: true });
 
-      const result = await getCacheWithFetch("cached-key", fetcher);
+      const result = await getCacheWithFetch('cached-key', fetcher);
 
       expect(result.data).toEqual({ cached: true });
       expect(result.fromCache).toBe(true);
       expect(fetcher).not.toHaveBeenCalled();
     });
 
-    it("should fetch data when cache miss", async () => {
+    it('should fetch data when cache miss', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
       const fetcher = jest.fn().mockResolvedValue({ fresh: true });
 
-      const result = await getCacheWithFetch("miss-key", fetcher);
+      const result = await getCacheWithFetch('miss-key', fetcher);
 
       expect(result.data).toEqual({ fresh: true });
       expect(result.fromCache).toBe(false);
       expect(fetcher).toHaveBeenCalled();
     });
 
-    it("should force refresh when option is set", async () => {
+    it('should force refresh when option is set', async () => {
       const now = Date.now();
       const cacheEntry = {
         data: { cached: true },
@@ -285,7 +321,7 @@ describe("cache", () => {
 
       const fetcher = jest.fn().mockResolvedValue({ fresh: true });
 
-      const result = await getCacheWithFetch("force-key", fetcher, {
+      const result = await getCacheWithFetch('force-key', fetcher, {
         forceRefresh: true,
       });
 
@@ -295,35 +331,35 @@ describe("cache", () => {
     });
   });
 
-  describe("invalidateRelatedCaches", () => {
-    it("should clear related caches for rotas", async () => {
-      await invalidateRelatedCaches("rotas");
+  describe('invalidateRelatedCaches', () => {
+    it('should clear related caches for rotas', async () => {
+      await invalidateRelatedCaches('rotas');
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_dashboard");
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_rotas_list");
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_kpis");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_dashboard');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_rotas_list');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_kpis');
     });
 
-    it("should clear related caches for paradas", async () => {
-      await invalidateRelatedCaches("paradas");
+    it('should clear related caches for paradas', async () => {
+      await invalidateRelatedCaches('paradas');
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_dashboard");
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_rotas_list");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_dashboard');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_rotas_list');
     });
 
-    it("should clear related caches for usuarios", async () => {
-      await invalidateRelatedCaches("usuarios");
+    it('should clear related caches for usuarios', async () => {
+      await invalidateRelatedCaches('usuarios');
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_user_data");
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_motoristas");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_user_data');
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_motoristas');
     });
 
-    it("should clear related caches for incidentes", async () => {
-      await invalidateRelatedCaches("incidentes");
+    it('should clear related caches for incidentes', async () => {
+      await invalidateRelatedCaches('incidentes');
 
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith("@cache_dashboard");
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_dashboard');
       expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
-        "@cache_incidentes_list",
+        '@cache_incidentes_list',
       );
     });
   });

@@ -47,12 +47,12 @@
  * ```
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { logger } from "./logger";
+import { logger } from './logger';
 
 // Prefixo para identificar cache vs outros dados do AsyncStorage
-const CACHE_PREFIX = "@cache_";
+const CACHE_PREFIX = '@cache_';
 
 interface CacheEntry<T> {
   data: T;
@@ -137,7 +137,7 @@ export async function getCache<T>(key: string): Promise<T | null> {
     memoryCache.set(cacheKey, entry);
     return entry.data;
   } catch (error) {
-    logger.warn("[Cache] Erro ao ler cache:", error);
+    logger.warn('[Cache] Erro ao ler cache:', error);
     return null;
   }
 }
@@ -178,7 +178,7 @@ export async function setCache<T>(
   try {
     await AsyncStorage.setItem(cacheKey, JSON.stringify(entry));
   } catch (error) {
-    logger.warn("[Cache] Erro ao salvar cache:", error);
+    logger.warn('[Cache] Erro ao salvar cache:', error);
   }
 }
 
@@ -192,7 +192,7 @@ export async function clearCache(key: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(cacheKey);
   } catch (error) {
-    logger.warn("[Cache] Erro ao limpar cache:", error);
+    logger.warn('[Cache] Erro ao limpar cache:', error);
   }
 }
 
@@ -209,22 +209,38 @@ export async function clearAllCache(): Promise<void> {
       await Promise.all(cacheKeys.map((k) => AsyncStorage.removeItem(k)));
     }
   } catch (error) {
-    logger.warn("[Cache] Erro ao limpar todo cache:", error);
+    logger.warn('[Cache] Erro ao limpar todo cache:', error);
   }
 }
 
-/**
- * Remove entradas expiradas do cache (garbage collection)
- */
-export async function cleanExpiredCache(): Promise<void> {
+/** Intervalo mínimo entre duas varreduras de cache expirado. */
+export const INTERVALO_LIMPEZA_CACHE_MS = 10 * 60_000;
+
+// Guarda de módulo (DAT-4). `useAuth` é montado por dezenas de hooks e cada
+// montagem pedia a varredura inteira. Alternativa descartada: chamar uma vez em
+// app/_layout.tsx — funciona só enquanto ninguém mais chamar, e a próxima
+// chamada nova reabriria o problema sem aviso. A guarda no próprio módulo vale
+// para qualquer chamador.
+let varreduraEmVoo: Promise<void> | null = null;
+let ultimaLimpezaEm = 0;
+
+/** Só para teste: esquece a última varredura e a que estiver em voo. */
+export function reiniciarLimpezaDeCacheParaTeste(): void {
+  varreduraEmVoo = null;
+  ultimaLimpezaEm = 0;
+}
+
+async function varrerCacheExpirado(): Promise<void> {
   try {
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter((k) => k.startsWith(CACHE_PREFIX));
+    if (cacheKeys.length === 0) return;
 
+    // Uma ida ao armazenamento para todas as chaves, em vez de uma por chave.
+    const pares = await AsyncStorage.multiGet(cacheKeys);
     const toRemove: string[] = [];
 
-    for (const key of cacheKeys) {
-      const stored = await AsyncStorage.getItem(key);
+    for (const [key, stored] of pares) {
       if (stored) {
         const entry = JSON.parse(stored) as CacheEntry<unknown>;
         if (!isValid(entry)) {
@@ -238,8 +254,27 @@ export async function cleanExpiredCache(): Promise<void> {
       await Promise.all(toRemove.map((k) => AsyncStorage.removeItem(k)));
     }
   } catch (error) {
-    logger.warn("[Cache] Erro ao limpar cache expirado:", error);
+    logger.warn('[Cache] Erro ao limpar cache expirado:', error);
   }
+}
+
+/**
+ * Remove entradas expiradas do cache (garbage collection).
+ *
+ * Chamável à vontade: uma varredura em voo é compartilhada e, concluída uma,
+ * a próxima só acontece depois de `INTERVALO_LIMPEZA_CACHE_MS`. O intervalo
+ * conta do início da varredura, então uma que falhou também espera.
+ */
+export function cleanExpiredCache(): Promise<void> {
+  if (varreduraEmVoo) return varreduraEmVoo;
+  if (Date.now() - ultimaLimpezaEm < INTERVALO_LIMPEZA_CACHE_MS) {
+    return Promise.resolve();
+  }
+  ultimaLimpezaEm = Date.now();
+  varreduraEmVoo = varrerCacheExpirado().finally(() => {
+    varreduraEmVoo = null;
+  });
+  return varreduraEmVoo;
 }
 
 /**
@@ -326,13 +361,13 @@ export async function getCacheWithFetch<T>(
  * ```
  */
 export async function invalidateRelatedCaches(
-  entity: "rotas" | "paradas" | "usuarios" | "incidentes",
+  entity: 'rotas' | 'paradas' | 'usuarios' | 'incidentes',
 ): Promise<void> {
   const relatedKeys: Record<string, string[]> = {
-    rotas: ["dashboard", "rotas_list", "kpis"],
-    paradas: ["dashboard", "rotas_list"],
-    usuarios: ["user_data", "motoristas"],
-    incidentes: ["dashboard", "incidentes_list"],
+    rotas: ['dashboard', 'rotas_list', 'kpis'],
+    paradas: ['dashboard', 'rotas_list'],
+    usuarios: ['user_data', 'motoristas'],
+    incidentes: ['dashboard', 'incidentes_list'],
   };
 
   const keysToInvalidate = relatedKeys[entity] || [];
