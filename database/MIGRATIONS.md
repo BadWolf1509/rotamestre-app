@@ -2938,3 +2938,42 @@ false, sem erro, para nome fora do formato `<loja>/<rota>/<arquivo>`; catálogo
 da função e da policy. Sem a migration: casos 1, 2, 11 e 14 FALHOU. Rollback
 colável com a policy viva de
 25/10/2026, o DROP da função e o COMMENT antigo do helper.
+
+### ⏳ Migration 66: incidente atualizado só pelo gestor da loja
+
+**Arquivo:** `20261025161000_incidente_atualizado_pelo_gestor.sql` · **⏳ aguardando aplicação**
+
+**O que faz.** Recria a policy `incidentes_update` (mesmo nome, `FOR UPDATE TO
+authenticated`) sem o ramo `motorista_id = auth.uid()`: USING e WITH CHECK
+passam a exigir vínculo ativo de gestor na loja do incidente
+(`incidentes.unidade_id`), a mesma condição do ramo do gestor em
+`incidentes_select` e em `incidentes_delete_optimized`. O incidente é aberto
+pelo motorista no INSERT e atualizado pelo gestor da loja, como a Migration 61
+documenta. SELECT, INSERT, DELETE e os gatilhos de `incidentes` (Migrations 57,
+59, 61 e 62) não mudam.
+
+**Alternativas.** (a) Tirar o ramo do motorista — escolhida: nenhum fluxo do
+app atualiza incidente como motorista; a policy fica com uma só condição.
+(b) Manter o ramo e acrescentar um gatilho de colunas que deixe o motorista
+mudar só `descricao` com `status = 'aberto'`: guardaria uma edição que ninguém
+usa, com função nova e lista de colunas a manter (YAGNI); é o caminho se o app
+oferecer "editar o relato". (c) Privilégio de coluna só em `descricao`:
+quebraria o UPDATE do gestor (`status`, `observacoes_gestao`, `resolvido_em`) e
+toda coluna nova passaria a exigir GRANT.
+
+**App.** O motorista só faz INSERT (`createIncidente`,
+`src/lib/queries/incidentes.ts`, via `useIncidentSubmit`, que já envia
+`foto_url` no INSERT). `updateIncidente` e `updateIncidenteStatus` não têm
+chamador fora de `src/lib/queries/index.ts`; o UPDATE do gestor é
+`src/hooks/incidentes-gestor/useIncidentesModals.ts` (ramo mantido). Sem mudança
+de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration66-incidente-atualizado-pelo-gestor.test.ts`; sonda
+`database/sondas/20261025161000_sonda_migration66.sql`: o motorista não muda
+status, observações da gestão nem descrição do próprio incidente (0 linhas); o
+gestor da loja atualiza (1 linha); o gestor de outra loja não atualiza; o
+motorista lê o próprio incidente e cria incidente na própria rota; catálogo da
+policy sem `motorista_id` em USING e WITH CHECK e com uma única policy de
+UPDATE. Sem a migration: casos 1, 2, 3 e 8 FALHOU. Rollback colável com a
+policy viva de 25/10/2026 (ramo do motorista em USING e WITH CHECK).
