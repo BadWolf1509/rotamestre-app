@@ -298,6 +298,25 @@ describe('MapaWebMapLibre – um pino por local', () => {
     expect(features[0].properties.is_selected).toBe(true);
   });
 
+  // A fonte do layer (Noto Sans Bold, OpenFreeMap) só tem glifos de texto:
+  // emoji pede uma faixa de glifos que o servidor responde 404 e o rótulo
+  // sai em branco. Todo rótulo do mapa web precisa caber no plano básico.
+  it('partida e chegada usam rótulo com glifo na fonte do mapa (I/F)', () => {
+    const partida = { ...base, id: 'p0', ordem: 0, is_checkpoint: true };
+    const chegada = { ...base, id: 'c9', ordem: 9, is_checkpoint: true };
+    const features = montarFeaturesDosMarcadores(
+      [partida, chegada],
+      montarPinosPorLocal([entrega]),
+      null,
+    );
+    expect(features.map((f) => f.properties.label)).toEqual(['I', 'F', '3']);
+    for (const f of features) {
+      for (const ch of String(f.properties.label)) {
+        expect(ch.codePointAt(0)).toBeLessThan(0x2000);
+      }
+    }
+  });
+
   it('o popup do grupo lista Entrega e Retirada', () => {
     const html = createGrupoPopupContent([entrega, retirada], '#666');
     expect(html).toContain('Entrega');
