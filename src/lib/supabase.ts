@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import { getSupabaseClientInfo } from './appVersion';
 import { criarFetchComTimeout } from './fetchComTimeout';
 import { logger } from './logger';
+import { criarFetchSemConsultaAnonima } from './porteiroSessao';
 import { secureAuthStorage } from './secureAuthStorage';
 
 // Capture URL hash BEFORE Supabase client processes it (createClient cleans the hash)
@@ -59,7 +60,13 @@ if (isSupabaseConfigured) {
       // O prazo varia por caminho: 15 s para REST/auth, 3 min para o Storage,
       // porque o mesmo cliente carrega o upload da foto do comprovante. Ver
       // `fetchComTimeout.ts`.
-      fetch: criarFetchComTimeout(),
+      //
+      // O porteiro fica por dentro do prazo: consulta REST sem sessão vira um
+      // 401 local em vez de 200 vazio (ver `porteiroSessao.ts`).
+      fetch: criarFetchComTimeout(
+        undefined,
+        criarFetchSemConsultaAnonima(supabaseAnonKey, (...a) => fetch(...a)),
+      ),
       // Versão do app nos logs HTTP: sem isto não se sabia quem estava em
       // qual versão (o user-agent é sempre o do okhttp). Vai no X-Client-Info
       // porque é um dos poucos headers que os edge_logs guardam — ver
