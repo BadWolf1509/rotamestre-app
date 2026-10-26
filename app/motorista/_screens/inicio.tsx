@@ -38,7 +38,6 @@ import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
-import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import {
   useLocationWatcher,
   type OpcoesDoWatcher,
@@ -103,11 +102,8 @@ function MotoristaInicioContent() {
   const estadoDaCarga =
     getEstadoDaCarga({ route, loading, error, atualizadoEm }) ?? undefined;
 
-  // Broadcast localização do motorista quando a rota está em andamento
-  useDriverLocationBroadcast({
-    rotaId: route?.id,
-    rotaStatus: route?.status,
-  });
+  // A posição em primeiro plano é transmitida pelo layout do motorista
+  // (`TransmissaoDePosicao`), uma vez para todas as abas.
 
   // Modal/UI state (consolidated via useReducer)
   const modals = useInicioModals();

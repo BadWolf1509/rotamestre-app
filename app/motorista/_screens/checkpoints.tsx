@@ -25,7 +25,6 @@ import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
-import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import {
@@ -80,12 +79,6 @@ export default function CheckpointsMotorista() {
     () => paradasContext.filter((p) => p.is_checkpoint !== false).map(toParada),
     [paradasContext],
   );
-
-  // Broadcast localização do motorista quando a rota está em andamento
-  useDriverLocationBroadcast({
-    rotaId: route?.id,
-    rotaStatus: route?.status,
-  });
 
   // Entrega e retirada no mesmo local: cada serviço tem o seu comprovante, e
   // o fluxo do próximo abre quando o anterior conclui (como na Início). A
