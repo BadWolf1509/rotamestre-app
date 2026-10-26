@@ -96,7 +96,8 @@ describe('test.yml: e2e autenticado pulado de forma visível', () => {
       .filter((l) => !l.trim().startsWith('#'))
       .join('\n');
     expect(semComentarios).not.toMatch(/\|\|\s*true/);
-    expect((fonte.match(/timeout-minutes:/g) ?? []).length).toBe(4);
+    // Prazo em cada um dos 4 jobs (indentação de job); passos podem ter o seu.
+    expect((fonte.match(/^ {4}timeout-minutes:/gm) ?? []).length).toBe(4);
     expect(
       (fonte.match(/copy-maplibre-worker\.cjs/g) ?? []).length,
     ).toBeGreaterThanOrEqual(2);
