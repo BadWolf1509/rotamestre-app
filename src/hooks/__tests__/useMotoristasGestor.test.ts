@@ -825,8 +825,45 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.editarMotorista();
       });
 
-      // O hook mostra a mensagem do erro se disponivel, ou a mensagem generica
-      expect(mockShowToast).toHaveBeenCalledWith('Update failed', 'error');
+      // Erro que não é regra do banco (P0001) nem telefone duplicado vira o
+      // genérico: antes o toast mostrava o texto cru ("Update failed").
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Não foi possível editar o motorista.',
+        'error',
+      );
+    });
+
+    it('deve exibir a frase do banco quando a atualizacao falha por regra (P0001)', async () => {
+      const initialBuilder = criarMockQueryBuilder();
+      initialBuilder.returns.mockResolvedValue({ data: [], error: null });
+      (supabase.from as jest.Mock).mockReturnValue(initialBuilder);
+
+      const { result } = renderHook(() => useMotoristasGestor());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const regra = 'Este motorista atende outra loja: só nome e telefone.';
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: {
+          type: 'unknown',
+          code: 'P0001',
+          message: regra,
+          originalError: { code: 'P0001', message: regra },
+        },
+      });
+
+      act(() => {
+        result.current.abrirModalEditar(criarMotoristaMock());
+      });
+
+      await act(async () => {
+        await result.current.editarMotorista();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(regra, 'error');
     });
 
     it('deve gerenciar estado de salvando durante edicao', async () => {
