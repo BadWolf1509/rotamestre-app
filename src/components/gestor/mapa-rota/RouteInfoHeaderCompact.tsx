@@ -68,7 +68,11 @@ export function RouteInfoHeaderCompact({
       <View style={styles.driverSection}>
         <Ionicons name="person-circle" size={24} color={theme.colors.primary} />
         <Text style={styles.driverName} numberOfLines={1}>
-          {nomeMotoristaDaRota(rota.motorista?.nome, rota.motorista_id)}
+          {nomeMotoristaDaRota(
+            rota.motorista?.nome,
+            rota.motorista_id,
+            rota.motorista_fora_da_loja_nome,
+          )}
         </Text>
         {canChangeDriver && onChangeDriverPress && (
           <TouchableOpacity

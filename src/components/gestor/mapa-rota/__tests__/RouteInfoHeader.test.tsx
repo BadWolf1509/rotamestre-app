@@ -125,6 +125,19 @@ describe('RouteInfoHeader', () => {
       expect(getByText('Sem motorista')).toBeTruthy();
     });
 
+    it("mostra 'Nome (fora da loja)' quando a RLS esconde o motorista e a RPC deu o nome", () => {
+      const rota = createRota({
+        motorista: undefined,
+        motorista_id: 'mot-9',
+        motorista_fora_da_loja_nome: 'Bia Souza',
+      });
+      const { getByText } = render(
+        <RouteInfoHeader rota={rota} resumoParadas={createResumo()} />,
+      );
+
+      expect(getByText('Bia Souza (fora da loja)')).toBeTruthy();
+    });
+
     it('deve renderizar status da rota', () => {
       const rota = createRota({ status: 'em_andamento' });
       const resumo = createResumo();

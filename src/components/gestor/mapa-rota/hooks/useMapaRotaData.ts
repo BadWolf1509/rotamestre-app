@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ShowToast } from '@/hooks/useToast';
+import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { logger } from '@/lib/logger';
 import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
@@ -138,6 +139,21 @@ export function useMapaRotaData({
 
         if (paradasError) throw paradasError;
 
+        const motorista = Array.isArray(rotaData.usuarios)
+          ? rotaData.usuarios[0]
+          : rotaData.usuarios;
+        // Motorista escondido pela RLS (vínculo inativo com a loja): o nome
+        // vem da RPC da Migration 72. Esperado aqui, antes de gravar, e não
+        // depois: assim a tela não pisca "Motorista removido da loja" a cada
+        // recarga, e a conferência de sequência abaixo também descarta o nome
+        // de uma carga velha. Só custa uma chamada quando o embed vem vazio.
+        const nomesForaDaLoja =
+          !motorista?.nome && rotaData.motorista_id
+            ? await buscarNomesForaDaLoja([
+                { id: rotaData.id, motorista_id: rotaData.motorista_id },
+              ])
+            : null;
+
         // Chegou outra carga depois desta: a resposta é velha.
         if (minha !== sequenciaRef.current) return;
 
@@ -166,9 +182,9 @@ export function useMapaRotaData({
 
         setRota({
           ...rotaData,
-          motorista: Array.isArray(rotaData.usuarios)
-            ? rotaData.usuarios[0]
-            : rotaData.usuarios,
+          motorista,
+          motorista_fora_da_loja_nome:
+            nomesForaDaLoja?.get(rotaData.id) ?? null,
           unidade: Array.isArray(rotaData.unidades)
             ? rotaData.unidades[0]
             : rotaData.unidades,

@@ -47,6 +47,12 @@ export interface Rota {
   motorista?: {
     nome: string;
   };
+  /**
+   * Nome do motorista quando a RLS esconde o embed `motorista` (vínculo
+   * inativo com a loja), pela RPC `nomes_motoristas_das_rotas` (Migration
+   * 72). `null`/ausente = sem nome: a tela usa `ROTULO_MOTORISTA_OCULTO`.
+   */
+  motorista_fora_da_loja_nome?: string | null;
   unidade?: {
     nome: string;
   };

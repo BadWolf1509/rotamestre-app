@@ -160,7 +160,11 @@ export function RouteInfoHeader({
           <View>
             <Text style={styles.driverLabel}>Motorista</Text>
             <Text style={styles.driverName}>
-              {nomeMotoristaDaRota(rota?.motorista?.nome, rota?.motorista_id)}
+              {nomeMotoristaDaRota(
+                rota?.motorista?.nome,
+                rota?.motorista_id,
+                rota?.motorista_fora_da_loja_nome,
+              )}
             </Text>
           </View>
         </View>

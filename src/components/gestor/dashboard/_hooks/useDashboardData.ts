@@ -5,6 +5,7 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO, parseLocalDate, toLocalISODate } from '@/lib/dateUtils';
 import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
+import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -142,9 +143,14 @@ function encontrarMotoristaDestaque(
 }
 
 /**
- * Processa os dados das rotas vindas do Supabase (com JOIN de paradas)
+ * Processa os dados das rotas vindas do Supabase (com JOIN de paradas).
+ * `nomesForaDaLoja`: rotaId → nome do motorista que a RLS esconde (Migration
+ * 72, `buscarNomesForaDaLoja`).
  */
-function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
+function processarRotasComParadas(
+  rotasData: any[],
+  nomesForaDaLoja: Map<string, string>,
+): RotaResumo[] {
   return rotasData.map((rota) => {
     // Filtra apenas paradas reais (checkpoints, não base)
     const paradasReais = (rota.paradas || []).filter(
@@ -158,6 +164,7 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
       motorista_nome: nomeMotoristaDaRota(
         rota.usuarios?.nome,
         rota.motorista_id,
+        nomesForaDaLoja.get(rota.id),
       ),
       motorista_id: rota.motorista_id,
       total_paradas: paradasReais.length,
@@ -167,6 +174,16 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
       distancia_total: rota.distancia_total || 0,
     };
   });
+}
+
+/**
+ * Nome do embed `usuarios`. Sem tipos gerados do banco, o PostgREST-js infere
+ * o embed como lista; o servidor manda objeto (muitos-para-um). Aceita os dois.
+ */
+type EmbedNome = { nome?: unknown } | { nome?: unknown }[] | null | undefined;
+function nomeDoEmbed(embed: EmbedNome): string | null {
+  const nome = Array.isArray(embed) ? embed[0]?.nome : embed?.nome;
+  return typeof nome === 'string' ? nome : null;
 }
 
 /** Paradas e taxa de sucesso: derivados da lista, acompanham cada evento. */
@@ -255,7 +272,17 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
 
   const { data: rotasData, error: rotasError } = await query;
   if (rotasError) throw rotasError;
-  return processarRotasComParadas(rotasData || []);
+  const linhas = rotasData || [];
+  // Só as rotas com o motorista escondido pela RLS vão à RPC (em geral,
+  // nenhuma: sem chamada). Erro dela não derruba a lista (Map vazio).
+  const nomesForaDaLoja = await buscarNomesForaDaLoja(
+    linhas.map((r) => ({
+      id: r.id,
+      motorista_id: r.motorista_id,
+      nomeVisivel: nomeDoEmbed(r.usuarios),
+    })),
+  );
+  return processarRotasComParadas(linhas, nomesForaDaLoja);
 }
 
 /** Rotas de hoje da loja (ignora os filtros). null = a consulta falhou. */

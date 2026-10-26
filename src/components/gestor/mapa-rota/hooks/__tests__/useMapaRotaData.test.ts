@@ -35,9 +35,13 @@ const canalInerte: Record<string, unknown> = {};
 canalInerte.on = () => canalInerte;
 canalInerte.subscribe = () => canalInerte;
 
+// RPC nomes_motoristas_das_rotas (Migration 72).
+const mockRpc = jest.fn();
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
     channel: () => canalInerte,
     removeChannel: () => undefined,
   },
@@ -97,5 +101,57 @@ describe('useMapaRotaData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.rota?.otimizacao_estado).toBe('otimizada');
+  });
+
+  it('motorista com embed visível: não chama a RPC de nomes', async () => {
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(result.current.rota?.motorista_fora_da_loja_nome ?? null).toBeNull();
+  });
+
+  it('motorista escondido pela RLS: grava o nome da RPC em motorista_fora_da_loja_nome', async () => {
+    mockSingle.mockResolvedValue({
+      data: { ...rotaRow, usuarios: null },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: [{ rota_id: 'rota-1', nome: 'Bia' }],
+      error: null,
+    });
+
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockRpc).toHaveBeenCalledWith('nomes_motoristas_das_rotas', {
+      p_rota_ids: ['rota-1'],
+    });
+    expect(result.current.rota?.motorista).toBeNull();
+    expect(result.current.rota?.motorista_fora_da_loja_nome).toBe('Bia');
+  });
+
+  it('erro da RPC de nomes não impede a carga da rota', async () => {
+    mockSingle.mockResolvedValue({
+      data: { ...rotaRow, usuarios: null },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'x' } });
+
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.rota?.id).toBe('rota-1');
+    expect(result.current.rota?.motorista_fora_da_loja_nome).toBeNull();
+    expect(mockShowToast).not.toHaveBeenCalled();
   });
 });
