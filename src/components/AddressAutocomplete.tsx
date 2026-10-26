@@ -121,6 +121,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       setShowSuggestions(false);
       // Reset interaction tracking for next use (e.g., modal reopen)
       hasUserInteracted.current = false;
+      // Campo zerado sem escolha: a próxima digitação é outra sessão do Places.
+      sessaoPlacesRef.current = null;
     }
   }, [value]);
 
