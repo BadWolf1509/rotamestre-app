@@ -1,17 +1,39 @@
 import { Ionicons } from '@expo/vector-icons';
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { DesktopCard, DesktopCardGrid } from '../DesktopCard';
 
 describe('DesktopCard', () => {
+  describe('Empilhamento do cabeçalho', () => {
+    // No react-native-web cada View é um contexto de empilhamento (z-index 0):
+    // o zIndex de um menu suspenso nas `actions` fica preso ao cabeçalho, e o
+    // conteúdo (irmão posterior, ex.: tabela) o cobria. O cabeçalho precisa
+    // ficar acima do conteúdo para o menu abrir por cima.
+    it('cabeçalho fica acima do conteúdo, para menu suspenso nas actions', () => {
+      const { getByTestId } = render(
+        <DesktopCard title="Rotas" actions={<Text>Exportar</Text>}>
+          <Text>Tabela</Text>
+        </DesktopCard>,
+      );
+
+      const header = StyleSheet.flatten(
+        getByTestId('desktop-card-header').props.style,
+      );
+      const content = StyleSheet.flatten(
+        getByTestId('desktop-card-content').props.style,
+      );
+      expect(header.zIndex).toBeGreaterThan(content.zIndex ?? 0);
+    });
+  });
+
   describe('Renderização Básica', () => {
     it('deve renderizar children corretamente', () => {
       const { getByText } = render(
         <DesktopCard>
           <Text>Card content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       expect(getByText('Card content')).toBeTruthy();
@@ -21,7 +43,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_queryAllByType } = render(
         <DesktopCard>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_queryAllByType(View);
@@ -35,7 +57,7 @@ describe('DesktopCard', () => {
       const { getByText } = render(
         <DesktopCard title="Test Title">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       expect(getByText('Test Title')).toBeTruthy();
@@ -45,7 +67,7 @@ describe('DesktopCard', () => {
       const { getByText } = render(
         <DesktopCard subtitle="Test Subtitle">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       expect(getByText('Test Subtitle')).toBeTruthy();
@@ -55,7 +77,7 @@ describe('DesktopCard', () => {
       const { getByText } = render(
         <DesktopCard title="Title" subtitle="Subtitle">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       expect(getByText('Title')).toBeTruthy();
@@ -66,7 +88,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getByType } = render(
         <DesktopCard icon="home">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const icon = UNSAFE_getByType(Ionicons);
@@ -78,7 +100,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getByType } = render(
         <DesktopCard icon="star" iconColor="#FF0000">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const icon = UNSAFE_getByType(Ionicons);
@@ -87,12 +109,9 @@ describe('DesktopCard', () => {
 
     it('deve renderizar actions quando fornecido', () => {
       const { getByText } = render(
-        <DesktopCard
-          title="Card"
-          actions={<Text>Action Button</Text>}
-        >
+        <DesktopCard title="Card" actions={<Text>Action Button</Text>}>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       expect(getByText('Action Button')).toBeTruthy();
@@ -104,7 +123,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopCard>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_getAllByType(View);
@@ -115,7 +134,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopCard variant="outlined">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_getAllByType(View);
@@ -126,7 +145,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopCard variant="elevated">
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_getAllByType(View);
@@ -139,7 +158,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getAllByType, UNSAFE_queryAllByType } = render(
         <DesktopCard>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_getAllByType(View);
@@ -154,7 +173,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getByType } = render(
         <DesktopCard onPress={onPress}>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const touchable = UNSAFE_getByType(TouchableOpacity);
@@ -166,7 +185,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getByType } = render(
         <DesktopCard onPress={onPress}>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const touchable = UNSAFE_getByType(TouchableOpacity);
@@ -179,7 +198,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getByType } = render(
         <DesktopCard onPress={() => {}}>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const touchable = UNSAFE_getByType(TouchableOpacity);
@@ -192,7 +211,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopCard>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_getAllByType(View);
@@ -203,7 +222,7 @@ describe('DesktopCard', () => {
       const { UNSAFE_getAllByType } = render(
         <DesktopCard noPadding>
           <Text>Content</Text>
-        </DesktopCard>
+        </DesktopCard>,
       );
 
       const views = UNSAFE_getAllByType(View);
@@ -219,7 +238,7 @@ describe('DesktopCardGrid', () => {
         <Text>Card 1</Text>
         <Text>Card 2</Text>
         <Text>Card 3</Text>
-      </DesktopCardGrid>
+      </DesktopCardGrid>,
     );
 
     expect(getByText('Card 1')).toBeTruthy();
@@ -232,7 +251,7 @@ describe('DesktopCardGrid', () => {
       <DesktopCardGrid>
         <Text>Card 1</Text>
         <Text>Card 2</Text>
-      </DesktopCardGrid>
+      </DesktopCardGrid>,
     );
 
     const views = UNSAFE_getAllByType(View);
@@ -244,7 +263,7 @@ describe('DesktopCardGrid', () => {
       <DesktopCardGrid columns={2}>
         <Text>Card 1</Text>
         <Text>Card 2</Text>
-      </DesktopCardGrid>
+      </DesktopCardGrid>,
     );
 
     const views = UNSAFE_getAllByType(View);
@@ -256,7 +275,7 @@ describe('DesktopCardGrid', () => {
       <DesktopCardGrid gap={16}>
         <Text>Card 1</Text>
         <Text>Card 2</Text>
-      </DesktopCardGrid>
+      </DesktopCardGrid>,
     );
 
     const views = UNSAFE_getAllByType(View);
@@ -267,7 +286,7 @@ describe('DesktopCardGrid', () => {
     const { getByText } = render(
       <DesktopCardGrid>
         <Text>Only Card</Text>
-      </DesktopCardGrid>
+      </DesktopCardGrid>,
     );
 
     expect(getByText('Only Card')).toBeTruthy();
@@ -282,7 +301,7 @@ describe('DesktopCardGrid', () => {
         <DesktopCard title="Card 2">
           <Text>Content 2</Text>
         </DesktopCard>
-      </DesktopCardGrid>
+      </DesktopCardGrid>,
     );
 
     expect(getByText('Card 1')).toBeTruthy();
