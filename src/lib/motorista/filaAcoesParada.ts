@@ -39,6 +39,8 @@ import { lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
+import { ehRecusaPorRotaEncerrada } from './recusaRotaEncerrada';
+
 const CHAVE_FILA = '@rotamestre:fila_acoes_parada';
 const CHAVE_DESCARTES = '@rotamestre:fila_acoes_parada_descartes';
 
@@ -425,7 +427,19 @@ export async function aplicarAcaoParada(
   const antes = classificar(acao, paradaLida);
   if (antes) return antes;
 
-  const mudou = await porta.atualizarSeAberta(acao.paradaId, dadosDaAcao(acao));
+  let mudou: boolean;
+  try {
+    mudou = await porta.atualizarSeAberta(acao.paradaId, dadosDaAcao(acao));
+  } catch (erro) {
+    // A rota encerrou entre a leitura e o UPDATE, e o gatilho do banco
+    // recusou (P0001 PARADA_DE_ROTA_ENCERRADA, Migration 77): recusa com
+    // nome, definitiva — descarta já com o aviso certo, em vez de gastar as
+    // tentativas da falha persistente.
+    if (ehRecusaPorRotaEncerrada(erro)) {
+      return { tipo: 'descartada', motivo: 'rota_encerrada' };
+    }
+    throw erro;
+  }
   if (mudou) return { tipo: 'aplicada' };
 
   // Alguém resolveu a parada entre a leitura e o UPDATE.

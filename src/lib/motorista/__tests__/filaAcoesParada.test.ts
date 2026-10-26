@@ -505,6 +505,41 @@ describe('processarFilaAcoesParada', () => {
     expect(avisos[0].motivo).toBe('falha_persistente');
   });
 
+  // Migration 77: o gatilho recusa mudar status de parada de rota encerrada
+  // (P0001 PARADA_DE_ROTA_ENCERRADA). A rota encerrou entre a leitura e o
+  // UPDATE: a recusa é definitiva e tem nome — descarta já, com o aviso de
+  // rota encerrada, sem gastar as tentativas da falha persistente.
+  it('recusa do banco por rota encerrada descarta na 1ª vez, com o motivo certo', async () => {
+    const banco = cenario();
+    await enfileirarAcaoParada(concluirP1());
+    banco.porta.atualizarSeAberta = async () => {
+      banco.rotas.get('rota-1')!.status = 'cancelada';
+      throw Object.assign(new Error('PARADA_DE_ROTA_ENCERRADA'), {
+        code: 'P0001',
+      });
+    };
+
+    const r = await processarFilaAcoesParada({
+      usuarioAtual: 'mot-1',
+      porta: banco.porta,
+    });
+
+    expect(await lerFilaAcoesParada()).toEqual([]);
+    expect(r.descartadas.map((d) => d.motivo)).toEqual(['rota_encerrada']);
+    expect(banco.paradas.get('p1')!.status).toBe('em_andamento');
+  });
+
+  it('a mesma recusa no envio direto vira "rota encerrada", não erro cru', async () => {
+    const banco = cenario();
+    banco.porta.atualizarSeAberta = async () => {
+      throw { code: 'P0001', message: 'PARADA_DE_ROTA_ENCERRADA' };
+    };
+
+    await expect(aplicarAcaoParada(concluirP1(), banco.porta)).resolves.toEqual(
+      { tipo: 'descartada', motivo: 'rota_encerrada' },
+    );
+  });
+
   it('ação enfileirada DURANTE o envio não é apagada pela regravação da fila', async () => {
     const banco = cenario();
     await enfileirarAcaoParada(concluirP1());
