@@ -143,6 +143,11 @@ BEGIN
     RETURN 'situacao_mudou';
   END IF;
 
+  -- Trava as paradas da rota antes de mexer: um UPDATE de parada pelo
+  -- motorista ainda sem commit não toca na linha de rotas, então só a trava
+  -- da rota não o espera (o mesmo cuidado de finalizar_rota).
+  PERFORM 1 FROM public.paradas p WHERE p.rota_id = p_rota_id FOR NO KEY UPDATE;
+
   UPDATE public.paradas
      SET status = 'pendente'
    WHERE rota_id = p_rota_id
@@ -187,6 +192,9 @@ COMMIT;
 -- ============================================================================
 
 -- ROLLBACK:
+-- (Volte antes o app que chama cancelar_rota: sem a função, o cancelamento
+-- do gestor 1.14.8 deixa de funcionar. O ajuste da parada af99fbdf atualiza o
+-- updated_at, cujo valor original era 2026-07-24 14:29:55.365577+00.)
 -- BEGIN;
 -- UPDATE public.paradas
 --    SET status = 'em_andamento'
