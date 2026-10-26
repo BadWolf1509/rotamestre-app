@@ -3262,11 +3262,9 @@ colável no arquivo.
 
 ---
 
-### ⏳ Migration 75: rota encerrada não volta por UPDATE direto da API
+### ✅ Migration 75: rota encerrada não volta por UPDATE direto da API
 
-**Arquivo:** `20261026125000_rota_encerrada_nao_volta.sql` · **⏳ não aplicada.**
-Aplicar só depois do deploy do app 1.14.8 na web (gestor cancela e reativa pela
-RPC) e depois de o fixture novo do e2e estar na main (ver "App").
+**Arquivo:** `20261026125000_rota_encerrada_nao_volta.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada como `20261026125000`, depois do deploy do app 1.14.8 na web (gestor cancela e reativa pela RPC) e do fixture novo do e2e na main (ver "App"). Sonda: 4 FALHOU antes (1, 2, 3, 10) e 10/10 OK depois de aplicada.
 
 **O que faz.** Cria o gatilho `trg_rota_encerrada_nao_volta` (BEFORE UPDATE OF
 status em `rotas`, por linha, `WHEN` status antigo `cancelada`/`concluida`/

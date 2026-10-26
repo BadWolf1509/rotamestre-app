@@ -8,6 +8,39 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Varredura de 25–26/10/2026 e releases 1.14.7 e 1.14.8
+
+Quatro trilhas da varredura de 25/10 e uma rodada de banco em 26/10, mescladas na `main` de #662 a #672:
+
+- **Limpeza (#662):** saíram os scripts avulsos de banco já incorporados às migrations.
+- **Banco, 25/10 (#663):** Migrations 65 (fotos de entrega lidas pelo gestor da loja e pelo motorista da rota), 66 (incidente atualizado só pelo gestor da loja), 68 (posição gravada em rota em andamento, com 10 min de margem depois da conclusão para a fila offline) e 69 (função nova sem EXECUTE para PUBLIC/`anon`; `anon` só leitura). Ajustes publicados em `delete-account` e `criar-motorista`. **A 67 foi cortada:** o RLS de `usuario_unidades` já mostra ao motorista só os próprios vínculos, e a policy de `usuarios` consulta essa tabela com o RLS de quem lê — então o motorista só lê a própria linha de `usuarios`. A invariante virou armadilha no `PROJECT_CONTEXT`.
+- **Testes e CI (#665).**
+- **Gestor (#664):** ações da rota abaixo de 1024 px, importação em lote em duas etapas (localizar e conferir), troca de loja que limpa os dados da anterior, formulários de motorista com Zod e pdfmake/xlsx carregados sob demanda (chunk de entrada −41% em gzip). Junto, o `metro.config.js` deixou de anular o async-require, sem o qual todo `import()` do web caía em produção com o build verde (guarda `src/lib/__tests__/metro-config-import-dinamico.test.ts`).
+- **Motorista, 1.14.7 (#666/#667):** consulta sem token de usuário não sai do aparelho (`src/lib/porteiroSessao.ts`), falha de rede do `fetch` liga o "sem rede" por até 20 s (`src/lib/redeObservada.ts`), perfil da abertura sem retry, filas offline mais robustas, SOS pelo contato do gestor da loja da rota e telas do motorista.
+- **Places (#668):** as Edge Functions de Places exigem usuário logado.
+- **Banco, 26/10 (#669):** Migrations 70 (`cancelar_rota`), 71 (`reativar_rota`), 72 (`nomes_motoristas_das_rotas`), 73 (`paradas.observacao_pulo`) e 74 (sequências sem `anon`), cada uma com sonda antes e depois.
+- **App, 1.14.8 (#670/#671):** o gestor cancela e reativa pelas RPCs, vê "<Nome> (fora da loja)" e lê a observação do pulo à parte; o motorista grava o pulo em `observacao_pulo`.
+- **Migration 75 (#672):** rota encerrada não muda de status por UPDATE direto da API. O e2e (`garantirRotaDoMapa`) deixou de reabrir a rota demo encerrada e passou a criar uma cópia por `criar_rota_com_paradas`. Aplicada em 26/10, depois do merge: sonda com 4 FALHOU antes (1, 2, 3, 10) e 10/10 depois.
+
+**Pendências fechadas:** a 27 (reabrir com Wi-Fi sem internet) e a 28 (cancelar rota pelo painel, agora por RPC, com a Migration 75 por trás).
+
+**Release 1.14.7 (3045):** interna e alpha em 26/10, validada no moto g15 com o binário da Play:
+
+- Wi-Fi conectado sem internet: a rota aparece em 12 s, contra 60–75 s na 1.14.6; o restante é o DNS do Android desistindo (4,4–7,8 s). Melhoria possível: tempo-limite curto na verificação de sessão;
+- token vencido sem rede: até 6 s, sem pedir login;
+- modo avião: 5 s;
+- foto sem rede: menos de 2 s, com `concluida_em` preservado;
+- volta da rede com fila: tudo sobe sem requisição anônima.
+
+**Release 1.14.8 (3046):** na `main`, com o lado do app das Migrations 70–73; build em preparação.
+
+**Infra:** branches e worktrees antigos removidos; "apagar branch ao mesclar" ligado no GitHub.
+
+**Lições:**
+
+- O preview da Vercel por PR roda em modo mock (dados falsos, sem Supabase); validar web é servir o `dist` local.
+- Corte de migration também é decisão registrada: a 67 saiu porque uma policy já cobria o caso, e a dependência entre as duas virou armadilha escrita.
+
 ## Varredura de 24–25/10/2026 e release 1.14.6
 
 Cinco trilhas em paralelo, uma por PR, mescladas na `main` em 24–25/10:
