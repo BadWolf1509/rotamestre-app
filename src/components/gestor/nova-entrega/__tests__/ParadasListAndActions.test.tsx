@@ -2,7 +2,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 
-import type { BulkParadaInput } from '@/hooks/nova-entrega/useParadasManagement';
+import type {
+  BulkParadaInput,
+  EnderecoLocalizado,
+} from '@/hooks/nova-entrega/useParadasManagement';
 
 import { ParadasListAndActions } from '../ParadasListAndActions';
 
@@ -93,7 +96,10 @@ describe('ParadasListAndActions', () => {
     onRemove: jest.fn(),
     onEdit: jest.fn(),
     onReorder: jest.fn(),
-    onImport: jest.fn().mockResolvedValue({
+    onLocalizarLote: jest
+      .fn()
+      .mockResolvedValue({ localizados: [], erros: [] }),
+    onImport: jest.fn().mockReturnValue({
       adicionadas: 0,
       ignoradas: 0,
       erros: [],
@@ -229,20 +235,36 @@ describe('ParadasListAndActions', () => {
 
     function TelaComImportacao() {
       const [paradas, setParadas] = useState<typeof baseParadas>([]);
-      const onImport = async (items: BulkParadaInput[]) => {
-        const aceitas = items.slice(0, 2).map((item, index) => ({
-          ...baseParadas[index]!,
-          ...item,
-          vinculo_parada_id: undefined,
-        }));
+      // A 3ª linha cai como duplicada já na localização; as 2 primeiras entram.
+      const onLocalizarLote = async (items: BulkParadaInput[]) => ({
+        localizados: items.slice(0, 2).map((item): EnderecoLocalizado => ({
+          linha: item.linha,
+          item,
+          enderecoEncontrado: item.endereco,
+          latitude: -7.1,
+          longitude: -34.9,
+          fonte: 'google',
+          distanciaSedeKm: 1,
+        })),
+        erros: [erroDuplicada],
+      });
+      const onImport = (confirmados: EnderecoLocalizado[]) => {
+        const aceitas = confirmados.map(
+          ({ item: { linha: _linha, ...item } }, index) => ({
+            ...baseParadas[index]!,
+            ...item,
+            vinculo_parada_id: undefined,
+          }),
+        );
         setParadas(aceitas);
-        return { adicionadas: 2, ignoradas: 1, erros: [erroDuplicada] };
+        return { adicionadas: 2, ignoradas: 0, erros: [] };
       };
       return (
         <ParadasListAndActions
           {...baseProps}
           paradas={paradas}
           paradasStatus={{ texto: 'ok', cor: 'default', icone: null }}
+          onLocalizarLote={onLocalizarLote}
           onImport={onImport}
         />
       );

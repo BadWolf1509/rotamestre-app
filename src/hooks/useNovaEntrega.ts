@@ -18,6 +18,8 @@ import type {
 import type {
   BulkImportResult,
   BulkParadaInput,
+  EnderecoLocalizado,
+  LocalizarLoteResult,
 } from '@/hooks/nova-entrega/useParadasManagement';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
@@ -109,7 +111,8 @@ export interface UseNovaEntregaReturn {
     vinculoId?: string,
     allowDuplicate?: boolean,
   ) => Promise<boolean>;
-  importParadas: (items: BulkParadaInput[]) => Promise<BulkImportResult>;
+  localizarLote: (items: BulkParadaInput[]) => Promise<LocalizarLoteResult>;
+  importParadas: (confirmados: EnderecoLocalizado[]) => BulkImportResult;
   startEditParada: (index: number) => void;
   cancelEditParada: () => void;
   removeParada: (index: number) => void;
@@ -197,6 +200,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     paradas,
     setParadas,
     rotaOtimizada,
+    enderecoUnidade,
     onOrdemManualChange: setOrdemManual,
     onRotaOtimizadaReset: () => setRotaOtimizada(null),
     onDistanciaManualRealReset: resetDistanciaReal,
@@ -470,6 +474,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     setMotoristaSelecionado,
     setVinculoSelecionado,
     onAddParada,
+    localizarLote: paradasManagement.localizarLote,
     importParadas: paradasManagement.importParadas,
     startEditParada,
     cancelEditParada,

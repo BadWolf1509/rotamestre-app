@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import type {
+  EnderecoUnidade,
   Parada,
   ParadaFormData,
   ParadaFormDataWithCoords,
@@ -8,6 +9,10 @@ import type {
   RotaOtimizadaState,
 } from '@/components/gestor/nova-entrega/types';
 import { logger } from '@/lib/logger';
+import {
+  localizarEnderecoLote,
+  type EnderecoLoteResolvido,
+} from '@/lib/nova-entrega/localizarEnderecoLote';
 import { photonService } from '@/lib/photon';
 import {
   MAX_ROUTE_STOPS,
@@ -22,9 +27,24 @@ import {
 
 import type { Dispatch, SetStateAction } from 'react';
 
+/**
+ * Uma linha do lote colado. `linha` é o número REAL da linha no texto (conta
+ * cabeçalho e linhas em branco): é ele que aparece em "Linha N: …", para o
+ * gestor achar a linha no que colou — o índice no array não serve para isso.
+ */
 export interface BulkParadaInput extends ParadaFormData {
-  latitude?: number;
-  longitude?: number;
+  linha: number;
+}
+
+/** Linha localizada, à espera da conferência do gestor. */
+export interface EnderecoLocalizado extends EnderecoLoteResolvido {
+  linha: number;
+  item: BulkParadaInput;
+}
+
+export interface LocalizarLoteResult {
+  localizados: EnderecoLocalizado[];
+  erros: string[];
 }
 
 export interface BulkImportResult {
@@ -43,7 +63,10 @@ export interface UseParadasManagementReturn {
     editingId?: string,
     allowDuplicate?: boolean,
   ) => Promise<boolean>;
-  importParadas: (items: BulkParadaInput[]) => Promise<BulkImportResult>;
+  /** Localiza as linhas (uma por vez) sem criar paradas. */
+  localizarLote: (items: BulkParadaInput[]) => Promise<LocalizarLoteResult>;
+  /** Cria as paradas conferidas, com a coordenada confirmada. */
+  importParadas: (confirmados: EnderecoLocalizado[]) => BulkImportResult;
   removeParada: (index: number) => void;
   moveParadaUp: (index: number) => void;
   moveParadaDown: (index: number) => void;
@@ -55,6 +78,8 @@ export interface UseParadasManagementOptions {
   paradas: Parada[];
   setParadas: Dispatch<SetStateAction<Parada[]>>;
   rotaOtimizada: RotaOtimizadaState | null;
+  /** Sede da loja: viés da busca do lote e base da distância conferida. */
+  enderecoUnidade: EnderecoUnidade | null;
   onOrdemManualChange: (manual: boolean) => void;
   onRotaOtimizadaReset: () => void;
   onDistanciaManualRealReset: () => void;
@@ -71,10 +96,26 @@ function reindex(paradas: Parada[]): Parada[] {
   return paradas.map((parada, index) => ({ ...parada, ordem: index + 1 }));
 }
 
+const mensagemDuplicadaLote = (item: BulkParadaInput) =>
+  `Linha ${item.linha}: ${item.tipo} duplicada (mesmo endereço ou telefone).`;
+const mensagemLimiteLote = (linha: number) =>
+  `Linha ${linha}: limite da rota atingido.`;
+
+/** Forma mínima para comparar duplicata entre linhas que ainda não são parada. */
+function comoCandidata(item: BulkParadaInput) {
+  return {
+    id: `lote-linha-${item.linha}`,
+    tipo: item.tipo,
+    endereco: item.endereco,
+    telefone: item.telefone,
+  };
+}
+
 export function useParadasManagement({
   paradas,
   setParadas,
   rotaOtimizada,
+  enderecoUnidade,
   onOrdemManualChange,
   onRotaOtimizadaReset,
   onDistanciaManualRealReset,
@@ -215,65 +256,124 @@ export function useParadasManagement({
     [invalidateOptimization, onFormReset, paradas, setParadas, showToast],
   );
 
-  const importParadas = useCallback(
-    async (items: BulkParadaInput[]): Promise<BulkImportResult> => {
+  const sedeLatitude = enderecoUnidade?.latitude;
+  const sedeLongitude = enderecoUnidade?.longitude;
+
+  /**
+   * Fase 1 do lote: localiza cada linha e devolve para conferência, sem tocar
+   * na lista. Duplicada e excesso do limite viram erro ANTES de consultar o
+   * endereço, para não gastar Places com linha que não vai entrar.
+   *
+   * Em série, de propósito: cada linha custa 1 autocomplete + 1 details do
+   * Places. Um lote limitado (3 em paralelo) faria 50 linhas em ~1/3 do tempo,
+   * mas a duplicata dentro do lote depende de quais linhas anteriores foram
+   * aceitas — em paralelo, duas linhas iguais passariam juntas. A ordem dos
+   * erros também segue a do texto colado.
+   */
+  const localizarLote = useCallback(
+    async (items: BulkParadaInput[]): Promise<LocalizarLoteResult> => {
+      const sede =
+        sedeLatitude != null && sedeLongitude != null
+          ? { latitude: sedeLatitude, longitude: sedeLongitude }
+          : null;
+      const localizados: EnderecoLocalizado[] = [];
+      const erros: string[] = [];
+
       setIsLoading(true);
+      try {
+        for (const item of items) {
+          if (paradas.length + localizados.length >= MAX_ROUTE_STOPS) {
+            erros.push(mensagemLimiteLote(item.linha));
+            continue;
+          }
+
+          const jaAceitas = [
+            ...paradas,
+            ...localizados.map((localizado) => comoCandidata(localizado.item)),
+          ];
+          if (encontrarParadaDuplicada(jaAceitas, item)) {
+            erros.push(mensagemDuplicadaLote(item));
+            continue;
+          }
+
+          let resolvido: EnderecoLoteResolvido | null = null;
+          try {
+            resolvido = await localizarEnderecoLote(item.endereco, sede);
+          } catch (error) {
+            // A lib já se protege; isto é rede de segurança para uma linha
+            // não derrubar o lote inteiro.
+            logger.warn(
+              '[useParadasManagement] Falha ao localizar linha do lote',
+              error,
+            );
+          }
+
+          if (!resolvido) {
+            erros.push(`Linha ${item.linha}: endereço não localizado.`);
+            continue;
+          }
+
+          localizados.push({ ...resolvido, linha: item.linha, item });
+        }
+
+        return { localizados, erros };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [paradas, sedeLatitude, sedeLongitude],
+  );
+
+  /**
+   * Fase 2 do lote: cria as paradas que o gestor conferiu, com a coordenada
+   * confirmada — sem geocodificar de novo. Duplicata e limite são conferidos
+   * outra vez porque a lista pode ter mudado durante a conferência.
+   *
+   * O `endereco` da parada continua sendo o texto colado (não o encontrado):
+   * ele carrega complemento ("apto 302", "fundos") que a sugestão do Places
+   * descarta, e é o que o motorista lê.
+   */
+  const importParadas = useCallback(
+    (confirmados: EnderecoLocalizado[]): BulkImportResult => {
       const erros: string[] = [];
       const novas: Parada[] = [];
       let ignoradas = 0;
 
-      try {
-        for (const [index, item] of items.entries()) {
-          if (paradas.length + novas.length >= MAX_ROUTE_STOPS) {
-            erros.push(`Linha ${index + 1}: limite da rota atingido.`);
-            ignoradas += items.length - index;
-            break;
-          }
+      for (const confirmado of confirmados) {
+        const { linha: _linha, ...dados } = confirmado.item;
 
-          if (encontrarParadaDuplicada([...paradas, ...novas], item)) {
-            ignoradas += 1;
-            erros.push(
-              `Linha ${index + 1}: ${item.tipo} duplicada (mesmo endereço ou telefone).`,
-            );
-            continue;
-          }
-
-          let latitude = item.latitude;
-          let longitude = item.longitude;
-          if (latitude == null || longitude == null) {
-            const geocoded = await photonService.geocodeAddress(item.endereco);
-            if (!geocoded) {
-              ignoradas += 1;
-              erros.push(`Linha ${index + 1}: endereço não localizado.`);
-              continue;
-            }
-            latitude = geocoded.coordenadas.latitude;
-            longitude = geocoded.coordenadas.longitude;
-          }
-
-          novas.push({
-            ...item,
-            id: generateUniqueId(),
-            latitude,
-            longitude,
-            ordem: paradas.length + novas.length + 1,
-          });
+        if (paradas.length + novas.length >= MAX_ROUTE_STOPS) {
+          ignoradas += 1;
+          erros.push(mensagemLimiteLote(confirmado.linha));
+          continue;
         }
 
-        if (novas.length > 0) {
-          setParadas((current) => reindex([...current, ...novas]));
-          invalidateOptimization();
-          showToast(
-            `${novas.length} parada(s) importada(s).${ignoradas ? ` ${ignoradas} ignorada(s).` : ''}`,
-            ignoradas ? 'info' : 'success',
-            5000,
-          );
+        if (encontrarParadaDuplicada([...paradas, ...novas], dados)) {
+          ignoradas += 1;
+          erros.push(mensagemDuplicadaLote(confirmado.item));
+          continue;
         }
 
-        return { adicionadas: novas.length, ignoradas, erros };
-      } finally {
-        setIsLoading(false);
+        novas.push({
+          ...dados,
+          id: generateUniqueId(),
+          latitude: confirmado.latitude,
+          longitude: confirmado.longitude,
+          ordem: paradas.length + novas.length + 1,
+        });
       }
+
+      if (novas.length > 0) {
+        setParadas((current) => reindex([...current, ...novas]));
+        invalidateOptimization();
+        showToast(
+          `${novas.length} parada(s) importada(s).${ignoradas ? ` ${ignoradas} ignorada(s).` : ''}`,
+          ignoradas ? 'info' : 'success',
+          5000,
+        );
+      }
+
+      return { adicionadas: novas.length, ignoradas, erros };
     },
     [invalidateOptimization, paradas, setParadas, showToast],
   );
@@ -411,6 +511,7 @@ export function useParadasManagement({
     paradasStatus,
     isLoading,
     onAddParada,
+    localizarLote,
     importParadas,
     removeParada,
     moveParadaUp,

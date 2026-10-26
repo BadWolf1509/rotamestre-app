@@ -14,11 +14,14 @@ import {
 import type {
   BulkImportResult,
   BulkParadaInput,
+  EnderecoLocalizado,
+  LocalizarLoteResult,
 } from '@/hooks/nova-entrega/useParadasManagement';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface BulkStopImporterProps {
-  onImport: (items: BulkParadaInput[]) => Promise<BulkImportResult>;
+  onLocalizar: (items: BulkParadaInput[]) => Promise<LocalizarLoteResult>;
+  onImport: (confirmados: EnderecoLocalizado[]) => BulkImportResult;
   disabled?: boolean;
 }
 
@@ -106,6 +109,7 @@ export function parseBulkStops(text: string): {
         destinatario: recipient,
         telefone: phone,
         observacoes: observations,
+        linha: lineNumber,
       },
     ];
   });
@@ -114,6 +118,7 @@ export function parseBulkStops(text: string): {
 }
 
 export function BulkStopImporter({
+  onLocalizar,
   onImport,
   disabled = false,
 }: BulkStopImporterProps) {
@@ -128,7 +133,14 @@ export function BulkStopImporter({
     if (parsed.items.length === 0 || parsed.errors.length > 0) return;
     setIsImporting(true);
     try {
-      const result = await onImport(parsed.items);
+      // Provisório: localiza e importa em sequência, sem conferência. A tela
+      // de conferência (texto colado → endereço encontrado) entra em seguida.
+      const localizacao = await onLocalizar(parsed.items);
+      const importado = onImport(localizacao.localizados);
+      const result = {
+        ...importado,
+        erros: [...localizacao.erros, ...importado.erros],
+      };
       setResultErrors(result.erros);
       if (result.adicionadas > 0) {
         setText('');

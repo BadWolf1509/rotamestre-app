@@ -18,6 +18,7 @@ describe('parseBulkStops', () => {
         destinatario: 'Maria',
         telefone: '(85) 99999-0000',
         observacoes: 'Deixar na portaria; ligar antes',
+        linha: 2,
       },
       {
         tipo: 'retirada',
@@ -25,6 +26,7 @@ describe('parseBulkStops', () => {
         destinatario: 'Fornecedor',
         telefone: '85988887777',
         observacoes: '',
+        linha: 3,
       },
     ]);
   });
@@ -36,6 +38,20 @@ describe('parseBulkStops', () => {
 
     expect(result.items).toEqual([]);
     expect(result.errors[0]).toContain('Linha 2');
+  });
+
+  it('leva a linha real do texto colado, contando linhas em branco', () => {
+    const result = parseBulkStops(
+      [
+        'tipo;endereco;destinatario;telefone',
+        '',
+        'entrega;Rua A, 10;Maria;85999990000',
+        '',
+        'retirada;Rua B, 20;João;85988887777',
+      ].join('\n'),
+    );
+
+    expect(result.items.map((item) => item.linha)).toEqual([3, 5]);
   });
 
   it('rejects unclosed quotes and extra columns', () => {

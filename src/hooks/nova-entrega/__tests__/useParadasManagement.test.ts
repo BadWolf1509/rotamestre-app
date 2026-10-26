@@ -6,16 +6,28 @@ import type {
   ParadaFormDataWithCoords,
   RotaOtimizadaState,
 } from '@/components/gestor/nova-entrega/types';
+import { localizarEnderecoLote } from '@/lib/nova-entrega/localizarEnderecoLote';
 import { photonService } from '@/lib/photon';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 
-import { useParadasManagement } from '../useParadasManagement';
+import {
+  useParadasManagement,
+  type BulkParadaInput,
+  type EnderecoLocalizado,
+} from '../useParadasManagement';
 
 jest.mock('@/lib/photon', () => ({
   photonService: {
     geocodeAddress: jest.fn(),
   },
 }));
+
+jest.mock('@/lib/nova-entrega/localizarEnderecoLote', () => ({
+  localizarEnderecoLote: jest.fn(),
+}));
+
+const localizarMock = localizarEnderecoLote as jest.Mock;
+const sede = { latitude: -7.1, longitude: -34.9, endereco: 'Rua Base' };
 
 jest.mock('@/lib/logger', () => ({
   logger: {
@@ -65,6 +77,7 @@ describe('useParadasManagement', () => {
       paradas,
       setParadas,
       rotaOtimizada,
+      enderecoUnidade: sede,
       ...callbacks,
     });
     return { paradas, ...management };
@@ -260,70 +273,253 @@ describe('useParadasManagement', () => {
     expect(extraUndo).toHaveBeenCalled();
   });
 
-  it('imports valid rows and reports duplicates without losing good rows', async () => {
-    (photonService.geocodeAddress as jest.Mock).mockResolvedValue({
-      coordenadas: { latitude: -23.6, longitude: -46.7 },
-    });
-    const existing = createStop(0);
-    const { result } = renderHook(() => useSubject([existing]));
+  describe('importação em lote', () => {
+    type ResultadoLocalizar = Awaited<
+      ReturnType<ReturnType<typeof useParadasManagement>['localizarLote']>
+    >;
 
-    let importResult;
-    await act(async () => {
-      importResult = await result.current.importParadas([
-        {
-          ...baseStop,
-          endereco: existing.endereco,
-          telefone: '11777777777',
-        },
-        {
-          ...baseStop,
-          endereco: 'Rua nova, 500',
-          telefone: '11666666666',
-          latitude: undefined,
-          longitude: undefined,
-        },
+    function linha(
+      numero: number,
+      overrides: Partial<BulkParadaInput> = {},
+    ): BulkParadaInput {
+      return {
+        tipo: 'entrega',
+        endereco: `Rua Lote ${numero}, 10`,
+        destinatario: `Cliente ${numero}`,
+        telefone: `1188888${String(numero).padStart(4, '0')}`,
+        observacoes: '',
+        linha: numero,
+        ...overrides,
+      };
+    }
+
+    function localizado(
+      item: BulkParadaInput,
+      overrides: Partial<EnderecoLocalizado> = {},
+    ): EnderecoLocalizado {
+      return {
+        linha: item.linha,
+        item,
+        enderecoEncontrado: `${item.endereco} - Centro, João Pessoa - PB`,
+        latitude: -7.12,
+        longitude: -34.88,
+        fonte: 'google',
+        distanciaSedeKm: 2.5,
+        ...overrides,
+      };
+    }
+
+    function resolvidoPara(endereco: string) {
+      return {
+        enderecoEncontrado: `${endereco} - Centro, João Pessoa - PB`,
+        latitude: -7.12,
+        longitude: -34.88,
+        fonte: 'google' as const,
+        distanciaSedeKm: 2.5,
+      };
+    }
+
+    it('localizarLote numera os erros pela linha colada e não mexe na lista', async () => {
+      const existing = createStop(0);
+      localizarMock.mockImplementation(async (endereco: string) =>
+        endereco.startsWith('Lugar nenhum') ? null : resolvidoPara(endereco),
+      );
+      const { result } = renderHook(() => useSubject([existing]));
+
+      let resultado: ResultadoLocalizar | undefined;
+      await act(async () => {
+        resultado = await result.current.localizarLote([
+          linha(3),
+          linha(7, { endereco: existing.endereco }),
+          linha(9, { endereco: 'Lugar nenhum, 1' }),
+        ]);
+      });
+
+      expect(resultado).toEqual({
+        localizados: [localizado(linha(3))],
+        erros: [
+          'Linha 7: entrega duplicada (mesmo endereço ou telefone).',
+          'Linha 9: endereço não localizado.',
+        ],
+      });
+      expect(localizarMock).toHaveBeenCalledWith('Rua Lote 3, 10', {
+        latitude: sede.latitude,
+        longitude: sede.longitude,
+      });
+      // A duplicada não gasta chamada do Places.
+      expect(localizarMock).not.toHaveBeenCalledWith(
+        existing.endereco,
+        expect.anything(),
+      );
+      expect(result.current.paradas).toEqual([existing]);
+      expect(callbacks.onRotaOtimizadaReset).not.toHaveBeenCalled();
+    });
+
+    it('localizarLote acusa a duplicada dentro do próprio lote, mas aceita entrega e retirada no mesmo local', async () => {
+      localizarMock.mockImplementation(async (endereco: string) =>
+        resolvidoPara(endereco),
+      );
+      const { result } = renderHook(() => useSubject());
+
+      let resultado: ResultadoLocalizar | undefined;
+      await act(async () => {
+        resultado = await result.current.localizarLote([
+          linha(2),
+          linha(3, { tipo: 'retirada', endereco: 'Rua Lote 2, 10' }),
+          linha(4, { endereco: 'Rua Lote 2, 10', telefone: '11000000000' }),
+        ]);
+      });
+
+      expect(resultado?.localizados.map((item) => item.linha)).toEqual([2, 3]);
+      expect(resultado?.erros).toEqual([
+        'Linha 4: entrega duplicada (mesmo endereço ou telefone).',
       ]);
     });
 
-    expect(importResult).toMatchObject({
-      adicionadas: 1,
-      ignoradas: 1,
-      erros: ['Linha 1: entrega duplicada (mesmo endereço ou telefone).'],
-    });
-    expect(result.current.paradas).toHaveLength(2);
-  });
+    it('localizarLote para no limite da rota e aponta cada linha que sobrou', async () => {
+      localizarMock.mockImplementation(async (endereco: string) =>
+        resolvidoPara(endereco),
+      );
+      const quaseCheia = Array.from({ length: MAX_ROUTE_STOPS - 1 }, (_, i) =>
+        createStop(i),
+      );
+      const { result } = renderHook(() => useSubject(quaseCheia));
 
-  it('imports a delivery and a pickup for the same customer and address', async () => {
-    const existing = createStop(0);
-    const { result } = renderHook(() => useSubject([existing]));
+      let resultado: ResultadoLocalizar | undefined;
+      await act(async () => {
+        resultado = await result.current.localizarLote([
+          linha(4),
+          linha(5),
+          linha(6),
+        ]);
+      });
 
-    let importResult;
-    await act(async () => {
-      importResult = await result.current.importParadas([
-        // Retirada no endereço de uma entrega que já está na lista…
-        {
-          ...baseStop,
-          tipo: 'retirada',
-          endereco: existing.endereco,
-          telefone: existing.telefone,
-        },
-        // …e um par novo dentro do mesmo lote.
-        { ...baseStop, endereco: 'Rua nova, 500', telefone: '11666666666' },
-        {
-          ...baseStop,
-          tipo: 'retirada',
-          endereco: 'Rua nova, 500',
-          telefone: '11666666666',
-        },
+      expect(resultado?.localizados.map((item) => item.linha)).toEqual([4]);
+      expect(resultado?.erros).toEqual([
+        'Linha 5: limite da rota atingido.',
+        'Linha 6: limite da rota atingido.',
       ]);
+      expect(localizarMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(importResult).toMatchObject({ adicionadas: 3, ignoradas: 0 });
-    expect(result.current.paradas.map((p) => p.tipo)).toEqual([
-      'entrega',
-      'retirada',
-      'entrega',
-      'retirada',
-    ]);
+    it('localizarLote consulta um endereço por vez', async () => {
+      let emVoo = 0;
+      let maximo = 0;
+      localizarMock.mockImplementation(async (endereco: string) => {
+        emVoo += 1;
+        maximo = Math.max(maximo, emVoo);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        emVoo -= 1;
+        return resolvidoPara(endereco);
+      });
+      const { result } = renderHook(() => useSubject());
+
+      await act(async () => {
+        await result.current.localizarLote([linha(1), linha(2), linha(3)]);
+      });
+
+      expect(localizarMock).toHaveBeenCalledTimes(3);
+      expect(maximo).toBe(1);
+    });
+
+    it('localizarLote transforma exceção da localização em erro da linha', async () => {
+      localizarMock.mockRejectedValueOnce(new Error('rede'));
+      const { result } = renderHook(() => useSubject());
+
+      let resultado: ResultadoLocalizar | undefined;
+      await act(async () => {
+        resultado = await result.current.localizarLote([linha(12)]);
+      });
+
+      expect(resultado).toEqual({
+        localizados: [],
+        erros: ['Linha 12: endereço não localizado.'],
+      });
+    });
+
+    it('importParadas cria as paradas com a coordenada confirmada, sem geocodificar', () => {
+      const existing = createStop(0);
+      const { result } = renderHook(() => useSubject([existing]));
+
+      let importResult;
+      act(() => {
+        importResult = result.current.importParadas([
+          localizado(linha(3), { latitude: -7.2, longitude: -34.95 }),
+          localizado(linha(5, { tipo: 'retirada' })),
+        ]);
+      });
+
+      expect(importResult).toEqual({ adicionadas: 2, ignoradas: 0, erros: [] });
+      expect(localizarMock).not.toHaveBeenCalled();
+      expect(photonService.geocodeAddress).not.toHaveBeenCalled();
+      expect(result.current.paradas).toHaveLength(3);
+      expect(result.current.paradas[1]).toMatchObject({
+        endereco: 'Rua Lote 3, 10',
+        destinatario: 'Cliente 3',
+        latitude: -7.2,
+        longitude: -34.95,
+        ordem: 2,
+      });
+      expect(result.current.paradas[1]).not.toHaveProperty('linha');
+      expect(result.current.paradas[2]).toMatchObject({
+        tipo: 'retirada',
+        ordem: 3,
+      });
+      expect(callbacks.onRotaOtimizadaReset).toHaveBeenCalled();
+      expect(callbacks.showToast).toHaveBeenCalledWith(
+        '2 parada(s) importada(s).',
+        'success',
+        5000,
+      );
+    });
+
+    it('importParadas confere de novo a duplicada contra a lista atual, pela linha colada', () => {
+      // Entre localizar e confirmar o gestor pode ter cadastrado a mesma
+      // parada à mão: a conferência não pode virar porta para duplicata.
+      const existing = createStop(0);
+      const { result } = renderHook(() => useSubject([existing]));
+
+      let importResult;
+      act(() => {
+        importResult = result.current.importParadas([
+          localizado(linha(8, { endereco: existing.endereco })),
+          localizado(linha(9)),
+        ]);
+      });
+
+      expect(importResult).toEqual({
+        adicionadas: 1,
+        ignoradas: 1,
+        erros: ['Linha 8: entrega duplicada (mesmo endereço ou telefone).'],
+      });
+      expect(result.current.paradas).toHaveLength(2);
+      expect(callbacks.showToast).toHaveBeenCalledWith(
+        '1 parada(s) importada(s). 1 ignorada(s).',
+        'info',
+        5000,
+      );
+    });
+
+    it('importParadas respeita o limite da rota e aponta cada linha que sobrou', () => {
+      const quaseCheia = Array.from({ length: MAX_ROUTE_STOPS - 1 }, (_, i) =>
+        createStop(i),
+      );
+      const { result } = renderHook(() => useSubject(quaseCheia));
+
+      let importResult;
+      act(() => {
+        importResult = result.current.importParadas([
+          localizado(linha(4)),
+          localizado(linha(5)),
+        ]);
+      });
+
+      expect(importResult).toEqual({
+        adicionadas: 1,
+        ignoradas: 1,
+        erros: ['Linha 5: limite da rota atingido.'],
+      });
+      expect(result.current.paradas).toHaveLength(MAX_ROUTE_STOPS);
+    });
   });
 });
