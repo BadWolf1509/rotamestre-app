@@ -26,6 +26,7 @@ import {
   ThemePreferences,
   applyThemePreferences,
 } from '@/lib/themePreference';
+import { coresDoSwitch } from '@/utils/coresDoSwitch';
 import { StyleSheet, Theme, useUnistyles } from '@/utils/styles';
 
 interface ThemeSettingsProps {
@@ -96,10 +97,14 @@ export function ThemeSettings({
   }, []);
 
   const notifyChange = useCallback(
-    (mode: ThemePreference, density: ThemeDensityPreference, contrast: ThemeContrastPreference) => {
+    (
+      mode: ThemePreference,
+      density: ThemeDensityPreference,
+      contrast: ThemeContrastPreference,
+    ) => {
       onSettingsChange?.({ mode, density, contrast });
     },
-    [onSettingsChange]
+    [onSettingsChange],
   );
 
   const handleDarkModeToggle = async (value: boolean) => {
@@ -109,11 +114,14 @@ export function ThemeSettings({
       notifyChange(
         value ? 'dark' : 'light',
         compactDensityEnabled ? 'compact' : 'regular',
-        highContrastEnabled ? 'high' : 'normal'
+        highContrastEnabled ? 'high' : 'normal',
       );
     } catch (error) {
       logger.warn('Failed to update theme preference:', error);
-      showError({ title: 'Erro', message: 'Falha ao salvar preferência de tema.' });
+      showError({
+        title: 'Erro',
+        message: 'Falha ao salvar preferência de tema.',
+      });
       setDarkModeEnabled(!value); // Revert on error
     }
   };
@@ -125,11 +133,14 @@ export function ThemeSettings({
       notifyChange(
         darkModeEnabled ? 'dark' : 'light',
         value ? 'compact' : 'regular',
-        highContrastEnabled ? 'high' : 'normal'
+        highContrastEnabled ? 'high' : 'normal',
       );
     } catch (error) {
       logger.warn('Failed to update density preference:', error);
-      showError({ title: 'Erro', message: 'Falha ao salvar preferência de densidade.' });
+      showError({
+        title: 'Erro',
+        message: 'Falha ao salvar preferência de densidade.',
+      });
       setCompactDensityEnabled(!value); // Revert on error
     }
   };
@@ -141,11 +152,14 @@ export function ThemeSettings({
       notifyChange(
         darkModeEnabled ? 'dark' : 'light',
         compactDensityEnabled ? 'compact' : 'regular',
-        value ? 'high' : 'normal'
+        value ? 'high' : 'normal',
       );
     } catch (error) {
       logger.warn('Failed to update contrast preference:', error);
-      showError({ title: 'Erro', message: 'Falha ao salvar preferência de contraste.' });
+      showError({
+        title: 'Erro',
+        message: 'Falha ao salvar preferência de contraste.',
+      });
       setHighContrastEnabled(!value); // Revert on error
     }
   };
@@ -166,14 +180,18 @@ export function ThemeSettings({
       notifyChange('light', 'regular', 'normal');
     } catch (error) {
       logger.warn('Failed to reset preferences:', error);
-      showError({ title: 'Erro', message: 'Falha ao restaurar configurações padrão.' });
+      showError({
+        title: 'Erro',
+        message: 'Falha ao restaurar configurações padrão.',
+      });
     }
   };
 
   const handleResetToDefaults = async () => {
     const confirmed = await showConfirm({
       title: 'Restaurar padrões',
-      message: 'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
+      message:
+        'Tem certeza que deseja restaurar as configurações de aparência para os valores padrão?',
       confirmText: 'Restaurar',
       cancelText: 'Cancelar',
       type: 'warning',
@@ -218,8 +236,7 @@ export function ThemeSettings({
         <Switch
           value={darkModeEnabled}
           onValueChange={handleDarkModeToggle}
-          trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
-          thumbColor={darkModeEnabled ? theme.colors.white : theme.colors.gray100}
+          {...coresDoSwitch(theme, darkModeEnabled)}
         />
       </View>
 
@@ -232,7 +249,9 @@ export function ThemeSettings({
             color={theme.colors.textSecondary}
           />
           <View style={styles(theme, compact).settingText}>
-            <Text style={styles(theme, compact).settingLabel}>Modo compacto</Text>
+            <Text style={styles(theme, compact).settingLabel}>
+              Modo compacto
+            </Text>
             <Text style={styles(theme, compact).settingDescription}>
               Reduz espaçamentos para mostrar mais informação
             </Text>
@@ -241,13 +260,17 @@ export function ThemeSettings({
         <Switch
           value={compactDensityEnabled}
           onValueChange={handleDensityToggle}
-          trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
-          thumbColor={compactDensityEnabled ? theme.colors.white : theme.colors.gray100}
+          {...coresDoSwitch(theme, compactDensityEnabled)}
         />
       </View>
 
       {/* High Contrast Toggle */}
-      <View style={[styles(theme, compact).settingRow, styles(theme, compact).settingRowLast]}>
+      <View
+        style={[
+          styles(theme, compact).settingRow,
+          styles(theme, compact).settingRowLast,
+        ]}
+      >
         <View style={styles(theme, compact).settingInfo}>
           <Ionicons
             name="contrast"
@@ -255,7 +278,9 @@ export function ThemeSettings({
             color={theme.colors.textSecondary}
           />
           <View style={styles(theme, compact).settingText}>
-            <Text style={styles(theme, compact).settingLabel}>Alto contraste</Text>
+            <Text style={styles(theme, compact).settingLabel}>
+              Alto contraste
+            </Text>
             <Text style={styles(theme, compact).settingDescription}>
               Aumenta contraste para melhor legibilidade
             </Text>
@@ -264,8 +289,7 @@ export function ThemeSettings({
         <Switch
           value={highContrastEnabled}
           onValueChange={handleContrastToggle}
-          trackColor={{ false: theme.colors.gray300, true: theme.colors.primary }}
-          thumbColor={highContrastEnabled ? theme.colors.white : theme.colors.gray100}
+          {...coresDoSwitch(theme, highContrastEnabled)}
         />
       </View>
 
@@ -277,7 +301,9 @@ export function ThemeSettings({
             {/* Sample Button */}
             <View style={styles(theme, compact).previewItem}>
               <View style={styles(theme, compact).sampleButton}>
-                <Text style={styles(theme, compact).sampleButtonText}>Botão</Text>
+                <Text style={styles(theme, compact).sampleButtonText}>
+                  Botão
+                </Text>
               </View>
               <Text style={styles(theme, compact).previewLabel}>Botão</Text>
             </View>
@@ -294,7 +320,9 @@ export function ThemeSettings({
             {/* Sample Badge */}
             <View style={styles(theme, compact).previewItem}>
               <View style={styles(theme, compact).sampleBadge}>
-                <Text style={styles(theme, compact).sampleBadgeText}>Status</Text>
+                <Text style={styles(theme, compact).sampleBadgeText}>
+                  Status
+                </Text>
               </View>
               <Text style={styles(theme, compact).previewLabel}>Badge</Text>
             </View>
@@ -308,8 +336,14 @@ export function ThemeSettings({
           style={styles(theme, compact).resetButton}
           onPress={handleResetToDefaults}
         >
-          <Ionicons name="refresh" size={16} color={theme.colors.textSecondary} />
-          <Text style={styles(theme, compact).resetButtonText}>Restaurar padrões</Text>
+          <Ionicons
+            name="refresh"
+            size={16}
+            color={theme.colors.textSecondary}
+          />
+          <Text style={styles(theme, compact).resetButtonText}>
+            Restaurar padrões
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -334,7 +368,9 @@ const styles = (theme: Theme, compact: boolean) =>
       padding: theme.spacing.lg,
     },
     title: {
-      fontSize: compact ? theme.typography.fontSize.sm : theme.typography.fontSize.base,
+      fontSize: compact
+        ? theme.typography.fontSize.sm
+        : theme.typography.fontSize.base,
       fontFamily: theme.typography.fontSansSemiBold,
       color: theme.colors.text,
       marginBottom: theme.spacing.md,
@@ -360,7 +396,9 @@ const styles = (theme: Theme, compact: boolean) =>
       flex: 1,
     },
     settingLabel: {
-      fontSize: compact ? theme.typography.fontSize.sm : theme.typography.fontSize.base,
+      fontSize: compact
+        ? theme.typography.fontSize.sm
+        : theme.typography.fontSize.base,
       fontFamily: theme.typography.fontSansMedium,
       color: theme.colors.text,
     },
