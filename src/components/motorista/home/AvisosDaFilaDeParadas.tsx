@@ -10,7 +10,10 @@ import React from 'react';
 
 import { Alert as AlertInline } from '@/components/Alert';
 import { useRouteStatus } from '@/context/RouteStatusContext';
-import type { MotivoDescarte } from '@/lib/motorista/filaAcoesParada';
+import type {
+  DescarteDeAcao,
+  MotivoDescarte,
+} from '@/lib/motorista/filaAcoesParada';
 
 const MOTIVO: Record<MotivoDescarte, string> = {
   parada_removida:
@@ -31,6 +34,24 @@ const MOTIVO: Record<MotivoDescarte, string> = {
  */
 const SOBRE_A_FOTO =
   'A foto do comprovante, se houver, continua guardada e é enviada assim que for possível; se não puder ser ligada à parada, fica registrada para a loja recuperar com o suporte.';
+
+/**
+ * Uma linha por descarte, com a parada identificada (o rótulo guardado ao
+ * enfileirar; ações de versões anteriores não o têm), e o parágrafo da foto
+ * uma vez só, no fim, se alguma conclusão foi descartada.
+ */
+function mensagemDosDescartes(descartes: DescarteDeAcao[]): string {
+  const linhas = descartes.map((d) => {
+    const oQue =
+      d.acao.tipo === 'concluir' ? 'conclusão não enviada' : 'pulo não enviado';
+    const quem = d.acao.rotulo ?? 'Parada';
+    return `${quem}: ${oQue} (${MOTIVO[d.motivo]}).`;
+  });
+  if (descartes.some((d) => d.acao.tipo === 'concluir')) {
+    linhas.push(SOBRE_A_FOTO);
+  }
+  return linhas.join('\n');
+}
 
 export function AvisosDaFilaDeParadas() {
   const {
@@ -83,13 +104,7 @@ export function AvisosDaFilaDeParadas() {
               ? `${descartes.length} registros não foram enviados`
               : 'Um registro não foi enviado'
           }
-          message={descartes
-            .map((d) =>
-              d.acao.tipo === 'concluir'
-                ? `Conclusão não enviada: ${MOTIVO[d.motivo]}. ${SOBRE_A_FOTO}`
-                : `Pulo não enviado: ${MOTIVO[d.motivo]}.`,
-            )
-            .join('\n')}
+          message={mensagemDosDescartes(descartes)}
           onClose={() => {
             void dispensarAvisosDeEnvio?.();
           }}

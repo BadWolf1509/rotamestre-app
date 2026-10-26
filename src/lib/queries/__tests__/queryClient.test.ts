@@ -45,6 +45,19 @@ describe('queryClient', () => {
       expect(result.message).toBe('Erro de conexão. Verifique sua internet.');
     });
 
+    // Forma do RN: o postgrest-js monta `${name}: ${message}` do TypeError
+    it('classifica "TypeError: Network request failed" (RN) como rede', () => {
+      const result = classifyError({
+        message: 'TypeError: Network request failed',
+        details: '',
+        hint: '',
+        code: '',
+      });
+
+      expect(result.type).toBe('network');
+      expect(result.message).toBe('Erro de conexão. Verifique sua internet.');
+    });
+
     // PGRST116 é "zero linhas" (not_found), não um código de auth — usar essa
     // fixture aqui esconderia a checagem de prefixo por trás da checagem de
     // mensagem (a msg 'JWT expired' já classifica sozinha). PGRST301 é um

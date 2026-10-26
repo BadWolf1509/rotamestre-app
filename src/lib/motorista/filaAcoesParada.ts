@@ -39,6 +39,8 @@ import { lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
+import { ehRecusaPorRotaEncerrada } from './recusaRotaEncerrada';
+
 const CHAVE_FILA = '@rotamestre:fila_acoes_parada';
 const CHAVE_DESCARTES = '@rotamestre:fila_acoes_parada_descartes';
 
@@ -64,7 +66,12 @@ export interface AcaoParada {
   rotaId: string;
   /** Dono da rota no momento da ação; só a sessão dele envia. */
   motoristaId: string;
-  /** Momento da ação no aparelho (vira `concluida_em`). */
+  /**
+   * Momento da ação no aparelho. Vira `concluida_em` no concluir E no pular:
+   * é o campo que a linha do tempo do gestor lê para os dois, e offline é o
+   * único registro da hora real (o `updated_at` marca a sincronização). Quem
+   * conta "concluída" olha o `status`; o retomar limpa o campo.
+   */
   em: string;
   motivo?: MotivoSkip;
   /**
@@ -73,6 +80,13 @@ export interface AcaoParada {
    * `observacao_pulo` — ver `dadosDaAcao`.
    */
   observacoes?: string;
+  /**
+   * Como o motorista reconhece a parada ("Parada 4 — Rua X"), guardado ao
+   * enfileirar: se a ação for descartada com a rota encerrada ou a parada
+   * removida, ela nem está mais na tela para cruzar. Ausente nas ações
+   * gravadas por versões anteriores.
+   */
+  rotulo?: string;
   /** Falhas definitivas do servidor já sofridas (rede não conta). */
   tentativas: number;
 }
@@ -182,6 +196,16 @@ export function criarAcaoParada(
   };
 }
 
+/** Rótulo curto da parada para os avisos de descarte. */
+export function rotuloDaParada(parada: {
+  ordem: number;
+  endereco?: string | null;
+}): string {
+  const endereco = (parada.endereco ?? '').trim();
+  const curto = endereco.length > 60 ? `${endereco.slice(0, 57)}...` : endereco;
+  return curto ? `Parada ${parada.ordem} — ${curto}` : `Parada ${parada.ordem}`;
+}
+
 export function lerFilaAcoesParada(): Promise<AcaoParada[]> {
   return lerLista<AcaoParada>(CHAVE_FILA);
 }
@@ -251,7 +275,7 @@ export function sobreporAcoesPendentes<
     return {
       ...p,
       status: acao.tipo === 'concluir' ? 'concluida' : 'pulada',
-      ...(acao.tipo === 'concluir' ? { concluida_em: acao.em } : {}),
+      concluida_em: acao.em,
     };
   });
   return { paradas: sobrepostas, pendentes };
@@ -356,6 +380,7 @@ function dadosDaAcao(acao: AcaoParada): Record<string, unknown> {
     status: 'pulada',
     motivo_skip: acao.motivo ?? 'outro',
     observacao_pulo: acao.observacoes || null,
+    concluida_em: acao.em,
   };
 }
 
@@ -419,7 +444,19 @@ export async function aplicarAcaoParada(
   const antes = classificar(acao, paradaLida);
   if (antes) return antes;
 
-  const mudou = await porta.atualizarSeAberta(acao.paradaId, dadosDaAcao(acao));
+  let mudou: boolean;
+  try {
+    mudou = await porta.atualizarSeAberta(acao.paradaId, dadosDaAcao(acao));
+  } catch (erro) {
+    // A rota encerrou entre a leitura e o UPDATE, e o gatilho do banco
+    // recusou (P0001 PARADA_DE_ROTA_ENCERRADA, Migration 77): recusa com
+    // nome, definitiva — descarta já com o aviso certo, em vez de gastar as
+    // tentativas da falha persistente.
+    if (ehRecusaPorRotaEncerrada(erro)) {
+      return { tipo: 'descartada', motivo: 'rota_encerrada' };
+    }
+    throw erro;
+  }
   if (mudou) return { tipo: 'aplicada' };
 
   // Alguém resolveu a parada entre a leitura e o UPDATE.

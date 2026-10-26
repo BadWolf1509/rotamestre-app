@@ -14,7 +14,6 @@ import { Text } from '@/design-system';
 import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
 import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useAlert } from '@/hooks/useAlert';
-import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import {
   agruparPorLocal,
   paradasDaVisita,
@@ -48,12 +47,6 @@ function MapaMotoristaContent() {
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'pendente' | 'em_andamento' | 'concluida'
   >('all');
-
-  // Broadcast localização do motorista quando a rota está em andamento
-  useDriverLocationBroadcast({
-    rotaId: route?.id,
-    rotaStatus: route?.status,
-  });
 
   // 1º toque no pino: só seleciona (balão). Abrir o sheet junto punha o
   // fundo escuro do modal por cima do mapa e do próprio balão.

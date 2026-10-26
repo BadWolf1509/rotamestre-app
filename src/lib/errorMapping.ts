@@ -168,6 +168,43 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
+    // Gatilho da Migration 77: status de parada de rota encerrada não muda
+    // pela API (ex.: "Retomar" depois do Finalizar). Antes de ROTA_ENCERRADA,
+    // que casaria no mesmo texto.
+    pattern: /PARADA_DE_ROTA_ENCERRADA/,
+    result: {
+      title: 'Rota encerrada',
+      message:
+        'Esta rota já foi encerrada, e as paradas dela não podem mais mudar. Puxe a tela para atualizar ou fale com o gestor.',
+      type: 'warning',
+      code: 'STOP_OF_CLOSED_ROUTE',
+    },
+  },
+  {
+    // Gatilho da Migration 76: o motorista só leva a rota de pendente a em
+    // andamento e de em andamento a concluída.
+    pattern: /ROTA_TRANSICAO_RECUSADA/,
+    result: {
+      title: 'Ação não permitida',
+      message:
+        'A situação desta rota mudou e esta ação não vale mais. Puxe a tela para atualizar ou fale com o gestor.',
+      type: 'warning',
+      code: 'ROUTE_TRANSITION_REFUSED',
+    },
+  },
+  {
+    // Gatilho da Migration 75: rota cancelada/concluída/não executada não
+    // muda de status pela API.
+    pattern: /ROTA_ENCERRADA/,
+    result: {
+      title: 'Rota encerrada',
+      message:
+        'Esta rota já foi encerrada e não pode mais mudar. Puxe a tela para atualizar.',
+      type: 'warning',
+      code: 'ROUTE_CLOSED',
+    },
+  },
+  {
     pattern: /PARADA_JA_RESOLVIDA/,
     result: {
       title: 'Parada já resolvida',

@@ -1,17 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { lerSessao } from './auth/sessao';
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
 import { lerJsonParaGravar } from './leituraLocal';
 import { logger } from './logger';
 import {
+  ehErroDefinitivo,
   lerFilaAcoesParada,
   sincronizarFilaAcoesParada,
 } from './motorista/filaAcoesParada';
-import { notifySyncComplete, notifyOfflineMode } from './notifications';
+import {
+  notifyEnviosDescartados,
+  notifySyncComplete,
+  notifyOfflineMode,
+} from './notifications';
+import { redeCaidaObservada } from './redeObservada';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
@@ -38,6 +44,43 @@ interface OfflinePhotoData {
    * comprovante em nome de outra pessoa. Distingue-a da foto antiga sem dono.
    */
   semDono?: true;
+  /** Recusas que NÃO foram de rede (ver `RECUO_REENVIO_FOTO_MS`). */
+  falhas?: number;
+  /** Quando foi a última recusa (ms desde a época). */
+  ultimaFalhaEm?: number;
+}
+
+/**
+ * Foto que nunca consegue subir (vínculo com a loja desativado, a policy do
+ * bucket recusa) era reenviada inteira a cada gatilho, para sempre. Cada
+ * recusa espera o recuo da vez antes do próximo reenvio: 1, 5, 15 e, dali em
+ * diante, 60 min. Falha de REDE não conta (queda observada pelo `fetch`, ou
+ * erro sem resposta definitiva): quando o sinal volta, o comprovante sobe na
+ * hora — `isOnline()` sozinho não prova rede. Nunca apaga: é comprovante.
+ * Alternativa descartada: caminho estável no bucket com `upsert` (evitaria
+ * objetos órfãos do upload que passa e da ligação que falha), mas pede UPDATE
+ * em `storage.objects`, que a policy do bucket não dá — fica para o banco.
+ */
+export const RECUO_REENVIO_FOTO_MS = [1, 5, 15, 60].map((min) => min * 60_000);
+
+function fotoEmEspera(photo: OfflinePhotoData, agora: number): boolean {
+  const falhas = photo.falhas ?? 0;
+  if (falhas === 0) return false;
+  const recuo =
+    RECUO_REENVIO_FOTO_MS[Math.min(falhas, RECUO_REENVIO_FOTO_MS.length) - 1];
+  return agora - (photo.ultimaFalhaEm ?? 0) < recuo;
+}
+
+/**
+ * A falha desta tentativa foi de rede? `subirFotoDaFilaOffline` devolve null
+ * sem dizer por quê; a queda observada pelo `fetch` do Supabase (que passa
+ * pelo Storage) responde por ela. Erro lançado conta só se for resposta
+ * definitiva do servidor (`ehErroDefinitivo`): rede, sessão e 5xx, não.
+ */
+function falhaFoiDeRede(erro?: unknown): boolean {
+  if (redeCaidaObservada()) return true;
+  if (erro === undefined) return false;
+  return !ehErroDefinitivo(erro);
 }
 
 /** Foto que a sessão `usuarioAtual` pode subir/contar. */
@@ -299,6 +342,24 @@ export async function queuePhotoUpload(
   return photoData.localPath;
 }
 
+/** Conta a falha na entrada da foto (pelo caminho local, que é único). */
+async function registrarFalhaDaFoto(photo: OfflinePhotoData): Promise<void> {
+  try {
+    await mudarIndiceDeFotos((index) => {
+      if (!index.some((p) => p.localPath === photo.localPath)) return null;
+      return index.map((p) =>
+        p.localPath === photo.localPath
+          ? { ...p, falhas: (p.falhas ?? 0) + 1, ultimaFalhaEm: Date.now() }
+          : p,
+      );
+    });
+  } catch (error) {
+    // Não crítico: sem a contagem, a foto só volta a ser tentada a cada
+    // gatilho, como antes.
+    logger.warn('[Offline] Falha ao contar a falha da foto', error);
+  }
+}
+
 /**
  * Concurrency guard for processOfflinePhotos.
  * Prevents double uploads when setupOfflineSync fires twice (e.g., rapid connectivity toggles).
@@ -342,6 +403,7 @@ export async function processOfflinePhotos(): Promise<{
 
     for (const photo of index) {
       if (!fotoEDe(photo, usuarioAtual)) continue;
+      if (fotoEmEspera(photo, Date.now())) continue;
       try {
         // Verificar se arquivo ainda existe
         if (Platform.OS !== 'web') {
@@ -383,10 +445,12 @@ export async function processOfflinePhotos(): Promise<{
           success++;
         } else {
           failed++;
+          if (!falhaFoiDeRede()) await registrarFalhaDaFoto(photo);
         }
       } catch (error) {
         logger.warn('Falha ao processar foto offline', error);
         failed++;
+        if (!falhaFoiDeRede(error)) await registrarFalhaDaFoto(photo);
       }
     }
 
@@ -507,7 +571,11 @@ export function _resetProcessingLocks(): void {
 // ENVIO DO QUE FICOU NO APARELHO (fotos + ações de parada)
 // ============================================================================
 
-let envioEmCurso: Promise<{ fotos: number; acoes: number }> | null = null;
+let envioEmCurso: Promise<{
+  fotos: number;
+  acoes: number;
+  descartadas: number;
+}> | null = null;
 let pedirEnvioDeNovo = false;
 
 /**
@@ -529,6 +597,8 @@ let pedirEnvioDeNovo = false;
 export function solicitarEnvioFila(): Promise<{
   fotos: number;
   acoes: number;
+  /** Ações de parada que o servidor recusou por conflito nesta rodada. */
+  descartadas: number;
 }> {
   if (envioEmCurso) {
     pedirEnvioDeNovo = true;
@@ -537,6 +607,7 @@ export function solicitarEnvioFila(): Promise<{
   envioEmCurso = (async () => {
     let fotos = 0;
     let acoes = 0;
+    let descartadas = 0;
     try {
       do {
         pedirEnvioDeNovo = false;
@@ -545,16 +616,37 @@ export function solicitarEnvioFila(): Promise<{
         if ((await getPendingPhotosCount()) > 0) {
           fotos += (await processOfflinePhotos()).success;
         }
-        acoes += (await sincronizarFilaAcoesParada()).enviadas;
+        const r = await sincronizarFilaAcoesParada();
+        acoes += r.enviadas;
+        descartadas += r.descartadas?.length ?? 0;
       } while (pedirEnvioDeNovo);
     } catch (error) {
       logger.warn('[Offline] Falha ao enviar o que ficou no aparelho', error);
     } finally {
       envioEmCurso = null;
     }
-    return { fotos, acoes };
+    return { fotos, acoes, descartadas };
   })();
   return envioEmCurso;
+}
+
+/**
+ * Notificações do envio automático (login, volta da rede). O descarte só
+ * notifica com o app fora da tela: aberto, a Início já mostra o aviso com a
+ * parada identificada (`AvisosDaFilaDeParadas`).
+ */
+async function notificarResultadoDoEnvio(r: {
+  fotos: number;
+  acoes: number;
+  descartadas?: number;
+}): Promise<void> {
+  if (r.fotos > 0 || r.acoes > 0) {
+    await notifySyncComplete(r.acoes, r.fotos);
+  }
+  const descartadas = r.descartadas ?? 0;
+  if (descartadas > 0 && AppState.currentState !== 'active') {
+    await notifyEnviosDescartados(descartadas);
+  }
 }
 
 // Variável para controlar se já notificou offline nesta sessão
@@ -599,10 +691,7 @@ export function setupOfflineSync(): () => void {
       await adotarFotosSemDono(userId).catch((error) =>
         logger.warn('[Offline] Falha ao adotar fotos sem dono', error),
       );
-      const r = await solicitarEnvioFila();
-      if (r.fotos > 0 || r.acoes > 0) {
-        await notifySyncComplete(r.acoes, r.fotos);
-      }
+      await notificarResultadoDoEnvio(await solicitarEnvioFila());
     })().catch((error) =>
       logger.warn('[Offline] Falha ao sincronizar fotos no login', error),
     );
@@ -615,12 +704,7 @@ export function setupOfflineSync(): () => void {
 
       // Fotos e depois concluir/pular guardados sem rede: o comprovante sobe
       // antes da ação que o gestor vê (solicitarEnvioFila).
-      const envio = await solicitarEnvioFila();
-
-      // Notificar se houve sincronização
-      if (envio.acoes > 0 || envio.fotos > 0) {
-        await notifySyncComplete(envio.acoes, envio.fotos);
-      }
+      await notificarResultadoDoEnvio(await solicitarEnvioFila());
     } else {
       // Notificar apenas uma vez que está offline
       if (!hasNotifiedOffline) {

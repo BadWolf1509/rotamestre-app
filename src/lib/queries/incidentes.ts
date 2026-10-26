@@ -249,11 +249,19 @@ export async function fetchIncidentesByMotorista(
 
 /**
  * Create a new incidente
+ *
+ * Sem `withRetry`: INSERT sem chave de idempotência, e a resposta perdida
+ * depois do commit (rede caindo, 5xx do gateway) faria a repetição gravar o
+ * incidente de novo — e notificar os gestores de novo. O wizard guarda o
+ * rascunho e o motorista tenta outra vez. Alternativa descartada: `id` gerado
+ * no cliente para a repetição bater no PK — só cobriria a repetição
+ * automática se o wizard guardasse o id entre tentativas manuais, e ainda
+ * pediria ler de volta a linha no 23505.
  */
 export async function createIncidente(
   data: IncidenteInsert,
 ): Promise<QueryResult<IncidenteDB>> {
-  return withRetry(async () => {
+  return (async () => {
     const { data: incidente, error } = await supabase
       .from('incidentes')
       .insert({
@@ -265,7 +273,7 @@ export async function createIncidente(
 
     if (error) throw error;
     return incidente as IncidenteDB;
-  }).then(
+  })().then(
     (data) => ({ success: true as const, data }),
     (error) => ({ success: false as const, error: classifyError(error) }),
   );

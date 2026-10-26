@@ -79,6 +79,7 @@ jest.mock('../storage', () => ({
 jest.mock('../notifications', () => ({
   notifySyncComplete: jest.fn(),
   notifyOfflineMode: jest.fn(),
+  notifyEnviosDescartados: jest.fn(),
 }));
 
 jest.mock('../motorista/filaAcoesParada', () => ({
@@ -263,5 +264,45 @@ describe('notificação "Modo Offline" ao perder a rede', () => {
   it('sem nada guardado, não avisa', async () => {
     await perderARede();
     expect(notifyOfflineMode).not.toHaveBeenCalled();
+  });
+});
+
+// Sincronização com o app em segundo plano: o descarte só aparecia ao abrir
+// a Início, e a notificação contava só as enviadas (ou nem saía, com tudo
+// descartado).
+describe('descarte na reconexão em segundo plano', () => {
+  const { notifyEnviosDescartados } = jest.requireMock('../notifications') as {
+    notifyEnviosDescartados: jest.Mock;
+  };
+  const { AppState } = jest.requireActual('react-native');
+  const estadoOriginal = AppState.currentState;
+
+  afterEach(() => {
+    AppState.currentState = estadoOriginal;
+  });
+
+  async function reconectarComDescartes(estado: string) {
+    AppState.currentState = estado;
+    notifyEnviosDescartados.mockClear();
+    (sincronizarFilaAcoesParada as jest.Mock).mockResolvedValue({
+      enviadas: 0,
+      descartadas: [{}, {}],
+      restantes: 0,
+    });
+    setupOfflineSync();
+    const ouvinte = (NetInfo.addEventListener as jest.Mock).mock.calls.at(
+      -1,
+    )[0];
+    await ouvinte({ isConnected: true, isInternetReachable: true });
+  }
+
+  it('em segundo plano: notifica quantos registros não foram enviados', async () => {
+    await reconectarComDescartes('background');
+    expect(notifyEnviosDescartados).toHaveBeenCalledWith(2);
+  });
+
+  it('com o app aberto, não notifica: a Início já mostra o aviso', async () => {
+    await reconectarComDescartes('active');
+    expect(notifyEnviosDescartados).not.toHaveBeenCalled();
   });
 });

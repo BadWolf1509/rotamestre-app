@@ -191,6 +191,23 @@ export async function notifySyncComplete(
 }
 
 /**
+ * Registros de parada que a sincronização em segundo plano descartou (rota
+ * encerrada, parada removida...). O detalhe, com a parada, fica na Início.
+ */
+export async function notifyEnviosDescartados(
+  quantidade: number,
+): Promise<void> {
+  if (quantidade <= 0) return;
+  const message =
+    quantidade === 1
+      ? '1 registro de parada não foi enviado. Abra o app para ver qual.'
+      : `${quantidade} registros de parada não foram enviados. Abra o app para ver quais.`;
+  await sendLocalNotification('Registro não enviado', message, {
+    type: 'envios_descartados',
+  });
+}
+
+/**
  * Agendar lembrete diário de rota
  */
 export async function scheduleRouteReminder(): Promise<string | null> {
