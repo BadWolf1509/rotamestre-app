@@ -118,6 +118,7 @@ export default function MapaRota() {
     isReordering,
     hasReorderChanges,
     setHasReorderChanges,
+    acaoEmVoo,
     listaParadasRef,
     handleMarkerPress,
     handleMapPress,
@@ -455,6 +456,7 @@ export default function MapaRota() {
               modals.closeCancelModal();
             }}
             onCancel={modals.closeCancelModal}
+            loading={acaoEmVoo}
             type="danger"
             icon="close-circle-outline"
           />
@@ -471,6 +473,7 @@ export default function MapaRota() {
               modals.closeReactivateModal();
             }}
             onCancel={modals.closeReactivateModal}
+            loading={acaoEmVoo}
             type="success"
           />
 
@@ -505,6 +508,7 @@ export default function MapaRota() {
               modals.closeRemoveStopModal();
               clearParadaToRemove();
             }}
+            loading={acaoEmVoo}
             type="danger"
           />
 
