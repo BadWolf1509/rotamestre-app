@@ -112,7 +112,7 @@ export interface UseMotoristasOperationsReturn {
 
 export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   const { userData } = useUser();
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const { unidadeAtiva, loading: unidadeLoading } = useUnidadeAtiva();
   const { toast: toastState, showToast, hideToast, withToast } = useToast();
   const { bloqueio, mostrarSeBloqueado, fecharBloqueio } =
     useBloqueioDesativacao();
@@ -136,6 +136,9 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   // ============================================================================
 
   const loadMotoristas = useCallback(async () => {
+    // Loja ainda resolvendo: `unidadeAtiva` é null de passagem, e zerar aqui
+    // piscaria "sem motoristas" antes do spinner (mesma guarda de Incidentes).
+    if (unidadeLoading) return;
     if (!unidadeAtiva) {
       // Sem loja: a lista da anterior sai da tela e a carga dela em voo é
       // invalidada (o contador avança), senão chegaria depois e voltaria.
@@ -184,7 +187,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
     } finally {
       if (vigente()) setLoading(false);
     }
-  }, [showToast, unidadeAtiva]);
+  }, [showToast, unidadeAtiva, unidadeLoading]);
 
   useEffect(() => {
     loadMotoristas();

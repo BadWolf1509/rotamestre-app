@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { useMotoristasOperations } from '../useMotoristasOperations';
 
 let mockLoja: string | null = 'loja-a';
+let mockLojaCarregando = false;
 const mockRespostas: Record<
   string,
   (r: { data: unknown; error: unknown }) => void
@@ -18,7 +19,10 @@ const mockRespostas: Record<
 const mockShowToast = jest.fn();
 
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: mockLoja }),
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockLoja,
+    loading: mockLojaCarregando,
+  }),
 }));
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({ userData: { id: 'g1', nome: 'Gestor' } }),
@@ -59,6 +63,7 @@ function motorista(id: string, nome: string) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockLoja = 'loja-a';
+  mockLojaCarregando = false;
   for (const k of Object.keys(mockRespostas)) delete mockRespostas[k];
   (supabase.rpc as jest.Mock).mockImplementation(
     (_fn: string, args: { p_unidade_id: string }) =>
@@ -165,5 +170,23 @@ describe('useMotoristasOperations — troca de loja', () => {
     await waitFor(() =>
       expect(result.current.motoristas.map((m) => m.nome)).toEqual(['Bia']),
     );
+  });
+
+  it('loja ainda resolvendo (unidadeAtiva null de passagem) segue carregando, sem "vazia definitiva"', async () => {
+    mockLoja = null;
+    mockLojaCarregando = true;
+    const { result, rerender } = renderHook(() => useMotoristasOperations());
+
+    // Dá tempo a efeitos; o hook não pode ter decidido "sem loja".
+    await act(async () => {});
+    expect(result.current.loading).toBe(true);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+
+    mockLoja = 'loja-a';
+    mockLojaCarregando = false;
+    rerender({});
+    expect(result.current.loading).toBe(true);
+    await carregarLojaA(result);
+    expect(result.current.loading).toBe(false);
   });
 });
