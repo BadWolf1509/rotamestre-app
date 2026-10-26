@@ -379,9 +379,12 @@ BEGIN
          AND t.tgfoid = v_fn
          AND t.tgenabled = 'O'
          AND t.tgtype & 19 = 19
-         AND t.tgattr::int2[] = ARRAY[(SELECT a.attnum FROM pg_attribute a
-                                        WHERE a.attrelid = 'public.rotas'::regclass
-                                          AND a.attname = 'status')]::int2[];
+         -- int2vector vira array com índice inicial 0: compara por pertença
+         -- e tamanho, não por igualdade de arrays (que exige o mesmo índice).
+         AND array_length(t.tgattr::int2[], 1) = 1
+         AND (SELECT a.attnum FROM pg_attribute a
+               WHERE a.attrelid = 'public.rotas'::regclass
+                 AND a.attname = 'status') = ANY (t.tgattr::int2[]);
       SELECT count(*) INTO v_n2
         FROM pg_proc p
        WHERE p.oid = v_fn
