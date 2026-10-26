@@ -31,22 +31,19 @@ test.describe('Smoke Tests', () => {
     expect(response).not.toBeNull();
     expect(response?.status()).toBeLessThan(400);
 
-    // Wait for app to render
-    await page.waitForTimeout(3000);
-
-    // Should have login-related content
-    const pageText = await page.textContent('body');
-    expect(pageText).toBeTruthy();
+    // No lugar de 3 s fixos e de `textContent('body')` não vazio (que valia
+    // para qualquer página): o botão de entrar, que só existe no login montado.
+    await expect(page.getByTestId('auth-login-submit').first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   test('should find email input on login page', async ({ page }) => {
     await page.goto(e2eUrl('/auth/login'), { timeout: 30000 });
-    await page.waitForTimeout(3000);
 
-    // Try different selectors for email input
-    const emailInput = page.locator('input').first();
-
-    // Should have at least one input
-    await expect(emailInput).toBeVisible({ timeout: 10000 });
+    // O `toBeVisible` já espera: os 3 s fixos que vinham antes eram redundantes.
+    await expect(page.getByTestId('auth-login-email')).toBeVisible({
+      timeout: 15000,
+    });
   });
 });

@@ -28,20 +28,13 @@ test.describe('Gestor Team Management E2E Tests', () => {
     });
 
     test('should display motoristas management interface', async ({ page }) => {
+      // `gotoMotoristas` já espera a tela pronta; no lugar dos 2 s fixos e da
+      // leitura única do body, um `toContainText` que re-tenta.
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
 
-      // Should have motorista-related content
-      const bodyText = await page.locator('body').textContent();
-      expect(bodyText).toBeTruthy();
-
-      const hasMotoristaContent =
-        bodyText?.includes('motorista') ||
-        bodyText?.includes('Motorista') ||
-        bodyText?.includes('equipe') ||
-        bodyText?.includes('Adicionar');
-
-      expect(hasMotoristaContent).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /motorista|equipe|Adicionar/i,
+      );
     });
   });
 
@@ -185,37 +178,23 @@ test.describe('Gestão Rotas E2E Tests', () => {
     });
 
     test('should display route management interface', async ({ page }) => {
+      // `gotoGestaoRotas` já espera a tabela; sem os 2 s fixos.
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should have route management content
-      const hasRouteContent =
-        bodyText?.includes('Rotas') ||
-        bodyText?.includes('Filtro') ||
-        bodyText?.includes('Data') ||
-        bodyText?.includes('Motorista');
-
-      expect(hasRouteContent).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /Rotas|Filtro|Data|Motorista/,
+      );
     });
   });
 
   test.describe('Route Filtering', () => {
     test('should have status filter buttons', async ({ page }) => {
+      // `gotoGestaoRotas` já espera a tabela; sem os 2 s fixos.
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should have filter options
-      const hasFilters =
-        bodyText?.includes('Todas') ||
-        bodyText?.includes('Pendente') ||
-        bodyText?.includes('Em Andamento') ||
-        bodyText?.includes('Concluída');
-
-      expect(hasFilters).toBeTruthy();
+      await expect(page.locator('body')).toContainText(
+        /Todas|Pendente|Em Andamento|Concluída/,
+      );
     });
 
     test('a busca de rotas filtra a contagem de resultados', async ({

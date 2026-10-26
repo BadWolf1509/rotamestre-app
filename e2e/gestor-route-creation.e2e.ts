@@ -154,18 +154,10 @@ test.describe('Gestor Dashboard E2E Tests', () => {
   });
 
   test('should have navigation to other gestor sections', async ({ page }) => {
+    // `gotoInicio` já espera o painel pronto; os 2 s fixos que vinham aqui
+    // saíram, e o `toContainText` re-tenta em vez de ler o body uma vez só.
     await gestorPage.gotoInicio();
-    await page.waitForTimeout(2000);
 
-    // Check for navigation elements
-    const bodyText = await page.locator('body').textContent();
-
-    // Should have links to other sections
-    const hasNavigation =
-      bodyText?.includes('Motoristas') ||
-      bodyText?.includes('Rotas') ||
-      bodyText?.includes('Nova');
-
-    expect(hasNavigation).toBeTruthy();
+    await expect(page.locator('body')).toContainText(/Motoristas|Rotas|Nova/);
   });
 });

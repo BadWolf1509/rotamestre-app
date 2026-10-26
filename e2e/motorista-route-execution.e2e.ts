@@ -57,7 +57,11 @@ test.describe('Motorista Route Execution E2E Tests', () => {
 
     test('should show route status indicators', async ({ page }) => {
       await motoristaPage.expectOnMotoristaDashboard();
-      await page.waitForTimeout(3000);
+      // No lugar de 3 s fixos: o cartão principal é onde os indicadores de
+      // status moram, e só monta depois que a rota carregou.
+      await expect(page.getByTestId('motorista-main-card')).toBeVisible({
+        timeout: 15000,
+      });
 
       const bodyText = await page.locator('body').textContent();
 
