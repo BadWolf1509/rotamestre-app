@@ -68,13 +68,29 @@ export default function EquipeScreen() {
   // tela — o gestor acabou de agir e já recebeu o toast de sucesso. Mesma regra
   // do useDashboardData.
   const cargaInicialFeitaRef = useRef(false);
+  // Loja da última carga iniciada: trocar de loja é carga inicial de novo
+  // (spinner e lista vazia), não recarga — senão a equipe da loja anterior
+  // ficaria na tela sob o nome da nova até a resposta chegar.
+  const lojaDaCargaRef = useRef<string | null>(null);
+  // Contador de requisição: só a carga mais recente grava. Na troca de loja
+  // (ou numa recarga), a resposta lenta da anterior chegaria depois e
+  // sobrescreveria a atual.
+  const requisicaoRef = useRef(0);
 
   const loadMembros = useCallback(async () => {
+    const minhaRequisicao = ++requisicaoRef.current;
     const unidadeId = unidadeAtiva;
     if (!unidadeId) {
+      lojaDaCargaRef.current = null;
       setMembros([]);
       setLoading(false);
       return;
+    }
+
+    if (lojaDaCargaRef.current !== unidadeId) {
+      lojaDaCargaRef.current = unidadeId;
+      cargaInicialFeitaRef.current = false;
+      setMembros([]);
     }
 
     try {
@@ -84,14 +100,19 @@ export default function EquipeScreen() {
       // Mesma fonte da tela Motoristas e do número da Minha Unidade
       // (`carregarEquipeDaLoja`): o vínculo com a loja, não
       // `usuarios.unidade_id`.
-      setMembros(await carregarEquipeDaLoja(unidadeId));
+      const equipe = await carregarEquipeDaLoja(unidadeId);
+      if (minhaRequisicao !== requisicaoRef.current) return;
+      setMembros(equipe);
     } catch (error) {
+      if (minhaRequisicao !== requisicaoRef.current) return;
       logger.error('Erro ao carregar membros', error);
       showToast('Erro ao carregar equipe', 'error', 4000);
     } finally {
-      // A tentativa aconteceu: da próxima vez é recarga, não carga inicial.
-      cargaInicialFeitaRef.current = true;
-      setLoading(false);
+      if (minhaRequisicao === requisicaoRef.current) {
+        // A tentativa aconteceu: da próxima vez é recarga, não carga inicial.
+        cargaInicialFeitaRef.current = true;
+        setLoading(false);
+      }
     }
   }, [showToast, unidadeAtiva]);
 

@@ -120,6 +120,18 @@ describe('Configurações do gestor: notificações', () => {
     );
   });
 
+  // Ninguém lia essas preferências: o painel não consultava a "atualização
+  // automática" e a Gestão de Rotas oferece CSV e XLSX sem olhar o formato.
+  it('não oferece opções sem efeito (atualização automática, formato de exportação)', async () => {
+    render(<ConfiguracoesGestorScreen />);
+    await interruptor('push-ativo');
+
+    expect(screen.queryByText('Atualização Automática')).toBeNull();
+    expect(
+      screen.queryByText('Formato padrão para exportação de relatórios'),
+    ).toBeNull();
+  });
+
   it('push geral desligado desabilita as categorias', async () => {
     banco.set('g1', {
       usuario_id: 'g1',

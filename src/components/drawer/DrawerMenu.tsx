@@ -118,6 +118,13 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         path: '/unidade/equipe',
         show: profile?.papel === 'gestor',
       },
+      {
+        icon: '⚙️',
+        label: 'Configurações',
+        path: '/gestor/configuracoes',
+        show: true,
+      },
+      { icon: '❓', label: 'Ajuda', path: '/gestor/ajuda', show: true },
     ],
     [profile?.papel],
   );

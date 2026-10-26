@@ -996,12 +996,6 @@ describe('useGestaoRotas', () => {
     });
   });
 
-  // NOTE: PDF export tests have been removed from this file because
-  // exportarParaPDF is no longer exposed by useGestaoRotas. PDF export is a
-  // per-route function (exportRotaToPDF) that lives in
-  // gestao-rotas/routeExportPDF.ts and is tested in
-  // gestao-rotas/__tests__/routeExportPDF.test.ts.
-
   describe('Helpers', () => {
     it('deve retornar label correto para status', async () => {
       setupMocks();

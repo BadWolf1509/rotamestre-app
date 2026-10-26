@@ -222,27 +222,42 @@ export function useTimelineData(
   );
 
   // Realtime: hook é dono do canal.
+  //
+  // Só tabelas da publicação `supabase_realtime` (rotas, paradas,
+  // notificacoes, motorista_locations): `logs` e `incidentes` ficam fora dela
+  // de propósito (custo de RLS por evento), e assinatura nelas entra em
+  // SUBSCRIBED sem nunca disparar. O evento da rota ou da parada recarrega a
+  // linha do tempo, e a recarga traz o log que o gatilho gravou na mesma
+  // transação. Ficam de fora até a próxima recarga: parada removida (DELETE
+  // com filtro não chega) e incidente sem mudança de parada — a revalidação
+  // na volta ao app e na reconexão cobre.
   useEffect(() => {
     if (!realtime) return;
     let jaInscreveu = false;
+    const recarregar = () => {
+      void refresh();
+    };
     const channel = supabase
       .channel(nomeDeCanalUnico(`route-timeline-${rotaId}`))
       .on(
         'postgres_changes',
         {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rotas',
+          filter: `id=eq.${rotaId}`,
+        },
+        recarregar,
+      )
+      .on(
+        'postgres_changes',
+        {
           event: 'INSERT',
           schema: 'public',
-          table: 'logs',
+          table: 'paradas',
           filter: `rota_id=eq.${rotaId}`,
         },
-        (payload: any) => {
-          const mapped = mapLogToTimelineEvent(payload.new);
-          if (!mapped) return;
-          updateRef.current((prev) => ({
-            events: dedupeById(sortDesc([mapped, ...(prev?.events ?? [])])),
-            hasMore: prev?.hasMore ?? false,
-          }));
-        },
+        recarregar,
       )
       .on(
         'postgres_changes',
@@ -252,21 +267,7 @@ export function useTimelineData(
           table: 'paradas',
           filter: `rota_id=eq.${rotaId}`,
         },
-        () => {
-          void refresh();
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'incidentes',
-          filter: `rota_id=eq.${rotaId}`,
-        },
-        () => {
-          void refresh();
-        },
+        recarregar,
       )
       .subscribe((status) => {
         // A 1ª inscrição corre junto com a carga inicial; as seguintes são

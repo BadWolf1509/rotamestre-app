@@ -151,6 +151,7 @@ describe('AddressAutocomplete', () => {
       expect(geocodingService.autocomplete).toHaveBeenCalledWith(
         'Rua Teste',
         undefined,
+        expect.any(String),
       );
     });
 
@@ -789,6 +790,7 @@ describe('AddressAutocomplete', () => {
         expect(geocodingService.autocomplete).toHaveBeenCalledWith(
           'Rua Teste',
           undefined,
+          expect.any(String),
         );
       });
 
@@ -810,8 +812,129 @@ describe('AddressAutocomplete', () => {
         expect(geocodingService.autocomplete).toHaveBeenCalledWith(
           'Avenida Nova',
           undefined,
+          expect.any(String),
         );
       });
+    });
+  });
+
+  describe('sessão de cobrança do Google Places', () => {
+    const sugestaoGoogle = {
+      place_id: 'ChIJabc',
+      description: 'Rua Google, Cidade',
+      structured_formatting: {
+        main_text: 'Rua Google',
+        secondary_text: 'Cidade',
+      },
+      source: 'google',
+      needsCoordinates: true,
+    };
+
+    async function digitar(input: unknown, texto: string) {
+      fireEvent.changeText(input as never, texto);
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+    }
+
+    it('usa o mesmo token nas consultas e no detalhe da escolha, e renova depois', async () => {
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue([
+        sugestaoGoogle,
+      ]);
+      (geocodingService.getCoordinates as jest.Mock).mockResolvedValue({
+        latitude: -7.1,
+        longitude: -34.8,
+      });
+
+      // Como na tela real: a escolha grava o endereço no campo.
+      const ComEscolha = () => {
+        const [value, setValue] = useState('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={(desc) => setValue(desc)}
+          />
+        );
+      };
+      const { getByPlaceholderText, findAllByTestId } = render(<ComEscolha />);
+      const input = getByPlaceholderText('Endereço ou CEP');
+      fireEvent(input, 'focus');
+
+      await digitar(input, 'Rua Goo');
+      await digitar(input, 'Rua Google');
+
+      const chamadas = (geocodingService.autocomplete as jest.Mock).mock.calls;
+      expect(chamadas).toHaveLength(2);
+      const token = chamadas[0][2];
+      expect(typeof token).toBe('string');
+      expect(token.length).toBeGreaterThan(0);
+      expect(chamadas[1][2]).toBe(token);
+
+      const [item] = await findAllByTestId('suggestion-item');
+      await act(async () => {
+        fireEvent.press(item);
+      });
+
+      await waitFor(() => {
+        expect(geocodingService.getCoordinates).toHaveBeenCalledWith(
+          expect.objectContaining({ place_id: 'ChIJabc' }),
+          token,
+        );
+      });
+
+      // Depois do detalhe a sessão fechou: a próxima busca abre outra.
+      await digitar(input, 'Avenida Outra');
+      const ultima = (geocodingService.autocomplete as jest.Mock).mock.calls.at(
+        -1,
+      );
+      expect(ultima?.[0]).toBe('Avenida Outra');
+      expect(typeof ultima?.[2]).toBe('string');
+      expect(ultima?.[2]).not.toBe(token);
+    });
+  });
+
+  describe('sessão do Places e campo limpo por fora', () => {
+    it('limpar o campo sem escolher sugestão encerra a sessão', async () => {
+      (geocodingService.autocomplete as jest.Mock).mockResolvedValue([]);
+      let limparPorFora: () => void = () => {};
+      const ComLimpeza = () => {
+        const [value, setValue] = useState('');
+        limparPorFora = () => setValue('');
+        return (
+          <AddressAutocomplete
+            value={value}
+            onChangeText={setValue}
+            onSelectAddress={() => {}}
+          />
+        );
+      };
+      const { getByPlaceholderText } = render(<ComLimpeza />);
+      const input = getByPlaceholderText('Endereço ou CEP');
+
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Antiga');
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      const primeiro = (geocodingService.autocomplete as jest.Mock).mock
+        .calls[0][2];
+
+      // O formulário zera o campo (ex.: parada adicionada, modal reaberto).
+      act(() => limparPorFora());
+
+      fireEvent(input, 'focus');
+      fireEvent.changeText(input, 'Rua Nova');
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      const ultimo = (geocodingService.autocomplete as jest.Mock).mock.calls.at(
+        -1,
+      )?.[2];
+
+      expect(typeof primeiro).toBe('string');
+      expect(typeof ultimo).toBe('string');
+      expect(ultimo).not.toBe(primeiro);
     });
   });
 

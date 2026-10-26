@@ -8,8 +8,6 @@ export { useTimelineData } from './useTimelineData';
 export type { UseTimelineDataResult } from './useTimelineData';
 export { exportRotasToCSV } from './routeExport';
 export { exportRotasToXLSX } from './routeExportXLSX';
-export { exportRotaToPDF } from './routeExportPDF';
-export type { RotaParaPDF, ParadaParaPDF } from './routeExportPDF';
 export type {
   RotaHistorico,
   RotaStatus,

@@ -3,7 +3,7 @@
  * Integra com Google Directions API e algoritmo de otimização
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type {
   Parada,
@@ -26,6 +26,14 @@ import {
 import { ordenarParadasPorRota } from '../useNovaEntrega.helpers';
 
 import type React from 'react';
+
+/**
+ * A lista mudou (parada adicionada, removida, editada ou limpa) enquanto o
+ * OSRM calculava: aplicar o resultado trocaria a lista atual pelo retrato do
+ * início e desfaria a mudança. O resultado é descartado.
+ */
+const AVISO_LISTA_MUDOU =
+  'A lista de paradas mudou durante a otimização. Otimize de novo para considerar as mudanças.';
 
 /**
  * Toda ordem possível passa por um par de pontos sem rota de carro entre si
@@ -67,6 +75,11 @@ export function useRouteOptimization({
   );
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [ordemManual, setOrdemManual] = useState(false);
+  // A lista mais recente, para conferir na volta do cálculo se ela mudou.
+  const paradasAtuaisRef = useRef(paradas);
+  useEffect(() => {
+    paradasAtuaisRef.current = paradas;
+  }, [paradas]);
 
   const otimizarRota = useCallback(async (): Promise<Parada[] | null> => {
     if (paradas.length < 1) {
@@ -128,6 +141,12 @@ export function useRouteOptimization({
       showToast(validacao.avisos[0], 'info');
     }
 
+    const listaMudou = () => {
+      if (paradasAtuaisRef.current === paradas) return false;
+      showToast(AVISO_LISTA_MUDOU, 'info', 6000);
+      return true;
+    };
+
     setIsOptimizing(true);
     try {
       const pontoUnidade = {
@@ -170,6 +189,7 @@ export function useRouteOptimization({
           showToast('Não foi possível otimizar a rota', 'error');
           return null;
         }
+        if (listaMudou()) return null;
 
         const paradasAtualizadas = resultado.paradasOrdenadas
           .map((pOtimizada, i) => {
@@ -234,6 +254,7 @@ export function useRouteOptimization({
           showToast('Não foi possível otimizar a rota', 'error');
           return null;
         }
+        if (listaMudou()) return null;
 
         // Com agrupamento, `ordem_otimizada` indexa visitas, não paradas, e os
         // `legs` são um por visita — nenhum consumidor lê `rotaOtimizada.legs`

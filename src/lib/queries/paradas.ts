@@ -36,7 +36,7 @@ export interface ParadaDB {
   foto_url: string | null;
   is_checkpoint: boolean;
   concluida_em: string | null;
-  criado_em: string;
+  created_at: string;
 }
 
 /**

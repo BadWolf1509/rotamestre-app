@@ -14,18 +14,14 @@
  * exportação só viam essas 100 rotas. A consulta mora em
  * `src/lib/gestor/consultaRotas.ts`.
  *
- * NOTE: PDF export is intentionally NOT exposed here. exportRotaToPDF() is a
- * per-route delivery-proof function (with real stop addresses). A list-level
- * bulk PDF would misuse that function by stuffing route summaries into the
- * paradas field. Wire exportRotaToPDF from a route-detail screen or per-row
- * action in a future PR — it is already exported from gestao-rotas/index.ts.
+ * Sem PDF: o comprovante por rota (pdfmake) não tinha tela que o chamasse e
+ * saiu em 26/10/2026 com a dependência (está no git, se for ligado um dia).
  *
  * Modular architecture:
  * - gestao-rotas/useRotasCache.ts: Cache management
  * - gestao-rotas/useRotasFiltering.ts: Filter state and sort logic
  * - gestao-rotas/routeExport.ts: CSV export utility
  * - gestao-rotas/routeExportXLSX.ts: XLSX export utility
- * - gestao-rotas/routeExportPDF.ts: Per-route PDF export utility
  */
 
 import { useRouter } from 'expo-router';

@@ -135,6 +135,18 @@ export function useIncidentesModals({
       return;
     }
 
+    // `resolvido_em` marca QUANDO foi resolvido: grava só ao entrar em
+    // `resolvido` e limpa ao sair dele. Salvar só a observação de um
+    // incidente já resolvido não pode trocar a data da resolução.
+    const estavaResolvido = incidenteSelecionado.status === 'resolvido';
+    const ficaResolvido = novoStatus === 'resolvido';
+    const resolucao =
+      ficaResolvido && !estavaResolvido
+        ? { resolvido_em: new Date().toISOString() }
+        : !ficaResolvido && estavaResolvido
+          ? { resolvido_em: null }
+          : {};
+
     try {
       setAtualizando(true);
 
@@ -144,9 +156,7 @@ export function useIncidentesModals({
           status: novoStatus,
           observacoes_gestao: observacoes || null,
           updated_at: new Date().toISOString(),
-          ...(novoStatus === 'resolvido' && {
-            resolvido_em: new Date().toISOString(),
-          }),
+          ...resolucao,
         })
         .eq('id', incidenteSelecionado.id)
         .select('id');

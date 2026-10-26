@@ -28,6 +28,9 @@ const RESULTADOS_REATIVAR = [
   'reativada',
   'situacao_mudou',
   'sem_permissao',
+  // O motorista da rota não tem vínculo ativo na loja ou está com o cadastro
+  // inativo: a RPC não reabre nada (a rota iria para quem não a recebe).
+  'motorista_indisponivel',
 ] as const;
 
 export type ResultadoCancelarRota = (typeof RESULTADOS_CANCELAR)[number];
@@ -35,6 +38,10 @@ export type ResultadoReativarRota = (typeof RESULTADOS_REATIVAR)[number];
 
 export const MENSAGEM_SEM_PERMISSAO_ROTA =
   'Você não tem mais acesso de gestor a esta loja. A tela foi atualizada.';
+
+// Rota `nao_executada` não troca de motorista, então o caminho é outra rota.
+export const MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR =
+  'O motorista desta rota não está mais ativo nesta loja, por isso ela não pode ser reativada. Crie uma nova rota para outro motorista.';
 
 export const MENSAGEM_ROTA_JA_CANCELADA =
   'A rota já estava cancelada. A tela foi atualizada.';

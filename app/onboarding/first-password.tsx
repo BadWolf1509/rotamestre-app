@@ -1,5 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,9 +12,14 @@ import { useAlert } from '@/hooks/useAlert';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { emitProfileUpdate } from '@/lib/profileEvents';
-import { passwordSchema } from '@/lib/schemas';
+// Regra única de senha (`passwordSchema`) + confirmação: a da redefinição.
+import {
+  resetPasswordSchema as primeiraSenhaSchema,
+  type ResetPasswordInput as PrimeiraSenhaInput,
+} from '@/lib/schemas/auth';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -26,11 +33,24 @@ function FirstPasswordContent() {
   const [user, setUser] = useState<User | null>(null);
   const { profile } = useProfile(user);
 
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // A senha nova já foi aceita pelo Auth, mas `primeira_senha` não foi
+  // marcada: o próximo toque só tenta marcar de novo. Trocar a senha outra vez
+  // falharia ("igual à atual") e o aviso falaria da senha temporária.
+  const senhaJaTrocadaRef = useRef(false);
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<PrimeiraSenhaInput>({
+    resolver: zodResolver(primeiraSenhaSchema),
+    defaultValues: { password: '', confirmPassword: '' },
+  });
+  const newPassword = watch('password');
 
   useEffect(() => {
     async function loadUser() {
@@ -42,26 +62,25 @@ function FirstPasswordContent() {
     loadUser();
   }, []);
 
-  async function handleSetPassword() {
-    // Validacoes
-    if (!newPassword || !confirmPassword) {
-      showWarning('Erro', 'Preencha todos os campos');
-      return;
+  /** Grava `primeira_senha = false`. A RLS recusa sem erro: confere a linha. */
+  async function marcarSenhaDefinida(usuarioId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update({ primeira_senha: false })
+      .eq('id', usuarioId)
+      .select('id');
+    if (error) {
+      logger.error('Erro ao atualizar primeira_senha', error);
+      return false;
     }
-
-    if (newPassword !== confirmPassword) {
-      showWarning('Erro', 'As senhas não coincidem');
-      return;
+    if ((data?.length ?? 0) === 0) {
+      logger.warn('UPDATE de primeira_senha não alterou nenhuma linha');
+      return false;
     }
+    return true;
+  }
 
-    // Regra única (a do cadastro, da redefinição e da troca): `passwordSchema`.
-    // O `isPasswordValid` daqui aceitava 12+ caracteres sem caractere especial.
-    const regra = passwordSchema.safeParse(newPassword);
-    if (!regra.success) {
-      showWarning('Senha Fraca', regra.error.issues[0].message);
-      return;
-    }
-
+  const handleSetPassword = handleSubmit(async ({ password }) => {
     try {
       setLoading(true);
 
@@ -83,7 +102,6 @@ function FirstPasswordContent() {
       // Verificar se o perfil está carregado
       if (!user || !profile) {
         showWarning('Erro', 'Não foi possível carregar os dados do usuário.');
-        setLoading(false);
         return;
       }
 
@@ -98,42 +116,46 @@ function FirstPasswordContent() {
         return;
       }
 
-      // Pela authService, que também encerra as OUTRAS sessões: quem conhecia
-      // a senha temporária (o gestor que criou a conta) não segue logado. A
-      // sessão desta tela é um login normal, então `scope: 'others'` mantém ela.
-      try {
-        await authService.updatePassword(newPassword);
-      } catch (updateError) {
-        const mensagem =
-          updateError instanceof Error ? updateError.message : '';
-        if (
-          mensagem.includes('should be different') ||
-          mensagem.includes('same')
-        ) {
-          showWarning(
-            'Senha Inválida',
-            'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.',
-          );
-          setLoading(false);
-          return;
+      if (!senhaJaTrocadaRef.current) {
+        // Pela authService, que também encerra as OUTRAS sessões: quem
+        // conhecia a senha temporária (o gestor que criou a conta) não segue
+        // logado. A sessão desta tela é um login normal, então
+        // `scope: 'others'` mantém ela.
+        try {
+          await authService.updatePassword(password);
+        } catch (updateError) {
+          const mensagem =
+            updateError instanceof Error ? updateError.message : '';
+          if (
+            mensagem.includes('should be different') ||
+            mensagem.includes('same')
+          ) {
+            showWarning(
+              'Senha Inválida',
+              'A nova senha não pode ser igual à senha temporária que você recebeu. Por favor, escolha uma senha diferente.',
+            );
+            return;
+          }
+
+          logger.error('Erro ao atualizar senha', updateError);
+          throw updateError;
         }
-
-        logger.error('Erro ao atualizar senha', updateError);
-        throw new Error(mensagem || 'Erro ao atualizar senha');
+        senhaJaTrocadaRef.current = true;
       }
 
-      // Marcar primeira_senha como false
-      const { error: dbError } = await supabase
-        .from('usuarios')
-        .update({ primeira_senha: false })
-        .eq('id', user!.id);
-
-      if (dbError) {
-        logger.error('Erro ao atualizar primeira_senha', dbError);
-      } else {
-        // `primeira_senha` mora no perfil: as instâncias de useUser recarregam.
-        emitProfileUpdate();
+      // Sem a marca, o próximo login cairia de novo na troca obrigatória:
+      // não anuncia sucesso, e o botão vira "tentar de novo" só da marca.
+      if (!(await marcarSenhaDefinida(user.id))) {
+        showError({
+          title: 'Troca não registrada',
+          message:
+            'Sua nova senha já vale, mas não conseguimos registrar a troca. Toque em "Definir Senha e Continuar" para tentar de novo.',
+        });
+        return;
       }
+
+      // `primeira_senha` mora no perfil: as instâncias de useUser recarregam.
+      emitProfileUpdate();
 
       const targetRoute =
         profile.papel === 'gestor' ? '/gestor/inicio' : '/motorista';
@@ -149,15 +171,13 @@ function FirstPasswordContent() {
       );
     } catch (error: unknown) {
       logger.error('Erro ao definir senha', error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Erro ao definir senha. Tente novamente.';
-      showError({ title: 'Erro', message });
+      // Mensagem do mapeamento, nunca o texto cru do servidor.
+      const { title, message } = getErrorMessage(error);
+      showError({ title, message });
     } finally {
       setLoading(false);
     }
-  }
+  });
 
   return (
     <View style={styles.wrapper}>
@@ -190,42 +210,57 @@ function FirstPasswordContent() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Input
-                label="Nova Senha"
-                required
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry={!showNewPassword}
-                placeholder="Digite sua nova senha"
-                autoCapitalize="none"
-                autoFocus
-                rightIcon={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
-                onRightIconPress={() => setShowNewPassword(!showNewPassword)}
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Input
+                    label="Nova Senha"
+                    required
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showNewPassword}
+                    placeholder="Digite sua nova senha"
+                    autoCapitalize="none"
+                    autoFocus
+                    rightIcon={
+                      showNewPassword ? 'eye-off-outline' : 'eye-outline'
+                    }
+                    onRightIconPress={() =>
+                      setShowNewPassword(!showNewPassword)
+                    }
+                    error={errors.password?.message}
+                  />
+                )}
               />
               <PasswordStrengthIndicator password={newPassword} />
             </View>
 
             <View style={styles.inputGroup}>
-              <Input
-                label="Confirmar Nova Senha"
-                required
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                placeholder="Digite novamente sua nova senha"
-                autoCapitalize="none"
-                rightIcon={
-                  showConfirmPassword ? 'eye-off-outline' : 'eye-outline'
-                }
-                onRightIconPress={() =>
-                  setShowConfirmPassword(!showConfirmPassword)
-                }
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { value, onChange, onBlur } }) => (
+                  <Input
+                    label="Confirmar Nova Senha"
+                    required
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    secureTextEntry={!showConfirmPassword}
+                    placeholder="Digite novamente sua nova senha"
+                    autoCapitalize="none"
+                    rightIcon={
+                      showConfirmPassword ? 'eye-off-outline' : 'eye-outline'
+                    }
+                    onRightIconPress={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    error={errors.confirmPassword?.message}
+                  />
+                )}
               />
-              {confirmPassword && newPassword !== confirmPassword && (
-                <Text tone="error" style={styles.errorText}>
-                  As senhas não coincidem
-                </Text>
-              )}
             </View>
 
             <View style={styles.requirementsBox}>
@@ -306,10 +341,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   inputGroup: {
     marginBottom: theme.spacing.xl,
-  },
-  errorText: {
-    fontSize: theme.typography.xs,
-    marginTop: theme.spacing.xs,
   },
   requirementsBox: {
     backgroundColor: theme.colors.primaryBg,

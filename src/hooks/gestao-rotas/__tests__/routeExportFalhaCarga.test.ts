@@ -3,7 +3,6 @@
  * o import() rejeita e o usuário deve receber uma mensagem acionável.
  */
 
-import { exportRotaToPDF } from '../routeExportPDF';
 import { exportRotasToXLSX } from '../routeExportXLSX';
 
 jest.mock('@/lib/logger', () => ({
@@ -25,9 +24,6 @@ jest.mock('expo-file-system/legacy', () => ({}));
 jest.mock('expo-sharing', () => ({}));
 
 // Fábrica que lança = import() rejeitando, como um chunk com 404.
-jest.mock('pdfmake/build/pdfmake', () => {
-  throw new Error('Loading chunk pdfmake failed');
-});
 jest.mock('xlsx', () => {
   throw new Error('Loading chunk xlsx failed');
 });
@@ -35,22 +31,6 @@ jest.mock('xlsx', () => {
 const MENSAGEM = 'Atualize a página e tente exportar de novo.';
 
 describe('falha de carga do chunk de exportação', () => {
-  it('PDF: mostra a mensagem de atualizar a página', async () => {
-    const { showError } = require('@/utils/errorHandling');
-    const { logger } = require('@/lib/logger');
-
-    await exportRotaToPDF({
-      id: 'r1',
-      titulo: 'Rota',
-      motorista: 'João',
-      data: '2026-01-15',
-      paradas: [],
-    });
-
-    expect(logger.error).toHaveBeenCalled();
-    expect(showError).toHaveBeenCalledWith('Erro', MENSAGEM);
-  });
-
   it('XLSX: mostra a mensagem de atualizar a página', async () => {
     const { showError } = require('@/utils/errorHandling');
 

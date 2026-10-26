@@ -22,13 +22,14 @@
  * ```
  */
 
-import { googlePlacesService, GooglePlaceSuggestion } from "@/lib/googlePlaces";
-import { logger } from "@/lib/logger";
-import { photonService } from "@/lib/photon";
-import { viacepService, ViaCEPPlaceSuggestion } from "@/lib/viacep";
+import { googlePlacesService, GooglePlaceSuggestion } from '@/lib/googlePlaces';
+import { logger } from '@/lib/logger';
+import { photonService } from '@/lib/photon';
+import { gerarUuid } from '@/lib/uuid';
+import { viacepService, ViaCEPPlaceSuggestion } from '@/lib/viacep';
 
-import type { PlaceSuggestion } from "./google-shared";
-import type { Coordenadas, EnderecoGeocodificado } from "../types/endereco";
+import type { PlaceSuggestion } from './google-shared';
+import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 
 // ============================================================================
 // TYPES
@@ -37,7 +38,7 @@ import type { Coordenadas, EnderecoGeocodificado } from "../types/endereco";
 /**
  * Fonte do resultado de geocodificação
  */
-export type GeocodingSource = "google" | "viacep";
+export type GeocodingSource = 'google' | 'viacep';
 
 /**
  * Sugestão unificada com metadados de fonte
@@ -95,7 +96,7 @@ function fromGoogle(suggestion: GooglePlaceSuggestion): UnifiedPlaceSuggestion {
     description: suggestion.description,
     structured_formatting: suggestion.structured_formatting,
     coordinates: suggestion.coordinates,
-    source: "google",
+    source: 'google',
     needsCoordinates: !suggestion.coordinates, // Google autocomplete não retorna coords
   };
 }
@@ -115,28 +116,28 @@ function fromViaCEP(
 
   if (numero) {
     // Adiciona número após o logradouro (antes da primeira vírgula)
-    const commaIndex = description.indexOf(",");
+    const commaIndex = description.indexOf(',');
     if (commaIndex > 0) {
       description =
         description.slice(0, commaIndex) +
-        ", " +
+        ', ' +
         numero +
         description.slice(commaIndex);
     } else {
-      description = description + ", " + numero;
+      description = description + ', ' + numero;
     }
     // Adiciona número ao texto principal também
-    mainText = mainText + ", " + numero;
+    mainText = mainText + ', ' + numero;
   }
 
   return {
-    place_id: suggestion.place_id + (numero ? `_${numero}` : ""),
+    place_id: suggestion.place_id + (numero ? `_${numero}` : ''),
     description,
     structured_formatting: {
       main_text: mainText,
       secondary_text: suggestion.structured_formatting.secondary_text,
     },
-    source: "viacep",
+    source: 'viacep',
     cep: suggestion.cep,
     needsCoordinates: true, // ViaCEP não fornece coordenadas
   };
@@ -160,11 +161,15 @@ export const geocodingService = {
    *
    * @param input - Texto digitado pelo usuário
    * @param locationBias - Coordenadas para priorizar resultados próximos
+   * @param sessionToken - Sessão de cobrança do Places: o mesmo token nas
+   *   consultas de uma digitação e no detalhe da sugestão escolhida faz o
+   *   Google cobrar a sessão, não cada consulta (ver `AddressAutocomplete`).
    * @returns Lista de sugestões unificadas
    */
   async autocomplete(
     input: string,
     locationBias?: Coordenadas,
+    sessionToken?: string,
   ): Promise<UnifiedPlaceSuggestion[]> {
     if (!input || input.length < 3) {
       return [];
@@ -179,7 +184,7 @@ export const geocodingService = {
         if (cepResult) {
           // Extrair número se o usuário digitou (ex: "58068-504, 100")
           const numero = viacepService.extractNumberFromCEPInput(input);
-          logger.info("[Geocoding] Resultado via CEP", { cep, numero });
+          logger.info('[Geocoding] Resultado via CEP', { cep, numero });
           return [fromViaCEP(cepResult, numero || undefined)];
         }
       }
@@ -188,17 +193,17 @@ export const geocodingService = {
     // 2. Buscar via Google Places
     if (!googlePlacesService.isAvailable()) {
       logger.warn(
-        "[Geocoding] Google Places não disponível (API key não configurada)",
+        '[Geocoding] Google Places não disponível (API key não configurada)',
       );
       return [];
     }
 
     stats.googleCalls++;
-    logger.info("[Geocoding] Buscando via Google Places", { input });
+    logger.info('[Geocoding] Buscando via Google Places', { input });
 
     const googleResults = await googlePlacesService.autocompleteAddress(
       input,
-      undefined,
+      sessionToken,
       locationBias,
     );
     return googleResults.map(fromGoogle);
@@ -212,10 +217,13 @@ export const geocodingService = {
    * - Sugestão veio do ViaCEP (não fornece coords)
    *
    * @param suggestion - Sugestão a geocodificar
+   * @param sessionToken - Token da sessão de digitação que produziu a sugestão
+   *   (fecha a sessão de cobrança do Places)
    * @returns Coordenadas ou null
    */
   async getCoordinates(
     suggestion: UnifiedPlaceSuggestion,
+    sessionToken?: string,
   ): Promise<Coordenadas | null> {
     // Se já tem coordenadas, retornar
     if (suggestion.coordinates) {
@@ -223,15 +231,16 @@ export const geocodingService = {
     }
 
     // Se veio do Google, buscar via Place Details
-    if (suggestion.source === "google") {
+    if (suggestion.source === 'google') {
       const details = await googlePlacesService.getPlaceDetails(
         suggestion.place_id,
+        sessionToken,
       );
       return details?.coordenadas || null;
     }
 
     // Se veio do ViaCEP, geocodificar o endereço via Photon
-    if (suggestion.source === "viacep") {
+    if (suggestion.source === 'viacep') {
       const coords = await photonService.getCoordinates(suggestion.description);
       return coords;
     }
@@ -253,7 +262,14 @@ export const geocodingService = {
     input: string,
     locationBias?: Coordenadas,
   ): Promise<UnifiedPlaceSuggestion | null> {
-    const suggestions = await this.autocomplete(input, locationBias);
+    // Uma sessão do Places por endereço: a consulta e o detalhe da 1ª
+    // sugestão saem cobrados juntos.
+    const sessaoPlaces = gerarUuid();
+    const suggestions = await this.autocomplete(
+      input,
+      locationBias,
+      sessaoPlaces,
+    );
 
     if (suggestions.length === 0) {
       return null;
@@ -267,7 +283,7 @@ export const geocodingService = {
     }
 
     // Buscar coordenadas
-    const coords = await this.getCoordinates(first);
+    const coords = await this.getCoordinates(first, sessaoPlaces);
 
     if (!coords) {
       return null;
@@ -288,7 +304,7 @@ export const geocodingService = {
    */
   async geocode(address: string): Promise<EnderecoGeocodificado | null> {
     if (!googlePlacesService.isAvailable()) {
-      logger.warn("[Geocoding] Google Places não disponível");
+      logger.warn('[Geocoding] Google Places não disponível');
       return null;
     }
 
@@ -298,12 +314,12 @@ export const geocodingService = {
 
     if (googleSuggestion?.coordinates) {
       return {
-        logradouro: "",
-        numero: "",
-        bairro: "",
-        cidade: "",
-        estado: "",
-        cep: "",
+        logradouro: '',
+        numero: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
+        cep: '',
         coordenadas: googleSuggestion.coordinates,
         formatted_address: googleSuggestion.description,
       };
@@ -328,7 +344,7 @@ export const geocodingService = {
    */
   configure(newConfig: Partial<GeocodingConfig>): void {
     config = { ...config, ...newConfig };
-    logger.info("[Geocoding] Configuração atualizada", config);
+    logger.info('[Geocoding] Configuração atualizada', config);
   },
 
   /**

@@ -18,9 +18,13 @@ import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 
 import AlterarSenha from '../trocar-senha';
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: jest.fn(), push: jest.fn(), replace: jest.fn() }),
-}));
+const mockRouter = {
+  back: jest.fn(),
+  push: jest.fn(),
+  replace: jest.fn(),
+  canGoBack: jest.fn(() => true),
+};
+jest.mock('expo-router', () => ({ useRouter: () => mockRouter }));
 
 let mockIsDesktop = false;
 jest.mock('@/hooks/useResponsive', () => ({
@@ -55,15 +59,27 @@ const textosExibidos = () =>
     fn.mock.calls.flat().filter((a): a is string => typeof a === 'string'),
   );
 
-function preencherESalvar(nova = NOVA_VALIDA, confirmacao = nova, atual = 'antiga123') {
-  fireEvent.changeText(screen.getByPlaceholderText('Digite sua senha atual'), atual);
-  fireEvent.changeText(screen.getByPlaceholderText('Digite a nova senha'), nova);
+function preencherESalvar(
+  nova = NOVA_VALIDA,
+  confirmacao = nova,
+  atual = 'antiga123',
+) {
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Digite sua senha atual'),
+    atual,
+  );
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Digite a nova senha'),
+    nova,
+  );
   fireEvent.changeText(
     screen.getByPlaceholderText('Digite a senha novamente'),
     confirmacao,
   );
   // No desktop o título da página também diz "Alterar Senha": o botão é o último.
-  const botoes = screen.getAllByText(mockIsDesktop ? 'Alterar Senha' : 'Salvar');
+  const botoes = screen.getAllByText(
+    mockIsDesktop ? 'Alterar Senha' : 'Salvar',
+  );
   fireEvent.press(botoes[botoes.length - 1]);
 }
 
@@ -89,7 +105,11 @@ describe.each([
   describe('AN7: falha ao conferir a senha atual', () => {
     it('credencial recusada diz "Senha atual incorreta"', async () => {
       mockAuth.signIn.mockRejectedValue(
-        new AuthApiError('Invalid login credentials', 400, 'invalid_credentials'),
+        new AuthApiError(
+          'Invalid login credentials',
+          400,
+          'invalid_credentials',
+        ),
       );
       render(<AlterarSenha />);
       preencherESalvar();
@@ -147,16 +167,27 @@ describe.each([
   describe('AN8: mesma regra do cadastro, erro inline', () => {
     it.each([
       ['curta', 'Ab@1de', 'Senha deve ter no mínimo 8 caracteres'],
-      ['sem maiúscula', 'novasenha@1', 'Senha deve conter pelo menos uma letra maiúscula'],
-      ['sem caractere especial', 'NovaSenha12', 'Senha deve conter pelo menos um caractere especial (!@#$%...)'],
-    ])('recusa nova senha %s antes de ir ao servidor', async (_n, nova, msg) => {
-      render(<AlterarSenha />);
-      preencherESalvar(nova);
+      [
+        'sem maiúscula',
+        'novasenha@1',
+        'Senha deve conter pelo menos uma letra maiúscula',
+      ],
+      [
+        'sem caractere especial',
+        'NovaSenha12',
+        'Senha deve conter pelo menos um caractere especial (!@#$%...)',
+      ],
+    ])(
+      'recusa nova senha %s antes de ir ao servidor',
+      async (_n, nova, msg) => {
+        render(<AlterarSenha />);
+        preencherESalvar(nova);
 
-      expect(await screen.findByText(msg)).toBeTruthy();
-      expect(mockAuth.signIn).not.toHaveBeenCalled();
-      expect(mockAuth.updatePassword).not.toHaveBeenCalled();
-    });
+        expect(await screen.findByText(msg)).toBeTruthy();
+        expect(mockAuth.signIn).not.toHaveBeenCalled();
+        expect(mockAuth.updatePassword).not.toHaveBeenCalled();
+      },
+    );
 
     it('confirmação diferente mostra o erro inline', async () => {
       render(<AlterarSenha />);
@@ -185,5 +216,13 @@ describe.each([
         expect(mockAuth.updatePassword).toHaveBeenCalledWith(NOVA_VALIDA),
       );
     });
+  });
+
+  it('Cancelar volta à tela anterior, sem empilhar outro perfil', async () => {
+    render(<AlterarSenha />);
+    fireEvent.press(await screen.findByText('Cancelar'));
+
+    expect(mockRouter.back).toHaveBeenCalled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 });

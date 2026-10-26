@@ -518,6 +518,22 @@ describe('googlePlacesService', () => {
       expect(result.source).toBe('google');
     });
 
+    it('consulta e detalha na mesma sessão do Places', async () => {
+      mockFetchResponse(makeAutocompleteResponse());
+      mockFetchResponse(makePlaceDetailsResponse());
+
+      await googlePlacesService.autocompleteWithCoordinates(
+        'Rua Augusta Sessao',
+      );
+
+      const corpos = (global.fetch as jest.Mock).mock.calls.map(
+        (c: unknown[]) => JSON.parse((c[1] as { body: string }).body),
+      );
+      expect(corpos).toHaveLength(2);
+      expect(typeof corpos[0].sessionToken).toBe('string');
+      expect(corpos[1].sessionToken).toBe(corpos[0].sessionToken);
+    });
+
     it('returns null when no suggestions found', async () => {
       mockFetchResponse(makeAutocompleteResponse({ predictions: [] }));
 

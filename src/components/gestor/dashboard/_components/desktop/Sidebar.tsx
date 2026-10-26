@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname, type Href } from 'expo-router';
 import { useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View, ImageStyle } from 'react-native';
+import {
+  Image,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+  ImageStyle,
+} from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
@@ -81,6 +88,18 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       path: '/unidade/equipe',
       show: userData?.papel === 'gestor',
     },
+    {
+      label: 'Configurações',
+      icon: 'settings-outline',
+      path: '/gestor/configuracoes',
+      show: true,
+    },
+    {
+      label: 'Ajuda',
+      icon: 'help-circle-outline',
+      path: '/gestor/ajuda',
+      show: true,
+    },
   ];
 
   const handleNavigation = (path: string) => {
@@ -104,7 +123,10 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       <View style={styles.container}>
         {/* Logo / Brand */}
         <View style={styles.header}>
-          <Image source={LogoHorizontal} style={styles.logoImage as ImageStyle} />
+          <Image
+            source={LogoHorizontal}
+            style={styles.logoImage as ImageStyle}
+          />
           <Text style={styles.brandSubtitle}>Painel do Gestor</Text>
         </View>
 
@@ -120,16 +142,15 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
                   <TouchableOpacity
                     key={item.path}
                     onPress={() => handleNavigation(item.path)}
-                    style={[
-                      styles.navItem,
-                      isActive && styles.navItemActive,
-                    ]}
+                    style={[styles.navItem, isActive && styles.navItemActive]}
                     activeOpacity={0.7}
                   >
                     <Ionicons
                       name={item.icon}
                       size={22}
-                      color={isActive ? theme.colors.primary : theme.colors.gray500}
+                      color={
+                        isActive ? theme.colors.primary : theme.colors.gray500
+                      }
                     />
                     <Text
                       style={[
@@ -144,7 +165,6 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
               })}
           </View>
         </ScrollView>
-
       </View>
 
       {/* Dialogs */}
@@ -233,5 +253,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansSemiBold,
   },
 }));
-
-

@@ -6,7 +6,11 @@
  */
 import { supabase } from '@/lib/supabase';
 
-import { cancelarRota, reativarRota } from '../acoesRota';
+import {
+  cancelarRota,
+  MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR,
+  reativarRota,
+} from '../acoesRota';
 
 jest.mock('@/lib/supabase', () => ({
   supabase: { rpc: jest.fn() },
@@ -66,13 +70,16 @@ describe('reativarRota', () => {
     expect(rpc).toHaveBeenCalledWith('reativar_rota', { p_rota_id: 'r1' });
   });
 
-  it.each(['reativada', 'situacao_mudou', 'sem_permissao'])(
-    'aceita %s',
-    async (resultado) => {
-      rpc.mockResolvedValue({ data: resultado, error: null });
-      await expect(reativarRota('r1')).resolves.toBe(resultado);
-    },
-  );
+  it.each([
+    'reativada',
+    'situacao_mudou',
+    'sem_permissao',
+    // Motorista sem vínculo ativo na loja ou com cadastro inativo: nada muda.
+    'motorista_indisponivel',
+  ])('aceita %s', async (resultado) => {
+    rpc.mockResolvedValue({ data: resultado, error: null });
+    await expect(reativarRota('r1')).resolves.toBe(resultado);
+  });
 
   it('lança o erro do Supabase', async () => {
     const erro = { code: '42501', message: 'permission denied' };
@@ -88,5 +95,9 @@ describe('reativarRota', () => {
     await expect(reativarRota('r1')).rejects.toThrow(
       /Resposta inesperada de reativar_rota/,
     );
+  });
+
+  it('a mensagem do motorista indisponível orienta a criar rota nova', () => {
+    expect(MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR).toMatch(/nova rota/i);
   });
 });

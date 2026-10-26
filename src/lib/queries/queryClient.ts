@@ -346,47 +346,6 @@ export async function safeQuery<T>(
 }
 
 /**
- * Common select fields for rotas table
- */
-export const ROTA_SELECT_FIELDS = {
-  minimal: 'id, status, data, titulo',
-  list: 'id, status, data, titulo, distancia_total, duracao_total_minutos, motorista_id, criado_em, concluida_em',
-  full: `
-    id, status, data, titulo, distancia_total, duracao_total_minutos,
-    motorista_id, unidade_id, criado_por, criado_em, iniciada_em, concluida_em, observacoes,
-    motorista:usuarios!rotas_motorista_id_fkey(id, nome, avatar_url, telefone),
-    unidade:unidades(id, nome, cidade)
-  `,
-} as const;
-
-/**
- * Common select fields for paradas table
- */
-export const PARADA_SELECT_FIELDS = {
-  minimal: 'id, rota_id, status, ordem',
-  list: 'id, rota_id, status, ordem, tipo, endereco, destinatario, is_checkpoint, concluida_em',
-  full: `
-    id, rota_id, status, ordem, tipo, endereco, destinatario, telefone,
-    observacoes, is_checkpoint, latitude, longitude, foto_url, concluida_em, criado_em
-  `,
-} as const;
-
-/**
- * Common select fields for usuarios table
- */
-export const USUARIO_SELECT_FIELDS = {
-  minimal: 'id, nome, papel',
-  list: 'id, nome, papel, email, telefone, avatar_url, ativo',
-  full: `
-    id, nome, papel, email, telefone, avatar_url, ativo, criado_em, ultimo_acesso,
-    usuario_unidades(
-      id, usuario_id, unidade_id, papel, is_principal, ativo,
-      unidades(id, nome, cidade, ativa)
-    )
-  `,
-} as const;
-
-/**
  * Build cache key for queries
  */
 export function buildCacheKey(

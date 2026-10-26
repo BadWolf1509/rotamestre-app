@@ -13,6 +13,7 @@ import {
 import { useResponsive } from '@/hooks/useResponsive';
 import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
 import { logger } from '@/lib/logger';
+import { gerarUuid } from '@/lib/uuid';
 import type { Coordenadas } from '@/types/endereco';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -108,6 +109,10 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
   const hasUserInteracted = useRef(false);
   // Track if we're fetching coordinates for a selected suggestion
   const [isFetchingCoords, setIsFetchingCoords] = useState(false);
+  // Sessão de cobrança do Google Places: nasce na 1ª consulta de uma
+  // digitação, vai em todas as consultas e no detalhe da sugestão escolhida, e
+  // é descartada na escolha. Sem ela o Google cobra cada consulta avulsa.
+  const sessaoPlacesRef = useRef<string | null>(null);
 
   // Limpar suggestions quando value é limpo externamente
   useEffect(() => {
@@ -116,6 +121,8 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       setShowSuggestions(false);
       // Reset interaction tracking for next use (e.g., modal reopen)
       hasUserInteracted.current = false;
+      // Campo zerado sem escolha: a próxima digitação é outra sessão do Places.
+      sessaoPlacesRef.current = null;
     }
   }, [value]);
 
@@ -157,9 +164,13 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       try {
         // Busca híbrida: Photon (gratuito) → Google (fallback) → ViaCEP (para CEPs)
         // Passa locationBias para priorizar resultados próximos da região do usuário
+        if (!sessaoPlacesRef.current) {
+          sessaoPlacesRef.current = gerarUuid();
+        }
         const results = await geocodingService.autocomplete(
           value,
           locationBias,
+          sessaoPlacesRef.current,
         );
         if (cancelled) return;
         setSuggestions(results);
@@ -237,6 +248,10 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       // Mark that next value change is from selection, not typing
       wasSelectedRef.current = true;
 
+      // A escolha fecha a sessão do Places; a próxima digitação abre outra.
+      const sessaoPlaces = sessaoPlacesRef.current ?? undefined;
+      sessaoPlacesRef.current = null;
+
       // Usar o valor do ref para garantir que temos o valor correto
       const currentTypedValue = lastTypedValueRef.current;
 
@@ -286,7 +301,10 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
         setShowSuggestions(false);
 
         try {
-          const coords = await geocodingService.getCoordinates(suggestion);
+          const coords = await geocodingService.getCoordinates(
+            suggestion,
+            sessaoPlaces,
+          );
           onSelectAddress(
             finalAddress,
             suggestion.place_id,

@@ -180,6 +180,18 @@ function GestorStack() {
           title: 'Incidentes',
         }}
       />
+      <Stack.Screen
+        name="configuracoes"
+        options={{
+          title: 'Configurações',
+        }}
+      />
+      <Stack.Screen
+        name="ajuda"
+        options={{
+          title: 'Ajuda',
+        }}
+      />
     </Stack>
   );
 }

@@ -14,6 +14,7 @@ import { renderHook, act } from '@testing-library/react-native';
 
 import {
   cancelarRota,
+  MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR,
   MENSAGEM_ROTA_JA_CANCELADA,
   MENSAGEM_SEM_PERMISSAO_ROTA,
   reativarRota,
@@ -564,7 +565,10 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
       await result.current.handleConfirmCancel();
     });
 
-    expect(mockShowToast).toHaveBeenCalledWith('Erro ao cancelar rota', 'error');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Erro ao cancelar rota',
+      'error',
+    );
     expect(mockShowToast).not.toHaveBeenCalledWith(
       'Rota cancelada com sucesso',
       'success',
@@ -669,6 +673,11 @@ describe('useMapaRotaHandlers — reativar rota', () => {
   it.each([
     ['situacao_mudou', MENSAGEM_ROTA_MUDOU, 'info'],
     ['sem_permissao', MENSAGEM_SEM_PERMISSAO_ROTA, 'error'],
+    [
+      'motorista_indisponivel',
+      MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR,
+      'error',
+    ],
   ] as const)(
     "'%s': aviso próprio e recarrega, sem toast de sucesso",
     async (resultado, mensagem, tipo) => {
@@ -694,7 +703,10 @@ describe('useMapaRotaHandlers — reativar rota', () => {
       await result.current.handleConfirmReactivate();
     });
 
-    expect(mockShowToast).toHaveBeenCalledWith('Erro ao reativar rota', 'error');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Erro ao reativar rota',
+      'error',
+    );
     expect(logger.error).toHaveBeenCalledWith(
       '[useMapaRotaHandlers] Erro ao reativar rota',
       erro,
