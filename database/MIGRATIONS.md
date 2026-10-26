@@ -3084,3 +3084,184 @@ e função do `postgres`; função e tabela novas; `finalizar_rota` e
 `authenticated`/`service_role`. Sem a migration: casos 1, 4, 5, 6, 7 e 9
 FALHOU.
 Rollback colável, tabela a tabela, com o que foi medido.
+
+---
+
+### ✅ Migration 70: RPC `cancelar_rota` — a rota cancelada deixa de ter parada em andamento
+
+**Arquivo:** `20261026120000_cancelar_rota_rpc.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo, `20261026120000`. Sonda: 12 FALHOU antes, 12/12 OK depois de aplicada.
+
+**O que faz.** Cria `public.cancelar_rota(uuid) RETURNS text`: confere o gestor
+ativo da loja da rota, trava a rota e as paradas (`FOR NO KEY UPDATE`, como a
+`finalizar_rota`, antes de mexer em qualquer linha; nunca `FOR UPDATE`, que
+conflita com o `FOR KEY SHARE` do INSERT de `inserir_parada`, Migration 40),
+devolve a parada `em_andamento` a `pendente` e cancela a rota, tudo numa
+transação. Resultado de um conjunto fechado: `cancelada`, `ja_cancelada`
+(segunda chamada: sucesso informativo, sem log nem aviso a mais),
+`situacao_mudou` (rota `concluida` ou `nao_executada`) e `sem_permissao` (sem
+sessão, rota inexistente, motorista, gestor de outra loja ou com vínculo
+inativo). Regra de negócio não vira exceção. A migration também ajusta a única
+parada que ficou `em_andamento` numa rota cancelada
+(`af99fbdf-d040-41d9-b41c-011868640f7e`, rota
+`dcf39a23-3278-43fc-9b4c-77ac30d52b29`).
+
+**Alternativas.** Retorno: `text` de conjunto fechado (escolhida), `RAISE` com
+sentinelas (obrigaria casar prefixo de mensagem no app) ou `jsonb`. Paradas
+abertas (D1): só `em_andamento → pendente` (escolhida; mesmo estado que a
+expiração deixa, sem aviso por parada nem pulo contado no desempenho), pular as
+abertas, ou status novo em `paradas`. Cobertura do app instalado (D2): só a RPC
+(escolhida), ou RPC mais gatilho em `rotas`. Passado (D3): um UPDATE travado
+pelo id, pela rota `cancelada` e pelo status; as 6 paradas `em_andamento` em
+rota `concluida` ficam fora.
+
+**Medido em 26/10/2026.** 872 rotas; 4 `cancelada`, todas com parada aberta (1
+`em_andamento` e 12 `pendente`); 20 `nao_executada` com 102 paradas
+`pendente`.
+
+**App.** Nenhum efeito no app instalado: 1.14.6/1.14.7 seguem no UPDATE direto
+(a parada fica `em_andamento` até atualizar). A 1.14.8 chama a RPC.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration70-cancelar-rota.test.ts`; sonda
+`database/sondas/20261026120000_sonda_migration70.sql` (12 casos, desfeita pelo
+RAISE): cancelamento com as três situações de parada, segunda chamada, rota
+pendente, rota `concluida`, rota `nao_executada`, gestor de outra loja, vínculo
+inativo, motorista, uuid inexistente, catálogo da função, dado real sem parada
+em andamento em rota cancelada e sessão sem `sub`.
+
+---
+
+### ✅ Migration 71: RPC `reativar_rota` — rota e paradas reabertas numa transação
+
+**Arquivo:** `20261026121000_reativar_rota_rpc.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo, `20261026121000`. Sonda: 10 FALHOU antes, 10/10 OK depois de aplicada.
+
+**O que faz.** Cria `public.reativar_rota(uuid) RETURNS text`, que junta as três
+escritas hoje separadas no cliente: rota `nao_executada → pendente` (`data` =
+hoje em São Paulo, `iniciada_em` e `concluida_em` nulos), paradas
+`<> 'concluida'` → `pendente` (`concluida_em` nulo; `motivo_skip` e foto não
+mudam) e o log `rota_reativada` com quem reativou. Confere o gestor ativo da
+loja e trava a rota e as paradas (`FOR NO KEY UPDATE`, como a `finalizar_rota`)
+antes de mexer. Resultado: `reativada`, `situacao_mudou` (a rota não está
+`nao_executada`, inclusive numa segunda chamada) e `sem_permissao`.
+
+**Alternativas.** "Hoje": `(now() AT TIME ZONE 'America/Sao_Paulo')::date`
+(escolhida; o relógio de `expire_old_pending_routes`), data vinda do aparelho
+ou `CURRENT_DATE` (fuso UTC do PostgREST). Log dentro da RPC (escolhida) ou no
+cliente. Sem `ja_reativada`: `pendente` é também o estado de uma rota que
+outro gestor reativou ou que nunca expirou.
+
+**Reativar depois das 22:00 (D6).** A rota volta com `data` = hoje, e a
+próxima execução de `expire_old_pending_routes` (pendente com `data` = hoje e
+hora ≥ 22:00) a encerra de novo. É o comportamento do cliente de hoje,
+mantido de propósito.
+
+**App.** Nenhum efeito no app instalado; a 1.14.8 passa a chamar a RPC.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration71-reativar-rota.test.ts`; sonda
+`database/sondas/20261026121000_sonda_migration71.sql` (10 casos, desfeita pelo
+RAISE): rota, paradas, foto preservada e log da reativação, segunda chamada,
+rota cancelada, vínculo inativo e gestor de outra loja, motorista, uuid
+inexistente e sessão sem `sub`, catálogo da função.
+
+---
+
+### ✅ Migration 72: RPC `nomes_motoristas_das_rotas` — nome do motorista que já atendeu a loja
+
+**Arquivo:** `20261026122000_nomes_motoristas_das_rotas.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo, `20261026122000`. Sonda: 10 FALHOU antes (mais 1 premissa OK), 11/11 OK depois de aplicada.
+
+**O que faz.** A policy `usuarios_select_optimized` só mostra ao gestor quem tem
+vínculo ativo numa loja dele, então a rota de um motorista com vínculo inativo
+aparece sem motorista. A função `public.nomes_motoristas_das_rotas(uuid[])`
+devolve `(rota_id, nome)` para as rotas pedidas quando quem chama é gestor
+ativo da loja da rota e o motorista tem linha (ativa ou não) em
+`usuario_unidades` nessa loja. Só o nome sai. Mais de 1000 ids → erro 22023
+`LISTA_GRANDE`; lista nula ou vazia, ou sem sessão → zero linhas.
+
+**Alternativas.** RPC por lista de `rota_id` (escolhida) ou visão
+`security definer` embutida no select de `rotas` (visão nova nasce com SELECT
+para `anon`, o advisor acusa `security_definer_view`). `plpgsql` pelo teto com
+ERRCODE próprio; nome convertido com `u.nome::text`.
+
+**Medido em 26/10/2026.** 3 rotas com `motorista_id` de vínculo inativo na loja
+da rota (todas com `usuarios.ativo = false`); nenhuma sem vínculo algum (FK
+`ON DELETE SET NULL`).
+
+**App.** Nenhum efeito no app instalado; a 1.14.8 chama a RPC só para as rotas
+cujo embed veio vazio. A busca por nome da Gestão de Rotas continua sem achar
+o motorista fora da loja.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration72-nomes-motoristas-das-rotas.test.ts`; sonda
+`database/sondas/20261026122000_sonda_migration72.sql` (11 casos, desfeita pelo
+RAISE): a premissa da RLS, vínculo inativo, rotas de outro motorista, loja,
+sem motorista, vínculo de gestor inativo, gestor de outra loja, motorista, o
+teto de 1000, lista nula e vazia, catálogo, sessão sem `sub` e chamada como
+`anon`.
+
+---
+
+### ⏳ Migration 73: observação do pulo em coluna própria (`paradas.observacao_pulo`)
+
+**Arquivo:** `20261026123000_observacao_do_pulo.sql` · **⏳ aguardando aplicação** (o controlador marca depois).
+
+**O que faz.** Cria `paradas.observacao_pulo text` e o gatilho BEFORE UPDATE
+`trg_paradas_observacao_do_gestor`: quem não é gestor ativo da loja da rota não
+muda `observacoes` (D4). No pulo, o texto que o app até a 1.14.7 manda em
+`observacoes` vai para `observacao_pulo`, e a instrução do gestor fica. Fora
+disso, `observacoes` volta ao valor antigo, sem erro (o UPDATE segue valendo
+para as outras colunas).
+
+**Alternativas.** Gatilho que redireciona (escolhida; o app instalado e a fila
+offline seguem pulando), privilégio por coluna (recusaria o UPDATE inteiro do
+pulo da 1.14.7) ou só o app novo (a instrução seguiria sendo substituída).
+
+**Medido em 26/10/2026.** 98% das paradas têm texto do gestor em
+`observacoes`; das puladas, 266/269 têm texto, mistura de instrução e texto do
+pulo. Sem backfill: nenhum log guarda o texto anterior.
+
+**App.** A coluna precisa existir antes do merge do app 1.14.8, que a grava.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration73-observacao-do-pulo.test.ts`; sonda
+`database/sondas/20261026123000_sonda_migration73.sql`, desfeita pelo RAISE.
+Sem a migration, os casos 1, 2, 3, 4, 6, 8 e 10 saem FALHOU.
+
+---
+
+### ⏳ Migration 74: sequências de public sem privilégio para `anon`
+
+**Arquivo:** `20261026124000_sequencias_sem_anon.sql` · **⏳ aguardando aplicação** (o controlador marca depois). Sonda: 3 FALHOU antes (1, 2, 3), 5/5 OK com o corpo na mesma transação.
+
+**O que faz.** Duas instruções: `REVOKE ALL ON ALL SEQUENCES IN SCHEMA public
+FROM anon` e o mesmo no privilégio-padrão do `postgres` em public. Sequência
+nova nasce sem SELECT, UPDATE e USAGE para `anon`; `authenticated` e
+`service_role` seguem com os três. Completa a Migration 69.
+
+**Alternativas.** Privilégios: revogar tudo (escolhida; `anon` não usa
+sequência e o SELECT mostra `last_value`) ou só USAGE e UPDATE. Alcance:
+existentes mais padrão (escolhida) ou só o padrão.
+
+**Medido em 26/10/2026.** Padrão do `postgres` em public para sequências:
+`{postgres=rwU,anon=rwU,authenticated=rwU,service_role=rwU}`. Não há sequência
+em public, então a primeira instrução não muda nada hoje. Fora do alcance: o
+padrão do `supabase_admin` em public e o do `postgres` em storage.
+
+**App.** Nenhum efeito: o app não usa sequência.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration74-sequencias-sem-anon.test.ts`; sonda
+`database/sondas/20261026124000_sonda_migration74.sql` (5 casos, catálogo mais
+uma sequência e uma tabela com coluna serial desfeitas pelo RAISE). Rollback
+colável no arquivo.
+
+---
+
+### Acoplamento: frase do motorista indisponível (banco x app)
+
+A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
+`criar_rota_com_paradas`, última definição em
+`20260804235500_auditoria_otimizacao_rotas.sql`) é comparada literalmente em
+`src/hooks/nova-entrega/useRouteCreation.ts` (`FRASE_MOTORISTA_INDISPONIVEL`).
+Mudar o texto no banco exige mudar a constante. Guarda:
+`database/__tests__/frase-motorista-indisponivel.test.ts`.
