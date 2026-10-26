@@ -197,9 +197,21 @@ export function useIncidentesGestor(
 
   // Fetch incidentes from database
   const fetchIncidentes = useCallback(async () => {
-    if (unidadeLoading || !userData?.id || !filtros) {
+    if (unidadeLoading) return;
+    if (!filtros) {
+      // Sem loja: lista, total e contagens da anterior saem da tela, e a
+      // carga dela em voo é invalidada (a geração avança) — antes ficavam
+      // visíveis no "sem loja".
+      ++geracaoRef.current;
+      cargaEmVooRef.current = false;
+      lojaDaCargaRef.current = null;
+      setIncidentes([]);
+      setTotal(null);
+      setContagens(null);
+      setLoading(false);
       return;
     }
+    if (!userData?.id) return;
 
     const chave = JSON.stringify(filtros);
     if (chave !== chaveFiltrosRef.current) {

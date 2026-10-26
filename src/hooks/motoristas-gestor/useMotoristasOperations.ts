@@ -136,7 +136,15 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   // ============================================================================
 
   const loadMotoristas = useCallback(async () => {
-    if (!unidadeAtiva) return;
+    if (!unidadeAtiva) {
+      // Sem loja: a lista da anterior sai da tela e a carga dela em voo é
+      // invalidada (o contador avança), senão chegaria depois e voltaria.
+      ++requisicaoRef.current;
+      lojaDaCargaRef.current = null;
+      setMotoristas([]);
+      setLoading(false);
+      return;
+    }
 
     const minha = ++requisicaoRef.current;
     const vigente = () => minha === requisicaoRef.current;

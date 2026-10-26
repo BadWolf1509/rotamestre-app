@@ -12,7 +12,7 @@ import { defaultTheme } from '@/utils/styles.base';
 
 import { useIncidentesGestor } from '../useIncidentesGestor';
 
-let mockLoja = 'loja-a';
+let mockLoja: string | null = 'loja-a';
 let mockLojaComErro: string | null = null;
 let mockSegurada: { promessa: Promise<void>; liberar: () => void } | null =
   null;
@@ -140,6 +140,33 @@ describe('useIncidentesGestor — troca de loja', () => {
       ),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incidentes).toEqual([]);
+    expect(result.current.total).toBeNull();
+  });
+
+  it('loja A → sem loja → loja B: lista, total e contagens de A somem no "sem loja"', async () => {
+    const { result, rerender } = montar();
+    await waitFor(() => expect(result.current.incidentes).toHaveLength(2));
+    expect(result.current.resumoGeral.total).toBe(2);
+
+    mockLoja = null;
+    rerender({});
+
+    await waitFor(() => expect(result.current.incidentes).toEqual([]));
+    expect(result.current.total).toBeNull();
+    expect(result.current.resumoGeral.total).toBe(0);
+    expect(result.current.loading).toBe(false);
+
+    mockLojaComErro = 'loja-b';
+    mockLoja = 'loja-b';
+    rerender({});
+    expect(result.current.incidentes).toEqual([]);
+    await waitFor(() =>
+      expect(mockToast.showToast).toHaveBeenCalledWith(
+        'Erro ao carregar incidentes',
+        'error',
+      ),
+    );
     expect(result.current.incidentes).toEqual([]);
     expect(result.current.total).toBeNull();
   });

@@ -12,7 +12,7 @@ import { getTodayISO } from '@/lib/dateUtils';
 
 import { useDashboardData } from '../useDashboardData';
 
-let mockLoja = 'loja-a';
+let mockLoja: string | null = 'loja-a';
 // Lojas cuja consulta de `rotas` fica pendente até o teste liberar.
 const mockSeguradas: Record<
   string,
@@ -160,5 +160,30 @@ describe('useDashboardData — troca de loja', () => {
       mockSeguradas['loja-a'].liberar();
     });
     expect(result.current.rotas.map((r) => r.id)).toEqual(['b1']);
+  });
+
+  it('loja A → sem loja → loja B falhando: nada de A sobrevive (KPIs, "dados de HH:MM")', async () => {
+    const { result, rerender } = renderHook(() => useDashboardData());
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+    await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
+
+    mockLoja = null;
+    rerender({});
+
+    await waitFor(() => expect(result.current.rotas).toEqual([]));
+    expect(result.current.kpis.rotasMes).toBe(0);
+    expect(result.current.kpis.rotasSemana).toBe(0);
+    expect(result.current.erroCarga).toBeNull();
+    expect(result.current.dadosDe).toBeNull();
+
+    mockLojasComErro.add('loja-b');
+    mockLoja = 'loja-b';
+    rerender({});
+
+    await waitFor(() => expect(result.current.erroCarga).not.toBeNull());
+    // A última carga boa foi da loja A: não pode virar "dados de HH:MM" da B.
+    expect(result.current.dadosDe).toBeNull();
+    expect(result.current.kpis.rotasMes).toBe(0);
+    expect(result.current.rotas).toEqual([]);
   });
 });

@@ -361,13 +361,29 @@ export function useDashboardData(
       const listaVigente = () =>
         mountedRef.current && minhaLista === requisicaoListaRef.current;
 
-      // Se não há unidade, limpar dados
+      // Tudo o que é da loja anterior: lista, KPIs, contagens, erro, "dados
+      // de HH:MM" e a marca da última carga boa. Uma função só para o "sem
+      // loja" e a troca de loja zerarem o MESMO conjunto — o "sem loja"
+      // zerava só parte e deixava KPIs e a hora da loja anterior para a
+      // próxima (o `lojaDaCargaRef` nulo pulava o zerar da troca).
+      const zerarDadosDaLoja = () => {
+        cargaInicialFeitaRef.current = false;
+        ultimaCargaOkRef.current = null;
+        erroDoVivoRef.current = false;
+        if (!mountedRef.current) return;
+        setStats(STATS_VAZIO);
+        setTodayStats(HOJE_VAZIO);
+        setKpis(KPIS_VAZIO);
+        setRotas([]);
+        setErroCarga(null);
+        setDadosDe(null);
+      };
+
+      // Sem loja: nada a mostrar, e nada da anterior fica.
       if (!unidadeId) {
         lojaDaCargaRef.current = null;
+        zerarDadosDaLoja();
         if (mountedRef.current) {
-          setStats(STATS_VAZIO);
-          setTodayStats(HOJE_VAZIO);
-          setRotas([]);
           setLoading(false);
           setRefreshing(false);
         }
@@ -381,15 +397,7 @@ export function useDashboardData(
       // evento de realtime (`carregarAoVivo`) é sempre da loja vigente.
       if (lojaDaCargaRef.current !== unidadeId) {
         if (lojaDaCargaRef.current !== null && mountedRef.current) {
-          cargaInicialFeitaRef.current = false;
-          ultimaCargaOkRef.current = null;
-          erroDoVivoRef.current = false;
-          setStats(STATS_VAZIO);
-          setTodayStats(HOJE_VAZIO);
-          setKpis(KPIS_VAZIO);
-          setRotas([]);
-          setErroCarga(null);
-          setDadosDe(null);
+          zerarDadosDaLoja();
         }
         lojaDaCargaRef.current = unidadeId;
       }

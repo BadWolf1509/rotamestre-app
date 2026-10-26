@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 
 import { useMotoristasOperations } from '../useMotoristasOperations';
 
-let mockLoja = 'loja-a';
+let mockLoja: string | null = 'loja-a';
 const mockRespostas: Record<
   string,
   (r: { data: unknown; error: unknown }) => void
@@ -142,5 +142,28 @@ describe('useMotoristasOperations — troca de loja', () => {
     });
 
     expect(result.current.motoristas.map((m) => m.nome)).toEqual(['Bia']);
+  });
+
+  it('loja A → sem loja → loja B: a lista de A some no "sem loja" e não volta', async () => {
+    const { result, rerender } = renderHook(() => useMotoristasOperations());
+    await carregarLojaA(result);
+
+    mockLoja = null;
+    rerender({});
+
+    await waitFor(() => expect(result.current.motoristas).toEqual([]));
+    expect(result.current.totalMotoristas).toBe(0);
+    expect(result.current.loading).toBe(false);
+
+    mockLoja = 'loja-b';
+    rerender({});
+    expect(result.current.motoristas).toEqual([]);
+    await waitFor(() => expect(mockRespostas['loja-b']).toBeDefined());
+    await act(async () => {
+      mockRespostas['loja-b']({ data: [motorista('bia', 'Bia')], error: null });
+    });
+    await waitFor(() =>
+      expect(result.current.motoristas.map((m) => m.nome)).toEqual(['Bia']),
+    );
   });
 });
