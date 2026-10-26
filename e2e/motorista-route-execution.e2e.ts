@@ -57,7 +57,17 @@ test.describe('Motorista Route Execution E2E Tests', () => {
 
     test('should show route status indicators', async ({ page }) => {
       await motoristaPage.expectOnMotoristaDashboard();
-      await page.waitForTimeout(3000);
+      // No lugar de 3 s fixos: a Início saiu do carregamento. O cartão
+      // principal monta em TODO estado da rota — inclusive sem rota (o
+      // `testID` fica no invólucro do `MainCard`, fora do switch de estados) —
+      // e só falta enquanto carrega e no "sem conexão", que mostra o aviso.
+      // `.first()`: com dados antigos e recarga falha, os dois aparecem juntos.
+      await expect(
+        page
+          .getByTestId('motorista-main-card')
+          .or(page.getByTestId('aviso-sem-conexao'))
+          .first(),
+      ).toBeVisible({ timeout: 15000 });
 
       const bodyText = await page.locator('body').textContent();
 

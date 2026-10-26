@@ -9,6 +9,10 @@ name: Route Reminders and Expiration
 # America/Sao_Paulo. Se este job chegar atrasado, ele limpa dias anteriores e
 # não toca no dia corrente. NÃO remova aquela guarda contando com a pontualidade
 # daqui.
+#
+# O corpo da resposta das funções NÃO vai ao log: o repositório é público e o
+# log de Actions é legível por qualquer pessoa. Os jobs imprimem só contadores
+# (jq) e, em erro, o HTTP e o campo `error`. Sucesso = HTTP 200 E success == true.
 
 on:
   schedule:
@@ -54,22 +58,20 @@ jobs:
         run: |
           echo "🕐 Sending route reminders at 16:00 BRT..."
 
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          http_code=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json") || http_code="000"
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-
-          echo "Response: $body"
-          echo "HTTP Code: $http_code"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Error: Edge Function returned $http_code"
+          # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
+          # O corpo inteiro não vai ao log (repositório público): só contadores.
+          if [ "$http_code" != "200" ] || ! jq -e '.success == true' resposta.json > /dev/null 2>&1; then
+            echo "❌ Error: Edge Function returned HTTP $http_code"
+            jq -r '.error // "sem campo error"' resposta.json 2>/dev/null || echo "sem campo error"
             exit 1
           fi
 
+          jq -c '{routes_found, reminders_sent}' resposta.json
           echo "✅ Reminders sent successfully"
 
   # Job para aviso FINAL às 20:00 (23:00 UTC) - 2h antes da expiração
@@ -84,23 +86,21 @@ jobs:
         run: |
           echo "⚠️ Sending FINAL warning - routes expire in 2 hours (20:00 BRT)..."
 
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          http_code=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
-            -d '{"urgency": "final"}')
+            -d '{"urgency": "final"}') || http_code="000"
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-
-          echo "Response: $body"
-          echo "HTTP Code: $http_code"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Error: Edge Function returned $http_code"
+          # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
+          # O corpo inteiro não vai ao log (repositório público): só contadores.
+          if [ "$http_code" != "200" ] || ! jq -e '.success == true' resposta.json > /dev/null 2>&1; then
+            echo "❌ Error: Edge Function returned HTTP $http_code"
+            jq -r '.error // "sem campo error"' resposta.json 2>/dev/null || echo "sem campo error"
             exit 1
           fi
 
+          jq -c '{routes_found, reminders_sent}' resposta.json
           echo "✅ Final warnings sent successfully"
 
   # Job para expiração das 22:00 (01:00 UTC)
@@ -115,20 +115,18 @@ jobs:
         run: |
           echo "🕙 Expiring pending routes at 22:00 BRT..."
 
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          http_code=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
             "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/expire-routes" \
             -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json") || http_code="000"
 
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-
-          echo "Response: $body"
-          echo "HTTP Code: $http_code"
-
-          if [ "$http_code" != "200" ]; then
-            echo "❌ Error: Edge Function returned $http_code"
+          # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
+          # O corpo inteiro não vai ao log (repositório público): só contadores.
+          if [ "$http_code" != "200" ] || ! jq -e '.success == true' resposta.json > /dev/null 2>&1; then
+            echo "❌ Error: Edge Function returned HTTP $http_code"
+            jq -r '.error // "sem campo error"' resposta.json 2>/dev/null || echo "sem campo error"
             exit 1
           fi
 
+          jq -c '{expired_count, notifications_sent, localizacoes_apagadas}' resposta.json
           echo "✅ Routes expired successfully"

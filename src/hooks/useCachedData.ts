@@ -247,17 +247,3 @@ export function useCachedData<T>(
     update,
   };
 }
-
-/**
- * Variante que não usa SWR - sempre espera dados frescos
- */
-export function useFreshData<T>(
-  key: string,
-  fetcher: () => Promise<T>,
-  options: Omit<UseCachedDataOptions, 'staleWhileRevalidate'> = {},
-): UseCachedDataReturn<T> {
-  return useCachedData(key, fetcher, {
-    ...options,
-    staleWhileRevalidate: false,
-  });
-}

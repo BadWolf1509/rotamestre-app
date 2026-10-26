@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import * as cacheModule from '@/lib/cache';
 
-import { useCachedData, useFreshData } from '../useCachedData';
+import { useCachedData } from '../useCachedData';
 
 // Mock do módulo de cache
 jest.mock('@/lib/cache', () => ({
@@ -486,34 +486,5 @@ describe('useCachedData', () => {
       2,
       expect.anything(),
     );
-  });
-});
-
-describe('useFreshData', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (cacheModule.getCache as jest.Mock).mockResolvedValue(null);
-    (cacheModule.setCache as jest.Mock).mockResolvedValue(undefined);
-  });
-
-  it('não deve usar SWR (sempre espera dados frescos)', async () => {
-    const cachedData = { id: 1, name: 'Cached' };
-    const freshData = { id: 1, name: 'Fresh' };
-
-    (cacheModule.getCache as jest.Mock).mockResolvedValue(cachedData);
-    const fetcher = jest.fn().mockResolvedValue(freshData);
-
-    const { result } = renderHook(() => useFreshData('fresh_key', fetcher));
-
-    // Deve mostrar loading até ter dados frescos
-    expect(result.current.loading).toBe(true);
-
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
-    // Deve ter dados frescos, não do cache
-    expect(result.current.data).toEqual(freshData);
-    expect(result.current.isStale).toBe(false);
   });
 });
