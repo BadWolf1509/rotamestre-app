@@ -350,7 +350,7 @@ export default function MotoristasGestor() {
   // ============================================
 
   const desktopStats = (
-    <View style={styles.headerStats}>
+    <View style={styles.headerStats} testID="motoristas-contadores">
       <View style={styles.headerStat}>
         <Text style={styles.headerStatValue}>{totalMotoristas}</Text>
         <Text style={styles.headerStatLabel}>Cadastrados</Text>
@@ -440,7 +440,7 @@ export default function MotoristasGestor() {
             noPadding={motoristas.length > 0}
           >
             {motoristas.length === 0 ? (
-              <View style={styles.emptyContainer}>
+              <View style={styles.emptyContainer} testID="motoristas-vazio">
                 <Ionicons
                   name="people-outline"
                   size={64}
@@ -454,16 +454,18 @@ export default function MotoristasGestor() {
                 </Text>
               </View>
             ) : (
-              <DataTable
-                data={motoristas}
-                columns={columns}
-                actions={actions}
-                keyExtractor={(item) => item.id}
-                itemsPerPage={20}
-                pagination
-                isLoading={loading}
-                skeletonRows={10}
-              />
+              <View testID="motoristas-tabela">
+                <DataTable
+                  data={motoristas}
+                  columns={columns}
+                  actions={actions}
+                  keyExtractor={(item) => item.id}
+                  itemsPerPage={20}
+                  pagination
+                  isLoading={loading}
+                  skeletonRows={10}
+                />
+              </View>
             )}
           </DesktopCard>
         </DesktopPageLayout>

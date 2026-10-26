@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
+import {
+  decidirRestauracao,
+  diaLocal,
+  type RotaDoFixture,
+} from './decidirRestauracao';
 import { contarEntregasAbertas } from './entregasAbertas';
 
 /**
@@ -30,6 +35,17 @@ import { contarEntregasAbertas } from './entregasAbertas';
  * numa rota que já existe, nunca criação. Não acumula dado, não precisa de
  * cleanup, e se o teste morrer no meio não deixa resíduo. Se um dia houver
  * staging, isto deve apontar para lá.
+ *
+ * COMPARE-AND-SET. PRs concorrentes rodam este fixture ao mesmo tempo sobre a
+ * MESMA linha (há uma só rota demo): um PR lê 'concluida' e outro já a reabriu,
+ * e o UPDATE cego do primeiro sobrescreveria o estado do segundo — ou o
+ * restauraria de volta. Por isso os UPDATEs só pegam a linha se ela ainda está
+ * no estado que foi LIDO (`.eq('status', lido)`) e devolvem as linhas tocadas
+ * (`.select('id')`): 0 linhas = alguém mudou antes, e a decisão é reler, não
+ * insistir. Também ficam presos à unidade demo, para que um motorista com
+ * vínculo em outra loja nunca leve a escrita para fora dela. `paradas` não tem
+ * `unidade_id` (a RLS decide por `rotas.unidade_id`); o escopo vem do
+ * `rota_id`, que já é da demo.
  */
 
 const UNIDADE_DEMO = 'aaaa0000-0000-4000-8000-000000000001';
@@ -106,19 +122,14 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   }
 
   let motorista: (typeof motoristas)[number] | null = null;
-  let rota: {
-    id: string;
-    status: string;
-    data: string;
-    iniciada_em: string | null;
-    concluida_em: string | null;
-  } | null = null;
+  let rota: (RotaDoFixture & { id: string }) | null = null;
 
   for (const candidato of motoristas) {
     const { data: rotas, error: erroRota } = await supabase
       .from('rotas')
       .select('id, status, data, iniciada_em, concluida_em')
       .eq('motorista_id', candidato.id)
+      .eq('unidade_id', UNIDADE_DEMO)
       .order('data', { ascending: false })
       .limit(1);
 
@@ -141,21 +152,8 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
         'restaura estado, não inventa cenário — crie a rota demo antes.',
     );
   }
-  // Dia LOCAL, nunca `toISOString()`. A coluna `rotas.data` é `date` e as regras
-  // de expiração acima raciocinam em dias do calendário local: em UTC-3, a
-  // partir das 21:00 o `toISOString().slice(0, 10)` já devolve AMANHÃ, e o
-  // fixture datava a rota no futuro — estado que o produto nunca produz. Mesma
-  // conta de `toLocalISODate` (`src/lib/dateUtils.ts`), replicada em vez de
-  // importada porque nenhum arquivo de `e2e/` importa de `src/` (transform
-  // próprio do Playwright). O guard estático `data-local-sem-utc.test.ts` varre
-  // só `src` e `app`, então aqui não havia nada impedindo o erro.
-  const diaLocal = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-` +
-    `${String(d.getDate()).padStart(2, '0')}`;
-
   const hoje = new Date();
   const hojeStr = diaLocal(hoje);
-  const limite = diaLocal(new Date(hoje.getTime() - 7 * 24 * 60 * 60 * 1000));
 
   // NÃO BASTA A ROTA ESTAR ATIVA — ela precisa ter parada pendente.
   //
@@ -201,19 +199,13 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   // `iniciada_em` é a mesma de `data`; a expiração não lê nenhum dos dois
   // timestamps (só `status` e `data`), então gravá-los não muda quando a rota
   // expira.
-  const limiteInicio = hoje.getTime() - 7 * 24 * 60 * 60 * 1000;
-  const inicioCoerente =
-    rota.iniciada_em !== null &&
-    new Date(rota.iniciada_em).getTime() > limiteInicio;
-  const rotaServe =
-    rota.status === 'em_andamento' &&
-    rota.data > limite &&
-    rota.concluida_em === null &&
-    inicioCoerente;
-  const paradasServem = pendentesAntes > 0;
+  const decisao = decidirRestauracao(rota, pendentesAntes, hoje);
+  let rotaServe = !decisao.restaurarRota;
+  const paradasServem = !decisao.reabrirParadas;
 
   if (!rotaServe) {
-    const { error: erroUpdate } = await supabase
+    // Compare-and-set: só restaura se a rota ainda está no status que lemos.
+    const { data: tocadas, error: erroUpdate } = await supabase
       .from('rotas')
       .update({
         status: 'em_andamento',
@@ -221,17 +213,45 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
         iniciada_em: hoje.toISOString(),
         concluida_em: null,
       })
-      .eq('id', rota.id);
+      .eq('id', rota.id)
+      .eq('unidade_id', UNIDADE_DEMO)
+      .eq('status', rota.status)
+      .select('id');
 
     if (erroUpdate) {
       throw new Error(
         `Não foi possível restaurar a rota: ${erroUpdate.message}`,
       );
     }
+    if (!tocadas?.length) {
+      // Outro PR mudou a rota entre a leitura e a escrita. Se o estado atual já
+      // serve, seguimos; senão não há o que afirmar sobre o cenário.
+      const { data: relida, error: erroRelida } = await supabase
+        .from('rotas')
+        .select('status, data, iniciada_em, concluida_em')
+        .eq('id', rota.id)
+        .eq('unidade_id', UNIDADE_DEMO)
+        .maybeSingle();
+      if (erroRelida) {
+        throw new Error(`Não foi possível reler a rota: ${erroRelida.message}`);
+      }
+      if (
+        !relida ||
+        decidirRestauracao(relida, pendentesAntes, hoje).restaurarRota
+      ) {
+        throw new Error(
+          `O estado da rota ${rota.id} mudou durante a fixture (era ` +
+            `'${rota.status}') e o novo estado não serve ao mapa. Outro PR ` +
+            'pode estar mexendo na rota demo — rode de novo.',
+        );
+      }
+      rotaServe = true;
+    }
   }
 
   if (!paradasServem) {
-    // Reabre TODAS, e limpa os vestígios de conclusão junto: parada `pendente`
+    // Reabre só as paradas não pendentes (`.neq('status', 'pendente')`) e limpa
+    // os vestígios de conclusão dessas mesmas linhas: parada `pendente`
     // com `concluida_em` ou foto de comprovante é a mesma classe de incoerência
     // que esta correção existe para eliminar. O arquivo em storage fica órfão,
     // e tudo bem — órfão é inerte, e este fixture nunca limpou storage.
@@ -243,7 +263,9 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
         foto_url: null,
         motivo_skip: null,
       })
-      .eq('rota_id', rota.id);
+      .eq('rota_id', rota.id)
+      .neq('status', 'pendente')
+      .select('id');
 
     if (erroReabrir) {
       throw new Error(

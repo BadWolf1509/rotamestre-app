@@ -47,16 +47,6 @@ export function e2eUrl(path: string): string {
 }
 
 /**
- * Wait for React Native Web app to fully load
- */
-async function waitForAppReady(page: Page) {
-  // Wait for DOM to be ready
-  await page.waitForLoadState('domcontentloaded');
-  // Give React Native Web time to hydrate
-  await page.waitForTimeout(2000);
-}
-
-/**
  * Helper to login as a specific user type
  * Uses locators compatible with React Native Web
  */
@@ -64,8 +54,9 @@ async function login(page: Page, userType: 'motorista' | 'gestor') {
   const user = testUsers[userType];
 
   // Include e2e=true to skip font loading wait in React Native Web
+  // Sem espera fixa de "hidratação": o `waitFor` do campo de e-mail, abaixo, é
+  // o sinal de que o React montou o formulário.
   await page.goto('/auth/login?e2e=true', { waitUntil: 'domcontentloaded' });
-  await waitForAppReady(page);
 
   // React Native Web renders TextInput as standard <input> elements
   const emailInput = page.locator(
@@ -115,20 +106,12 @@ async function logout(page: Page) {
 }
 
 /**
- * Wait for app to be fully loaded
- */
-async function waitForAppLoad(page: Page) {
-  await waitForAppReady(page);
-}
-
-/**
  * Extended test fixtures with helper functions
  */
 export const test = base.extend<{
   loginAsMotorista: () => Promise<void>;
   loginAsGestor: () => Promise<void>;
   logout: () => Promise<void>;
-  waitForAppLoad: () => Promise<void>;
 }>({
   loginAsMotorista: async ({ page }, use) => {
     await use(async () => {
@@ -145,12 +128,6 @@ export const test = base.extend<{
   logout: async ({ page }, use) => {
     await use(async () => {
       await logout(page);
-    });
-  },
-
-  waitForAppLoad: async ({ page }, use) => {
-    await use(async () => {
-      await waitForAppLoad(page);
     });
   },
 });

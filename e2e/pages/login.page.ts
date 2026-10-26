@@ -11,36 +11,47 @@ export class LoginPage {
   readonly loginButton: Locator;
   readonly forgotPasswordLink: Locator;
   readonly errorMessage: Locator;
-  readonly loadingIndicator: Locator;
 
   constructor(page: Page) {
     this.page = page;
     // React Native Web renders TextInput as <input> elements
-    this.emailInput = page.locator('[data-testid="auth-login-email"]').or(
-      page.locator(
-        'input[placeholder="E-mail"], input[placeholder="seu@email.com"], input:not([type="password"])'
-      )
-    );
-    this.passwordInput = page.locator('[data-testid="auth-login-password"]').or(
-      page.locator('input[placeholder="Senha"], input[type="password"]')
-    );
+    this.emailInput = page
+      .locator('[data-testid="auth-login-email"]')
+      .or(
+        page.locator(
+          'input[placeholder="E-mail"], input[placeholder="seu@email.com"], input:not([type="password"])',
+        ),
+      );
+    this.passwordInput = page
+      .locator('[data-testid="auth-login-password"]')
+      .or(page.locator('input[placeholder="Senha"], input[type="password"]'));
     // React Native Web renders TouchableOpacity as divs, use testID first
-    this.loginButton = page.locator('[data-testid="auth-login-submit"]').first();
-    this.forgotPasswordLink = page.locator('[data-testid="auth-login-forgot"]').first();
-    this.errorMessage = page.locator('[role="alertdialog"], [role="dialog"]');
-    this.loadingIndicator = page.locator('[data-testid="loading"], .loading');
+    this.loginButton = page
+      .locator('[data-testid="auth-login-submit"]')
+      .first();
+    this.forgotPasswordLink = page
+      .locator('[data-testid="auth-login-forgot"]')
+      .first();
+    // `getByRole`, não o CSS `[role="dialog"]`: o Dialog do design system tem
+    // papel IMPLÍCITO (sem o atributo), e o seletor CSS não o achava nem com
+    // ele na tela — medido em 25/10/2026, 3 de 3 falhas. `getByRole` resolve
+    // o papel implícito.
+    this.errorMessage = page
+      .getByRole('alertdialog')
+      .or(page.getByRole('dialog'));
   }
 
   async goto() {
     // Include e2e=true to skip font loading wait in React Native Web
     await this.page.goto('/auth/login?e2e=true', { waitUntil: 'commit' });
-    await this.page.waitForTimeout(2000);
+    // As esperas fixas que havia antes de cada `waitForLoginForm` (2 s e 3 s)
+    // não protegiam nada: o próprio `waitForLoginForm` já espera o formulário.
     try {
       await this.waitForLoginForm(30000);
     } catch {
-      // Retry with reload if first attempt fails
+      // Um recarregamento antes de desistir; se o formulário não vier na
+      // segunda vez, o erro sobe — o catch não engole a falha.
       await this.page.reload({ waitUntil: 'commit' });
-      await this.page.waitForTimeout(3000);
       await this.waitForLoginForm(45000);
     }
   }

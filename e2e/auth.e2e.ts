@@ -35,8 +35,10 @@ test.describe('Authentication E2E Tests', () => {
       await loginPage.fillPassword('somepassword');
       await loginPage.submit();
 
-      // Should show validation error or not submit
-      await page.waitForTimeout(1000);
+      // O erro inline do Zod (`emailSchema`) é o sinal de que o envio foi
+      // recusado — antes, 1 s de espera e a conferência de que o formulário
+      // continuava ali, o que valia também para um clique que não fez nada.
+      await expect(page.getByText('E-mail é obrigatório')).toBeVisible();
       await loginPage.expectOnLoginPage();
     });
 
@@ -44,26 +46,20 @@ test.describe('Authentication E2E Tests', () => {
       await loginPage.fillEmail('test@example.com');
       await loginPage.submit();
 
-      // Should show validation error or not submit
-      await page.waitForTimeout(1000);
+      // Erro inline do `loginSchema` para a senha vazia.
+      await expect(page.getByText('Senha é obrigatória')).toBeVisible();
       await loginPage.expectOnLoginPage();
     });
 
     test('should show error for invalid credentials', async ({ page }) => {
       await loginPage.login('invalid@email.com', 'wrongpassword123');
 
-      // Wait for error response
-      await page.waitForTimeout(3000);
-
-      // Should either show error or stay on login page
-      const currentUrl = page.url();
-      const hasLoginInUrl =
-        currentUrl.includes('login') || currentUrl.includes('auth');
-
-      if (hasLoginInUrl) {
-        // Still on login page, might have error message
-        await loginPage.expectOnLoginPage();
-      }
+      // A recusa do Supabase vira o Dialog de erro da tela de login. Antes:
+      // 3 s de espera e um `if` que só afirmava algo se a URL ainda fosse a
+      // do login — um redirecionamento indevido passava calado.
+      await loginPage.expectErrorMessage(/E-mail ou senha incorretos/);
+      await expect(page).toHaveURL(/auth\/login/);
+      await loginPage.expectOnLoginPage();
     });
   });
 
@@ -118,15 +114,18 @@ test.describe('Authentication E2E Tests', () => {
 
       // Now try to access login page again
       await page.goto(e2eUrl('/auth/login'), { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(3000);
 
-      // Should either be redirected away OR stay on login (depends on app behavior)
-      // The important thing is that we can verify the behavior
-      const currentUrl = page.url();
-
-      // Either redirected to motorista OR session expired and we're on login
-      // Both are valid behaviors - we just verify navigation works
-      expect(currentUrl).toBeTruthy();
+      // No lugar dos 3 s fixos: espera a tela assentar num dos dois estados
+      // aceitos — o formulário de login ou a Início do motorista.
+      // LIMITAÇÃO CONHECIDA: o teste não escolhe entre os dois; o nome promete
+      // "redirect away", mas hoje a tela de login não redireciona quem já tem
+      // sessão. Endurecer isto é decisão de produto, não troca de espera.
+      await expect(
+        loginPage.emailInput
+          .or(page.getByTestId('motorista-status-section'))
+          .first(),
+      ).toBeVisible({ timeout: 30000 });
+      expect(page.url()).toMatch(/auth\/login|motorista/);
     });
   });
 });

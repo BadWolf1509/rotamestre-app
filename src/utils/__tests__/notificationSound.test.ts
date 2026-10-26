@@ -195,10 +195,8 @@ describe('notificationSound', () => {
 
   describe('cleanupNotificationSounds', () => {
     it('deve fazer cleanup sem erros', async () => {
-      await cleanupNotificationSounds();
-
       // Não deve lançar erro - cleanup agora é no-op para sons sintetizados
-      expect(true).toBe(true);
+      await expect(cleanupNotificationSounds()).resolves.toBeUndefined();
     });
 
     it('cleanup não faz nada para sons sintetizados', async () => {
