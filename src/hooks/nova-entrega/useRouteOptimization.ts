@@ -28,11 +28,6 @@ import { ordenarParadasPorRota } from '../useNovaEntrega.helpers';
 import type React from 'react';
 
 /**
- * Toda ordem possível passa por um par de pontos sem rota de carro entre si
- * (o OSRM devolve `null`: ilha, endereço fora do mapa viário). A ordem
- * exibida não é percorrível como está; o endereço precisa ser conferido.
- */
-/**
  * A lista mudou (parada adicionada, removida, editada ou limpa) enquanto o
  * OSRM calculava: aplicar o resultado trocaria a lista atual pelo retrato do
  * início e desfaria a mudança. O resultado é descartado.
@@ -40,6 +35,11 @@ import type React from 'react';
 const AVISO_LISTA_MUDOU =
   'A lista de paradas mudou durante a otimização. Otimize de novo para considerar as mudanças.';
 
+/**
+ * Toda ordem possível passa por um par de pontos sem rota de carro entre si
+ * (o OSRM devolve `null`: ilha, endereço fora do mapa viário). A ordem
+ * exibida não é percorrível como está; o endereço precisa ser conferido.
+ */
 const AVISO_SEM_ROTA_ENTRE_PARADAS =
   'Alguma parada não tem rota de carro até as outras. Confira os endereços: a ordem exibida pode não ser percorrível.';
 
