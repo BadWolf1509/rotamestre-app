@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
-import { classificarFalhaPerfil } from '../lib/auth/falhaPerfil';
+import {
+  classificarFalhaPerfil,
+  FalhaAoCarregarPerfil,
+} from '../lib/auth/falhaPerfil';
 import {
   apagarPerfilConhecido,
   gravarPerfilConhecido,
@@ -127,6 +130,42 @@ function esquecerBuscaDePerfil(userId: string): void {
   if (!entrada) return;
   entrada.esquecida = true;
   buscasDePerfilEmVoo.delete(userId);
+}
+
+/**
+ * Busca comum do perfil, que não vai à rede com a queda já observada.
+ *
+ * POR QUE EXISTE. Wi-Fi sem internet com o token válido (moto g15, 1.14.8):
+ * a rota em cache levava ~12 s para aparecer. O index busca o perfil e espera
+ * o DNS do Android desistir (4,4–7,8 s); o layout do motorista, que segura a
+ * rota atrás do `loading` deste hook, buscava de novo e esperava o MESMO DNS.
+ * Com a queda observada (`redeObservada.ts`), a busca só falharia igual: cai
+ * direto na falha transitória, e o perfil conhecido responde. Com o token
+ * vencido isso já não acontecia — `exigirSessaoDe` falha sem rede —, e por
+ * isso aquele caso levava metade do tempo.
+ *
+ * Só na carga COMUM: o refresh ("Tentar novamente", perfil gravado) vai à
+ * rede, porque só uma resposta limpa o sinal — mesmo critério do
+ * `pedidoDoUsuario` de `useLoadActiveRoute`.
+ *
+ * Alternativas comparadas: (a) prazo curto na leitura da sessão — com o token
+ * válido ela responde do storage, sem rede; não é ela que espera o DNS;
+ * (b) prazo curto na busca do perfil — timeout não conta como queda, e uma
+ * rede lenta de verdade perderia o perfil fresco; (c) carregar a rota pelo id
+ * da sessão sem esperar o perfil — muda o contrato do `RouteStatusProvider` e
+ * do layout. Esta corta só a espera repetida, sem prazo novo.
+ */
+function buscaComumDoPerfil(
+  buscar: () => Promise<Usuario | null>,
+): () => Promise<Usuario | null> {
+  return async () => {
+    if (redeCaidaObservada()) {
+      throw new FalhaAoCarregarPerfil('Sem rede: perfil não consultado', {
+        transitoria: true,
+      });
+    }
+    return buscar();
+  };
 }
 
 function ouvirPerfil(userId: string, ouvir: OuvinteDePerfil): () => void {
@@ -335,7 +374,7 @@ export function useUser() {
         const { seq, perfil: freshData } = await buscarPerfilCompartilhado(
           userId,
           forceRefresh,
-          fetchUserData,
+          forceRefresh ? fetchUserData : buscaComumDoPerfil(fetchUserData),
         );
         // A conta mudou (logout, troca) durante a busca: a resposta é de quem
         // saiu e não pode virar estado nem perfil conhecido.

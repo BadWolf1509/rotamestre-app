@@ -183,6 +183,13 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.md,
     marginBottom: theme.spacing.sm,
   },
+  observacaoPuloContainer: {
+    backgroundColor: theme.colors.gray50,
+    padding: theme.spacing.sm + 2,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.sm,
+    gap: theme.spacing.xs,
+  },
   observacoesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

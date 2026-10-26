@@ -5,8 +5,9 @@
  * para rede. Com erro de RLS ela continua valendo.
  */
 import { User } from '@supabase/supabase-js';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
+import { _resetRedeObservada, registrarFalhaDeRede } from '@/lib/redeObservada';
 import { supabase } from '@/lib/supabase';
 
 import { reiniciarBuscasDePerfil, useUser } from '../useUser';
@@ -49,6 +50,7 @@ const builderCom = (resposta: object, retry = jest.fn()) => {
 beforeEach(async () => {
   jest.clearAllMocks();
   reiniciarBuscasDePerfil();
+  _resetRedeObservada();
   await require('@/lib/cache').clearAllCache();
   memoria.clear();
   AsyncStorage.getItem.mockImplementation(
@@ -130,5 +132,72 @@ describe('useUser: perfil da abertura sem esperar o retry', () => {
       expect(builder.maybeSingle).toHaveBeenCalled();
     });
     expect(retry).toHaveBeenCalledWith(false);
+  });
+});
+
+/**
+ * Wi-Fi sem internet com o token válido (moto g15, 1.14.8): o index já buscou
+ * o perfil e esperou o DNS do Android desistir (4,4–7,8 s); depois, o useUser
+ * do layout buscava de novo e esperava o MESMO DNS — a rota em cache só
+ * aparecia em ~12 s. Com a queda já observada, a carga comum do perfil não vai
+ * à rede: cai direto no perfil conhecido. O refresh (botão "Tentar novamente")
+ * continua indo à rede: só uma resposta limpa o sinal.
+ */
+describe('useUser: queda de rede já observada', () => {
+  const chamadasAUsuarios = () =>
+    (mockSupabase.from as jest.Mock).mock.calls.filter(
+      ([tabela]) => tabela === 'usuarios',
+    );
+
+  it('carga comum não consulta o perfil e usa o perfil conhecido', async () => {
+    registrarFalhaDeRede();
+    const builder = builderCom({
+      data: null,
+      error: { message: 'Network request failed', code: '' },
+      status: 0,
+    });
+    (mockSupabase.from as jest.Mock).mockReturnValue(builder);
+
+    const { result } = renderHook(() => useUser());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.userData).toEqual(perfilConhecido);
+    expect(result.current.perfilIndisponivel).toBeNull();
+    expect(chamadasAUsuarios()).toHaveLength(0);
+  });
+
+  it('o refresh (Tentar novamente) vai à rede mesmo com a queda observada', async () => {
+    registrarFalhaDeRede();
+    const perfilFresco = { ...perfilConhecido, nome: 'Motorista Fresco' };
+    const builder = builderCom({ data: perfilFresco, error: null });
+    (mockSupabase.from as jest.Mock).mockReturnValue(builder);
+
+    const { result } = renderHook(() => useUser());
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(chamadasAUsuarios()).toHaveLength(0);
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(chamadasAUsuarios()).toHaveLength(1);
+    expect(result.current.userData).toEqual(perfilFresco);
+  });
+
+  it('sem queda observada, a carga comum consulta o perfil', async () => {
+    const perfilFresco = { ...perfilConhecido, nome: 'Motorista Fresco' };
+    const builder = builderCom({ data: perfilFresco, error: null });
+    (mockSupabase.from as jest.Mock).mockReturnValue(builder);
+
+    const { result } = renderHook(() => useUser());
+
+    await waitFor(() => {
+      expect(result.current.userData).toEqual(perfilFresco);
+    });
+    expect(chamadasAUsuarios()).toHaveLength(1);
   });
 });
