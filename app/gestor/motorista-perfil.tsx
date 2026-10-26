@@ -119,13 +119,18 @@ export default function MotoristaPerfil() {
         await buscarPerformanceMotorista(motoristaId, motoristaData.nome),
       );
 
-      // 3. Fetch recent routes
-      const { data: rotasData, error: rotasError } = await supabase
-        .from('rotas')
-        .select('id, data, status, distancia_total')
-        .eq('motorista_id', motoristaId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // 3. Rotas recentes DESTA loja: o motorista que atende outra loja
+      // traria as rotas dela, e o toque abriria rota que esta não gerencia.
+      // Sem loja aberta, lista vazia (fail-closed).
+      const { data: rotasData, error: rotasError } = unidadeAtiva
+        ? await supabase
+            .from('rotas')
+            .select('id, data, status, distancia_total')
+            .eq('motorista_id', motoristaId)
+            .eq('unidade_id', unidadeAtiva)
+            .order('created_at', { ascending: false })
+            .limit(10)
+        : { data: [], error: null };
 
       if (rotasError) throw rotasError;
       setRotasRecentes(rotasData || []);
@@ -133,7 +138,7 @@ export default function MotoristaPerfil() {
       logger.error('Erro ao carregar dados:', error);
       showToast('Não foi possível carregar os dados do motorista', 'error');
     }
-  }, [motoristaId, showToast]);
+  }, [motoristaId, showToast, unidadeAtiva]);
 
   // Initial load
   useEffect(() => {
