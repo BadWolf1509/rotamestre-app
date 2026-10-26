@@ -57,8 +57,8 @@
 --       preferencias_notificacao, push_tokens, rascunhos_rota e nas visões.
 --     - pg_default_acl do `postgres` em public: `f` =
 --       `{postgres=X,anon=X,authenticated=X,service_role=X}`; `r` =
---       `{postgres=arwdDxtm,anon=arwd,authenticated=arwd,service_role=arwdDxtm}`;
---       `S` = `rwU` para os quatro. Em storage: `f` igual ao de public, `r` =
+--       `{postgres=arwdDxtm,anon=arwd,authenticated=arwd,service_role=arwdDxtm}`.
+--       Em storage: `f` igual ao de public, `r` =
 --       `arwdDxtm` para os quatro. Sem entrada global (defaclnamespace = 0)
 --       do `postgres`.
 --     - `anon` executa 3 funções de public, todas SECURITY INVOKER:
@@ -81,8 +81,6 @@
 --   Limites (ficam fora):
 --     - o privilégio-padrão do `supabase_admin` (o `postgres` não pode
 --       alterá-lo); hoje todas as tabelas e funções de public são do `postgres`;
---     - sequências (`rwU` de `anon`): sem INSERT na tabela, o `nextval` sozinho
---       não grava linha;
 --     - o EXECUTE de `anon` (e de PUBLIC) nas três funções INVOKER existentes:
 --       rodam com os privilégios de quem chama;
 --     - o padrão de storage.

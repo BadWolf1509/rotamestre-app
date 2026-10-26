@@ -3055,7 +3055,7 @@ alcança as tabelas existentes. (c) REVOKE de EXECUTE em ALL FUNCTIONS de
 `authenticated`/`service_role` — escolhido.
 
 **Limites.** Ficam fora o padrão do `supabase_admin` (o `postgres` não pode
-alterá-lo), as sequências (`rwU` de `anon`), o padrão de storage e o EXECUTE de
+alterá-lo), o padrão de storage e o EXECUTE de
 `anon`/PUBLIC nas três funções SECURITY INVOKER existentes
 (`calcular_distancia`, `normalizar_telefone`, `update_updated_at_column`).
 `CREATE OR REPLACE` de função existente preserva a ACL, então o

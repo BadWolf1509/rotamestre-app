@@ -148,9 +148,10 @@ export async function verificarGuardas(
     };
   }
 
-  // Sem filtro de data: rota pendente de dia passado vira nao_executada na
-  // expiração das 22:00, então a que sobra é de hoje em diante. O limite é
-  // folgado para a rota em andamento não ficar de fora atrás de pendentes.
+  // Sem filtro de data: a expiração (22:00, só em dia útil e sem garantia de
+  // execução) é que tira a rota pendente de dia passado da lista; até lá ela
+  // também segura a exclusão. O limite é folgado para a rota em andamento não
+  // ficar de fora atrás de pendentes.
   const abertas = await cliente
     .from('rotas')
     .select('id, status')
