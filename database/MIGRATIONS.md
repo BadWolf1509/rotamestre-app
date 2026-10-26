@@ -2977,3 +2977,52 @@ motorista lê o próprio incidente e cria incidente na própria rota; catálogo 
 policy sem `motorista_id` em USING e WITH CHECK e com uma única policy de
 UPDATE. Sem a migration: casos 1, 2, 3 e 8 FALHOU. Rollback colável com a
 policy viva de 25/10/2026 (ramo do motorista em USING e WITH CHECK).
+
+### ⏳ Migration 68: posição gravada em rota em andamento, com margem para a fila offline
+
+**Arquivo:** `20261025163000_posicao_em_rota_em_andamento.sql` · **⏳ aguardando aplicação**
+
+> A Migration 67 (Tarefa 3 do plano de 25/10) não foi feita; o número fica sem
+> arquivo para manter os timestamps do plano.
+
+**O que faz.** Recria a policy `motorista_locations_insert_optimized` (mesmo
+nome, `FOR INSERT TO authenticated`). Passa a exigir cadastro ativo de quem
+grava (`usuario_atual_ativo()`), também na posição sem rota; com rota, a rota é
+de quem grava, com vínculo ativo na loja da rota, e está `em_andamento`, ou
+`concluida` com o horário da posição (`"timestamp"`, o horário do GPS) até
+10 minutos depois de `concluida_em`. `pendente`, `cancelada` e `nao_executada`
+recusam. A policy de SELECT não muda.
+
+**Alternativas.** (a) Só `em_andamento`: recusa a trilha do fim da rota que a
+fila offline envia depois da conclusão. (b) Margem pelo horário da posição —
+escolhida: a fila offline sobe a trilha do fim da rota mesmo horas depois.
+(c) Margem por `now()`: recusa a mesma fila se ela subir mais de 10 minutos
+depois. Na forma, subconsulta direta (as condições são as do ramo do motorista
+em `rotas_select` ou mais estritas, então o resultado não depende daquela
+policy) em vez de um helper SECURITY DEFINER, que aqui seria só uma função a
+mais.
+
+**Medido em 25/10/2026 (7 dias).** 11.569 posições em rota `em_andamento` e
+6.264 em `concluida`; destas, 137 com horário do GPS depois de `concluida_em` e
+118 mais de 10 minutos depois (passam a ser recusadas), todas de uma única
+rota; 0 em `pendente`/`cancelada`/`nao_executada`; 0 sem rota; 0 de cadastro
+inativo.
+
+**App.** O único INSERT é `src/lib/motorista/filaPosicoes.ts` (envio da fila).
+A recusa por RLS (42501) já é tratada: o lote daquela rota conta uma tentativa,
+sai depois de `MAX_TENTATIVAS_POSICAO` (60) tentativas com `logger.error` e não
+bloqueia as outras rotas. O rastreamento começa depois de a rota virar
+`em_andamento` (`useRouteActions.ts`). Na versão que segue rastreando depois de
+concluir, as posições além da margem passam a ser recusadas. O lote é a
+sequência de posições da mesma rota, sem teto de tamanho: um lote que misture
+posições dentro e além da margem é recusado inteiro. Sem mudança de código.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration68-posicao-em-rota-em-andamento.test.ts`; sonda
+`database/sondas/20261025163000_sonda_migration68.sql` (11 casos, cada um grava
+a própria posição como `authenticated`): aceita em rota em andamento, na rota
+concluída 5 min antes e 5 min depois da conclusão, e sem rota; recusa (42501)
+além da margem, em rota pendente e cancelada, de pessoa desativada (com e sem
+rota), com vínculo inativo e na rota de outro motorista; catálogo da policy com
+`usuario_atual_ativo` e `concluida_em`, sem `now()`. Sem a migration: casos 4,
+5, 6, 9b e 11 FALHOU. Rollback colável com a policy viva de 25/10/2026.
