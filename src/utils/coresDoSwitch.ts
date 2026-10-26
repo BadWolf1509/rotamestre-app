@@ -7,11 +7,14 @@
  * tema decide só a trilha. A trilha ligada usa `primaryDark` porque o
  * `primary` do escuro (#7a9bdf, clareado para texto) não dá 3:1 com o branco.
  */
+import { defaultTheme } from './styles.base';
+
 import type { Theme } from './styles';
 
-const POLEGAR_LIGADO = '#ffffff';
-// O cinza-claro padrão do Switch do React Native no Android.
-const POLEGAR_DESLIGADO = '#f4f3f4';
+// Paleta clara fixa (como `CORES_SOBRE_O_MAPA`): não se inverte com o tema.
+const claro = defaultTheme.colors;
+const POLEGAR_LIGADO = claro.white;
+const POLEGAR_DESLIGADO = claro.gray100;
 
 export function coresDoSwitch(theme: Theme, ligado: boolean) {
   return {
