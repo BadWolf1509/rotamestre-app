@@ -346,7 +346,7 @@ describe('RouteTimeline', () => {
 
     // A próxima carga fica pendurada: simula a recarga em voo.
     (supabase.from as jest.Mock).mockImplementation(() => {
-      const m: any = {};
+      const m: Record<string, jest.Mock> = {};
       m.select = jest.fn(() => m);
       m.eq = jest.fn(() => m);
       m.order = jest.fn(() => m);
