@@ -7,7 +7,11 @@
  * of the 14+ Parada interfaces is planned for a future PR.
  */
 
-import type { Parada, ParadaStatus, ParadaTipo } from '@/components/motorista/ParadaCard';
+import type {
+  Parada,
+  ParadaStatus,
+  ParadaTipo,
+} from '@/components/motorista/ParadaCard';
 import type { ParadaData } from '@/context/RouteStatusContext';
 
 /**
@@ -25,6 +29,7 @@ export function toParada(data: ParadaData): Parada {
     destinatario: data.destinatario,
     telefone: data.telefone,
     observacoes: data.observacoes,
+    observacao_pulo: data.observacao_pulo,
     concluidaEm: data.concluida_em,
     is_checkpoint: data.is_checkpoint,
   };
@@ -45,6 +50,7 @@ export function toParadaData(parada: Parada): ParadaData {
     destinatario: parada.destinatario,
     telefone: parada.telefone,
     observacoes: parada.observacoes,
+    observacao_pulo: parada.observacao_pulo,
     concluida_em: parada.concluidaEm,
     is_checkpoint: parada.is_checkpoint,
   };

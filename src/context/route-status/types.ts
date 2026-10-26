@@ -43,6 +43,8 @@ export interface ParadaData {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  /** Texto do motorista ao pular (Migration 73); separado da instrução do gestor. */
+  observacao_pulo?: string | null;
   motivo_skip?: MotivoSkip;
   foto_url?: string | null;
   /** false = checkpoint de partida/chegada, true/undefined = entrega real */

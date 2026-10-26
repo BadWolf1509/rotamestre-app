@@ -93,6 +93,65 @@ describe('ParadaCard', () => {
       expect(getByText('↷ Pulada')).toBeTruthy();
     });
 
+    describe('Texto do pulo (Migration 73)', () => {
+      const puladaComTexto: Parada = {
+        ...mockParadaPulada,
+        observacoes: 'Portão azul',
+        observacao_pulo: 'Ficou para amanhã',
+      };
+
+      it('parada pulada mostra "Seu motivo" sem expandir e mantém a instrução do gestor separada', () => {
+        const { getByText, queryByText } = render(
+          <ParadaCard {...defaultProps} parada={puladaComTexto} />,
+        );
+
+        expect(getByText('Seu motivo:')).toBeTruthy();
+        expect(getByText('Ficou para amanhã')).toBeTruthy();
+        // A instrução do gestor não se mistura com o texto do motorista
+        expect(queryByText('Portão azul')).toBeNull();
+      });
+
+      it('parada pulada sem texto não mostra "Seu motivo"', () => {
+        const { queryByText } = render(
+          <ParadaCard
+            {...defaultProps}
+            parada={{ ...puladaComTexto, observacao_pulo: null }}
+          />,
+        );
+
+        expect(queryByText('Seu motivo:')).toBeNull();
+      });
+
+      it('parada pendente não mostra "Seu motivo", mesmo com texto antigo', () => {
+        const { queryByText } = render(
+          <ParadaCard
+            {...defaultProps}
+            parada={{ ...puladaComTexto, status: 'pendente' }}
+          />,
+        );
+
+        expect(queryByText('Seu motivo:')).toBeNull();
+      });
+
+      it('re-renderiza quando só o observacao_pulo muda', () => {
+        const { getByText, rerender } = render(
+          <ParadaCard
+            {...defaultProps}
+            parada={{ ...puladaComTexto, observacao_pulo: 'Primeiro' }}
+          />,
+        );
+        expect(getByText('Primeiro')).toBeTruthy();
+
+        rerender(
+          <ParadaCard
+            {...defaultProps}
+            parada={{ ...puladaComTexto, observacao_pulo: 'Segundo' }}
+          />,
+        );
+        expect(getByText('Segundo')).toBeTruthy();
+      });
+    });
+
     it('deve renderizar tipo retirada corretamente', () => {
       const paradaRetirada: Parada = {
         ...mockParadaPendente,

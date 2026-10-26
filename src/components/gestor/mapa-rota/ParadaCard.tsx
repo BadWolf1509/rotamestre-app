@@ -294,6 +294,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
       prevProps.parada.id === nextProps.parada.id &&
       prevProps.parada.status === nextProps.parada.status &&
       prevProps.parada.foto_url === nextProps.parada.foto_url &&
+      prevProps.parada.observacao_pulo === nextProps.parada.observacao_pulo &&
       prevProps.index === nextProps.index &&
       prevProps.selected === nextProps.selected &&
       // A rota mudar de situação (ex.: cancelada) esconde editar/remover.

@@ -198,6 +198,17 @@ export const ParadaCard = memo<ParadaCardProps>(
               onToggleExpand={handleToggleExpand}
             />
 
+            {/* Texto que o motorista escreveu ao pular: visível sem expandir,
+                separado da instrução do gestor (observacoes) */}
+            {!isSummary && isPulada && !!parada.observacao_pulo && (
+              <View style={styles.observacaoPuloContainer}>
+                <Text style={styles.observacoesLabel}>Seu motivo:</Text>
+                <Text style={styles.observacoesTexto}>
+                  {parada.observacao_pulo}
+                </Text>
+              </View>
+            )}
+
             {/* Expanded details for processed cards */}
             {!isSummary && isProcessada && cardExpandido && (
               <ParadaCardDetails
@@ -257,6 +268,7 @@ export const ParadaCard = memo<ParadaCardProps>(
     return (
       prevProps.parada.id === nextProps.parada.id &&
       prevProps.parada.status === nextProps.parada.status &&
+      prevProps.parada.observacao_pulo === nextProps.parada.observacao_pulo &&
       prevProps.concluindo === nextProps.concluindo &&
       prevProps.pulando === nextProps.pulando &&
       prevProps.retomando === nextProps.retomando &&
