@@ -18,6 +18,7 @@ import {
   escaparIlike,
   filtroDepoisDoCursor,
   interpretarBusca,
+  ROTULO_MOTORISTA_OCULTO,
   TAMANHO_PAGINA_ROTAS,
   TETO_EXPORTACAO_ROTAS,
   type FiltrosRotas,
@@ -135,6 +136,29 @@ describe('filtroDepoisDoCursor', () => {
 });
 
 describe('buscarRotas', () => {
+  it('motorista que a RLS esconde: mantém o motorista_id e usa o rótulo, não "sem motorista"', async () => {
+    montar(
+      rotas(2, (i) =>
+        i === 0
+          ? { motorista_id: 'm9', usuarios: null }
+          : { motorista_id: null, usuarios: null },
+      ),
+    );
+
+    const { rotas: pagina } = await buscarRotas({
+      filtros: filtros(),
+      quantidade: 10,
+    });
+    const oculta = pagina.find((r) => r.id === 'r00000');
+    const sem = pagina.find((r) => r.id === 'r00001');
+
+    expect(oculta?.motorista_id).toBe('m9');
+    expect(oculta?.motorista_nome).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(ROTULO_MOTORISTA_OCULTO).toBe('Motorista removido da loja');
+    expect(sem?.motorista_id).toBeUndefined();
+    expect(sem?.motorista_nome).toBeUndefined();
+  });
+
   it('primeira página: 100 rotas mais recentes e o total da loja', async () => {
     montar(rotas(437));
 
