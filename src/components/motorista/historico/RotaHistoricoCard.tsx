@@ -192,7 +192,7 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
             </View>
           ) : null}
 
-          {item.paradas_count && item.paradas_count > 0 && (
+          {item.paradas_count != null && item.paradas_count > 0 ? (
             <View style={styles.detalheRow}>
               <Text style={styles.detalheLabel}>Progresso:</Text>
               <View style={styles.progressBarContainer}>
@@ -204,7 +204,7 @@ export const RotaHistoricoCard = React.memo(function RotaHistoricoCard({
                 />
               </View>
             </View>
-          )}
+          ) : null}
         </View>
       )}
 
