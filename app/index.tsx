@@ -11,10 +11,12 @@ import {
   apagarPerfilConhecido,
   lerPerfilConhecido,
 } from '@/lib/auth/perfilConhecido';
+import { buscarPerfilNaAbertura } from '@/lib/auth/perfilNaAbertura';
 import { PRAZO_LEITURA_SESSAO_MS } from '@/lib/auth/sessao';
 import { obterSessaoComTimeout } from '@/lib/auth/sessaoComTimeout';
 import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { logger } from '@/lib/logger';
+import { redeCaidaObservada } from '@/lib/redeObservada';
 import { isRecoveryRedirect } from '@/lib/supabase';
 import type { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -108,7 +110,24 @@ function IndexContent() {
         // Usuário autenticado: buscar dados completos para verificar primeira_senha
         let usuario: Usuario | null;
         try {
-          usuario = await authService.getUsuario(session.user.id);
+          // Com perfil conhecido guardado, a busca tem prazo curto (e nem sai
+          // com a queda de rede já observada): Wi-Fi sem internet esperava o
+          // DNS desistir. Sem perfil guardado, espera como sempre.
+          const perfil = await buscarPerfilNaAbertura(session.user.id, {
+            buscar: () => authService.getUsuario(session.user.id),
+            lerConhecido: lerPerfilConhecido,
+            redeCaida: () => redeCaidaObservada(),
+          });
+          if (perfil.origem === 'conhecido') {
+            logger.warn(
+              '[index] Perfil sem resposta a tempo — seguindo pelo perfil conhecido',
+            );
+            // Igual ao ramo offline: perfil guardado não passa pelo portão
+            // da conta; o `useUser` do layout busca o fresco em seguida.
+            rotearPeloPerfil(perfil.usuario);
+            return;
+          }
+          usuario = perfil.usuario;
         } catch (erroBusca) {
           // Falha NÃO é "sem perfil" (isso é data:null sem erro e autenticado,
           // tratado abaixo). Falha transitória: vale o perfil conhecido da
