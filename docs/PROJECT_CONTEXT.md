@@ -1,6 +1,6 @@
 # Contexto operacional — Rota Mestre App
 
-> Documento de entrada para novas sessões. Atualizado em 25/10/2026.
+> Documento de entrada para novas sessões. Atualizado em 26/10/2026.
 > Consulte o código ou o serviço responsável antes de alterar um estado externo.
 >
 > **O que este documento é:** estado atual, pendências e armadilhas — o que você
@@ -57,7 +57,7 @@ para outra coisa.
 - **25.** **Release 1.14.3 distribuído → publicar as Edge Functions que dependem dele (detalhe fora do repositório).**<br>_Quem:_ gestor · _Detalhe:_ fora do repositório
 - **26.** **Pequeno adiado do gestor (varredura de 23/10):** performance do motorista soma todas as lojas. Fechados no #638: gestor principal por loja e contagem de membros igual à lista da Equipe.<br>_Quem:_ qualquer sessão · _Detalhe:_ [HISTORICO.md](HISTORICO.md), 22–23/10/2026
 - **27.** **Reabrir o app com Wi-Fi conectado e sem internet leva ~1 min no esqueleto antes da rota do cache.** Perfil completo, perfil simples e rota rodam em série, cada um com o retry do postgrest-js (4 tentativas, ~20 s por consulta). Corrigir mexe na ordem perfil → rota, centro do offline da 1.14.5: plano próprio, com teste no aparelho (1.14.7). Ver a armadilha de teste sem rede.<br>_Quem:_ qualquer sessão · _Detalhe:_ [HISTORICO.md](HISTORICO.md), 24–25/10/2026
-- **28.** **Cancelar rota pelo painel é UPDATE direto do cliente** (`useMapaRotaHandlers.handleConfirmCancel`, em `src/components/gestor/mapa-rota/hooks/`); a parada `em_andamento` continua assim numa rota cancelada e o painel mostra "Em rota". Correção: RPC `cancelar_rota` atômica, no molde da `finalizar_rota`.<br>_Quem:_ qualquer sessão · _Detalhe:_ `database/MIGRATIONS.md`
+- **28.** **Cancelar rota pelo painel é UPDATE direto do cliente** (`useMapaRotaHandlers.handleConfirmCancel`, em `src/components/gestor/mapa-rota/hooks/`); a parada `em_andamento` continua assim numa rota cancelada e o painel mostra "Em rota". Banco pronto (Migrations 70–74 em `database/MIGRATIONS.md`: RPCs `cancelar_rota`, `reativar_rota` e `nomes_motoristas_das_rotas`, coluna `observacao_pulo`, sequências sem `anon`); o app chama as RPCs na 1.14.8.<br>_Quem:_ qualquer sessão · _Detalhe:_ `database/MIGRATIONS.md`
 - **29.** **Não existe tela para adicionar ou promover gestor de uma loja.** Lacuna de produto; a decisão é do gestor.<br>_Quem:_ gestor (decisão) · _Detalhe:_ pendência 11
 
 **Trabalho já fechado não mora aqui.** As listas "Fechadas em ..., não reabra"
