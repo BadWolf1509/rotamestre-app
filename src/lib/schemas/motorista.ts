@@ -39,7 +39,13 @@ export const motoristaSchema = z.object({
   nome: nomeMotoristaSchema,
   email: emailSchema,
   telefone: optionalPhoneSchema,
-  senha: passwordSchema,
+  // Espaço nas pontas é invisível no campo de senha: o gestor repassaria a
+  // senha sem ele e o motorista não entraria. Recusar em vez de aparar
+  // (`.trim()`), para a senha gravada ser exatamente a que o gestor viu.
+  senha: passwordSchema.refine(
+    (v) => v === v.trim(),
+    'A senha não pode começar nem terminar com espaço',
+  ),
 });
 
 export type MotoristaInput = z.infer<typeof motoristaSchema>;

@@ -86,6 +86,27 @@ describe('motoristaSchema: regra única de senha', () => {
     expect(mensagens).toContain('Senha deve ter no mínimo 8 caracteres');
   });
 
+  it.each([' Abcdef1!', 'Abcdef1! ', ' Abcdef1! '])(
+    'recusa senha com espaço nas pontas (%j): invisível, o motorista não o redigitaria',
+    (senha) => {
+      const result = motoristaSchema.safeParse({ ...base, senha });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      const mensagens = result.error.issues
+        .filter((i) => i.path[0] === 'senha')
+        .map((i) => i.message);
+      expect(mensagens).toContain(
+        'A senha não pode começar nem terminar com espaço',
+      );
+    },
+  );
+
+  it('aceita espaço no meio da senha', () => {
+    expect(
+      motoristaSchema.safeParse({ ...base, senha: 'Abc def1!' }).success,
+    ).toBe(true);
+  });
+
   it('aceita telefone vazio (campo opcional do formulário chega como "")', () => {
     expect(motoristaSchema.safeParse(base).success).toBe(true);
   });
