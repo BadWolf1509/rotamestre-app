@@ -31,6 +31,10 @@
  * - **por DADO** (`CODIGOS_RECUSA_DE_DADO`: FK de rota apagada, NOT NULL,
  *   CHECK, tipo, número fora da faixa): descartado na hora, só o lote daquela
  *   rota;
+ * - **por 42501** (`ehRecusaNoTempo`: rota encerrada há mais de 10 min corta
+ *   o lote num instante): partido ao meio, metade mais antiga primeiro; o que
+ *   sobe sai da fila. Lote de 1 recusado = o resto da sequência é a cauda
+ *   além da margem, e segue a regra abaixo. As partições gastam `MAX_RODADAS`;
  * - **por qualquer outra coisa** (rota que não é mais do motorista, JWT
  *   vencido, requisição saindo anônima porque o refresh do token falhou, 5xx
  *   sem texto de rede): fica, cada posição conta uma tentativa, e o envio
@@ -130,6 +134,22 @@ function ehRecusaDeDado(error: unknown): boolean {
     return false;
   }
   return CODIGOS_RECUSA_DE_DADO.has(String(error.code));
+}
+
+/**
+ * Recusa que pode cortar o lote num instante: 42501 (RLS). O banco recusa
+ * posição de rota fora de `em_andamento`, aceitando a concluída até 10 min
+ * depois de `concluida_em`; o lote está em ordem de tempo, então a recusa
+ * pode valer só para a cauda. Sessão (PGRST301/PGRST303/401) e 5xx recusam o
+ * lote inteiro, sem corte no tempo — partir só gastaria rodadas.
+ */
+function ehRecusaNoTempo(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '42501'
+  );
 }
 
 /**
@@ -538,6 +558,9 @@ async function enviarFila(
   const geracaoDoEnvio = geracao;
   // Rotas cujo lote o servidor recusou neste envio: ficam para o próximo.
   const recusadas = new Set<string>();
+  // Tamanho máximo do lote de cada rota recusada com 42501, só neste envio:
+  // metade a cada recusa (ver `ehRecusaNoTempo`).
+  const limite = new Map<string, number>();
   // Um logout no meio do envio troca a geração: este envio é da conta que
   // saiu e não segue. Sem isto, a rodada seguinte leria a fila de quem
   // entrou e a apagaria como "de outra conta" (N1), ou, com a mesma conta de
@@ -555,22 +578,32 @@ async function enviarFila(
       return true;
     }
 
-    const lote = primeiroLote(fila.posicoes, recusadas);
-    if (lote.length === 0) return false;
+    const sequencia = primeiroLote(fila.posicoes, recusadas);
+    if (sequencia.length === 0) return false;
+    const rota = sequencia[0].rota_id;
+    const lote = sequencia.slice(0, limite.get(rota) ?? sequencia.length);
     const { error } = await inserir(lote.map(paraLinha));
     if (error && isNetworkError(error)) {
       // Sem rede, nenhum outro lote subiria: para e tenta na próxima posição.
       logarFalha(rotulo, error);
       return false;
     }
+    if (error && ehRecusaNoTempo(error) && lote.length > 1) {
+      // Pode ser o corte da rota encerrada no meio do lote: tenta a metade
+      // mais antiga. Sem log nem tentativa — ainda não se sabe o que é.
+      limite.set(rota, Math.floor(lote.length / 2));
+      continue;
+    }
     if (error && !ehRecusaDeDado(error)) {
       // Posição recusada pelo servidor: rota que não é mais do motorista, ou
       // algo passageiro (token vencido, 5xx) — a resposta é a mesma e não dá
-      // para separar. O lote fica e conta uma tentativa (até
-      // `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
+      // para separar. A sequência inteira da rota fica e conta uma tentativa
+      // (até `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
+      // Depois de partir, o lote de 1 recusado diz que o resto da sequência
+      // é a cauda além da margem: é ela que conta a tentativa.
       logarFalha(rotulo, error);
-      await marcarTentativa(motoristaId, lote, error, geracaoDoEnvio);
-      recusadas.add(lote[0].rota_id);
+      await marcarTentativa(motoristaId, sequencia, error, geracaoDoEnvio);
+      recusadas.add(rota);
       continue;
     }
     if (error) {
