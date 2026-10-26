@@ -71,4 +71,21 @@ describe('nenhum Switch com polegar de token invertido', () => {
       .map((f) => path.relative(raiz, f));
     expect(ofensores).toEqual([]);
   });
+
+  // Cada `<Switch` tira as cores de `coresDoSwitch` — senão cada tela inventa
+  // a sua e o polegar volta a sumir no tema escuro.
+  it('todo Switch usa coresDoSwitch', () => {
+    const ofensores = [
+      ...listar(path.join(raiz, 'src')),
+      ...listar(path.join(raiz, 'app')),
+    ]
+      .filter((f) => {
+        const fonte = fs.readFileSync(f, 'utf8');
+        const switches = (fonte.match(/<Switch\b/g) ?? []).length;
+        const cores = (fonte.match(/\.\.\.coresDoSwitch\(/g) ?? []).length;
+        return switches > cores;
+      })
+      .map((f) => path.relative(raiz, f).replace(/\\/g, '/'));
+    expect(ofensores).toEqual([]);
+  });
 });

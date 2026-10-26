@@ -20,6 +20,7 @@ import {
 } from '@/lib/limpezaDeCache';
 import { avisoDaGravacao } from '@/lib/notificacoes/preferenciasPush';
 import type { PreferenciasNotificacao } from '@/types/notifications';
+import { coresDoSwitch } from '@/utils/coresDoSwitch';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 // As preferências de push moram no banco desde a Migration 47 (as chaves
@@ -127,15 +128,7 @@ export default function ConfiguracoesGestorScreen() {
               testID="switch-push-ativo"
               value={notificationsEnabled}
               onValueChange={toggleNotifications}
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary + '60',
-              }}
-              thumbColor={
-                notificationsEnabled
-                  ? theme.colors.primary
-                  : theme.colors.gray400
-              }
+              {...coresDoSwitch(theme, notificationsEnabled)}
             />
           </View>
 
@@ -150,13 +143,7 @@ export default function ConfiguracoesGestorScreen() {
               testID="switch-incidentes"
               value={incidentAlerts}
               onValueChange={toggleIncidentAlerts}
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary + '60',
-              }}
-              thumbColor={
-                incidentAlerts ? theme.colors.primary : theme.colors.gray400
-              }
+              {...coresDoSwitch(theme, incidentAlerts)}
               disabled={!notificationsEnabled}
             />
           </View>
@@ -172,13 +159,7 @@ export default function ConfiguracoesGestorScreen() {
               testID="switch-rotas"
               value={routeUpdates}
               onValueChange={toggleRouteUpdates}
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary + '60',
-              }}
-              thumbColor={
-                routeUpdates ? theme.colors.primary : theme.colors.gray400
-              }
+              {...coresDoSwitch(theme, routeUpdates)}
               disabled={!notificationsEnabled}
             />
           </View>
@@ -194,13 +175,7 @@ export default function ConfiguracoesGestorScreen() {
               testID="switch-resumo-diario"
               value={dailySummary}
               onValueChange={toggleDailySummary}
-              trackColor={{
-                false: theme.colors.gray300,
-                true: theme.colors.primary + '60',
-              }}
-              thumbColor={
-                dailySummary ? theme.colors.primary : theme.colors.gray400
-              }
+              {...coresDoSwitch(theme, dailySummary)}
               disabled={!notificationsEnabled}
             />
           </View>
