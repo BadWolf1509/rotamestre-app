@@ -29,7 +29,19 @@ import { formatDateBR } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { showError, showInfo } from '@/utils/errorHandling';
 
+import {
+  FalhaCargaBibliotecaError,
+  MENSAGEM_FALHA_CARGA,
+  carregarBiblioteca,
+} from './carregarBiblioteca';
+
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
+
+// Forma mínima do pdfmake após normalizar o interop: createPdf + vfs gravável.
+type PdfMakeComFontes = {
+  vfs: unknown;
+  createPdf: typeof import('pdfmake/build/pdfmake').createPdf;
+};
 
 // -----------------------------------------------------------------------
 // MIME type constant
@@ -76,12 +88,16 @@ export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
     // pdfmake ships as a CommonJS module, but when bundled through Babel/metro
     // it may appear as either { default: ... } (ESM interop) or the object itself.
     // We normalise to whichever has createPdf.
-    const pdfMakeRaw = await import('pdfmake/build/pdfmake');
-    const pdfFonts = await import('pdfmake/build/vfs_fonts');
+    const pdfMakeRaw = await carregarBiblioteca(
+      () => import('pdfmake/build/pdfmake'),
+    );
+    const pdfFonts = await carregarBiblioteca(
+      () => import('pdfmake/build/vfs_fonts'),
+    );
 
     // Handle both CJS (pdfMakeRaw.createPdf) and ESM-interop (pdfMakeRaw.default.createPdf)
     const pdfMake = (pdfMakeRaw?.default ??
-      pdfMakeRaw) as unknown as typeof pdfMakeRaw & { vfs: unknown };
+      pdfMakeRaw) as unknown as PdfMakeComFontes;
     pdfMake.vfs =
       (pdfFonts as any).pdfMake?.vfs ??
       (pdfFonts as any).default?.pdfMake?.vfs ??
@@ -103,6 +119,10 @@ export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
     }
   } catch (error) {
     logger.error('Erro ao exportar PDF:', error);
+    if (error instanceof FalhaCargaBibliotecaError) {
+      showError('Erro', MENSAGEM_FALHA_CARGA);
+      return;
+    }
     showError('Erro', 'Não foi possível gerar o comprovante em PDF');
   }
 }

@@ -1,11 +1,10 @@
 /**
  * Route export utilities (XLSX / Excel)
  *
- * xlsx is loaded lazily via require() at function entry so that the ~0.6 MB
- * gzip weight is only paid when the user actually triggers an export.
- * require() inside an async function is compatible with jest.mock() because
- * Babel/jest-expo transforms ESM imports to require() calls at test time, so
- * jest.mock("xlsx", ...) intercepts both top-level imports and inline require().
+ * xlsx é carregado sob demanda com import() dinâmico na entrada da função, então
+ * o peso (~0,16 MB gzip, chunk próprio no web) só é pago quando o usuário exporta.
+ * Nos testes, o plugin do `env.test` em babel.config.js troca o import() por
+ * require(), e o jest.mock("xlsx", ...) o intercepta.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -22,6 +21,12 @@ import {
   showSuccess,
   showWarning,
 } from '@/utils/errorHandling';
+
+import {
+  FalhaCargaBibliotecaError,
+  MENSAGEM_FALHA_CARGA,
+  carregarBiblioteca,
+} from './carregarBiblioteca';
 
 import type { RotaHistorico } from './types';
 
@@ -55,7 +60,7 @@ export async function exportRotasToXLSX({
     // Carga sob demanda: import() dinâmico mantém o xlsx fora do bundle de
     // entrada do web. O módulo é CJS; normaliza o default do interop ESM.
     // jest.mock("xlsx", ...) intercepta o import() nos testes.
-    const xlsxModulo = await import('xlsx');
+    const xlsxModulo = await carregarBiblioteca(() => import('xlsx'));
     const XLSX = (xlsxModulo.default ?? xlsxModulo) as typeof xlsxModulo;
 
     const sheetData = buildSheetData(rotas);
@@ -83,6 +88,10 @@ export async function exportRotasToXLSX({
     }
   } catch (error) {
     logger.error('Erro ao exportar XLSX:', error);
+    if (error instanceof FalhaCargaBibliotecaError) {
+      showError('Erro', MENSAGEM_FALHA_CARGA);
+      return;
+    }
     showError('Erro', 'Não foi possível exportar os dados');
   }
 }
