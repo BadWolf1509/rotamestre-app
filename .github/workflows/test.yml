@@ -223,7 +223,9 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
+        # Só o Chromium: é o único navegador dos projetos do playwright.config.ts.
+        timeout-minutes: 15
+        run: npx playwright install --with-deps chromium
 
       - name: Dependências de sistema do Playwright
         # Com cache hit os navegadores já estão em ~/.cache/ms-playwright, mas
@@ -231,7 +233,11 @@ jobs:
         # dele. Sem este step o Chromium cacheado não sobe, e o modo de falha é
         # ruim: todos os testes falham no launch, não no download.
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
+        # Só as libs do Chromium (sem ffmpeg/gstreamer de outros navegadores), e
+        # prazo próprio: com o espelho apt lento, o passo pendurava até o timeout
+        # de 30 min do job (26/10/2026, três vezes no mesmo dia).
+        timeout-minutes: 10
+        run: npx playwright install-deps chromium
 
       - name: Construir o bundle web
         # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
@@ -381,7 +387,9 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
+        # Só o Chromium: é o único navegador dos projetos do playwright.config.ts.
+        timeout-minutes: 15
+        run: npx playwright install --with-deps chromium
 
       - name: Dependências de sistema do Playwright
         # Com cache hit os navegadores já estão em ~/.cache/ms-playwright, mas
@@ -389,7 +397,11 @@ jobs:
         # dele. Sem este step o Chromium cacheado não sobe, e o modo de falha é
         # ruim: todos os testes falham no launch, não no download.
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
+        # Só as libs do Chromium (sem ffmpeg/gstreamer de outros navegadores), e
+        # prazo próprio: com o espelho apt lento, o passo pendurava até o timeout
+        # de 30 min do job (26/10/2026, três vezes no mesmo dia).
+        timeout-minutes: 10
+        run: npx playwright install-deps chromium
 
       - name: Construir o bundle web
         # OBRIGATORIO desde 07/09/2026: o `webServer` do playwright.config.ts
