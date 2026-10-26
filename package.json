@@ -1,7 +1,7 @@
 {
   "name": "rotamestre-app",
-  "version": "1.14.9",
-  "androidVersionCode": 3047,
+  "version": "1.14.10",
+  "androidVersionCode": 3048,
   "main": "index.ts",
   "scripts": {
     "prepare": "husky",
