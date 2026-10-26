@@ -18,7 +18,16 @@ Mescladas na `main` de #675 a #686:
 - **CI (#686):** o e2e instala só o Chromium do Playwright e o passo de dependências tem prazo próprio. O espelho apt da Azure chegou a 45 kB/s nesse dia; o passo pendurava até os 30 min do job. Com o prazo, falha em 10 min — a correção de fundo seria guardar os `.deb` em cache.
 - **Dependabot:** react-hook-form 7.90, pdfmake 0.3.12, dependências de desenvolvimento, `setup-java` 6.1, `@hookform/resolvers` 6 (a quebra é só no resolver do effect-ts; aqui só se usa o do zod), maplibre-gl 6.15 e Unistyles 3.6.0. Os de mapa, formulário e Unistyles passaram pelo e2e com login disparado à mão (`gh workflow run test.yml --ref <branch>`), porque os secrets não chegam ao bot.
 
-**Migration 51 segue guardada:** a precondição (nenhum acesso de versão anterior à 1.14.6) não vale — a 1.14.5 fazia ~3,2 mil requisições por dia.
+**Migration 51 segue guardada:** a precondição (nenhum acesso de versão anterior à 1.14.6) não vale — a 1.14.5 fazia ~3,2 mil requisições por dia. A Play não tem release em produção: quem a usa é testador que não atualizou.
+
+**Release 1.14.9 (3047, #687):** build no Actions (SHA do `.aab` igual ao do log), interna e alpha em 26/10, com as notas:
+
+- Sem internet no Wi-Fi, sua rota aparece mais rápido
+- Ao ver uma parada pulada, você lê o motivo que escreveu
+- Gestor: menu Exportar e motorista destaque corrigidos
+- Correções gerais
+
+Validada no moto g15 atualizado pela Play (login mantido): rota em cache com Wi-Fi sem internet entre 9,5 e 10,3 s; "Seu motivo" na parada pulada com texto, nos dois temas; troca de tema imediata e mapa nativo sem erro.
 
 ## Varredura de 25–26/10/2026 e releases 1.14.7 e 1.14.8
 
