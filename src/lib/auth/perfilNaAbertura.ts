@@ -9,8 +9,8 @@
  * - Queda de rede já observada (`redeCaidaObservada`): nem consulta — mesmo
  *   raciocínio do #678 (`buscaComumDoPerfil` em `useUser`).
  * - Senão, a busca corre contra `PRAZO_PERFIL_ABERTURA_MS`; estourou, segue
- *   pelo perfil conhecido. A busca não é cancelada; a resposta tardia é
- *   descartada aqui, e o `useUser` do layout busca o perfil fresco de novo.
+ *   pelo perfil conhecido. A busca não é cancelada: volta em `tardia`, e
+ *   `app/index.tsx` roda nela o portão da conta desativada quando chegar.
  * Sem perfil conhecido: espera como antes (não há para onde cair; o online
  * sem perfil guardado não muda).
  *
@@ -20,8 +20,9 @@
  * busca falha, junto com a rejeição dela: não ganha nada; (c) seguir sempre
  * pelo perfil conhecido e revalidar depois — mudaria também quem está online
  * e adiaria o portão da conta desativada e da troca de senha para todos.
- * Custo de (a): numa rede lenta de verdade (> prazo), a abertura segue pelo
- * perfil guardado sem o portão da conta desativada, como já acontece offline.
+ * Custo de (a): numa rede lenta de verdade (> prazo), a abertura entra pelo
+ * perfil guardado e o portão da conta desativada roda depois, na resposta
+ * tardia. Com a queda observada (nada em voo), fica como no ramo offline.
  */
 import type { Usuario } from '@/types/usuario';
 
@@ -30,7 +31,16 @@ export const PRAZO_PERFIL_ABERTURA_MS = 3_000;
 
 export type PerfilDaAbertura =
   | { origem: 'servidor'; usuario: Usuario | null }
-  | { origem: 'conhecido'; usuario: Usuario };
+  | {
+      origem: 'conhecido';
+      usuario: Usuario;
+      /**
+       * A busca que estourou o prazo e segue em voo (ausente quando nem saiu,
+       * com a queda observada): quem chama roda nela o portão da conta
+       * desativada, sem consulta extra de perfil.
+       */
+      tardia?: Promise<Usuario | null>;
+    };
 
 interface Opcoes {
   buscar: () => Promise<Usuario | null>;
@@ -54,19 +64,23 @@ export async function buscarPerfilNaAbertura(
   }
   if (redeCaida()) return { origem: 'conhecido', usuario: conhecido };
 
+  const resposta = buscar();
+  // A busca que perdeu a corrida pode rejeitar depois: sem dono, viraria
+  // "unhandled rejection". Quem usa `tardia` trata a falha dela.
+  resposta.catch(() => undefined);
+
   let timer: ReturnType<typeof setTimeout> | undefined;
   const prazo = new Promise<PerfilDaAbertura>((resolve) => {
     timer = setTimeout(
-      () => resolve({ origem: 'conhecido', usuario: conhecido }),
+      () =>
+        resolve({ origem: 'conhecido', usuario: conhecido, tardia: resposta }),
       prazoMs,
     );
   });
-  const busca = buscar().then((usuario): PerfilDaAbertura => ({
+  const busca = resposta.then((usuario): PerfilDaAbertura => ({
     origem: 'servidor',
     usuario,
   }));
-  // A busca que perdeu a corrida pode rejeitar depois: sem dono, viraria
-  // "unhandled rejection".
   busca.catch(() => undefined);
   try {
     return await Promise.race([busca, prazo]);

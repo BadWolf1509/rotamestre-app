@@ -39,8 +39,25 @@ describe('buscarPerfilNaAbertura', () => {
         redeCaida: () => false,
         prazoMs: 30,
       }),
-    ).resolves.toEqual({ origem: 'conhecido', usuario: CONHECIDO });
+    ).resolves.toMatchObject({ origem: 'conhecido', usuario: CONHECIDO });
     expect(Date.now() - inicio).toBeLessThan(1000);
+  });
+
+  it('prazo estourado: entrega a resposta tardia, para o portão da conta rodar depois', async () => {
+    let responder: (u: Usuario | null) => void = () => undefined;
+    const r = await buscarPerfilNaAbertura('m1', {
+      buscar: () =>
+        new Promise<Usuario | null>((res) => {
+          responder = res;
+        }),
+      lerConhecido: async () => CONHECIDO,
+      redeCaida: () => false,
+      prazoMs: 10,
+    });
+    expect(r.origem).toBe('conhecido');
+    if (r.origem !== 'conhecido') return;
+    responder(FRESCO);
+    await expect(r.tardia).resolves.toBe(FRESCO);
   });
 
   it('com a queda de rede já observada, nem consulta', async () => {

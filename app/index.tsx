@@ -122,9 +122,12 @@ function IndexContent() {
             logger.warn(
               '[index] Perfil sem resposta a tempo — seguindo pelo perfil conhecido',
             );
-            // Igual ao ramo offline: perfil guardado não passa pelo portão
-            // da conta; o `useUser` do layout busca o fresco em seguida.
             rotearPeloPerfil(perfil.usuario);
+            // Perfil guardado não decide se a conta foi desativada. Com a
+            // busca ainda em voo (prazo estourado), o portão roda quando a
+            // resposta chegar — sem consulta extra de perfil. Com a queda
+            // observada (nada em voo), fica como no ramo offline.
+            if (perfil.tardia) portaoDaContaNaRespostaTardia(perfil.tardia);
             return;
           }
           usuario = perfil.usuario;
@@ -190,6 +193,27 @@ function IndexContent() {
     } finally {
       setLoading(false);
     }
+  }
+
+  /**
+   * Portão da conta desativada sobre a resposta que chegou depois do prazo.
+   * Falha tardia (rede) ou sem perfil: não decide nada — a sessão segue, e o
+   * próximo `app/index` com resposta a tempo confere de novo.
+   */
+  function portaoDaContaNaRespostaTardia(tardia: Promise<Usuario | null>) {
+    void tardia
+      .then(async (fresco) => {
+        if (!fresco) return;
+        await authService.garantirContaAtiva(fresco);
+      })
+      .catch((erro) => {
+        if (erro instanceof ContaDesativada) {
+          logger.warn('[index] Conta desativada (resposta tardia) → login');
+          router.replace('/auth/login?conta=desativada');
+          return;
+        }
+        logger.warn('[index] Resposta tardia do perfil falhou', erro);
+      });
   }
 
   /** Último perfil conhecido do dono; sem ele, "Sem conexão". */
