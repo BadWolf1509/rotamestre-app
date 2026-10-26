@@ -1,5 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 
+import { _resetRedeObservada, registrarFalhaDeRede } from '../redeObservada';
 import { PRAZO_NETINFO_MS, semRedeConfirmada } from '../semRede';
 
 const fetchNetInfo = NetInfo.fetch as jest.Mock;
@@ -55,5 +56,20 @@ describe('semRedeConfirmada', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+/**
+ * Wi-Fi sem internet: o NetInfo diz "conectado", mas o fetch do Supabase já
+ * falhou. A falha observada basta — nem pergunta ao NetInfo.
+ */
+describe('semRedeConfirmada com rede caída observada', () => {
+  afterEach(() => _resetRedeObservada());
+
+  it('rede caída observada responde true sem consultar o NetInfo', async () => {
+    fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+    registrarFalhaDeRede();
+    await expect(semRedeConfirmada()).resolves.toBe(true);
+    expect(fetchNetInfo).not.toHaveBeenCalled();
   });
 });

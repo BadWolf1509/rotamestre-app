@@ -7,6 +7,7 @@ import { getSupabaseClientInfo } from './appVersion';
 import { criarFetchComTimeout } from './fetchComTimeout';
 import { logger } from './logger';
 import { criarFetchSemConsultaAnonima } from './porteiroSessao';
+import { criarFetchObservandoRede } from './redeObservada';
 import { secureAuthStorage } from './secureAuthStorage';
 
 // Capture URL hash BEFORE Supabase client processes it (createClient cleans the hash)
@@ -63,9 +64,17 @@ if (isSupabaseConfigured) {
       //
       // O porteiro fica por dentro do prazo: consulta REST sem sessão vira um
       // 401 local em vez de 200 vazio (ver `porteiroSessao.ts`).
+      //
+      // O observador de rede fica por dentro do porteiro: a falha de rede do
+      // fetch alimenta o "sem rede" (Wi-Fi sem internet), e o 401 local do
+      // porteiro, que não é resposta da rede, não chega a ele (ver
+      // `redeObservada.ts`).
       fetch: criarFetchComTimeout(
         undefined,
-        criarFetchSemConsultaAnonima(supabaseAnonKey, (...a) => fetch(...a)),
+        criarFetchSemConsultaAnonima(
+          supabaseAnonKey,
+          criarFetchObservandoRede(),
+        ),
       ),
       // Versão do app nos logs HTTP: sem isto não se sabia quem estava em
       // qual versão (o user-agent é sempre o do okhttp). Vai no X-Client-Info

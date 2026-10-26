@@ -15,6 +15,7 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { FalhaAoCarregarPerfil } from './falhaPerfil';
 import { obterSessaoComTimeout } from './sessaoComTimeout';
 import { logger } from '../logger';
+import { aoCairRede } from '../redeObservada';
 import { semRedeConfirmada } from '../semRede';
 import { supabase } from '../supabase';
 
@@ -76,8 +77,29 @@ export function lerSessao(): Promise<EstadoSessao> {
   if (leituraEmCurso) return leituraEmCurso;
 
   const consulta = consultarSessao();
+
+  // Wi-Fi sem internet com o token vencido: o refresh do auth-js é a primeira
+  // requisição a falhar, e o getSession fica preso no recuo dele. Observada a
+  // queda (`redeObservada.ts`), não há por que esperar o prazo de 10 s.
+  //
+  // A corrida é parte da leitura COMPARTILHADA (quem chega no meio herda),
+  // mas a vaga continua presa à CONSULTA: se a queda decide, o getSession
+  // segue preso, e quem chegar depois recebe este mesmo offline em vez de
+  // entrar na fila do auth-js. A alternativa — correr dentro de
+  // `consultarSessao` — liberaria a vaga na queda, e passada a janela da
+  // queda o próximo leitor voltaria a esperar o getSession preso.
+  let cancelarOuvinte: () => void = () => {};
+  const quedaDeRede = new Promise<EstadoSessao>((resolve) => {
+    cancelarOuvinte = aoCairRede(() => {
+      logger.warn(
+        '[Auth] Rede caiu durante a leitura da sessão — modo offline',
+      );
+      resolve(OFFLINE);
+    });
+  });
+
   const leitura = obterSessaoComTimeout(
-    () => consulta,
+    () => Promise.race([consulta, quedaDeRede]),
     PRAZO_LEITURA_SESSAO_MS,
     () =>
       logger.warn(
@@ -87,8 +109,10 @@ export function lerSessao(): Promise<EstadoSessao> {
   ).then((estado) => estado ?? OFFLINE);
 
   leituraEmCurso = leitura;
-  // A vaga só se libera quando a CONSULTA termina (não o prazo).
+  // A vaga só se libera quando a CONSULTA termina (não o prazo nem a queda).
+  // O ouvinte da queda morre junto: sem consulta, não há o que encurtar.
   void consulta.finally(() => {
+    cancelarOuvinte();
     if (leituraEmCurso === leitura) leituraEmCurso = null;
   });
   return leitura;
