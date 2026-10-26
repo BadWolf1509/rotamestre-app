@@ -40,6 +40,12 @@ interface EstilosRequisito {
 function AlterarSenhaContent() {
   const { theme } = useUnistyles();
   const router = useRouter();
+  // Volta à tela de onde veio (o perfil): `push` empilhava outra tela de
+  // perfil. Sem histórico (link aberto direto no navegador), vai ao perfil.
+  const voltar = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/perfil');
+  };
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
@@ -100,9 +106,7 @@ function AlterarSenhaContent() {
         })
         .eq('id', session.user.id);
 
-      showSuccess('Sucesso!', 'Senha alterada com sucesso!', () =>
-        router.back(),
-      );
+      showSuccess('Sucesso!', 'Senha alterada com sucesso!', voltar);
     } catch (error: unknown) {
       logger.error('Erro ao alterar senha', error);
       showError(error);
@@ -222,10 +226,9 @@ function AlterarSenhaContent() {
           primaryButtonDisabled={saving}
           onPrimaryPress={handleSubmit(onSubmit)}
           secondaryButtonText="Cancelar"
-          onSecondaryPress={() => router.push('/perfil')}
+          onSecondaryPress={voltar}
           loading={saving}
           sidePanel={sidePanel}
-          backPath="/perfil"
         />
         {AlertDialog}
       </>
@@ -295,7 +298,10 @@ function AlterarSenhaContent() {
           />
           {passwordsMatch && (
             <Text
-              style={[styles(theme).helperText, styles(theme).helperTextSuccess]}
+              style={[
+                styles(theme).helperText,
+                styles(theme).helperTextSuccess,
+              ]}
             >
               Senhas coincidem
             </Text>
@@ -317,7 +323,7 @@ function AlterarSenhaContent() {
             <Button
               title="Cancelar"
               variant="outline"
-              onPress={() => router.push('/perfil')}
+              onPress={voltar}
               disabled={saving}
               style={styles(theme).buttonSecondary}
             />

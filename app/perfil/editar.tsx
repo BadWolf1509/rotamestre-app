@@ -1,18 +1,44 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FormDesktopLayout } from '@/components/perfil/FormDesktopLayout';
-import { Button, Dialog, Input, Text } from '@/design-system';
+import { Button, Input, Text } from '@/design-system';
+import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
+import { getErrorMessage } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { emitProfileUpdate } from '@/lib/profileEvents';
+// Mesma regra do perfil do motorista (nome obrigatório, telefone mascarado).
+import {
+  perfilMotoristaSchema as perfilSchema,
+  type PerfilMotoristaInput as PerfilInput,
+} from '@/lib/schemas/perfilMotorista';
 import { supabase } from '@/lib/supabase';
 import { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+/** A RLS recusa UPDATE sem erro: zero linhas. Vira erro, não sucesso. */
+class PerfilNaoAlterado extends Error {}
+
+function formatPhone(text: string) {
+  const cleaned = text.replace(/\D/g, '');
+
+  if (cleaned.length <= 2) {
+    return cleaned;
+  } else if (cleaned.length <= 6) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+  } else if (cleaned.length <= 10) {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
+  } else {
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
+  }
+}
 
 export default function EditarPerfilGestor() {
   const { theme } = useUnistyles();
@@ -20,48 +46,20 @@ export default function EditarPerfilGestor() {
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const { showError, showSuccess, AlertDialog } = useAlert();
 
-  const [nome, setNome] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false,
-    title: '',
-    message: '',
-    type: 'default' as 'default' | 'error' | 'success' | 'warning',
-    confirmText: 'OK',
-    onConfirm: undefined as undefined | (() => void),
+  const {
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting, isSubmitted },
+  } = useForm<PerfilInput>({
+    resolver: zodResolver(perfilSchema),
+    defaultValues: { nome: '', telefone: '' },
   });
-
-  const hideAlert = () =>
-    setAlertConfig((prev) => ({
-      ...prev,
-      visible: false,
-    }));
-
-  function showAlert({
-    title,
-    message,
-    type = 'default',
-    confirmText = 'OK',
-    onConfirm,
-  }: {
-    title: string;
-    message: string;
-    type?: 'default' | 'error' | 'success' | 'warning';
-    confirmText?: string;
-    onConfirm?: () => void;
-  }) {
-    setAlertConfig({
-      visible: true,
-      title,
-      message,
-      type,
-      confirmText,
-      onConfirm,
-    });
-  }
 
   const loadUsuario = useCallback(async () => {
     try {
@@ -69,102 +67,78 @@ export default function EditarPerfilGestor() {
       if (session?.user) {
         const userData = await authService.getUsuario(session.user.id);
         setUsuario(userData);
-        setNome(userData?.nome || '');
-        setTelefone(userData?.telefone || '');
+        reset({
+          nome: userData?.nome || '',
+          telefone: userData?.telefone || '',
+        });
       }
     } catch (error) {
       logger.error('Erro ao carregar usuário', error);
-      showAlert({
+      showError({
         title: 'Erro ao carregar dados',
         message: 'Não foi possível carregar o seu perfil. Tente novamente.',
-        type: 'error',
-        onConfirm: () => router.back(),
+        onDismiss: () => router.back(),
       });
       return;
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [reset, router, showError]);
 
   useEffect(() => {
     loadUsuario();
   }, [loadUsuario]);
 
-  async function handleSave() {
-    if (!nome.trim()) {
-      showAlert({
-        title: 'Campo obrigatório',
-        message: 'O nome é obrigatório.',
-        type: 'error',
-      });
-      return;
-    }
+  // Volta à tela de onde veio (o perfil): `push`/`replace` empilhavam outra
+  // tela de perfil, e o "voltar" do aparelho caía no formulário de novo. Sem
+  // histórico (link aberto direto no navegador), vai ao perfil.
+  const voltar = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/perfil');
+  }, [router]);
 
-    if (telefone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(telefone)) {
-      showAlert({
-        title: 'Telefone inválido',
-        message: 'Use o formato (11) 99999-9999.',
-        type: 'error',
-      });
-      return;
-    }
-
-    setSaving(true);
-
+  const salvar = handleSubmit(async ({ nome, telefone }) => {
     try {
       if (!usuario?.id) throw new Error('Usuário não encontrado');
 
-      const { error } = await supabase
+      const { data: alteradas, error } = await supabase
         .from('usuarios')
         .update({
-          nome: nome.trim(),
+          nome,
           telefone: telefone.trim() || null,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', usuario.id);
+        .eq('id', usuario.id)
+        .select('id');
 
       if (error) throw error;
+      if ((alteradas?.length ?? 0) === 0) throw new PerfilNaoAlterado();
 
       // As outras instâncias de useUser (cabeçalho, menu, a da raiz) seguiam
       // com o nome antigo: recarregam todas, numa consulta só.
       emitProfileUpdate();
 
-      showAlert({
-        title: 'Perfil atualizado',
-        message: 'Suas informações foram salvas com sucesso.',
-        type: 'success',
-        confirmText: 'Voltar',
-        onConfirm: () => router.replace('/perfil'),
-      });
+      showSuccess(
+        'Perfil atualizado',
+        'Suas informações foram salvas com sucesso.',
+        voltar,
+      );
     } catch (error: unknown) {
       logger.error('Erro ao salvar perfil', error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível salvar as alterações.';
-      showAlert({
-        title: 'Erro ao salvar',
-        message,
-        type: 'error',
-      });
-    } finally {
-      setSaving(false);
+      if (error instanceof PerfilNaoAlterado) {
+        showError({
+          title: 'Perfil não atualizado',
+          message:
+            'Não foi possível salvar as alterações. Saia e entre de novo no app e tente outra vez.',
+        });
+        return;
+      }
+      // O erro do postgrest-js é objeto simples: o mapeamento traduz o
+      // `code`/`message` em frase para o gestor, sem expor o texto cru.
+      const { title, message } = getErrorMessage(error);
+      showError({ title, message });
     }
-  }
-
-  function formatPhone(text: string) {
-    const cleaned = text.replace(/\D/g, '');
-
-    if (cleaned.length <= 2) {
-      return cleaned;
-    } else if (cleaned.length <= 6) {
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
-    } else if (cleaned.length <= 10) {
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-    } else {
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7, 11)}`;
-    }
-  }
+  });
 
   if (loading) {
     return (
@@ -176,13 +150,18 @@ export default function EditarPerfilGestor() {
   }
 
   if (isDesktop) {
+    // O layout de desktop recebe os campos prontos (não aceita Controller):
+    // o valor vem do form e a revalidação segue a do Controller (só depois
+    // da 1ª tentativa de salvar).
     const fields = [
       {
         label: 'Nome Completo',
-        value: nome,
+        value: watch('nome'),
         placeholder: 'Digite seu nome completo',
-        onChange: setNome,
+        onChange: (text: string) =>
+          setValue('nome', text, { shouldValidate: isSubmitted }),
         autoCapitalize: 'words' as const,
+        error: errors.nome?.message,
       },
       {
         label: 'Email',
@@ -193,41 +172,33 @@ export default function EditarPerfilGestor() {
       },
       {
         label: 'Telefone',
-        value: telefone,
+        value: watch('telefone'),
         placeholder: '(11) 99999-9999',
-        onChange: (text: string) => setTelefone(formatPhone(text)),
+        onChange: (text: string) =>
+          setValue('telefone', formatPhone(text), {
+            shouldValidate: isSubmitted,
+          }),
         keyboardType: 'phone-pad' as const,
         helperText: 'Formato: (11) 99999-9999',
+        error: errors.telefone?.message,
       },
     ];
 
     return (
-      <>
+      <ErrorBoundary>
         <FormDesktopLayout
           title="Editar Perfil"
           subtitle="Atualize suas informações pessoais"
           fields={fields}
           primaryButtonText="Salvar Alterações"
-          primaryButtonDisabled={saving || !nome.trim()}
-          onPrimaryPress={handleSave}
+          primaryButtonDisabled={isSubmitting}
+          onPrimaryPress={salvar}
           secondaryButtonText="Cancelar"
-          onSecondaryPress={() => router.push('/perfil')}
-          loading={saving}
-          backPath="/perfil"
+          onSecondaryPress={voltar}
+          loading={isSubmitting}
         />
-        <Dialog
-          visible={alertConfig.visible}
-          variant="alert"
-          title={alertConfig.title}
-          message={alertConfig.message}
-          type={alertConfig.type}
-          confirmText={alertConfig.confirmText}
-          onConfirm={() => {
-            hideAlert();
-            alertConfig.onConfirm?.();
-          }}
-        />
-      </>
+        {AlertDialog}
+      </ErrorBoundary>
     );
   }
 
@@ -249,15 +220,23 @@ export default function EditarPerfilGestor() {
           </View>
 
           <View style={styles(theme).form}>
-            <Input
-              label="Nome Completo"
-              required
-              placeholder="Digite seu nome completo"
-              value={nome}
-              onChangeText={setNome}
-              autoCapitalize="words"
-              autoCorrect={false}
-              maxLength={100}
+            <Controller
+              control={control}
+              name="nome"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <Input
+                  label="Nome Completo"
+                  required
+                  placeholder="Digite seu nome completo"
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  maxLength={100}
+                  error={errors.nome?.message}
+                />
+              )}
             />
 
             <Input
@@ -267,49 +246,45 @@ export default function EditarPerfilGestor() {
               helperText="O e-mail não pode ser alterado"
             />
 
-            <Input
-              label="Telefone"
-              placeholder="(11) 99999-9999"
-              value={telefone}
-              onChangeText={(text) => setTelefone(formatPhone(text))}
-              keyboardType="phone-pad"
-              maxLength={15}
-              helperText="Formato: (11) 99999-9999"
+            <Controller
+              control={control}
+              name="telefone"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <Input
+                  label="Telefone"
+                  placeholder="(11) 99999-9999"
+                  value={value}
+                  onChangeText={(text) => onChange(formatPhone(text))}
+                  onBlur={onBlur}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                  helperText="Formato: (11) 99999-9999"
+                  error={errors.telefone?.message}
+                />
+              )}
             />
 
             <View style={styles(theme).buttonsContainer}>
               <Button
                 title="Cancelar"
                 variant="outline"
-                onPress={() => router.push('/perfil')}
-                disabled={saving}
+                onPress={voltar}
+                disabled={isSubmitting}
                 style={styles(theme).buttonSecondary}
               />
 
               <Button
                 title="Salvar"
                 variant="secondary"
-                onPress={handleSave}
-                loading={saving}
-                disabled={saving || !nome.trim()}
+                onPress={salvar}
+                loading={isSubmitting}
+                disabled={isSubmitting}
                 style={styles(theme).buttonPrimary}
               />
             </View>
           </View>
         </ScrollView>
-
-        <Dialog
-          visible={alertConfig.visible}
-          variant="alert"
-          title={alertConfig.title}
-          message={alertConfig.message}
-          type={alertConfig.type}
-          confirmText={alertConfig.confirmText}
-          onConfirm={() => {
-            hideAlert();
-            alertConfig.onConfirm?.();
-          }}
-        />
+        {AlertDialog}
       </View>
     </ErrorBoundary>
   );
