@@ -93,6 +93,19 @@ describe('conta desativada em app/index', () => {
     expect(mockAuth.garantirContaAtiva).toHaveBeenCalled();
   });
 
+  it('na abertura, busca o perfil sem pedir o retry (o padrão é retry(false))', async () => {
+    comSessao('m1');
+    mockAuth.getUsuario.mockResolvedValue(motorista() as never);
+
+    render(<Index />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/motorista');
+    });
+    // Só o id: `comRetry` é do login, onde não há perfil conhecido de reserva.
+    expect(mockAuth.getUsuario.mock.calls).toEqual([['m1']]);
+  });
+
   it('offline com perfil conhecido não passa pelo portão (modo offline da 1.14.4)', async () => {
     mockAuth.lerSessao.mockResolvedValue({
       session: null,

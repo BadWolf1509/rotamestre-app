@@ -199,3 +199,44 @@ describe('dia do calendário nunca sai de toISOString()', () => {
     expect(derivaDiaEmUtc('const hoje = getTodayISO();')).toBe(false);
   });
 });
+
+/**
+ * A mesma classe sem o `toISOString()` no meio: em 25/10/2026 o resumo da rota
+ * fazia `parseLocalDate(rota.created_at.split('T')[0])`. `created_at` é um
+ * timestamp UTC — o dia recortado dele é o dia em UTC, e a partir das 21:00 (UTC-3)
+ * já é amanhã. A guarda de cima só pegava a forma `toISOString().split(...)`.
+ *
+ * Aqui: `.split('T')[0]` em qualquer lugar fora de `src/lib/dateUtils.ts`.
+ * Alternativa descartada: restringir a nomes de campo (`created_at`, `_em`):
+ * o recorte entra por variável intermediária e escapa; o recorte do dia por
+ * `split('T')` não tem uso legítimo no app (o dia local sai de `toLocalISODate`).
+ */
+const RECORTE_DO_DIA_POR_SPLIT = /\.split\(\s*['"]T['"]\s*\)\s*\[\s*0\s*\]/;
+
+describe('dia do calendário nunca sai de split("T")[0] de timestamp', () => {
+  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+
+  it('nenhum arquivo recorta o dia de um timestamp com split', () => {
+    const infratores = fontes
+      .filter((caminho) =>
+        RECORTE_DO_DIA_POR_SPLIT.test(readFileSync(caminho, 'utf8')),
+      )
+      .map((caminho) => relative(RAIZ, caminho).replace(/\\/g, '/'))
+      .filter((caminho) => caminho !== ARQUIVO_QUE_DEFINE_A_ALTERNATIVA);
+
+    expect(infratores).toEqual([]);
+  });
+
+  it('a checagem casa com a forma do resumo e poupa as legítimas', () => {
+    expect(
+      RECORTE_DO_DIA_POR_SPLIT.test(
+        "parseLocalDate(rota.created_at.split('T')[0])",
+      ),
+    ).toBe(true);
+    expect(RECORTE_DO_DIA_POR_SPLIT.test('x.split( "T" )[ 0 ]')).toBe(true);
+    expect(RECORTE_DO_DIA_POR_SPLIT.test('formatDateBR(rota.data)')).toBe(
+      false,
+    );
+    expect(RECORTE_DO_DIA_POR_SPLIT.test("hora.split(':')[0]")).toBe(false);
+  });
+});

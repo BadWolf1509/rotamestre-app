@@ -41,7 +41,12 @@ const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({ insert: (...a: unknown[]) => mockInsert(...a) }),
-    rpc: (...a: unknown[]) => mockRpc(...a),
+    // O contato do gestor (get_gestor_contato) tem teste próprio; aqui ele só
+    // não pode atrapalhar a contagem de chamadas do registrar_sos.
+    rpc: (nome: string, ...a: unknown[]) =>
+      nome === 'get_gestor_contato'
+        ? { maybeSingle: () => Promise.resolve({ data: null, error: null }) }
+        : mockRpc(nome, ...a),
   },
 }));
 

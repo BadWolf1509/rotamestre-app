@@ -55,6 +55,11 @@ export interface IncidentSubmitResult {
   success: boolean;
   error?: string;
   incidentId?: string;
+  /**
+   * A foto foi escolhida mas o upload falhou nas tentativas: o incidente foi
+   * registrado SEM ela. Quem chama deve avisar o motorista.
+   */
+  fotoPerdida?: boolean;
 }
 
 export interface UseIncidentSubmitReturn {
@@ -175,6 +180,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
       try {
         let uploadedPhotoUrl = '';
+        let fotoPerdida = false;
         let finalEndereco = data.endereco || 'Localização não informada';
 
         // 1. Tentar obter geolocalização se não tiver endereço
@@ -203,6 +209,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
             // Continuar sem foto ou abortar? Vamos continuar sem foto
             logger.warn('Continuando sem foto devido a erro no upload');
             uploadedPhotoUrl = '';
+            fotoPerdida = true;
           }
         }
 
@@ -251,6 +258,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         return {
           success: true,
           incidentId: insertedData?.id,
+          fotoPerdida,
         };
       } catch (err) {
         const errorMessage =

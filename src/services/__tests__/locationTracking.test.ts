@@ -1209,12 +1209,16 @@ describe('LocationTrackingService', () => {
       erroSpy.mockRestore();
     });
 
-    it('converte a primeira leitura para o formato do serviço', async () => {
+    // O Android entrega o lote em ordem cronológica; a posição que vale é a
+    // última (a primeira chega a ter minutos de atraso com o app em segundo
+    // plano). Ver posicaoMaisRecente.ts.
+    it('converte a leitura mais recente do lote para o formato do serviço', async () => {
       await mockCallbackDaTarefa!({
         data: {
           locations: [
+            { timestamp: 123, coords: { latitude: 0, longitude: 0 } },
             {
-              timestamp: 123,
+              timestamp: 999,
               coords: {
                 latitude: -23.5,
                 longitude: -46.6,
@@ -1223,7 +1227,6 @@ describe('LocationTrackingService', () => {
                 heading: 90,
               },
             },
-            { timestamp: 999, coords: { latitude: 0, longitude: 0 } },
           ],
         },
       });
@@ -1233,7 +1236,7 @@ describe('LocationTrackingService', () => {
         latitude: -23.5,
         longitude: -46.6,
         accuracy: 12,
-        timestamp: 123,
+        timestamp: 999,
         speed: 3,
         heading: 90,
       });

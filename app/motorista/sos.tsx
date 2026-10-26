@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { GestorData } from '@/components/drawer/types';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useAlert } from '@/hooks/useAlert';
@@ -27,10 +28,13 @@ import {
   pedirPermissao,
   type ResultadoPermissao,
 } from '@/lib/permissoes';
+import { telefoneInternacional } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { withOpacity } from '@/utils/color';
 import { heavyHaptic, warningHaptic } from '@/utils/haptics';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+type EstadoGestor = 'carregando' | 'erro' | 'vazio' | 'ok';
 
 // Contatos de emergência
 const EMERGENCY_CONTACTS = [
@@ -40,6 +44,13 @@ const EMERGENCY_CONTACTS = [
     icon: '📞',
     number: null,
     description: 'Contato direto com seu gestor',
+  },
+  {
+    id: 'gestor-whatsapp',
+    label: 'WhatsApp do Gestor',
+    icon: '💬',
+    number: null,
+    description: 'Mensagem de emergência pronta',
   },
   {
     id: 'policia',
@@ -138,7 +149,7 @@ const OPCOES_SOS: OpcoesDoWatcher = {
 export default function SOSScreen() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
-  const { userData, loading: userLoading } = useUser();
+  const { userData } = useUser();
   const routeStatus = useRouteStatus();
   const { showWarning, showSuccess, showError, showConfirm, AlertDialog } =
     useAlert();
@@ -152,6 +163,7 @@ export default function SOSScreen() {
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [permissao, setPermissao] = useState<ResultadoPermissao | null>(null);
   const [gestorTelefone, setGestorTelefone] = useState<string | null>(null);
+  const [gestorEstado, setGestorEstado] = useState<EstadoGestor>('carregando');
   const [gestorNome, setGestorNome] = useState<string | null>(null);
   /** Faixa sobre os botões de ligar quando nenhum gestor confirmou o SOS. */
   const [avisoSemGestor, setAvisoSemGestor] = useState<string | null>(null);
@@ -230,63 +242,101 @@ export default function SOSScreen() {
     }
   }
 
-  // Carregar dados do gestor (aguarda userData estar carregado para evitar 406)
-  useEffect(() => {
-    async function loadGestor() {
-      // Aguardar carregamento completo do userData antes de fazer query
-      if (userLoading || !userData?.unidade_id) return;
-
-      // Usar maybeSingle() em vez de single() para evitar erro 406 quando não há gestor
+  // Contato do gestor pela RPC SECURITY DEFINER (a mesma regra da gaveta): o
+  // motorista só enxerga a própria linha de `usuarios` (RLS), então consultar a
+  // tabela direto devolvia vazio. Alternativa descartada: filtrar `usuarios` por
+  // vínculo ativo no cliente — duplicaria a regra que a RPC já tem. Zero linhas é
+  // estado esperado (loja sem gestor ativo), por isso `.maybeSingle()`.
+  const carregarGestor = useCallback(async () => {
+    setGestorEstado('carregando');
+    try {
       const { data, error } = await supabase
-        .from('usuarios')
-        .select('nome, telefone')
-        .eq('unidade_id', userData.unidade_id)
-        .eq('papel', 'gestor')
-        .limit(1)
-        .maybeSingle();
+        .rpc('get_gestor_contato')
+        .maybeSingle<GestorData>();
 
       if (error) {
-        logger.warn('[SOS] Erro ao carregar gestor:', error.message);
+        logger.warn('[SOS] Erro ao carregar gestor', error);
+        setGestorEstado('erro');
         return;
       }
-
-      if (data) {
-        setGestorNome(data.nome);
-        setGestorTelefone(data.telefone?.replace(/\D/g, '') || null);
+      if (!data) {
+        setGestorEstado('vazio');
+        return;
       }
+      setGestorNome(data.nome);
+      setGestorTelefone(telefoneInternacional(data.telefone));
+      setGestorEstado('ok');
+    } catch (error) {
+      logger.warn('[SOS] Erro ao carregar gestor', error);
+      setGestorEstado('erro');
     }
-    loadGestor();
-  }, [userLoading, userData?.unidade_id]);
+  }, []);
+
+  useEffect(() => {
+    carregarGestor();
+  }, [carregarGestor]);
 
   async function handleEmergencyCall(contactId: string, number: string | null) {
     await warningHaptic();
 
-    if (contactId === 'gestor') {
+    if (contactId === 'gestor' || contactId === 'gestor-whatsapp') {
+      if (gestorEstado === 'carregando') {
+        showWarning(
+          'Carregando contato do gestor',
+          'Ainda estamos buscando o contato do seu gestor. Tente de novo em instantes ou ligue para os números de emergência abaixo.',
+        );
+        return;
+      }
+      if (gestorEstado === 'erro') {
+        showWarning(
+          'Contato do gestor indisponível',
+          'Não foi possível carregar o contato do gestor. Tente de novo.',
+        );
+        // O toque seguinte já encontra o resultado da nova tentativa.
+        void carregarGestor();
+        return;
+      }
+      if (gestorEstado === 'vazio') {
+        showWarning(
+          'Nenhum gestor disponível',
+          'Não há gestor ativo cadastrado para a sua loja no momento. Ligue para os números de emergência abaixo.',
+        );
+        return;
+      }
       if (!gestorTelefone) {
         showWarning(
           'Telefone não cadastrado',
-          `O gestor ${gestorNome || ''} não possui telefone cadastrado.`,
+          `O gestor ${gestorNome ?? ''} não possui telefone válido cadastrado.`,
         );
         return;
       }
 
-      // Tentar WhatsApp primeiro
+      // Ligar é a ação principal: em emergência, a ligação não pode exigir
+      // outro toque nem depender do WhatsApp instalado. O WhatsApp é um
+      // botão à parte, com o texto pronto.
+      if (contactId === 'gestor') {
+        await Linking.openURL(`tel:+${gestorTelefone}`);
+        return;
+      }
+
+      const texto = encodeURIComponent('EMERGÊNCIA: Preciso de ajuda!');
       const whatsappUrl = Platform.select({
-        ios: `whatsapp://send?phone=55${gestorTelefone}&text=${encodeURIComponent('EMERGÊNCIA: Preciso de ajuda!')}`,
-        android: `whatsapp://send?phone=55${gestorTelefone}&text=${encodeURIComponent('EMERGÊNCIA: Preciso de ajuda!')}`,
-        default: `https://wa.me/55${gestorTelefone}?text=${encodeURIComponent('EMERGÊNCIA: Preciso de ajuda!')}`,
+        ios: `whatsapp://send?phone=${gestorTelefone}&text=${texto}`,
+        android: `whatsapp://send?phone=${gestorTelefone}&text=${texto}`,
+        default: `https://wa.me/${gestorTelefone}?text=${texto}`,
       });
 
       try {
         const canOpen = await Linking.canOpenURL(whatsappUrl);
-        if (canOpen) {
-          await Linking.openURL(whatsappUrl);
-        } else {
-          // Fallback para ligação
-          await Linking.openURL(`tel:${gestorTelefone}`);
-        }
-      } catch {
-        await Linking.openURL(`tel:${gestorTelefone}`);
+        await Linking.openURL(
+          canOpen
+            ? whatsappUrl
+            : `https://wa.me/${gestorTelefone}?text=${texto}`,
+        );
+      } catch (error) {
+        // WhatsApp indisponível: a ligação ainda resolve.
+        logger.warn('[SOS] WhatsApp indisponível; ligando', error);
+        await Linking.openURL(`tel:+${gestorTelefone}`);
       }
     } else if (number) {
       await Linking.openURL(`tel:${number}`);
@@ -403,13 +453,24 @@ export default function SOSScreen() {
             onPress={handleSOSActivation}
             disabled={enviando}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Acionar SOS"
           >
             {enviando ? (
               <ActivityIndicator size="large" color={theme.colors.white} />
             ) : (
               <>
-                <Text style={styles.emergencyIcon}>🆘</Text>
-                <Text style={styles.emergencyText}>ACIONAR SOS</Text>
+                <Text style={styles.emergencyIcon} maxFontSizeMultiplier={1.3}>
+                  🆘
+                </Text>
+                <Text
+                  style={styles.emergencyText}
+                  maxFontSizeMultiplier={1.3}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  ACIONAR SOS
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -517,10 +578,12 @@ export default function SOSScreen() {
                 testID={`contato-emergencia-${contact.id}`}
                 style={[
                   styles.contactItem,
-                  contact.id === 'gestor' && styles.contactItemGestor,
+                  contact.id.startsWith('gestor') && styles.contactItemGestor,
                   avisoSemGestor && styles.contactItemDestaque,
                 ]}
                 onPress={() => handleEmergencyCall(contact.id, contact.number)}
+                accessibilityRole="button"
+                accessibilityLabel={contact.label}
               >
                 <Text style={styles.contactIcon}>{contact.icon}</Text>
                 <View style={styles.contactInfo}>

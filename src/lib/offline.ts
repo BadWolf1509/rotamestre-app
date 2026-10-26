@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { lerSessao } from './auth/sessao';
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
+import { lerJsonParaGravar } from './leituraLocal';
 import { logger } from './logger';
 import {
   lerFilaAcoesParada,
@@ -52,15 +53,65 @@ function fotoEDe(photo: OfflinePhotoData, usuarioAtual: string): boolean {
  * aparelho é, na prática, quem entra nele em seguida; a RLS ainda barra o
  * upload em parada de outra loja. Foto com `userId` de outra conta não muda.
  */
-async function adotarFotosSemDono(userId: string): Promise<void> {
-  const index = await getOfflinePhotosIndex();
-  if (!index.some((p) => p.semDono)) return;
-  const adotado = index.map((p) => {
-    if (!p.semDono) return p;
-    const { semDono: _semDono, ...resto } = p;
-    return { ...resto, userId };
+function adotarFotosSemDono(userId: string): Promise<void> {
+  return mudarIndiceDeFotos((index) => {
+    if (!index.some((p) => p.semDono)) return null;
+    return index.map((p) => {
+      if (!p.semDono) return p;
+      const { semDono: _semDono, ...resto } = p;
+      return { ...resto, userId };
+    });
   });
-  await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(adotado));
+}
+
+/**
+ * Fila em série do índice de fotos (OFF-3). O índice é um item só no
+ * AsyncStorage, lido e regravado inteiro: sem a fila, a remoção da foto que
+ * acabou de subir e a inclusão de uma foto nova liam o mesmo índice, e quem
+ * gravava por último apagava a outra. Mesmo desenho das filas de ações e de
+ * posições (`emSerie`). Alternativa descartada: trava (mutex) com fila de
+ * espera — mais código para o mesmo efeito.
+ *
+ * Diferença das outras: livre (null), o passo começa na hora, sem passar por
+ * `.then`. Guardar a foto sem rede tem de terminar "na hora", sem timer
+ * (`offline-foto-sem-esperar-refresh.test.ts`); o caminho antigo já gastava
+ * as 20 microtarefas daquela medida, e o `.then` sempre o levava a 22.
+ */
+let cadeiaIndice: Promise<unknown> | null = null;
+
+function emSerieNoIndice<T>(fn: () => Promise<T>): Promise<T> {
+  const anterior = cadeiaIndice;
+  const proxima = anterior ? anterior.then(fn, fn) : fn();
+  const fim = proxima.catch(() => undefined);
+  cadeiaIndice = fim;
+  void fim.then(() => {
+    if (cadeiaIndice === fim) cadeiaIndice = null;
+  });
+  return proxima;
+}
+
+/**
+ * Lê, muda e grava o índice num passo só da fila em série. `mudar` devolve o
+ * índice novo, ou null para não gravar. Leitura que falha lança
+ * `FalhaDeLeituraLocal` e nada é gravado (OFF-4): gravar por cima de uma
+ * leitura que falhou apagaria as fotos que estavam na fila.
+ */
+function mudarIndiceDeFotos(
+  mudar: (index: OfflinePhotoData[]) => OfflinePhotoData[] | null,
+): Promise<void> {
+  return emSerieNoIndice(async () => {
+    const index = await lerJsonParaGravar<OfflinePhotoData[]>(
+      OFFLINE_PHOTOS_INDEX_KEY,
+      [],
+    );
+    const novo = mudar(index);
+    if (novo) {
+      await AsyncStorage.setItem(
+        OFFLINE_PHOTOS_INDEX_KEY,
+        JSON.stringify(novo),
+      );
+    }
+  });
 }
 
 /**
@@ -167,14 +218,13 @@ export async function savePhotoOffline(
 /**
  * Adiciona foto ao índice de fotos offline
  */
-async function addToPhotosIndex(photoData: OfflinePhotoData): Promise<void> {
-  const index = await getOfflinePhotosIndex();
-  index.push(photoData);
-  await AsyncStorage.setItem(OFFLINE_PHOTOS_INDEX_KEY, JSON.stringify(index));
+function addToPhotosIndex(photoData: OfflinePhotoData): Promise<void> {
+  return mudarIndiceDeFotos((index) => [...index, photoData]);
 }
 
 /**
- * Obtém índice de fotos offline pendentes
+ * Obtém índice de fotos offline pendentes. Só para ler/exibir: na falha
+ * devolve vazio. Quem regrava o índice passa por `mudarIndiceDeFotos`.
  */
 export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
   try {
@@ -191,19 +241,16 @@ export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
  * When localPath is provided, removes only the specific entry (precise removal).
  * When localPath is omitted, removes ALL entries for that paradaId (fallback/backward compat).
  */
-async function removeFromPhotosIndex(
+function removeFromPhotosIndex(
   paradaId: string,
   localPath?: string,
 ): Promise<void> {
-  const index = await getOfflinePhotosIndex();
-  const filtered = localPath
-    ? index.filter(
-        (p) => !(p.paradaId === paradaId && p.localPath === localPath),
-      )
-    : index.filter((p) => p.paradaId !== paradaId);
-  await AsyncStorage.setItem(
-    OFFLINE_PHOTOS_INDEX_KEY,
-    JSON.stringify(filtered),
+  return mudarIndiceDeFotos((index) =>
+    localPath
+      ? index.filter(
+          (p) => !(p.paradaId === paradaId && p.localPath === localPath),
+        )
+      : index.filter((p) => p.paradaId !== paradaId),
   );
 }
 
@@ -450,6 +497,7 @@ export async function hasOfflineData(): Promise<boolean> {
 export function _resetProcessingLocks(): void {
   isProcessingPhotos = false;
   fotosEmCurso = null;
+  cadeiaIndice = null;
   envioEmCurso = null;
   pedirEnvioDeNovo = false;
   hasNotifiedOffline = false;
@@ -546,7 +594,11 @@ export function setupOfflineSync(): () => void {
       if (evento !== 'SIGNED_IN') return;
       // Adoção ANTES do envio: as fotos adotadas entram na contagem de
       // pendentes e sobem antes das ações de parada (solicitarEnvioFila).
-      await adotarFotosSemDono(userId);
+      // Índice ilegível (OFF-4): a adoção fica para o próximo login, mas o
+      // envio do resto (fotos com dono, ações) não espera por ela.
+      await adotarFotosSemDono(userId).catch((error) =>
+        logger.warn('[Offline] Falha ao adotar fotos sem dono', error),
+      );
       const r = await solicitarEnvioFila();
       if (r.fotos > 0 || r.acoes > 0) {
         await notifySyncComplete(r.acoes, r.fotos);

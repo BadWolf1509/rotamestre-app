@@ -53,6 +53,22 @@ describe('chavesParaLimparNoCache', () => {
   });
 
   it.each([
+    '@rotamestre:tracking_context',
+    '@rotamestre:rota_guardada',
+    '@rotamestre:ultimo_usuario',
+    '@rotamestre:perfil_conhecido',
+    '@rotamestre:conclusao_em_voo',
+    '@rotamestre:rascunho_incidente',
+    'navigationState',
+  ])('preserva o estado da rota em andamento: %s', (chave) => {
+    expect(chavesParaLimparNoCache([chave])).toEqual([]);
+  });
+
+  it('cache de verdade continua saindo', () => {
+    expect(chavesParaLimparNoCache(['@cache_x'])).toEqual(['@cache_x']);
+  });
+
+  it.each([
     'app/motorista/perfil/configuracoes.tsx',
     'app/gestor/configuracoes.tsx',
   ])('%s usa a lista compartilhada (não filtra à mão)', (arquivo) => {

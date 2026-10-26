@@ -3,7 +3,12 @@
  * e lança `ContaDesativada` (a tela mostra a mensagem). Ativo entra.
  */
 jest.mock('../logger', () => ({
-  logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
 jest.mock('../auth/contaAtiva', () => ({
   ...jest.requireActual('../auth/contaAtiva'),
@@ -52,6 +57,7 @@ beforeEach(() => {
     select: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    retry: jest.fn().mockReturnThis(),
     maybeSingle: jest.fn().mockResolvedValue({ data: perfil, error: null }),
   });
 });
@@ -80,6 +86,7 @@ describe('signIn com conta desativada', () => {
       select: jest.fn().mockReturnThis(),
       update,
       eq: jest.fn().mockReturnThis(),
+      retry: jest.fn().mockReturnThis(),
       maybeSingle: jest.fn().mockResolvedValue({ data: perfil, error: null }),
     });
 

@@ -8,6 +8,7 @@ import { Alert, Linking, Platform, ActionSheetIOS } from 'react-native';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import { telefoneInternacional } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 
 import { CONTACT_REASONS, type ContactReason } from '../constants';
@@ -23,7 +24,8 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
   const { userData: profile } = useUser();
 
   const [showContactModal, setShowContactModal] = useState(false);
-  const [gestorDataForModal, setGestorDataForModal] = useState<GestorData | null>(null);
+  const [gestorDataForModal, setGestorDataForModal] =
+    useState<GestorData | null>(null);
 
   // Gera mensagem contextualizada para o gestor
   const buildContactMessage = useCallback(
@@ -46,18 +48,18 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
 
       return message;
     },
-    [profile?.nome, rotaAtiva, currentStop]
+    [profile?.nome, rotaAtiva, currentStop],
   );
 
   // Abre WhatsApp ou ligação com mensagem contextualizada
   const openContactWithReason = useCallback(
     async (gestorData: GestorData, reason: ContactReason) => {
-      const telefone = gestorData.telefone?.replace(/\D/g, '');
+      const telefone = telefoneInternacional(gestorData.telefone);
 
       if (!telefone) {
         Alert.alert(
           'Telefone não cadastrado',
-          `O gestor ${gestorData.nome} não possui telefone cadastrado. Entre em contato por email: ${gestorData.email || 'não informado'}`
+          `O gestor ${gestorData.nome} não possui telefone cadastrado. Entre em contato por email: ${gestorData.email || 'não informado'}`,
         );
         return;
       }
@@ -66,9 +68,9 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
 
       // Tentar abrir WhatsApp primeiro
       const whatsappUrl = Platform.select({
-        ios: `whatsapp://send?phone=55${telefone}&text=${encodeURIComponent(message)}`,
-        android: `whatsapp://send?phone=55${telefone}&text=${encodeURIComponent(message)}`,
-        default: `https://wa.me/55${telefone}?text=${encodeURIComponent(message)}`,
+        ios: `whatsapp://send?phone=${telefone}&text=${encodeURIComponent(message)}`,
+        android: `whatsapp://send?phone=${telefone}&text=${encodeURIComponent(message)}`,
+        default: `https://wa.me/${telefone}?text=${encodeURIComponent(message)}`,
       });
 
       const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
@@ -87,7 +89,7 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
           {
             text: '📞 Ligar',
             onPress: () => {
-              Linking.openURL(`tel:${telefone}`);
+              Linking.openURL(`tel:+${telefone}`);
               onClose();
             },
           },
@@ -98,17 +100,21 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
             text: '📧 Email',
             onPress: () => {
               Linking.openURL(
-                `mailto:${gestorData.email}?subject=Contato%20Motorista&body=${encodeURIComponent(message)}`
+                `mailto:${gestorData.email}?subject=Contato%20Motorista&body=${encodeURIComponent(message)}`,
               );
               onClose();
             },
           });
         }
 
-        Alert.alert('WhatsApp não disponível', `Como deseja contatar ${gestorData.nome}?`, options);
+        Alert.alert(
+          'WhatsApp não disponível',
+          `Como deseja contatar ${gestorData.nome}?`,
+          options,
+        );
       }
     },
-    [buildContactMessage, onClose]
+    [buildContactMessage, onClose],
   );
 
   // Handler para seleção de motivo no modal web
@@ -119,7 +125,7 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
         openContactWithReason(gestorDataForModal, reason);
       }
     },
-    [gestorDataForModal, openContactWithReason]
+    [gestorDataForModal, openContactWithReason],
   );
 
   // Mostra menu de motivos (iOS: ActionSheet, Android: Alert, Web: Modal)
@@ -137,7 +143,7 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
             if (buttonIndex < CONTACT_REASONS.length) {
               openContactWithReason(gestorData, CONTACT_REASONS[buttonIndex]);
             }
-          }
+          },
         );
       } else if (Platform.OS === 'web') {
         // Web: usa modal customizado com botões
@@ -145,16 +151,20 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
         setShowContactModal(true);
       } else {
         // Android: usa Alert com botões
-        Alert.alert(`Contatar ${gestorData.nome}`, 'Qual o motivo do contato?', [
-          ...CONTACT_REASONS.map((reason) => ({
-            text: reason.label,
-            onPress: () => openContactWithReason(gestorData, reason),
-          })),
-          { text: 'Cancelar', style: 'cancel' },
-        ]);
+        Alert.alert(
+          `Contatar ${gestorData.nome}`,
+          'Qual o motivo do contato?',
+          [
+            ...CONTACT_REASONS.map((reason) => ({
+              text: reason.label,
+              onPress: () => openContactWithReason(gestorData, reason),
+            })),
+            { text: 'Cancelar', style: 'cancel' },
+          ],
+        );
       }
     },
-    [openContactWithReason]
+    [openContactWithReason],
   );
 
   // Função principal para abrir contato com gestor
@@ -177,7 +187,7 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
       if (!gestorData) {
         Alert.alert(
           'Nenhum gestor disponível',
-          'Não há gestor ativo cadastrado para a sua loja no momento. Procure a empresa por outro canal.'
+          'Não há gestor ativo cadastrado para a sua loja no momento. Procure a empresa por outro canal.',
         );
         return;
       }

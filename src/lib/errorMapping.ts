@@ -154,6 +154,19 @@ const ERROR_PATTERNS: Array<{
       code: 'ROUTE_SENDS_PENDING',
     },
   },
+  // Fila do aparelho ilegível (`FalhaDeLeituraLocal`): a ação NÃO foi
+  // guardada. Sem esta entrada, caía no genérico e o motorista não saberia
+  // que precisa tentar de novo.
+  {
+    pattern: /ARMAZENAMENTO_ILEGIVEL/,
+    result: {
+      title: 'Não ficou salvo',
+      message:
+        'O aparelho não conseguiu ler o que já estava guardado, e isto não foi registrado. Tente de novo; se continuar, feche e abra o app.',
+      type: 'error',
+      code: 'LOCAL_STORAGE_UNREADABLE',
+    },
+  },
   {
     pattern: /PARADA_JA_RESOLVIDA/,
     result: {

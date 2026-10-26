@@ -50,6 +50,7 @@ jest.mock('@/lib/supabase', () => ({
         eq: () => consulta,
         order: () => consulta,
         update: () => consulta,
+        retry: () => consulta,
         maybeSingle: () => {
           mockConsultasDePerfil += 1;
           return Promise.resolve({
@@ -136,7 +137,9 @@ describe('UnidadeAtivaProvider acompanha o perfil', () => {
   });
 
   it('o fim do onboarding avisa as instâncias: a loja aparece sem recarregar o app', async () => {
-    let criar: ReturnType<typeof useCriarUnidade>['criarUnidade'] = async () => ({
+    let criar: ReturnType<
+      typeof useCriarUnidade
+    >['criarUnidade'] = async () => ({
       ok: true,
     });
     function Onboarding() {

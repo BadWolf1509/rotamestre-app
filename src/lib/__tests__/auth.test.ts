@@ -48,6 +48,34 @@ describe('AuthService - Unit Tests', () => {
   // GRUPO 1: signIn - Login
   // ============================================
   describe('signIn', () => {
+    // No login a rede acabou de responder (signInWithPassword) e não há
+    // perfil conhecido de reserva: o retry do postgrest-js fica.
+    it('busca o perfil COM o retry do postgrest-js (sem retry(false))', async () => {
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: {
+          session: { access_token: 't', user: { id: 'user-123' } },
+          user: { id: 'user-123' },
+        } as any,
+        error: null,
+      });
+      const retry = jest.fn();
+      const builder: Record<string, jest.Mock> = {};
+      builder.select = jest.fn(() => builder);
+      builder.update = jest.fn(() => builder);
+      builder.eq = jest.fn(() => builder);
+      builder.retry = retry.mockImplementation(() => builder);
+      builder.maybeSingle = jest.fn().mockResolvedValue({
+        data: { id: 'user-123', papel: 'motorista', ativo: true },
+        error: null,
+      });
+      mockSupabase.from.mockReturnValue(builder as any);
+
+      await authService.signIn('teste@rotamestre.com', 'senha123');
+
+      expect(builder.maybeSingle).toHaveBeenCalled();
+      expect(retry).not.toHaveBeenCalledWith(false);
+    });
+
     it('deve fazer login com sucesso e retornar sessão e usuário', async () => {
       const mockSession = {
         access_token: 'mock-token-123',
@@ -70,6 +98,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
@@ -125,6 +154,7 @@ describe('AuthService - Unit Tests', () => {
         // Sem linha é data:null + error:null (`.maybeSingle()`). Antes este
         // teste usava um `error` aqui e exigia `usuario: null` — era o defeito:
         // falha de rede virava "sem perfil" e o login mandava ao onboarding.
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: null,
@@ -161,6 +191,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: falhaDeRede,
@@ -202,6 +233,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: mockUpdate,
         eq: mockEq,
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
@@ -616,6 +648,23 @@ describe('AuthService - Unit Tests', () => {
   // GRUPO 7: getUsuario - Obter Dados do Usuário
   // ============================================
   describe('getUsuario', () => {
+    it('a consulta do perfil roda com retry(false) (sem esperar o retry da abertura)', async () => {
+      const retry = jest.fn();
+      const builder: Record<string, jest.Mock> = {};
+      builder.select = jest.fn(() => builder);
+      builder.eq = jest.fn(() => builder);
+      builder.retry = retry.mockImplementation(() => builder);
+      builder.maybeSingle = jest.fn().mockResolvedValue({
+        data: { id: 'user-123', papel: 'motorista' },
+        error: null,
+      });
+      mockSupabase.from.mockReturnValue(builder as any);
+
+      await authService.getUsuario('user-123');
+
+      expect(retry).toHaveBeenCalledWith(false);
+    });
+
     it('deve retornar dados do usuário com sucesso', async () => {
       const mockUsuario = {
         id: 'user-123',
@@ -628,6 +677,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
@@ -648,6 +698,7 @@ describe('AuthService - Unit Tests', () => {
         eq: jest.fn().mockReturnThis(),
         // "Não existe" com `.maybeSingle()` é data:null + error:null. O
         // `error` que estava aqui exigia que falha virasse "não existe".
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: null,
@@ -681,6 +732,7 @@ describe('AuthService - Unit Tests', () => {
             message: 'Cannot coerce the result to a single JSON object',
           },
         }),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       };
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
@@ -698,6 +750,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: mockEq,
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: {},
           error: null,
@@ -716,6 +769,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: mockSelect,
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: {},
           error: null,
@@ -735,6 +789,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: mockError,
@@ -756,6 +811,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: { message: 'TypeError: Network request failed', code: '' },
@@ -773,6 +829,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: { message: 'column does not exist', code: '42703' },
@@ -795,6 +852,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle,
       } as any);
 
@@ -808,6 +866,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockImplementation(async () => {
           idDaSessao = null; // o refresh falhou durante a busca
           return { data: null, error: null };
@@ -823,6 +882,7 @@ describe('AuthService - Unit Tests', () => {
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       } as any);
 
@@ -846,6 +906,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
@@ -870,6 +931,7 @@ describe('AuthService - Unit Tests', () => {
         select: jest.fn().mockReturnThis(),
         update: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUsuario,
           error: null,
@@ -890,6 +952,7 @@ describe('AuthService - Unit Tests', () => {
         eq: jest.fn().mockReturnThis(),
         // "Não existe" com `.maybeSingle()` é data:null + error:null. O
         // `error` que estava aqui exigia que falha virasse "não existe".
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: null,

@@ -13,7 +13,7 @@ import {
 } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useResumoRota } from '@/hooks/useResumoRota';
-import { parseLocalDate } from '@/lib/dateUtils';
+import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import type { Checkpoint } from '@/types/rota';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -37,14 +37,9 @@ export default function ResumoMotorista() {
 
   const resumoSubtitle = useMemo(() => {
     if (!rota) return undefined;
-    const dataCriacao = parseLocalDate(rota.created_at.split('T')[0]);
-    const dataLabel = dataCriacao
-      ? dataCriacao.toLocaleDateString('pt-BR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'short',
-        })
-      : '';
+    // Resumo do dia em que a rota roda: `rota.data` (coluna date) por formatDateBR,
+    // nunca o dia UTC de `created_at`.
+    const dataLabel = rota.data ? formatDateBR(rota.data) : '';
     return `${rota.unidades?.nome || 'Unidade'}${dataLabel ? ` • ${dataLabel}` : ''}`;
   }, [rota]);
 

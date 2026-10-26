@@ -34,6 +34,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
+import { lerSessao, type EstadoSessao } from '@/lib/auth/sessao';
+import { lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -121,6 +123,7 @@ function emSerie<T>(fn: () => Promise<T>): Promise<T> {
   return proxima;
 }
 
+/** Só para ler/exibir: na falha devolve vazio. Quem regrava usa `lerParaGravar`. */
 async function lerLista<T>(chave: string): Promise<T[]> {
   try {
     const bruto = await AsyncStorage.getItem(chave);
@@ -129,6 +132,14 @@ async function lerLista<T>(chave: string): Promise<T[]> {
     logger.warn('[FilaParada] Falha ao ler a fila', error);
     return [];
   }
+}
+
+/**
+ * Leitura de quem regrava a lista em seguida (OFF-4): leitura que falha lança
+ * `FalhaDeLeituraLocal` e nada é gravado — "vazio" ali apagaria a fila.
+ */
+function lerParaGravar<T>(chave: string): Promise<T[]> {
+  return lerJsonParaGravar<T[]>(chave, []);
 }
 
 async function gravarLista<T>(chave: string, lista: T[]): Promise<void> {
@@ -172,7 +183,7 @@ export function lerFilaAcoesParada(): Promise<AcaoParada[]> {
 
 export async function enfileirarAcaoParada(acao: AcaoParada): Promise<void> {
   await emSerie(async () => {
-    const fila = await lerLista<AcaoParada>(CHAVE_FILA);
+    const fila = await lerParaGravar<AcaoParada>(CHAVE_FILA);
     // A primeira decisão sobre a parada vale: a tela já a mostra resolvida.
     // Por conta: a ação de outra pessoa para a mesma parada (rota passada a
     // esta conta no mesmo aparelho) vai ser descartada no envio dela, e não
@@ -200,7 +211,7 @@ export async function lerDescartesDaFila(
 
 export async function dispensarDescartes(motoristaId: string): Promise<void> {
   await emSerie(async () => {
-    const todos = await lerLista<DescarteDeAcao>(CHAVE_DESCARTES);
+    const todos = await lerParaGravar<DescarteDeAcao>(CHAVE_DESCARTES);
     await gravarLista(
       CHAVE_DESCARTES,
       todos.filter((d) => d.acao.motoristaId !== motoristaId),
@@ -377,8 +388,27 @@ function statusPretendido(acao: AcaoParada): string {
 export async function aplicarAcaoParada(
   acao: AcaoParada,
   porta: PortaParadas = portaParadasSupabase,
+  lerSessaoAtual: () => Promise<EstadoSessao> = lerSessao,
 ): Promise<ResultadoAplicacao> {
-  const antes = classificar(acao, await porta.lerParada(acao.paradaId));
+  const paradaLida = await porta.lerParada(acao.paradaId);
+  // Parada invisível: removida de verdade OU escondida pela RLS porque a conta
+  // na frente não é a dona da ação (A deslogou, B entrou, a fila de A roda).
+  // Só no ramo raro `null` confere a sessão (custo zero no caminho normal).
+  // Alternativa descartada: conferir a sessão antes de toda ação — duas
+  // leituras por ação, sendo que o porteiro já cobre o caso "sem sessão".
+  // Sessão de outra conta é ERRO DE SESSÃO: a ação espera, não é descartada.
+  if (paradaLida === null) {
+    const { session } = await lerSessaoAtual();
+    // Só uma sessão DE OUTRA conta prova a troca. Sem sessão nenhuma o `null`
+    // não chega aqui na prática (o porteiro devolve 401 e lerParada lança), e
+    // tratar "sem sessão" como troca faria os testes antigos da fila — que não
+    // montam sessão — esperarem para sempre em vez de descartar.
+    const idAtual = session?.user?.id;
+    if (idAtual && idAtual !== acao.motoristaId) {
+      throw { code: 'PGRST301', message: 'Sessão de outra conta' };
+    }
+  }
+  const antes = classificar(acao, paradaLida);
   if (antes) return antes;
 
   const mudou = await porta.atualizarSeAberta(acao.paradaId, dadosDaAcao(acao));
@@ -407,7 +437,7 @@ export interface ResultadoProcessamento {
 
 async function removerDaFila(id: string): Promise<void> {
   await emSerie(async () => {
-    const fila = await lerLista<AcaoParada>(CHAVE_FILA);
+    const fila = await lerParaGravar<AcaoParada>(CHAVE_FILA);
     await gravarLista(
       CHAVE_FILA,
       fila.filter((a) => a.id !== id),
@@ -417,7 +447,7 @@ async function removerDaFila(id: string): Promise<void> {
 
 async function contarTentativa(id: string): Promise<number> {
   return emSerie(async () => {
-    const fila = await lerLista<AcaoParada>(CHAVE_FILA);
+    const fila = await lerParaGravar<AcaoParada>(CHAVE_FILA);
     let tentativas = 0;
     const nova = fila.map((a) => {
       if (a.id !== id) return a;
@@ -431,7 +461,7 @@ async function contarTentativa(id: string): Promise<number> {
 
 async function registrarDescarte(descarte: DescarteDeAcao): Promise<void> {
   await emSerie(async () => {
-    const todos = await lerLista<DescarteDeAcao>(CHAVE_DESCARTES);
+    const todos = await lerParaGravar<DescarteDeAcao>(CHAVE_DESCARTES);
     todos.push(descarte);
     await gravarLista(CHAVE_DESCARTES, todos);
   });
@@ -451,9 +481,12 @@ async function descartar(
 export async function processarFilaAcoesParada({
   usuarioAtual,
   porta = portaParadasSupabase,
+  lerSessaoAtual,
 }: {
   usuarioAtual: string;
   porta?: PortaParadas;
+  /** Injetável para teste; o padrão é a leitura real da sessão. */
+  lerSessaoAtual?: () => Promise<EstadoSessao>;
 }): Promise<ResultadoProcessamento> {
   if (processando) {
     rodarDeNovo = true;
@@ -469,7 +502,7 @@ export async function processarFilaAcoesParada({
   const enviarLote = async (acoes: AcaoParada[]): Promise<boolean> => {
     for (const acao of acoes) {
       try {
-        const r = await aplicarAcaoParada(acao, porta);
+        const r = await aplicarAcaoParada(acao, porta, lerSessaoAtual);
         if (r.tipo === 'descartada') {
           await descartar(acao, r.motivo, descartadas);
           continue;

@@ -15,7 +15,7 @@ import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { logger } from '@/lib/logger';
 import { rotuloDoPino } from '@/lib/motorista/pinosPorLocal';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
-import { showNavigationOptions } from '@/utils/navigation';
+import { abrirNavegacao } from '@/lib/navigation';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface Parada {
@@ -94,10 +94,10 @@ export function ParadaBottomSheet({
       if (onNavigate) {
         onNavigate(parada);
       } else {
-        showNavigationOptions({
+        void abrirNavegacao({
           latitude: parada.latitude,
           longitude: parada.longitude,
-          label: `Parada ${parada.ordem} - ${parada.endereco}`,
+          endereco: parada.endereco,
         });
       }
       onClose();

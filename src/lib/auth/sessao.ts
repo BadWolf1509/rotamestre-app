@@ -15,6 +15,7 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { FalhaAoCarregarPerfil } from './falhaPerfil';
 import { obterSessaoComTimeout } from './sessaoComTimeout';
 import { logger } from '../logger';
+import { aoCairRede } from '../redeObservada';
 import { semRedeConfirmada } from '../semRede';
 import { supabase } from '../supabase';
 
@@ -53,7 +54,12 @@ let leituraEmCurso: Promise<EstadoSessao> | null = null;
 async function consultarSessao(): Promise<EstadoSessao> {
   // Sem rede confirmada (modo avião): não há o que esperar. O auth-js nem é
   // consultado — ele só responderia depois de desistir do refresh.
-  if (await semRedeConfirmada()) return OFFLINE;
+  //
+  // A queda OBSERVADA não entra aqui: com o token válido o getSession lê o
+  // storage e responde na hora, sem rede. Atalhar por ela deixava o useAuth
+  // sem sessão (e sem realtime) por até 20 s com a rede já boa. A queda só
+  // encurta a espera do REFRESH preso — é a corrida de `lerSessao`.
+  if (await semRedeConfirmada({ ignorarQuedaObservada: true })) return OFFLINE;
   try {
     const { data, error } = await supabase.auth.getSession();
     const session = data?.session ?? null;
@@ -76,8 +82,37 @@ export function lerSessao(): Promise<EstadoSessao> {
   if (leituraEmCurso) return leituraEmCurso;
 
   const consulta = consultarSessao();
+
+  // Wi-Fi sem internet com o token vencido: o refresh do auth-js é a primeira
+  // requisição a falhar, e o getSession fica preso no recuo dele. Observada a
+  // queda (`redeObservada.ts`), não há por que esperar o prazo de 10 s.
+  //
+  // A corrida é parte da leitura COMPARTILHADA (quem chega no meio herda),
+  // mas a vaga continua presa à CONSULTA: se a queda decide, o getSession
+  // segue preso, e quem chegar depois recebe este mesmo offline em vez de
+  // entrar na fila do auth-js. A alternativa — correr dentro de
+  // `consultarSessao` — liberaria a vaga na queda, e passada a janela da
+  // queda o próximo leitor voltaria a esperar o getSession preso.
+  //
+  // Só quedas FUTURAS (registradas depois do início desta leitura): o sinal
+  // já ligado não prova que o getSession vá à rede — com token válido ele
+  // responde do storage. Se ele de fato tentar o refresh sem rede, a falha
+  // desse refresh é uma queda nova e encurta a espera do mesmo jeito.
+  let cancelarOuvinte: () => void = () => {};
+  const quedaDeRede = new Promise<EstadoSessao>((resolve) => {
+    cancelarOuvinte = aoCairRede(
+      () => {
+        logger.warn(
+          '[Auth] Rede caiu durante a leitura da sessão — modo offline',
+        );
+        resolve(OFFLINE);
+      },
+      { ignorarQuedaAtual: true },
+    );
+  });
+
   const leitura = obterSessaoComTimeout(
-    () => consulta,
+    () => Promise.race([consulta, quedaDeRede]),
     PRAZO_LEITURA_SESSAO_MS,
     () =>
       logger.warn(
@@ -87,8 +122,10 @@ export function lerSessao(): Promise<EstadoSessao> {
   ).then((estado) => estado ?? OFFLINE);
 
   leituraEmCurso = leitura;
-  // A vaga só se libera quando a CONSULTA termina (não o prazo).
+  // A vaga só se libera quando a CONSULTA termina (não o prazo nem a queda).
+  // O ouvinte da queda morre junto: sem consulta, não há o que encurtar.
   void consulta.finally(() => {
+    cancelarOuvinte();
     if (leituraEmCurso === leitura) leituraEmCurso = null;
   });
   return leitura;

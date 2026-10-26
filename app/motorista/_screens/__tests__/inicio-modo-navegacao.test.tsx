@@ -31,7 +31,8 @@ const PARADA = {
 
 // Cenário da rota por teste (prefixo `mock` libera o uso dentro do jest.mock).
 let mockParadas: Array<typeof PARADA> = [PARADA];
-let mockCurrentStop: typeof PARADA = PARADA;
+let mockCurrentStop: typeof PARADA | null = PARADA;
+let mockRotaStatus = 'em_andamento';
 const mockSkipStop = jest.fn();
 const mockShowSuccess = jest.fn();
 const mockShowError = jest.fn();
@@ -47,7 +48,7 @@ jest.mock('@/hooks/useAlert', () => ({
 jest.mock('@/context/RouteStatusContext', () => ({
   useRouteStatus: () => ({
     routeStatus: 'active',
-    route: { id: 'rota-1', status: 'em_andamento', unidade_id: 'u-1' },
+    route: { id: 'rota-1', status: mockRotaStatus, unidade_id: 'u-1' },
     paradas: mockParadas,
     currentStop: mockCurrentStop,
     nextStop: null,
@@ -165,9 +166,6 @@ jest.mock('@/components/motorista/home/StartRouteButton', () => ({
 }));
 jest.mock('@/components/motorista/home/StatusSection', () => ({
   StatusSection: () => null,
-}));
-jest.mock('@/components/motorista/OptimizationAlert', () => ({
-  OptimizationAlert: () => null,
 }));
 jest.mock('@/components/IncidentReportWizard', () => ({
   IncidentReportWizard: () => null,
@@ -311,6 +309,40 @@ describe('Início do motorista — modo navegação em tela cheia', () => {
 
     fireEvent.press(getByText('nav-sair'));
     await waitFor(() => expect(setTelaCheia).toHaveBeenLastCalledWith(false));
+  });
+
+  it('sai do modo (e não só esconde) quando a última parada some, e não reabre na próxima rota', async () => {
+    const setTelaCheia = jest.fn();
+    const { getByText, findByText, queryByText, rerender } =
+      renderComTelaCheia(setTelaCheia);
+
+    await entrarNoModoNavegacao(getByText, findByText);
+
+    // Última parada concluída: a rota não tem mais parada atual.
+    mockCurrentStop = null;
+    rerender(
+      <NavegacaoTelaCheiaContext.Provider value={{ setTelaCheia }}>
+        <MotoristaInicio />
+      </NavegacaoTelaCheiaContext.Provider>,
+    );
+    await waitFor(() => expect(queryByText('modo-navegacao')).toBeNull());
+
+    // Chega a próxima rota, pendente, com parada atual: não pode abrir sozinho.
+    mockCurrentStop = PARADA;
+    mockRotaStatus = 'pendente';
+    rerender(
+      <NavegacaoTelaCheiaContext.Provider value={{ setTelaCheia }}>
+        <MotoristaInicio />
+      </NavegacaoTelaCheiaContext.Provider>,
+    );
+    // E nem quando ela entra em andamento: o estado foi desligado.
+    mockRotaStatus = 'em_andamento';
+    rerender(
+      <NavegacaoTelaCheiaContext.Provider value={{ setTelaCheia }}>
+        <MotoristaInicio />
+      </NavegacaoTelaCheiaContext.Provider>,
+    );
+    expect(queryByText('modo-navegacao')).toBeNull();
   });
 
   it('devolve cabeçalho e abas se a tela desmontar em navegação', async () => {

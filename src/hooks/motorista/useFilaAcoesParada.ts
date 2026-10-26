@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
 import {
   dispensarDescartes as dispensar,
   lerDescartesDaFila,
@@ -60,8 +61,16 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
     };
   }, [motoristaId]);
 
+  // Lista de descartes ilegível (OFF-4): a fila lança em vez de gravar por
+  // cima. Registrado aqui, para todo chamador (o aviso chama com `void`); o
+  // aviso só não some, e o motorista pode tentar de novo.
   const dispensarDescartes = useCallback(async () => {
-    if (motoristaId) await dispensar(motoristaId);
+    if (!motoristaId) return;
+    try {
+      await dispensar(motoristaId);
+    } catch (error) {
+      logger.warn('[FilaParada] Falha ao dispensar avisos de envio', error);
+    }
   }, [motoristaId]);
 
   const dispensarAvisoOutraConta = useCallback(() => {

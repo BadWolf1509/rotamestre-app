@@ -65,6 +65,8 @@ export interface Rota {
   tempo_real?: number; // em minutos
   tempo_total?: number; // em minutos
   polyline?: string; // encoded polyline do Google
+  /** Dia da rota (coluna `date`, 'YYYY-MM-DD'): formatar só por dateUtils. */
+  data?: string;
   created_at: string;
   updated_at: string;
   iniciada_em?: string;

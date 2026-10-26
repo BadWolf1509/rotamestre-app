@@ -14,23 +14,23 @@ import React, {
   useMemo,
   useRef,
   useState,
-} from "react";
+} from 'react';
 
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from '@/hooks/useAuth';
 import {
   SELECT_NOTIFICACAO_COM_DETALHES,
   useNotificationPolling,
-} from "@/hooks/useNotificationPolling";
-import { useNotificationRealtime } from "@/hooks/useNotificationRealtime";
-import { useUser } from "@/hooks/useUser";
-import { logger } from "@/lib/logger";
-import { supabase } from "@/lib/supabase";
+} from '@/hooks/useNotificationPolling';
+import { useNotificationRealtime } from '@/hooks/useNotificationRealtime';
+import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 import type {
   Notificacao,
   NotificacaoComDetalhes,
-} from "@/types/notifications";
-import { triggerNewNotificationFeedback } from "@/utils/notificationFeedback";
-import { toast } from "@/utils/toast";
+} from '@/types/notifications';
+import { triggerNewNotificationFeedback } from '@/utils/notificationFeedback';
+import { toast } from '@/utils/toast';
 
 const PAGE_SIZE = 20;
 
@@ -43,7 +43,7 @@ const PAGE_SIZE = 20;
 function mesclarSemRepetir(
   lista: NotificacaoComDetalhes[],
   novas: NotificacaoComDetalhes[],
-  posicao: "inicio" | "fim",
+  posicao: 'inicio' | 'fim',
 ): NotificacaoComDetalhes[] {
   const ids = new Set(lista.map((n) => n.id));
   const ineditas = novas.filter((n) => {
@@ -52,7 +52,7 @@ function mesclarSemRepetir(
     return true;
   });
   if (ineditas.length === 0) return lista;
-  return posicao === "inicio"
+  return posicao === 'inicio'
     ? [...ineditas, ...lista]
     : [...lista, ...ineditas];
 }
@@ -80,7 +80,7 @@ export function useNotificationData() {
   const context = useContext(NotificationDataContext);
   if (!context) {
     throw new Error(
-      "useNotificationData must be used within NotificationDataProvider",
+      'useNotificationData must be used within NotificationDataProvider',
     );
   }
   return context;
@@ -155,17 +155,17 @@ export function NotificationDataProvider({
         // Buscar notificações paginadas e contagem total de não lidas em paralelo
         const [notificacoesResult, countResult] = await Promise.all([
           supabase
-            .from("notificacoes")
+            .from('notificacoes')
             .select(SELECT_NOTIFICACAO_COM_DETALHES)
-            .eq("usuario_id", userId)
-            .order("created_at", { ascending: false })
+            .eq('usuario_id', userId)
+            .order('created_at', { ascending: false })
             .range(0, PAGE_SIZE - 1),
           // Contagem separada de TODAS as não lidas (não apenas da primeira página)
           supabase
-            .from("notificacoes")
-            .select("id", { count: "exact", head: true })
-            .eq("usuario_id", userId)
-            .eq("lida", false),
+            .from('notificacoes')
+            .select('id', { count: 'exact', head: true })
+            .eq('usuario_id', userId)
+            .eq('lida', false),
         ]);
 
         if (usuarioAtualRef.current !== userId) return;
@@ -177,7 +177,7 @@ export function NotificationDataProvider({
         definirForaDaLista((countResult.count ?? 0) - contarNaoLidas(pagina));
         setHasMore(pagina.length === PAGE_SIZE);
       } catch (error) {
-        logger.error("[Notificações] Erro ao carregar", error);
+        logger.error('[Notificações] Erro ao carregar', error);
       } finally {
         if (usuarioAtualRef.current === userId) setLoading(false);
       }
@@ -195,10 +195,10 @@ export function NotificationDataProvider({
     try {
       const offset = notificacoes.length;
       const { data, error } = await supabase
-        .from("notificacoes")
+        .from('notificacoes')
         .select(SELECT_NOTIFICACAO_COM_DETALHES)
-        .eq("usuario_id", userId)
-        .order("created_at", { ascending: false })
+        .eq('usuario_id', userId)
+        .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
       if (usuarioAtualRef.current !== userId) return;
@@ -212,12 +212,12 @@ export function NotificationDataProvider({
 
       // As inéditas saem do "fora da lista" e passam a contar pela lista.
       const atual = notificacoesRef.current;
-      const mesclada = mesclarSemRepetir(atual, pagina, "fim");
+      const mesclada = mesclarSemRepetir(atual, pagina, 'fim');
       const trazidasDeFora = contarNaoLidas(mesclada) - contarNaoLidas(atual);
       definirLista(mesclada);
       definirForaDaLista(foraDaListaRef.current - trazidasDeFora);
     } catch (error) {
-      logger.error("[Notificações] Erro ao carregar mais", error);
+      logger.error('[Notificações] Erro ao carregar mais', error);
     } finally {
       setIsLoadingMore(false);
     }
@@ -243,7 +243,7 @@ export function NotificationDataProvider({
       const mesclada = mesclarSemRepetir(
         atual,
         [nova as NotificacaoComDetalhes],
-        "inicio",
+        'inicio',
       );
       // Repetida: nem lista, nem contador, nem aviso.
       if (mesclada === atual) return;
@@ -287,7 +287,7 @@ export function NotificationDataProvider({
   const handleNovasDoPolling = useCallback(
     (novas: NotificacaoComDetalhes[]) => {
       const atual = notificacoesRef.current;
-      const mesclada = mesclarSemRepetir(atual, novas, "inicio");
+      const mesclada = mesclarSemRepetir(atual, novas, 'inicio');
       if (mesclada !== atual) definirLista(mesclada);
     },
     [definirLista],
@@ -308,6 +308,10 @@ export function NotificationDataProvider({
     ativo: !realtimeConectado,
     desde: maisNovaVista,
     onNovas: handleNovasDoPolling,
+    // Sem spinner: a lista já está na tela e só é atualizada por baixo.
+    onRecuperar: () => {
+      void loadNotifications(false);
+    },
   });
 
   const marcarComoLida = useCallback(
@@ -328,18 +332,18 @@ export function NotificationDataProvider({
 
       try {
         const { error } = await supabase
-          .from("notificacoes")
+          .from('notificacoes')
           .update({ lida: true })
-          .eq("id", id)
-          .eq("usuario_id", userId);
+          .eq('id', id)
+          .eq('usuario_id', userId);
 
         if (error) throw error;
       } catch (error) {
         if (eraNaoLida && usuarioAtualRef.current === userId) {
           definirLida(false);
         }
-        logger.error("[Notificações] Erro ao marcar como lida", error);
-        toast.error("Erro ao marcar notificação como lida");
+        logger.error('[Notificações] Erro ao marcar como lida', error);
+        toast.error('Erro ao marcar notificação como lida');
       }
     },
     [userId, definirLista],
@@ -361,10 +365,10 @@ export function NotificationDataProvider({
 
     try {
       const { error } = await supabase
-        .from("notificacoes")
+        .from('notificacoes')
         .update({ lida: true })
-        .eq("usuario_id", userId)
-        .eq("lida", false);
+        .eq('usuario_id', userId)
+        .eq('lida', false);
 
       if (error) throw error;
     } catch (error) {
@@ -376,8 +380,8 @@ export function NotificationDataProvider({
         );
         definirForaDaLista(foraAntes);
       }
-      logger.error("[Notificações] Erro ao marcar todas como lidas", error);
-      toast.error("Erro ao marcar notificações como lidas");
+      logger.error('[Notificações] Erro ao marcar todas como lidas', error);
+      toast.error('Erro ao marcar notificações como lidas');
     }
   }, [userId, definirLista, definirForaDaLista]);
 

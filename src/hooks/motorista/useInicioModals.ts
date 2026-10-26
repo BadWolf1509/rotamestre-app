@@ -22,7 +22,6 @@ export interface InicioModalsState {
    * parada certa, que pode nao ser a atual.
    */
   selectedParadaForIncident: ParadaData | null;
-  showOptimization: boolean;
   showCompletionFlow: boolean;
   showSupportModal: boolean;
   showCompleteRouteModal: boolean;
@@ -35,13 +34,11 @@ export interface InicioModalsState {
   // Data associated with modals
   selectedParadaForCompletion: ParadaData | null;
   selectedParadaForSkip: ParadaData | null;
-  optimization: any;
 }
 
 const initialState: InicioModalsState = {
   showIncidentWizard: false,
   selectedParadaForIncident: null,
-  showOptimization: false,
   showCompletionFlow: false,
   showSupportModal: false,
   showCompleteRouteModal: false,
@@ -50,7 +47,6 @@ const initialState: InicioModalsState = {
   miniMapExpanded: false,
   selectedParadaForCompletion: null,
   selectedParadaForSkip: null,
-  optimization: null,
 };
 
 // --- Actions ---
@@ -69,9 +65,6 @@ type ModalAction =
   | { type: 'SET_NAVIGATION_MODE'; enabled: boolean }
   | { type: 'TOGGLE_MINI_MAP' }
   | { type: 'COLLAPSE_MINI_MAP' }
-  | { type: 'SET_OPTIMIZATION'; data: any }
-  | { type: 'DISMISS_OPTIMIZATION' }
-  | { type: 'CLEAR_OPTIMIZATION' }
   | { type: 'RESET_ALL' };
 
 // --- Reducer ---
@@ -133,13 +126,6 @@ function modalReducer(
       return { ...state, miniMapExpanded: !state.miniMapExpanded };
     case 'COLLAPSE_MINI_MAP':
       return { ...state, miniMapExpanded: false };
-
-    case 'SET_OPTIMIZATION':
-      return { ...state, optimization: action.data, showOptimization: true };
-    case 'DISMISS_OPTIMIZATION':
-      return { ...state, showOptimization: false };
-    case 'CLEAR_OPTIMIZATION':
-      return { ...state, showOptimization: false, optimization: null };
 
     case 'RESET_ALL':
       return initialState;
@@ -207,19 +193,6 @@ export function useInicioModals() {
     [],
   );
 
-  const setOptimization = useCallback(
-    (data: any) => dispatch({ type: 'SET_OPTIMIZATION', data }),
-    [],
-  );
-  const dismissOptimization = useCallback(
-    () => dispatch({ type: 'DISMISS_OPTIMIZATION' }),
-    [],
-  );
-  const clearOptimization = useCallback(
-    () => dispatch({ type: 'CLEAR_OPTIMIZATION' }),
-    [],
-  );
-
   return {
     // State
     ...state,
@@ -237,8 +210,5 @@ export function useInicioModals() {
     closeSkipModal,
     setNavigationMode,
     toggleMiniMap,
-    setOptimization,
-    dismissOptimization,
-    clearOptimization,
   };
 }

@@ -13,7 +13,10 @@ import { useNotificationPolling } from '../useNotificationPolling';
 type Resposta = { data: unknown[] | null; error: unknown };
 
 const mockChamadas: { metodo: string; args: unknown[] }[] = [];
-let mockResposta: Promise<Resposta> = Promise.resolve({ data: [], error: null });
+let mockResposta: Promise<Resposta> = Promise.resolve({
+  data: [],
+  error: null,
+});
 
 function mockConsulta() {
   const builder: Record<string, unknown> = {};
@@ -35,7 +38,12 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 jest.mock('@/lib/logger', () => ({
-  logger: { debug: jest.fn(), warn: jest.fn(), info: jest.fn(), error: jest.fn() },
+  logger: {
+    debug: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 const { supabase } = jest.requireMock('@/lib/supabase');
@@ -123,7 +131,10 @@ describe('useNotificationPolling', () => {
     const select = mockChamadas.find((c) => c.metodo === 'select');
     expect(String(select?.args[0])).toContain('rota:rotas');
     // Nunca mais a varredura de todas as não lidas.
-    expect(mockChamadas).not.toContainEqual({ metodo: 'eq', args: ['lida', false] });
+    expect(mockChamadas).not.toContainEqual({
+      metodo: 'eq',
+      args: ['lida', false],
+    });
   });
 
   it('usa o `desde` mais recente, sem reiniciar o intervalo', async () => {
@@ -169,6 +180,58 @@ describe('useNotificationPolling', () => {
 
     await avancar(90_000);
     expect(supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  it('na recuperação chama onRecuperar uma vez; com o realtime fora, nunca', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    await avancar(60_000);
+    expect(onRecuperar).not.toHaveBeenCalled();
+
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).toHaveBeenCalledTimes(1);
+
+    await avancar(90_000);
+    expect(onRecuperar).toHaveBeenCalledTimes(1);
+  });
+
+  // A carga inicial do provider já trouxe a lista: recarregar no primeiro
+  // SUBSCRIBED era carga dupla a cada abertura e login.
+  it('primeira conexão do realtime não chama onRecuperar', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    await avancar(1_000);
+
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).not.toHaveBeenCalled();
+  });
+
+  it('queda e volta do realtime chamam onRecuperar uma vez', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+
+    rerender({ ...props, onRecuperar, ativo: true });
+    await avancar(1_000);
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).toHaveBeenCalledTimes(1);
+  });
+
+  it('troca de conta: a primeira conexão da nova conta não chama onRecuperar', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+
+    rerender({ ...props, onRecuperar, userId: 'user-2', ativo: true });
+    await avancar(1_000);
+    rerender({ ...props, onRecuperar, userId: 'user-2', ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).not.toHaveBeenCalled();
   });
 
   it('descarta a resposta atrasada da conta anterior', async () => {

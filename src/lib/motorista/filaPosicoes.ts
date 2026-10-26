@@ -15,8 +15,12 @@
  *
  * - **Fila vazia:** insert direto de uma linha, como antes.
  * - **Falha de rede:** a posição vai para o AsyncStorage, com o horário dela.
- * - **Falha que não é de rede, com a fila vazia:** a posição não entra na
- *   fila (uma posição só, como antes desta fila). Fica o `logger.error`.
+ * - **Recusa de sessão, com a fila vazia** (`ehRecusaDeSessao`: PGRST301,
+ *   PGRST303, 401): a posição entra na fila já com `tentativas: 1`.
+ * - **Outra falha que não é de rede, com a fila vazia** (dado, 42501, 5xx):
+ *   a posição não entra na fila (uma posição só). Fica o `logger.error`. O
+ *   42501 é recusa real da RLS e o `'perdida'` dele dispara a conferência da
+ *   rota no rastreamento.
  * - **Fila com algo:** a posição nova entra no fim da fila e a fila inteira é
  *   enviada em lote, em ordem cronológica. A nova chega por último porque o
  *   marcador do gestor segue o último INSERT do realtime: enviar a fila depois
@@ -31,6 +35,12 @@
  * - **por DADO** (`CODIGOS_RECUSA_DE_DADO`: FK de rota apagada, NOT NULL,
  *   CHECK, tipo, número fora da faixa): descartado na hora, só o lote daquela
  *   rota;
+ * - **por 42501** (`ehRecusaNoTempo`: rota encerrada há mais de 10 min corta
+ *   o lote num instante): na 1ª recusa, sonda só a posição mais antiga (se
+ *   ela cai, a sequência inteira está além do corte); se passa, o lote é
+ *   partido ao meio, metade mais antiga primeiro; o que
+ *   sobe sai da fila. Lote de 1 recusado = o resto da sequência é a cauda
+ *   além da margem, e segue a regra abaixo. As partições gastam `MAX_RODADAS`;
  * - **por qualquer outra coisa** (rota que não é mais do motorista, JWT
  *   vencido, requisição saindo anônima porque o refresh do token falhou, 5xx
  *   sem texto de rede): fica, cada posição conta uma tentativa, e o envio
@@ -81,6 +91,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lerSessao } from '@/lib/auth/sessao';
 import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { isNetworkError } from '@/lib/errorMapping';
+import { lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -130,6 +141,42 @@ function ehRecusaDeDado(error: unknown): boolean {
     return false;
   }
   return CODIGOS_RECUSA_DE_DADO.has(String(error.code));
+}
+
+/**
+ * Recusa de SESSÃO: sem sessão (PGRST301, que o porteiro do fetch nativo
+ * devolve), JWT vencido (PGRST303) ou 401. Passa quando a sessão volta — por
+ * isso, com a fila vazia, a posição é guardada em vez de perdida.
+ *
+ * 42501 fica de fora de propósito: com o porteiro, a requisição sem sessão
+ * já volta PGRST301, e o 42501 que sobra é recusa real da RLS (rota
+ * encerrada ou reatribuída) — o `'perdida'` dela é o gatilho da conferência
+ * da rota em `unifiedLocationTracking`. Lista própria, e não o
+ * `ehErroDeSessao` de `filaAcoesParada`, que casa também por texto da
+ * mensagem: acoplar as duas filas faria uma mudança de lá mexer aqui.
+ */
+function ehRecusaDeSessao(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  if ('status' in error && error.status === 401) return true;
+  return (
+    'code' in error && (error.code === 'PGRST301' || error.code === 'PGRST303')
+  );
+}
+
+/**
+ * Recusa que pode cortar o lote num instante: 42501 (RLS). O banco recusa
+ * posição de rota fora de `em_andamento`, aceitando a concluída até 10 min
+ * depois de `concluida_em`; o lote está em ordem de tempo, então a recusa
+ * pode valer só para a cauda. Sessão (PGRST301/PGRST303/401) e 5xx recusam o
+ * lote inteiro, sem corte no tempo — partir só gastaria rodadas.
+ */
+function ehRecusaNoTempo(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '42501'
+  );
 }
 
 /**
@@ -246,6 +293,7 @@ function emSerie<T>(fn: () => Promise<T>): Promise<T> {
   return resultado;
 }
 
+/** Só para ler: na falha devolve null. Quem regrava usa `lerParaGravar`. */
 async function ler(): Promise<Registro | null> {
   try {
     const bruto = await AsyncStorage.getItem(CHAVE_FILA_POSICOES);
@@ -254,6 +302,15 @@ async function ler(): Promise<Registro | null> {
     logger.warn('[FilaPosicoes] Falha ao ler a fila de posições', error);
     return null;
   }
+}
+
+/**
+ * Leitura de quem regrava a fila em seguida (OFF-4): a falha do `getItem`
+ * lança `FalhaDeLeituraLocal`, em vez de virar "fila vazia" e o `guardar`
+ * gravar por cima a fila que estava lá.
+ */
+function lerParaGravar(): Promise<Registro | null> {
+  return lerJsonParaGravar<Registro | null>(CHAVE_FILA_POSICOES, null);
 }
 
 /**
@@ -373,21 +430,34 @@ export function espacarFila<T extends { rota_id: string; timestamp: string }>(
 
 /**
  * false = não ficou guardada (sem rastreamento nem sessão do motorista, ou o
- * AsyncStorage recusou a gravação).
+ * AsyncStorage recusou a gravação). `tentativasIniciais` > 0 = a posição já
+ * foi recusada pelo servidor (não por rede) antes de entrar na fila.
  */
 function guardar(
   linha: LinhaGuardada,
   geracaoDeOrigem: number,
+  tentativasIniciais = 0,
 ): Promise<boolean> {
   return emSerie(async () => {
     if (!(await aindaEhDoAparelho(linha.motorista_id))) return false;
-    const atual = await ler();
+    let atual: Registro | null;
+    try {
+      atual = await lerParaGravar();
+    } catch (error) {
+      // Fila ilegível: a posição nova se perde ('perdida'), a fila não.
+      logger.warn('[FilaPosicoes] Fila ilegível; posição não guardada', error);
+      return false;
+    }
     const registro: Registro =
       atual?.userId === linha.motorista_id
         ? atual
         : { userId: linha.motorista_id, posicoes: [], estourou: false };
 
-    registro.posicoes.push(linha);
+    registro.posicoes.push(
+      tentativasIniciais > 0
+        ? { ...linha, tentativas: tentativasIniciais }
+        : linha,
+    );
 
     if (registro.posicoes.length > TETO_FILA_POSICOES) {
       registro.posicoes = espacarFila(registro.posicoes, TETO_FILA_POSICOES);
@@ -435,7 +505,7 @@ function remover(
   geracaoDeOrigem: number,
 ): Promise<void> {
   return emSerie(async () => {
-    const atual = await ler();
+    const atual = await lerParaGravar();
     if (!atual || atual.userId !== motoristaId) return;
     const saem = new Set(lote.map(chaveDa));
     const posicoes = atual.posicoes.filter((p) => !saem.has(chaveDa(p)));
@@ -538,6 +608,13 @@ async function enviarFila(
   const geracaoDoEnvio = geracao;
   // Rotas cujo lote o servidor recusou neste envio: ficam para o próximo.
   const recusadas = new Set<string>();
+  // Tamanho máximo do lote de cada rota recusada com 42501, só neste envio:
+  // metade a cada recusa (ver `ehRecusaNoTempo`).
+  const limite = new Map<string, number>();
+  // Rotas cuja posição mais antiga já foi sondada neste envio, e o limite da
+  // bissecção que retoma se a sonda passar (ver o primeiro 42501 abaixo).
+  const sondadas = new Set<string>();
+  const bisseccaoAposSonda = new Map<string, number>();
   // Um logout no meio do envio troca a geração: este envio é da conta que
   // saiu e não segue. Sem isto, a rodada seguinte leria a fila de quem
   // entrou e a apagaria como "de outra conta" (N1), ou, com a mesma conta de
@@ -555,22 +632,46 @@ async function enviarFila(
       return true;
     }
 
-    const lote = primeiroLote(fila.posicoes, recusadas);
-    if (lote.length === 0) return false;
+    const sequencia = primeiroLote(fila.posicoes, recusadas);
+    if (sequencia.length === 0) return false;
+    const rota = sequencia[0].rota_id;
+    const lote = sequencia.slice(0, limite.get(rota) ?? sequencia.length);
     const { error } = await inserir(lote.map(paraLinha));
     if (error && isNetworkError(error)) {
       // Sem rede, nenhum outro lote subiria: para e tenta na próxima posição.
       logarFalha(rotulo, error);
       return false;
     }
+    if (error && ehRecusaNoTempo(error) && lote.length > 1) {
+      const metade = Math.floor(lote.length / 2);
+      if (!sondadas.has(rota)) {
+        // Primeiro 42501 da rota: sonda SÓ a posição mais antiga. O lote vai
+        // em ordem de tempo, então se ela é recusada a sequência inteira está
+        // além do corte — o lote de 1 recusado conta a tentativa de todas
+        // (2 requisições, em vez de ~log2(n)+1 da bissecção até o fim, que é
+        // o caso comum: rota encerrada há muito). Comparado: bissecção pura
+        // (sem sonda) gasta mais requisições justamente nesse caso; sondar a
+        // MAIS NOVA não decide nada quando ela é recusada.
+        sondadas.add(rota);
+        bisseccaoAposSonda.set(rota, metade);
+        limite.set(rota, 1);
+        continue;
+      }
+      // Pode ser o corte da rota encerrada no meio do lote: tenta a metade
+      // mais antiga. Sem log nem tentativa — ainda não se sabe o que é.
+      limite.set(rota, metade);
+      continue;
+    }
     if (error && !ehRecusaDeDado(error)) {
       // Posição recusada pelo servidor: rota que não é mais do motorista, ou
       // algo passageiro (token vencido, 5xx) — a resposta é a mesma e não dá
-      // para separar. O lote fica e conta uma tentativa (até
-      // `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
+      // para separar. A sequência inteira da rota fica e conta uma tentativa
+      // (até `MAX_TENTATIVAS_POSICAO`), e o envio segue com as outras rotas.
+      // Depois de partir, o lote de 1 recusado diz que o resto da sequência
+      // é a cauda além da margem: é ela que conta a tentativa.
       logarFalha(rotulo, error);
-      await marcarTentativa(motoristaId, lote, error, geracaoDoEnvio);
-      recusadas.add(lote[0].rota_id);
+      await marcarTentativa(motoristaId, sequencia, error, geracaoDoEnvio);
+      recusadas.add(rota);
       continue;
     }
     if (error) {
@@ -584,7 +685,21 @@ async function enviarFila(
         },
       );
     }
-    await remover(motoristaId, lote, geracaoDoEnvio);
+    try {
+      await remover(motoristaId, lote, geracaoDoEnvio);
+    } catch (falha) {
+      // Fila ilegível (OFF-4): o lote subiu mas não saiu da fila. Parar aqui
+      // evita reenviá-lo nas próximas rodadas; a próxima posição tenta de novo.
+      logger.warn('[FilaPosicoes] Fila ilegível; lote enviado ficou', falha);
+      return false;
+    }
+    // A sonda saiu da fila: o corte está mais adiante, e a bissecção retoma
+    // de onde a recusa do lote inteiro a deixaria.
+    const retomar = bisseccaoAposSonda.get(rota);
+    if (retomar !== undefined) {
+      bisseccaoAposSonda.delete(rota);
+      limite.set(rota, retomar);
+    }
   }
   return false;
 }
@@ -636,8 +751,13 @@ export async function registrarPosicao(
       const { error } = await inserir(linha);
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
-      if (!isNetworkError(error)) return 'perdida';
-      return (await guardar(linha, geracaoDaPosicao)) ? 'na_fila' : 'perdida';
+      // Sem rede: guarda sem tentativa. Sessão: guarda com a tentativa já
+      // contada (o teto `MAX_TENTATIVAS_POSICAO` limita a espera). Resto —
+      // dado, 42501, 5xx: perdida.
+      const daRede = isNetworkError(error);
+      if (!daRede && !ehRecusaDeSessao(error)) return 'perdida';
+      const guardou = await guardar(linha, geracaoDaPosicao, daRede ? 0 : 1);
+      return guardou ? 'na_fila' : 'perdida';
     }
 
     // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a

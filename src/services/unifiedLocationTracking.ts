@@ -19,6 +19,7 @@ import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { CHAVE_CONTEXTO_RASTREAMENTO } from '@/lib/motorista/contextoRastreamento';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
+import { maisRecente } from '@/lib/motorista/posicaoMaisRecente';
 import { rotaRastreadaAcabou } from '@/lib/motorista/rotaRastreadaAcabou';
 import { pedirPermissao } from '@/lib/permissoes';
 import { defaultTheme } from '@/utils/styles';
@@ -81,27 +82,6 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
     }
   }
 });
-
-/**
- * A leitura mais recente do lote entregue à task (pelo horário do GPS, sem
- * depender da ordem do array).
- *
- * POR QUE SÓ ELA (e não todas). O sistema agrupa leituras (no iOS, a cada
- * 30 s / 100 m; no Android, com 50 m de intervalo, o lote quase sempre tem
- * uma). Gravar a primeira deixava o marcador do gestor, que segue o último
- * INSERT, atrás de onde o motorista já estava. Gravar todas daria um trajeto
- * mais fiel, mas multiplicaria INSERTs e linhas por entrega e mudaria a
- * contagem das conferências da rota (uma por posição gravada); um ponto a
- * cada ~100 m já desenha o trajeto.
- */
-function maisRecente(
-  locations: Location.LocationObject[] | undefined,
-): Location.LocationObject | undefined {
-  if (!locations?.length) return undefined;
-  return locations.reduce((recente, atual) =>
-    atual.timestamp > recente.timestamp ? atual : recente,
-  );
-}
 
 // ========================================
 // FUNÇÕES AUXILIARES
