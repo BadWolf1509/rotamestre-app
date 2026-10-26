@@ -315,102 +315,6 @@ describe('useMotoristasOperations', () => {
       senha: 'senha123',
     };
 
-    it('validates required fields - empty nome', async () => {
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(
-          { ...validFormData, nome: '' },
-          onSuccess,
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Preencha todos os campos obrigatórios',
-        'error',
-      );
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
-
-    it('validates required fields - empty email', async () => {
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(
-          { ...validFormData, email: '' },
-          onSuccess,
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Preencha todos os campos obrigatórios',
-        'error',
-      );
-    });
-
-    it('validates required fields - empty senha', async () => {
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(
-          { ...validFormData, senha: '' },
-          onSuccess,
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Preencha todos os campos obrigatórios',
-        'error',
-      );
-    });
-
-    it('validates email format', async () => {
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(
-          { ...validFormData, email: 'invalid-email' },
-          onSuccess,
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Digite um email válido',
-        'error',
-      );
-    });
-
-    it('validates phone when provided', async () => {
-      const { validatePhone } = require('@/lib/phone');
-      (validatePhone as jest.Mock).mockReturnValue(false);
-
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(
-          { ...validFormData, telefone: '123' },
-          onSuccess,
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Telefone inválido', 'error');
-    });
-
     it('creates motorista via edge function on success', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
 
@@ -506,11 +410,43 @@ describe('useMotoristasOperations', () => {
       );
     });
 
-    it('handles network error on fetch', async () => {
-      mockFetch.mockRejectedValue(new Error('Network failure'));
+    const erroFunctionsFetch = Object.assign(
+      new Error('Failed to send a request to the Edge Function'),
+      { name: 'FunctionsFetchError' },
+    );
+
+    it.each([
+      ['TypeError: Failed to fetch (web)', new TypeError('Failed to fetch')],
+      [
+        'TypeError: Network request failed (nativo)',
+        new TypeError('Network request failed'),
+      ],
+      ['FunctionsFetchError', erroFunctionsFetch],
+    ])(
+      'falha de rede (%s) vira "Sem conexão. Tente de novo."',
+      async (_n, erro) => {
+        mockFetch.mockRejectedValue(erro);
+
+        const { result } = renderHook(() => useMotoristasOperations());
+        await waitFor(() => expect(result.current.loading).toBe(false));
+
+        const onSuccess = jest.fn();
+        await act(async () => {
+          await result.current.adicionarMotorista(validFormData, onSuccess);
+        });
+
+        expect(mockShowToast).toHaveBeenCalledWith(
+          'Sem conexão. Tente de novo.',
+          'error',
+        );
+        expect(onSuccess).not.toHaveBeenCalled();
+      },
+    );
+
+    it('falha que não é de rede no envio vira a mensagem genérica', async () => {
+      mockFetch.mockRejectedValue(new Error('algo estranho'));
 
       const { result } = renderHook(() => useMotoristasOperations());
-
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
@@ -518,7 +454,60 @@ describe('useMotoristasOperations', () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining('Erro de conexão'),
+        'Não foi possível criar o motorista. Tente de novo.',
+        'error',
+      );
+    });
+
+    it('nenhuma mensagem de falha fala em deploy', async () => {
+      const respostas = [
+        () => mockFetch.mockRejectedValue(new TypeError('Failed to fetch')),
+        () => mockFetch.mockRejectedValue(new Error('x')),
+        () =>
+          mockFetch.mockResolvedValue({
+            ok: true,
+            status: 200,
+            text: jest.fn().mockResolvedValue('<html>502</html>'),
+          }),
+        () =>
+          mockFetch.mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: jest.fn().mockResolvedValue('{}'),
+          }),
+      ];
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      for (const preparar of respostas) {
+        preparar();
+        await act(async () => {
+          await result.current.adicionarMotorista(validFormData, jest.fn());
+        });
+      }
+
+      const mensagens = mockShowToast.mock.calls.map((c) => String(c[0]));
+      expect(mensagens).toHaveLength(respostas.length);
+      for (const m of mensagens) expect(m).not.toMatch(/deploy/i);
+    });
+
+    it('resposta de erro sem texto da função vira a mensagem genérica', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: jest.fn().mockResolvedValue('{}'),
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.adicionarMotorista(validFormData, jest.fn());
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Não foi possível criar o motorista. Tente de novo.',
         'error',
       );
     });
@@ -611,7 +600,7 @@ describe('useMotoristasOperations', () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining('resposta inválida'),
+        'Não foi possível criar o motorista. Tente de novo.',
         'error',
       );
     });
@@ -658,71 +647,11 @@ describe('useMotoristasOperations', () => {
   // ==========================================================================
 
   describe('editarMotorista', () => {
+    // Edição não leva e-mail nem senha (motoristaEdicaoSchema).
     const validEditData = {
       nome: 'João Atualizado',
-      email: 'joao.updated@test.com',
       telefone: '',
-      senha: '',
     };
-
-    it('validates required fields - empty nome', async () => {
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.editarMotorista(
-          { ...validEditData, nome: '' },
-          'motorista-1',
-          onSuccess,
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Preencha todos os campos obrigatórios',
-        'error',
-      );
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
-
-    it('validates email format', async () => {
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      await act(async () => {
-        await result.current.editarMotorista(
-          { ...validEditData, email: 'bad-email' },
-          'motorista-1',
-          jest.fn(),
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Digite um email válido',
-        'error',
-      );
-    });
-
-    it('validates phone when provided', async () => {
-      const { validatePhone } = require('@/lib/phone');
-      (validatePhone as jest.Mock).mockReturnValue(false);
-
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      await act(async () => {
-        await result.current.editarMotorista(
-          { ...validEditData, telefone: '123' },
-          'motorista-1',
-          jest.fn(),
-        );
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Telefone inválido', 'error');
-    });
 
     it('updates motorista via updateUsuario on success', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
@@ -738,9 +667,9 @@ describe('useMotoristasOperations', () => {
         );
       });
 
+      // O e-mail não é editável: a edição não o regrava em usuarios.
       expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-1', {
         nome: 'João Atualizado',
-        email: 'joao.updated@test.com',
         telefone: null,
       });
 

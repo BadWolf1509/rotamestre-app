@@ -4,6 +4,7 @@
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
+import { Controller } from 'react-hook-form';
 import {
   View,
   Text,
@@ -14,6 +15,7 @@ import {
   TextInput,
 } from 'react-native';
 
+import { FieldError } from '@/components/auth/FieldError';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   PerfilHeader,
@@ -36,6 +38,10 @@ import {
   Toast,
 } from '@/design-system';
 import { useBloqueioDesativacao } from '@/hooks/motoristas-gestor/useBloqueioDesativacao';
+import {
+  useFormEditarMotorista,
+  valoresEdicaoDe,
+} from '@/hooks/motoristas-gestor/useMotoristasForm';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
@@ -44,7 +50,7 @@ import { useUser } from '@/hooks/useUser';
 import { buscarPerformanceMotorista } from '@/lib/gestor/performanceMotorista';
 import { logger } from '@/lib/logger';
 import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
-import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/lib/phone';
+import { maskPhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
 
@@ -73,13 +79,11 @@ export default function MotoristaPerfil() {
   const [rotasRecentes, setRotasRecentes] = useState<RotaRecente[]>([]);
   const [showToggleModal, setShowToggleModal] = useState(false);
 
-  // Edit modal state
+  // Edit modal state: o mesmo form de edição da lista (motoristaEdicaoSchema)
   const [showEditModal, setShowEditModal] = useState(false);
-  const [formNome, setFormNome] = useState('');
-  const [formEmail, setFormEmail] = useState('');
-  const [formTelefone, setFormTelefone] = useState('');
   const [salvando, setSalvando] = useState(false);
-  const [telefoneError, setTelefoneError] = useState('');
+  const formEditar = useFormEditarMotorista();
+  const { reset: resetEdicao, handleSubmit: submeterEdicao } = formEditar;
 
   // Get motorista ID from params
   const motoristaId = Array.isArray(id) ? id[0] : id;
@@ -190,74 +194,51 @@ export default function MotoristaPerfil() {
     }
   }, [motorista, mostrarSeBloqueado, router, showToast, unidadeAtiva]);
 
-  // Open edit modal
+  // Open edit modal (valores e erros do zero a cada abertura)
   const handleEdit = useCallback(() => {
     if (!motorista) return;
-    setFormNome(motorista.nome);
-    setFormEmail(motorista.email);
-    setFormTelefone(motorista.telefone || '');
-    setTelefoneError('');
+    resetEdicao(valoresEdicaoDe(motorista));
     setShowEditModal(true);
-  }, [motorista]);
+  }, [motorista, resetEdicao]);
 
-  // Handle phone change with mask
-  const handleTelefoneChange = (text: string) => {
-    const masked = maskPhone(text);
-    setFormTelefone(masked);
-    if (masked && !validatePhone(masked)) {
-      setTelefoneError(getPhoneErrorMessage(masked) || 'Telefone inválido');
-    } else {
-      setTelefoneError('');
-    }
-  };
-
-  // Save edit
+  // Save edit: o schema valida antes (erro no campo); só o válido grava.
   const handleSaveEdit = useCallback(async () => {
     if (!motorista) return;
 
-    // Validate
-    if (!formNome.trim()) {
-      showToast('Nome é obrigatório', 'error');
-      return;
-    }
+    await submeterEdicao(async (valores) => {
+      const nome = valores.nome.trim();
+      const telefone = valores.telefone?.trim() || null;
+      try {
+        setSalvando(true);
 
-    if (formTelefone && !validatePhone(formTelefone)) {
-      setTelefoneError(
-        getPhoneErrorMessage(formTelefone) || 'Telefone inválido',
-      );
-      return;
-    }
+        const { error } = await supabase
+          .from('usuarios')
+          .update({
+            nome,
+            telefone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', motorista.id);
 
-    try {
-      setSalvando(true);
+        if (error) throw error;
 
-      const { error } = await supabase
-        .from('usuarios')
-        .update({
-          nome: formNome.trim(),
-          telefone: formTelefone || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', motorista.id);
+        // Update local state
+        setMotorista({
+          ...motorista,
+          nome,
+          telefone: telefone ?? undefined,
+        });
 
-      if (error) throw error;
-
-      // Update local state
-      setMotorista({
-        ...motorista,
-        nome: formNome.trim(),
-        telefone: formTelefone || undefined,
-      });
-
-      showToast('Motorista atualizado com sucesso', 'success');
-      setShowEditModal(false);
-    } catch (error) {
-      logger.error('Erro ao salvar:', error);
-      showToast('Não foi possível salvar as alterações', 'error');
-    } finally {
-      setSalvando(false);
-    }
-  }, [motorista, formNome, formTelefone, showToast]);
+        showToast('Motorista atualizado com sucesso', 'success');
+        setShowEditModal(false);
+      } catch (error) {
+        logger.error('Erro ao salvar:', error);
+        showToast('Não foi possível salvar as alterações', 'error');
+      } finally {
+        setSalvando(false);
+      }
+    })();
+  }, [motorista, showToast, submeterEdicao]);
 
   // Handle view all routes
   const handleVerTodasRotas = useCallback(() => {
@@ -267,23 +248,34 @@ export default function MotoristaPerfil() {
   // Close edit modal
   const closeEditModal = () => {
     setShowEditModal(false);
-    setTelefoneError('');
   };
 
   // ===== Render Edit Form Content =====
   const renderEditFormContent = () => (
     <View style={editStyles.formContainer}>
-      <View style={editStyles.inputGroup}>
-        <Text style={editStyles.label}>Nome *</Text>
-        <TextInput
-          style={[editStyles.input, isDesktop && editStyles.inputCompact]}
-          value={formNome}
-          onChangeText={setFormNome}
-          placeholder="Nome do motorista"
-          placeholderTextColor={theme.colors.gray400}
-          accessibilityLabel="Campo de nome do motorista"
-        />
-      </View>
+      <Controller
+        control={formEditar.control}
+        name="nome"
+        render={({ field, fieldState }) => (
+          <View style={editStyles.inputGroup}>
+            <Text style={editStyles.label}>Nome *</Text>
+            <TextInput
+              style={[
+                editStyles.input,
+                isDesktop && editStyles.inputCompact,
+                fieldState.error ? editStyles.inputError : null,
+              ]}
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              placeholder="Nome do motorista"
+              placeholderTextColor={theme.colors.gray400}
+              accessibilityLabel="Campo de nome do motorista"
+            />
+            <FieldError message={fieldState.error?.message} />
+          </View>
+        )}
+      />
 
       <View style={editStyles.inputGroup}>
         <Text style={editStyles.label}>Email</Text>
@@ -293,7 +285,7 @@ export default function MotoristaPerfil() {
             isDesktop && editStyles.inputCompact,
             editStyles.inputDisabled,
           ]}
-          value={formEmail}
+          value={motorista?.email}
           editable={false}
           placeholderTextColor={theme.colors.gray400}
           accessibilityLabel="Email do motorista (não editável)"
@@ -301,26 +293,31 @@ export default function MotoristaPerfil() {
         <Text style={editStyles.helperText}>Email não pode ser alterado</Text>
       </View>
 
-      <View style={editStyles.inputGroup}>
-        <Text style={editStyles.label}>Telefone</Text>
-        <TextInput
-          style={[
-            editStyles.input,
-            isDesktop && editStyles.inputCompact,
-            telefoneError ? editStyles.inputError : null,
-          ]}
-          value={formTelefone}
-          onChangeText={handleTelefoneChange}
-          placeholder="(00) 00000-0000"
-          placeholderTextColor={theme.colors.gray400}
-          keyboardType="phone-pad"
-          maxLength={15}
-          accessibilityLabel="Campo de telefone do motorista"
-        />
-        {telefoneError ? (
-          <Text style={editStyles.errorText}>{telefoneError}</Text>
-        ) : null}
-      </View>
+      <Controller
+        control={formEditar.control}
+        name="telefone"
+        render={({ field, fieldState }) => (
+          <View style={editStyles.inputGroup}>
+            <Text style={editStyles.label}>Telefone</Text>
+            <TextInput
+              style={[
+                editStyles.input,
+                isDesktop && editStyles.inputCompact,
+                fieldState.error ? editStyles.inputError : null,
+              ]}
+              value={field.value ?? ''}
+              onChangeText={(text) => field.onChange(maskPhone(text))}
+              onBlur={field.onBlur}
+              placeholder="(00) 00000-0000"
+              placeholderTextColor={theme.colors.gray400}
+              keyboardType="phone-pad"
+              maxLength={15}
+              accessibilityLabel="Campo de telefone do motorista"
+            />
+            <FieldError message={fieldState.error?.message} />
+          </View>
+        )}
+      />
     </View>
   );
 
@@ -572,10 +569,6 @@ const editStyles = StyleSheet.create((theme) => ({
   helperText: {
     fontSize: theme.typography.xs,
     color: theme.colors.gray500,
-  },
-  errorText: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.error,
   },
   // Desktop compact styles
   inputCompact: {

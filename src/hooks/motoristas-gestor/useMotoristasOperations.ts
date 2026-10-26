@@ -9,10 +9,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { getErrorMessage } from '@/lib/errorMapping';
+import { getErrorMessage, isNetworkError } from '@/lib/errorMapping';
 import { logger } from '@/lib/logger';
 import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
-import { validatePhone } from '@/lib/phone';
 import { updateUsuario, logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
@@ -41,11 +40,37 @@ function mensagemTelefoneDuplicado(error: unknown): string | null {
   return getErrorMessage(error).message;
 }
 
-interface FormData {
+const MSG_SEM_CONEXAO = 'Sem conexão. Tente de novo.';
+const MSG_FALHA_CRIAR = 'Não foi possível criar o motorista. Tente de novo.';
+
+/**
+ * Falha ao criar motorista sem texto da Edge Function: rede (fetch do web,
+ * "Network request failed" do nativo, FunctionsFetchError do supabase-js)
+ * vira "Sem conexão"; o resto, a mensagem genérica. Nunca o texto técnico.
+ */
+function mensagemFalhaCriacao(error: unknown): string {
+  if (error instanceof Error && error.name === 'FunctionsFetchError') {
+    return MSG_SEM_CONEXAO;
+  }
+  return isNetworkError(error) ? MSG_SEM_CONEXAO : MSG_FALHA_CRIAR;
+}
+
+/**
+ * Dados já validados pelo formulário (`motoristaSchema`, em
+ * useMotoristasForm): a validação mora no schema, com erro no campo, e não
+ * se repete aqui por toast.
+ */
+interface DadosCriacao {
   nome: string;
   email: string;
-  telefone: string;
+  telefone?: string;
   senha: string;
+}
+
+/** Edição: só nome e telefone (`motoristaEdicaoSchema`). */
+interface DadosEdicao {
+  nome: string;
+  telefone?: string;
 }
 
 export interface UseMotoristasOperationsReturn {
@@ -59,11 +84,11 @@ export interface UseMotoristasOperationsReturn {
   // Actions
   loadMotoristas: () => Promise<void>;
   adicionarMotorista: (
-    formData: FormData,
+    formData: DadosCriacao,
     onSuccess: () => void,
   ) => Promise<void>;
   editarMotorista: (
-    formData: FormData,
+    formData: DadosEdicao,
     motoristaId: string,
     onSuccess: () => void,
   ) => Promise<void>;
@@ -159,27 +184,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   // ============================================================================
 
   const adicionarMotorista = useCallback(
-    async (formData: FormData, onSuccess: () => void) => {
+    async (formData: DadosCriacao, onSuccess: () => void) => {
       const { nome, email, telefone, senha } = formData;
-
-      // Validate required fields
-      if (!nome.trim() || !email.trim() || !senha.trim()) {
-        showToast('Preencha todos os campos obrigatórios', 'error');
-        return;
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        showToast('Digite um email válido', 'error');
-        return;
-      }
-
-      // Validate phone if filled
-      if (telefone && !validatePhone(telefone)) {
-        showToast('Telefone inválido', 'error');
-        return;
-      }
 
       setSalvando(true);
       try {
@@ -229,16 +235,13 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
               nome: nome.trim(),
               email: email.trim(),
               senha: senha.trim(),
-              telefone: telefone.trim() || null,
+              telefone: telefone?.trim() || null,
               unidade_id: unidadeAtiva,
             }),
           });
-        } catch (fetchError: any) {
+        } catch (fetchError: unknown) {
           logger.error('[Motoristas] Erro de rede', fetchError);
-          showToast(
-            `Erro de conexão: ${fetchError.message}. Verifique se a função foi deployada.`,
-            'error',
-          );
+          showToast(mensagemFalhaCriacao(fetchError), 'error');
           return;
         }
 
@@ -251,18 +254,17 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           const responseText = await response.text();
           logger.debug('[Motoristas] Response text', { responseText });
           result = responseText ? JSON.parse(responseText) : {};
-        } catch (parseError: any) {
+        } catch (parseError: unknown) {
           logger.error('[Motoristas] Erro ao parsear resposta', parseError);
-          showToast(
-            'A Edge Function retornou uma resposta inválida. Função não deployada corretamente.',
-            'error',
-          );
+          showToast(MSG_FALHA_CRIAR, 'error');
           return;
         }
 
         if (!response.ok) {
           logger.error('[Motoristas] Resposta com erro', result);
-          showToast(result.error || 'Erro desconhecido', 'error');
+          // O texto da função (409 de e-mail/telefone etc.) já é para o
+          // gestor; sem ele, a genérica.
+          showToast(result.error || MSG_FALHA_CRIAR, 'error');
           return;
         }
 
@@ -286,13 +288,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           '[Motoristas] Erro inesperado ao adicionar motorista',
           error,
         );
-        let message = 'Não foi possível adicionar o motorista';
-        if (error instanceof Error) {
-          message = error.message;
-        } else if (error && typeof error === 'object' && 'message' in error) {
-          message = String(error.message);
-        }
-        showToast(message, 'error');
+        showToast(mensagemFalhaCriacao(error), 'error');
       } finally {
         setSalvando(false);
       }
@@ -305,32 +301,19 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   // ============================================================================
 
   const editarMotorista = useCallback(
-    async (formData: FormData, motoristaId: string, onSuccess: () => void) => {
-      const { nome, email, telefone } = formData;
-
-      if (!nome.trim() || !email.trim()) {
-        showToast('Preencha todos os campos obrigatórios', 'error');
-        return;
-      }
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        showToast('Digite um email válido', 'error');
-        return;
-      }
-
-      if (telefone && !validatePhone(telefone)) {
-        showToast('Telefone inválido', 'error');
-        return;
-      }
+    async (
+      formData: DadosEdicao,
+      motoristaId: string,
+      onSuccess: () => void,
+    ) => {
+      const { nome, telefone } = formData;
 
       setSalvando(true);
       try {
-        // Use centralized query for update
+        // E-mail não é editável (é o login, no Auth): a edição não o regrava.
         const result = await updateUsuario(motoristaId, {
           nome: nome.trim(),
-          email: email.trim(),
-          telefone: telefone.trim() || null,
+          telefone: telefone?.trim() || null,
         });
 
         if (!result.success) throw new Error(result.error.message);

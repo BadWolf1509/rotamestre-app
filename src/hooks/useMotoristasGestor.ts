@@ -2,7 +2,7 @@
  * Hook para gerenciamento de motoristas (tela do Gestor)
  *
  * Composes sub-hooks for better maintainability:
- * - useMotoristasForm: Form state and validation
+ * - useMotoristasForm: formulários de criar/editar (useForm + Zod)
  * - useMotoristasModals: Modal visibility state
  * - useMotoristasOperations: Data loading and CRUD operations
  */
@@ -14,6 +14,8 @@ import {
   useMotoristasModals,
   useMotoristasOperations,
 } from './motoristas-gestor';
+
+import type { UseMotoristasFormReturn } from './motoristas-gestor';
 
 // ============================================================================
 // Types
@@ -53,19 +55,10 @@ export interface UseMotoristasGestorReturn {
   motoristaEditando: MotoristaDetalhado | null;
   motoristaParaToggle: MotoristaDetalhado | null;
 
-  // Form state
-  formNome: string;
-  formEmail: string;
-  formTelefone: string;
-  formSenha: string;
-  emailError: string;
-  telefoneError: string;
-
-  // Form setters
-  setFormNome: (value: string) => void;
-  setFormEmail: (value: string) => void;
-  setFormTelefone: (value: string) => void;
-  setFormSenha: (value: string) => void;
+  /** Formulário de criação: a tela liga os campos por Controller. */
+  formCriar: UseMotoristasFormReturn['formCriar'];
+  /** Formulário de edição (nome e telefone). */
+  formEditar: UseMotoristasFormReturn['formEditar'];
 
   // Modal controls
   setShowAddModal: (value: boolean) => void;
@@ -80,7 +73,9 @@ export interface UseMotoristasGestorReturn {
   abrirModalEditar: (motorista: MotoristaDetalhado) => void;
   /** Avisa e devolve true quando o vínculo desta loja está inativo. */
   avisarSeVinculoInativo: (motorista: MotoristaDetalhado) => boolean;
+  /** Valida pelo schema (erro no campo) e, válido, cria. */
   adicionarMotorista: () => Promise<void>;
+  /** Valida pelo schema (erro no campo) e, válido, salva. */
   editarMotorista: () => Promise<void>;
   toggleAtivo: (motorista: MotoristaDetalhado) => void;
   confirmarToggleAtivo: () => Promise<void>;
@@ -91,10 +86,6 @@ export interface UseMotoristasGestorReturn {
     typeof useMotoristasOperations
   >['bloqueioDesativacao'];
   fecharBloqueioDesativacao: () => void;
-
-  // Validation
-  validateEmail: (email: string) => boolean;
-  handleTelefoneChange: (text: string) => void;
 
   // Toast
   toastState: ReturnType<typeof useMotoristasOperations>['toastState'];
@@ -140,38 +131,29 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     [avisarSeVinculoInativo, modals],
   );
 
-  const adicionarMotorista = useCallback(async () => {
-    await operations.adicionarMotorista(
-      {
-        nome: form.formNome,
-        email: form.formEmail,
-        telefone: form.formTelefone,
-        senha: form.formSenha,
-      },
-      () => {
-        modals.setShowAddModal(false);
-        form.resetFormulario();
-      },
-    );
-  }, [form, modals, operations]);
+  // handleSubmit: inválido não chega em operations — o erro fica no campo.
+  const adicionarMotorista = useCallback(
+    () =>
+      form.formCriar.handleSubmit((valores) =>
+        operations.adicionarMotorista(valores, () => {
+          modals.setShowAddModal(false);
+          form.resetFormulario();
+        }),
+      )(),
+    [form, modals, operations],
+  );
 
   const editarMotorista = useCallback(async () => {
-    if (!modals.motoristaEditando) return;
+    const editando = modals.motoristaEditando;
+    if (!editando) return;
 
-    await operations.editarMotorista(
-      {
-        nome: form.formNome,
-        email: form.formEmail,
-        telefone: form.formTelefone,
-        senha: form.formSenha,
-      },
-      modals.motoristaEditando.id,
-      () => {
+    await form.formEditar.handleSubmit((valores) =>
+      operations.editarMotorista(valores, editando.id, () => {
         modals.setShowEditModal(false);
         modals.setMotoristaEditando(null);
         form.resetFormulario();
-      },
-    );
+      }),
+    )();
   }, [form, modals, operations]);
 
   const toggleAtivo = useCallback(
@@ -208,19 +190,9 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     motoristaEditando: modals.motoristaEditando,
     motoristaParaToggle: modals.motoristaParaToggle,
 
-    // Form state
-    formNome: form.formNome,
-    formEmail: form.formEmail,
-    formTelefone: form.formTelefone,
-    formSenha: form.formSenha,
-    emailError: form.emailError,
-    telefoneError: form.telefoneError,
-
-    // Form setters
-    setFormNome: form.setFormNome,
-    setFormEmail: form.setFormEmail,
-    setFormTelefone: form.setFormTelefone,
-    setFormSenha: form.setFormSenha,
+    // Formulários
+    formCriar: form.formCriar,
+    formEditar: form.formEditar,
 
     // Modal controls
     setShowAddModal: modals.setShowAddModal,
@@ -241,10 +213,6 @@ export function useMotoristasGestor(): UseMotoristasGestorReturn {
     resetFormulario: form.resetFormulario,
     bloqueioDesativacao: operations.bloqueioDesativacao,
     fecharBloqueioDesativacao: operations.fecharBloqueioDesativacao,
-
-    // Validation
-    validateEmail: form.validateEmail,
-    handleTelefoneChange: form.handleTelefoneChange,
 
     // Toast
     toastState: operations.toastState,
