@@ -450,6 +450,12 @@ export const authService = {
       .from('usuarios')
       .select('*, unidades(nome)')
       .eq('id', userId)
+      // Sem o retry do postgrest-js (3 tentativas com recuo, ~20 s na
+      // abertura sem rede): quem chama já tem o perfil conhecido do aparelho
+      // como reserva, então uma falha só cai nele. Alternativa descartada:
+      // `db.retry: false` no cliente inteiro, que tiraria a resiliência de
+      // todo GET do app.
+      .retry(false)
       .maybeSingle();
 
     if (error) {

@@ -34,6 +34,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
+import { lerSessao, type EstadoSessao } from '@/lib/auth/sessao';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -377,8 +378,27 @@ function statusPretendido(acao: AcaoParada): string {
 export async function aplicarAcaoParada(
   acao: AcaoParada,
   porta: PortaParadas = portaParadasSupabase,
+  lerSessaoAtual: () => Promise<EstadoSessao> = lerSessao,
 ): Promise<ResultadoAplicacao> {
-  const antes = classificar(acao, await porta.lerParada(acao.paradaId));
+  const paradaLida = await porta.lerParada(acao.paradaId);
+  // Parada invisível: removida de verdade OU escondida pela RLS porque a conta
+  // na frente não é a dona da ação (A deslogou, B entrou, a fila de A roda).
+  // Só no ramo raro `null` confere a sessão (custo zero no caminho normal).
+  // Alternativa descartada: conferir a sessão antes de toda ação — duas
+  // leituras por ação, sendo que o porteiro já cobre o caso "sem sessão".
+  // Sessão de outra conta é ERRO DE SESSÃO: a ação espera, não é descartada.
+  if (paradaLida === null) {
+    const { session } = await lerSessaoAtual();
+    // Só uma sessão DE OUTRA conta prova a troca. Sem sessão nenhuma o `null`
+    // não chega aqui na prática (o porteiro devolve 401 e lerParada lança), e
+    // tratar "sem sessão" como troca faria os testes antigos da fila — que não
+    // montam sessão — esperarem para sempre em vez de descartar.
+    const idAtual = session?.user?.id;
+    if (idAtual && idAtual !== acao.motoristaId) {
+      throw { code: 'PGRST301', message: 'Sessão de outra conta' };
+    }
+  }
+  const antes = classificar(acao, paradaLida);
   if (antes) return antes;
 
   const mudou = await porta.atualizarSeAberta(acao.paradaId, dadosDaAcao(acao));
@@ -451,9 +471,12 @@ async function descartar(
 export async function processarFilaAcoesParada({
   usuarioAtual,
   porta = portaParadasSupabase,
+  lerSessaoAtual,
 }: {
   usuarioAtual: string;
   porta?: PortaParadas;
+  /** Injetável para teste; o padrão é a leitura real da sessão. */
+  lerSessaoAtual?: () => Promise<EstadoSessao>;
 }): Promise<ResultadoProcessamento> {
   if (processando) {
     rodarDeNovo = true;
@@ -469,7 +492,7 @@ export async function processarFilaAcoesParada({
   const enviarLote = async (acoes: AcaoParada[]): Promise<boolean> => {
     for (const acao of acoes) {
       try {
-        const r = await aplicarAcaoParada(acao, porta);
+        const r = await aplicarAcaoParada(acao, porta, lerSessaoAtual);
         if (r.tipo === 'descartada') {
           await descartar(acao, r.motivo, descartadas);
           continue;

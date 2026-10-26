@@ -16,10 +16,12 @@ import {
   CACHE_TTL,
   CACHE_KEYS,
 } from '../lib/cache';
+import { isNetworkError } from '../lib/errorMapping';
 import { logger } from '../lib/logger';
 import { initializePushNotifications } from '../lib/notifications';
 import { onProfileUpdate } from '../lib/profileEvents';
 import { SELECT_UNIDADE_APP } from '../lib/queries/colunasUnidade';
+import { redeCaidaObservada } from '../lib/redeObservada';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Usuario } from '../types/usuario';
 
@@ -212,7 +214,7 @@ export function useUser() {
     // "sem perfil" — ver `exigirSessaoDe`. Falha transitória, então.
     await exigirSessaoDe(userId);
 
-    const { data, error } = await supabase
+    const { data, error, status } = await supabase
       .from('usuarios')
       .select(
         `
@@ -231,9 +233,18 @@ export function useUser() {
       ` as const,
       )
       .eq('id', userId)
+      // Sem o retry do postgrest-js (~20 s na abertura sem rede): o perfil
+      // conhecido do aparelho é a reserva. Ver `authService.getUsuario`.
+      .retry(false)
       .maybeSingle();
 
     if (error) {
+      // O fallback simples existe para falha de RLS em join, não para rede:
+      // com rede caída ele só gastaria mais uma consulta (e outro prazo) para
+      // falhar igual. Erro de rede sai direto, classificado como transitório.
+      if (isNetworkError(error) || redeCaidaObservada()) {
+        throw classificarFalhaPerfil(error, status);
+      }
       // Fallback para query simples (evita falhas por RLS em joins)
       logger.warn(
         '[useUser] Query completa falhou, tentando fallback simples',

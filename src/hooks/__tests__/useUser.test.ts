@@ -102,6 +102,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUserData,
           error: null,
@@ -128,6 +129,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: null,
           error: { message: errorMessage },
@@ -167,6 +169,7 @@ describe('useUser', () => {
             message: 'Cannot coerce the result to a single JSON object',
           },
         }),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
       });
 
@@ -187,6 +190,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: mockSelect,
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: mockUserData,
           error: null,
@@ -216,6 +220,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: mockSelect,
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest
           .fn()
           .mockResolvedValueOnce({
@@ -240,6 +245,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: { ...mockUserData, papel: 'gestor' },
           error: null,
@@ -260,6 +266,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
           data: { ...mockUserData, papel: 'motorista' },
           error: null,
@@ -299,6 +306,7 @@ describe('useUser', () => {
           selectCallCount++;
           return {
             eq: jest.fn().mockReturnThis(),
+            retry: jest.fn().mockReturnThis(),
             maybeSingle: jest.fn().mockResolvedValue({
               data: mockUserData,
               error: null,
@@ -352,6 +360,7 @@ describe('useUser', () => {
           callCount++;
           return {
             eq: jest.fn().mockReturnThis(),
+            retry: jest.fn().mockReturnThis(),
             maybeSingle: jest.fn().mockResolvedValue({
               data: mockUserData,
               error: null,
@@ -395,6 +404,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue(resposta),
       });
     const buscaFalhando = () =>
@@ -623,6 +633,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn(
           () =>
             new Promise((r) => {
@@ -657,6 +668,7 @@ describe('useUser', () => {
       (mockSupabase.from as jest.Mock).mockImplementation(() => ({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        retry: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn(
           () =>
             new Promise((r) => {
