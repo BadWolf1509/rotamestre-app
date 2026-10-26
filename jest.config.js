@@ -20,9 +20,12 @@ module.exports = {
     // Incluir apenas hooks e utilitários do app/, não as páginas/layouts
     'app/**/__tests__/**/*.{ts,tsx}',
     // Exclusões
-    // Variantes .web: o Jest resolve a versão nativa; as de mapa usam maplibre,
-    // que só roda em navegador, e todas são
-    // cobertas pelo e2e (Playwright).
+    // Variantes .web: o Jest resolve a versão nativa, então estas nunca são
+    // carregadas na suíte. As de mapa (NavigationMode.web, MiniMap.web) usam
+    // maplibre, que só roda em navegador, e o e2e (Playwright) as exercita.
+    // google.web.ts e navigation.web.ts não têm cobertura e2e própria: ficam
+    // fora por não terem teste unitário, e tirá-las da exclusão exige medir a
+    // cobertura global contra os thresholds abaixo (margem de cerca de 1 ponto).
     '!src/lib/google.web.ts',
     '!src/lib/navigation.web.ts',
     '!src/components/motorista/NavigationMode.web.tsx',

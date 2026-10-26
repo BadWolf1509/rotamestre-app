@@ -250,7 +250,8 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   }
 
   if (!paradasServem) {
-    // Reabre TODAS, e limpa os vestígios de conclusão junto: parada `pendente`
+    // Reabre só as paradas não pendentes (`.neq('status', 'pendente')`) e limpa
+    // os vestígios de conclusão dessas mesmas linhas: parada `pendente`
     // com `concluida_em` ou foto de comprovante é a mesma classe de incoerência
     // que esta correção existe para eliminar. O arquivo em storage fica órfão,
     // e tudo bem — órfão é inerte, e este fixture nunca limpou storage.

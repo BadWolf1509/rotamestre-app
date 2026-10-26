@@ -26,16 +26,6 @@ test.describe('Gestor Team Management E2E Tests', () => {
       await gestorPage.gotoMotoristas();
       await gestorPage.expectOnMotoristas();
     });
-
-    test('should display motoristas management interface', async ({ page }) => {
-      // `gotoMotoristas` já espera a tela pronta; no lugar dos 2 s fixos e da
-      // leitura única do body, um `toContainText` que re-tenta.
-      await gestorPage.gotoMotoristas();
-
-      await expect(page.locator('body')).toContainText(
-        /motorista|equipe|Adicionar/i,
-      );
-    });
   });
 
   test.describe('Motoristas List Display', () => {
@@ -176,25 +166,21 @@ test.describe('Gestão Rotas E2E Tests', () => {
       await gestorPage.gotoGestaoRotas();
       await gestorPage.expectOnGestaoRotas();
     });
-
-    test('should display route management interface', async ({ page }) => {
-      // `gotoGestaoRotas` já espera a tabela; sem os 2 s fixos.
-      await gestorPage.gotoGestaoRotas();
-
-      await expect(page.locator('body')).toContainText(
-        /Rotas|Filtro|Data|Motorista/,
-      );
-    });
   });
 
   test.describe('Route Filtering', () => {
     test('should have status filter buttons', async ({ page }) => {
-      // `gotoGestaoRotas` já espera a tabela; sem os 2 s fixos.
       await gestorPage.gotoGestaoRotas();
 
-      await expect(page.locator('body')).toContainText(
-        /Todas|Pendente|Em Andamento|Concluída/,
-      );
+      // O grupo de filtros da própria tela (radiogroup): o texto 'Pendente' ou
+      // 'Todas' no body casaria com qualquer outra tela. Os quatro chips
+      // precisam estar lá.
+      const filtros = page.getByRole('radiogroup');
+      for (const nome of ['Todas', 'Pendente', 'Em Andamento', 'Concluída']) {
+        await expect(
+          filtros.getByRole('button', { name: nome, exact: true }),
+        ).toBeVisible({ timeout: 15000 });
+      }
     });
 
     test('a busca de rotas filtra a contagem de resultados', async ({

@@ -153,11 +153,16 @@ test.describe('Gestor Dashboard E2E Tests', () => {
     });
   });
 
-  test('should have navigation to other gestor sections', async ({ page }) => {
-    // `gotoInicio` já espera o painel pronto; os 2 s fixos que vinham aqui
-    // saíram, e o `toContainText` re-tenta em vez de ler o body uma vez só.
+  test('o menu lateral leva o gestor à tela de motoristas', async ({
+    page,
+  }) => {
+    // O texto "Motoristas" no body casaria só por existir no menu; o que
+    // prova a navegação é clicar e chegar na tela (URL + botão exclusivo dela).
     await gestorPage.gotoInicio();
 
-    await expect(page.locator('body')).toContainText(/Motoristas|Rotas|Nova/);
+    await page.getByText('Motoristas', { exact: true }).first().click();
+
+    await gestorPage.expectOnMotoristas();
+    await expect(gestorPage.motoristasPronta).toBeVisible({ timeout: 30000 });
   });
 });

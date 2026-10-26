@@ -97,17 +97,27 @@ export class MotoristaPage {
   async navigateToParadas() {
     await this.paradasTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.paradasTab.click();
-    await expect(this.paradasList.or(this.paradasEmpty)).toBeVisible({
-      timeout: 30000,
-    });
+    // Inclui o estado sem conexão: com a carga falha o teste acusa o estado
+    // certo em vez de estourar o timeout. O `.first()` evita violação do modo
+    // estrito caso dois ramos coexistam.
+    await expect(
+      this.paradasList
+        .or(this.paradasEmpty)
+        .or(this.page.getByTestId('motorista-checkpoints-sem-conexao'))
+        .first(),
+    ).toBeVisible({ timeout: 30000 });
   }
 
   async navigateToMapa() {
     await this.mapaTab.waitFor({ state: 'visible', timeout: 30000 });
     await this.mapaTab.click();
-    await expect(this.mapaView.or(this.mapaEmpty)).toBeVisible({
-      timeout: 30000,
-    });
+    // Inclui o estado sem conexão (ver navigateToParadas).
+    await expect(
+      this.mapaView
+        .or(this.mapaEmpty)
+        .or(this.page.getByTestId('motorista-mapa-sem-conexao'))
+        .first(),
+    ).toBeVisible({ timeout: 30000 });
   }
 
   async navigateToHistorico() {
