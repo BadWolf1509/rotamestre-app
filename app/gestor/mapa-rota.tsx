@@ -338,6 +338,7 @@ export default function MapaRota() {
         visible={modals.showChangeDriverModal}
         currentMotoristaId={rota.motorista_id}
         currentMotoristaNome={rota.motorista?.nome}
+        currentMotoristaForaDaLojaNome={rota.motorista_fora_da_loja_nome}
         unidadeId={rota.unidade_id || ''}
         onConfirm={async (newId, newNome) => {
           await handleChangeDriver(newId, newNome);
@@ -647,7 +648,11 @@ export default function MapaRota() {
       <>
         <View style={styles.rotaInfo}>
           <Text style={styles.motoristaData}>
-            {nomeMotoristaDaRota(rota?.motorista?.nome, rota?.motorista_id)}{' '}
+            {nomeMotoristaDaRota(
+              rota?.motorista?.nome,
+              rota?.motorista_id,
+              rota?.motorista_fora_da_loja_nome,
+            )}{' '}
             {formatDateBR(rota?.data)}
           </Text>
           <View style={styles.infoRow}>

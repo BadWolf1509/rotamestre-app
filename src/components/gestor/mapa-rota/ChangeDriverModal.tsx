@@ -64,6 +64,11 @@ export interface ChangeDriverModalProps {
   visible: boolean;
   currentMotoristaId?: string;
   currentMotoristaNome?: string;
+  /**
+   * Nome do motorista atual quando a RLS o esconde (vínculo inativo com a
+   * loja), pela RPC da Migration 72 — `Rota.motorista_fora_da_loja_nome`.
+   */
+  currentMotoristaForaDaLojaNome?: string | null;
   unidadeId: string;
   /** Pode ser assíncrono: o botão fica carregando até ele terminar. */
   onConfirm: (
@@ -83,6 +88,7 @@ export function ChangeDriverModal({
   visible,
   currentMotoristaId,
   currentMotoristaNome,
+  currentMotoristaForaDaLojaNome,
   unidadeId,
   onConfirm,
   onCancel,
@@ -244,7 +250,11 @@ export function ChangeDriverModal({
                   isDesktop && styles.currentDriverNameCompact,
                 ]}
               >
-                {nomeMotoristaDaRota(currentMotoristaNome, currentMotoristaId)}
+                {nomeMotoristaDaRota(
+                  currentMotoristaNome,
+                  currentMotoristaId,
+                  currentMotoristaForaDaLojaNome,
+                )}
               </Text>
             </View>
           </View>

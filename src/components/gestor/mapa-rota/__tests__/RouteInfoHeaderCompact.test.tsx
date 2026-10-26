@@ -107,6 +107,21 @@ describe('RouteInfoHeaderCompact', () => {
       expect(queryByText('Sem motorista')).toBeNull();
     });
 
+    it("mostra 'Nome (fora da loja)' quando rota.motorista_fora_da_loja_nome existe", () => {
+      const rotaForaDaLoja: Rota = {
+        ...mockRota,
+        motorista_id: 'mot-1',
+        motorista: undefined,
+        motorista_fora_da_loja_nome: 'Bia Souza',
+      };
+      const { getByText, queryByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaForaDaLoja} />,
+      );
+
+      expect(getByText('Bia Souza (fora da loja)')).toBeTruthy();
+      expect(queryByText('Motorista removido da loja')).toBeNull();
+    });
+
     it('deve exibir status Pendente', () => {
       const { getByText } = render(
         <RouteInfoHeaderCompact {...defaultProps} />,

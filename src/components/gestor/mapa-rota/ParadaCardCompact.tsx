@@ -184,6 +184,20 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
               </View>
             )}
 
+            {/* Texto do motorista no pulo (Migration 73); a linha acima é do gestor */}
+            {parada.status === 'pulada' && parada.observacao_pulo ? (
+              <View style={styles.detailRow}>
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={14}
+                  color={theme.colors.warning}
+                />
+                <Text style={styles.detailText}>
+                  {`Motorista: ${parada.observacao_pulo}`}
+                </Text>
+              </View>
+            ) : null}
+
             {/* Ações de comunicação */}
             {(parada.telefone || hasPhoto) && (
               <View style={styles.actions}>
@@ -330,6 +344,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       prevProps.parada.telefone === nextProps.parada.telefone &&
       prevProps.parada.observacoes === nextProps.parada.observacoes &&
       prevProps.parada.motivo_skip === nextProps.parada.motivo_skip &&
+      prevProps.parada.observacao_pulo === nextProps.parada.observacao_pulo &&
       prevProps.parada.concluida_em === nextProps.parada.concluida_em &&
       prevProps.index === nextProps.index &&
       prevProps.selected === nextProps.selected &&

@@ -198,6 +198,21 @@ describe('ChangeDriverModal', () => {
       expect(getByText('Sem motorista')).toBeTruthy();
     });
 
+    it("mostra 'Nome (fora da loja)' quando o motorista atual está escondido pela RLS", async () => {
+      const { getByText } = render(
+        <ChangeDriverModal
+          {...defaultProps}
+          currentMotoristaId="motorista-9"
+          currentMotoristaNome={undefined}
+          currentMotoristaForaDaLojaNome="Bia Souza"
+        />,
+      );
+
+      await waitFor(() =>
+        expect(getByText('Bia Souza (fora da loja)')).toBeTruthy(),
+      );
+    });
+
     it('deve exibir estado de loading enquanto carrega motoristas', () => {
       // Mock slow loading
       mockFrom.mockReturnValue({

@@ -26,11 +26,21 @@ import {
 } from '../consultaRotas';
 
 let mockCliente: ReturnType<typeof criarPostgrestFalso>['cliente'];
+// RPC nomes_motoristas_das_rotas (Migration 72): por padrão não devolve nome.
+const mockRpc = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: (t: string) => mockCliente.from(t) },
+  supabase: {
+    from: (t: string) => mockCliente.from(t),
+    rpc: (...args: unknown[]) => mockRpc(...args),
+  },
   isSupabaseConfigured: true,
 }));
+
+beforeEach(() => {
+  mockRpc.mockReset();
+  mockRpc.mockResolvedValue({ data: [], error: null });
+});
 
 /** `n` rotas da unidade, uma por dia a partir de 2024-01-01, ids ordenáveis. */
 function rotas(
@@ -158,6 +168,46 @@ describe('buscarRotas', () => {
     expect(ROTULO_MOTORISTA_OCULTO).toBe('Motorista removido da loja');
     expect(sem?.motorista_id).toBeUndefined();
     expect(sem?.motorista_nome).toBeUndefined();
+  });
+
+  it('buscarRotas preenche o nome fora da loja das rotas com embed vazio', async () => {
+    montar(
+      rotas(3, (i) =>
+        i === 0
+          ? { motorista_id: 'm9', usuarios: null }
+          : i === 1
+            ? { motorista_id: 'm8', usuarios: null }
+            : {},
+      ),
+    );
+    mockRpc.mockResolvedValue({
+      data: [{ rota_id: 'r00000', nome: 'Bia' }],
+      error: null,
+    });
+
+    const { rotas: pagina } = await buscarRotas({
+      filtros: filtros(),
+      quantidade: 10,
+    });
+    const nome = (id: string) =>
+      pagina.find((r) => r.id === id)?.motorista_nome;
+
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('nomes_motoristas_das_rotas', {
+      p_rota_ids: ['r00001', 'r00000'],
+    });
+    expect(nome('r00000')).toBe('Bia (fora da loja)');
+    // A RPC não devolveu nome: segue o rótulo de hoje.
+    expect(nome('r00001')).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(nome('r00002')).toBe('Ana');
+  });
+
+  it('sem rota oculta, a RPC não é chamada', async () => {
+    montar(rotas(3));
+
+    await buscarRotas({ filtros: filtros(), quantidade: 10 });
+
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('primeira página: 100 rotas mais recentes e o total da loja', async () => {
@@ -410,6 +460,24 @@ describe('nomeMotoristaDaRota', () => {
     expect(nomeMotoristaDaRota(undefined, 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
     expect(nomeMotoristaDaRota(null, 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
     expect(nomeMotoristaDaRota('', 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+  });
+
+  it("nomeMotoristaDaRota com nome fora da loja: 'Ana (fora da loja)'", () => {
+    expect(nomeMotoristaDaRota(undefined, 'm1', 'Ana')).toBe(
+      'Ana (fora da loja)',
+    );
+    // O nome visível vence: o 3º argumento só vale para o embed vazio.
+    expect(nomeMotoristaDaRota('Bia', 'm1', 'Ana')).toBe('Bia');
+  });
+
+  it('nomeMotoristaDaRota sem nome fora da loja mantém ROTULO_MOTORISTA_OCULTO', () => {
+    expect(nomeMotoristaDaRota(undefined, 'm1', null)).toBe(
+      ROTULO_MOTORISTA_OCULTO,
+    );
+    expect(nomeMotoristaDaRota(undefined, 'm1', '')).toBe(
+      ROTULO_MOTORISTA_OCULTO,
+    );
+    expect(nomeMotoristaDaRota(undefined, null, 'Ana')).toBe('Sem motorista');
   });
 
   it('só é "Sem motorista" quando a rota não tem motorista_id', () => {

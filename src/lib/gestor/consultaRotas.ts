@@ -25,6 +25,7 @@
 import type { RotaHistorico } from '@/hooks/gestao-rotas/types';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { contarParadasDasRotas } from '@/lib/gestor/contarParadasDasRotas';
+import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { escaparIlike, filtroKeysetDesc } from '@/lib/queries/paginacao';
 import type { FiltroStatus, RotaStatus } from '@/lib/statusLabels';
 import { supabase } from '@/lib/supabase';
@@ -55,22 +56,31 @@ const EMBED_MOTORISTA = 'usuarios!rotas_motorista_id_fkey';
 const FORMATO_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Nome exibido/exportado quando a rota tem `motorista_id` mas a RLS esconde o
- * motorista. O nome real exigiria RPC/view `security definer` (fora do escopo).
+ * Nome exibido/exportado quando a rota tem `motorista_id`, a RLS esconde o
+ * motorista e a RPC `nomes_motoristas_das_rotas` (Migration 72) não devolveu
+ * o nome (pessoa sem vínculo com a loja, RPC indisponível ou ainda não
+ * consultada). Com o nome, a tela mostra `"<Nome> (fora da loja)"`.
  */
 export const ROTULO_MOTORISTA_OCULTO = 'Motorista removido da loja';
 
 /**
  * Nome do motorista para exibir numa rota. Embed vazio com `motorista_id`
  * preenchido = a RLS escondeu o motorista (saiu da loja): "Sem motorista"
- * seria falso. Um helper só para as telas não divergirem — a regra inline
- * em cada uma já deixou quatro delas para trás.
+ * seria falso. `nomeForaDaLoja` é o nome que a RPC da Migration 72 devolveu
+ * para essa rota (`buscarNomesForaDaLoja`); só vale quando o embed veio vazio.
+ * Um helper só para as telas não divergirem — a regra inline em cada uma já
+ * deixou quatro delas para trás.
  */
 export function nomeMotoristaDaRota(
   nome: string | null | undefined,
   motoristaId: string | null | undefined,
+  nomeForaDaLoja?: string | null,
 ): string {
-  return nome || (motoristaId ? ROTULO_MOTORISTA_OCULTO : 'Sem motorista');
+  if (nome) return nome;
+  if (!motoristaId) return 'Sem motorista';
+  return nomeForaDaLoja
+    ? `${nomeForaDaLoja} (fora da loja)`
+    : ROTULO_MOTORISTA_OCULTO;
 }
 
 /** O que a lista mostra na rota sem motorista (em minúsculas). */
@@ -294,18 +304,32 @@ async function buscarLinhas({
   };
 }
 
+function motoristaDaLinha(rota: LinhaRota) {
+  return Array.isArray(rota.usuarios) ? rota.usuarios[0] : rota.usuarios;
+}
+
 async function comParadas(
   linhas: LinhaRota[],
   signal?: AbortSignal,
 ): Promise<RotaHistorico[]> {
-  const paradasPorRota = await contarParadasDasRotas(
-    linhas.map((r) => r.id),
-    signal,
-  );
+  // Em paralelo: a RPC dos nomes não lança (erro vira Map vazio) e não leva
+  // o `signal` (`rpc` não é cancelada aqui); só é chamada se houver rota
+  // com o motorista escondido.
+  const [paradasPorRota, nomesForaDaLoja] = await Promise.all([
+    contarParadasDasRotas(
+      linhas.map((r) => r.id),
+      signal,
+    ),
+    buscarNomesForaDaLoja(
+      linhas.map((r) => ({
+        id: r.id,
+        motorista_id: r.motorista_id,
+        nomeVisivel: motoristaDaLinha(r)?.nome,
+      })),
+    ),
+  ]);
   return linhas.map((rota) => {
-    const motorista = Array.isArray(rota.usuarios)
-      ? rota.usuarios[0]
-      : rota.usuarios;
+    const motorista = motoristaDaLinha(rota);
     const stats = paradasPorRota.get(rota.id);
     return {
       id: rota.id,
@@ -323,7 +347,11 @@ async function comParadas(
       motorista_nome: motorista
         ? motorista.nome
         : rota.motorista_id
-          ? ROTULO_MOTORISTA_OCULTO
+          ? nomeMotoristaDaRota(
+              undefined,
+              rota.motorista_id,
+              nomesForaDaLoja.get(rota.id),
+            )
           : undefined,
       paradas_count: stats?.total ?? 0,
       paradas_concluidas: stats?.concluidas ?? 0,

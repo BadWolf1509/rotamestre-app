@@ -7,13 +7,18 @@ import type { StatusCheckpoint } from '@/types/rota';
 // Mock data stores
 const mockSupabaseData: Record<string, unknown> = {};
 const mockSupabaseError: Record<string, unknown> = {};
+// Último corpo de UPDATE por tabela (para conferir as colunas mandadas)
+const mockUltimoUpdate: Record<string, unknown> = {};
 
 // Create a chainable mock that captures the table name
 const createChainableMock = (tableName: string) => {
   const chain: any = {
     select: jest.fn(() => chain),
     insert: jest.fn(() => chain),
-    update: jest.fn(() => chain),
+    update: jest.fn((dados: unknown) => {
+      mockUltimoUpdate[tableName] = dados;
+      return chain;
+    }),
     delete: jest.fn(() => chain),
     eq: jest.fn(() => chain),
     neq: jest.fn(() => chain),
@@ -22,18 +27,23 @@ const createChainableMock = (tableName: string) => {
     lte: jest.fn(() => chain),
     order: jest.fn(() => chain),
     limit: jest.fn(() => chain),
-    single: jest.fn(() => Promise.resolve({
-      data: mockSupabaseData[tableName] ?? null,
-      error: mockSupabaseError[tableName] ?? null,
-    })),
-    maybeSingle: jest.fn(() => Promise.resolve({
-      data: mockSupabaseData[tableName] ?? null,
-      error: mockSupabaseError[tableName] ?? null,
-    })),
-    then: (resolve: any) => Promise.resolve({
-      data: mockSupabaseData[tableName] ?? null,
-      error: mockSupabaseError[tableName] ?? null,
-    }).then(resolve),
+    single: jest.fn(() =>
+      Promise.resolve({
+        data: mockSupabaseData[tableName] ?? null,
+        error: mockSupabaseError[tableName] ?? null,
+      }),
+    ),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({
+        data: mockSupabaseData[tableName] ?? null,
+        error: mockSupabaseError[tableName] ?? null,
+      }),
+    ),
+    then: (resolve: any) =>
+      Promise.resolve({
+        data: mockSupabaseData[tableName] ?? null,
+        error: mockSupabaseError[tableName] ?? null,
+      }).then(resolve),
   };
   return chain;
 };
@@ -320,7 +330,10 @@ describe('paradas queries', () => {
     });
 
     it('should handle creation error', async () => {
-      mockSupabaseError['paradas'] = { message: 'Validation error', code: '23505' };
+      mockSupabaseError['paradas'] = {
+        message: 'Validation error',
+        code: '23505',
+      };
 
       const result = await createParadasBatch([
         {
@@ -386,7 +399,9 @@ describe('paradas queries', () => {
       };
       mockSupabaseData['paradas'] = updatedParada;
 
-      const result = await updateParadaStatus('parada-1', 'pulada', { observacoes: 'Cliente ausente' });
+      const result = await updateParadaStatus('parada-1', 'pulada', {
+        observacoes: 'Cliente ausente',
+      });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -442,7 +457,9 @@ describe('paradas queries', () => {
         telefone: null,
         latitude: -23.5,
         longitude: -46.6,
-        observacoes: 'Endereço não encontrado',
+        observacoes: 'Portão azul',
+        observacao_pulo: 'Endereço não encontrado',
+        motivo_skip: 'outro',
         foto_url: null,
         is_checkpoint: true,
         concluida_em: null,
@@ -450,13 +467,41 @@ describe('paradas queries', () => {
       };
       mockSupabaseData['paradas'] = skippedParada;
 
-      const result = await skipParada('parada-1', 'Endereço não encontrado');
+      const result = await skipParada(
+        'parada-1',
+        'outro',
+        'Endereço não encontrado',
+      );
 
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.status).toBe('pulada');
-        expect(result.data.observacoes).toBe('Endereço não encontrado');
+        expect(result.data.observacao_pulo).toBe('Endereço não encontrado');
       }
+    });
+
+    it('skipParada grava observacao_pulo (a observação do gestor fica)', async () => {
+      mockSupabaseData['paradas'] = { id: 'parada-1', status: 'pulada' };
+
+      await skipParada('parada-1', 'outro', 'Portão fechado');
+
+      expect(mockUltimoUpdate['paradas']).toEqual({
+        status: 'pulada',
+        motivo_skip: 'outro',
+        observacao_pulo: 'Portão fechado',
+      });
+    });
+
+    it('skipParada sem texto grava observacao_pulo: null', async () => {
+      mockSupabaseData['paradas'] = { id: 'parada-1', status: 'pulada' };
+
+      await skipParada('parada-1', 'recusa');
+
+      expect(mockUltimoUpdate['paradas']).toEqual({
+        status: 'pulada',
+        motivo_skip: 'recusa',
+        observacao_pulo: null,
+      });
     });
   });
 
@@ -505,7 +550,10 @@ describe('paradas queries', () => {
     });
 
     it('should handle delete error', async () => {
-      mockSupabaseError['paradas'] = { message: 'Delete failed', code: '42501' };
+      mockSupabaseError['paradas'] = {
+        message: 'Delete failed',
+        code: '42501',
+      };
 
       const result = await deleteParada('parada-1');
 

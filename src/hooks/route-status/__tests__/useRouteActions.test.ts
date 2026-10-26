@@ -412,7 +412,7 @@ describe('skipStop', () => {
     );
   });
 
-  it('pula pela porta com motivo, sem observações quando não há', async () => {
+  it('pula pela porta com motivo; sem texto, observacao_pulo vai null', async () => {
     const { skipStop, loadActiveRoute } = setup({
       route: makeRoute({ status: 'em_andamento' }),
       paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
@@ -422,22 +422,24 @@ describe('skipStop', () => {
     expect(porta.atualizarSeAberta).toHaveBeenCalledWith('p1', {
       status: 'pulada',
       motivo_skip: 'recusa',
+      observacao_pulo: null,
     });
     expect(porta.avancarProxima).toHaveBeenCalledWith('route-1');
     expect(loadActiveRoute).toHaveBeenCalled();
   });
 
-  it('inclui observações quando informadas', async () => {
+  it('o texto do pulo vai em observacao_pulo, nunca em observacoes (Migration 73)', async () => {
     const { skipStop } = setup({
       route: makeRoute({ status: 'em_andamento' }),
       paradas: [makeParada({ id: 'p1', status: 'em_andamento' })],
     });
 
     await skipStop('p1', 'outro', 'Chuva forte');
-    expect(porta.atualizarSeAberta).toHaveBeenCalledWith(
-      'p1',
-      expect.objectContaining({ observacoes: 'Chuva forte' }),
-    );
+    expect(porta.atualizarSeAberta).toHaveBeenCalledWith('p1', {
+      status: 'pulada',
+      motivo_skip: 'outro',
+      observacao_pulo: 'Chuva forte',
+    });
   });
 });
 

@@ -67,6 +67,11 @@ export interface AcaoParada {
   /** Momento da ação no aparelho (vira `concluida_em`). */
   em: string;
   motivo?: MotivoSkip;
+  /**
+   * Texto do motorista no pulo. Mantém o nome que a 1.14.7 gravava na fila do
+   * aparelho (ações antigas são lidas por esta versão), mas vai ao banco como
+   * `observacao_pulo` — ver `dadosDaAcao`.
+   */
   observacoes?: string;
   /** Falhas definitivas do servidor já sofridas (rede não conta). */
   tentativas: number;
@@ -344,10 +349,13 @@ function dadosDaAcao(acao: AcaoParada): Record<string, unknown> {
   if (acao.tipo === 'concluir') {
     return { status: 'concluida', concluida_em: acao.em };
   }
+  // O texto do motorista vai para `observacao_pulo` (Migration 73); `observacoes`
+  // é a instrução do gestor e nunca sai daqui. Sem texto, grava null: limpa o
+  // texto de um pulo anterior da mesma parada (pulada, retomada, pulada de novo).
   return {
     status: 'pulada',
     motivo_skip: acao.motivo ?? 'outro',
-    ...(acao.observacoes ? { observacoes: acao.observacoes } : {}),
+    observacao_pulo: acao.observacoes || null,
   };
 }
 

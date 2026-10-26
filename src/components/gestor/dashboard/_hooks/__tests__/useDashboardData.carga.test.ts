@@ -117,8 +117,23 @@ function mockQuery(tabela: string) {
   return api;
 }
 
+// RPC nomes_motoristas_das_rotas (Migration 72): rota_id → nome.
+const mockNomesForaDaLoja: Record<string, string> = {};
+const mockRpc = jest.fn(
+  (_nome: string, { p_rota_ids }: { p_rota_ids: string[] }) =>
+    Promise.resolve({
+      data: p_rota_ids
+        .filter((id) => mockNomesForaDaLoja[id])
+        .map((id) => ({ rota_id: id, nome: mockNomesForaDaLoja[id] })),
+      error: null,
+    }),
+);
+
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: (t: string) => mockQuery(t) },
+  supabase: {
+    from: (t: string) => mockQuery(t),
+    rpc: (nome: string, args: { p_rota_ids: string[] }) => mockRpc(nome, args),
+  },
   isSupabaseConfigured: true,
 }));
 
@@ -144,6 +159,10 @@ function rota(id: string, data: string, status = 'pendente', loja = 'loja-a') {
 
 beforeEach(() => {
   mockConsultas.length = 0;
+  mockRpc.mockClear();
+  for (const k of Object.keys(mockNomesForaDaLoja)) {
+    delete mockNomesForaDaLoja[k];
+  }
   mockFalharRotas = false;
   mockKpiComErro = null;
   mockKpiContador = 0;
@@ -245,6 +264,26 @@ describe('useDashboardData — KPI que falha', () => {
       result.current.rotas.find((r) => r.id === id)?.motorista_nome;
     expect(nome('oculta')).toBe('Motorista removido da loja');
     expect(nome('sem')).toBe('Sem motorista');
+  });
+
+  it("rota oculta com nome devolvido pela RPC mostra 'Nome (fora da loja)'", async () => {
+    mockTabelas.rotas = [
+      { ...rota('oculta', hoje), motorista_id: 'm9', usuarios: null },
+      { ...rota('oculta-sem-nome', hoje), motorista_id: 'm8', usuarios: null },
+      rota('visivel', hoje),
+    ];
+    mockNomesForaDaLoja.oculta = 'Bia';
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const nome = (id: string) =>
+      result.current.rotas.find((r) => r.id === id)?.motorista_nome;
+    expect(nome('oculta')).toBe('Bia (fora da loja)');
+    expect(nome('oculta-sem-nome')).toBe('Motorista removido da loja');
+    expect(nome('visivel')).toBe('Ana');
+    // Só as ocultas vão à RPC.
+    const ids = mockRpc.mock.calls.flatMap(([, a]) => a.p_rota_ids);
+    expect(ids.sort()).toEqual(['oculta', 'oculta-sem-nome']);
   });
 });
 

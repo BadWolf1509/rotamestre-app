@@ -15,8 +15,11 @@ export interface Parada {
   longitude: number | null;
   destinatario?: string;
   telefone?: string;
+  /** Instrução do gestor. */
   observacoes?: string;
   motivo_skip?: MotivoSkip;
+  /** Texto do motorista ao pular (Migration 73). */
+  observacao_pulo?: string | null;
   foto_url?: string | null;
   is_checkpoint?: boolean;
   concluida_em?: string;
@@ -47,6 +50,12 @@ export interface Rota {
   motorista?: {
     nome: string;
   };
+  /**
+   * Nome do motorista quando a RLS esconde o embed `motorista` (vínculo
+   * inativo com a loja), pela RPC `nomes_motoristas_das_rotas` (Migration
+   * 72). `null`/ausente = sem nome: a tela usa `ROTULO_MOTORISTA_OCULTO`.
+   */
+  motorista_fora_da_loja_nome?: string | null;
   unidade?: {
     nome: string;
   };

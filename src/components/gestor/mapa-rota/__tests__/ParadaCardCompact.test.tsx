@@ -528,4 +528,49 @@ describe('ParadaCardCompact', () => {
       // Não deve mostrar telefone ou destinatário
     });
   });
+
+  describe('Observação do pulo (Migration 73)', () => {
+    const pulada: Parada = {
+      ...mockParada,
+      status: 'pulada',
+      motivo_skip: 'cliente_ausente',
+      observacoes: 'Portão azul',
+      observacao_pulo: 'Ficou para amanhã',
+    };
+
+    it('parada pulada mostra a observação do gestor e o texto do motorista', () => {
+      const { getByText } = render(
+        <ParadaCardCompact {...defaultProps} parada={pulada} />,
+      );
+      fireEvent.press(getByText(/Rua das Flores/));
+      expect(getByText('Portão azul')).toBeTruthy();
+      expect(getByText('Motorista: Ficou para amanhã')).toBeTruthy();
+    });
+
+    it('parada pulada sem observacao_pulo não mostra linha do motorista', () => {
+      const { getByText, queryByText } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={{ ...pulada, observacao_pulo: null }}
+        />,
+      );
+      fireEvent.press(getByText(/Rua das Flores/));
+      expect(queryByText(/^Motorista:/)).toBeNull();
+    });
+
+    it('ParadaCardCompact re-renderiza quando observacao_pulo muda', () => {
+      const { getByText, queryByText, rerender } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={{ ...pulada, observacao_pulo: null }}
+        />,
+      );
+      fireEvent.press(getByText(/Rua das Flores/));
+      expect(queryByText(/^Motorista:/)).toBeNull();
+
+      rerender(<ParadaCardCompact {...defaultProps} parada={pulada} />);
+
+      expect(queryByText('Motorista: Ficou para amanhã')).toBeTruthy();
+    });
+  });
 });
