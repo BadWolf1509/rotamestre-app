@@ -1,0 +1,142 @@
+-- ============================================================================
+-- Migration 69: privilégios-padrão da API — função nova sem EXECUTE para
+-- PUBLIC/anon, e `anon` só com leitura nas tabelas de public
+-- Date: 2026-10-25
+-- Author: Wellinton Ribeiro
+-- Purpose:
+--   1. Funções. Toda função criada pelo `postgres` nasce com EXECUTE para
+--      PUBLIC (padrão embutido do Postgres) e, em public, também para `anon`,
+--      `authenticated` e `service_role` (privilégio-padrão do `postgres` em
+--      public: `{postgres=X,anon=X,authenticated=X,service_role=X}`). Uma
+--      função SECURITY DEFINER esquecida sem o `REVOKE ... FROM PUBLIC, anon`
+--      ficaria executável pela chave pública, sem sessão. A partir desta
+--      migration, função nova do `postgres` nasce sem EXECUTE para PUBLIC (em
+--      qualquer schema) e, em public, sem EXECUTE para `anon`; em public
+--      `authenticated` e `service_role` continuam recebendo EXECUTE.
+--   2. Tabelas. `anon` (requisição sem sessão) passa a ter só SELECT nas
+--      tabelas e visões de public: sai INSERT, UPDATE e DELETE de todas as
+--      tabelas existentes e do privilégio-padrão do `postgres` em public, para
+--      que tabela nova já nasça assim. As policies de escrita que hoje
+--      alcançam `anon` (as `TO public`, em admin_logs, incidentes, logs,
+--      notificacoes, paradas, rascunhos_rota e rotas) dependem de
+--      `auth.uid()`, nulo sem sessão, ou são `false`; o privilégio passa a ser
+--      a segunda camada, que vale também para policy nova escrita `TO public`.
+--      `authenticated`, `service_role` e o SELECT de `anon` não mudam.
+--
+--   Por que o PUBLIC sai sem `IN SCHEMA`: no Postgres, privilégio-padrão por
+--   schema só SOMA ao global; o EXECUTE de PUBLIC em função é o padrão global
+--   embutido e não se revoga por schema (comportamento documentado do ALTER
+--   DEFAULT PRIVILEGES: privilégio por schema só soma ao global). O efeito
+--   global vale para função criada pelo `postgres` em qualquer schema; em
+--   public e storage o padrão por schema continua concedendo a
+--   `authenticated` e `service_role` (e, em storage, a `anon` — não mexido
+--   aqui).
+--
+--   3. Extensões. O `postgres` é dono de 49 funções em `extensions`
+--      (uuid-ossp, pgcrypto, pg_stat_statements), que hoje `authenticated` e
+--      `service_role` executam só via PUBLIC, e não há padrão por schema do
+--      `postgres` em `extensions`. Sem PUBLIC no padrão global, função de
+--      extensão criada depois pelo `postgres` nasceria sem EXECUTE para eles.
+--      Por isso o padrão do `postgres` em `extensions` passa a conceder
+--      EXECUTE a `authenticated` e `service_role` (não a `anon`). As 49
+--      funções existentes não mudam.
+--      Alternativas: (a) só documentar e conceder caso a caso quando uma
+--      extensão nova for criada — depende de alguém notar a falta;
+--      (b) padrão do `postgres` em `extensions` para authenticated e
+--      service_role (escolhida): mantém para extensão futura o que as atuais
+--      já oferecem a esses dois papéis.
+--
+--   Medido em 25/10/2026, antes da migration (has_table_privilege e
+--   aclexplode; todas as concessões a `anon` têm o `postgres` como grantor, e
+--   nenhuma tabela de public tem concessão a PUBLIC nem ACL de coluna para
+--   `anon`):
+--     - `anon` com DELETE, INSERT e UPDATE em admin_logs, incidentes, logs,
+--       motorista_locations, paradas, plan_prices, push_notification_logs e
+--       unidades; DELETE e INSERT em rotas; só DELETE em notificacoes e
+--       usuarios; SELECT nessas onze e em usuario_unidades; nada em
+--       preferencias_notificacao, push_tokens, rascunhos_rota e nas visões.
+--     - pg_default_acl do `postgres` em public: `f` =
+--       `{postgres=X,anon=X,authenticated=X,service_role=X}`; `r` =
+--       `{postgres=arwdDxtm,anon=arwd,authenticated=arwd,service_role=arwdDxtm}`.
+--       Em storage: `f` igual ao de public, `r` =
+--       `arwdDxtm` para os quatro. Sem entrada global (defaclnamespace = 0)
+--       do `postgres`.
+--     - `anon` executa 3 funções de public, todas SECURITY INVOKER:
+--       calcular_distancia, normalizar_telefone e update_updated_at_column
+--       (as três com EXECUTE para PUBLIC também).
+--     - A CLI (`db query --linked`) roda como `postgres` (current_user e
+--       session_user), o mesmo papel do `FOR ROLE postgres`.
+--
+--   Alternativas consideradas:
+--     (a) privilégio-padrão + REVOKE em ALL TABLES (escolhida): função e
+--         tabela novas já nascem certas, mesmo quando a migration esquece o
+--         REVOKE;
+--     (b) só acrescentar os REVOKE ao checklist da skill `/new-migration`:
+--         depende de quem escreve lembrar, e não alcança as tabelas que já
+--         existem;
+--     (c) REVOKE de EXECUTE em ALL FUNCTIONS de anon: mudaria a ACL das
+--         funções existentes, que já têm o REVOKE explícito onde precisam, e
+--         tiraria das três INVOKER acima um EXECUTE inofensivo sem ganho.
+--
+--   Limites (ficam fora):
+--     - o privilégio-padrão do `supabase_admin` (o `postgres` não pode
+--       alterá-lo); hoje todas as tabelas e funções de public são do `postgres`;
+--     - o EXECUTE de `anon` (e de PUBLIC) nas três funções INVOKER existentes:
+--       rodam com os privilégios de quem chama;
+--     - o padrão de storage.
+--     - Função existente mantém a ACL: privilégio-padrão só vale na criação, e
+--       `CREATE OR REPLACE` de função existente preserva a ACL. Por isso o
+--       `REVOKE ... FROM PUBLIC, anon` explícito continua obrigatório em toda
+--       função SECURITY DEFINER (vale também para quem a cria como outro papel).
+--
+--   Efeito no app: nenhuma escrita com sessão anônima. Conferido em
+--   25/10/2026 por grep: as telas pré-login (app/auth/*, app/index.tsx,
+--   app/exclusao-de-conta.tsx) não têm `.insert(`, `.update(`, `.upsert(`,
+--   `.delete(` nem `.rpc(`; em src/lib/auth.ts e src/lib/auth/* as escritas
+--   (`usuarios.ultimo_login` no login, `usuarios.primeira_senha`) rodam depois
+--   de a sessão existir, as leituras (`usuarios`, `usuario_unidades`) são
+--   SELECT, e não há `.rpc(` — o único `functions.invoke` é `delete-account`,
+--   com o JWT do usuário. O e2e escreve logado como gestor
+--   (e2e/fixtures/garantir-rota-do-mapa.ts:64-70); as Edge Functions usam a
+--   chave secreta ou o JWT do usuário. A migration não muda o EXECUTE de
+--   nenhuma função existente.
+-- ============================================================================
+
+BEGIN;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE INSERT, UPDATE, DELETE ON TABLES FROM anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA extensions GRANT EXECUTE ON FUNCTIONS TO authenticated, service_role;
+
+COMMIT;
+
+-- ============================================================================
+-- Conferência (só SELECT), depois de aplicar:
+-- 1. nenhuma tabela/visão de public com escrita para anon → 0
+-- SELECT count(*) FROM pg_class c
+--  CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE')) p(priv)
+--  WHERE c.relnamespace = 'public'::regnamespace
+--    AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+--    AND has_table_privilege('anon', c.oid, p.priv);
+-- 2. privilégios-padrão do postgres → global `f` = {postgres=X/postgres};
+--    public `f` sem anon; public `r` com anon=r
+-- SELECT defaclnamespace::regnamespace, defaclobjtype, defaclacl
+--   FROM pg_default_acl WHERE defaclrole = 'postgres'::regrole
+--  ORDER BY 1, 2;
+-- ============================================================================
+
+-- ROLLBACK:
+-- (devolve exatamente o que foi medido em 25/10/2026, tabela a tabela; tabela
+-- criada depois disso continua sem escrita para anon, e função criada depois
+-- disso continua sem EXECUTE para PUBLIC/anon)
+-- BEGIN;
+-- GRANT INSERT, UPDATE, DELETE ON public.admin_logs, public.incidentes, public.logs, public.motorista_locations, public.paradas, public.plan_prices, public.push_notification_logs, public.unidades TO anon;
+-- GRANT INSERT, DELETE ON public.rotas TO anon;
+-- GRANT DELETE ON public.notificacoes, public.usuarios TO anon;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT INSERT, UPDATE, DELETE ON TABLES TO anon;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA extensions REVOKE EXECUTE ON FUNCTIONS FROM authenticated, service_role;
+-- COMMIT;
