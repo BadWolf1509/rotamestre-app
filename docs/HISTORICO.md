@@ -32,7 +32,7 @@ Quatro trilhas da varredura de 25/10 e uma rodada de banco em 26/10, mescladas n
 - foto sem rede: menos de 2 s, com `concluida_em` preservado;
 - volta da rede com fila: tudo sobe sem requisição anônima.
 
-**Release 1.14.8 (3046):** na `main`, com o lado do app das Migrations 70–73; build em preparação.
+**Release 1.14.8 (3046):** na interna e na alpha em 26/10, com o lado do app das Migrations 70–73. Instalada pela Play no moto g15 mantendo o login; o pulo com texto grava em `observacao_pulo` e preserva `observacoes`.
 
 **Infra:** branches e worktrees antigos removidos; "apagar branch ao mesclar" ligado no GitHub.
 
