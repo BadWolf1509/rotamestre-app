@@ -25,10 +25,26 @@
 --
 --   Por que o PUBLIC sai sem `IN SCHEMA`: no Postgres, privilégio-padrão por
 --   schema só SOMA ao global; o EXECUTE de PUBLIC em função é o padrão global
---   embutido e não se revoga por schema (caso 6 da sonda). O efeito global
---   vale para função criada pelo `postgres` em qualquer schema; em public e
---   storage o padrão por schema continua concedendo a `authenticated` e
---   `service_role` (e, em storage, a `anon` — não mexido aqui).
+--   embutido e não se revoga por schema (comportamento documentado do ALTER
+--   DEFAULT PRIVILEGES: privilégio por schema só soma ao global). O efeito
+--   global vale para função criada pelo `postgres` em qualquer schema; em
+--   public e storage o padrão por schema continua concedendo a
+--   `authenticated` e `service_role` (e, em storage, a `anon` — não mexido
+--   aqui).
+--
+--   3. Extensões. O `postgres` é dono de 49 funções em `extensions`
+--      (uuid-ossp, pgcrypto, pg_stat_statements), que hoje `authenticated` e
+--      `service_role` executam só via PUBLIC, e não há padrão por schema do
+--      `postgres` em `extensions`. Sem PUBLIC no padrão global, função de
+--      extensão criada depois pelo `postgres` nasceria sem EXECUTE para eles.
+--      Por isso o padrão do `postgres` em `extensions` passa a conceder
+--      EXECUTE a `authenticated` e `service_role` (não a `anon`). As 49
+--      funções existentes não mudam.
+--      Alternativas: (a) só documentar e conceder caso a caso quando uma
+--      extensão nova for criada — depende de alguém notar a falta;
+--      (b) padrão do `postgres` em `extensions` para authenticated e
+--      service_role (escolhida): mantém para extensão futura o que as atuais
+--      já oferecem a esses dois papéis.
 --
 --   Medido em 25/10/2026, antes da migration (has_table_privilege e
 --   aclexplode; todas as concessões a `anon` têm o `postgres` como grantor, e
@@ -94,6 +110,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBL
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon;
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM anon;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE INSERT, UPDATE, DELETE ON TABLES FROM anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA extensions GRANT EXECUTE ON FUNCTIONS TO authenticated, service_role;
 
 COMMIT;
 
@@ -123,4 +140,5 @@ COMMIT;
 -- ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
 -- ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon;
 -- ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT INSERT, UPDATE, DELETE ON TABLES TO anon;
+-- ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA extensions REVOKE EXECUTE ON FUNCTIONS FROM authenticated, service_role;
 -- COMMIT;

@@ -3031,11 +3031,15 @@ rota), com vínculo inativo e na rota de outro motorista; catálogo da policy co
 
 **Arquivo:** `20261025164000_privilegios_padrao_da_api.sql` · **⏳ aguardando aplicação**
 
-**O que faz.** Quatro instruções: (1) privilégio-padrão global do `postgres`
+**O que faz.** Cinco instruções: (1) privilégio-padrão global do `postgres`
 sem EXECUTE para PUBLIC em função; (2) privilégio-padrão do `postgres` em
 public sem EXECUTE para `anon` em função; (3) REVOKE de INSERT, UPDATE e
 DELETE de `anon` em todas as tabelas de public; (4) o mesmo no
-privilégio-padrão de tabelas do `postgres` em public. Função nova do
+privilégio-padrão de tabelas do `postgres` em public; (5) padrão do
+`postgres` em `extensions` com EXECUTE para `authenticated` e `service_role`
+(as 49 funções de extensão do `postgres` — uuid-ossp, pgcrypto,
+pg_stat_statements — hoje executam só via PUBLIC; sem isso, extensão futura
+nasceria sem EXECUTE para eles). Função nova do
 `postgres` em public nasce com EXECUTE só para `postgres`, `authenticated` e
 `service_role`; tabela nova dá a `anon` só SELECT. `authenticated`,
 `service_role`, o SELECT de `anon` e a ACL das funções existentes não mudam.
@@ -3046,7 +3050,9 @@ soma ao global, e o EXECUTE de PUBLIC é o padrão embutido.
 função e tabela novas já nascem certas mesmo quando a migration esquece o
 REVOKE. (b) Só o checklist da skill `/new-migration`: depende de memória e não
 alcança as tabelas existentes. (c) REVOKE de EXECUTE em ALL FUNCTIONS de
-`anon`: mexeria em funções que já têm o REVOKE onde precisam.
+`anon`: mexeria em funções que já têm o REVOKE onde precisam. Para
+`extensions`: só documentar (depende de alguém notar) ou o padrão para
+`authenticated`/`service_role` — escolhido.
 
 **Limites.** Ficam fora o padrão do `supabase_admin` (o `postgres` não pode
 alterá-lo), as sequências (`rwU` de `anon`), o padrão de storage e o EXECUTE de
@@ -3069,10 +3075,12 @@ gestor.
 
 **Verificação.** Guarda estática
 `database/__tests__/migration69-privilegios-padrao-da-api.test.ts`; sonda
-`database/sondas/20261025164000_sonda_migration69.sql` (8 casos, catálogo +
-uma função e uma tabela de nome único desfeitas pelo RAISE; casos 6 e 7
+`database/sondas/20261025164000_sonda_migration69.sql` (9 casos, catálogo +
+duas funções e uma tabela de nome único desfeitas pelo RAISE; casos 6, 7 e 9
 conferem que rodam como `postgres`): nenhuma escrita de `anon` em public;
 `authenticated` mantém o que o app usa; `anon` mantém SELECT; padrões de tabela
 e função do `postgres`; função e tabela novas; `finalizar_rota` e
-`calcular_distancia` intocadas. Sem a migration: casos 1, 4, 5, 6 e 7 FALHOU.
+`calcular_distancia` intocadas; função nova em `extensions` com EXECUTE para
+`authenticated`/`service_role`. Sem a migration: casos 1, 4, 5, 6, 7 e 9
+FALHOU.
 Rollback colável, tabela a tabela, com o que foi medido.

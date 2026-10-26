@@ -5,21 +5,22 @@
 -- Banco único = produção, sem pgTAP. Rodar com a Migration 69 já valendo na
 -- mesma sessão: depois de aplicá-la, ou, para conferir antes, na MESMA
 -- execução que o corpo da migration (sem o BEGIN/COMMIT dela), para que o
--- RAISE do fim desfaça as duas coisas. Sem a migration, os casos 1, 4, 5, 6 e
--- 7 saem FALHOU (é o vermelho esperado); 2, 3 e 8 saem OK nos dois momentos.
+-- RAISE do fim desfaça as duas coisas. Sem a migration, os casos 1, 4, 5, 6, 7
+-- e 9 saem FALHOU (é o vermelho esperado); 2, 3 e 8 saem OK nos dois momentos.
 --
 -- A sonda lê o catálogo (has_table_privilege, has_function_privilege,
 -- pg_default_acl, proacl) e não grava em tabela nenhuma. Os únicos objetos
--- que ela cria são uma função e uma tabela vazia de nome único, para conferir
+-- que ela cria são duas funções (em public e em extensions, sem CREATE
+-- EXTENSION) e uma tabela vazia, de nome único, para conferir
 -- os privilégios-padrão; o RAISE do fim as desfaz. Consulta de catálogo que
 -- não encontra o objeto sai FALHOU em vez de abortar (to_regclass,
 -- to_regprocedure).
 --
 -- Rodar como `postgres`: o privilégio-padrão da migration é `FOR ROLE
--- postgres`, então os casos 6 e 7 só provam algo se a função e a tabela forem
+-- postgres`, então os casos 6, 7 e 9 só provam algo se as funções e a tabela forem
 -- criadas pelo `postgres`. A CLI (`db query --linked`) roda como `postgres`
--- (conferido em 25/10/2026); se `current_user` for outro papel, os casos 6 e
--- 7 saem FALHOU dizendo qual. Leia o resultado na mensagem
+-- (conferido em 25/10/2026); se `current_user` for outro papel, os casos 6, 7
+-- e 9 saem FALHOU dizendo qual. Leia o resultado na mensagem
 -- "SONDA M69 (desfeita): ...". Esperado: todas as linhas com OK.
 --
 --   1. nenhuma tabela/visão de public com INSERT, UPDATE ou DELETE para anon
@@ -33,10 +34,12 @@
 --   6. função criada agora em public: anon sem EXECUTE, proacl sem PUBLIC,
 --      authenticated e service_role com EXECUTE
 --   7. tabela criada agora em public: anon sem INSERT/UPDATE/DELETE e com
---      SELECT; authenticated com os quatro
+--      SELECT; authenticated com os quatro; service_role com INSERT
 --   8. funções existentes intocadas: authenticated executa
 --      finalizar_rota(uuid); anon ainda executa calcular_distancia (fora do
 --      escopo, SECURITY INVOKER)
+--   9. função criada agora em extensions (como faria uma extensão futura do
+--      postgres): authenticated e service_role com EXECUTE; anon e PUBLIC sem
 -- ============================================================================
 DO $$
 DECLARE
@@ -45,6 +48,7 @@ DECLARE
   v_papel text := current_user;
   v_n int;
   v_m int;
+  v_k int;
   v_lista text;
   v_funcao text;
   v_tabela text;
@@ -187,8 +191,10 @@ BEGIN
       FROM (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) AS p(priv)
      WHERE has_table_privilege('authenticated', v_rel, p.priv);
     r := r || CASE WHEN v_n = 0 AND v_m = 4 AND has_table_privilege('anon', v_rel, 'SELECT')
-      THEN ' | 7 OK: tabela nova dá a anon só SELECT e a authenticated os quatro'
-      ELSE ' | 7 FALHOU: tabela nova com ' || v_n || ' escrita(s) para anon, ' || v_m || ' de 4 para authenticated' END;
+                    AND has_table_privilege('service_role', v_rel, 'INSERT')
+      THEN ' | 7 OK: tabela nova dá a anon só SELECT, a authenticated os quatro e a service_role INSERT'
+      ELSE ' | 7 FALHOU: tabela nova com ' || v_n || ' escrita(s) para anon, ' || v_m || ' de 4 para authenticated'
+           || CASE WHEN has_table_privilege('service_role', v_rel, 'INSERT') THEN '' ELSE ', service_role sem INSERT' END END;
   END IF;
 
   -- ---------------------------------------------------------------------------
@@ -201,6 +207,29 @@ BEGIN
                   AND has_function_privilege('anon', to_regprocedure('public.calcular_distancia(double precision, double precision, double precision, double precision)'), 'EXECUTE')
     THEN ' | 8 OK: authenticated executa finalizar_rota(uuid) e anon segue executando calcular_distancia'
     ELSE ' | 8 FALHOU: ACL de função existente mudou (ou a função não foi encontrada)' END;
+
+  -- ---------------------------------------------------------------------------
+  -- 9. função criada agora em extensions (como faria uma extensão futura)
+  -- ---------------------------------------------------------------------------
+  IF v_papel <> 'postgres' THEN
+    r := r || ' | 9 FALHOU: sonda rodando como ' || v_papel || ', não postgres (o padrão é FOR ROLE postgres)';
+  ELSE
+    v_funcao := 'sonda_m69_' || v_sufixo;
+    EXECUTE format('CREATE FUNCTION extensions.%I() RETURNS integer LANGUAGE sql AS %L', v_funcao, 'select 1');
+    v_oid := to_regprocedure('extensions.' || quote_ident(v_funcao) || '()');
+    -- ACL efetiva: proacl nula equivale ao padrão embutido (dono + PUBLIC).
+    SELECT count(*) FILTER (WHERE a.grantee = 'authenticated'::regrole),
+           count(*) FILTER (WHERE a.grantee = 'service_role'::regrole),
+           count(*) FILTER (WHERE a.grantee IN (0, 'anon'::regrole))
+      INTO v_n, v_m, v_k
+      FROM pg_proc p
+     CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+     WHERE p.oid = v_oid AND a.privilege_type = 'EXECUTE';
+    r := r || CASE WHEN v_oid IS NOT NULL AND v_n = 1 AND v_m = 1 AND v_k = 0
+                    AND NOT has_function_privilege('anon', v_oid, 'EXECUTE')
+      THEN ' | 9 OK: função nova em extensions com EXECUTE para authenticated e service_role, sem anon e PUBLIC'
+      ELSE ' | 9 FALHOU: função nova em extensions com proacl ' || COALESCE((SELECT p.proacl::text FROM pg_proc p WHERE p.oid = v_oid), 'nula (padrão embutido)') END;
+  END IF;
 
   RAISE EXCEPTION 'SONDA M69 (desfeita):%', r;
 END
