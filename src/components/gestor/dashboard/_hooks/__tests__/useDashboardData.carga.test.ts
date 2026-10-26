@@ -287,6 +287,52 @@ describe('useDashboardData — KPI que falha', () => {
   });
 });
 
+describe('useDashboardData — motorista destaque fora da loja', () => {
+  const concluida = (id: string, motorista: string, nome: string | null) => ({
+    ...rota(id, hoje, 'concluida'),
+    motorista_id: motorista,
+    usuarios: nome ? { nome } : null,
+  });
+
+  it("embed escondido pela RLS com nome da RPC: 'Bia (fora da loja)', não 'Desconhecido'", async () => {
+    mockTabelas.rotas = [
+      concluida('c1', 'm9', null),
+      concluida('c2', 'm9', null),
+      concluida('c3', 'm1', 'Ana'),
+    ];
+    mockNomesForaDaLoja.c1 = 'Bia';
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.motoristaDestaque).toEqual({
+      nome: 'Bia (fora da loja)',
+      rotasConcluidas: 2,
+    });
+  });
+
+  it('RPC sem o nome: usa o rótulo de motorista removido da loja', async () => {
+    mockTabelas.rotas = [
+      concluida('c1', 'm9', null),
+      concluida('c2', 'm9', null),
+    ];
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.motoristaDestaque?.nome).toBe(
+      'Motorista removido da loja',
+    );
+  });
+
+  it('motorista visível não passa pela RPC por causa do KPI', async () => {
+    mockTabelas.rotas = [concluida('c1', 'm1', 'Ana')];
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.motoristaDestaque?.nome).toBe('Ana');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+});
+
 describe('useDashboardData — período "hoje"', () => {
   it('sem filtro de data, lista só as rotas de hoje (não as de amanhã)', async () => {
     const { result } = renderHook(() => useDashboardData());

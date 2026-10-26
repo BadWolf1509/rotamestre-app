@@ -111,20 +111,31 @@ function calcularTempoMedio(rotas: any[]): number {
 }
 
 /**
- * Encontra o motorista com mais rotas concluídas
+ * Encontra o motorista com mais rotas concluídas.
+ * `nomesForaDaLoja`: rotaId → nome que a RPC da Migration 72 devolveu para o
+ * motorista que a RLS esconde (`buscarNomesForaDaLoja`); sem ele, o rótulo é o
+ * mesmo das listas (`nomeMotoristaDaRota`), nunca "Desconhecido".
  */
 function encontrarMotoristaDestaque(
   rotas: any[],
+  nomesForaDaLoja: Map<string, string> = new Map(),
 ): { nome: string; rotasConcluidas: number } | null {
-  const motoristasCount: Record<string, { nome: string; count: number }> = {};
+  const motoristasCount: Record<
+    string,
+    { visivel: string | null; foraDaLoja: string | null; count: number }
+  > = {};
 
   rotas.forEach((rota) => {
     if (rota.status === 'concluida' && rota.motorista_id) {
-      const nome = rota.usuarios?.nome || 'Desconhecido';
-      if (!motoristasCount[rota.motorista_id]) {
-        motoristasCount[rota.motorista_id] = { nome, count: 0 };
-      }
-      motoristasCount[rota.motorista_id].count++;
+      const m = (motoristasCount[rota.motorista_id] ??= {
+        visivel: null,
+        foraDaLoja: null,
+        count: 0,
+      });
+      // O nome vem de qualquer rota do motorista: o visível ganha do da RPC.
+      m.visivel ??= nomeDoEmbed(rota.usuarios);
+      m.foraDaLoja ??= nomesForaDaLoja.get(rota.id) ?? null;
+      m.count++;
     }
   });
 
@@ -132,10 +143,13 @@ function encontrarMotoristaDestaque(
     null;
   let maxRotas = 0;
 
-  Object.values(motoristasCount).forEach((m) => {
+  Object.entries(motoristasCount).forEach(([motoristaId, m]) => {
     if (m.count > maxRotas) {
       maxRotas = m.count;
-      motoristaDestaque = { nome: m.nome, rotasConcluidas: m.count };
+      motoristaDestaque = {
+        nome: nomeMotoristaDaRota(m.visivel, motoristaId, m.foraDaLoja),
+        rotasConcluidas: m.count,
+      };
     }
   });
 
@@ -622,6 +636,21 @@ export function useDashboardData(
         const rotasSemanaData = kpiSemana.error ? null : kpiSemana.data || [];
         const rotasMesData = kpiMes.error ? null : kpiMes.data || [];
 
+        // Só as concluídas sem nome visível vão à RPC (em geral, nenhuma: sem
+        // chamada). Erro dela vira Map vazio e o KPI mostra o rótulo oculto.
+        const nomesDestaque = rotasMesData
+          ? await buscarNomesForaDaLoja(
+              rotasMesData
+                .filter((r) => r.status === 'concluida')
+                .map((r) => ({
+                  id: r.id,
+                  motorista_id: r.motorista_id,
+                  nomeVisivel: nomeDoEmbed(r.usuarios),
+                })),
+            )
+          : new Map<string, string>();
+        if (!vigente()) return;
+
         const listaEhDestaCarga = listaVigente();
         setKpis((anteriores) => ({
           rotasSemana: rotasSemanaData ? rotasSemanaData.length : null,
@@ -630,7 +659,7 @@ export function useDashboardData(
             ? calcularTempoMedio(rotasMesData)
             : null,
           motoristaDestaque: rotasMesData
-            ? encontrarMotoristaDestaque(rotasMesData)
+            ? encontrarMotoristaDestaque(rotasMesData, nomesDestaque)
             : null,
           // Com lista mais nova (evento), os derivados dela continuam valendo.
           ...(listaEhDestaCarga
