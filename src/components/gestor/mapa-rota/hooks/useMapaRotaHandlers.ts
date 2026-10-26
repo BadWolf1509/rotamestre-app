@@ -7,7 +7,14 @@ import { FlatList } from 'react-native';
 
 import type { ShowToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
-import { getTodayISO } from '@/lib/dateUtils';
+import {
+  cancelarRota,
+  MENSAGEM_ROTA_JA_CANCELADA,
+  MENSAGEM_SEM_PERMISSAO_ROTA,
+  reativarRota,
+  type ResultadoCancelarRota,
+  type ResultadoReativarRota,
+} from '@/lib/gestor/acoesRota';
 import {
   mensagemParadaNaoAlteravel,
   podeAlterarParada,
@@ -32,30 +39,10 @@ import type { Parada, Rota } from '../types';
  * sem `.select()` encadeado) — checar só `error` não basta. Por isso todo
  * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui —
  * ou, no UPDATE condicionado ao status da ROTA, por `assertRotaAtualizada`.
+ * Cancelar e reativar não passam por aqui: vão pelas RPCs de `acoesRota`.
  *
- * `esperado` não é sempre 1: o UPDATE de paradas em `handleConfirmReactivate`
- * tem `.neq('status', 'concluida')`, e zero linhas é o resultado CORRETO
- * quando todas já estavam concluídas — nesse caso `esperado` também é zero.
- *
- * A checagem é "afetou ZERO quando devia afetar alguma", não "afetou MENOS
- * que o esperado". Para esse mesmo UPDATE de paradas, `esperado` vem de uma
- * contagem no CLIENTE (`paradasReais`, um snapshot que pode datar de antes
- * do clique) — se outro gestor concluir uma parada nesse meio-tempo, o
- * `.neq('status', 'concluida')` (corretamente) deixa de pegá-la, e o número
- * afetado cai abaixo do esperado sem que nada tenha dado errado. Comparar
- * com `<` alarmava falso ("Erro ao reativar rota" numa reativação que
- * funcionou) e pulava o `loadRotaEParadas()` que traria a tela pro estado
- * real. RLS bloqueia por policy — é tudo ou nada entre as linhas elegíveis
- * de uma mesma unidade — então "zero afetadas" continua sendo o sinal certo
- * de falha real; um número parcial não é.
- *
- * Essa leitura de "RLS é tudo ou nada" está ACOPLADA à forma atual da
- * policy `paradas_update`: ela decide por UNIDADE, a mesma regra pra todas
- * as linhas elegíveis de uma chamada. Se um dia essa policy ganhar um
- * predicado que varie POR LINHA (não só por unidade), a premissa cai — um
- * bloqueio PARCIAL (RLS deixa passar algumas linhas e barra outras da MESMA
- * chamada) passaria por aqui em silêncio, porque a checagem só distingue
- * "zero" de "não-zero", não "todas" de "algumas".
+ * A checagem é "afetou ZERO quando devia afetar alguma" (`esperado > 0`),
+ * não "afetou MENOS que o esperado".
  */
 function assertUpdateAfetouLinhas(
   data: { id: string }[] | null,
@@ -70,11 +57,12 @@ function assertUpdateAfetouLinhas(
 }
 
 /**
- * Aviso para o UPDATE da ROTA que volta com zero linhas. Com o filtro de status
- * (cancelar só aberta, trocar motorista só pendente, reativar só não
- * executada), zero linhas quase sempre é a rota que mudou enquanto a tela
- * estava aberta — mas pode ser RLS, e o cliente não distingue os dois. Nos dois
- * casos o certo é o mesmo: não anunciar sucesso e recarregar o estado real.
+ * Aviso de rota que mudou de situação enquanto a tela estava aberta. Vem de
+ * dois lugares: do resultado `situacao_mudou` das RPCs de cancelar e reativar
+ * (o banco distingue isso de falta de permissão, que tem aviso próprio), e do
+ * UPDATE de trocar motorista (só pendente) que volta com zero linhas — aí pode
+ * ser também RLS, que o cliente não distingue. Nos dois casos o certo é o
+ * mesmo: não anunciar sucesso e recarregar o estado real.
  */
 export const MENSAGEM_ROTA_MUDOU =
   'A rota mudou de situação enquanto a tela estava aberta. A tela foi atualizada.';
@@ -268,117 +256,81 @@ export function useMapaRotaHandlers({
   }, []);
 
   // Route action handlers
+  //
+  // Cancelar e reativar passam pelas RPCs `cancelar_rota`/`reativar_rota`
+  // (Migrations 70 e 71): o banco confere a situação viva da rota e se quem
+  // chama é gestor ativo da loja, e grava rota + paradas (+ log, no reativar)
+  // numa transação. Fora o sucesso, todo resultado recarrega a tela para
+  // mostrar o estado real.
   const handleConfirmCancel = useCallback(async () => {
     const id = getIdString();
     if (!id) return;
 
-    // A RPC atômica `cancelar_rota` segue pendente; até lá, o UPDATE só passa
-    // se a rota ainda estiver aberta (conferido no banco, não no retrato da
-    // tela).
     await comTrava(async () => {
+      let resultado: ResultadoCancelarRota;
       try {
-        const { data, error } = await supabase
-          .from('rotas')
-          .update({ status: 'cancelada' })
-          .eq('id', id)
-          .in('status', ['pendente', 'em_andamento'])
-          .select('id');
-
-        assertRotaAtualizada(data, error);
-
-        showToast('Rota cancelada com sucesso', 'success');
-        await loadRotaEParadas();
+        resultado = await cancelarRota(id);
       } catch (error) {
-        if (await tratarRotaMudou(error)) return;
         logger.error('[useMapaRotaHandlers] Erro ao cancelar rota', error);
         showToast('Erro ao cancelar rota', 'error');
+        return;
       }
+
+      switch (resultado) {
+        case 'cancelada':
+          showToast('Rota cancelada com sucesso', 'success');
+          break;
+        case 'ja_cancelada':
+          // Resposta perdida ou toque duplo: o 1º pedido já cancelou.
+          showToast(MENSAGEM_ROTA_JA_CANCELADA, 'info');
+          break;
+        case 'situacao_mudou':
+          showToast(MENSAGEM_ROTA_MUDOU, 'info');
+          break;
+        case 'sem_permissao':
+          showToast(MENSAGEM_SEM_PERMISSAO_ROTA, 'error');
+          break;
+        default: {
+          const naoTratado: never = resultado;
+          throw new Error(`Resultado não tratado: ${String(naoTratado)}`);
+        }
+      }
+      await loadRotaEParadas();
     });
-  }, [comTrava, getIdString, loadRotaEParadas, showToast, tratarRotaMudou]);
+  }, [comTrava, getIdString, loadRotaEParadas, showToast]);
 
   const handleConfirmReactivate = useCallback(async () => {
     const id = getIdString();
     if (!id) return;
 
     await comTrava(async () => {
+      let resultado: ResultadoReativarRota;
       try {
-        const todayStr = getTodayISO();
-
-        // Só reativa a rota que ainda está 'nao_executada'. O filtro vale para a
-        // ROTA; o UPDATE das paradas abaixo segue como era.
-        const { data: rotaData, error: rotaError } = await supabase
-          .from('rotas')
-          .update({
-            status: 'pendente',
-            data: todayStr,
-            iniciada_em: null,
-            concluida_em: null,
-          })
-          .eq('id', id)
-          .eq('status', 'nao_executada')
-          .select('id');
-
-        assertRotaAtualizada(rotaData, rotaError);
-
-        // `paradasReais` exclui partida e chegada (is_checkpoint=false —
-        // useMapaRotaData.ts:44-47), mas o UPDATE abaixo filtra só por
-        // rota_id + status, sem is_checkpoint — pode afetar até 2 linhas A
-        // MAIS do que esta contagem, se partida/chegada também não
-        // estiverem 'concluida'. Por isso `paradasNaoConcluidas` NÃO é
-        // "quantas linhas o UPDATE deveria afetar": serve só de booleano pra
-        // assertUpdateAfetouLinhas — "havia algo pra reativar?" (`> 0`) vs.
-        // "tudo já estava concluído, zero afetadas é o resultado certo"
-        // (`=== 0`) — nunca uma contagem exata.
-        const paradasNaoConcluidas = paradasReais.filter(
-          (p) => p.status !== 'concluida',
-        ).length;
-
-        const { data: paradasData, error: paradasError } = await supabase
-          .from('paradas')
-          .update({ status: 'pendente', concluida_em: null })
-          .eq('rota_id', id)
-          .neq('status', 'concluida')
-          .select('id');
-
-        // Duas escritas independentes: se a de rotas passou e esta falhar, a
-        // rota já voltou a 'pendente' mas as paradas continuam 'concluida' —
-        // estado inconsistente. Não é seguro anunciar sucesso, nem tentar
-        // desfazer sozinho aqui (não há RPC atômica para isso ainda).
-        assertUpdateAfetouLinhas(
-          paradasData,
-          paradasError,
-          paradasNaoConcluidas,
-          'Nenhuma parada foi reativada (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
-        );
-
-        await supabase.from('logs').insert({
-          usuario_id: userData?.id,
-          rota_id: id,
-          evento: 'rota_reativada',
-          detalhes: {
-            nova_data: todayStr,
-            reativado_por: userData?.nome,
-          },
-        });
-
-        showToast('Rota reativada com sucesso', 'success');
-        await loadRotaEParadas();
+        resultado = await reativarRota(id);
       } catch (error) {
-        if (await tratarRotaMudou(error)) return;
         logger.error('[useMapaRotaHandlers] Erro ao reativar rota', error);
         showToast('Erro ao reativar rota', 'error');
+        return;
       }
+
+      switch (resultado) {
+        case 'reativada':
+          showToast('Rota reativada com sucesso', 'success');
+          break;
+        case 'situacao_mudou':
+          showToast(MENSAGEM_ROTA_MUDOU, 'info');
+          break;
+        case 'sem_permissao':
+          showToast(MENSAGEM_SEM_PERMISSAO_ROTA, 'error');
+          break;
+        default: {
+          const naoTratado: never = resultado;
+          throw new Error(`Resultado não tratado: ${String(naoTratado)}`);
+        }
+      }
+      await loadRotaEParadas();
     });
-  }, [
-    comTrava,
-    tratarRotaMudou,
-    getIdString,
-    loadRotaEParadas,
-    paradasReais,
-    showToast,
-    userData?.id,
-    userData?.nome,
-  ]);
+  }, [comTrava, getIdString, loadRotaEParadas, showToast]);
 
   const handleChangeDriver = useCallback(
     async (newMotoristaId: string, newMotoristaNome: string) => {

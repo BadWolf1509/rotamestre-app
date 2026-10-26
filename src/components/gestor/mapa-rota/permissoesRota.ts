@@ -4,8 +4,11 @@
  * celular/tablet (`AcoesRotaMobile`) leem desta função, para as duas telas não
  * divergirem.
  *
- * Esconder o botão é conforto: quem garante é a escrita condicionada à
- * situação viva em `useMapaRotaHandlers` (a tela pode estar velha).
+ * Esconder o botão é conforto (a tela pode estar velha): quem garante é o
+ * banco. Cancelar e reativar vão pelas RPCs `cancelar_rota`/`reativar_rota`
+ * (`src/lib/gestor/acoesRota.ts`), que conferem a situação viva da rota e a
+ * permissão de gestor; trocar motorista é um UPDATE condicionado à situação
+ * viva em `useMapaRotaHandlers`.
  */
 export interface PermissoesRota {
   cancelar: boolean;

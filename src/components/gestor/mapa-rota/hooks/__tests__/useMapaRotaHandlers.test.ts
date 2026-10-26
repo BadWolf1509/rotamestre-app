@@ -12,6 +12,12 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 
+import {
+  cancelarRota,
+  MENSAGEM_ROTA_JA_CANCELADA,
+  MENSAGEM_SEM_PERMISSAO_ROTA,
+  reativarRota,
+} from '@/lib/gestor/acoesRota';
 import { logger } from '@/lib/logger';
 import {
   recalcularRota,
@@ -47,6 +53,15 @@ jest.mock('@/lib/routeUtils', () => ({
   recalcularRota: jest.fn(),
   notificarMotoristaRotaEditada: jest.fn(),
 }));
+
+// Só as chamadas às RPCs viram mock; as mensagens ficam as reais.
+jest.mock('@/lib/gestor/acoesRota', () => ({
+  ...jest.requireActual('@/lib/gestor/acoesRota'),
+  cancelarRota: jest.fn(),
+  reativarRota: jest.fn(),
+}));
+const mockCancelarRota = cancelarRota as jest.Mock;
+const mockReativarRota = reativarRota as jest.Mock;
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -438,14 +453,12 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
 });
 
 // ============================================================================
-// cancelar / reativar rota — revisão do PR #480: nenhum dos dois checava o
-// resultado do UPDATE. `await supabase....update(...).eq(...)` sem
-// desestruturar `error` resolve normalmente mesmo quando o servidor recusa a
-// escrita (RLS, etc.) — nunca lança. E checar só `error` não basta: um UPDATE
-// barrado por RLS pode devolver 204 com ZERO linhas e `error: null` (Prefer:
-// return=minimal não distingue "0 linhas" de "N linhas" sem `.select()`
-// encadeado). Por isso todo caso aqui verifica `data` devolvido, não só
-// ausência de erro.
+// cancelar / reativar rota — pelas RPCs `cancelar_rota` (Migration 70) e
+// `reativar_rota` (Migration 71). Quem confere a situação viva da rota e a
+// permissão é o banco, numa transação só; o hook escolhe o aviso e a recarga
+// para cada resultado do conjunto fechado. Os testes antigos de UPDATE direto
+// (filtro de status, contagem de linhas de paradas, log no cliente) exigiam o
+// caminho de duas escritas independentes e saíram com ele.
 // ============================================================================
 
 describe('useMapaRotaHandlers — cancelar rota', () => {
@@ -454,10 +467,6 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
     data: '2026-06-22',
     status: 'em_andamento',
   };
-
-  let mockRotasSelect: jest.Mock;
-  let cadeiaRotas: CadeiaUpdate;
-  let mockRotasUpdate: jest.Mock;
 
   const setupCancelar = (
     loadRotaEParadas: jest.Mock = jest.fn().mockResolvedValue(undefined),
@@ -478,59 +487,100 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRotasSelect = jest.fn();
-    cadeiaRotas = criarCadeiaUpdate(mockRotasSelect);
-    mockRotasUpdate = jest.fn(() => cadeiaRotas);
-    (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table === 'rotas') {
-        return { update: mockRotasUpdate };
-      }
-      return { insert: jest.fn().mockResolvedValue({ error: null }) };
-    });
   });
 
-  it('cancelar filtra por status aberto', async () => {
-    mockRotasSelect.mockResolvedValue({
-      data: [{ id: 'rota-1' }],
-      error: null,
-    });
-    const { result } = setupCancelar();
-
-    await act(async () => {
-      await result.current.handleConfirmCancel();
-    });
-
-    expect(cadeiaRotas.eq).toHaveBeenCalledWith('id', 'rota-1');
-    expect(cadeiaRotas.in).toHaveBeenCalledWith('status', [
-      'pendente',
-      'em_andamento',
-    ]);
-  });
-
-  // Antes do GES-4 este teste exigia toast de erro e NENHUMA recarga para
-  // zero linhas. Com o UPDATE condicionado ao status, zero linhas passou a
-  // significar também "a rota mudou de situação" (concluída, cancelada por
-  // outro gestor) — e o cliente não distingue isso de RLS. A tela então avisa
-  // e recarrega, para mostrar o estado real; nunca anuncia sucesso.
-  it('zero linhas (RLS ou rota mudou de situação): avisa, recarrega e não anuncia sucesso', async () => {
-    mockRotasSelect.mockResolvedValue({ data: [], error: null });
+  it("'cancelada': toast de sucesso e recarrega", async () => {
+    mockCancelarRota.mockResolvedValue('cancelada');
     const { result, loadRotaEParadas } = setupCancelar();
 
     await act(async () => {
       await result.current.handleConfirmCancel();
     });
 
+    expect(mockCancelarRota).toHaveBeenCalledWith('rota-1');
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Rota cancelada com sucesso',
+      'success',
+    );
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
+  // Resposta perdida ou toque duplo atravessando a trava (outra aba): a 2ª
+  // chamada encontra a rota já cancelada. Não é "situação mudou" nem erro.
+  it("'ja_cancelada': aviso informativo, recarrega, sem toast de sucesso", async () => {
+    mockCancelarRota.mockResolvedValue('ja_cancelada');
+    const { result, loadRotaEParadas } = setupCancelar();
+
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      MENSAGEM_ROTA_JA_CANCELADA,
+      'info',
+    );
     expect(mockShowToast).not.toHaveBeenCalledWith(
       'Rota cancelada com sucesso',
       'success',
     );
-    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_ROTA_MUDOU, 'info');
     expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
   });
 
-  it('toque duplo executa uma vez e acaoEmVoo acompanha a ação', async () => {
-    const adiada = promessaAdiada<{ data: { id: string }[]; error: null }>();
-    mockRotasSelect.mockReturnValue(adiada.promessa);
+  it("'situacao_mudou': MENSAGEM_ROTA_MUDOU e recarrega", async () => {
+    mockCancelarRota.mockResolvedValue('situacao_mudou');
+    const { result, loadRotaEParadas } = setupCancelar();
+
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_ROTA_MUDOU, 'info');
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
+  it("'sem_permissao': MENSAGEM_SEM_PERMISSAO_ROTA como erro e recarrega", async () => {
+    mockCancelarRota.mockResolvedValue('sem_permissao');
+    const { result, loadRotaEParadas } = setupCancelar();
+
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      MENSAGEM_SEM_PERMISSAO_ROTA,
+      'error',
+    );
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
+  it("erro lançado: 'Erro ao cancelar rota', logger.error, sem recarregar", async () => {
+    const erro = new Error('rede');
+    mockCancelarRota.mockRejectedValue(erro);
+    const { result, loadRotaEParadas } = setupCancelar();
+
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('Erro ao cancelar rota', 'error');
+    expect(mockShowToast).not.toHaveBeenCalledWith(
+      'Rota cancelada com sucesso',
+      'success',
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      '[useMapaRotaHandlers] Erro ao cancelar rota',
+      erro,
+    );
+    expect(loadRotaEParadas).not.toHaveBeenCalled();
+    // A trava solta depois da falha: uma nova tentativa executa.
+    expect(result.current.acaoEmVoo).toBe(false);
+  });
+
+  it('toque duplo chama cancelarRota uma vez e acaoEmVoo acompanha', async () => {
+    const adiada = promessaAdiada<'cancelada'>();
+    mockCancelarRota.mockReturnValue(adiada.promessa);
     const { result } = setupCancelar();
 
     expect(result.current.acaoEmVoo).toBe(false);
@@ -545,95 +595,46 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
     expect(result.current.acaoEmVoo).toBe(true);
 
     await act(async () => {
-      adiada.resolver({ data: [{ id: 'rota-1' }], error: null });
+      adiada.resolver('cancelada');
       await primeira;
       await segunda;
     });
 
-    expect(mockRotasUpdate).toHaveBeenCalledTimes(1);
+    expect(mockCancelarRota).toHaveBeenCalledTimes(1);
     expect(result.current.acaoEmVoo).toBe(false);
   });
 
-  it('acaoEmVoo volta a false quando a ação falha', async () => {
-    mockRotasSelect.mockResolvedValue({
-      data: null,
-      error: { message: 'boom' },
-    });
+  it('não faz UPDATE direto em rotas nem em paradas', async () => {
+    mockCancelarRota.mockResolvedValue('cancelada');
     const { result } = setupCancelar();
 
     await act(async () => {
       await result.current.handleConfirmCancel();
     });
 
-    expect(result.current.acaoEmVoo).toBe(false);
-    // Depois de terminar, a trava solta: uma nova tentativa executa.
-    await act(async () => {
-      await result.current.handleConfirmCancel();
-    });
-    expect(mockRotasUpdate).toHaveBeenCalledTimes(2);
-  });
-
-  it('erro explícito do Supabase: não anuncia sucesso', async () => {
-    mockRotasSelect.mockResolvedValue({
-      data: null,
-      error: { message: 'boom' },
-    });
-    const { result, loadRotaEParadas } = setupCancelar();
-
-    await act(async () => {
-      await result.current.handleConfirmCancel();
-    });
-
-    expect(mockShowToast).not.toHaveBeenCalledWith(
-      'Rota cancelada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).not.toHaveBeenCalled();
-  });
-
-  it('UPDATE realmente afeta 1 linha: anuncia sucesso e recarrega', async () => {
-    mockRotasSelect.mockResolvedValue({
-      data: [{ id: 'rota-1' }],
-      error: null,
-    });
-    const { result, loadRotaEParadas } = setupCancelar();
-
-    await act(async () => {
-      await result.current.handleConfirmCancel();
-    });
-
-    expect(mockShowToast).toHaveBeenCalledWith(
-      'Rota cancelada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+    expect(supabase.from).not.toHaveBeenCalledWith('rotas');
+    expect(supabase.from).not.toHaveBeenCalledWith('paradas');
   });
 });
 
 describe('useMapaRotaHandlers — reativar rota', () => {
-  const rotaConcluida: Rota = {
+  const rotaNaoExecutada: Rota = {
     id: 'rota-1',
     data: '2026-06-22',
     status: 'nao_executada',
   };
 
-  let mockRotasSelect: jest.Mock;
-  let mockParadasSelect: jest.Mock;
-  let mockLogInsert: jest.Mock;
-  let cadeiaRotas: CadeiaUpdate;
-  let cadeiaParadas: CadeiaUpdate;
-
   const setupReativar = (
-    paradasReais: Parada[],
     loadRotaEParadas: jest.Mock = jest.fn().mockResolvedValue(undefined),
   ) => {
+    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
     const { result } = renderHook(() =>
       useMapaRotaHandlers({
         showToast: mockShowToast,
         rotaId: 'rota-1',
-        rota: rotaConcluida,
-        paradas: paradasReais,
-        paradasReais,
+        rota: rotaNaoExecutada,
+        paradas,
+        paradasReais: paradas,
         enderecoUnidade: { latitude: -23.5, longitude: -46.6 },
         loadRotaEParadas,
       }),
@@ -643,72 +644,68 @@ describe('useMapaRotaHandlers — reativar rota', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockRotasSelect = jest
-      .fn()
-      .mockResolvedValue({ data: [{ id: 'rota-1' }], error: null });
-    mockParadasSelect = jest
-      .fn()
-      .mockResolvedValue({ data: [{ id: 'p1' }, { id: 'p2' }], error: null });
-    mockLogInsert = jest.fn().mockResolvedValue({ error: null });
-    cadeiaRotas = criarCadeiaUpdate(mockRotasSelect);
-    cadeiaParadas = criarCadeiaUpdate(mockParadasSelect);
-
-    (supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table === 'rotas') {
-        return { update: jest.fn(() => cadeiaRotas) };
-      }
-      if (table === 'paradas') {
-        return { update: jest.fn(() => cadeiaParadas) };
-      }
-      if (table === 'logs') {
-        return { insert: mockLogInsert };
-      }
-      return {};
-    });
   });
 
-  it('reativar exige rota não executada', async () => {
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result } = setupReativar(paradas);
+  it("'reativada': toast de sucesso e recarrega; não insere log no cliente", async () => {
+    mockReativarRota.mockResolvedValue('reativada');
+    const { result, loadRotaEParadas } = setupReativar();
 
     await act(async () => {
       await result.current.handleConfirmReactivate();
     });
 
-    expect(cadeiaRotas.eq).toHaveBeenCalledWith('id', 'rota-1');
-    expect(cadeiaRotas.eq).toHaveBeenCalledWith('status', 'nao_executada');
-    // O UPDATE das paradas continua como era (fora do escopo do GES-4).
-    expect(cadeiaParadas.eq).toHaveBeenCalledWith('rota_id', 'rota-1');
-    expect(cadeiaParadas.neq).toHaveBeenCalledWith('status', 'concluida');
-  });
-
-  // Antes do GES-4 este teste exigia que zero linhas não recarregasse. Agora
-  // zero linhas também significa "a rota mudou de situação" (o cliente não
-  // distingue de RLS): avisa e recarrega, sem tocar nas paradas.
-  it('zero linhas no UPDATE de rotas: nem tenta paradas, avisa e recarrega, sem log', async () => {
-    mockRotasSelect.mockResolvedValue({ data: [], error: null });
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result, loadRotaEParadas } = setupReativar(paradas);
-
-    await act(async () => {
-      await result.current.handleConfirmReactivate();
-    });
-
-    expect(mockParadasSelect).not.toHaveBeenCalled();
-    expect(mockLogInsert).not.toHaveBeenCalled();
-    expect(mockShowToast).not.toHaveBeenCalledWith(
+    expect(mockReativarRota).toHaveBeenCalledWith('rota-1');
+    expect(mockShowToast).toHaveBeenCalledWith(
       'Rota reativada com sucesso',
       'success',
     );
-    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_ROTA_MUDOU, 'info');
     expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+    // O log `rota_reativada` é gravado pela RPC, na mesma transação.
+    expect(supabase.from).not.toHaveBeenCalledWith('logs');
+    expect(supabase.from).not.toHaveBeenCalledWith('rotas');
+    expect(supabase.from).not.toHaveBeenCalledWith('paradas');
   });
 
-  it('toque duplo executa uma vez (1 log)', async () => {
-    const adiada = promessaAdiada<{ data: { id: string }[]; error: null }>();
-    mockRotasSelect.mockReturnValue(adiada.promessa);
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result } = setupReativar(paradas);
+  it.each([
+    ['situacao_mudou', MENSAGEM_ROTA_MUDOU, 'info'],
+    ['sem_permissao', MENSAGEM_SEM_PERMISSAO_ROTA, 'error'],
+  ] as const)(
+    "'%s': aviso próprio e recarrega, sem toast de sucesso",
+    async (resultado, mensagem, tipo) => {
+      mockReativarRota.mockResolvedValue(resultado);
+      const { result, loadRotaEParadas } = setupReativar();
+
+      await act(async () => {
+        await result.current.handleConfirmReactivate();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(mensagem, tipo);
+      expect(mockShowToast).toHaveBeenCalledTimes(1);
+      expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("erro lançado: 'Erro ao reativar rota', sem recarregar", async () => {
+    const erro = new Error('rede');
+    mockReativarRota.mockRejectedValue(erro);
+    const { result, loadRotaEParadas } = setupReativar();
+
+    await act(async () => {
+      await result.current.handleConfirmReactivate();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith('Erro ao reativar rota', 'error');
+    expect(logger.error).toHaveBeenCalledWith(
+      '[useMapaRotaHandlers] Erro ao reativar rota',
+      erro,
+    );
+    expect(loadRotaEParadas).not.toHaveBeenCalled();
+  });
+
+  it('toque duplo chama reativarRota uma vez', async () => {
+    const adiada = promessaAdiada<'reativada'>();
+    mockReativarRota.mockReturnValue(adiada.promessa);
+    const { result } = setupReativar();
 
     let primeira!: Promise<void>;
     let segunda!: Promise<void>;
@@ -719,119 +716,13 @@ describe('useMapaRotaHandlers — reativar rota', () => {
     expect(result.current.acaoEmVoo).toBe(true);
 
     await act(async () => {
-      adiada.resolver({ data: [{ id: 'rota-1' }], error: null });
+      adiada.resolver('reativada');
       await primeira;
       await segunda;
     });
 
-    expect(mockLogInsert).toHaveBeenCalledTimes(1);
+    expect(mockReativarRota).toHaveBeenCalledTimes(1);
     expect(result.current.acaoEmVoo).toBe(false);
-  });
-
-  // O bug descrito na revisão: rotas passa, paradas falha (erro de verdade) —
-  // a rota volta a 'pendente' mas as paradas continuam 'concluida'. Estado
-  // inconsistente não pode ser anunciado como sucesso.
-  it('rotas OK mas paradas falham (erro de verdade): não anuncia sucesso', async () => {
-    mockParadasSelect.mockResolvedValue({
-      data: null,
-      error: { message: 'boom' },
-    });
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result, loadRotaEParadas } = setupReativar(paradas);
-
-    await act(async () => {
-      await result.current.handleConfirmReactivate();
-    });
-
-    expect(mockShowToast).not.toHaveBeenCalledWith(
-      'Rota reativada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).not.toHaveBeenCalled();
-  });
-
-  // Caso sutil, diferente de "erro de verdade": RLS bloqueia o UPDATE de
-  // paradas devolvendo 204 com MENOS linhas do que o esperado (zero, aqui) e
-  // `error: null`. Diferente do cancelar, zero linhas não é SEMPRE falha
-  // nesta tabela (ver o teste seguinte) — por isso a comparação é contra o
-  // número de paradas não-concluídas em `paradasReais`, não contra `> 0`.
-  it('RLS barra o UPDATE de paradas (0 linhas quando deveria haver 2): não anuncia sucesso', async () => {
-    mockParadasSelect.mockResolvedValue({ data: [], error: null });
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result, loadRotaEParadas } = setupReativar(paradas);
-
-    await act(async () => {
-      await result.current.handleConfirmReactivate();
-    });
-
-    expect(mockShowToast).not.toHaveBeenCalledWith(
-      'Rota reativada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).not.toHaveBeenCalled();
-  });
-
-  // Regressão do item 5 (fix-report-2.md, PR #480): `paradasReais` é um
-  // snapshot do CLIENTE. Se outro gestor concluir uma parada entre o
-  // carregamento da tela e este clique, `.neq('status', 'concluida')`
-  // (corretamente) deixa de pegá-la, e o UPDATE afeta MENOS linhas do que
-  // `paradasReais` fazia crer — sem que nada tenha dado errado. Antes desta
-  // correção, comparar `afetado < esperado` (2 esperadas, 1 afetada) lançava
-  // um falso "Erro ao reativar rota" numa reativação que na verdade
-  // funcionou, e pulava o `loadRotaEParadas()` que traria a tela pro estado
-  // real.
-  it('outro gestor concluiu 1 parada nesse meio-tempo (1 afetada de 2 esperadas): ainda anuncia sucesso', async () => {
-    mockParadasSelect.mockResolvedValue({ data: [{ id: 'p1' }], error: null });
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result, loadRotaEParadas } = setupReativar(paradas);
-
-    await act(async () => {
-      await result.current.handleConfirmReactivate();
-    });
-
-    expect(mockShowToast).toHaveBeenCalledWith(
-      'Rota reativada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
-  });
-
-  // Prova de que a checagem não é ingênua (`data.length > 0` fixo): quando
-  // TODAS as paradas já estavam concluídas, o filtro
-  // `.neq('status', 'concluida')` legitimamente não bate em nenhuma linha —
-  // zero é o resultado CORRETO aqui, não uma falha de RLS.
-  it('todas as paradas já concluídas: zero linhas é esperado, ainda anuncia sucesso', async () => {
-    mockParadasSelect.mockResolvedValue({ data: [], error: null });
-    const paradas: Parada[] = [
-      { ...makeParada('p1', 1), status: 'concluida' },
-      { ...makeParada('p2', 2), status: 'concluida' },
-    ];
-    const { result, loadRotaEParadas } = setupReativar(paradas);
-
-    await act(async () => {
-      await result.current.handleConfirmReactivate();
-    });
-
-    expect(mockShowToast).toHaveBeenCalledWith(
-      'Rota reativada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
-  });
-
-  it('rotas e paradas OK: anuncia sucesso e recarrega', async () => {
-    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
-    const { result, loadRotaEParadas } = setupReativar(paradas);
-
-    await act(async () => {
-      await result.current.handleConfirmReactivate();
-    });
-
-    expect(mockShowToast).toHaveBeenCalledWith(
-      'Rota reativada com sucesso',
-      'success',
-    );
-    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
   });
 });
 
