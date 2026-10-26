@@ -28,6 +28,10 @@ import { useAlert } from '@/hooks/useAlert';
 import { useDriverLocationBroadcast } from '@/hooks/useDriverLocationBroadcast';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
+import {
+  ehRecusaPorRotaEncerrada,
+  MENSAGEM_RETOMAR_ROTA_ENCERRADA,
+} from '@/lib/motorista/recusaRotaEncerrada';
 import { paradasDaVisita } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
@@ -173,6 +177,13 @@ export default function CheckpointsMotorista() {
 
   const retomarParada = useCallback(
     async (parada: Parada) => {
+      // Rota encerrada (ainda na tela por um tempo depois do Finalizar):
+      // a parada reaberta não teria mais como ser concluída nem pulada.
+      if (route?.status !== 'em_andamento') {
+        showWarning('Rota encerrada', MENSAGEM_RETOMAR_ROTA_ENCERRADA);
+        return;
+      }
+
       const confirmed = await showConfirm({
         title: 'Retomar Parada',
         message: `Deseja retomar esta ${parada.tipo}?\n\n${parada.endereco}\n\nA parada voltará para o status "pendente".`,
@@ -184,8 +195,20 @@ export default function CheckpointsMotorista() {
 
       setRetomandoParada(parada.id);
       try {
-        const result = await updateParadaStatus(parada.id, 'pendente');
-        if (!result.success) throw result.error;
+        // O pulo grava sua hora em `concluida_em`; a parada reaberta não tem.
+        const result = await updateParadaStatus(parada.id, 'pendente', {
+          concluida_em: null,
+        });
+        if (!result.success) {
+          // O banco recusa mudar parada de rota encerrada (encerrada entre o
+          // carregamento da tela e o toque): explica e mostra o estado real.
+          if (ehRecusaPorRotaEncerrada(result.error)) {
+            showWarning('Rota encerrada', MENSAGEM_RETOMAR_ROTA_ENCERRADA);
+            refreshRoute();
+            return;
+          }
+          throw result.error;
+        }
 
         // Log é fire-and-forget (não bloqueia a operação)
         logParadaAction(userData!.id, parada.id, route!.id, 'parada_retomada', {
@@ -203,7 +226,15 @@ export default function CheckpointsMotorista() {
         setRetomandoParada(null);
       }
     },
-    [userData, route, refreshRoute, showConfirm, showSuccess, showError],
+    [
+      userData,
+      route,
+      refreshRoute,
+      showConfirm,
+      showSuccess,
+      showError,
+      showWarning,
+    ],
   );
 
   const onRefresh = useCallback(async () => {

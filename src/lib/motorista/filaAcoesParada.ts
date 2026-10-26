@@ -64,7 +64,12 @@ export interface AcaoParada {
   rotaId: string;
   /** Dono da rota no momento da ação; só a sessão dele envia. */
   motoristaId: string;
-  /** Momento da ação no aparelho (vira `concluida_em`). */
+  /**
+   * Momento da ação no aparelho. Vira `concluida_em` no concluir E no pular:
+   * é o campo que a linha do tempo do gestor lê para os dois, e offline é o
+   * único registro da hora real (o `updated_at` marca a sincronização). Quem
+   * conta "concluída" olha o `status`; o retomar limpa o campo.
+   */
   em: string;
   motivo?: MotivoSkip;
   /**
@@ -251,7 +256,7 @@ export function sobreporAcoesPendentes<
     return {
       ...p,
       status: acao.tipo === 'concluir' ? 'concluida' : 'pulada',
-      ...(acao.tipo === 'concluir' ? { concluida_em: acao.em } : {}),
+      concluida_em: acao.em,
     };
   });
   return { paradas: sobrepostas, pendentes };
@@ -356,6 +361,7 @@ function dadosDaAcao(acao: AcaoParada): Record<string, unknown> {
     status: 'pulada',
     motivo_skip: acao.motivo ?? 'outro',
     observacao_pulo: acao.observacoes || null,
+    concluida_em: acao.em,
   };
 }
 

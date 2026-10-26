@@ -249,6 +249,7 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
           status: 'pulada',
           motivo_skip: 'outro',
           observacao_pulo: 'Portão fechado',
+          concluida_em: '2026-10-23T12:00:00.000Z',
         },
       ]);
       expect(enviados[0]).not.toHaveProperty('observacoes');
@@ -260,7 +261,12 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
       const enviados = capturarDados(banco);
       await aplicarAcaoParada(pularP1({ motivo: 'recusa' }), banco.porta);
       expect(enviados).toEqual([
-        { status: 'pulada', motivo_skip: 'recusa', observacao_pulo: null },
+        {
+          status: 'pulada',
+          motivo_skip: 'recusa',
+          observacao_pulo: null,
+          concluida_em: '2026-10-23T12:00:00.000Z',
+        },
       ]);
       expect(banco.paradas.get('p1')!.observacao_pulo).toBeNull();
     });
@@ -296,6 +302,8 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
         status: 'pulada',
         motivo_skip: 'cliente_ausente',
         observacao_pulo: 'Ficou para tarde',
+        // O horário real do pulo, não o da sincronização
+        concluida_em: '2026-10-25T18:00:00.000Z',
       });
       expect(banco.paradas.get('p1')).toMatchObject({
         observacoes: 'Ligar antes',
@@ -704,6 +712,10 @@ describe('sobreporAcoesPendentes (o que a tela mostra enquanto não sobe)', () =
       'pendente',
     ]);
     expect([...r.pendentes]).toEqual(['p1', 'p2']);
+    // O pulo também mostra o horário da ação (a linha do tempo o lê)
+    expect(r.paradas[1]).toMatchObject({
+      concluida_em: '2026-10-23T12:01:00.000Z',
+    });
   });
 
   it('ignora ação de outra rota e não troca a identidade sem fila', () => {

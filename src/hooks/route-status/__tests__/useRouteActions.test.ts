@@ -423,6 +423,7 @@ describe('skipStop', () => {
       status: 'pulada',
       motivo_skip: 'recusa',
       observacao_pulo: null,
+      concluida_em: expect.any(String),
     });
     expect(porta.avancarProxima).toHaveBeenCalledWith('route-1');
     expect(loadActiveRoute).toHaveBeenCalled();
@@ -439,6 +440,7 @@ describe('skipStop', () => {
       status: 'pulada',
       motivo_skip: 'outro',
       observacao_pulo: 'Chuva forte',
+      concluida_em: expect.any(String),
     });
   });
 });
