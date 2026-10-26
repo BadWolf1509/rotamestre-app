@@ -338,7 +338,7 @@ export default function GestaoRotas() {
       {desktopStats}
       <View style={styles.cardHeaderButtons}>
         {/* Export dropdown — desktop */}
-        <View ref={exportMenuRef}>
+        <View ref={exportMenuRef} style={{ zIndex: 100 }}>
           <TouchableOpacity
             style={styles.cardHeaderButtonSecondary}
             onPress={() => setShowExportMenu((prev) => !prev)}

@@ -44,11 +44,20 @@ export function DesktopCard({
   return (
     <CardWrapper style={cardStyles} onPress={onPress} activeOpacity={0.95}>
       {(title || subtitle || icon || actions) && (
-        <View style={styles.header}>
+        <View testID="desktop-card-header" style={styles.header}>
           <View style={styles.headerLeft}>
             {icon && (
-              <View style={[styles.iconContainer, iconColor && { backgroundColor: iconColor + '15' }]}>
-                <Ionicons name={icon} size={theme.components.desktopCard.iconSize} color={iconColor || theme.colors.primary} />
+              <View
+                style={[
+                  styles.iconContainer,
+                  iconColor && { backgroundColor: iconColor + '15' },
+                ]}
+              >
+                <Ionicons
+                  name={icon}
+                  size={theme.components.desktopCard.iconSize}
+                  color={iconColor || theme.colors.primary}
+                />
               </View>
             )}
             <View style={styles.headerText}>
@@ -59,7 +68,10 @@ export function DesktopCard({
           {actions && <View style={styles.actions}>{actions}</View>}
         </View>
       )}
-      <View style={[styles.content, noPadding && styles.contentNoPadding]}>
+      <View
+        testID="desktop-card-content"
+        style={[styles.content, noPadding && styles.contentNoPadding]}
+      >
         {children}
       </View>
     </CardWrapper>
@@ -76,19 +88,16 @@ interface DesktopCardGridProps {
 export function DesktopCardGrid({
   columns = 3,
   gap = 24,
-  children
+  children,
 }: DesktopCardGridProps) {
   return (
     <View style={[styles.grid, { gap }]}>
       {React.Children.map(children, (child) => (
-        <View style={[styles.gridItem, { flex: 1 / columns }]}>
-          {child}
-        </View>
+        <View style={[styles.gridItem, { flex: 1 / columns }]}>{child}</View>
       ))}
     </View>
   );
 }
-
 
 const styles = StyleSheet.create((theme: Theme) => ({
   // Card Styles
@@ -111,6 +120,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.components.desktopCard.headerPadding,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray100,
+    // Menu suspenso nas `actions` (ex.: Exportar) precisa abrir por cima do
+    // conteúdo: no web cada View é um contexto de empilhamento, e o zIndex do
+    // menu não sai do cabeçalho. Abaixo do cabeçalho da página (50).
+    zIndex: 1,
   },
   headerLeft: {
     flexDirection: 'row',
