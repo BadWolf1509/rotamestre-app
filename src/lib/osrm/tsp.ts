@@ -1,8 +1,12 @@
 /**
  * TSP (Travelling Salesman Problem) solver for route optimization.
  *
- * Uses brute-force for small instances (<=10 waypoints) and
- * nearest-neighbor + 2-opt heuristic for larger ones.
+ * Exato até 10 locais (força bruta até 7, Held-Karp de 8 a 10) e
+ * vizinho-mais-próximo + 2-opt acima disso.
+ *
+ * A matriz vem do OSRM (distância por estrada) e é ASSIMÉTRICA: ida e volta
+ * entre dois pontos diferem por mão única e conversões. Tudo aqui calcula o
+ * custo pelo sentido real de cada trecho.
  */
 
 /**
@@ -13,6 +17,24 @@
  * 1e9 m × dezenas de trechos segue muito abaixo de 2^53.
  */
 export const CUSTO_INALCANCAVEL = 1e9;
+
+/**
+ * Até quantos locais a força bruta (Heap) roda: 7! = 5.040 permutações. Acima
+ * disso o fatorial explode (10! = 3,6 milhões, segundos no Hermes, que não
+ * tem JIT) e o ótimo sai pelo Held-Karp.
+ */
+const LIMITE_FORCA_BRUTA = 7;
+
+/** Até quantos locais o ótimo exato sai pelo Held-Karp (2^10 × 10² passos). */
+const LIMITE_EXATO = 10;
+
+/**
+ * Teto de passadas do 2-opt. Com o ganho calculado pelo sentido real das
+ * arestas, cada inversão aceita encurta o percurso de verdade, então o laço
+ * termina sozinho (medido: até 13 passadas com 40 locais). O teto é só rede de
+ * segurança: a conta roda síncrona na thread da interface.
+ */
+const MAX_PASSADAS_2OPT = 200;
 
 export interface TSPResult {
   /** Ordered indices of waypoints (excludes origin) */
@@ -102,31 +124,82 @@ function bruteForceTSP(
 }
 
 /**
- * Calculate the change in distance from reversing segment [i..j] in the order.
- * Returns negative value if the reversal improves the tour.
+ * Ótimo exato por programação dinâmica (Held-Karp): O(n²·2ⁿ). Com 10 locais
+ * são ~100 mil passos, contra os ~40 milhões da força bruta. Vale para matriz
+ * assimétrica (cada trecho é lido no sentido em que é percorrido).
  */
-function twoOptDelta(
+function heldKarpTSP(
   distances: number[][],
   origin: number,
-  order: number[],
-  i: number,
-  j: number,
-): number {
-  const n = order.length;
-  const prevI = i === 0 ? origin : order[i - 1];
-  const nextJ = j === n - 1 ? origin : order[j + 1];
+  waypoints: number[],
+): ResultadoDaBusca {
+  const n = waypoints.length;
+  const totalMascaras = 1 << n;
+  // custo[mascara * n + ultimo]: menor custo saindo da origem, visitando os
+  // locais da máscara e terminando em `ultimo` (que está na máscara).
+  const custo = new Float64Array(totalMascaras * n).fill(Infinity);
+  const anterior = new Int8Array(totalMascaras * n).fill(-1);
 
-  // Current edges: prevI -> order[i] and order[j] -> nextJ
-  const oldDist = distances[prevI][order[i]] + distances[order[j]][nextJ];
-  // New edges after reversal: prevI -> order[j] and order[i] -> nextJ
-  const newDist = distances[prevI][order[j]] + distances[order[i]][nextJ];
+  for (let k = 0; k < n; k++) {
+    custo[(1 << k) * n + k] = distances[origin][waypoints[k]];
+  }
 
-  return newDist - oldDist;
+  for (let mascara = 1; mascara < totalMascaras; mascara++) {
+    for (let ultimo = 0; ultimo < n; ultimo++) {
+      if (!(mascara & (1 << ultimo))) continue;
+      const atual = custo[mascara * n + ultimo];
+      if (atual === Infinity) continue;
+      for (let proximo = 0; proximo < n; proximo++) {
+        if (mascara & (1 << proximo)) continue;
+        const nova = mascara | (1 << proximo);
+        const candidato =
+          atual + distances[waypoints[ultimo]][waypoints[proximo]];
+        if (candidato < custo[nova * n + proximo]) {
+          custo[nova * n + proximo] = candidato;
+          anterior[nova * n + proximo] = ultimo;
+        }
+      }
+    }
+  }
+
+  const cheia = totalMascaras - 1;
+  let melhorUltimo = 0;
+  let melhorTotal = Infinity;
+  for (let ultimo = 0; ultimo < n; ultimo++) {
+    const total =
+      custo[cheia * n + ultimo] + distances[waypoints[ultimo]][origin];
+    if (total < melhorTotal) {
+      melhorTotal = total;
+      melhorUltimo = ultimo;
+    }
+  }
+
+  const ordem: number[] = [];
+  let mascara = cheia;
+  let ultimo = melhorUltimo;
+  while (ultimo !== -1) {
+    ordem.push(waypoints[ultimo]);
+    const antes = anterior[mascara * n + ultimo];
+    mascara &= ~(1 << ultimo);
+    ultimo = antes;
+  }
+  ordem.reverse();
+
+  // Total recalculado pela ordem, para bater com tourDistance ao centavo.
+  return {
+    order: ordem,
+    totalDistance: tourDistance(distances, origin, ordem),
+  };
 }
 
 /**
- * 2-opt local search: iteratively reverse segments to reduce total distance.
- * Returns improved order.
+ * 2-opt local search: inverte trechos enquanto o percurso REAL encurtar.
+ *
+ * Inverter o trecho [i..j] troca as duas arestas das pontas E percorre cada
+ * aresta interna no sentido oposto. Em matriz assimétrica o ganho só sai certo
+ * somando as internas nos dois sentidos — a fórmula das pontas (a do TSP
+ * simétrico) aceitava inversões que não encurtavam e o laço girava em ciclo.
+ * As somas internas são acumuladas ao avançar `j`, então cada par custa O(1).
  */
 function twoOpt(
   distances: number[][],
@@ -134,15 +207,33 @@ function twoOpt(
   order: number[],
 ): number[] {
   const result = [...order];
+  const n = result.length;
   let improved = true;
+  let passadas = 0;
 
-  while (improved) {
+  while (improved && passadas < MAX_PASSADAS_2OPT) {
     improved = false;
-    for (let i = 0; i < result.length - 1; i++) {
-      for (let j = i + 1; j < result.length; j++) {
-        const delta = twoOptDelta(distances, origin, result, i, j);
-        if (delta < -0.01) {
-          // Reverse segment [i..j]
+    passadas++;
+    for (let i = 0; i < n - 1; i++) {
+      const prevI = i === 0 ? origin : result[i - 1];
+      // Soma das arestas internas de [i..j] no sentido atual e no invertido.
+      let internaIda = 0;
+      let internaVolta = 0;
+      for (let j = i + 1; j < n; j++) {
+        internaIda += distances[result[j - 1]][result[j]];
+        internaVolta += distances[result[j]][result[j - 1]];
+        const nextJ = j === n - 1 ? origin : result[j + 1];
+
+        const antes =
+          distances[prevI][result[i]] +
+          internaIda +
+          distances[result[j]][nextJ];
+        const depois =
+          distances[prevI][result[j]] +
+          internaVolta +
+          distances[result[i]][nextJ];
+
+        if (depois - antes < -0.01) {
           let left = i;
           let right = j;
           while (left < right) {
@@ -152,6 +243,10 @@ function twoOpt(
             left++;
             right--;
           }
+          // O trecho agora corre ao contrário: as somas trocam de papel.
+          const tmp = internaIda;
+          internaIda = internaVolta;
+          internaVolta = tmp;
           improved = true;
         }
       }
@@ -219,11 +314,14 @@ export function solveTSP(
     return { order: [], totalDistance: 0, resolvida: true };
   }
 
-  // Brute-force threshold: up to 10 waypoints (11x11 matrix)
-  const busca =
-    waypoints.length < 11
-      ? bruteForceTSP(distances, originIndex, waypoints)
-      : nearestNeighborWith2Opt(distances, originIndex, waypoints);
+  let busca: ResultadoDaBusca;
+  if (waypoints.length <= LIMITE_FORCA_BRUTA) {
+    busca = bruteForceTSP(distances, originIndex, waypoints);
+  } else if (waypoints.length <= LIMITE_EXATO) {
+    busca = heldKarpTSP(distances, originIndex, waypoints);
+  } else {
+    busca = nearestNeighborWith2Opt(distances, originIndex, waypoints);
+  }
 
   return { ...busca, resolvida: busca.totalDistance < CUSTO_INALCANCAVEL };
 }
