@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react-native';
 
-import { showNavigationOptions } from '@/utils/navigation';
+import { abrirNavegacao } from '@/lib/navigation';
 
 import { useNavigationActions } from '../useNavigationActions';
 
-// showNavigationOptions mocked below
-jest.mock('@/utils/navigation', () => ({
-  showNavigationOptions: jest.fn(),
+// abrirNavegacao mockada abaixo
+jest.mock('@/lib/navigation', () => ({
+  abrirNavegacao: jest.fn(),
 }));
 
 const makeCameraRef = () => ({
@@ -75,10 +75,10 @@ describe('useNavigationActions', () => {
       'Nenhuma parada',
       expect.any(String),
     );
-    expect(showNavigationOptions).not.toHaveBeenCalled();
+    expect(abrirNavegacao).not.toHaveBeenCalled();
   });
 
-  it('handleNavigate calls showNavigationOptions when pending parada exists', () => {
+  it('handleNavigate chama abrirNavegacao (app preferido) quando pending parada exists', () => {
     const cameraRef = makeCameraRef();
     const { result } = renderHook(() =>
       useNavigationActions(
@@ -90,10 +90,11 @@ describe('useNavigationActions', () => {
     act(() => {
       result.current.handleNavigate();
     });
-    expect(showNavigationOptions).toHaveBeenCalledWith(
+    expect(abrirNavegacao).toHaveBeenCalledWith(
       expect.objectContaining({
         latitude: pendente.latitude,
         longitude: pendente.longitude,
+        endereco: pendente.endereco,
       }),
     );
   });

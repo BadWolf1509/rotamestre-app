@@ -3,7 +3,7 @@
  *
  * Handles:
  * - Computing the next pending parada
- * - Opening the external navigation app (showNavigationOptions)
+ * - Opening the external navigation app (abrirNavegacao, respeita o app preferido)
  * - Fitting all paradas into the map viewport (handleFitAll)
  */
 
@@ -12,8 +12,8 @@ import { useCallback, useMemo, type RefObject } from 'react';
 import { useMapFitPadding } from '@/components/map/mobile/useMapFitPadding';
 import { useAlert } from '@/hooks/useAlert';
 import { getBounds } from '@/lib/maplibre';
+import { abrirNavegacao } from '@/lib/navigation';
 import type { ParadaMapItem as Parada } from '@/types/parada-map';
-import { showNavigationOptions } from '@/utils/navigation';
 
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 
@@ -49,10 +49,10 @@ export function useNavigationActions(
       return;
     }
 
-    showNavigationOptions({
+    void abrirNavegacao({
       latitude: proximaParadaPendente.latitude!,
       longitude: proximaParadaPendente.longitude!,
-      label: `Parada ${proximaParadaPendente.ordem} - ${proximaParadaPendente.endereco}`,
+      endereco: proximaParadaPendente.endereco,
     });
   }, [proximaParadaPendente, showWarning]);
 

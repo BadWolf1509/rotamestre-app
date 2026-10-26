@@ -93,10 +93,10 @@ jest.mock('@/hooks/useResponsive', () => ({
   useResponsive: () => ({ isDesktop: false, isMobile: true, isTablet: false }),
 }));
 
-// Mock navigation utils
-const mockShowNavigationOptions = jest.fn();
-jest.mock('@/utils/navigation', () => ({
-  showNavigationOptions: (dest: unknown) => mockShowNavigationOptions(dest),
+// Mock navegação externa (respeita o app preferido)
+const mockAbrirNavegacao = jest.fn();
+jest.mock('@/lib/navigation', () => ({
+  abrirNavegacao: (dest: unknown) => mockAbrirNavegacao(dest),
 }));
 
 // Mock Ionicons
@@ -319,10 +319,10 @@ describe('ParadaBottomSheet', () => {
 
       fireEvent.press(getByText('Navegar'));
 
-      expect(mockShowNavigationOptions).toHaveBeenCalledWith({
+      expect(mockAbrirNavegacao).toHaveBeenCalledWith({
         latitude: mockParada.latitude,
         longitude: mockParada.longitude,
-        label: expect.any(String),
+        endereco: mockParada.endereco,
       });
     });
   });

@@ -63,9 +63,9 @@ jest.mock('@/lib/maplibre', () => ({
   zoomFromLongitudeDelta: jest.fn(() => 14),
 }));
 
-// navigation util
-jest.mock('@/utils/navigation', () => ({
-  showNavigationOptions: jest.fn(),
+// navegação externa
+jest.mock('@/lib/navigation', () => ({
+  abrirNavegacao: jest.fn(),
 }));
 
 // toast util

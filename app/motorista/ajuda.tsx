@@ -60,13 +60,13 @@ const FAQ_ITEMS: FAQItem[] = [
     id: '7',
     question: 'Como ver meu histórico de rotas?',
     answer:
-      'Na barra inferior, toque em "Histórico" para ver todas as suas rotas anteriores com detalhes de cada entrega, incluindo fotos e horários.',
+      'Na barra inferior, toque em "Histórico" para ver todas as suas rotas anteriores com os detalhes e os horários de cada entrega.',
   },
   {
     id: '8',
     question: 'O app funciona offline?',
     answer:
-      'Algumas funcionalidades básicas funcionam offline, mas a sincronização de dados e o envio de fotos requerem conexão com a internet. Recomendamos manter o 4G/WiFi ativo.',
+      'Sim, em parte. Sem rede, você ainda conclui e pula paradas: o que você registrou (inclusive a foto) fica guardado no aparelho e sobe sozinho quando a internet voltar, e a tela Início mostra um aviso enquanto houver algo pendente. Para carregar a rota e receber novidades do gestor, é preciso conexão — por isso recomendamos manter o 4G/WiFi ativo.',
   },
   {
     id: '9',
