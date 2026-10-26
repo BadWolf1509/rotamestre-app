@@ -59,7 +59,7 @@ jest.mock('@/lib/photon', () => ({
 // "Sem rede" confirmado (queda observada ou NetInfo desconectado)
 const mockSemRede = jest.fn();
 jest.mock('@/lib/semRede', () => ({
-  semRedeConfirmada: () => mockSemRede(),
+  semRedeConfirmada: (...a: unknown[]) => mockSemRede(...a),
 }));
 
 describe('useIncidentSubmit', () => {
@@ -89,6 +89,9 @@ describe('useIncidentSubmit', () => {
       expect(r!.error).toMatch(/^Sem internet/);
       expect(mockUploadIncidentPhoto).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
+      // Pedido do motorista: só o NetInfo desconectado vale; a queda
+      // observada há segundos não impede de tentar
+      expect(mockSemRede).toHaveBeenCalledWith({ ignorarQuedaObservada: true });
     });
 
     it('a falha de rede do insert chega em português, sem o erro técnico', async () => {
@@ -109,7 +112,9 @@ describe('useIncidentSubmit', () => {
       });
 
       expect(r!.success).toBe(false);
-      expect(r!.error).toMatch(/^Sem internet/);
+      // O INSERT pode ter gravado com a resposta perdida: não afirma que não
+      expect(r!.error).toMatch(/pode não ter sido enviado/);
+      expect(r!.error).toMatch(/antes de reenviar/);
       expect(r!.error).not.toMatch(/TypeError/);
     });
 

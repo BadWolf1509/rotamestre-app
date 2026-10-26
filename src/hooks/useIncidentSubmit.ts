@@ -42,6 +42,13 @@ import { storageService } from '@/lib/storage';
 export const MENSAGEM_SEM_INTERNET =
   'Sem internet: o reporte não foi enviado. Tente de novo quando o sinal voltar.';
 
+/**
+ * A rede falhou no INSERT: ele pode ter gravado e só a resposta se perdido.
+ * O motorista não tem tela de incidentes; quem confirma é o gestor.
+ */
+export const MENSAGEM_SEM_RESPOSTA =
+  'Sem resposta do servidor: o reporte pode não ter sido enviado. Confirme com o gestor antes de reenviar, para não registrar duas vezes.';
+
 // Configuração de retry
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 1000;
@@ -187,7 +194,9 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         // Sem rede confirmada (modo avião, ou Wi-Fi sem internet já
         // observado): falha agora, em vez de esperar posição, Photon, três
         // uploads e o insert desistirem um a um. O wizard guarda o rascunho.
-        if (await semRedeConfirmada()) {
+        // É pedido do motorista: só o NetInfo desconectado (modo avião)
+        // impede a tentativa; a queda observada há segundos, não.
+        if (await semRedeConfirmada({ ignorarQuedaObservada: true })) {
           throw new Error(MENSAGEM_SEM_INTERNET);
         }
 
@@ -241,7 +250,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
         if (!result.success) {
           if (result.error.type === 'network') {
-            throw new Error(MENSAGEM_SEM_INTERNET);
+            throw new Error(MENSAGEM_SEM_RESPOSTA);
           }
           throw new Error(`Erro ao salvar incidente: ${result.error.message}`);
         }
