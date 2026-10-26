@@ -8,6 +8,19 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Varredura de 26/10/2026 (pós-1.14.9) e correções (#690–#695)
+
+Seis trilhas só de leitura (motorista, gestor, banco, dados, offline, testes/CI) acharam 48 itens: 0 Critical, 9 Important, 23 Minor, 16 Melhoria. Corrigidos em cinco trilhas paralelas, cada PR com revisão de código independente antes do merge:
+
+- **CI e testes (#690):** o audit de dependências falha quando o `npm audit` não traz relatório válido (falhava aberto sem registro) e quando a revisão da allowlist vence (as duas entradas vencem em 24/11/2026); `concurrency` por PR; artefatos só com PNG; `update-snapshots.yml` e scripts mortos removidos; cobertura passa a medir as telas do motorista (o glob `(motorista)` excluía tudo — parêntese é grupo no micromatch).
+- **Motorista, notificações e telas (#691):** o toque no push e no sino vai à tela de quem recebe (`destinoDaNotificacao`; antes o gestor caía numa tela privada do motorista e o motorista no mapa do gestor); rota nova avisa uma vez; Google Maps com `dir_action=navigate`; dica de acessibilidade com os gestos certos; polegar do `Switch` claro no tema escuro (`coresDoSwitch`, paleta clara fixa).
+- **Banco (#692, Migrations 76–80 aplicadas):** status da rota pelo gestor (o motorista só inicia e conclui); parada de rota encerrada não muda pela API; `reativar_rota` confere o motorista; `criar_notificacao` registra o que não grava; desempenho do motorista pelo tempo real. **O achado de "motorista move rota entre lojas" era falso positivo:** `unidade_id` está fora do GRANT de UPDATE por coluna — nem a trilha nem o revisor de RLS conferiram `column_privileges`; só a sonda com o corpo aplicado mostrou. Lição: em achado de RLS, conferir também as permissões por coluna.
+- **Motorista, fluxo e offline (#693):** Retomar só em rota em andamento; card que acompanha a edição do gestor; iniciar rota idempotente; uma transmissão de posição só (havia até três watchers e posições duplicadas); aviso de pendências ao sair; pulo grava `concluida_em` (aparece na linha do tempo); incidente sem rede falha rápido e sem duplicar; foto que o Storage recusa espera 1/5/15/60 min (falha de rede não conta); prazo de 3 s para o perfil na abertura com perfil guardado, com a checagem de conta desativada na resposta tardia.
+- **Gestor e dados (#694):** o 2-opt da otimização entrava em laço com matriz assimétrica (OSRM) a partir de 11 locais — agora soma os trechos internos nos dois sentidos, com teto; Held-Karp de 8 a 10 locais; token de sessão do Places; Configurações e Ajuda do gestor no menu; formulários de perfil e primeira senha com Zod; linha do tempo assina `rotas`/`paradas` (as que estão na publicação do Realtime); PDF sem chamador e `pdfmake` removidos.
+- **Fechamento (#695):** todo `Switch` com `coresDoSwitch` (guarda da classe), `.env.example` sem a chave antiga.
+
+Adiados (pendência 30 do PROJECT_CONTEXT): limite do Places e confirmação de e-mail, proteção de senha vazada no Auth, indicadores por loja, gatilho de `resolvido_em`, RPC transacional de iniciar rota, fila offline de incidente, escrita atômica do `secureAuthStorage`, barra de navegação no tema escuro (`expo-navigation-bar`).
+
 ## 26/10/2026 (tarde): correções miúdas, CI e 1.14.9
 
 Mescladas na `main` de #675 a #686:

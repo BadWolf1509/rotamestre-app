@@ -13,6 +13,7 @@ import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { SKIP_REASONS, type MotivoSkip } from '@/constants/skipReasons';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
+import { coresDoSwitch } from '@/utils/coresDoSwitch';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SkipReasonModalProps {
@@ -150,6 +151,7 @@ function SkipReasonModalComponent({
             <Switch
               value={incluirOutros}
               onValueChange={setIncluirOutros}
+              {...coresDoSwitch(theme, incluirOutros)}
               accessibilityLabel={rotuloOutros}
             />
           </View>
