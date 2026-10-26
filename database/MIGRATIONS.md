@@ -3307,6 +3307,165 @@ migration saem FALHOU os casos 1, 2, 3 e 10. Rollback colável no arquivo.
 
 ---
 
+### ⏳ Migration 76: rota muda de loja e de status pelo gestor
+
+**Arquivo:** `20261027100000_rota_loja_e_status_pelo_gestor.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 4, 5 e 10, e 10/10 OK depois.
+
+**O que faz.** Cria o gatilho `trg_rotas_loja_e_status_pelo_gestor` (BEFORE
+UPDATE OF unidade_id, status em `rotas`, por linha, `WHEN` uma das duas muda)
+com a função `public.rotas_loja_e_status_pelo_gestor()` (SECURITY DEFINER,
+`search_path` vazio). Sessão sem usuário (cron, chave secreta, CLI) passa. A
+rota só muda de loja pelo gestor ativo da loja antiga **e** da nova (42501, a
+regra das Migrations 58/59 para parada e incidente). Quem não é gestor ativo da
+loja da rota só leva o status de `pendente` a `em_andamento` e de
+`em_andamento` a `concluida`; o resto é P0001 `ROTA_TRANSICAO_RECUSADA`.
+
+**Alternativas.** Gatilho único DEFINER com `auth.uid()` (escolhida); só a
+parte da loja dentro de `validar_motorista_e_loja_da_rota` (não cobre o status);
+WITH CHECK na policy (não vê a linha antiga, erro genérico); restringir também
+as outras colunas para o motorista (adiada: não há registro completo do que as
+versões antigas gravam em `rotas`).
+
+**App.** Nenhum efeito: o motorista só inicia (`startRoute`) e conclui — pela
+`finalizar_rota` desde a 1.14.3, por UPDATE direto `em_andamento → concluida`
+até a 1.14.2, que por isso segue aberto; o gestor é gestor ativo da loja. Fechar
+`em_andamento → concluida` direto fica para quando nenhuma instalação anterior à
+1.14.3 estiver em uso.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration76-rota-loja-e-status-pelo-gestor.test.ts`; sonda
+`database/sondas/20261027100000_sonda_migration76.sql` (10 casos, desfeita pelo
+RAISE): troca de loja pelo motorista das duas lojas, pelo gestor só da origem e
+pelo gestor das duas; motorista cancelando e levando a `nao_executada`; início
+com o corpo de `startRoute`; conclusão direta da 1.14.2; `finalizar_rota` e
+`cancelar_rota`; postgres e `service_role`; catálogo. Rollback colável no
+arquivo.
+
+---
+
+### ⏳ Migration 77: parada de rota encerrada não muda de status pela API
+
+**Arquivo:** `20261027101000_parada_de_rota_encerrada_nao_muda.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3, 6 e 10, e 10/10 OK depois.
+
+**O que faz.** Cria o gatilho `trg_parada_de_rota_encerrada_nao_muda` (BEFORE
+UPDATE OF status em `paradas`, por linha, `WHEN` o status muda) com a função
+`public.parada_de_rota_encerrada_nao_muda()` (SECURITY INVOKER de propósito, o
+critério da Migration 75): com `current_user` `authenticated`/`anon` e a rota
+da parada `cancelada`/`concluida`/`nao_executada`, P0001
+`PARADA_DE_ROTA_ENCERRADA`. As RPCs SECURITY DEFINER (`reativar_rota`,
+`cancelar_rota`, `finalizar_rota`), a chave secreta e o CLI passam; outras
+colunas (foto, observação) e o mesmo status passam. Exceção única: a chegada
+(`is_checkpoint = false`) indo a `concluida` numa rota `concluida` — a ordem da
+finalização do app até a 1.14.2 (rota primeiro, chegada depois).
+
+**Fila offline.** Conclusão feita antes do cancelamento e enviada depois é
+recusada. O app atual já a descarta antes de gravar (`filaAcoesParada` só grava
+com a rota em andamento); aceitar pelo `concluida_em` dependeria do relógio do
+aparelho.
+
+**Alternativas.** INVOKER com `current_user` (escolhida); recusar só quem não é
+gestor (dois critérios diferentes para rota e parada, e o gestor não muda status
+de parada em rota encerrada em nenhuma versão); status da rota no USING da
+policy (0 linhas sem erro, e bloquearia foto e observação); aceitar a fila pelo
+horário da conclusão.
+
+**App.** O "Retomar" de parada pulada em rota já concluída (até a 1.14.9)
+passa a mostrar erro em vez de reabrir a parada; o lado do app (esconder o
+botão fora de rota em andamento) é de outra trilha. Concluir, pular, avançar,
+iniciar e finalizar seguem. Gestor: nenhum efeito.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration77-parada-de-rota-encerrada.test.ts`; sonda
+`database/sondas/20261027101000_sonda_migration77.sql` (10 casos, desfeita pelo
+RAISE): "Retomar" em rota concluída, fila offline em rota cancelada, gestor em
+rota não executada, conclusão e avanço em rota em andamento, chegada depois da
+rota (1.14.2), entrega em rota concluída, as três RPCs, postgres e
+`service_role`, outra coluna e mesmo status, catálogo. Rollback colável.
+
+---
+
+### ⏳ Migration 78: `reativar_rota` confere o motorista
+
+**Arquivo:** `20261027102000_reativar_rota_motorista_indisponivel.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2 e 7, e 7/7 OK depois.
+
+**O que faz.** Depois da trava e do `situacao_mudou`, e antes de mexer em
+qualquer linha, a RPC confere o motorista com a regra de
+`criar_rota_com_paradas` (vínculo ativo de `motorista` na loja da rota e
+cadastro ativo). Sem isso devolve `motorista_indisponivel` e nada muda. Rota sem
+motorista segue reativando (o gestor atribui com a rota `pendente`). Resultados:
+`reativada` | `situacao_mudou` | `motorista_indisponivel` | `sem_permissao`.
+
+**Alternativas.** Resultado novo no conjunto fechado (escolhida); reativar sem
+motorista (a rota some da agenda sem o gestor saber); parâmetro com o novo
+motorista (assinatura e tela novas; fica para depois).
+
+**App.** A 1.14.8/1.14.9 trata resultado desconhecido como erro
+(`src/lib/gestor/acoesRota.ts`): o gestor vê a mensagem genérica de erro, sem
+anúncio de sucesso. A versão nova acrescenta `motorista_indisponivel` a
+`RESULTADOS_REATIVAR` com texto próprio (outra trilha).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration78-reativar-rota-motorista-indisponivel.test.ts`;
+sonda `database/sondas/20261027102000_sonda_migration78.sql` (7 casos, desfeita
+pelo RAISE): vínculo inativo, cadastro desativado, motorista ativo, rota sem
+motorista, `situacao_mudou` antes do motorista, gestor de outra loja, catálogo.
+Rollback colável (corpo da Migration 71).
+
+---
+
+### ⏳ Migration 79: `criar_notificacao` avisa quando não grava e confere o incidente
+
+**Arquivo:** `20261027103000_criar_notificacao_confere_incidente.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1 e 6, e 6/6 OK depois.
+
+**O que faz.** O INSERT que não grava faz `RAISE WARNING` (SQLSTATE e
+mensagem) antes do `RETURN NULL` — os gatilhos e `avisar_gestores_do_sos`
+seguem recebendo NULL, e o motivo fica no log do Postgres. Na chamada direta, o
+`p_incidente_id` passa a ser conferido como a rota e a parada: o incidente é de
+uma loja onde quem chama é gestor ativo (insufficient_privilege). O caminho dos
+gatilhos e o sem usuário não mudam.
+
+**Alternativas.** WARNING e NULL (escolhida); relançar (derrubaria a escrita do
+motorista por causa do aviso); tabela de erros (policy e tabela novas sem
+necessidade). Conferência pela loja do incidente (escolhida) e não pela rota:
+incidente pode não ter rota.
+
+**App.** Nenhum efeito (o app não manda incidente na chamada direta).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration79-criar-notificacao-confere-incidente.test.ts`;
+sonda `database/sondas/20261027103000_sonda_migration79.sql` (6 casos,
+desfeita pelo RAISE). O WARNING não é capturável dentro do bloco: a sonda
+prova o NULL sem erro e confere o corpo vivo no catálogo. Rollback colável
+(corpo da Migration 32).
+
+---
+
+### ⏳ Migration 80: desempenho do motorista pelo realizado (`vw_performance_motoristas`)
+
+**Arquivo:** `20261027104000_desempenho_motorista_pelo_realizado.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3 e 5, e 5/5 OK depois.
+
+**O que faz.** `CREATE OR REPLACE VIEW` com as mesmas colunas e tipos:
+`distancia_total_km` soma só as rotas `concluida`; `tempo_medio_minutos` passa
+de `avg(tempo_total)` (estimado pelo OSRM) para a média real de
+`concluida_em - iniciada_em` das concluídas, entre 0 e 24 h — o critério do
+dashboard (`calcularTempoMedio`). Segue `security_invoker = true`; SELECT só
+para authenticated.
+
+**Alternativas.** Mudar a view (escolhida); só trocar o rótulo no app (o número
+continua sem servir para avaliar); colunas novas ao lado (duplicaria o
+significado).
+
+**App.** Nenhum código muda; o perfil do motorista passa a mostrar tempo real e
+distância percorrida (`number | null` já cobre o NULL).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration80-desempenho-pelo-realizado.test.ts`; sonda
+`database/sondas/20261027104000_sonda_migration80.sql` (5 casos, desfeita pelo
+RAISE). O SELECT novo foi conferido em produção só como leitura (tipos
+`numeric`; por motorista, 59 → 204, 47 → 230 e 52 → 174 min). Rollback colável.
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
