@@ -181,7 +181,7 @@ describe('useIncidentSubmit', () => {
 
       const { result } = renderHook(() => useIncidentSubmit());
 
-      let submitResult: { success: boolean };
+      let submitResult: { success: boolean; fotoPerdida?: boolean };
 
       await act(async () => {
         submitResult = await result.current.submit({
@@ -192,9 +192,45 @@ describe('useIncidentSubmit', () => {
         });
       });
 
-      // Deve ter sucesso mesmo sem foto
+      // Deve ter sucesso mesmo sem foto, e dizer que a foto se perdeu
       expect(submitResult!.success).toBe(true);
+      expect(submitResult!.fotoPerdida).toBe(true);
       expect(mockUploadIncidentPhoto).toHaveBeenCalledTimes(3);
+    });
+
+    it('com a foto enviada, fotoPerdida é false', async () => {
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      let submitResult: { success: boolean; fotoPerdida?: boolean };
+
+      await act(async () => {
+        submitResult = await result.current.submit({
+          category: 'accident',
+          description: 'Descrição',
+          photoUri: 'file://photo.jpg',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(submitResult!.success).toBe(true);
+      expect(submitResult!.fotoPerdida).toBe(false);
+    });
+
+    it('sem foto escolhida, fotoPerdida é false', async () => {
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      let submitResult: { success: boolean; fotoPerdida?: boolean };
+
+      await act(async () => {
+        submitResult = await result.current.submit({
+          category: 'accident',
+          description: 'Descrição',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(submitResult!.success).toBe(true);
+      expect(submitResult!.fotoPerdida).toBe(false);
     });
   });
 

@@ -106,6 +106,8 @@ function IncidentReportWizardComponent({
   // Modal states
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  // Registrado sem a foto (upload falhou nas tentativas): o sucesso avisa.
+  const [fotoPerdida, setFotoPerdida] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -366,6 +368,7 @@ function IncidentReportWizardComponent({
     });
 
     if (result.success) {
+      setFotoPerdida(result.fotoPerdida === true);
       setShowSuccessModal(true);
     } else {
       setErrorMessage(
@@ -561,7 +564,11 @@ function IncidentReportWizardComponent({
         visible={showSuccessModal}
         variant="alert"
         title="Incidente Reportado"
-        message="O problema foi registrado e será analisado pela gestão."
+        message={
+          fotoPerdida
+            ? 'Problema registrado, mas a foto não foi enviada.'
+            : 'O problema foi registrado e será analisado pela gestão.'
+        }
         confirmText="OK"
         type="info"
         onConfirm={handleSuccessConfirm}

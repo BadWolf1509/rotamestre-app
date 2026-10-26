@@ -1,20 +1,31 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 
 import { IncidentReportWizard } from '../IncidentReportWizard';
 
 // Mock ImagePicker
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: 'granted' })
+    Promise.resolve({ status: 'granted' }),
   ),
   requestMediaLibraryPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: 'granted' })
+    Promise.resolve({ status: 'granted' }),
   ),
   launchCameraAsync: jest.fn(() =>
-    Promise.resolve({ canceled: false, assets: [{ uri: 'file://test-photo.jpg' }] })
+    Promise.resolve({
+      canceled: false,
+      assets: [{ uri: 'file://test-photo.jpg' }],
+    }),
   ),
   launchImageLibraryAsync: jest.fn(() =>
-    Promise.resolve({ canceled: false, assets: [{ uri: 'file://test-gallery.jpg' }] })
+    Promise.resolve({
+      canceled: false,
+      assets: [{ uri: 'file://test-gallery.jpg' }],
+    }),
   ),
   MediaTypeOptions: { Images: 'Images' },
 }));
@@ -22,7 +33,9 @@ jest.mock('expo-image-picker', () => ({
 // Mock storage service
 jest.mock('@/lib/storage', () => ({
   storageService: {
-    uploadIncidentPhoto: jest.fn(() => Promise.resolve('https://supabase.co/photo.jpg')),
+    uploadIncidentPhoto: jest.fn(() =>
+      Promise.resolve('https://supabase.co/photo.jpg'),
+    ),
   },
 }));
 
@@ -34,6 +47,19 @@ jest.mock('@/lib/supabase', () => ({
       insert: mockInsert,
     })),
   },
+}));
+
+// Mock do hook de envio: o que importa aqui é o que o wizard faz com o resultado.
+const mockSubmitIncident = jest.fn();
+jest.mock('@/hooks/useIncidentSubmit', () => ({
+  useIncidentSubmit: () => ({
+    submit: (...args: unknown[]) => mockSubmitIncident(...args),
+    isSubmitting: false,
+    uploadProgress: 0,
+    uploadRetryCount: 0,
+    error: null,
+    reset: jest.fn(),
+  }),
 }));
 
 describe('IncidentReportWizard', () => {
@@ -169,7 +195,8 @@ describe('IncidentReportWizard', () => {
       fireEvent.press(screen.getByText('Pular este passo'));
 
       // No passo de descrição - botão deve estar desabilitado sem texto suficiente
-      const descriptionInput = screen.getByPlaceholderText(/Ex: Cheguei ao local/);
+      const descriptionInput =
+        screen.getByPlaceholderText(/Ex: Cheguei ao local/);
       fireEvent.changeText(descriptionInput, 'Texto curto');
 
       // Ainda deve estar no passo de descrição
@@ -183,8 +210,12 @@ describe('IncidentReportWizard', () => {
       fireEvent.press(screen.getByText('Próximo'));
       fireEvent.press(screen.getByText('Pular este passo'));
 
-      const descriptionInput = screen.getByPlaceholderText(/Ex: Cheguei ao local/);
-      fireEvent.changeText(descriptionInput, 'Esta é uma descrição com mais de vinte caracteres');
+      const descriptionInput =
+        screen.getByPlaceholderText(/Ex: Cheguei ao local/);
+      fireEvent.changeText(
+        descriptionInput,
+        'Esta é uma descrição com mais de vinte caracteres',
+      );
       fireEvent.press(screen.getByText('Próximo'));
 
       // Deve ir para o passo de revisão
@@ -208,7 +239,7 @@ describe('IncidentReportWizard', () => {
   describe('Props', () => {
     it('deve aceitar visible=false', () => {
       const { toJSON } = render(
-        <IncidentReportWizard {...defaultProps} visible={false} />
+        <IncidentReportWizard {...defaultProps} visible={false} />,
       );
 
       // Modal com visible=false não renderiza conteúdo
@@ -216,34 +247,19 @@ describe('IncidentReportWizard', () => {
     });
 
     it('deve funcionar sem endereco', () => {
-      render(
-        <IncidentReportWizard
-          {...defaultProps}
-          endereco={undefined}
-        />
-      );
+      render(<IncidentReportWizard {...defaultProps} endereco={undefined} />);
 
       expect(screen.getByText('Reportar Problema')).toBeTruthy();
     });
 
     it('deve funcionar sem paradaId', () => {
-      render(
-        <IncidentReportWizard
-          {...defaultProps}
-          paradaId={undefined}
-        />
-      );
+      render(<IncidentReportWizard {...defaultProps} paradaId={undefined} />);
 
       expect(screen.getByText('Reportar Problema')).toBeTruthy();
     });
 
     it('deve funcionar sem rotaId', () => {
-      render(
-        <IncidentReportWizard
-          {...defaultProps}
-          rotaId={undefined}
-        />
-      );
+      render(<IncidentReportWizard {...defaultProps} rotaId={undefined} />);
 
       expect(screen.getByText('Reportar Problema')).toBeTruthy();
     });
@@ -261,8 +277,12 @@ describe('IncidentReportWizard', () => {
       fireEvent.press(screen.getByText('Pular este passo'));
 
       // Passo 3: Adicionar descrição
-      const descriptionInput = screen.getByPlaceholderText(/Ex: Cheguei ao local/);
-      fireEvent.changeText(descriptionInput, 'Descrição detalhada do problema que aconteceu durante a entrega');
+      const descriptionInput =
+        screen.getByPlaceholderText(/Ex: Cheguei ao local/);
+      fireEvent.changeText(
+        descriptionInput,
+        'Descrição detalhada do problema que aconteceu durante a entrega',
+      );
       fireEvent.press(screen.getByText('Próximo'));
 
       // Passo 4: Revisão
@@ -283,8 +303,12 @@ describe('IncidentReportWizard', () => {
       fireEvent.press(screen.getByText('Próximo'));
       fireEvent.press(screen.getByText('Pular este passo'));
 
-      const descriptionInput = screen.getByPlaceholderText(/Ex: Cheguei ao local/);
-      fireEvent.changeText(descriptionInput, 'Descrição do problema com pelo menos vinte caracteres');
+      const descriptionInput =
+        screen.getByPlaceholderText(/Ex: Cheguei ao local/);
+      fireEvent.changeText(
+        descriptionInput,
+        'Descrição do problema com pelo menos vinte caracteres',
+      );
       fireEvent.press(screen.getByText('Próximo'));
 
       await waitFor(() => {
@@ -341,6 +365,65 @@ describe('IncidentReportWizard', () => {
       fireEvent.changeText(input, 'Texto de teste');
 
       expect(input.props.value).toBe('Texto de teste');
+    });
+  });
+
+  describe('Aviso de foto não enviada', () => {
+    const enviarReporte = async () => {
+      render(<IncidentReportWizard {...defaultProps} />);
+
+      fireEvent.press(screen.getByText('Cliente ausente'));
+      fireEvent.press(screen.getByText('Próximo'));
+      fireEvent.press(screen.getByText('Pular este passo'));
+      fireEvent.changeText(
+        screen.getByPlaceholderText(/Ex: Cheguei ao local/),
+        'Descrição do problema com pelo menos vinte caracteres',
+      );
+      fireEvent.press(screen.getByText('Próximo'));
+      await waitFor(() => {
+        expect(screen.getByText('Enviar Reporte')).toBeTruthy();
+      });
+      fireEvent.press(screen.getByText('Enviar Reporte'));
+    };
+
+    it('com a foto perdida, o sucesso avisa que a foto não foi enviada', async () => {
+      mockSubmitIncident.mockResolvedValue({
+        success: true,
+        incidentId: 'inc-1',
+        fotoPerdida: true,
+      });
+
+      await enviarReporte();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Problema registrado, mas a foto não foi enviada.'),
+        ).toBeTruthy();
+      });
+      expect(
+        screen.queryByText(
+          'O problema foi registrado e será analisado pela gestão.',
+        ),
+      ).toBeNull();
+    });
+
+    it('com a foto enviada, mantém o texto de sempre', async () => {
+      mockSubmitIncident.mockResolvedValue({
+        success: true,
+        incidentId: 'inc-1',
+        fotoPerdida: false,
+      });
+
+      await enviarReporte();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'O problema foi registrado e será analisado pela gestão.',
+          ),
+        ).toBeTruthy();
+      });
+      expect(screen.queryByText(/a foto não foi enviada/)).toBeNull();
     });
   });
 });
