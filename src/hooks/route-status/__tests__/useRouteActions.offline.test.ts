@@ -135,6 +135,8 @@ describe('completeStop sem rede', () => {
         paradaId: 'p1',
         rotaId: 'route-1',
         motoristaId: 'user-1',
+        // Para o aviso de descarte dizer qual parada foi
+        rotulo: 'Parada 1 — Rua A',
       }),
     ]);
     expect(banco.status.p1).toBe('em_andamento');

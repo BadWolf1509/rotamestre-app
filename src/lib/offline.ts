@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { lerSessao } from './auth/sessao';
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
@@ -11,7 +11,11 @@ import {
   lerFilaAcoesParada,
   sincronizarFilaAcoesParada,
 } from './motorista/filaAcoesParada';
-import { notifySyncComplete, notifyOfflineMode } from './notifications';
+import {
+  notifyEnviosDescartados,
+  notifySyncComplete,
+  notifyOfflineMode,
+} from './notifications';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
@@ -529,6 +533,8 @@ let pedirEnvioDeNovo = false;
 export function solicitarEnvioFila(): Promise<{
   fotos: number;
   acoes: number;
+  /** Ações de parada que o servidor recusou por conflito nesta rodada. */
+  descartadas: number;
 }> {
   if (envioEmCurso) {
     pedirEnvioDeNovo = true;
@@ -537,6 +543,7 @@ export function solicitarEnvioFila(): Promise<{
   envioEmCurso = (async () => {
     let fotos = 0;
     let acoes = 0;
+    let descartadas = 0;
     try {
       do {
         pedirEnvioDeNovo = false;
@@ -545,16 +552,37 @@ export function solicitarEnvioFila(): Promise<{
         if ((await getPendingPhotosCount()) > 0) {
           fotos += (await processOfflinePhotos()).success;
         }
-        acoes += (await sincronizarFilaAcoesParada()).enviadas;
+        const r = await sincronizarFilaAcoesParada();
+        acoes += r.enviadas;
+        descartadas += r.descartadas?.length ?? 0;
       } while (pedirEnvioDeNovo);
     } catch (error) {
       logger.warn('[Offline] Falha ao enviar o que ficou no aparelho', error);
     } finally {
       envioEmCurso = null;
     }
-    return { fotos, acoes };
+    return { fotos, acoes, descartadas };
   })();
   return envioEmCurso;
+}
+
+/**
+ * Notificações do envio automático (login, volta da rede). O descarte só
+ * notifica com o app fora da tela: aberto, a Início já mostra o aviso com a
+ * parada identificada (`AvisosDaFilaDeParadas`).
+ */
+async function notificarResultadoDoEnvio(r: {
+  fotos: number;
+  acoes: number;
+  descartadas?: number;
+}): Promise<void> {
+  if (r.fotos > 0 || r.acoes > 0) {
+    await notifySyncComplete(r.acoes, r.fotos);
+  }
+  const descartadas = r.descartadas ?? 0;
+  if (descartadas > 0 && AppState.currentState !== 'active') {
+    await notifyEnviosDescartados(descartadas);
+  }
 }
 
 // Variável para controlar se já notificou offline nesta sessão
@@ -599,10 +627,7 @@ export function setupOfflineSync(): () => void {
       await adotarFotosSemDono(userId).catch((error) =>
         logger.warn('[Offline] Falha ao adotar fotos sem dono', error),
       );
-      const r = await solicitarEnvioFila();
-      if (r.fotos > 0 || r.acoes > 0) {
-        await notifySyncComplete(r.acoes, r.fotos);
-      }
+      await notificarResultadoDoEnvio(await solicitarEnvioFila());
     })().catch((error) =>
       logger.warn('[Offline] Falha ao sincronizar fotos no login', error),
     );
@@ -615,12 +640,7 @@ export function setupOfflineSync(): () => void {
 
       // Fotos e depois concluir/pular guardados sem rede: o comprovante sobe
       // antes da ação que o gestor vê (solicitarEnvioFila).
-      const envio = await solicitarEnvioFila();
-
-      // Notificar se houve sincronização
-      if (envio.acoes > 0 || envio.fotos > 0) {
-        await notifySyncComplete(envio.acoes, envio.fotos);
-      }
+      await notificarResultadoDoEnvio(await solicitarEnvioFila());
     } else {
       // Notificar apenas uma vez que está offline
       if (!hasNotifiedOffline) {

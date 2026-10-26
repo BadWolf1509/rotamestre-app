@@ -14,6 +14,7 @@ import {
   enfileirarAcaoParada,
   lerFilaAcoesParada,
   portaParadasSupabase,
+  rotuloDaParada,
   type AcaoParada,
   type DestinoDaAcao,
   type PortaParadas,
@@ -255,6 +256,12 @@ export function useRouteActions({
     return 'enviada';
   };
 
+  // "Parada 4 — Rua X", guardado na ação para o aviso de descarte
+  const rotuloDe = (paradaId: string): { rotulo?: string } => {
+    const parada = paradas.find((p) => p.id === paradaId);
+    return parada ? { rotulo: rotuloDaParada(parada) } : {};
+  };
+
   // Completa parada
   const completeStop = async (
     paradaId: string,
@@ -289,6 +296,7 @@ export function useRouteActions({
         rotaId: route.id,
         motoristaId: userData.id,
         em: new Date().toISOString(),
+        ...rotuloDe(paradaId),
       }),
       'concluir',
     );
@@ -316,6 +324,7 @@ export function useRouteActions({
         em: new Date().toISOString(),
         motivo,
         ...(observacoes ? { observacoes } : {}),
+        ...rotuloDe(paradaId),
       }),
       'pular',
     );

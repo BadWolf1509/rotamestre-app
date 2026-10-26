@@ -91,6 +91,36 @@ describe('AvisosDaFilaDeParadas', () => {
     expect(queryByText(/foto do comprovante/)).toBeNull();
   });
 
+  it('descarte diz QUAL parada (o rótulo guardado ao enfileirar)', () => {
+    const d = descarte('p4', 'rota_encerrada');
+    (d.acao as Record<string, unknown>).rotulo =
+      'Parada 4 — Rua das Flores, 10';
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      avisosDeEnvio: [d],
+    };
+    const { getByText } = render(<AvisosDaFilaDeParadas />);
+    expect(
+      getByText(/Parada 4 — Rua das Flores, 10: conclusão não enviada/),
+    ).toBeTruthy();
+  });
+
+  it('várias conclusões descartadas: o parágrafo da foto aparece uma vez só', () => {
+    mockContexto = {
+      paradas: [],
+      paradasComEnvioPendente: new Set(),
+      avisosDeEnvio: [
+        descarte('p1', 'rota_encerrada'),
+        descarte('p2', 'rota_encerrada'),
+      ],
+    };
+    const { getByText } = render(<AvisosDaFilaDeParadas />);
+    const texto = getByText(/A foto do comprovante, se houver/).props
+      .children as string;
+    expect(texto.match(/A foto do comprovante/g)).toHaveLength(1);
+  });
+
   it('ações de outra conta no aparelho: aviso discreto, só o número, dispensável', () => {
     const dispensar = jest.fn();
     mockContexto = {

@@ -80,6 +80,13 @@ export interface AcaoParada {
    * `observacao_pulo` — ver `dadosDaAcao`.
    */
   observacoes?: string;
+  /**
+   * Como o motorista reconhece a parada ("Parada 4 — Rua X"), guardado ao
+   * enfileirar: se a ação for descartada com a rota encerrada ou a parada
+   * removida, ela nem está mais na tela para cruzar. Ausente nas ações
+   * gravadas por versões anteriores.
+   */
+  rotulo?: string;
   /** Falhas definitivas do servidor já sofridas (rede não conta). */
   tentativas: number;
 }
@@ -187,6 +194,16 @@ export function criarAcaoParada(
     id: `acao_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     tentativas: 0,
   };
+}
+
+/** Rótulo curto da parada para os avisos de descarte. */
+export function rotuloDaParada(parada: {
+  ordem: number;
+  endereco?: string | null;
+}): string {
+  const endereco = (parada.endereco ?? '').trim();
+  const curto = endereco.length > 60 ? `${endereco.slice(0, 57)}...` : endereco;
+  return curto ? `Parada ${parada.ordem} — ${curto}` : `Parada ${parada.ordem}`;
 }
 
 export function lerFilaAcoesParada(): Promise<AcaoParada[]> {
