@@ -458,6 +458,26 @@ describe('MainCard', () => {
     expect(getByText('Você pode finalizar a rota agora')).toBeTruthy();
   });
 
+  it('com paradas puladas e nenhuma concluída não diz que todas foram concluídas', () => {
+    const props = {
+      ...defaultProps,
+      state: 'ready-to-complete' as const,
+      route: { distancia_total: 10 },
+      paradas: [1, 2, 3].map((n) => ({
+        id: `p${n}`,
+        ordem: n,
+        status: 'pulada',
+        endereco: `Rua ${n}`,
+        is_checkpoint: true,
+      })),
+    };
+
+    const { getByText, queryByText } = render(<MainCard {...props} />);
+
+    expect(getByText('Nenhuma parada pendente')).toBeTruthy();
+    expect(queryByText('Todas as paradas concluídas!')).toBeNull();
+  });
+
   it('deve mostrar resumo em ready-to-complete', () => {
     const props = {
       ...defaultProps,

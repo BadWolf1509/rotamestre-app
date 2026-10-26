@@ -28,6 +28,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 import { clearAllCache } from '../cache';
+import { lerJsonParaGravar } from '../leituraLocal';
 import { logger } from '../logger';
 import { invalidarPosicoesEmVoo } from '../motorista/filaPosicoes';
 import { limparCacheOtimizacao } from '../route-optimization/cache';
@@ -110,37 +111,57 @@ export async function limparAparelhoAoExcluirConta(
   usuarioId: string | null,
 ): Promise<void> {
   invalidarPosicoesEmVoo(); // insert de GPS em voo não regrava a fila depois
-  const lerLista = async <T>(chave: string): Promise<T[]> => {
+  const ilegiveis: string[] = [];
+  // null = a leitura FALHOU (OFF-4): a chave pode estar inteira, com
+  // pendências de outras contas. Ela não é apagada nem regravada.
+  const lerLista = async <T>(chave: string): Promise<T[] | null> => {
     try {
-      const bruto = await AsyncStorage.getItem(chave);
-      return bruto ? (JSON.parse(bruto) as T[]) : [];
+      return await lerJsonParaGravar<T[]>(chave, []);
     } catch (error) {
       logger.warn('[ExcluirConta] Falha ao ler pendências do aparelho', error);
-      return [];
+      ilegiveis.push(chave);
+      return null;
     }
   };
   const deQuemSai = (dono: string | undefined) =>
     usuarioId !== null && dono === usuarioId;
 
-  const acoes = (await lerLista<ComDono>(CHAVE_FILA_ACOES)).filter(
+  const acoes = (await lerLista<ComDono>(CHAVE_FILA_ACOES))?.filter(
     (a) => !deQuemSai(a.motoristaId),
   );
   const descartes = (
     await lerLista<{ acao?: ComDono }>(CHAVE_DESCARTES_ACOES)
-  ).filter((d) => !deQuemSai(d.acao?.motoristaId));
+  )?.filter((d) => !deQuemSai(d.acao?.motoristaId));
   const todasAsFotos = await lerLista<FotoComDono>(CHAVE_INDICE_FOTOS);
-  const fotos = todasAsFotos.filter((f) => !deQuemSai(f.userId));
-  const fotosDeQuemSai = todasAsFotos.filter((f) => deQuemSai(f.userId));
+  const fotos = todasAsFotos?.filter((f) => !deQuemSai(f.userId));
+  const fotosDeQuemSai = todasAsFotos?.filter((f) => deQuemSai(f.userId)) ?? [];
 
-  await AsyncStorage.clear();
+  // Com uma chave ilegível, apaga todas as OUTRAS (multiRemove) em vez do
+  // `clear()`. Alternativa descartada: lançar antes de limpar — a conta já
+  // foi excluída no servidor, e o erro quebraria o fluxo de sucesso deixando
+  // no aparelho tudo da conta excluída. Sem nem listar as chaves, não apaga
+  // nada: sobra lixo, não se perde comprovante alheio.
+  if (ilegiveis.length === 0) {
+    await AsyncStorage.clear();
+  } else {
+    try {
+      const todas = await AsyncStorage.getAllKeys();
+      await AsyncStorage.multiRemove(
+        todas.filter((k) => !ilegiveis.includes(k)),
+      );
+    } catch (error) {
+      logger.warn('[ExcluirConta] Falha ao limpar o aparelho', error);
+      return;
+    }
+  }
 
-  const guardar: [string, unknown[]][] = [
+  const guardar: [string, unknown[] | undefined][] = [
     [CHAVE_FILA_ACOES, acoes],
     [CHAVE_DESCARTES_ACOES, descartes],
     [CHAVE_INDICE_FOTOS, fotos],
   ];
   for (const [chave, lista] of guardar) {
-    if (lista.length > 0) {
+    if (lista && lista.length > 0) {
       await AsyncStorage.setItem(chave, JSON.stringify(lista));
     }
   }
