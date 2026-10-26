@@ -24,9 +24,13 @@ describe('browserNotification', () => {
     onclick: null as (() => void) | null,
   };
 
-  const MockNotification = jest.fn().mockImplementation(() => mockNotificationInstance);
+  const MockNotification = jest
+    .fn()
+    .mockImplementation(() => mockNotificationInstance);
   (MockNotification as any).permission = 'default';
-  (MockNotification as any).requestPermission = jest.fn().mockResolvedValue('granted');
+  (MockNotification as any).requestPermission = jest
+    .fn()
+    .mockResolvedValue('granted');
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -111,7 +115,9 @@ describe('browserNotification', () => {
 
     it('deve solicitar permissão quando default', async () => {
       (MockNotification as any).permission = 'default';
-      (MockNotification as any).requestPermission = jest.fn().mockResolvedValue('granted');
+      (MockNotification as any).requestPermission = jest
+        .fn()
+        .mockResolvedValue('granted');
 
       const result = await requestBrowserNotificationPermission();
 
@@ -121,7 +127,9 @@ describe('browserNotification', () => {
 
     it('deve retornar false quando permissão negada pelo usuário', async () => {
       (MockNotification as any).permission = 'default';
-      (MockNotification as any).requestPermission = jest.fn().mockResolvedValue('denied');
+      (MockNotification as any).requestPermission = jest
+        .fn()
+        .mockResolvedValue('denied');
 
       const result = await requestBrowserNotificationPermission();
 
@@ -129,9 +137,13 @@ describe('browserNotification', () => {
     });
 
     it('deve retornar false em caso de erro', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       (MockNotification as any).permission = 'default';
-      (MockNotification as any).requestPermission = jest.fn().mockRejectedValue(new Error('Error'));
+      (MockNotification as any).requestPermission = jest
+        .fn()
+        .mockRejectedValue(new Error('Error'));
 
       const result = await requestBrowserNotificationPermission();
 
@@ -160,11 +172,16 @@ describe('browserNotification', () => {
     it('deve criar notificação quando permissão concedida', () => {
       (MockNotification as any).permission = 'granted';
 
-      const result = sendBrowserNotification('Test Title', { body: 'Test Body' });
-
-      expect(MockNotification).toHaveBeenCalledWith('Test Title', expect.objectContaining({
+      const result = sendBrowserNotification('Test Title', {
         body: 'Test Body',
-      }));
+      });
+
+      expect(MockNotification).toHaveBeenCalledWith(
+        'Test Title',
+        expect.objectContaining({
+          body: 'Test Body',
+        }),
+      );
       expect(result).toBeTruthy();
     });
 
@@ -173,9 +190,12 @@ describe('browserNotification', () => {
 
       sendBrowserNotification('Test');
 
-      expect(MockNotification).toHaveBeenCalledWith('Test', expect.objectContaining({
-        icon: '/icon-192.png',
-      }));
+      expect(MockNotification).toHaveBeenCalledWith(
+        'Test',
+        expect.objectContaining({
+          icon: '/icon-192.png',
+        }),
+      );
     });
 
     it('deve auto-fechar após 5 segundos por padrão', () => {
@@ -199,7 +219,9 @@ describe('browserNotification', () => {
     });
 
     it('deve tratar erro ao criar notificação', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       (MockNotification as any).permission = 'granted';
       MockNotification.mockImplementationOnce(() => {
         throw new Error('Notification error');
@@ -216,14 +238,14 @@ describe('browserNotification', () => {
     it('deve enviar notificação de nova rota', () => {
       (MockNotification as any).permission = 'granted';
 
-      notifyNewRouteWeb('Unidade Teste');
+      notifyNewRouteWeb();
 
       expect(MockNotification).toHaveBeenCalledWith(
         'Nova Rota Atribuída',
         expect.objectContaining({
           tag: 'new-route',
           requireInteraction: true,
-        })
+        }),
       );
     });
   });
@@ -239,7 +261,7 @@ describe('browserNotification', () => {
         expect.objectContaining({
           body: expect.stringContaining('10'),
           tag: 'route-complete',
-        })
+        }),
       );
     });
   });
@@ -254,7 +276,7 @@ describe('browserNotification', () => {
         'Título',
         expect.objectContaining({
           body: 'Mensagem',
-        })
+        }),
       );
     });
   });

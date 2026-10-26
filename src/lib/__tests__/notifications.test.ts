@@ -72,7 +72,6 @@ import {
   getNotificationSettings,
   saveNotificationSettings,
   sendLocalNotification,
-  notifyRoutePending,
   notifyRouteComplete,
   notifyOfflineMode,
   notifySyncComplete,
@@ -296,28 +295,6 @@ describe('notifications', () => {
       const result = await sendLocalNotification('Title', 'Body');
 
       expect(result).toBe(null);
-    });
-  });
-
-  describe('notifyRoutePending', () => {
-    it('should send notification when routeReminder enabled', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true }),
-      );
-
-      await notifyRoutePending('Unidade X');
-
-      expect(mockScheduleNotificationAsync).toHaveBeenCalled();
-    });
-
-    it('should not send notification when routeReminder disabled', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: false }),
-      );
-
-      await notifyRoutePending('Unidade X');
-
-      expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -671,7 +648,6 @@ describe('notifications', () => {
       expect(notificationService.getSettings).toBe(getNotificationSettings);
       expect(notificationService.saveSettings).toBe(saveNotificationSettings);
       expect(notificationService.send).toBe(sendLocalNotification);
-      expect(notificationService.notifyRoutePending).toBe(notifyRoutePending);
       expect(notificationService.notifyRouteComplete).toBe(notifyRouteComplete);
       expect(notificationService.notifyOfflineMode).toBe(notifyOfflineMode);
       expect(notificationService.notifySyncComplete).toBe(notifySyncComplete);

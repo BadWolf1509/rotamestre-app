@@ -214,9 +214,7 @@ jest.mock('@/utils/notificationSound', () => ({
   playNotificationSound: jest.fn(),
 }));
 
-jest.mock('@/lib/notifications', () => ({
-  notifyRoutePending: jest.fn(),
-}));
+jest.mock('@/lib/notifications', () => ({}));
 
 jest.mock('@/services/unifiedLocationTracking', () => ({
   startBackgroundTracking: jest.fn(),
