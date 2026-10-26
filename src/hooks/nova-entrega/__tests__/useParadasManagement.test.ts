@@ -11,6 +11,7 @@ import { photonService } from '@/lib/photon';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 
 import {
+  motivoRecusaLote,
   useParadasManagement,
   type BulkParadaInput,
   type EnderecoLocalizado,
@@ -449,7 +450,12 @@ describe('useParadasManagement', () => {
         ]);
       });
 
-      expect(importResult).toEqual({ adicionadas: 2, ignoradas: 0, erros: [] });
+      expect(importResult).toEqual({
+        adicionadas: 2,
+        ignoradas: 0,
+        erros: [],
+        linhasAdicionadas: [3, 5],
+      });
       expect(localizarMock).not.toHaveBeenCalled();
       expect(photonService.geocodeAddress).not.toHaveBeenCalled();
       expect(result.current.paradas).toHaveLength(3);
@@ -491,10 +497,11 @@ describe('useParadasManagement', () => {
         adicionadas: 1,
         ignoradas: 1,
         erros: ['Linha 8: entrega duplicada (mesmo endereço ou telefone).'],
+        linhasAdicionadas: [9],
       });
       expect(result.current.paradas).toHaveLength(2);
       expect(callbacks.showToast).toHaveBeenCalledWith(
-        '1 parada(s) importada(s). 1 ignorada(s).',
+        '1 parada(s) importada(s). 1 linha não entrou.',
         'info',
         5000,
       );
@@ -518,8 +525,77 @@ describe('useParadasManagement', () => {
         adicionadas: 1,
         ignoradas: 1,
         erros: ['Linha 5: limite da rota atingido.'],
+        linhasAdicionadas: [4],
       });
       expect(result.current.paradas).toHaveLength(MAX_ROUTE_STOPS);
+    });
+
+    it('importParadas conta no toast as linhas que caíram antes da conferência', () => {
+      // Falha de localização e linha removida pelo gestor não chegam à fase 2,
+      // mas também não entraram: um "success" puro esconderia isso.
+      const { result } = renderHook(() => useSubject());
+
+      act(() => {
+        result.current.importParadas([localizado(linha(2))], {
+          foraDoLote: 2,
+        });
+      });
+
+      expect(callbacks.showToast).toHaveBeenCalledWith(
+        '1 parada(s) importada(s). 2 linhas não entraram.',
+        'info',
+        5000,
+      );
+    });
+
+    it('localizarLote avisa o andamento, linha a linha', async () => {
+      localizarMock.mockImplementation(async (endereco: string) =>
+        resolvidoPara(endereco),
+      );
+      const onProgresso = jest.fn();
+      const { result } = renderHook(() => useSubject());
+
+      await act(async () => {
+        await result.current.localizarLote([linha(1), linha(2), linha(3)], {
+          onProgresso,
+        });
+      });
+
+      expect(onProgresso.mock.calls).toEqual([
+        [1, 3],
+        [2, 3],
+        [3, 3],
+      ]);
+    });
+  });
+
+  describe('motivoRecusaLote', () => {
+    const item: BulkParadaInput = {
+      tipo: 'entrega',
+      endereco: 'Rua Nova, 1',
+      destinatario: 'Fulano',
+      telefone: '11977776666',
+      observacoes: '',
+      linha: 6,
+    };
+
+    it('aceita a linha quando há espaço e ela não repete ninguém', () => {
+      expect(motivoRecusaLote([createStop(0)], item)).toBeNull();
+    });
+
+    it('recusa a duplicada pela linha colada', () => {
+      expect(
+        motivoRecusaLote([createStop(0, { endereco: item.endereco })], item),
+      ).toBe('Linha 6: entrega duplicada (mesmo endereço ou telefone).');
+    });
+
+    it('recusa quando a lista já está no limite, antes de olhar duplicata', () => {
+      const cheia = Array.from({ length: MAX_ROUTE_STOPS }, (_, i) =>
+        createStop(i),
+      );
+      expect(motivoRecusaLote(cheia, item)).toBe(
+        'Linha 6: limite da rota atingido.',
+      );
     });
   });
 });

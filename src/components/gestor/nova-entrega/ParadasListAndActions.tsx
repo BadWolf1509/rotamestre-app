@@ -8,10 +8,8 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist';
 
 import type {
-  BulkImportResult,
-  BulkParadaInput,
-  EnderecoLocalizado,
-  LocalizarLoteResult,
+  ImportParadasFn,
+  LocalizarLoteFn,
 } from '@/hooks/nova-entrega/useParadasManagement';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -54,8 +52,8 @@ export interface ParadasListAndActionsProps {
   onRemove: (index: number) => void;
   onEdit: (index: number) => void;
   onReorder: (data: Parada[]) => void;
-  onLocalizarLote: (items: BulkParadaInput[]) => Promise<LocalizarLoteResult>;
-  onImport: (confirmados: EnderecoLocalizado[]) => BulkImportResult;
+  onLocalizarLote: LocalizarLoteFn;
+  onImport: ImportParadasFn;
   onOptimize: () => void;
   onSelectMotorista: (id: string) => void;
   onChangeDataRota: (value: string) => void;

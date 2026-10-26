@@ -103,6 +103,7 @@ describe('ParadasListAndActions', () => {
       adicionadas: 0,
       ignoradas: 0,
       erros: [],
+      linhasAdicionadas: [],
     }),
     onOptimize: jest.fn(),
     onSelectMotorista: jest.fn(),
@@ -257,7 +258,12 @@ describe('ParadasListAndActions', () => {
           }),
         );
         setParadas(aceitas);
-        return { adicionadas: 2, ignoradas: 0, erros: [] };
+        return {
+          adicionadas: 2,
+          ignoradas: 0,
+          erros: [],
+          linhasAdicionadas: confirmados.map((item) => item.linha),
+        };
       };
       return (
         <ParadasListAndActions
@@ -282,10 +288,20 @@ describe('ParadasListAndActions', () => {
       ].join('\n'),
     );
     await act(async () => {
-      fireEvent.press(getByText('Importar 3 parada(s)'));
+      fireEvent.press(getByText('Localizar endereços'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText('Adicionar 2 paradas'));
     });
 
     await waitFor(() => expect(getByText(/Paradas Adicionadas/)).toBeTruthy());
-    expect(getByText(`• ${erroDuplicada}`)).toBeTruthy();
+    // A linha recusada volta sozinha ao campo — vira a linha 1 dele, e a
+    // mensagem acompanha a numeração que está na tela.
+    expect(
+      getByText('• Linha 1: entrega duplicada (mesmo endereço ou telefone).'),
+    ).toBeTruthy();
+    expect(
+      getByLabelText('Linhas de paradas para importação').props.value,
+    ).toBe('entrega;Rua A, 123;Cliente A;(83) 99999-0001');
   });
 });

@@ -51,7 +51,35 @@ export interface BulkImportResult {
   adicionadas: number;
   ignoradas: number;
   erros: string[];
+  /** Linhas coladas que viraram parada — o resto volta ao campo do importador. */
+  linhasAdicionadas: number[];
 }
+
+export interface LocalizarLoteOpcoes {
+  /**
+   * Andamento da fase 1: `atual` é a linha em curso (1-based) de `total`.
+   * Localizar em série leva dezenas de segundos para 50 linhas.
+   */
+  onProgresso?: (atual: number, total: number) => void;
+}
+
+export interface ImportParadasOpcoes {
+  /**
+   * Linhas do lote que nem chegaram à fase 2 (não localizadas ou removidas na
+   * conferência). Entram na conta do toast, que não pode dizer só "sucesso".
+   */
+  foraDoLote?: number;
+}
+
+export type LocalizarLoteFn = (
+  items: BulkParadaInput[],
+  opcoes?: LocalizarLoteOpcoes,
+) => Promise<LocalizarLoteResult>;
+
+export type ImportParadasFn = (
+  confirmados: EnderecoLocalizado[],
+  opcoes?: ImportParadasOpcoes,
+) => BulkImportResult;
 
 export interface UseParadasManagementReturn {
   retiradasDisponiveis: Parada[];
@@ -64,9 +92,9 @@ export interface UseParadasManagementReturn {
     allowDuplicate?: boolean,
   ) => Promise<boolean>;
   /** Localiza as linhas (uma por vez) sem criar paradas. */
-  localizarLote: (items: BulkParadaInput[]) => Promise<LocalizarLoteResult>;
+  localizarLote: LocalizarLoteFn;
   /** Cria as paradas conferidas, com a coordenada confirmada. */
-  importParadas: (confirmados: EnderecoLocalizado[]) => BulkImportResult;
+  importParadas: ImportParadasFn;
   removeParada: (index: number) => void;
   moveParadaUp: (index: number) => void;
   moveParadaDown: (index: number) => void;
@@ -96,10 +124,32 @@ function reindex(paradas: Parada[]): Parada[] {
   return paradas.map((parada, index) => ({ ...parada, ordem: index + 1 }));
 }
 
-const mensagemDuplicadaLote = (item: BulkParadaInput) =>
-  `Linha ${item.linha}: ${item.tipo} duplicada (mesmo endereço ou telefone).`;
-const mensagemLimiteLote = (linha: number) =>
-  `Linha ${linha}: limite da rota atingido.`;
+type CandidataLote = Pick<Parada, 'id' | 'endereco' | 'telefone' | 'tipo'>;
+
+/**
+ * Regra única de recusa de uma linha do lote, usada nas duas fases (localizar
+ * e importar): `lista` é tudo o que já ocupa a rota — paradas existentes mais
+ * as linhas do lote já aceitas antes desta. Devolve a mensagem ou `null`.
+ * O limite vem antes da duplicata: rota cheia recusa qualquer linha.
+ */
+export function motivoRecusaLote(
+  lista: readonly CandidataLote[],
+  item: BulkParadaInput,
+): string | null {
+  if (lista.length >= MAX_ROUTE_STOPS) {
+    return `Linha ${item.linha}: limite da rota atingido.`;
+  }
+  if (encontrarParadaDuplicada([...lista], item)) {
+    return `Linha ${item.linha}: ${item.tipo} duplicada (mesmo endereço ou telefone).`;
+  }
+  return null;
+}
+
+function textoLinhasFora(quantidade: number): string {
+  return quantidade === 1
+    ? '1 linha não entrou.'
+    : `${quantidade} linhas não entraram.`;
+}
 
 /** Forma mínima para comparar duplicata entre linhas que ainda não são parada. */
 function comoCandidata(item: BulkParadaInput) {
@@ -271,7 +321,10 @@ export function useParadasManagement({
    * erros também segue a do texto colado.
    */
   const localizarLote = useCallback(
-    async (items: BulkParadaInput[]): Promise<LocalizarLoteResult> => {
+    async (
+      items: BulkParadaInput[],
+      opcoes?: LocalizarLoteOpcoes,
+    ): Promise<LocalizarLoteResult> => {
       const sede =
         sedeLatitude != null && sedeLongitude != null
           ? { latitude: sedeLatitude, longitude: sedeLongitude }
@@ -281,18 +334,20 @@ export function useParadasManagement({
 
       setIsLoading(true);
       try {
-        for (const item of items) {
-          if (paradas.length + localizados.length >= MAX_ROUTE_STOPS) {
-            erros.push(mensagemLimiteLote(item.linha));
-            continue;
-          }
+        for (const [indice, item] of items.entries()) {
+          opcoes?.onProgresso?.(indice + 1, items.length);
 
-          const jaAceitas = [
-            ...paradas,
-            ...localizados.map((localizado) => comoCandidata(localizado.item)),
-          ];
-          if (encontrarParadaDuplicada(jaAceitas, item)) {
-            erros.push(mensagemDuplicadaLote(item));
+          const recusa = motivoRecusaLote(
+            [
+              ...paradas,
+              ...localizados.map((localizado) =>
+                comoCandidata(localizado.item),
+              ),
+            ],
+            item,
+          );
+          if (recusa) {
+            erros.push(recusa);
             continue;
           }
 
@@ -334,26 +389,29 @@ export function useParadasManagement({
    * descarta, e é o que o motorista lê.
    */
   const importParadas = useCallback(
-    (confirmados: EnderecoLocalizado[]): BulkImportResult => {
+    (
+      confirmados: EnderecoLocalizado[],
+      opcoes?: ImportParadasOpcoes,
+    ): BulkImportResult => {
       const erros: string[] = [];
       const novas: Parada[] = [];
+      const linhasAdicionadas: number[] = [];
       let ignoradas = 0;
 
       for (const confirmado of confirmados) {
         const { linha: _linha, ...dados } = confirmado.item;
 
-        if (paradas.length + novas.length >= MAX_ROUTE_STOPS) {
+        const recusa = motivoRecusaLote(
+          [...paradas, ...novas],
+          confirmado.item,
+        );
+        if (recusa) {
           ignoradas += 1;
-          erros.push(mensagemLimiteLote(confirmado.linha));
+          erros.push(recusa);
           continue;
         }
 
-        if (encontrarParadaDuplicada([...paradas, ...novas], dados)) {
-          ignoradas += 1;
-          erros.push(mensagemDuplicadaLote(confirmado.item));
-          continue;
-        }
-
+        linhasAdicionadas.push(confirmado.linha);
         novas.push({
           ...dados,
           id: generateUniqueId(),
@@ -364,16 +422,17 @@ export function useParadasManagement({
       }
 
       if (novas.length > 0) {
+        const fora = ignoradas + (opcoes?.foraDoLote ?? 0);
         setParadas((current) => reindex([...current, ...novas]));
         invalidateOptimization();
         showToast(
-          `${novas.length} parada(s) importada(s).${ignoradas ? ` ${ignoradas} ignorada(s).` : ''}`,
-          ignoradas ? 'info' : 'success',
+          `${novas.length} parada(s) importada(s).${fora ? ` ${textoLinhasFora(fora)}` : ''}`,
+          fora ? 'info' : 'success',
           5000,
         );
       }
 
-      return { adicionadas: novas.length, ignoradas, erros };
+      return { adicionadas: novas.length, ignoradas, erros, linhasAdicionadas };
     },
     [invalidateOptimization, paradas, setParadas, showToast],
   );

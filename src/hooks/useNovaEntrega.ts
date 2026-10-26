@@ -16,10 +16,8 @@ import type {
   RouteDraftValidation,
 } from '@/components/gestor/nova-entrega/types';
 import type {
-  BulkImportResult,
-  BulkParadaInput,
-  EnderecoLocalizado,
-  LocalizarLoteResult,
+  ImportParadasFn,
+  LocalizarLoteFn,
 } from '@/hooks/nova-entrega/useParadasManagement';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
@@ -111,8 +109,8 @@ export interface UseNovaEntregaReturn {
     vinculoId?: string,
     allowDuplicate?: boolean,
   ) => Promise<boolean>;
-  localizarLote: (items: BulkParadaInput[]) => Promise<LocalizarLoteResult>;
-  importParadas: (confirmados: EnderecoLocalizado[]) => BulkImportResult;
+  localizarLote: LocalizarLoteFn;
+  importParadas: ImportParadasFn;
   startEditParada: (index: number) => void;
   cancelEditParada: () => void;
   removeParada: (index: number) => void;

@@ -1,4 +1,15 @@
-import { parseBulkStops } from '../BulkStopImporter';
+import { act, fireEvent, render } from '@testing-library/react-native';
+import React from 'react';
+
+import type {
+  BulkImportResult,
+  BulkParadaInput,
+  EnderecoLocalizado,
+  LocalizarLoteOpcoes,
+  LocalizarLoteResult,
+} from '@/hooks/nova-entrega/useParadasManagement';
+
+import { BulkStopImporter, parseBulkStops } from '../BulkStopImporter';
 
 describe('parseBulkStops', () => {
   it('parses a header and quoted semicolons', () => {
@@ -65,5 +76,308 @@ describe('parseBulkStops', () => {
     expect(result.items).toEqual([]);
     expect(result.errors).toHaveLength(2);
     expect(result.errors[0]).toContain('4 ou 5 colunas');
+  });
+});
+
+describe('BulkStopImporter — conferência do lote', () => {
+  const linhas = [
+    'entrega;Rua A, 10;Maria;85999990001',
+    'retirada;Rua B, 20;João;85999990002',
+    'entrega;Rua C, 30;Ana;85999990003',
+  ];
+
+  function localizado(
+    item: BulkParadaInput,
+    overrides: Partial<EnderecoLocalizado> = {},
+  ): EnderecoLocalizado {
+    return {
+      linha: item.linha,
+      item,
+      enderecoEncontrado: `${item.endereco} - Centro, João Pessoa - PB`,
+      latitude: -7.12,
+      longitude: -34.88,
+      fonte: 'google',
+      distanciaSedeKm: 2.5,
+      ...overrides,
+    };
+  }
+
+  /** As linhas localizam, menos a 3ª, que falha. */
+  const localizarPadrao = async (
+    items: BulkParadaInput[],
+  ): Promise<LocalizarLoteResult> => ({
+    localizados: items
+      .filter((item) => item.linha !== 3)
+      .map((item) => localizado(item)),
+    erros: items
+      .filter((item) => item.linha === 3)
+      .map((item) => `Linha ${item.linha}: endereço não localizado.`),
+  });
+
+  const importarTudo = (
+    confirmados: EnderecoLocalizado[],
+  ): BulkImportResult => ({
+    adicionadas: confirmados.length,
+    ignoradas: 0,
+    erros: [],
+    linhasAdicionadas: confirmados.map((item) => item.linha),
+  });
+
+  function montar({
+    texto = linhas.slice(0, 2).join('\n'),
+    onLocalizar = jest.fn(localizarPadrao),
+    onImport = jest.fn(importarTudo),
+  }: {
+    texto?: string;
+    onLocalizar?: jest.Mock;
+    onImport?: jest.Mock;
+  } = {}) {
+    const tela = render(
+      <BulkStopImporter onLocalizar={onLocalizar} onImport={onImport} />,
+    );
+    fireEvent.press(tela.getByText('Importar em lote'));
+    fireEvent.changeText(
+      tela.getByLabelText('Linhas de paradas para importação'),
+      texto,
+    );
+    return { ...tela, onLocalizar, onImport };
+  }
+
+  async function localizar(tela: ReturnType<typeof montar>) {
+    await act(async () => {
+      fireEvent.press(tela.getByText('Localizar endereços'));
+    });
+  }
+
+  it('"Localizar endereços" mostra a conferência sem criar parada nenhuma', async () => {
+    const tela = montar();
+    await localizar(tela);
+
+    expect(tela.onLocalizar).toHaveBeenCalledTimes(1);
+    expect(tela.onImport).not.toHaveBeenCalled();
+    // Texto colado E endereço encontrado, lado a lado, pela linha real.
+    expect(tela.getByText('Linha 1')).toBeTruthy();
+    expect(tela.getByText('Rua A, 10')).toBeTruthy();
+    expect(tela.getByText('Rua A, 10 - Centro, João Pessoa - PB')).toBeTruthy();
+    expect(tela.getByText('Adicionar 2 paradas')).toBeTruthy();
+  });
+
+  it('"Adicionar 2 paradas" entrega as duas conferidas', async () => {
+    const tela = montar();
+    await localizar(tela);
+
+    act(() => {
+      fireEvent.press(tela.getByText('Adicionar 2 paradas'));
+    });
+
+    expect(tela.onImport).toHaveBeenCalledTimes(1);
+    const [confirmados, opcoes] = tela.onImport.mock.calls[0];
+    expect(confirmados.map((item: EnderecoLocalizado) => item.linha)).toEqual([
+      1, 2,
+    ]);
+    expect(opcoes).toEqual({ foraDoLote: 0 });
+  });
+
+  it('"Remover" tira a linha e o botão passa a contar 1 parada', async () => {
+    const tela = montar();
+    await localizar(tela);
+
+    fireEvent.press(tela.getByLabelText('Remover linha 2'));
+
+    expect(tela.queryByText('Rua B, 20')).toBeNull();
+    expect(tela.getByText('Adicionar 1 parada')).toBeTruthy();
+  });
+
+  it('avisa a linha que caiu a mais de 30 km da sede, e só ela', async () => {
+    const tela = montar({
+      onLocalizar: jest.fn(async (items: BulkParadaInput[]) => ({
+        localizados: [
+          localizado(items[0]!, { distanciaSedeKm: 45 }),
+          localizado(items[1]!, { distanciaSedeKm: 2.5 }),
+        ],
+        erros: [],
+      })),
+    });
+    await localizar(tela);
+
+    expect(tela.getByText('45,0 km da sede')).toBeTruthy();
+    expect(tela.getByText('2,5 km da sede')).toBeTruthy();
+    expect(tela.getAllByText('Mais de 30 km da sede — confira')).toHaveLength(
+      1,
+    );
+  });
+
+  it('rotula a fonte com honestidade: CEP é posição aproximada', async () => {
+    const tela = montar({
+      onLocalizar: jest.fn(async (items: BulkParadaInput[]) => ({
+        localizados: [
+          localizado(items[0]!, { fonte: 'viacep' }),
+          localizado(items[1]!, { fonte: 'photon' }),
+        ],
+        erros: [],
+      })),
+    });
+    await localizar(tela);
+
+    expect(tela.getByText('CEP (posição aproximada)')).toBeTruthy();
+    expect(tela.getByText('Photon')).toBeTruthy();
+  });
+
+  it('lista o erro de localização pela linha real', async () => {
+    const tela = montar({ texto: linhas.join('\n') });
+    await localizar(tela);
+
+    expect(tela.getByText('• Linha 3: endereço não localizado.')).toBeTruthy();
+    expect(tela.getByText('Adicionar 2 paradas')).toBeTruthy();
+  });
+
+  it('depois de adicionar com 1 falha, o campo fica exatamente com a linha que falhou', async () => {
+    const tela = montar({ texto: linhas.join('\n') });
+    await localizar(tela);
+
+    act(() => {
+      fireEvent.press(tela.getByText('Adicionar 2 paradas'));
+    });
+
+    expect(tela.onImport.mock.calls[0][1]).toEqual({ foraDoLote: 1 });
+    expect(
+      tela.getByLabelText('Linhas de paradas para importação').props.value,
+    ).toBe(linhas[2]);
+    // No campo novo ela é a linha 1: a mensagem acompanha o que está na tela.
+    expect(tela.getByText('• Linha 1: endereço não localizado.')).toBeTruthy();
+  });
+
+  it('a linha removida e a recusada na fase 2 também voltam ao campo', async () => {
+    const tela = montar({
+      texto: linhas.join('\n'),
+      onLocalizar: jest.fn(async (items: BulkParadaInput[]) => ({
+        localizados: items.map((item) => localizado(item)),
+        erros: [],
+      })),
+      onImport: jest.fn(
+        (confirmados: EnderecoLocalizado[]): BulkImportResult => ({
+          adicionadas: 1,
+          ignoradas: 1,
+          erros: ['Linha 3: entrega duplicada (mesmo endereço ou telefone).'],
+          linhasAdicionadas: [confirmados[0]!.linha],
+        }),
+      ),
+    });
+    await localizar(tela);
+    fireEvent.press(tela.getByLabelText('Remover linha 2'));
+
+    act(() => {
+      fireEvent.press(tela.getByText('Adicionar 2 paradas'));
+    });
+
+    expect(tela.onImport.mock.calls[0][1]).toEqual({ foraDoLote: 1 });
+    expect(
+      tela.getByLabelText('Linhas de paradas para importação').props.value,
+    ).toBe([linhas[1], linhas[2]].join('\n'));
+    expect(tela.getByText('• Linha 1: removida na conferência.')).toBeTruthy();
+    expect(
+      tela.getByText(
+        '• Linha 2: entrega duplicada (mesmo endereço ou telefone).',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('fecha e esvazia o campo quando todas as linhas entram', async () => {
+    const tela = montar();
+    await localizar(tela);
+
+    act(() => {
+      fireEvent.press(tela.getByText('Adicionar 2 paradas'));
+    });
+
+    expect(tela.queryByText('Importar paradas em lote')).toBeNull();
+    fireEvent.press(tela.getByText('Importar em lote'));
+    expect(
+      tela.getByLabelText('Linhas de paradas para importação').props.value,
+    ).toBe('');
+  });
+
+  it('mostra o andamento enquanto localiza', async () => {
+    let concluir: (resultado: LocalizarLoteResult) => void = () => {};
+    const onLocalizar = jest.fn(
+      (_items: BulkParadaInput[], opcoes?: LocalizarLoteOpcoes) => {
+        opcoes?.onProgresso?.(2, 3);
+        return new Promise<LocalizarLoteResult>((resolve) => {
+          concluir = resolve;
+        });
+      },
+    );
+    const tela = montar({ texto: linhas.join('\n'), onLocalizar });
+
+    await act(async () => {
+      fireEvent.press(tela.getByText('Localizar endereços'));
+    });
+
+    expect(tela.getByText('Localizando 2 de 3…')).toBeTruthy();
+    await act(async () => {
+      concluir({ localizados: [], erros: [] });
+    });
+  });
+
+  it('"Corrigir" localiza de novo só aquela linha, com o texto editado', async () => {
+    const onLocalizar = jest.fn(localizarPadrao);
+    const tela = montar({ onLocalizar });
+    await localizar(tela);
+
+    fireEvent.press(tela.getByLabelText('Corrigir linha 1'));
+    fireEvent.changeText(
+      tela.getByLabelText('Endereço da linha 1'),
+      'Rua A, 10, Cabedelo - PB',
+    );
+    await act(async () => {
+      fireEvent.press(tela.getByText('Localizar de novo'));
+    });
+
+    expect(onLocalizar).toHaveBeenCalledTimes(2);
+    const [itens] = onLocalizar.mock.calls[1];
+    expect(itens).toHaveLength(1);
+    expect(itens[0]).toMatchObject({
+      linha: 1,
+      endereco: 'Rua A, 10, Cabedelo - PB',
+    });
+    expect(
+      tela.getByText('Rua A, 10, Cabedelo - PB - Centro, João Pessoa - PB'),
+    ).toBeTruthy();
+    expect(tela.getByText('Adicionar 2 paradas')).toBeTruthy();
+  });
+
+  it('"Corrigir" que não acha o endereço mantém a linha antiga e diz por quê', async () => {
+    const onLocalizar = jest.fn(localizarPadrao);
+    const tela = montar({ onLocalizar });
+    await localizar(tela);
+    onLocalizar.mockResolvedValueOnce({
+      localizados: [],
+      erros: ['Linha 1: endereço não localizado.'],
+    });
+
+    fireEvent.press(tela.getByLabelText('Corrigir linha 1'));
+    fireEvent.changeText(
+      tela.getByLabelText('Endereço da linha 1'),
+      'Rua Inexistente, 0',
+    );
+    await act(async () => {
+      fireEvent.press(tela.getByText('Localizar de novo'));
+    });
+
+    expect(tela.getByText('Linha 1: endereço não localizado.')).toBeTruthy();
+    expect(tela.getByText('Rua A, 10 - Centro, João Pessoa - PB')).toBeTruthy();
+  });
+
+  it('"Voltar" devolve à etapa de colar com o texto intacto', async () => {
+    const texto = linhas.slice(0, 2).join('\n');
+    const tela = montar({ texto });
+    await localizar(tela);
+
+    fireEvent.press(tela.getByText('Voltar'));
+
+    expect(
+      tela.getByLabelText('Linhas de paradas para importação').props.value,
+    ).toBe(texto);
+    expect(tela.onImport).not.toHaveBeenCalled();
   });
 });
