@@ -54,9 +54,9 @@
 --       depois da conclusão, rota concluída de novo em seguida; nenhuma
 --       desde então) e 5 da loja demo (rotas `aaaa0000-…` e `4c9eaaae-…`),
 --       onde o fixture do e2e
---       `e2e/fixtures/garantir-rota-do-mapa.ts` restaura a rota demo com
---       UPDATE direto como gestor — com esta migration ele passa a receber
---       ROTA_ENCERRADA (ver "Efeito no app");
+--       `e2e/fixtures/garantir-rota-do-mapa.ts` reabria a rota demo com
+--       UPDATE direto como gestor — no mesmo PR ele passa a copiar a rota
+--       encerrada (ver "Efeito no app");
 --     - app: `startRoute` (`src/hooks/route-status/useRouteActions.ts`) só
 --       muda rota `pendente` (`.eq('status', 'pendente')`); nenhuma tela do
 --       motorista muda status de rota encerrada; o gestor 1.14.8 cancela e
@@ -90,10 +90,12 @@
 --     - gestor no app nativo 1.14.7 que reativar (UPDATE direto
 --       `nao_executada → pendente`): passa a receber o erro e a tela mostra a
 --       mensagem de erro dela (aceito na Decisão D2; atualiza para 1.14.8);
---     - e2e: `garantirRotaDoMapa` restaura a rota demo com UPDATE direto
---       (`→ em_andamento`) quando ela está encerrada; recebe ROTA_ENCERRADA e
---       o `renders motorista mapa` para. Decidir o caminho do fixture antes
---       de aplicar.
+--     - e2e: `garantirRotaDoMapa` reabria a rota demo encerrada com UPDATE
+--       direto (`→ em_andamento`). No mesmo PR, sem rota aberta, ele passa a
+--       criar uma cópia da encerrada mais recente por `criar_rota_com_paradas`
+--       e a iniciar como o app (`pendente → em_andamento`), sem nunca deixar
+--       duas rotas abertas do motorista demo (`e2e/fixtures/planoDaRotaDoMapa.ts`).
+--       O fixture novo precisa estar na main antes de aplicar.
 --
 --   `SET LOCAL lock_timeout = '3s'`: o CREATE TRIGGER pede SHARE ROW
 --   EXCLUSIVE em `rotas`, que segura as escritas do app; se a trava não vier

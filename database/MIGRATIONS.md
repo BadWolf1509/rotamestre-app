@@ -3266,7 +3266,7 @@ colável no arquivo.
 
 **Arquivo:** `20261026125000_rota_encerrada_nao_volta.sql` · **⏳ não aplicada.**
 Aplicar só depois do deploy do app 1.14.8 na web (gestor cancela e reativa pela
-RPC) e depois de decidir o caminho do fixture do e2e (ver "App").
+RPC) e depois de o fixture novo do e2e estar na main (ver "App").
 
 **O que faz.** Cria o gatilho `trg_rota_encerrada_nao_volta` (BEFORE UPDATE OF
 status em `rotas`, por linha, `WHEN` status antigo `cancelada`/`concluida`/
@@ -3293,9 +3293,11 @@ depois da conclusão, rota concluída de novo em seguida; nenhum desde então).
 
 **App.** Motorista: nenhum efeito (`startRoute` só muda rota `pendente`). Gestor
 1.14.8: nenhum. Gestor no app nativo 1.14.7 que reativar por UPDATE direto passa
-a receber erro (D2). **e2e:** `e2e/fixtures/garantir-rota-do-mapa.ts` restaura a
-rota demo encerrada com UPDATE direto como gestor (`→ em_andamento`) e passa a
-receber `ROTA_ENCERRADA`; o caminho do fixture precisa mudar antes de aplicar.
+a receber erro (D2). **e2e:** `e2e/fixtures/garantir-rota-do-mapa.ts` reabria a
+rota demo encerrada com UPDATE direto como gestor; agora, sem rota aberta, cria
+uma cópia da encerrada mais recente por `criar_rota_com_paradas` (chave
+idempotente derivada do modelo) e a inicia como o app, sem nunca deixar duas
+rotas abertas do motorista demo (`e2e/fixtures/planoDaRotaDoMapa.ts`).
 
 **Verificação.** Guarda estática
 `database/__tests__/migration75-rota-encerrada-nao-volta.test.ts`; sonda
