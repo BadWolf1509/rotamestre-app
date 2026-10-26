@@ -2,10 +2,11 @@
 //
 // A função apagava qualquer Bearer válido. Dois casos não podem ser apagados
 // sem aviso, porque o dano cai em outras pessoas:
-//   - o ÚNICO gestor ativo de uma loja: a loja ficaria sem ninguém que a
-//     administre (e sem quem receba os incidentes e os avisos);
-//   - quem tem rota `em_andamento`: o motorista some no meio da entrega e a
-//     rota fica presa, sem dono.
+//   - o ÚNICO gestor ativo de uma loja (outro gestor só conta com o cadastro
+//     em `usuarios` ativo): a loja ficaria sem ninguém que a administre (e sem
+//     quem receba os incidentes e os avisos);
+//   - quem tem rota aberta atribuída (`em_andamento` ou `pendente`): o
+//     motorista some no meio da entrega, ou a rota do dia fica sem dono.
 // Em ambos a conta NÃO é apagada: a resposta traz um código estável (o app
 // decide o que mostrar) e uma mensagem em PT-BR que diz o que fazer.
 //
@@ -13,10 +14,10 @@
 // livre" têm o mesmo silêncio, e a exclusão é irreversível: recusa com 503 e
 // o usuário tenta de novo.
 
+// ROTA_EM_ANDAMENTO = rota aberta atribuída (pendente ou em andamento); nome
+// mantido pela compatibilidade com o app 1.14.x, que só reconhece estes três.
 export type CodigoRecusa =
-  | 'ULTIMO_GESTOR'
-  | 'ROTA_EM_ANDAMENTO'
-  | 'GUARDA_INDISPONIVEL';
+  'ULTIMO_GESTOR' | 'ROTA_EM_ANDAMENTO' | 'GUARDA_INDISPONIVEL';
 
 export interface Recusa {
   codigo: CodigoRecusa;
@@ -84,10 +85,28 @@ async function lojasOndeSouOUnicoGestor(
     .neq('usuario_id', usuarioId);
   if (outros.error) return 'falha';
 
+  const vinculos = (outros.data ?? []) as Array<{
+    unidade_id: string;
+    usuario_id: string;
+  }>;
+  if (vinculos.length === 0) return lojas;
+
+  // Vínculo ativo não basta: o outro gestor precisa ter o cadastro ativo.
+  const ids = [...new Set(vinculos.map((v) => v.usuario_id))];
+  const ativos = await cliente
+    .from('usuarios')
+    .select('id')
+    .in('id', ids)
+    .eq('ativo', true);
+  if (ativos.error) return 'falha';
+
+  const idsAtivos = new Set(
+    ((ativos.data ?? []) as Array<{ id: string }>).map((u) => u.id),
+  );
   const comOutroGestor = new Set(
-    ((outros.data ?? []) as Array<{ unidade_id: string }>).map(
-      (l) => l.unidade_id,
-    ),
+    vinculos
+      .filter((v) => idsAtivos.has(v.usuario_id))
+      .map((v) => v.unidade_id),
   );
   return lojas.filter((id) => !comOutroGestor.has(id));
 }
@@ -129,19 +148,32 @@ export async function verificarGuardas(
     };
   }
 
-  const emAndamento = await cliente
+  // Sem filtro de data: rota pendente de dia passado vira nao_executada na
+  // expiração das 22:00, então a que sobra é de hoje em diante. O limite é
+  // folgado para a rota em andamento não ficar de fora atrás de pendentes.
+  const abertas = await cliente
     .from('rotas')
-    .select('id')
+    .select('id, status')
     .eq('motorista_id', usuarioId)
-    .eq('status', 'em_andamento')
-    .limit(1);
-  if (emAndamento.error) return INDISPONIVEL;
+    .in('status', ['pendente', 'em_andamento'])
+    .limit(100);
+  if (abertas.error) return INDISPONIVEL;
 
-  if (((emAndamento.data ?? []) as unknown[]).length > 0) {
+  const rotas = (abertas.data ?? []) as Array<{ status: string }>;
+  if (rotas.some((r) => r.status === 'em_andamento')) {
     return {
       codigo: 'ROTA_EM_ANDAMENTO',
       mensagem:
         'Você tem uma rota em andamento. Finalize a rota antes de excluir a conta, ou peça ao gestor que a reatribua a outro motorista. Nada foi apagado.',
+      status: 409,
+    };
+  }
+
+  if (rotas.length > 0) {
+    return {
+      codigo: 'ROTA_EM_ANDAMENTO',
+      mensagem:
+        'Você tem rota atribuída que ainda não foi feita. Peça ao gestor que a reatribua a outro motorista antes de excluir a conta. Nada foi apagado.',
       status: 409,
     };
   }
