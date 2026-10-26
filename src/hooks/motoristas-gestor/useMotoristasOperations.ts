@@ -4,7 +4,7 @@
  * Handles loading motoristas and CRUD operations.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
@@ -93,6 +93,11 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   const [motoristas, setMotoristas] = useState<MotoristaDetalhado[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  // Contador de requisição: só a carga mais recente escreve (a resposta
+  // atrasada da loja anterior não entra na lista da nova).
+  const requisicaoRef = useRef(0);
+  // Loja da última carga iniciada: se mudou, a lista na tela é da OUTRA loja.
+  const lojaDaCargaRef = useRef<string | null>(null);
 
   // Computed
   const totalMotoristas = motoristas.length;
@@ -104,6 +109,16 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
   const loadMotoristas = useCallback(async () => {
     if (!unidadeAtiva) return;
+
+    const minha = ++requisicaoRef.current;
+    const vigente = () => minha === requisicaoRef.current;
+
+    // Loja trocada: os motoristas da anterior saem da tela antes da carga
+    // (se ela falhar, a tela fica vazia + toast, nunca com a lista da outra).
+    if (lojaDaCargaRef.current !== unidadeAtiva) {
+      if (lojaDaCargaRef.current !== null) setMotoristas([]);
+      lojaDaCargaRef.current = unidadeAtiva;
+    }
 
     try {
       setLoading(true);
@@ -124,12 +139,14 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         a.nome.localeCompare(b.nome),
       );
 
-      setMotoristas(motoristasData || []);
+      if (vigente()) setMotoristas(motoristasData || []);
     } catch (error) {
       logger.error('[Motoristas] Erro ao carregar motoristas', error);
-      showToast('Não foi possível carregar os motoristas', 'error');
+      if (vigente()) {
+        showToast('Não foi possível carregar os motoristas', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (vigente()) setLoading(false);
     }
   }, [showToast, unidadeAtiva]);
 

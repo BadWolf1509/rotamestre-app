@@ -242,6 +242,25 @@ async function buscarTotalHoje(unidadeId: string): Promise<number | null> {
   return !error && data ? data.length : null;
 }
 
+// Estado de "nada carregado ainda" (e de "loja trocada"): objetos no módulo,
+// compartilhados só como valor inicial/reset — nunca mutados.
+const STATS_VAZIO: Stats = {
+  total: 0,
+  emAndamento: 0,
+  concluidas: 0,
+  distanciaTotal: 0,
+};
+const HOJE_VAZIO: TodayStats = { totalHoje: 0 };
+const KPIS_VAZIO: KPIs = {
+  rotasSemana: 0,
+  rotasMes: 0,
+  taxaSucesso: 0,
+  tempoMedioMinutos: 0,
+  totalParadas: 0,
+  paradasConcluidas: 0,
+  motoristaDestaque: null,
+};
+
 // ============================================================================
 // HOOK PRINCIPAL
 // ============================================================================
@@ -266,22 +285,9 @@ export function useDashboardData(
   const unidadeId = unidadeAtiva;
 
   // Estados
-  const [stats, setStats] = useState<Stats>({
-    total: 0,
-    emAndamento: 0,
-    concluidas: 0,
-    distanciaTotal: 0,
-  });
-  const [todayStats, setTodayStats] = useState<TodayStats>({ totalHoje: 0 });
-  const [kpis, setKpis] = useState<KPIs>({
-    rotasSemana: 0,
-    rotasMes: 0,
-    taxaSucesso: 0,
-    tempoMedioMinutos: 0,
-    totalParadas: 0,
-    paradasConcluidas: 0,
-    motoristaDestaque: null,
-  });
+  const [stats, setStats] = useState<Stats>(STATS_VAZIO);
+  const [todayStats, setTodayStats] = useState<TodayStats>(HOJE_VAZIO);
+  const [kpis, setKpis] = useState<KPIs>(KPIS_VAZIO);
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -309,6 +315,9 @@ export function useDashboardData(
   // carga inicial; recarga por filtro sinaliza via `refreshing`, que preserva a
   // árvore. Mesma regra do useGestaoRotas ("only show loading if no cache").
   const cargaInicialFeitaRef = useRef(false);
+  // Loja da última carga iniciada: se mudou, o que está na tela é de OUTRA
+  // loja (ver o reset em `fetchDashboardData`).
+  const lojaDaCargaRef = useRef<string | null>(null);
 
   // ============================================================================
   // FUNÇÃO PRINCIPAL DE FETCH (extraída para eliminar duplicação)
@@ -327,19 +336,35 @@ export function useDashboardData(
 
       // Se não há unidade, limpar dados
       if (!unidadeId) {
+        lojaDaCargaRef.current = null;
         if (mountedRef.current) {
-          setStats({
-            total: 0,
-            emAndamento: 0,
-            concluidas: 0,
-            distanciaTotal: 0,
-          });
-          setTodayStats({ totalHoje: 0 });
+          setStats(STATS_VAZIO);
+          setTodayStats(HOJE_VAZIO);
           setRotas([]);
           setLoading(false);
           setRefreshing(false);
         }
         return;
+      }
+
+      // Loja trocada: lista, KPIs, contagens e erro da anterior saem da tela e
+      // a carga inicial volta a valer (tela de carregamento, não a "recarga"
+      // discreta). Sem isso, um erro na carga da loja nova ofereceria os dados
+      // da OUTRA loja como "dados de HH:MM". Só a carga completa zera: o
+      // evento de realtime (`carregarAoVivo`) é sempre da loja vigente.
+      if (lojaDaCargaRef.current !== unidadeId) {
+        if (lojaDaCargaRef.current !== null && mountedRef.current) {
+          cargaInicialFeitaRef.current = false;
+          ultimaCargaOkRef.current = null;
+          erroDoVivoRef.current = false;
+          setStats(STATS_VAZIO);
+          setTodayStats(HOJE_VAZIO);
+          setKpis(KPIS_VAZIO);
+          setRotas([]);
+          setErroCarga(null);
+          setDadosDe(null);
+        }
+        lojaDaCargaRef.current = unidadeId;
       }
 
       try {
