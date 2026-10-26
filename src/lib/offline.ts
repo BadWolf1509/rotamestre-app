@@ -42,6 +42,27 @@ interface OfflinePhotoData {
    * comprovante em nome de outra pessoa. Distingue-a da foto antiga sem dono.
    */
   semDono?: true;
+  /** Envios que falharam com o aparelho online (ver `LIMITE_FALHAS_FOTO`). */
+  falhas?: number;
+  /** Quando foi a última falha (ms desde a época). */
+  ultimaFalhaEm?: number;
+}
+
+/**
+ * Foto que nunca consegue subir (vínculo com a loja desativado, a policy do
+ * bucket recusa) era reenviada inteira a cada gatilho, para sempre. Depois de
+ * `LIMITE_FALHAS_FOTO` falhas, no máximo um reenvio por
+ * `ESPACO_REENVIO_FOTO_MS`. Nunca apaga: é comprovante. Alternativa
+ * descartada: caminho estável no bucket com `upsert` (evitaria objetos
+ * órfãos do upload que passa e da ligação que falha), mas pede UPDATE em
+ * `storage.objects`, que a policy do bucket não dá — fica para o banco.
+ */
+export const LIMITE_FALHAS_FOTO = 5;
+export const ESPACO_REENVIO_FOTO_MS = 60 * 60 * 1000;
+
+function fotoEmEspera(photo: OfflinePhotoData, agora: number): boolean {
+  if ((photo.falhas ?? 0) < LIMITE_FALHAS_FOTO) return false;
+  return agora - (photo.ultimaFalhaEm ?? 0) < ESPACO_REENVIO_FOTO_MS;
 }
 
 /** Foto que a sessão `usuarioAtual` pode subir/contar. */
@@ -303,6 +324,24 @@ export async function queuePhotoUpload(
   return photoData.localPath;
 }
 
+/** Conta a falha na entrada da foto (pelo caminho local, que é único). */
+async function registrarFalhaDaFoto(photo: OfflinePhotoData): Promise<void> {
+  try {
+    await mudarIndiceDeFotos((index) => {
+      if (!index.some((p) => p.localPath === photo.localPath)) return null;
+      return index.map((p) =>
+        p.localPath === photo.localPath
+          ? { ...p, falhas: (p.falhas ?? 0) + 1, ultimaFalhaEm: Date.now() }
+          : p,
+      );
+    });
+  } catch (error) {
+    // Não crítico: sem a contagem, a foto só volta a ser tentada a cada
+    // gatilho, como antes.
+    logger.warn('[Offline] Falha ao contar a falha da foto', error);
+  }
+}
+
 /**
  * Concurrency guard for processOfflinePhotos.
  * Prevents double uploads when setupOfflineSync fires twice (e.g., rapid connectivity toggles).
@@ -346,6 +385,7 @@ export async function processOfflinePhotos(): Promise<{
 
     for (const photo of index) {
       if (!fotoEDe(photo, usuarioAtual)) continue;
+      if (fotoEmEspera(photo, Date.now())) continue;
       try {
         // Verificar se arquivo ainda existe
         if (Platform.OS !== 'web') {
@@ -387,10 +427,12 @@ export async function processOfflinePhotos(): Promise<{
           success++;
         } else {
           failed++;
+          await registrarFalhaDaFoto(photo);
         }
       } catch (error) {
         logger.warn('Falha ao processar foto offline', error);
         failed++;
+        await registrarFalhaDaFoto(photo);
       }
     }
 
