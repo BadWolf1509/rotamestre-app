@@ -197,9 +197,10 @@ export function montarFeaturesDosMarcadores(
         id: parada.id,
         status: parada.status,
         ordem: parada.ordem,
-        // Emoji para casar com os ícones dos checkpoints no mobile.
-        // Se o servidor de fontes do GL não tiver o glifo, volte para 'I'/'F'.
-        label: isPartida ? '\u{1F6A9}' : '\u{1F3E0}',
+        // Letra, não emoji: a fonte do layer (Noto Sans Bold, OpenFreeMap)
+        // não tem glifo de emoji — o servidor responde 404 à faixa e o
+        // rótulo sai em branco.
+        label: isPartida ? 'I' : 'F',
         is_checkpoint: true,
         is_partida: isPartida,
         is_selected: parada.id === selectedParadaId,
