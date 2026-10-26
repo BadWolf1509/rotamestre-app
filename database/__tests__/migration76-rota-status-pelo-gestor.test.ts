@@ -1,17 +1,19 @@
-// Guarda estática da Migration 76 (gatilho `trg_rotas_loja_e_status_pelo_gestor`:
-// a rota só muda de loja pelo gestor ativo das duas lojas, como a parada e o
-// incidente nas Migrations 58/59; e quem não é gestor ativo da loja da rota só
-// leva o status de `pendente` a `em_andamento` (iniciar) e de `em_andamento` a
-// `concluida` (a `finalizar_rota` e o app até a 1.14.2, que finaliza por UPDATE
-// direto). O comportamento se prova com a sonda (`database/sondas/`), desfeita
-// pelo RAISE. Esta guarda impede que a função perca o SECURITY DEFINER (ela lê
-// `usuario_unidades`), que a sessão sem usuário (cron, chave secreta, CLI)
-// deixe de passar, que as duas transições do motorista saiam da lista, que o
-// gatilho deixe de olhar as duas colunas e que as cópias divirjam.
+// Guarda estática da Migration 76 (gatilho `trg_rota_status_pelo_gestor`:
+// quem não é gestor ativo da loja da rota só leva o status de `pendente` a
+// `em_andamento` (iniciar) e de `em_andamento` a `concluida` (a
+// `finalizar_rota` e o app até a 1.14.2, que finaliza por UPDATE direto)).
+// A troca de loja da rota NÃO é tratada aqui: `authenticated` não tem UPDATE
+// na coluna `rotas.unidade_id` (privilégio por coluna), e a sonda prova que a
+// API recebe 42501 antes e depois da migration. O comportamento se prova com
+// a sonda (`database/sondas/`), desfeita pelo RAISE. Esta guarda impede que a
+// função perca o SECURITY DEFINER (ela lê `usuario_unidades`), que a sessão
+// sem usuário (cron, chave secreta, CLI) deixe de passar, que as duas
+// transições do motorista saiam da lista, que a regra volte a olhar a loja e
+// que as cópias divirjam.
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const ARQUIVO = '20261027100000_rota_loja_e_status_pelo_gestor.sql';
+const ARQUIVO = '20261027100000_rota_status_pelo_gestor.sql';
 const raiz = join(__dirname, '..', '..');
 const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
 const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
@@ -42,7 +44,7 @@ const rollback = (() => {
     .map((l) => l.replace(/^-- ?/, ''))
     .join('\n');
 })();
-const FUNCAO = 'public.rotas_loja_e_status_pelo_gestor()';
+const FUNCAO = 'public.rota_status_pelo_gestor()';
 const corpoFuncao = (() => {
   const i = executavel.indexOf(`CREATE OR REPLACE FUNCTION ${FUNCAO}`);
   if (i < 0) return '';
@@ -50,11 +52,21 @@ const corpoFuncao = (() => {
   return executavel.slice(i, fim < 0 ? undefined : fim);
 })();
 
-describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
+describe('Migration 76: status da rota pelo gestor', () => {
   it('existe nas duas pastas, com conteúdo idêntico', () => {
     expect(existsSync(caminhoDb)).toBe(true);
     expect(existsSync(caminhoSupa)).toBe(true);
     expect(ler(caminhoSupa)).toBe(sql);
+  });
+
+  it('o nome antigo (com loja) não existe mais em nenhuma pasta', () => {
+    const antigo = '20261027100000_rota_loja_e_status_pelo_gestor.sql';
+    expect(existsSync(join(raiz, 'database', 'migrations', antigo))).toBe(
+      false,
+    );
+    expect(existsSync(join(raiz, 'supabase', 'migrations', antigo))).toBe(
+      false,
+    );
   });
 
   it('roda numa transação só, com lock_timeout logo depois do BEGIN', () => {
@@ -69,7 +81,7 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(corpoFuncao).toMatch(/SET search_path = ''/);
     expect(executavel).toContain(`ALTER FUNCTION ${FUNCAO} OWNER TO postgres;`);
     expect(executavel).toMatch(
-      /COMMENT ON FUNCTION public\.rotas_loja_e_status_pelo_gestor\(\) IS\s+'[^']*Migration 76/,
+      /COMMENT ON FUNCTION public\.rota_status_pelo_gestor\(\) IS\s+'[^']*Migration 76/,
     );
   });
 
@@ -81,23 +93,13 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(corpoFuncao.indexOf('RAISE EXCEPTION')).toBeGreaterThan(semUsuario);
   });
 
-  it('troca de loja exige gestor ativo da loja antiga e da nova', () => {
-    expect(corpoFuncao).toMatch(
-      /IF NEW\.unidade_id IS DISTINCT FROM OLD\.unidade_id THEN/,
-    );
+  it('gestor ativo da loja da rota passa', () => {
     expect(corpoFuncao).toMatch(/uu\.unidade_id = OLD\.unidade_id/);
-    expect(corpoFuncao).toMatch(/uu\.unidade_id = NEW\.unidade_id/);
-    expect(corpoFuncao.match(/uu\.papel::text = 'gestor'/g)?.length).toBe(2);
-    expect(corpoFuncao.match(/uu\.ativo = true/g)?.length).toBe(2);
-    expect(corpoFuncao).toMatch(
-      /RAISE EXCEPTION 'A rota só muda de loja pelo gestor das duas lojas\.'\s+USING ERRCODE = '42501'/,
-    );
+    expect(corpoFuncao).toMatch(/uu\.papel::text = 'gestor'/);
+    expect(corpoFuncao).toMatch(/uu\.ativo = true/);
   });
 
   it('quem não é gestor só inicia e conclui', () => {
-    expect(corpoFuncao).toMatch(
-      /IF NEW\.status IS DISTINCT FROM OLD\.status AND NOT v_gestor_origem THEN/,
-    );
     expect(corpoFuncao).toMatch(
       /\(OLD\.status = 'pendente' AND NEW\.status = 'em_andamento'\)/,
     );
@@ -107,15 +109,21 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(corpoFuncao).toMatch(
       /RAISE EXCEPTION 'ROTA_TRANSICAO_RECUSADA'\s+USING ERRCODE = 'P0001'/,
     );
-    expect(corpoFuncao.match(/RAISE EXCEPTION/g)).toHaveLength(2);
+    expect(corpoFuncao.match(/RAISE EXCEPTION/g)).toHaveLength(1);
   });
 
-  it('gatilho BEFORE UPDATE OF unidade_id, status, por linha, com WHEN', () => {
+  it('não trata troca de loja (a permissão de coluna já a barra)', () => {
+    expect(corpoFuncao).not.toMatch(/NEW\.unidade_id/);
+    expect(executavel).not.toMatch(/OF unidade_id/);
+    expect(executavel).not.toMatch(/só muda de loja/);
+  });
+
+  it('gatilho BEFORE UPDATE OF status, por linha, com WHEN de status mudado', () => {
     expect(executavel).toContain(
-      'DROP TRIGGER IF EXISTS trg_rotas_loja_e_status_pelo_gestor ON public.rotas;',
+      'DROP TRIGGER IF EXISTS trg_rota_status_pelo_gestor ON public.rotas;',
     );
     expect(executavel).toMatch(
-      /CREATE TRIGGER trg_rotas_loja_e_status_pelo_gestor\s+BEFORE UPDATE OF unidade_id, status ON public\.rotas\s+FOR EACH ROW\s+WHEN \(OLD\.unidade_id IS DISTINCT FROM NEW\.unidade_id OR OLD\.status IS DISTINCT FROM NEW\.status\)\s+EXECUTE FUNCTION public\.rotas_loja_e_status_pelo_gestor\(\);/,
+      /CREATE TRIGGER trg_rota_status_pelo_gestor\s+BEFORE UPDATE OF status ON public\.rotas\s+FOR EACH ROW\s+WHEN \(OLD\.status IS DISTINCT FROM NEW\.status\)\s+EXECUTE FUNCTION public\.rota_status_pelo_gestor\(\);/,
     );
   });
 
@@ -124,7 +132,7 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
       `REVOKE ALL ON FUNCTION ${FUNCAO} FROM PUBLIC, anon, authenticated;`,
     );
     expect(executavel).not.toMatch(
-      /GRANT[^;]*rotas_loja_e_status_pelo_gestor[^;]*\b(anon|PUBLIC|authenticated)\b/,
+      /GRANT[^;]*rota_status_pelo_gestor[^;]*\b(anon|PUBLIC|authenticated)\b/,
     );
   });
 
@@ -145,18 +153,24 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(rollback).toMatch(/^BEGIN;/m);
     expect(rollback).toMatch(/^COMMIT;/m);
     const trig = rollback.indexOf(
-      'DROP TRIGGER IF EXISTS trg_rotas_loja_e_status_pelo_gestor ON public.rotas;',
+      'DROP TRIGGER IF EXISTS trg_rota_status_pelo_gestor ON public.rotas;',
     );
     const func = rollback.indexOf(`DROP FUNCTION IF EXISTS ${FUNCAO};`);
     expect(trig).toBeGreaterThan(-1);
     expect(func).toBeGreaterThan(trig);
   });
 
-  it('a sonda cobre os 11 casos e termina desfeita por RAISE', () => {
+  it('a sonda cobre os 9 casos e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M76 \(desfeita\)/);
-    for (let caso = 1; caso <= 11; caso += 1) {
+    for (let caso = 1; caso <= 9; caso += 1) {
       expect(sonda).toContain(`' | ${caso} OK: `);
     }
+    expect(sonda).not.toContain("' | 10 OK: ");
+    // Caso 1: a API não muda unidade_id (privilégio de coluna), antes e depois.
+    expect(sonda).toMatch(/permission denied for table rotas/);
+    expect(sonda).toMatch(
+      /has_column_privilege\('authenticated', 'public\.rotas', 'unidade_id', 'UPDATE'\)/,
+    );
     for (const rpc of ['cancelar_rota', 'finalizar_rota']) {
       expect(sonda).toContain(`public.${rpc}(`);
     }
@@ -164,12 +178,9 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(sonda).toMatch(/AND status = 'pendente'\s+AND motorista_id = v_m/);
     expect(sonda).toMatch(/SET LOCAL ROLE service_role/);
     expect(sonda).toMatch(
-      /to_regprocedure\('public\.rotas_loja_e_status_pelo_gestor\(\)'\)/,
+      /to_regprocedure\('public\.rota_status_pelo_gestor\(\)'\)/,
     );
     expect(sonda).toMatch(/sonda-m76-/);
-    // Gestor com vínculo inativo na loja de destino também é recusado.
-    expect(sonda).toMatch(/' \| 11 OK: gestor com vínculo inativo/);
-    expect(sonda).toMatch(/'gestor',\s+false, false\)/);
     const ultimoRaise = sonda.lastIndexOf('RAISE EXCEPTION');
     expect(sonda.slice(ultimoRaise)).toMatch(
       /^RAISE EXCEPTION 'SONDA M76 \(desfeita\):%', r;\s*END\s*\$\$;\s*$/,
@@ -177,10 +188,16 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(semComentarios(sonda)).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
-  it('MIGRATIONS.md registra a Migration 76 com o arquivo', () => {
+  it('MIGRATIONS.md registra a Migration 76 com o arquivo e a permissão de coluna', () => {
     const doc = ler(caminhoDoc);
     expect(doc).toMatch(/### .*Migration 76: /);
     expect(doc).toContain(ARQUIVO);
+    expect(doc).not.toContain('20261027100000_rota_loja_e_status_pelo_gestor');
+    const i = doc.search(/### .*Migration 76: /);
+    const fim = doc.indexOf('\n---', i);
+    const entrada = doc.slice(i, fim).replace(/\s+/g, ' ');
+    expect(entrada).toContain('permissão de coluna');
+    expect(entrada).toContain('BKD-1');
   });
 
   it('texto neutro nos arquivos públicos', () => {

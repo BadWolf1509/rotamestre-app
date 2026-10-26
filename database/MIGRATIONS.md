@@ -3307,24 +3307,32 @@ migration saem FALHOU os casos 1, 2, 3 e 10. Rollback colável no arquivo.
 
 ---
 
-### ⏳ Migration 76: rota muda de loja e de status pelo gestor
+### ⏳ Migration 76: status da rota pelo gestor (o motorista só inicia e conclui)
 
-**Arquivo:** `20261027100000_rota_loja_e_status_pelo_gestor.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 4, 5, 10 e 11, e 11/11 OK depois.
+**Arquivo:** `20261027100000_rota_status_pelo_gestor.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 2, 3 e 9, e 9/9 OK depois.
 
-**O que faz.** Cria o gatilho `trg_rotas_loja_e_status_pelo_gestor` (BEFORE
-UPDATE OF unidade_id, status em `rotas`, por linha, `WHEN` uma das duas muda)
-com a função `public.rotas_loja_e_status_pelo_gestor()` (SECURITY DEFINER,
-`search_path` vazio). Sessão sem usuário (cron, chave secreta, CLI) passa. A
-rota só muda de loja pelo gestor ativo da loja antiga **e** da nova (42501, a
-regra das Migrations 58/59 para parada e incidente). Quem não é gestor ativo da
-loja da rota só leva o status de `pendente` a `em_andamento` e de
+**O que faz.** Cria o gatilho `trg_rota_status_pelo_gestor` (BEFORE UPDATE OF
+status em `rotas`, por linha, `WHEN` o status muda) com a função
+`public.rota_status_pelo_gestor()` (SECURITY DEFINER, `search_path` vazio).
+Sessão sem usuário (cron, chave secreta, CLI) e gestor ativo da loja da rota
+passam. Quem mais pedir só leva o status de `pendente` a `em_andamento` e de
 `em_andamento` a `concluida`; o resto é P0001 `ROTA_TRANSICAO_RECUSADA`.
 
-**Alternativas.** Gatilho único DEFINER com `auth.uid()` (escolhida); só a
-parte da loja dentro de `validar_motorista_e_loja_da_rota` (não cobre o status);
-WITH CHECK na policy (não vê a linha antiga, erro genérico); restringir também
-as outras colunas para o motorista (adiada: não há registro completo do que as
-versões antigas gravam em `rotas`).
+**Troca de loja: já barrada pela permissão de coluna.** O papel `authenticated`
+não tem UPDATE na coluna `rotas.unidade_id` (os privilégios de UPDATE em `rotas`
+são por coluna; `has_column_privilege('authenticated', 'public.rotas',
+'unidade_id', 'UPDATE')` = false). Pela API, todo UPDATE que toque `unidade_id`
+recebe 42501 "permission denied for table rotas" antes de policy ou gatilho. O
+achado BKD-1 da varredura de 26/10 foi falso positivo: a primeira versão desta
+migration tinha também uma regra de loja no gatilho, que a sonda mostrou nunca
+ser alcançada pela API, e ela saiu. O caso 1 da sonda guarda a permissão de
+coluna (OK antes e depois).
+
+**Alternativas.** Gatilho DEFINER com `auth.uid()` (escolhida); WITH CHECK na
+policy (não vê a transição, erro genérico); tirar o UPDATE da coluna `status`
+(recusaria o início da rota e o gestor 1.14.7); restringir também as outras
+colunas para o motorista (adiada: não há registro completo do que as versões
+antigas gravam em `rotas`).
 
 **App.** Nenhum efeito: o motorista só inicia (`startRoute`) e conclui — pela
 `finalizar_rota` desde a 1.14.3, por UPDATE direto `em_andamento → concluida`
@@ -3333,13 +3341,13 @@ até a 1.14.2, que por isso segue aberto; o gestor é gestor ativo da loja. Fech
 1.14.3 estiver em uso.
 
 **Verificação.** Guarda estática
-`database/__tests__/migration76-rota-loja-e-status-pelo-gestor.test.ts`; sonda
-`database/sondas/20261027100000_sonda_migration76.sql` (11 casos, desfeita pelo
-RAISE): troca de loja pelo motorista das duas lojas, pelo gestor só da origem,
-pelo gestor com vínculo inativo no destino e pelo gestor das duas; motorista cancelando e levando a `nao_executada`; início
+`database/__tests__/migration76-rota-status-pelo-gestor.test.ts`; sonda
+`database/sondas/20261027100000_sonda_migration76.sql` (9 casos, desfeita pelo
+RAISE): troca de loja pela API (motorista e gestor das duas lojas, 42501 da
+permissão de coluna); motorista cancelando e levando a `nao_executada`; início
 com o corpo de `startRoute`; conclusão direta da 1.14.2; `finalizar_rota` e
-`cancelar_rota`; postgres e `service_role`; catálogo. Rollback colável no
-arquivo.
+`cancelar_rota`; cancelamento direto do gestor 1.14.7; postgres e
+`service_role`; catálogo. Rollback colável no arquivo.
 
 ---
 
