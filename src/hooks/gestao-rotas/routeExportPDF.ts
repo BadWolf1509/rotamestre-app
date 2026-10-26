@@ -11,11 +11,9 @@
  * require fetching each foto_url as a data-URL and passing it to pdfmake as an
  * image node — straightforward but adds async complexity and file size.
  *
- * NOTE: pdfmake + vfs_fonts are loaded lazily via require() at function entry
- * so the ~0.5 MB gzip weight is deferred until the user actually exports a PDF.
- * This is safe with jest.mock() because Babel/jest-expo transforms ESM imports
- * to require() at test time, so jest.mock("pdfmake/...", ...) intercepts both
- * top-level imports and inline require() calls.
+ * NOTE: pdfmake + vfs_fonts são carregados sob demanda com import() dinâmico
+ * na entrada da função, então o peso só é baixado quando o usuário exporta um
+ * PDF. O jest.mock("pdfmake/...", ...) intercepta o import() normalmente.
  *
  * Per-route wiring: exportRotaToPDF(rota) is intentionally a per-route function.
  * The list-level bulk PDF was removed (see useGestaoRotas.ts) because mapping
@@ -23,20 +21,20 @@
  * Future: wire this from a route-detail screen or per-row action.
  */
 
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
-import { Platform } from "react-native";
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 
-import { formatDateBR } from "@/lib/dateUtils";
-import { logger } from "@/lib/logger";
-import { showError, showInfo } from "@/utils/errorHandling";
+import { formatDateBR } from '@/lib/dateUtils';
+import { logger } from '@/lib/logger';
+import { showError, showInfo } from '@/utils/errorHandling';
 
-import type { TDocumentDefinitions } from "pdfmake/interfaces";
+import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 
 // -----------------------------------------------------------------------
 // MIME type constant
 // -----------------------------------------------------------------------
-const PDF_MIME_TYPE = "application/pdf";
+const PDF_MIME_TYPE = 'application/pdf';
 
 // -----------------------------------------------------------------------
 // Public types
@@ -71,19 +69,19 @@ export interface RotaParaPDF {
  */
 export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
   try {
-    // Lazy-load pdfmake: defers ~0.5 MB gzip from initial bundle to export-time.
-    // jest.mock("pdfmake/build/pdfmake", ...) intercepts this require() in tests.
+    // Carga sob demanda: import() dinâmico faz o Metro separar pdfmake e as
+    // fontes em chunks próprios, fora do bundle de entrada do web.
+    // jest.mock("pdfmake/build/pdfmake", ...) intercepta o import() nos testes.
     //
     // pdfmake ships as a CommonJS module, but when bundled through Babel/metro
     // it may appear as either { default: ... } (ESM interop) or the object itself.
     // We normalise to whichever has createPdf.
-    const pdfMakeRaw = require("pdfmake/build/pdfmake");
-    const pdfFonts = require("pdfmake/build/vfs_fonts");
+    const pdfMakeRaw = await import('pdfmake/build/pdfmake');
+    const pdfFonts = await import('pdfmake/build/vfs_fonts');
 
     // Handle both CJS (pdfMakeRaw.createPdf) and ESM-interop (pdfMakeRaw.default.createPdf)
-    const pdfMake = (pdfMakeRaw?.default ?? pdfMakeRaw) as typeof pdfMakeRaw & {
-      vfs: unknown;
-    };
+    const pdfMake = (pdfMakeRaw?.default ??
+      pdfMakeRaw) as unknown as typeof pdfMakeRaw & { vfs: unknown };
     pdfMake.vfs =
       (pdfFonts as any).pdfMake?.vfs ??
       (pdfFonts as any).default?.pdfMake?.vfs ??
@@ -94,18 +92,18 @@ export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
     const pdfDoc = pdfMake.createPdf(docDefinition);
 
     const dataAtual = new Date()
-      .toLocaleDateString("pt-BR")
-      .replace(/\//g, "-");
+      .toLocaleDateString('pt-BR')
+      .replace(/\//g, '-');
     const nomeArquivo = `comprovante-rota-${dataAtual}.pdf`;
 
-    if (Platform.OS === "web") {
+    if (Platform.OS === 'web') {
       pdfDoc.download(nomeArquivo);
     } else {
       await sharePDFMobile(pdfDoc, nomeArquivo);
     }
   } catch (error) {
-    logger.error("Erro ao exportar PDF:", error);
-    showError("Erro", "Não foi possível gerar o comprovante em PDF");
+    logger.error('Erro ao exportar PDF:', error);
+    showError('Erro', 'Não foi possível gerar o comprovante em PDF');
   }
 }
 
@@ -118,32 +116,32 @@ export async function exportRotaToPDF(rota: RotaParaPDF): Promise<void> {
  */
 function buildDocDefinition(rota: RotaParaPDF): TDocumentDefinitions {
   const paradasConcluidas = rota.paradas.filter(
-    (p) => p.status === "concluida",
+    (p) => p.status === 'concluida',
   ).length;
   const totalParadas = rota.paradas.length;
 
   const titulo = rota.titulo || `Rota ${rota.id.substring(0, 8)}`;
-  const motorista = rota.motorista || "Sem motorista";
-  const data = rota.data ? formatDateBR(rota.data) : "-";
+  const motorista = rota.motorista || 'Sem motorista';
+  const data = rota.data ? formatDateBR(rota.data) : '-';
 
   // Table body: header row + data rows
   const tableBody = [
     // Header row
     [
-      { text: "#", bold: true },
-      { text: "Endereço", bold: true },
-      { text: "Status", bold: true },
+      { text: '#', bold: true },
+      { text: 'Endereço', bold: true },
+      { text: 'Status', bold: true },
     ],
     // Data rows
     ...rota.paradas.map((parada) => [
       String(parada.ordem),
       parada.endereco,
-      parada.status === "concluida"
-        ? "Concluída"
-        : parada.status === "pulada"
-          ? "Pulada"
-          : parada.status === "pendente"
-            ? "Pendente"
+      parada.status === 'concluida'
+        ? 'Concluída'
+        : parada.status === 'pulada'
+          ? 'Pulada'
+          : parada.status === 'pendente'
+            ? 'Pendente'
             : parada.status,
     ]),
   ];
@@ -151,33 +149,33 @@ function buildDocDefinition(rota: RotaParaPDF): TDocumentDefinitions {
   return {
     content: [
       // ---- Title ----
-      { text: titulo, style: "title" },
-      { text: "\n" },
+      { text: titulo, style: 'title' },
+      { text: '\n' },
 
       // ---- Header info ----
-      { text: [{ text: "Motorista: ", bold: true }, motorista] },
-      { text: [{ text: "Data: ", bold: true }, data] },
-      { text: "\n" },
+      { text: [{ text: 'Motorista: ', bold: true }, motorista] },
+      { text: [{ text: 'Data: ', bold: true }, data] },
+      { text: '\n' },
 
       // ---- Summary ----
-      { text: "Resumo", style: "sectionHeader" },
+      { text: 'Resumo', style: 'sectionHeader' },
       {
         text: [
-          { text: "Paradas concluídas: ", bold: true },
+          { text: 'Paradas concluídas: ', bold: true },
           `${paradasConcluidas} de ${totalParadas}`,
         ],
       },
-      { text: "\n" },
+      { text: '\n' },
 
       // ---- Stops table ----
-      { text: "Paradas", style: "sectionHeader" },
+      { text: 'Paradas', style: 'sectionHeader' },
       {
         table: {
           headerRows: 1,
-          widths: [30, "*", 70],
+          widths: [30, '*', 70],
           body: tableBody,
         },
-        layout: "lightHorizontalLines",
+        layout: 'lightHorizontalLines',
       },
     ],
     styles: {
@@ -224,10 +222,10 @@ async function sharePDFMobile(pdfDoc: any, fileName: string): Promise<void> {
   if (isAvailable) {
     await Sharing.shareAsync(fileUri, {
       mimeType: PDF_MIME_TYPE,
-      dialogTitle: "Exportar Comprovante de Entrega",
-      UTI: "com.adobe.pdf",
+      dialogTitle: 'Exportar Comprovante de Entrega',
+      UTI: 'com.adobe.pdf',
     });
   } else {
-    showInfo("Arquivo Salvo", `O arquivo foi salvo em: ${fileUri}`);
+    showInfo('Arquivo Salvo', `O arquivo foi salvo em: ${fileUri}`);
   }
 }
