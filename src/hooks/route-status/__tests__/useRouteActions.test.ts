@@ -57,7 +57,12 @@ const mockUpdate = jest.fn(() => ({
 
 // Select chain: from(table).select(cols).eq(col, val).order(col) -> { data }
 const mockSelectOrder = jest.fn();
-const mockSelectEq = jest.fn(() => ({ order: mockSelectOrder }));
+// `.maybeSingle()`: a releitura da rota quando o UPDATE do início volta vazio.
+const mockSelectMaybeSingle = jest.fn();
+const mockSelectEq = jest.fn(() => ({
+  order: mockSelectOrder,
+  maybeSingle: mockSelectMaybeSingle,
+}));
 const mockSelect = jest.fn(() => ({ eq: mockSelectEq }));
 
 const mockFrom = jest.fn(() => ({
@@ -138,6 +143,7 @@ beforeEach(() => {
   // Default: select chain returns empty fresh paradas
   freshParadasResponse = { data: [], error: null };
   mockSelectOrder.mockImplementation(() => freshParadasResponse);
+  mockSelectMaybeSingle.mockResolvedValue({ data: null, error: null });
   // Default to web platform to avoid location tracking calls
   (Platform as any).OS = 'web';
 });
@@ -345,6 +351,78 @@ describe('startRoute confere status e dono no UPDATE', () => {
     expect(getErrorMessage(erro).code).toBe('NETWORK_ERROR');
     expect(loadActiveRoute).not.toHaveBeenCalled();
     expect(requestAndStartTracking).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================================
+// startRoute: meia-execução própria (rota iniciada, partida não concluída)
+// ============================================================================
+
+/**
+ * As três escritas do início não são atômicas. Se a rede cai depois da 1ª
+ * (rota em andamento), a tela segue "pendente" e o 2º toque achava 0 linhas e
+ * dizia "a rota não está mais pendente" — sobre a própria rota, deixando a
+ * partida pendente para sempre. Agora o 2º toque reconhece a rota já
+ * iniciada por este motorista e completa os passos que faltaram.
+ */
+describe('startRoute completa o início que a rede interrompeu', () => {
+  const checkpoint = () =>
+    makeParada({ id: 'cp', ordem: 0, is_checkpoint: false });
+
+  it('0 linhas com a rota já em andamento deste motorista: conclui a partida, marca a 1ª parada e segue', async () => {
+    (Platform as any).OS = 'android';
+    const { startRoute, loadActiveRoute } = setup({
+      paradas: [checkpoint(), makeParada({ id: 'p1', ordem: 1 })],
+    });
+    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: {
+        status: 'em_andamento',
+        motorista_id: 'user-1',
+        iniciada_em: '2026-10-26T12:00:00.000Z',
+      },
+      error: null,
+    });
+
+    await expect(startRoute()).resolves.toBeUndefined();
+
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'cp');
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
+    // Idempotente: só mexe no que ainda está pendente
+    expect(mockUpdateFiltro).toHaveBeenCalledWith('status', 'pendente');
+    // O rastreamento parte da hora real do início, não da do 2º toque
+    expect(requestAndStartTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ startedAt: '2026-10-26T12:00:00.000Z' }),
+    );
+    expect(loadActiveRoute).toHaveBeenCalled();
+  });
+
+  it('0 linhas com a rota de outro motorista: continua avisando que mudou', async () => {
+    const { startRoute } = setup({ paradas: [checkpoint()] });
+    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: { status: 'em_andamento', motorista_id: 'outro' },
+      error: null,
+    });
+
+    const erro = await startRoute().catch((e) => e);
+
+    expect(getErrorMessage(erro).code).toBe('ROUTE_NOT_PENDING');
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a partida é concluída só se ainda pendente', async () => {
+    const { startRoute } = setup({
+      paradas: [checkpoint(), makeParada({ id: 'p1', ordem: 1 })],
+    });
+
+    await startRoute();
+
+    // 1º UPDATE (rota) já filtra por pendente; os da partida e da parada também
+    const filtrosPendente = mockUpdateFiltro.mock.calls.filter(
+      (c: unknown[]) => c[0] === 'status' && c[1] === 'pendente',
+    );
+    expect(filtrosPendente).toHaveLength(3);
   });
 });
 

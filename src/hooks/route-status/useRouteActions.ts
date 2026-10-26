@@ -48,15 +48,48 @@ async function marcarProximaParadaEmAndamento(paradasAtuais: ParadaData[]) {
     .sort((a, b) => a.ordem - b.ordem)[0];
 
   if (proximaPendente) {
+    // Só se ainda pendente: repetir (início retomado) não regride nada.
     const { error } = await supabase
       .from('paradas')
       .update({ status: 'em_andamento' })
-      .eq('id', proximaPendente.id);
+      .eq('id', proximaPendente.id)
+      .eq('status', 'pendente');
 
     if (error) {
       logger.error('[RouteStatus] marcarProximaParadaEmAndamento Erro', error);
       throw error;
     }
+  }
+}
+
+/**
+ * A rota já está em andamento com este motorista? Devolve o `iniciada_em`
+ * (a hora real do início) ou null. Falha de leitura conta como "não": cai no
+ * aviso de rota que mudou, como antes.
+ */
+async function lerInicioProprio(
+  rotaId: string,
+  motoristaId: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('rotas')
+      .select('status, motorista_id, iniciada_em')
+      .eq('id', rotaId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const rota = data as {
+      status: string;
+      motorista_id: string | null;
+      iniciada_em: string | null;
+    };
+    if (rota.status !== 'em_andamento' || rota.motorista_id !== motoristaId) {
+      return null;
+    }
+    return rota.iniciada_em ?? new Date().toISOString();
+  } catch (erro) {
+    logger.warn('[RouteStatus] startRoute: falha ao reler a rota', erro);
+    return null;
   }
 }
 
@@ -80,7 +113,7 @@ export function useRouteActions({
     }
 
     try {
-      const now = new Date().toISOString();
+      let now = new Date().toISOString();
 
       // 1. Atualizar status da rota — só se ainda estiver pendente e for
       // deste motorista. A tela pode estar velha (gestor cancelou, passou a
@@ -100,7 +133,18 @@ export function useRouteActions({
 
       if (error) throw error;
 
-      if (!iniciadas || iniciadas.length === 0) {
+      // 0 linhas. Antes de tratar como mudança alheia, confere se é o início
+      // DESTE motorista que a rede interrompeu depois do passo 1 (a tela
+      // ficou "pendente"): aí os passos 2–3, idempotentes, completam o que
+      // faltou. Alternativa descartada aqui: RPC transacional `iniciar_rota`
+      // — fecharia a janela de vez, mas pede migration (fora deste PR).
+      const jaIniciadaPorMim =
+        !iniciadas || iniciadas.length === 0
+          ? await lerInicioProprio(route.id, userData.id)
+          : null;
+      if (jaIniciadaPorMim) now = jaIniciadaPorMim;
+
+      if ((!iniciadas || iniciadas.length === 0) && !jaIniciadaPorMim) {
         // O servidor respondeu e nada mudou: sem "Rota iniciada", sem
         // rastreamento (nem o contexto dele) e sem mexer nas paradas. A
         // recarga traz o estado real; falhar nela não pode engolir o aviso.
@@ -128,7 +172,8 @@ export function useRouteActions({
             status: 'concluida',
             concluida_em: now,
           })
-          .eq('id', checkpointPartida.id);
+          .eq('id', checkpointPartida.id)
+          .eq('status', 'pendente');
 
         if (checkpointError) throw checkpointError;
       }

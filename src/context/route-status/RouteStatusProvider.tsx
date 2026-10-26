@@ -18,6 +18,7 @@ import { AppState } from 'react-native';
 
 import { useFilaAcoesParada } from '@/hooks/motorista/useFilaAcoesParada';
 import {
+  useCompletarPartidaPendente,
   useGarantirRastreamentoDaRota,
   useLoadActiveRoute,
   useRouteActions,
@@ -149,6 +150,15 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     route,
     motorista: userData ? { id: userData.id, nome: userData.nome } : null,
     cargaConfirmada: !loading && !error,
+  });
+
+  // Partida pendente numa rota já em andamento (início interrompido pela
+  // rede depois do 1º passo): conclui, uma vez por rota
+  useCompletarPartidaPendente({
+    route,
+    paradas: paradasDoBanco,
+    cargaConfirmada: !loading && !error,
+    loadActiveRoute,
   });
 
   // Realtime subscription
