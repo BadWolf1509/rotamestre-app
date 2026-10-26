@@ -8,6 +8,18 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## 26/10/2026 (tarde): correções miúdas, CI e 1.14.9
+
+Mescladas na `main` de #675 a #686:
+
+- **Mapa web (#675):** partida e chegada voltaram a `I`/`F`. Os emoji 🚩/🏠 pediam faixas de glifo que a fonte do layer (Noto Sans Bold, OpenFreeMap) não tem; o servidor respondia 404 e os rótulos saíam em branco. O e2e do mapa, que reprova tile ou glifo com 404, caiu quando a fixture passou a criar a rota com partida e chegada.
+- **Gestor (#676):** o motorista destaque do dashboard usa o mesmo rótulo das listas ("<Nome> (fora da loja)"); o menu Exportar abre por cima da tabela no desktop (`zIndex` no cabeçalho do `DesktopCard`). Fica de fora o "Desconhecido" em incidentes sem `rota_id`, que pede outra RPC.
+- **Motorista (#677, #678):** o texto do pulo chega ao motorista ("Seu motivo", só em parada pulada) e o card do gestor re-renderiza quando ele muda; com a queda de rede já observada, a carga comum do perfil no `useUser` não vai à rede de novo — era a segunda espera do DNS que segurava a rota em cache.
+- **CI (#686):** o e2e instala só o Chromium do Playwright e o passo de dependências tem prazo próprio. O espelho apt da Azure chegou a 45 kB/s nesse dia; o passo pendurava até os 30 min do job. Com o prazo, falha em 10 min — a correção de fundo seria guardar os `.deb` em cache.
+- **Dependabot:** react-hook-form 7.90, pdfmake 0.3.12, dependências de desenvolvimento, `setup-java` 6.1, `@hookform/resolvers` 6 (a quebra é só no resolver do effect-ts; aqui só se usa o do zod), maplibre-gl 6.15 e Unistyles 3.6.0. Os de mapa, formulário e Unistyles passaram pelo e2e com login disparado à mão (`gh workflow run test.yml --ref <branch>`), porque os secrets não chegam ao bot.
+
+**Migration 51 segue guardada:** a precondição (nenhum acesso de versão anterior à 1.14.6) não vale — a 1.14.5 fazia ~3,2 mil requisições por dia.
+
 ## Varredura de 25–26/10/2026 e releases 1.14.7 e 1.14.8
 
 Quatro trilhas da varredura de 25/10 e uma rodada de banco em 26/10, mescladas na `main` de #662 a #672:
