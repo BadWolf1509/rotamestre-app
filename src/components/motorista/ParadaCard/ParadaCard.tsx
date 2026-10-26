@@ -152,7 +152,7 @@ export const ParadaCard = memo<ParadaCardProps>(
             accessibilityLabel={`Parada ${parada.ordem}. Tipo ${tipoLabel}. Status ${statusLabel}${isProxima ? '. Próxima parada' : ''}. ${enderecoA11y}`}
             accessibilityHint={
               canSwipe
-                ? 'Deslize para a esquerda para concluir ou para a direita para pular'
+                ? 'Deslize para a direita para concluir ou para a esquerda para pular'
                 : undefined
             }
             style={[
