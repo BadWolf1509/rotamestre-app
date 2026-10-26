@@ -3201,16 +3201,21 @@ teto de 1000, lista nula e vazia, catálogo, sessão sem `sub` e chamada como
 
 ---
 
-### ⏳ Migration 73: observação do pulo em coluna própria (`paradas.observacao_pulo`)
+### ✅ Migration 73: observação do pulo em coluna própria (`paradas.observacao_pulo`)
 
-**Arquivo:** `20261026123000_observacao_do_pulo.sql` · **⏳ aguardando aplicação** (o controlador marca depois).
+**Arquivo:** `20261026123000_observacao_do_pulo.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada como `20261026123000`. Sonda: vermelha sem a migration (para no caso 1, coluna inexistente) e 16/16 OK com o corpo na mesma transação e depois de aplicada.
 
 **O que faz.** Cria `paradas.observacao_pulo text` e o gatilho BEFORE UPDATE
 `trg_paradas_observacao_do_gestor`: quem não é gestor ativo da loja da rota não
 muda `observacoes` (D4). No pulo, o texto que o app até a 1.14.7 manda em
 `observacoes` vai para `observacao_pulo`, e a instrução do gestor fica. Fora
 disso, `observacoes` volta ao valor antigo, sem erro (o UPDATE segue valendo
-para as outras colunas).
+para as outras colunas). O texto só vai para `observacao_pulo` quando o pulo
+muda `observacoes` sem tocar `observacao_pulo` (caso do app instalado); o app
+novo grava `observacao_pulo` direto, e repetir o mesmo texto num novo pulo
+não o apaga. Um pulo sem texto do app instalado mantém o `observacao_pulo`
+anterior (aceito). O `ADD COLUMN` roda com `lock_timeout` de 3 s; o ROLLBACK
+remove só o gatilho e a função e mantém a coluna.
 
 **Alternativas.** Gatilho que redireciona (escolhida; o app instalado e a fila
 offline seguem pulando), privilégio por coluna (recusaria o UPDATE inteiro do
@@ -3229,9 +3234,9 @@ Sem a migration, os casos 1, 2, 3, 4, 6, 8 e 10 saem FALHOU.
 
 ---
 
-### ⏳ Migration 74: sequências de public sem privilégio para `anon`
+### ✅ Migration 74: sequências de public sem privilégio para `anon`
 
-**Arquivo:** `20261026124000_sequencias_sem_anon.sql` · **⏳ aguardando aplicação** (o controlador marca depois). Sonda: 3 FALHOU antes (1, 2, 3), 5/5 OK com o corpo na mesma transação.
+**Arquivo:** `20261026124000_sequencias_sem_anon.sql` · **✅ aplicada em 26/10/2026** pelo CLI (`db query --linked`), registrada como `20261026124000`. Sonda: 3 FALHOU antes (1, 2, 3) e 5/5 OK com o corpo na mesma transação e depois de aplicada.
 
 **O que faz.** Duas instruções: `REVOKE ALL ON ALL SEQUENCES IN SCHEMA public
 FROM anon` e o mesmo no privilégio-padrão do `postgres` em public. Sequência
