@@ -134,20 +134,6 @@ export async function sendLocalNotification(
 }
 
 /**
- * Notificação de rota pendente
- */
-export async function notifyRoutePending(unidadeNome: string): Promise<void> {
-  const settings = await getNotificationSettings();
-  if (!settings.routeReminder) return;
-
-  await sendLocalNotification(
-    'Rota Pendente',
-    `Você tem uma rota pendente para ${unidadeNome}. Toque para iniciar.`,
-    { type: 'route_pending' },
-  );
-}
-
-/**
  * Notificação de rota concluída
  */
 export async function notifyRouteComplete(
@@ -201,6 +187,23 @@ export async function notifySyncComplete(
 
   await sendLocalNotification('Sincronização', message, {
     type: 'sync_complete',
+  });
+}
+
+/**
+ * Registros de parada que a sincronização em segundo plano descartou (rota
+ * encerrada, parada removida...). O detalhe, com a parada, fica na Início.
+ */
+export async function notifyEnviosDescartados(
+  quantidade: number,
+): Promise<void> {
+  if (quantidade <= 0) return;
+  const message =
+    quantidade === 1
+      ? '1 registro de parada não foi enviado. Abra o app para ver qual.'
+      : `${quantidade} registros de parada não foram enviados. Abra o app para ver quais.`;
+  await sendLocalNotification('Registro não enviado', message, {
+    type: 'envios_descartados',
   });
 }
 
@@ -705,7 +708,6 @@ export const notificationService = {
 
   // Notificações locais
   send: sendLocalNotification,
-  notifyRoutePending,
   notifyRouteComplete,
   notifyOfflineMode,
   notifySyncComplete,

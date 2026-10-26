@@ -99,11 +99,17 @@ jest.mock('@/hooks/useNotifications', () => ({
 jest.mock('expo-router', () => ({
   router: {
     push: jest.fn(),
+    navigate: jest.fn(),
   },
 }));
 
-// Import após mock para poder manipular
+// Papel de quem abre o sino (mutável por teste)
+let mockPapel: 'gestor' | 'motorista' = 'gestor';
+jest.mock('@/hooks/useUser', () => ({
+  useUser: () => ({ userData: { id: 'u1', papel: mockPapel } }),
+}));
 
+// Import após mock para poder manipular
 
 const mockNotificacoes = [
   {
@@ -154,7 +160,9 @@ describe('NotificationList', () => {
       render(<NotificationList onClose={mockOnClose} />);
 
       expect(screen.getByText('Nenhuma notificação')).toBeTruthy();
-      expect(screen.getByText('Você será notificado sobre atualizações nas rotas')).toBeTruthy();
+      expect(
+        screen.getByText('Você será notificado sobre atualizações nas rotas'),
+      ).toBeTruthy();
     });
 
     it('deve exibir título Notificações', () => {
@@ -215,8 +223,12 @@ describe('NotificationList', () => {
     it('deve exibir mensagens das notificações', () => {
       render(<NotificationList onClose={mockOnClose} />);
 
-      expect(screen.getByText('Motorista João iniciou a rota #123')).toBeTruthy();
-      expect(screen.getByText('A rota #456 foi concluída com sucesso')).toBeTruthy();
+      expect(
+        screen.getByText('Motorista João iniciou a rota #123'),
+      ).toBeTruthy();
+      expect(
+        screen.getByText('A rota #456 foi concluída com sucesso'),
+      ).toBeTruthy();
     });
 
     it('deve exibir badge com número de não lidas', () => {
@@ -405,7 +417,9 @@ describe('NotificationList', () => {
             mensagem: 'Mensagem',
             lida: true,
             rota_id: 'rota-1',
-            created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 dias atrás
+            created_at: new Date(
+              Date.now() - 3 * 24 * 60 * 60 * 1000,
+            ).toISOString(), // 3 dias atrás
           },
         ],
         naoLidas: 0,
@@ -447,6 +461,61 @@ describe('NotificationList', () => {
       fireEvent.press(screen.getByText('Rota'));
 
       expect(mockOnClose).toHaveBeenCalled();
+    });
+  });
+
+  describe('Destino por papel', () => {
+    const { router } = jest.requireMock('expo-router');
+    const comNotificacao = (tipo: string) =>
+      (useNotifications as jest.Mock).mockReturnValue({
+        notificacoes: [
+          {
+            id: 'n-destino',
+            tipo,
+            titulo: 'Destino',
+            mensagem: 'Mensagem',
+            lida: true,
+            rota_id: 'rota-d',
+            created_at: new Date().toISOString(),
+          },
+        ],
+        naoLidas: 0,
+        loading: false,
+        marcarComoLida: mockMarcarComoLida,
+        marcarTodasComoLidas: mockMarcarTodasComoLidas,
+      });
+
+    afterEach(() => {
+      mockPapel = 'gestor';
+    });
+
+    it('motorista: edição da rota abre a aba Paradas', () => {
+      mockPapel = 'motorista';
+      comNotificacao('rota_reordenada');
+      render(<NotificationList onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('Destino'));
+
+      expect(router.navigate).toHaveBeenCalledWith('/motorista/paradas');
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it('gestor: parada pulada abre o mapa da rota', () => {
+      comNotificacao('parada_pulada');
+      render(<NotificationList onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('Destino'));
+
+      expect(router.push).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-d');
+    });
+
+    it('gestor: SOS abre os incidentes', () => {
+      comNotificacao('sos_acionado');
+      render(<NotificationList onClose={mockOnClose} />);
+
+      fireEvent.press(screen.getByText('Destino'));
+
+      expect(router.push).toHaveBeenCalledWith('/gestor/incidentes');
     });
   });
 

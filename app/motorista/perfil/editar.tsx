@@ -102,7 +102,7 @@ export default function EditarPerfil() {
       showSuccess(
         'Perfil atualizado',
         'Suas informações foram salvas com sucesso.',
-        () => router.replace('/motorista/perfil'),
+        () => router.back(),
       );
     } catch (error: unknown) {
       logger.error('Erro ao salvar:', error);
@@ -188,7 +188,7 @@ export default function EditarPerfil() {
               <Button
                 title="Cancelar"
                 variant="outline"
-                onPress={() => router.push('/motorista/perfil')}
+                onPress={() => router.back()}
                 disabled={isSubmitting}
                 style={styles(theme).buttonSecondary}
               />

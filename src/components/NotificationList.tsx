@@ -14,6 +14,7 @@ import {
 
 import { useNotifications } from '@/hooks/useNotifications';
 import { useUser } from '@/hooks/useUser';
+import { destinoDaNotificacao } from '@/lib/notificacoes/destinoDaNotificacao';
 import type { IconName } from '@/types/icons';
 import type { NotificacaoComDetalhes } from '@/types/notifications';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -23,8 +24,16 @@ interface NotificationListProps {
 }
 
 export function NotificationList({ onClose }: NotificationListProps) {
-  const { notificacoes, naoLidas, loading, marcarComoLida, marcarTodasComoLidas, refresh, loadMore, hasMore } =
-    useNotifications();
+  const {
+    notificacoes,
+    naoLidas,
+    loading,
+    marcarComoLida,
+    marcarTodasComoLidas,
+    refresh,
+    loadMore,
+    hasMore,
+  } = useNotifications();
   const { userData } = useUser();
   const { theme } = useUnistyles();
   const [refreshing, setRefreshing] = useState(false);
@@ -38,44 +47,28 @@ export function NotificationList({ onClose }: NotificationListProps) {
     setRefreshing(false);
   }, [refresh]);
 
-  /**
-   * Determina a rota de navegação baseada no tipo de notificação e papel do usuário
-   *
-   * MOTORISTA:
-   * - nova_rota_atribuida → /motorista (ver nova rota na tela inicial)
-   * - lembrete_rota_pendente → /motorista (iniciar rota pendente)
-   * - lembrete_rota_urgente → /motorista (urgente: iniciar rota!)
-   * - rota_nao_executada → /motorista/historico (rota expirada está no histórico)
-   *
-   * GESTOR:
-   * - Todas as notificações → /gestor/mapa-rota?id= (ver detalhes da rota)
-   */
-  const getNavigationPath = (tipo: string, rotaId: string): string => {
-    if (userData?.papel === 'motorista') {
-      // Tipos que direcionam para histórico (rotas finalizadas/expiradas)
-      if (tipo === 'rota_nao_executada') {
-        return '/motorista/historico';
-      }
-      // Todos os outros tipos direcionam para tela inicial
-      // (nova_rota_atribuida, lembrete_rota_pendente, lembrete_rota_urgente)
-      return '/motorista';
-    }
-
-    // Gestor: sempre vai para detalhes da rota
-    return `/gestor/mapa-rota?id=${rotaId}`;
-  };
-
   const handleNotificationPress = (notificacao: NotificacaoComDetalhes) => {
     // Marcar como lida
     if (!notificacao.lida) {
       marcarComoLida(notificacao.id);
     }
 
-    // Navegar para a tela relevante
+    // Navegar para a tela relevante — mesmo destino do toque no push
+    // (`destinoDaNotificacao`), pelo papel de quem abriu o sino.
     if (notificacao.rota_id) {
+      const destino = destinoDaNotificacao(
+        notificacao.tipo,
+        notificacao.rota_id,
+        userData?.papel ?? null,
+      );
+      if (!destino) return;
       onClose();
-      const path = getNavigationPath(notificacao.tipo, notificacao.rota_id);
-      router.push(path as Href);
+      const caminho = destino.caminho as Href;
+      if (destino.modo === 'navigate') {
+        router.navigate(caminho);
+      } else {
+        router.push(caminho);
+      }
     }
   };
 
@@ -200,7 +193,9 @@ export function NotificationList({ onClose }: NotificationListProps) {
       </View>
 
       <View style={styles.content}>
-        <Text style={[styles.titulo, !item.lida && styles.tituloUnread]}>{item.titulo}</Text>
+        <Text style={[styles.titulo, !item.lida && styles.tituloUnread]}>
+          {item.titulo}
+        </Text>
         <Text style={styles.mensagem} numberOfLines={2}>
           {item.mensagem}
         </Text>
@@ -235,14 +230,25 @@ export function NotificationList({ onClose }: NotificationListProps) {
           </View>
 
           {naoLidas > 0 && (
-            <Pressable onPress={handleMarcarTodasLidas} style={styles.headerButton} accessibilityLabel="Marcar todas como lidas" accessibilityRole="button">
+            <Pressable
+              onPress={handleMarcarTodasLidas}
+              style={styles.headerButton}
+              accessibilityLabel="Marcar todas como lidas"
+              accessibilityRole="button"
+            >
               <Text style={styles.headerButtonText}>Marcar lidas</Text>
             </Pressable>
           )}
         </View>
 
         {/* Botão de fechar - posição fixa no canto */}
-        <Pressable onPress={onClose} style={styles.closeButton} testID="close-button" accessibilityLabel="Fechar notificações" accessibilityRole="button">
+        <Pressable
+          onPress={onClose}
+          style={styles.closeButton}
+          testID="close-button"
+          accessibilityLabel="Fechar notificações"
+          accessibilityRole="button"
+        >
           <Ionicons name="close" size={24} color={theme.colors.gray500} />
         </Pressable>
       </View>
@@ -254,7 +260,11 @@ export function NotificationList({ onClose }: NotificationListProps) {
         </View>
       ) : notificacoes.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="notifications-outline" size={64} color={theme.colors.gray300} />
+          <Ionicons
+            name="notifications-outline"
+            size={64}
+            color={theme.colors.gray300}
+          />
           <Text style={styles.emptyText}>Nenhuma notificação</Text>
           <Text style={styles.emptySubtext}>
             Você será notificado sobre atualizações nas rotas

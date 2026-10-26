@@ -46,7 +46,6 @@
     "test:e2e:report": "npx playwright show-report e2e-report",
     "type-check": "tsc --noEmit",
     "validate": "npm run type-check && npm run lint && npm test",
-    "verify-ci": "node scripts/verify-ci-setup.js",
     "coverage-report": "node scripts/coverage-report.js",
     "mcp:git": "node tools/mcp-git-rotamestre/src/index.js",
     "mcp:git:test": "node tools/mcp-git-rotamestre/test-mcp.js",

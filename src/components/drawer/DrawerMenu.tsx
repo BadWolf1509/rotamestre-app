@@ -38,11 +38,18 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
   const {
     showLogoutDialog,
     showErrorDialog,
+    logoutMessage,
+    logoutConfirmText,
+    contandoPendencias,
     handleLogoutPress,
     handleLogoutConfirm,
     handleLogoutCancel,
     handleErrorDismiss,
-  } = useDrawerLogout({ onClose });
+  } = useDrawerLogout({
+    onClose,
+    // Só o motorista tem entregas/fotos/trajeto guardados no aparelho
+    motoristaId: profile?.papel === 'motorista' ? profile.id : undefined,
+  });
 
   const {
     showContactModal,
@@ -209,11 +216,13 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         visible={showLogoutDialog}
         variant="confirm"
         title="Sair da conta"
-        message="Deseja realmente encerrar sua sessão?"
-        confirmText="Sair"
+        message={logoutMessage}
+        confirmText={logoutConfirmText}
         cancelText="Cancelar"
         type="danger"
         icon="log-out-outline"
+        // "Sair" só depois de contar o que ainda está no aparelho
+        loading={contandoPendencias}
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}
       />

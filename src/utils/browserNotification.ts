@@ -41,8 +41,9 @@ export async function requestBrowserNotificationPermission(): Promise<boolean> {
 /**
  * Get current notification permission status
  */
-// eslint-disable-next-line no-undef
-export function getBrowserNotificationPermission(): NotificationPermission | 'unsupported' {
+export function getBrowserNotificationPermission():
+  // eslint-disable-next-line no-undef
+  NotificationPermission | 'unsupported' {
   if (!isBrowserNotificationSupported()) {
     return 'unsupported';
   }
@@ -63,7 +64,7 @@ export function sendBrowserNotification(
     requireInteraction?: boolean;
     silent?: boolean;
     onClick?: () => void;
-  }
+  },
 ): Notification | null {
   if (!isBrowserNotificationSupported()) {
     return null;
@@ -105,9 +106,9 @@ export function sendBrowserNotification(
 /**
  * Send notification for new route assignment (web)
  */
-export function notifyNewRouteWeb(unidadeNome: string): void {
+export function notifyNewRouteWeb(): void {
   sendBrowserNotification('Nova Rota Atribuída', {
-    body: `Você recebeu uma nova rota de ${unidadeNome}. Toque para ver detalhes.`,
+    body: 'Você recebeu uma nova rota. Toque para ver detalhes.',
     icon: '/icon-192.png',
     tag: 'new-route',
     requireInteraction: true,

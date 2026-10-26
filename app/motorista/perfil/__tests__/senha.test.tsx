@@ -16,8 +16,9 @@ import { FalhaAoCarregarPerfil } from '@/lib/auth/falhaPerfil';
 
 import AlterarSenha from '../senha';
 
+const mockRouter = { back: jest.fn(), push: jest.fn(), replace: jest.fn() };
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: jest.fn(), push: jest.fn(), replace: jest.fn() }),
+  useRouter: () => mockRouter,
 }));
 
 jest.mock('@/lib/auth', () => ({
@@ -56,7 +57,10 @@ function preencherESalvar(nova = NOVA_VALIDA, confirmacao = nova) {
     screen.getByPlaceholderText('Digite sua senha atual'),
     'antiga123',
   );
-  fireEvent.changeText(screen.getByPlaceholderText('Digite a nova senha'), nova);
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Digite a nova senha'),
+    nova,
+  );
   fireEvent.changeText(
     screen.getByPlaceholderText('Digite a senha novamente'),
     confirmacao,
@@ -147,10 +151,22 @@ describe('alterar senha: servidor fora não vira "senha incorreta"', () => {
 // AN8: a regra da nova senha é a do cadastro, com erro inline por campo.
 describe('alterar senha: mesma regra do cadastro (Zod + erro inline)', () => {
   it.each([
-    ['6 caracteres (a regra antiga do motorista)', 'Ab@1de', 'Senha deve ter no mínimo 8 caracteres'],
-    ['sem maiúscula', 'novasenha@1', 'Senha deve conter pelo menos uma letra maiúscula'],
+    [
+      '6 caracteres (a regra antiga do motorista)',
+      'Ab@1de',
+      'Senha deve ter no mínimo 8 caracteres',
+    ],
+    [
+      'sem maiúscula',
+      'novasenha@1',
+      'Senha deve conter pelo menos uma letra maiúscula',
+    ],
     ['sem número', 'NovaSenha@a', 'Senha deve conter pelo menos um número'],
-    ['sem caractere especial', 'NovaSenha12', 'Senha deve conter pelo menos um caractere especial (!@#$%...)'],
+    [
+      'sem caractere especial',
+      'NovaSenha12',
+      'Senha deve conter pelo menos um caractere especial (!@#$%...)',
+    ],
   ])('recusa nova senha %s sem tocar no servidor', async (_n, nova, msg) => {
     render(<AlterarSenha />);
 
@@ -198,5 +214,15 @@ describe('alterar senha: mesma regra do cadastro (Zod + erro inline)', () => {
       await screen.findByText('A nova senha deve ser diferente da atual'),
     ).toBeTruthy();
     expect(mockAuth.signIn).not.toHaveBeenCalled();
+  });
+});
+
+describe('alterar senha: navegação', () => {
+  it('Cancelar volta ao perfil que já está embaixo (não empilha outro)', () => {
+    render(<AlterarSenha />);
+    fireEvent.press(screen.getByText('Cancelar'));
+
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 });

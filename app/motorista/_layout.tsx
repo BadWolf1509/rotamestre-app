@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
+import { TransmissaoDePosicao } from '@/components/motorista/TransmissaoDePosicao';
 import { DrawerMenuProvider, useDrawerMenu } from '@/context/DrawerMenuContext';
 import { RouteStatusProvider } from '@/context/RouteStatusContext';
 import { useLembreteDiario } from '@/hooks/motorista/useLembreteDiario';
@@ -51,6 +52,7 @@ export default function MotoristaLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <DrawerMenuProvider>
           <RouteStatusProvider>
+            <TransmissaoDePosicao />
             <Slot />
           </RouteStatusProvider>
         </DrawerMenuProvider>
@@ -63,6 +65,8 @@ export default function MotoristaLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <DrawerMenuProvider>
         <RouteStatusProvider>
+          {/* Uma transmissão de posição para todas as abas */}
+          <TransmissaoDePosicao />
           <MobileNavigation />
         </RouteStatusProvider>
       </DrawerMenuProvider>

@@ -11,10 +11,12 @@ import {
   apagarPerfilConhecido,
   lerPerfilConhecido,
 } from '@/lib/auth/perfilConhecido';
+import { buscarPerfilNaAbertura } from '@/lib/auth/perfilNaAbertura';
 import { PRAZO_LEITURA_SESSAO_MS } from '@/lib/auth/sessao';
 import { obterSessaoComTimeout } from '@/lib/auth/sessaoComTimeout';
 import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { logger } from '@/lib/logger';
+import { redeCaidaObservada } from '@/lib/redeObservada';
 import { isRecoveryRedirect } from '@/lib/supabase';
 import type { Usuario } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -108,7 +110,27 @@ function IndexContent() {
         // Usuário autenticado: buscar dados completos para verificar primeira_senha
         let usuario: Usuario | null;
         try {
-          usuario = await authService.getUsuario(session.user.id);
+          // Com perfil conhecido guardado, a busca tem prazo curto (e nem sai
+          // com a queda de rede já observada): Wi-Fi sem internet esperava o
+          // DNS desistir. Sem perfil guardado, espera como sempre.
+          const perfil = await buscarPerfilNaAbertura(session.user.id, {
+            buscar: () => authService.getUsuario(session.user.id),
+            lerConhecido: lerPerfilConhecido,
+            redeCaida: () => redeCaidaObservada(),
+          });
+          if (perfil.origem === 'conhecido') {
+            logger.warn(
+              '[index] Perfil sem resposta a tempo — seguindo pelo perfil conhecido',
+            );
+            rotearPeloPerfil(perfil.usuario);
+            // Perfil guardado não decide se a conta foi desativada. Com a
+            // busca ainda em voo (prazo estourado), o portão roda quando a
+            // resposta chegar — sem consulta extra de perfil. Com a queda
+            // observada (nada em voo), fica como no ramo offline.
+            if (perfil.tardia) portaoDaContaNaRespostaTardia(perfil.tardia);
+            return;
+          }
+          usuario = perfil.usuario;
         } catch (erroBusca) {
           // Falha NÃO é "sem perfil" (isso é data:null sem erro e autenticado,
           // tratado abaixo). Falha transitória: vale o perfil conhecido da
@@ -171,6 +193,27 @@ function IndexContent() {
     } finally {
       setLoading(false);
     }
+  }
+
+  /**
+   * Portão da conta desativada sobre a resposta que chegou depois do prazo.
+   * Falha tardia (rede) ou sem perfil: não decide nada — a sessão segue, e o
+   * próximo `app/index` com resposta a tempo confere de novo.
+   */
+  function portaoDaContaNaRespostaTardia(tardia: Promise<Usuario | null>) {
+    void tardia
+      .then(async (fresco) => {
+        if (!fresco) return;
+        await authService.garantirContaAtiva(fresco);
+      })
+      .catch((erro) => {
+        if (erro instanceof ContaDesativada) {
+          logger.warn('[index] Conta desativada (resposta tardia) → login');
+          router.replace('/auth/login?conta=desativada');
+          return;
+        }
+        logger.warn('[index] Resposta tardia do perfil falhou', erro);
+      });
   }
 
   /** Último perfil conhecido do dono; sem ele, "Sem conexão". */

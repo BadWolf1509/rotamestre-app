@@ -249,6 +249,7 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
           status: 'pulada',
           motivo_skip: 'outro',
           observacao_pulo: 'Portão fechado',
+          concluida_em: '2026-10-23T12:00:00.000Z',
         },
       ]);
       expect(enviados[0]).not.toHaveProperty('observacoes');
@@ -260,7 +261,12 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
       const enviados = capturarDados(banco);
       await aplicarAcaoParada(pularP1({ motivo: 'recusa' }), banco.porta);
       expect(enviados).toEqual([
-        { status: 'pulada', motivo_skip: 'recusa', observacao_pulo: null },
+        {
+          status: 'pulada',
+          motivo_skip: 'recusa',
+          observacao_pulo: null,
+          concluida_em: '2026-10-23T12:00:00.000Z',
+        },
       ]);
       expect(banco.paradas.get('p1')!.observacao_pulo).toBeNull();
     });
@@ -296,6 +302,8 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
         status: 'pulada',
         motivo_skip: 'cliente_ausente',
         observacao_pulo: 'Ficou para tarde',
+        // O horário real do pulo, não o da sincronização
+        concluida_em: '2026-10-25T18:00:00.000Z',
       });
       expect(banco.paradas.get('p1')).toMatchObject({
         observacoes: 'Ligar antes',
@@ -495,6 +503,41 @@ describe('processarFilaAcoesParada', () => {
     expect(await lerFilaAcoesParada()).toEqual([]);
     const avisos = await lerDescartesDaFila('mot-1');
     expect(avisos[0].motivo).toBe('falha_persistente');
+  });
+
+  // Migration 77: o gatilho recusa mudar status de parada de rota encerrada
+  // (P0001 PARADA_DE_ROTA_ENCERRADA). A rota encerrou entre a leitura e o
+  // UPDATE: a recusa é definitiva e tem nome — descarta já, com o aviso de
+  // rota encerrada, sem gastar as tentativas da falha persistente.
+  it('recusa do banco por rota encerrada descarta na 1ª vez, com o motivo certo', async () => {
+    const banco = cenario();
+    await enfileirarAcaoParada(concluirP1());
+    banco.porta.atualizarSeAberta = async () => {
+      banco.rotas.get('rota-1')!.status = 'cancelada';
+      throw Object.assign(new Error('PARADA_DE_ROTA_ENCERRADA'), {
+        code: 'P0001',
+      });
+    };
+
+    const r = await processarFilaAcoesParada({
+      usuarioAtual: 'mot-1',
+      porta: banco.porta,
+    });
+
+    expect(await lerFilaAcoesParada()).toEqual([]);
+    expect(r.descartadas.map((d) => d.motivo)).toEqual(['rota_encerrada']);
+    expect(banco.paradas.get('p1')!.status).toBe('em_andamento');
+  });
+
+  it('a mesma recusa no envio direto vira "rota encerrada", não erro cru', async () => {
+    const banco = cenario();
+    banco.porta.atualizarSeAberta = async () => {
+      throw { code: 'P0001', message: 'PARADA_DE_ROTA_ENCERRADA' };
+    };
+
+    await expect(aplicarAcaoParada(concluirP1(), banco.porta)).resolves.toEqual(
+      { tipo: 'descartada', motivo: 'rota_encerrada' },
+    );
   });
 
   it('ação enfileirada DURANTE o envio não é apagada pela regravação da fila', async () => {
@@ -704,6 +747,10 @@ describe('sobreporAcoesPendentes (o que a tela mostra enquanto não sobe)', () =
       'pendente',
     ]);
     expect([...r.pendentes]).toEqual(['p1', 'p2']);
+    // O pulo também mostra o horário da ação (a linha do tempo o lê)
+    expect(r.paradas[1]).toMatchObject({
+      concluida_em: '2026-10-23T12:01:00.000Z',
+    });
   });
 
   it('ignora ação de outra rota e não troca a identidade sem fila', () => {
