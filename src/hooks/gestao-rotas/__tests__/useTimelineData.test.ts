@@ -202,11 +202,42 @@ describe('useTimelineData — realtime', () => {
     expect(supabase.channel).not.toHaveBeenCalled();
   });
 
-  it('insere no topo ao receber INSERT de log via realtime', async () => {
-    const handlers: Record<string, (payload: any) => void> = {};
+  // `logs` e `incidentes` não estão na publicação do Realtime: assinatura
+  // neles entra em SUBSCRIBED e nunca dispara. A linha do tempo escuta a rota e
+  // as paradas (publicadas) e recarrega — o log do gatilho já está gravado.
+  it('assina só tabelas publicadas: rota (UPDATE) e paradas (INSERT/UPDATE) da rota', async () => {
+    const assinaturas: { event: string; table: string; filter: string }[] = [];
+    (supabase.on as jest.Mock).mockImplementation((_evt: string, cfg: any) => {
+      assinaturas.push({
+        event: cfg.event,
+        table: cfg.table,
+        filter: cfg.filter,
+      });
+      return supabase;
+    });
+
+    renderHook(() => useTimelineData('123', { realtime: true }));
+    await waitFor(() => expect(assinaturas.length).toBeGreaterThan(0));
+
+    expect(assinaturas).toEqual(
+      expect.arrayContaining([
+        { event: 'UPDATE', table: 'rotas', filter: 'id=eq.123' },
+        { event: 'INSERT', table: 'paradas', filter: 'rota_id=eq.123' },
+        { event: 'UPDATE', table: 'paradas', filter: 'rota_id=eq.123' },
+      ]),
+    );
+    expect(assinaturas).toHaveLength(3);
+  });
+
+  it.each([
+    ['rotas', 'UPDATE'],
+    ['paradas', 'INSERT'],
+    ['paradas', 'UPDATE'],
+  ])('evento %s %s recarrega a linha do tempo', async (tabela, evento) => {
+    const handlers: Record<string, () => void> = {};
     (supabase.on as jest.Mock).mockImplementation(
-      (_evt: string, cfg: any, cb: (p: any) => void) => {
-        if (cfg.table === 'logs') handlers.logInsert = cb;
+      (_evt: string, cfg: any, cb: () => void) => {
+        handlers[`${cfg.table}:${cfg.event}`] = cb;
         return supabase;
       },
     );
@@ -215,16 +246,13 @@ describe('useTimelineData — realtime', () => {
       useTimelineData('123', { realtime: true }),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
-    const before = result.current.events.length;
+    (supabase.from as jest.Mock).mockClear();
 
     await act(async () => {
-      handlers.logInsert({
-        new: { id: '999', evento: 'x', timestamp: '2099-01-01T00:00:00Z' },
-      });
+      handlers[`${tabela}:${evento}`]();
     });
 
-    expect(result.current.events[0].id).toBe('log-999');
-    expect(result.current.events.length).toBe(before + 1);
+    await waitFor(() => expect(supabase.from).toHaveBeenCalledWith('logs'));
   });
 });
 
