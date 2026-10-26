@@ -18,9 +18,13 @@ import {
   contarPendenciasDaConta,
   MENSAGEM_SAIDA_PADRAO,
   mensagemDeSaida,
+  temEnvioParaTentar,
   temPendencias,
 } from '@/lib/motorista/pendenciasDoAparelho';
 import { solicitarEnvioFila } from '@/lib/offline';
+
+/** Guarda da contagem de pendências (leitura local; não é prazo de rede). */
+const PRAZO_CONTAGEM_MS = 2_000;
 
 interface UseDrawerLogoutOptions {
   onClose: () => void;
@@ -37,6 +41,8 @@ export function useDrawerLogout({
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [logoutMessage, setLogoutMessage] = useState(MENSAGEM_SAIDA_PADRAO);
   const [comPendencias, setComPendencias] = useState(false);
+  const [contandoPendencias, setContandoPendencias] = useState(false);
+  const contandoRef = useRef(false);
   // Descarta a contagem de uma abertura anterior do diálogo
   const aberturaRef = useRef(0);
 
@@ -47,18 +53,37 @@ export function useDrawerLogout({
     setShowLogoutDialog(true);
     if (!motoristaId) return;
 
-    void contarPendenciasDaConta(motoristaId).then((pendencias) => {
-      if (abertura !== aberturaRef.current) return;
-      if (!temPendencias(pendencias)) return;
-      setLogoutMessage(mensagemDeSaida(pendencias));
-      setComPendencias(true);
-      solicitarEnvioFila().catch((erro) =>
-        logger.warn('[Logout] Falha ao tentar enviar a fila', erro),
-      );
+    // "Sair" espera a contagem (leitura local, milissegundos): sair antes
+    // dela é sair sem o aviso. A guarda de tempo evita prender o diálogo se
+    // o AsyncStorage não responder.
+    contandoRef.current = true;
+    setContandoPendencias(true);
+    let guarda: ReturnType<typeof setTimeout> | undefined;
+    const semResposta = new Promise<null>((resolve) => {
+      guarda = setTimeout(() => resolve(null), PRAZO_CONTAGEM_MS);
     });
+    void Promise.race([contarPendenciasDaConta(motoristaId), semResposta])
+      .then((pendencias) => {
+        if (abertura !== aberturaRef.current) return;
+        if (!pendencias || !temPendencias(pendencias)) return;
+        setLogoutMessage(mensagemDeSaida(pendencias));
+        setComPendencias(true);
+        // O envio da fila manda ações e fotos; posições, não
+        if (!temEnvioParaTentar(pendencias)) return;
+        solicitarEnvioFila().catch((erro) =>
+          logger.warn('[Logout] Falha ao tentar enviar a fila', erro),
+        );
+      })
+      .finally(() => {
+        clearTimeout(guarda);
+        if (abertura !== aberturaRef.current) return;
+        contandoRef.current = false;
+        setContandoPendencias(false);
+      });
   }, [motoristaId]);
 
   const handleLogoutConfirm = useCallback(async () => {
+    if (contandoRef.current) return;
     setShowLogoutDialog(false);
 
     try {
@@ -74,6 +99,8 @@ export function useDrawerLogout({
 
   const handleLogoutCancel = useCallback(() => {
     aberturaRef.current++;
+    contandoRef.current = false;
+    setContandoPendencias(false);
     setShowLogoutDialog(false);
   }, []);
 
@@ -86,6 +113,7 @@ export function useDrawerLogout({
     showErrorDialog,
     logoutMessage,
     logoutConfirmText: comPendencias ? 'Sair mesmo assim' : 'Sair',
+    contandoPendencias,
     handleLogoutPress,
     handleLogoutConfirm,
     handleLogoutCancel,

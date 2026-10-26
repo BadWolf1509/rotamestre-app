@@ -103,5 +103,13 @@ describe('mensagemDeSaida', () => {
     const m = mensagemDeSaida({ acoes: 0, fotos: 0, posicoes: 5 });
     expect(m).toContain('trajeto');
     expect(m).not.toContain('quando você entrar de novo');
+    // O envio da fila não manda posições: não promete o que não faz
+    expect(m).not.toContain('tentando enviar');
+  });
+
+  it('com ações ou fotos: diz que o app já está tentando enviar', () => {
+    expect(mensagemDeSaida({ acoes: 0, fotos: 1, posicoes: 0 })).toContain(
+      'tentando enviar',
+    );
   });
 });

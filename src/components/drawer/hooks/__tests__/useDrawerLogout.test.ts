@@ -63,6 +63,50 @@ describe('useDrawerLogout — aviso de pendências', () => {
     expect(mockEnviar).toHaveBeenCalled();
   });
 
+  it('"Sair" fica desabilitado até a contagem terminar, e não sai antes', async () => {
+    let terminar: (v: unknown) => void = () => undefined;
+    mockContar.mockReturnValue(
+      new Promise((r) => {
+        terminar = r;
+      }),
+    );
+    const { authService } = jest.requireMock('@/lib/auth') as {
+      authService: { signOut: jest.Mock };
+    };
+    const { result } = renderHook(() =>
+      useDrawerLogout({ onClose: jest.fn(), motoristaId: 'm1' }),
+    );
+    await act(async () => {
+      result.current.handleLogoutPress();
+    });
+    expect(result.current.contandoPendencias).toBe(true);
+
+    await act(async () => {
+      await result.current.handleLogoutConfirm();
+    });
+    expect(authService.signOut).not.toHaveBeenCalled();
+
+    await act(async () => {
+      terminar({ acoes: 0, fotos: 0, posicoes: 0 });
+    });
+    expect(result.current.contandoPendencias).toBe(false);
+  });
+
+  it('só trajeto pendente: avisa, mas não dispara o envio (ele não manda posições)', async () => {
+    mockContar.mockResolvedValue({ acoes: 0, fotos: 0, posicoes: 4 });
+    const { result } = renderHook(() =>
+      useDrawerLogout({ onClose: jest.fn(), motoristaId: 'm1' }),
+    );
+    await act(async () => {
+      result.current.handleLogoutPress();
+    });
+
+    await waitFor(() =>
+      expect(result.current.logoutMessage).toContain('trajeto'),
+    );
+    expect(mockEnviar).not.toHaveBeenCalled();
+  });
+
   it('sem motorista (gestor): não consulta as filas', async () => {
     const { result } = renderHook(() =>
       useDrawerLogout({ onClose: jest.fn() }),

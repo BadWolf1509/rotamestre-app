@@ -70,6 +70,11 @@ export function temPendencias(p: PendenciasDaConta): boolean {
   return p.acoes + p.fotos + p.posicoes > 0;
 }
 
+/** Há o que o envio da fila (ações e fotos) possa mandar agora. */
+export function temEnvioParaTentar(p: PendenciasDaConta): boolean {
+  return p.acoes + p.fotos > 0;
+}
+
 /** Texto do diálogo de saída. Sem pendência, a pergunta de sempre. */
 export function mensagemDeSaida(p: PendenciasDaConta): string {
   if (!temPendencias(p)) return MENSAGEM_SAIDA_PADRAO;
@@ -92,6 +97,11 @@ export function mensagemDeSaida(p: PendenciasDaConta): string {
       'O trajeto registrado sem sinal ainda não foi enviado e será apagado ao sair.',
     );
   }
-  partes.push('O app já está tentando enviar. Deseja sair mesmo assim?');
+  // `solicitarEnvioFila` manda ações e fotos, não posições
+  partes.push(
+    temEnvioParaTentar(p)
+      ? 'O app já está tentando enviar. Deseja sair mesmo assim?'
+      : 'Deseja sair mesmo assim?',
+  );
   return partes.join('\n\n');
 }

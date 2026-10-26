@@ -40,6 +40,7 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
     showErrorDialog,
     logoutMessage,
     logoutConfirmText,
+    contandoPendencias,
     handleLogoutPress,
     handleLogoutConfirm,
     handleLogoutCancel,
@@ -213,6 +214,8 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
         cancelText="Cancelar"
         type="danger"
         icon="log-out-outline"
+        // "Sair" só depois de contar o que ainda está no aparelho
+        loading={contandoPendencias}
         onConfirm={handleLogoutConfirm}
         onCancel={handleLogoutCancel}
       />
