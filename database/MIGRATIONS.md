@@ -3262,6 +3262,51 @@ colável no arquivo.
 
 ---
 
+### ⏳ Migration 75: rota encerrada não volta por UPDATE direto da API
+
+**Arquivo:** `20261026125000_rota_encerrada_nao_volta.sql` · **⏳ não aplicada.**
+Aplicar só depois do deploy do app 1.14.8 na web (gestor cancela e reativa pela
+RPC) e depois de decidir o caminho do fixture do e2e (ver "App").
+
+**O que faz.** Cria o gatilho `trg_rota_encerrada_nao_volta` (BEFORE UPDATE OF
+status em `rotas`, por linha, `WHEN` status antigo `cancelada`/`concluida`/
+`nao_executada` e status novo diferente) com a função
+`public.rota_encerrada_nao_volta()`, que recusa com P0001 `ROTA_ENCERRADA`
+quando `current_user` é `authenticated` ou `anon` (os papéis da API). As RPCs
+SECURITY DEFINER donas `postgres` (`reativar_rota`, `cancelar_rota`,
+`finalizar_rota`, `expire_old_pending_routes`), a chave secreta e o CLI seguem
+mudando o status; UPDATE de outras colunas em rota encerrada e UPDATE que mantém
+o status passam. A função é SECURITY INVOKER de propósito: como DEFINER,
+`current_user` seria sempre o dono; `auth.uid()` não separa a API da RPC.
+
+**Alternativas.** Gatilho com `current_user` (escolhida); policy com WITH CHECK
+(não vê a transição, e o status no USING esconderia a rota encerrada de todo
+UPDATE, com 0 linhas em vez de erro); gatilho DEFINER com marcador de sessão nas
+RPCs (reescreve as quatro, e RPC nova sem marcador é recusada); `REVOKE UPDATE
+(status)` (recusaria o início da rota pelo motorista).
+
+**Medido em 26/10/2026.** Só as quatro RPCs acima fazem UPDATE em `rotas` no
+banco. Logs de mudança a partir de rota encerrada: `nao_executada → pendente` 6
+(reativações); `→ em_andamento` 7 — 5 na loja demo (o fixture do e2e, a última
+em 25/10) e 2 numa loja real em dez/2025 (`concluida → em_andamento` minutos
+depois da conclusão, rota concluída de novo em seguida; nenhum desde então).
+
+**App.** Motorista: nenhum efeito (`startRoute` só muda rota `pendente`). Gestor
+1.14.8: nenhum. Gestor no app nativo 1.14.7 que reativar por UPDATE direto passa
+a receber erro (D2). **e2e:** `e2e/fixtures/garantir-rota-do-mapa.ts` restaura a
+rota demo encerrada com UPDATE direto como gestor (`→ em_andamento`) e passa a
+receber `ROTA_ENCERRADA`; o caminho do fixture precisa mudar antes de aplicar.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration75-rota-encerrada-nao-volta.test.ts`; sonda
+`database/sondas/20261026125000_sonda_migration75.sql` (10 casos, desfeita pelo
+RAISE): recusa do motorista em rota concluída e cancelada e do gestor na
+reativação direta; as três RPCs, o início da rota pelo app, postgres e
+`service_role`, outra coluna e mesmo status em rota concluída; catálogo. Sem a
+migration saem FALHOU os casos 1, 2, 3 e 10. Rollback colável no arquivo.
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
