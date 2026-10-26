@@ -516,6 +516,23 @@ describe('ParadaCard', () => {
       expect(getByText('Motorista: Ficou para amanhã')).toBeTruthy();
     });
 
+    it('re-renderiza quando só o observacao_pulo muda', () => {
+      const { getByText, rerender } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={{ ...pulada, observacao_pulo: 'Primeiro' }}
+        />,
+      );
+      expect(getByText('Motorista: Primeiro')).toBeTruthy();
+      rerender(
+        <ParadaCard
+          {...defaultProps}
+          parada={{ ...pulada, observacao_pulo: 'Segundo' }}
+        />,
+      );
+      expect(getByText('Motorista: Segundo')).toBeTruthy();
+    });
+
     it('parada pulada sem observacao_pulo mostra só o motivo', () => {
       const { getByText, queryByText } = render(
         <ParadaCard

@@ -19,6 +19,8 @@ export interface Parada {
   destinatario?: string;
   telefone?: string;
   observacoes?: string;
+  /** Texto do motorista ao pular (Migration 73); nunca se mistura com `observacoes`. */
+  observacao_pulo?: string | null;
   concluidaEm?: string;
   is_checkpoint?: boolean;
   vinculo_parada_id?: string | null;
