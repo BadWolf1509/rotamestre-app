@@ -2886,9 +2886,9 @@ SELECT de `unidades` depois da Migration 51); `service_role` intocado; padrão d
 FALHOU; com ela: 9 OK (réplica local). Rollback colável, tabela a tabela, com
 o que foi medido.
 
-### ⏳ Migration 65: fotos de entrega lidas pelo gestor da loja e pelo motorista da rota
+### ✅ Migration 65: fotos de entrega lidas pelo gestor da loja e pelo motorista da rota
 
-**Arquivo:** `20261025160000_fotos_entrega_pela_propria_rota.sql` · **⏳ aguardando aplicação**
+**Arquivo:** `20261025160000_fotos_entrega_pela_propria_rota.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025160000`. Sonda: 4 FALHOU antes (1, 2, 11, 14), tudo OK com o corpo na mesma transação e 15/15 OK depois de aplicada.
 
 **O que faz.** Divide o ramo por loja da policy `"fotos-entrega select"` (em
 `storage.objects`) para seguir a regra das policies de `rotas`/`paradas` da
@@ -2939,9 +2939,9 @@ da função e da policy. Sem a migration: casos 1, 2, 11 e 14 FALHOU. Rollback
 colável com a policy viva de
 25/10/2026, o DROP da função e o COMMENT antigo do helper.
 
-### ⏳ Migration 66: incidente atualizado só pelo gestor da loja
+### ✅ Migration 66: incidente atualizado só pelo gestor da loja
 
-**Arquivo:** `20261025161000_incidente_atualizado_pelo_gestor.sql` · **⏳ aguardando aplicação**
+**Arquivo:** `20261025161000_incidente_atualizado_pelo_gestor.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025161000`. Sonda: 4 FALHOU antes (1, 2, 3, 8), tudo OK com o corpo na mesma transação e 8/8 OK depois de aplicada.
 
 **O que faz.** Recria a policy `incidentes_update` (mesmo nome, `FOR UPDATE TO
 authenticated`) sem o ramo `motorista_id = auth.uid()`: USING e WITH CHECK
@@ -2978,9 +2978,9 @@ policy sem `motorista_id` em USING e WITH CHECK e com uma única policy de
 UPDATE. Sem a migration: casos 1, 2, 3 e 8 FALHOU. Rollback colável com a
 policy viva de 25/10/2026 (ramo do motorista em USING e WITH CHECK).
 
-### ⏳ Migration 68: posição gravada em rota em andamento, com margem para a fila offline
+### ✅ Migration 68: posição gravada em rota em andamento, com margem para a fila offline
 
-**Arquivo:** `20261025163000_posicao_em_rota_em_andamento.sql` · **⏳ aguardando aplicação**
+**Arquivo:** `20261025163000_posicao_em_rota_em_andamento.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025163000`. Sonda: 5 FALHOU antes (4, 5, 6, 9b, 11), tudo OK com o corpo na mesma transação e 12/12 OK depois de aplicada.
 
 > A Migration 67 (Tarefa 3 do plano de 25/10) não foi feita; o número fica sem
 > arquivo para manter os timestamps do plano.
@@ -3027,9 +3027,9 @@ rota), com vínculo inativo e na rota de outro motorista; catálogo da policy co
 `usuario_atual_ativo` e `concluida_em`, sem `now()`. Sem a migration: casos 4,
 5, 6, 9b e 11 FALHOU. Rollback colável com a policy viva de 25/10/2026.
 
-### ⏳ Migration 69: privilégios-padrão da API — função nova sem EXECUTE para PUBLIC/anon, `anon` só leitura
+### ✅ Migration 69: privilégios-padrão da API — função nova sem EXECUTE para PUBLIC/anon, `anon` só leitura
 
-**Arquivo:** `20261025164000_privilegios_padrao_da_api.sql` · **⏳ aguardando aplicação**
+**Arquivo:** `20261025164000_privilegios_padrao_da_api.sql` · **✅ aplicada em 25/10/2026** pelo CLI (`db query --linked`), registrada como `20261025164000`. Sonda: 6 FALHOU antes (1, 4, 5, 6, 7, 9), tudo OK com o corpo na mesma transação e 9/9 OK depois de aplicada; a sonda da Migration 64 seguiu 9/9.
 
 **O que faz.** Cinco instruções: (1) privilégio-padrão global do `postgres`
 sem EXECUTE para PUBLIC em função; (2) privilégio-padrão do `postgres` em
