@@ -117,7 +117,6 @@ describe.each([
   'quality.yml',
   'expire-routes.yml',
   'eas-build-android.yml',
-  'update-snapshots.yml',
 ])('%s: actions fixadas por SHA', (nome) => {
   it('toda linha `uses:` usa SHA de 40 hex e comentário com a versão completa', () => {
     const linhas = ler(nome)
@@ -153,3 +152,52 @@ describe('expire-routes.yml: cron sem corpo de resposta no log público', () => 
     ).toBe(3);
   });
 });
+
+// Artefato de repositório público é baixável por qualquer conta logada: nada de
+// trace, relatório HTML ou error-context (guardam senha digitada e tokens).
+describe('test.yml: artefatos de falha só com captura de tela', () => {
+  const fonte = ler('test.yml').replace(/\r\n/g, '\n');
+  const executado = fonte
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('#'))
+    .join('\n');
+
+  it('nenhum upload leva e2e-report, trace ou a pasta test-results inteira', () => {
+    expect(executado).not.toMatch(/^\s+e2e-report\s*$/m);
+    expect(executado).not.toMatch(/^\s+test-results\s*$/m);
+    expect(executado).not.toMatch(/\.zip|trace/);
+  });
+
+  it('o e2e autenticado sobe as capturas de tela quando falha', () => {
+    expect(executado).toContain('name: e2e-screenshots');
+    expect(executado).toContain('path: test-results/**/*.png');
+  });
+
+  it('o playwright não grava trace nem vídeo no CI', () => {
+    const config = readFileSync(
+      join(pasta, '..', '..', 'playwright.config.ts'),
+      'utf8',
+    );
+    expect(config).toMatch(/trace:\s*process\.env\.CI\s*\?\s*'off'/);
+    expect(config).toMatch(/video:\s*process\.env\.CI\s*\?\s*'off'/);
+  });
+});
+
+describe.each(['test.yml', 'quality.yml'])(
+  '%s: concurrency e cache',
+  (nome) => {
+    const fonte = ler(nome).replace(/\r\n/g, '\n');
+
+    it('cancela a execução antiga só em pull_request', () => {
+      expect(fonte).toMatch(/^concurrency:/m);
+      expect(fonte).toMatch(
+        /cancel-in-progress:\s*\$\{\{\s*github\.event_name == 'pull_request'\s*\}\}/,
+      );
+    });
+
+    it('não cacheia node_modules (o npm ci o apaga); o cache é do setup-node', () => {
+      expect(fonte).not.toMatch(/^\s+node_modules\s*$/m);
+      expect(fonte).toContain("cache: 'npm'");
+    });
+  },
+);
