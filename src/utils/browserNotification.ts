@@ -41,8 +41,8 @@ export async function requestBrowserNotificationPermission(): Promise<boolean> {
 /**
  * Get current notification permission status
  */
-// eslint-disable-next-line no-undef
 export function getBrowserNotificationPermission():
+  // eslint-disable-next-line no-undef
   NotificationPermission | 'unsupported' {
   if (!isBrowserNotificationSupported()) {
     return 'unsupported';
