@@ -25,9 +25,19 @@ export class GestorPage {
   readonly gestaoRotasPronta: Locator;
   /**
    * Botão de adicionar motorista: "Adicionar motorista" no desktop,
-   * "Adicionar novo motorista" no mobile. Nos dois layouts ele só monta depois
-   * que a lista carregou (antes disso a tela é o "Carregando motoristas...").
-   * `motoristas-tabela`/`motoristas-vazio` existem só no desktop.
+   * "Adicionar novo motorista" no mobile. Só monta com a carga terminada:
+   * - `loading` nasce `true` em `useMotoristasOperations` e só vira `false` no
+   *   `finally` da RPC `listar_motoristas_unidade`;
+   * - desktop: o botão está nas `actions` do `DesktopCard`, FILHO do
+   *   `DesktopPageLayout`, que com `loading` devolve só o spinner — o card nem
+   *   monta;
+   * - mobile: o `if (loading) return` da tela vem antes do ramo com o botão.
+   * Medido em 25/10/2026 segurando a RPC por 4 s: botão ausente em 27 de 27
+   * amostras durante a carga (1280 e 375 px), visível ~0,5 s depois de ela
+   * ser liberada. Ressalva: com a RPC em ERRO a carga também termina, e o botão
+   * aparece com a lista vazia (e o toast de erro) — o sinal é "fim da carga",
+   * não "dados ok". `motoristas-tabela`/`motoristas-vazio` existem só no
+   * desktop e têm a mesma ressalva.
    */
   readonly motoristasPronta: Locator;
 
