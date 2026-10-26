@@ -14,7 +14,13 @@
  * );
  */
 
-import { useCallback, useEffect, useRef, useState, type DependencyList } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DependencyList,
+} from 'react';
 
 import { getCache, setCache, clearCache, CACHE_TTL } from '@/lib/cache';
 
@@ -54,7 +60,7 @@ export interface UseCachedDataReturn<T> {
 export function useCachedData<T>(
   key: string,
   fetcher: () => Promise<T>,
-  options: UseCachedDataOptions = {}
+  options: UseCachedDataOptions = {},
 ): UseCachedDataReturn<T> {
   const {
     ttl = CACHE_TTL.USER_DATA,
@@ -83,7 +89,9 @@ export function useCachedData<T>(
   // atualizações seguidas perdiam a primeira.
   const dataRef = useRef<T | null>(null);
   const chaveDoDadoRef = useRef<string | null>(null);
-  const loadDataRef = useRef<(ignoreCache?: boolean) => Promise<void>>(async () => {});
+  const loadDataRef = useRef<(ignoreCache?: boolean) => Promise<void>>(
+    async () => {},
+  );
 
   const aplicar = useCallback((valor: T | null, chave: string | null) => {
     dataRef.current = valor;
@@ -161,7 +169,7 @@ export function useCachedData<T>(
         }
       }
     },
-    [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate, aplicar]
+    [enabled, key, ttl, staleWhileRevalidate, fetcher, onUpdate, aplicar],
   );
 
   // Sync ref with latest loadData function
@@ -182,8 +190,7 @@ export function useCachedData<T>(
 
   const update = useCallback(
     async (newData: T | ((prev: T | null) => T)) => {
-      const anterior =
-        chaveDoDadoRef.current === key ? dataRef.current : null;
+      const anterior = chaveDoDadoRef.current === key ? dataRef.current : null;
       const updatedData =
         typeof newData === 'function'
           ? (newData as (prev: T | null) => T)(anterior)
@@ -194,7 +201,7 @@ export function useCachedData<T>(
       await setCache(key, updatedData, ttl);
       onUpdate?.(updatedData);
     },
-    [key, ttl, onUpdate, aplicar]
+    [key, ttl, onUpdate, aplicar],
   );
 
   // Cleanup
@@ -223,18 +230,4 @@ export function useCachedData<T>(
     clear,
     update,
   };
-}
-
-/**
- * Variante que não usa SWR - sempre espera dados frescos
- */
-export function useFreshData<T>(
-  key: string,
-  fetcher: () => Promise<T>,
-  options: Omit<UseCachedDataOptions, 'staleWhileRevalidate'> = {}
-): UseCachedDataReturn<T> {
-  return useCachedData(key, fetcher, {
-    ...options,
-    staleWhileRevalidate: false,
-  });
 }
