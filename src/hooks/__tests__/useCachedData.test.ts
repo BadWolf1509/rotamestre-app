@@ -185,6 +185,70 @@ describe('useCachedData', () => {
     });
   });
 
+  describe('recarga com dado da mesma chave na tela', () => {
+    it('refresh mantém loading false e data presente, e liga refreshing só durante a recarga', async () => {
+      let liberar: (v: { n: number }) => void = () => {};
+      const fetcher = jest
+        .fn()
+        .mockResolvedValueOnce({ n: 1 })
+        .mockImplementationOnce(
+          () => new Promise((resolve) => (liberar = resolve)),
+        );
+
+      const { result } = renderHook(() =>
+        useCachedData('mesma_chave', fetcher),
+      );
+      await waitFor(() => expect(result.current.data).toEqual({ n: 1 }));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.refreshing).toBe(false);
+
+      let promessa: Promise<void> = Promise.resolve();
+      act(() => {
+        promessa = result.current.refresh();
+      });
+
+      // Recarga em voo: dado continua, sem skeleton.
+      expect(result.current.loading).toBe(false);
+      expect(result.current.data).toEqual({ n: 1 });
+      expect(result.current.refreshing).toBe(true);
+
+      await act(async () => {
+        liberar({ n: 2 });
+        await promessa;
+      });
+
+      expect(result.current.loading).toBe(false);
+      expect(result.current.refreshing).toBe(false);
+      expect(result.current.data).toEqual({ n: 2 });
+    });
+
+    it('refresh sem dado nenhum (primeira carga falhou) ainda liga loading', async () => {
+      let liberar: (v: { n: number }) => void = () => {};
+      const fetcher = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('falhou'))
+        .mockImplementationOnce(
+          () => new Promise((resolve) => (liberar = resolve)),
+        );
+
+      const { result } = renderHook(() => useCachedData('sem_dado', fetcher));
+      await waitFor(() => expect(result.current.error).not.toBeNull());
+
+      let promessa: Promise<void> = Promise.resolve();
+      act(() => {
+        promessa = result.current.refresh();
+      });
+      expect(result.current.loading).toBe(true);
+      expect(result.current.refreshing).toBe(false);
+
+      await act(async () => {
+        liberar({ n: 1 });
+        await promessa;
+      });
+      expect(result.current.loading).toBe(false);
+    });
+  });
+
   describe('clear', () => {
     it('deve limpar cache e dados', async () => {
       const mockData = { id: 1 };

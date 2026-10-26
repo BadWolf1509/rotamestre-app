@@ -3,7 +3,6 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { validatePhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -57,14 +56,15 @@ jest.mock('@/lib/queries', () => ({
   logUserAction: (...args: unknown[]) => mockLogUserAction(...args),
 }));
 
-// Mocks de utilitarios de telefone
-jest.mock('@/lib/phone', () => ({
-  maskPhone: jest.fn((text: string) => text),
-  validatePhone: jest.fn((phone: string) => phone.length >= 10),
-  getPhoneErrorMessage: jest.fn((phone: string) =>
-    phone.length < 10 ? 'Telefone incompleto' : null,
-  ),
-}));
+// Telefone sem mock: a validação é a do schema real (motoristaSchema).
+
+/** Erro do campo lido do estado do form (o formState é proxy de render). */
+function erroDe<C extends string>(
+  form: { getFieldState: (nome: C) => { error?: { message?: string } } },
+  campo: C,
+) {
+  return form.getFieldState(campo).error?.message;
+}
 
 // Helper para criar motorista mock
 const criarMotoristaMock = (
@@ -158,12 +158,16 @@ describe('useMotoristasGestor Hook', () => {
     it('deve inicializar com formulario vazio', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
-      expect(result.current.formNome).toBe('');
-      expect(result.current.formEmail).toBe('');
-      expect(result.current.formTelefone).toBe('');
-      expect(result.current.formSenha).toBe('');
-      expect(result.current.emailError).toBe('');
-      expect(result.current.telefoneError).toBe('');
+      expect(result.current.formCriar.getValues()).toEqual({
+        nome: '',
+        email: '',
+        telefone: '',
+        senha: '',
+      });
+      expect(result.current.formEditar.getValues()).toEqual({
+        nome: '',
+        telefone: '',
+      });
     });
 
     it('deve exportar todas as funcoes necessarias', () => {
@@ -177,8 +181,8 @@ describe('useMotoristasGestor Hook', () => {
       expect(typeof result.current.toggleAtivo).toBe('function');
       expect(typeof result.current.confirmarToggleAtivo).toBe('function');
       expect(typeof result.current.resetFormulario).toBe('function');
-      expect(typeof result.current.validateEmail).toBe('function');
-      expect(typeof result.current.handleTelefoneChange).toBe('function');
+      expect(result.current.formCriar).toBeDefined();
+      expect(result.current.formEditar).toBeDefined();
     });
   });
 
@@ -326,8 +330,8 @@ describe('useMotoristasGestor Hook', () => {
 
       // Preencher formulario primeiro
       act(() => {
-        result.current.setFormNome('Teste');
-        result.current.setFormEmail('teste@test.com');
+        result.current.formCriar.setValue('nome', 'Teste');
+        result.current.formCriar.setValue('email', 'teste@test.com');
       });
 
       // Abrir modal
@@ -336,8 +340,8 @@ describe('useMotoristasGestor Hook', () => {
       });
 
       expect(result.current.showAddModal).toBe(true);
-      expect(result.current.formNome).toBe('');
-      expect(result.current.formEmail).toBe('');
+      expect(result.current.formCriar.getValues('nome')).toBe('');
+      expect(result.current.formCriar.getValues('email')).toBe('');
     });
 
     it('deve abrir modal de editar e preencher formulario com dados do motorista', () => {
@@ -356,28 +360,11 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(result.current.showEditModal).toBe(true);
       expect(result.current.motoristaEditando).toEqual(motorista);
-      expect(result.current.formNome).toBe('Joao');
-      expect(result.current.formEmail).toBe('joao@test.com');
-      expect(result.current.formTelefone).toBe('(11) 99999-9999');
-    });
-
-    it('deve limpar erros ao abrir modal de editar', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      // Simular erro anterior
-      act(() => {
-        result.current.validateEmail('email-invalido');
+      // E-mail não entra no form de edição (não é editável).
+      expect(result.current.formEditar.getValues()).toEqual({
+        nome: 'Joao',
+        telefone: '(11) 99999-9999',
       });
-
-      expect(result.current.emailError).not.toBe('');
-
-      // Abrir modal de editar
-      act(() => {
-        result.current.abrirModalEditar(criarMotoristaMock());
-      });
-
-      expect(result.current.emailError).toBe('');
-      expect(result.current.telefoneError).toBe('');
     });
 
     it('deve controlar setShowAddModal', () => {
@@ -422,45 +409,15 @@ describe('useMotoristasGestor Hook', () => {
   // ============================================================================
 
   describe('Formulario', () => {
-    it('deve atualizar formNome', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.setFormNome('Novo Nome');
-      });
-
-      expect(result.current.formNome).toBe('Novo Nome');
-    });
-
-    it('deve atualizar formEmail', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.setFormEmail('novo@email.com');
-      });
-
-      expect(result.current.formEmail).toBe('novo@email.com');
-    });
-
-    it('deve atualizar formSenha', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.setFormSenha('senha123');
-      });
-
-      expect(result.current.formSenha).toBe('senha123');
-    });
-
     it('deve resetar formulario corretamente', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       // Preencher campos
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@test.com');
-        result.current.setFormTelefone('11999999999');
-        result.current.setFormSenha('senha');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@test.com');
+        result.current.formCriar.setValue('telefone', '11999999999');
+        result.current.formCriar.setValue('senha', 'senha');
       });
 
       // Resetar
@@ -468,88 +425,12 @@ describe('useMotoristasGestor Hook', () => {
         result.current.resetFormulario();
       });
 
-      expect(result.current.formNome).toBe('');
-      expect(result.current.formEmail).toBe('');
-      expect(result.current.formTelefone).toBe('');
-      expect(result.current.formSenha).toBe('');
-      expect(result.current.emailError).toBe('');
-      expect(result.current.telefoneError).toBe('');
-    });
-  });
-
-  // ============================================================================
-  // Testes de Validacao
-  // ============================================================================
-
-  describe('Validacao', () => {
-    it('deve validar email vazio como valido', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      let isValid;
-      act(() => {
-        isValid = result.current.validateEmail('');
+      expect(result.current.formCriar.getValues()).toEqual({
+        nome: '',
+        email: '',
+        telefone: '',
+        senha: '',
       });
-
-      expect(isValid).toBe(true);
-      expect(result.current.emailError).toBe('');
-    });
-
-    it('deve validar email correto', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      let isValid;
-      act(() => {
-        isValid = result.current.validateEmail('usuario@exemplo.com');
-      });
-
-      expect(isValid).toBe(true);
-      expect(result.current.emailError).toBe('');
-    });
-
-    it('deve invalidar email incorreto', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      let isValid;
-      act(() => {
-        isValid = result.current.validateEmail('email-invalido');
-      });
-
-      expect(isValid).toBe(false);
-      expect(result.current.emailError).toBe('Digite um email válido');
-    });
-
-    it('deve formatar telefone ao digitar', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.handleTelefoneChange('11999999999');
-      });
-
-      // O mock de maskPhone retorna o mesmo valor
-      expect(result.current.formTelefone).toBe('11999999999');
-    });
-
-    it('deve validar telefone incompleto', () => {
-      // Configurar mock para retornar erro
-      (validatePhone as jest.Mock).mockReturnValue(false);
-
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.handleTelefoneChange('1199');
-      });
-
-      expect(result.current.telefoneError).toBe('Telefone incompleto');
-    });
-
-    it('deve limpar erro de telefone quando vazio', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.handleTelefoneChange('');
-      });
-
-      expect(result.current.telefoneError).toBe('');
     });
   });
 
@@ -568,59 +449,44 @@ describe('useMotoristasGestor Hook', () => {
       });
     });
 
-    it('deve exibir erro quando campos obrigatorios estao vazios', async () => {
+    it('campos vazios: erro em cada campo, sem toast e sem Edge Function', async () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       await act(async () => {
         await result.current.adicionarMotorista();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Preencha todos os campos obrigatórios',
-        'error',
+      expect(erroDe(result.current.formCriar, 'nome')).toBeDefined();
+      expect(erroDe(result.current.formCriar, 'email')).toBe(
+        'E-mail é obrigatório',
       );
+      expect(erroDe(result.current.formCriar, 'senha')).toBeDefined();
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(mockShowToast).not.toHaveBeenCalled();
     });
 
-    it('deve exibir erro quando email e invalido', async () => {
+    it('senha fraca: não chama a Edge Function e o erro fica no campo (não toast)', async () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email-invalido');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Novo Motorista');
+        result.current.formCriar.setValue('email', 'motorista@teste.com');
+        result.current.formCriar.setValue('senha', '123456');
       });
 
       await act(async () => {
         await result.current.adicionarMotorista();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Digite um email válido',
-        'error',
+      expect(erroDe(result.current.formCriar, 'senha')).toBe(
+        'Senha deve ter no mínimo 8 caracteres',
       );
-    });
-
-    it('deve exibir erro quando telefone e invalido', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(false);
-
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
-        result.current.setFormTelefone('123');
-      });
-
-      await act(async () => {
-        await result.current.adicionarMotorista();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Telefone inválido', 'error');
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(supabase.auth.getSession).not.toHaveBeenCalled();
+      expect(mockShowToast).not.toHaveBeenCalled();
     });
 
     it('deve exibir erro quando sessao nao existe', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
         error: null,
@@ -629,9 +495,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {
@@ -645,7 +511,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve exibir erro quando getSession falha', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: { session: null },
         error: { message: 'Session error' },
@@ -654,9 +519,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {
@@ -670,7 +535,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve chamar Edge Function com dados corretos', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: {
@@ -690,10 +554,10 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Novo Motorista');
-        result.current.setFormEmail('motorista@teste.com');
-        result.current.setFormSenha('senha123');
-        result.current.setFormTelefone('(11) 99999-9999');
+        result.current.formCriar.setValue('nome', 'Novo Motorista');
+        result.current.formCriar.setValue('email', 'motorista@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
+        result.current.formCriar.setValue('telefone', '(11) 99999-9999');
       });
 
       await act(async () => {
@@ -711,7 +575,7 @@ describe('useMotoristasGestor Hook', () => {
           body: JSON.stringify({
             nome: 'Novo Motorista',
             email: 'motorista@teste.com',
-            senha: 'senha123',
+            senha: 'Abcdef1!',
             telefone: '(11) 99999-9999',
             unidade_id: 'unidade-123',
           }),
@@ -720,7 +584,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve exibir toast de sucesso e fechar modal ao criar motorista', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: { access_token: 'token', user: { email: 'g@test.com' } },
@@ -737,9 +600,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
         result.current.setShowAddModal(true);
       });
 
@@ -755,7 +618,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve exibir erro quando fetch falha', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: { access_token: 'token', user: { email: 'g@test.com' } },
@@ -763,14 +625,16 @@ describe('useMotoristasGestor Hook', () => {
         error: null,
       });
 
-      (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (global.fetch as jest.Mock).mockRejectedValue(
+        new TypeError('Failed to fetch'),
+      );
 
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {
@@ -778,13 +642,12 @@ describe('useMotoristasGestor Hook', () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining('Erro de conexão'),
+        'Sem conexão. Tente de novo.',
         'error',
       );
     });
 
     it('deve exibir erro quando resposta nao e ok', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: { access_token: 'token', user: { email: 'g@test.com' } },
@@ -803,9 +666,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {
@@ -816,8 +679,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve gerenciar estado de salvando durante adicao', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
-
       let resolveSession: any;
       (supabase.auth.getSession as jest.Mock).mockReturnValue(
         new Promise((resolve) => {
@@ -828,9 +689,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       // Iniciar adicao
@@ -839,8 +700,8 @@ describe('useMotoristasGestor Hook', () => {
         addPromise = result.current.adicionarMotorista();
       });
 
-      // Verificar que esta salvando
-      expect(result.current.salvando).toBe(true);
+      // Verificar que esta salvando (o handleSubmit valida antes, assíncrono)
+      await waitFor(() => expect(result.current.salvando).toBe(true));
 
       // Resolver session (sem sessao para terminar o fluxo)
       await act(async () => {
@@ -871,58 +732,25 @@ describe('useMotoristasGestor Hook', () => {
 
       act(() => {
         result.current.abrirModalEditar(criarMotoristaMock());
-        result.current.setFormNome('');
-        result.current.setFormEmail('');
       });
-
-      await act(async () => {
-        await result.current.editarMotorista();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Preencha todos os campos obrigatórios',
-        'error',
-      );
-    });
-
-    it('deve exibir erro quando email e invalido', async () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
       act(() => {
-        result.current.abrirModalEditar(criarMotoristaMock());
-        result.current.setFormEmail('email-invalido');
+        result.current.formEditar.setValue('nome', '');
+        result.current.formEditar.setValue('telefone', '(11) 9');
       });
 
       await act(async () => {
         await result.current.editarMotorista();
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Digite um email válido',
-        'error',
+      expect(erroDe(result.current.formEditar, 'nome')).toBeDefined();
+      expect(erroDe(result.current.formEditar, 'telefone')).toBe(
+        'Telefone deve ter 10 ou 11 dígitos',
       );
-    });
-
-    it('deve exibir erro quando telefone e invalido', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(false);
-
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.abrirModalEditar(criarMotoristaMock());
-        result.current.setFormTelefone('123');
-      });
-
-      await act(async () => {
-        await result.current.editarMotorista();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Telefone inválido', 'error');
+      expect(mockUpdateUsuario).not.toHaveBeenCalled();
+      expect(mockShowToast).not.toHaveBeenCalled();
     });
 
     it('deve atualizar motorista com sucesso', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
-
       // Primeiro deixar carregar motoristas inicialmente
       const initialBuilder = criarMockQueryBuilder();
       initialBuilder.returns.mockResolvedValue({ data: [], error: null });
@@ -938,9 +766,10 @@ describe('useMotoristasGestor Hook', () => {
 
       act(() => {
         result.current.abrirModalEditar(motorista);
-        result.current.setFormNome('Nome Atualizado');
-        result.current.setFormEmail('novo@email.com');
-        result.current.setFormTelefone('');
+      });
+      act(() => {
+        result.current.formEditar.setValue('nome', 'Nome Atualizado');
+        result.current.formEditar.setValue('telefone', '');
       });
 
       await act(async () => {
@@ -948,9 +777,9 @@ describe('useMotoristasGestor Hook', () => {
       });
 
       // Now uses centralized updateUsuario
+      // E-mail não é editável: não vai no update.
       expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-edit', {
         nome: 'Nome Atualizado',
-        email: 'novo@email.com',
         telefone: null,
       });
       // And logs via centralized logUserAction
@@ -971,8 +800,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve exibir erro quando atualizacao falha', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
-
       // Primeiro deixar carregar motoristas inicialmente
       const initialBuilder = criarMockQueryBuilder();
       initialBuilder.returns.mockResolvedValue({ data: [], error: null });
@@ -998,13 +825,48 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.editarMotorista();
       });
 
-      // O hook mostra a mensagem do erro se disponivel, ou a mensagem generica
-      expect(mockShowToast).toHaveBeenCalledWith('Update failed', 'error');
+      // Erro que não é regra do banco (P0001) nem telefone duplicado vira o
+      // genérico: antes o toast mostrava o texto cru ("Update failed").
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Não foi possível editar o motorista.',
+        'error',
+      );
+    });
+
+    it('deve exibir a frase do banco quando a atualizacao falha por regra (P0001)', async () => {
+      const initialBuilder = criarMockQueryBuilder();
+      initialBuilder.returns.mockResolvedValue({ data: [], error: null });
+      (supabase.from as jest.Mock).mockReturnValue(initialBuilder);
+
+      const { result } = renderHook(() => useMotoristasGestor());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const regra = 'Este motorista atende outra loja: só nome e telefone.';
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: {
+          type: 'unknown',
+          code: 'P0001',
+          message: regra,
+          originalError: { code: 'P0001', message: regra },
+        },
+      });
+
+      act(() => {
+        result.current.abrirModalEditar(criarMotoristaMock());
+      });
+
+      await act(async () => {
+        await result.current.editarMotorista();
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(regra, 'error');
     });
 
     it('deve gerenciar estado de salvando durante edicao', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
-
       // Configure centralized update to return pending promise
       let resolveUpdate: (value: any) => void;
       mockUpdateUsuario.mockReturnValue(
@@ -1033,7 +895,7 @@ describe('useMotoristasGestor Hook', () => {
         editPromise = result.current.editarMotorista();
       });
 
-      expect(result.current.salvando).toBe(true);
+      await waitFor(() => expect(result.current.salvando).toBe(true));
 
       await act(async () => {
         resolveUpdate!({ success: false, error: { message: 'Error' } });
@@ -1297,16 +1159,6 @@ describe('useMotoristasGestor Hook', () => {
 
       expect(result.current.motoristaParaToggle).toBeNull();
     });
-
-    it('deve permitir setar formTelefone diretamente', () => {
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.setFormTelefone('(11) 98765-4321');
-      });
-
-      expect(result.current.formTelefone).toBe('(11) 98765-4321');
-    });
   });
 
   // ============================================================================
@@ -1322,11 +1174,10 @@ describe('useMotoristasGestor Hook', () => {
         result.current.abrirModalEditar(motorista);
       });
 
-      expect(result.current.formTelefone).toBe('');
+      expect(result.current.formEditar.getValues('telefone')).toBe('');
     });
 
     it('deve tratar response vazia do Edge Function', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: { access_token: 'token', user: { email: 'g@test.com' } },
@@ -1343,9 +1194,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {
@@ -1359,7 +1210,6 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve tratar response JSON invalida do Edge Function', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: { access_token: 'token', user: { email: 'g@test.com' } },
@@ -1376,9 +1226,9 @@ describe('useMotoristasGestor Hook', () => {
       const { result } = renderHook(() => useMotoristasGestor());
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {
@@ -1386,13 +1236,12 @@ describe('useMotoristasGestor Hook', () => {
       });
 
       expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining('Edge Function retornou uma resposta inválida'),
+        'Não foi possível criar o motorista. Tente de novo.',
         'error',
       );
     });
 
     it('deve recarregar motoristas apos adicionar com sucesso', async () => {
-      (validatePhone as jest.Mock).mockReturnValue(true);
       (supabase.auth.getSession as jest.Mock).mockResolvedValue({
         data: {
           session: { access_token: 'token', user: { email: 'g@test.com' } },
@@ -1428,9 +1277,9 @@ describe('useMotoristasGestor Hook', () => {
         .mockReturnValue(mockQueryBuilder);
 
       act(() => {
-        result.current.setFormNome('Nome');
-        result.current.setFormEmail('email@teste.com');
-        result.current.setFormSenha('senha123');
+        result.current.formCriar.setValue('nome', 'Nome');
+        result.current.formCriar.setValue('email', 'email@teste.com');
+        result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
       await act(async () => {

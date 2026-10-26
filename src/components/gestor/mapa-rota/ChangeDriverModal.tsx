@@ -26,6 +26,7 @@ import {
 import { DesktopModal } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { logger } from '@/lib/logger';
 import {
   confirmarMotoristaNuncaEntrou,
@@ -70,6 +71,12 @@ export interface ChangeDriverModalProps {
     newMotoristaNome: string,
   ) => void | Promise<void>;
   onCancel: () => void;
+  /**
+   * Outra ação da rota em andamento (cancelar, remover parada…): a trava do
+   * handler recusaria a troca, e o modal fecharia sem trocar nada. Enquanto
+   * `true`, "Confirmar" fica carregando e desabilitado.
+   */
+  ocupado?: boolean;
 }
 
 export function ChangeDriverModal({
@@ -79,6 +86,7 @@ export function ChangeDriverModal({
   unidadeId,
   onConfirm,
   onCancel,
+  ocupado = false,
 }: ChangeDriverModalProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
@@ -98,7 +106,9 @@ export function ChangeDriverModal({
   // Carregar motoristas da unidade
   const loadMotoristas = useCallback(async () => {
     if (!unidadeId) {
-      logger.warn('[ChangeDriverModal] Rota sem loja: não há como listar motoristas');
+      logger.warn(
+        '[ChangeDriverModal] Rota sem loja: não há como listar motoristas',
+      );
       setMotoristas([]);
       setErroMotoristas(ROTA_SEM_LOJA);
       setIsLoadingMotoristas(false);
@@ -151,7 +161,7 @@ export function ChangeDriverModal({
   }, [visible, loadMotoristas]);
 
   const handleConfirm = async () => {
-    if (!selectedMotoristaId) return;
+    if (!selectedMotoristaId || ocupado) return;
 
     const selectedMotorista = motoristas.find(
       (m) => m.id === selectedMotoristaId,
@@ -191,8 +201,8 @@ export function ChangeDriverModal({
         primaryButton={{
           text: 'Confirmar',
           onPress: handleConfirm,
-          loading: isLoading,
-          disabled: !selectedMotoristaId,
+          loading: isLoading || ocupado,
+          disabled: !selectedMotoristaId || ocupado,
         }}
         secondaryButton={{
           text: 'Cancelar',
@@ -234,7 +244,7 @@ export function ChangeDriverModal({
                   isDesktop && styles.currentDriverNameCompact,
                 ]}
               >
-                {currentMotoristaNome || 'Sem motorista'}
+                {nomeMotoristaDaRota(currentMotoristaNome, currentMotoristaId)}
               </Text>
             </View>
           </View>

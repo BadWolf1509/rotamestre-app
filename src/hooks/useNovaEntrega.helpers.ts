@@ -279,11 +279,13 @@ export function normalizeComparable(value: string): string {
  * exigia confirmar "Possível parada duplicada" e a importação em lote
  * descartava a segunda linha sem perguntar.
  */
-export function encontrarParadaDuplicada(
-  paradas: Parada[],
+export function encontrarParadaDuplicada<
+  T extends Pick<Parada, 'id' | 'endereco' | 'telefone' | 'tipo'>,
+>(
+  paradas: T[],
   candidata: Pick<Parada, 'endereco' | 'telefone' | 'tipo'>,
   ignorarId?: string,
-): Parada | null {
+): T | null {
   const endereco = normalizeComparable(candidata.endereco);
   const telefone = candidata.telefone.replace(/\D/g, '');
 

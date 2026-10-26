@@ -39,7 +39,10 @@ let mockFalharRotas = false;
 // Tabelas cujas consultas devolvem erro (ex.: 'incidentes', 'usuario_unidades').
 const mockTabelasComErro = new Set<string>();
 // Registro de cada consulta (tabela + colunas pedidas).
-const mockConsultas: { tabela: string; colunas: string }[] = [];
+const mockConsultas: { tabela: string; colunas: string; head: boolean }[] = [];
+// Qual consulta de KPI (a 1ª é a da semana, a 2ª a do mês) devolve erro.
+let mockKpiComErro: 'semana' | 'mes' | null = null;
+let mockKpiContador = 0;
 
 function mockValor(linha: Linha, coluna: string): unknown {
   return coluna
@@ -51,9 +54,17 @@ function mockQuery(tabela: string) {
   const filtros: ((l: Linha) => boolean)[] = [];
   let contar = false;
   let statusFiltrado: string | null = null;
+  let kpiDesta: 'semana' | 'mes' | null = null;
   const api = {
     select: (cols?: string, opts?: { count?: string; head?: boolean }) => {
-      mockConsultas.push({ tabela, colunas: (cols ?? '').replace(/\s+/g, ' ') });
+      if (tabela === 'rotas' && (cols ?? '').includes('iniciada_em')) {
+        kpiDesta = mockKpiContador++ % 2 === 0 ? 'semana' : 'mes';
+      }
+      mockConsultas.push({
+        tabela,
+        colunas: (cols ?? '').replace(/\s+/g, ' '),
+        head: !!opts?.head,
+      });
       contar = !!opts?.head;
       return api;
     },
@@ -86,6 +97,9 @@ function mockQuery(tabela: string) {
         .then(() => {
           if (tabela === 'rotas' && mockFalharRotas) {
             return { data: null, error: { message: 'rede' } };
+          }
+          if (kpiDesta && kpiDesta === mockKpiComErro) {
+            return { data: null, error: { message: 'kpi falhou' } };
           }
           if (mockTabelasComErro.has(tabela)) {
             return { data: null, count: null, error: { message: 'falhou' } };
@@ -131,6 +145,8 @@ function rota(id: string, data: string, status = 'pendente', loja = 'loja-a') {
 beforeEach(() => {
   mockConsultas.length = 0;
   mockFalharRotas = false;
+  mockKpiComErro = null;
+  mockKpiContador = 0;
   mockTabelasComErro.clear();
   for (const k of Object.keys(mockSeguradas)) delete mockSeguradas[k];
   mockTabelas.rotas = [
@@ -196,6 +212,42 @@ beforeEach(() => {
   ];
 });
 
+describe('useDashboardData — KPI que falha', () => {
+  it('consulta da semana com erro: rotasSemana é null (não 0) e o mês segue', async () => {
+    mockKpiComErro = 'semana';
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.rotasSemana).toBeNull();
+    expect(result.current.kpis.rotasMes).toBe(2);
+  });
+
+  it('consulta do mês com erro: rotasMes, tempo médio e destaque ficam null', async () => {
+    mockKpiComErro = 'mes';
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.rotasMes).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    expect(result.current.kpis.motoristaDestaque).toBeNull();
+    expect(result.current.kpis.rotasSemana).not.toBeNull();
+  });
+
+  it('motorista_id com embed escondido pela RLS não vira "Sem motorista"', async () => {
+    mockTabelas.rotas = [
+      { ...rota('oculta', hoje), usuarios: null },
+      { ...rota('sem', hoje), motorista_id: null, usuarios: null },
+    ];
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const nome = (id: string) =>
+      result.current.rotas.find((r) => r.id === id)?.motorista_nome;
+    expect(nome('oculta')).toBe('Motorista removido da loja');
+    expect(nome('sem')).toBe('Sem motorista');
+  });
+});
+
 describe('useDashboardData — período "hoje"', () => {
   it('sem filtro de data, lista só as rotas de hoje (não as de amanhã)', async () => {
     const { result } = renderHook(() => useDashboardData());
@@ -213,6 +265,59 @@ describe('useDashboardData — período "hoje"', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.kpis.rotasMes).toBe(2);
+  });
+
+  it('o total de hoje sai de contagem HEAD (sem baixar as linhas)', async () => {
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const contagensDeRotas = mockConsultas.filter(
+      (c) => c.tabela === 'rotas' && c.head && c.colunas === 'id',
+    );
+    expect(contagensDeRotas).toHaveLength(1);
+    expect(
+      mockConsultas.some(
+        (c) => c.tabela === 'rotas' && !c.head && c.colunas === 'id',
+      ),
+    ).toBe(false);
+    expect(result.current.todayStats.totalHoje).toBe(2);
+  });
+
+  it('período com só dataInicio tem teto de 60 dias à frente de hoje', async () => {
+    const em = (dias: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + dias);
+      return toLocalISODate(d);
+    };
+    mockTabelas.rotas.push(
+      rota('daqui-30', em(30)),
+      rota('daqui-60', em(60)),
+      rota('daqui-90', em(90)),
+    );
+    const { result } = renderHook(() =>
+      useDashboardData({ filters: { dataInicio: new Date() } }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const ids = result.current.rotas.map((r) => r.id);
+    expect(ids).toContain('daqui-30');
+    expect(ids).toContain('daqui-60');
+    expect(ids).not.toContain('daqui-90');
+  });
+
+  it('com dataFim explícita, o teto não corta o que o gestor pediu', async () => {
+    const dLonge = new Date();
+    dLonge.setDate(dLonge.getDate() + 90);
+    const longe = toLocalISODate(dLonge);
+    mockTabelas.rotas.push(rota('daqui-90', longe));
+    const { result } = renderHook(() =>
+      useDashboardData({
+        filters: { dataInicio: new Date(), dataFim: dLonge },
+      }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.rotas.map((r) => r.id)).toContain('daqui-90');
   });
 });
 
@@ -303,7 +408,8 @@ describe('useDashboardData — erro de carga', () => {
 // carga inicial, a troca de filtro e o refresh manual.
 describe('useDashboardData — eventos de realtime', () => {
   const realtimeMock = () =>
-    jest.requireMock('@/hooks/useRealtimeRoutes').useRealtimeRoutes as jest.Mock;
+    jest.requireMock('@/hooks/useRealtimeRoutes')
+      .useRealtimeRoutes as jest.Mock;
   /** O `onRouteUpdate` do último render (já com o debounce do hook). */
   const dispararEvento = () => {
     const chamadas = realtimeMock().mock.calls;

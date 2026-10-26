@@ -13,10 +13,17 @@
 import { renderHook, act } from '@testing-library/react-native';
 
 import { logger } from '@/lib/logger';
-import { recalcularRota, reordenarParadas } from '@/lib/routeUtils';
+import {
+  recalcularRota,
+  removerParadaERecalcular,
+  reordenarParadas,
+} from '@/lib/routeUtils';
 import { supabase } from '@/lib/supabase';
 
-import { useMapaRotaHandlers } from '../useMapaRotaHandlers';
+import {
+  MENSAGEM_ROTA_MUDOU,
+  useMapaRotaHandlers,
+} from '../useMapaRotaHandlers';
 
 import type { Parada, Rota } from '../../types';
 import type { FlatList } from 'react-native';
@@ -67,7 +74,7 @@ const rota: Rota = { id: 'rota-1', data: '2026-06-22', status: 'em_andamento' };
 const setup = (paradasReais: Parada[]) =>
   renderHook(() =>
     useMapaRotaHandlers({
-        showToast: mockShowToast,
+      showToast: mockShowToast,
       rotaId: 'rota-1',
       rota,
       paradas: paradasReais,
@@ -76,6 +83,37 @@ const setup = (paradasReais: Parada[]) =>
       loadRotaEParadas: jest.fn().mockResolvedValue(undefined),
     }),
   );
+
+/**
+ * Cadeia de filtros do PostgREST simulada: cada filtro (`eq`/`in`/`neq`)
+ * devolve a própria cadeia e fica registrado; o `.select` final resolve. Assim
+ * o teste confere QUAIS filtros o UPDATE levou, sem depender da ordem exata
+ * da cadeia.
+ */
+interface CadeiaUpdate {
+  eq: jest.Mock;
+  in: jest.Mock;
+  neq: jest.Mock;
+  select: jest.Mock;
+}
+const criarCadeiaUpdate = (select: jest.Mock): CadeiaUpdate => {
+  const cadeia: CadeiaUpdate = {
+    eq: jest.fn(() => cadeia),
+    in: jest.fn(() => cadeia),
+    neq: jest.fn(() => cadeia),
+    select,
+  };
+  return cadeia;
+};
+
+/** Promessa que o teste resolve na hora que quiser (ação "em voo"). */
+const promessaAdiada = <T>() => {
+  let resolver!: (valor: T) => void;
+  const promessa = new Promise<T>((r) => {
+    resolver = r;
+  });
+  return { promessa, resolver };
+};
 
 /** Simula a FlatList já montada anexando um mock de scrollToIndex à ref. */
 const mountFlatList = (ref: {
@@ -418,6 +456,8 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
   };
 
   let mockRotasSelect: jest.Mock;
+  let cadeiaRotas: CadeiaUpdate;
+  let mockRotasUpdate: jest.Mock;
 
   const setupCancelar = (
     loadRotaEParadas: jest.Mock = jest.fn().mockResolvedValue(undefined),
@@ -439,19 +479,40 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRotasSelect = jest.fn();
+    cadeiaRotas = criarCadeiaUpdate(mockRotasSelect);
+    mockRotasUpdate = jest.fn(() => cadeiaRotas);
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === 'rotas') {
-        return {
-          update: jest.fn(() => ({
-            eq: jest.fn(() => ({ select: mockRotasSelect })),
-          })),
-        };
+        return { update: mockRotasUpdate };
       }
       return { insert: jest.fn().mockResolvedValue({ error: null }) };
     });
   });
 
-  it('RLS barra o UPDATE (204, zero linhas, error:null): não anuncia sucesso nem recarrega', async () => {
+  it('cancelar filtra por status aberto', async () => {
+    mockRotasSelect.mockResolvedValue({
+      data: [{ id: 'rota-1' }],
+      error: null,
+    });
+    const { result } = setupCancelar();
+
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+
+    expect(cadeiaRotas.eq).toHaveBeenCalledWith('id', 'rota-1');
+    expect(cadeiaRotas.in).toHaveBeenCalledWith('status', [
+      'pendente',
+      'em_andamento',
+    ]);
+  });
+
+  // Antes do GES-4 este teste exigia toast de erro e NENHUMA recarga para
+  // zero linhas. Com o UPDATE condicionado ao status, zero linhas passou a
+  // significar também "a rota mudou de situação" (concluída, cancelada por
+  // outro gestor) — e o cliente não distingue isso de RLS. A tela então avisa
+  // e recarrega, para mostrar o estado real; nunca anuncia sucesso.
+  it('zero linhas (RLS ou rota mudou de situação): avisa, recarrega e não anuncia sucesso', async () => {
     mockRotasSelect.mockResolvedValue({ data: [], error: null });
     const { result, loadRotaEParadas } = setupCancelar();
 
@@ -463,10 +524,53 @@ describe('useMapaRotaHandlers — cancelar rota', () => {
       'Rota cancelada com sucesso',
       'success',
     );
-    expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'error');
-    // O gestor lia "cancelada" e via a rota ainda ativa: era exatamente por
-    // isto — loadRotaEParadas redesenhando a rota que nunca foi cancelada.
-    expect(loadRotaEParadas).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_ROTA_MUDOU, 'info');
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
+  it('toque duplo executa uma vez e acaoEmVoo acompanha a ação', async () => {
+    const adiada = promessaAdiada<{ data: { id: string }[]; error: null }>();
+    mockRotasSelect.mockReturnValue(adiada.promessa);
+    const { result } = setupCancelar();
+
+    expect(result.current.acaoEmVoo).toBe(false);
+
+    let primeira!: Promise<void>;
+    let segunda!: Promise<void>;
+    act(() => {
+      primeira = result.current.handleConfirmCancel();
+      segunda = result.current.handleConfirmCancel();
+    });
+
+    expect(result.current.acaoEmVoo).toBe(true);
+
+    await act(async () => {
+      adiada.resolver({ data: [{ id: 'rota-1' }], error: null });
+      await primeira;
+      await segunda;
+    });
+
+    expect(mockRotasUpdate).toHaveBeenCalledTimes(1);
+    expect(result.current.acaoEmVoo).toBe(false);
+  });
+
+  it('acaoEmVoo volta a false quando a ação falha', async () => {
+    mockRotasSelect.mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+    const { result } = setupCancelar();
+
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+
+    expect(result.current.acaoEmVoo).toBe(false);
+    // Depois de terminar, a trava solta: uma nova tentativa executa.
+    await act(async () => {
+      await result.current.handleConfirmCancel();
+    });
+    expect(mockRotasUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('erro explícito do Supabase: não anuncia sucesso', async () => {
@@ -510,12 +614,14 @@ describe('useMapaRotaHandlers — reativar rota', () => {
   const rotaConcluida: Rota = {
     id: 'rota-1',
     data: '2026-06-22',
-    status: 'concluida',
+    status: 'nao_executada',
   };
 
   let mockRotasSelect: jest.Mock;
   let mockParadasSelect: jest.Mock;
   let mockLogInsert: jest.Mock;
+  let cadeiaRotas: CadeiaUpdate;
+  let cadeiaParadas: CadeiaUpdate;
 
   const setupReativar = (
     paradasReais: Parada[],
@@ -544,23 +650,15 @@ describe('useMapaRotaHandlers — reativar rota', () => {
       .fn()
       .mockResolvedValue({ data: [{ id: 'p1' }, { id: 'p2' }], error: null });
     mockLogInsert = jest.fn().mockResolvedValue({ error: null });
+    cadeiaRotas = criarCadeiaUpdate(mockRotasSelect);
+    cadeiaParadas = criarCadeiaUpdate(mockParadasSelect);
 
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === 'rotas') {
-        return {
-          update: jest.fn(() => ({
-            eq: jest.fn(() => ({ select: mockRotasSelect })),
-          })),
-        };
+        return { update: jest.fn(() => cadeiaRotas) };
       }
       if (table === 'paradas') {
-        return {
-          update: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              neq: jest.fn(() => ({ select: mockParadasSelect })),
-            })),
-          })),
-        };
+        return { update: jest.fn(() => cadeiaParadas) };
       }
       if (table === 'logs') {
         return { insert: mockLogInsert };
@@ -569,7 +667,25 @@ describe('useMapaRotaHandlers — reativar rota', () => {
     });
   });
 
-  it('RLS barra o UPDATE de rotas (zero linhas): nem tenta paradas, não anuncia sucesso', async () => {
+  it('reativar exige rota não executada', async () => {
+    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
+    const { result } = setupReativar(paradas);
+
+    await act(async () => {
+      await result.current.handleConfirmReactivate();
+    });
+
+    expect(cadeiaRotas.eq).toHaveBeenCalledWith('id', 'rota-1');
+    expect(cadeiaRotas.eq).toHaveBeenCalledWith('status', 'nao_executada');
+    // O UPDATE das paradas continua como era (fora do escopo do GES-4).
+    expect(cadeiaParadas.eq).toHaveBeenCalledWith('rota_id', 'rota-1');
+    expect(cadeiaParadas.neq).toHaveBeenCalledWith('status', 'concluida');
+  });
+
+  // Antes do GES-4 este teste exigia que zero linhas não recarregasse. Agora
+  // zero linhas também significa "a rota mudou de situação" (o cliente não
+  // distingue de RLS): avisa e recarrega, sem tocar nas paradas.
+  it('zero linhas no UPDATE de rotas: nem tenta paradas, avisa e recarrega, sem log', async () => {
     mockRotasSelect.mockResolvedValue({ data: [], error: null });
     const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
     const { result, loadRotaEParadas } = setupReativar(paradas);
@@ -579,11 +695,37 @@ describe('useMapaRotaHandlers — reativar rota', () => {
     });
 
     expect(mockParadasSelect).not.toHaveBeenCalled();
+    expect(mockLogInsert).not.toHaveBeenCalled();
     expect(mockShowToast).not.toHaveBeenCalledWith(
       'Rota reativada com sucesso',
       'success',
     );
-    expect(loadRotaEParadas).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_ROTA_MUDOU, 'info');
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
+  it('toque duplo executa uma vez (1 log)', async () => {
+    const adiada = promessaAdiada<{ data: { id: string }[]; error: null }>();
+    mockRotasSelect.mockReturnValue(adiada.promessa);
+    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
+    const { result } = setupReativar(paradas);
+
+    let primeira!: Promise<void>;
+    let segunda!: Promise<void>;
+    act(() => {
+      primeira = result.current.handleConfirmReactivate();
+      segunda = result.current.handleConfirmReactivate();
+    });
+    expect(result.current.acaoEmVoo).toBe(true);
+
+    await act(async () => {
+      adiada.resolver({ data: [{ id: 'rota-1' }], error: null });
+      await primeira;
+      await segunda;
+    });
+
+    expect(mockLogInsert).toHaveBeenCalledTimes(1);
+    expect(result.current.acaoEmVoo).toBe(false);
   });
 
   // O bug descrito na revisão: rotas passa, paradas falha (erro de verdade) —
@@ -706,12 +848,14 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
   const rotaAtiva: Rota = {
     id: 'rota-1',
     data: '2026-06-22',
-    status: 'em_andamento',
+    status: 'pendente',
     motorista_id: 'motorista-antigo',
   };
 
   let mockRotasSelect: jest.Mock;
   let mockLogInsert: jest.Mock;
+  let cadeiaRotas: CadeiaUpdate;
+  let mockRotasUpdate: jest.Mock;
 
   const setupAlterarMotorista = (
     loadRotaEParadas: jest.Mock = jest.fn().mockResolvedValue(undefined),
@@ -734,13 +878,11 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
     jest.clearAllMocks();
     mockRotasSelect = jest.fn();
     mockLogInsert = jest.fn().mockResolvedValue({ error: null });
+    cadeiaRotas = criarCadeiaUpdate(mockRotasSelect);
+    mockRotasUpdate = jest.fn(() => cadeiaRotas);
     (supabase.from as jest.Mock).mockImplementation((table: string) => {
       if (table === 'rotas') {
-        return {
-          update: jest.fn(() => ({
-            eq: jest.fn(() => ({ select: mockRotasSelect })),
-          })),
-        };
+        return { update: mockRotasUpdate };
       }
       if (table === 'logs') {
         return { insert: mockLogInsert };
@@ -749,7 +891,29 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
     });
   });
 
-  it('RLS barra o UPDATE (204, zero linhas, error:null): não grava auditoria nem anuncia sucesso', async () => {
+  it('trocar motorista exige rota pendente', async () => {
+    mockRotasSelect.mockResolvedValue({
+      data: [{ id: 'rota-1' }],
+      error: null,
+    });
+    const { result } = setupAlterarMotorista();
+
+    await act(async () => {
+      await result.current.handleChangeDriver(
+        'motorista-novo',
+        'Novo Motorista',
+      );
+    });
+
+    expect(cadeiaRotas.eq).toHaveBeenCalledWith('id', 'rota-1');
+    expect(cadeiaRotas.eq).toHaveBeenCalledWith('status', 'pendente');
+  });
+
+  // Antes do GES-4 este teste exigia toast de erro e nenhuma recarga. Com o
+  // filtro de status, zero linhas é o caso do motorista que iniciou a rota
+  // enquanto o modal estava aberto (indistinguível de RLS no cliente): avisa
+  // e recarrega. A auditoria continua sem registro — a troca não aconteceu.
+  it('zero linhas → MENSAGEM_ROTA_MUDOU, recarrega, sem log', async () => {
     mockRotasSelect.mockResolvedValue({ data: [], error: null });
     const { result, loadRotaEParadas } = setupAlterarMotorista();
 
@@ -760,15 +924,38 @@ describe('useMapaRotaHandlers — alterar motorista', () => {
       );
     });
 
-    // A troca "aconteceu" para quem só olhasse o log — exatamente o efeito
-    // que a revisão apontou: auditoria afirmando o que o banco contradiz.
+    expect(supabase.from).not.toHaveBeenCalledWith('logs');
     expect(mockLogInsert).not.toHaveBeenCalled();
     expect(mockShowToast).not.toHaveBeenCalledWith(
       'Motorista alterado com sucesso',
       'success',
     );
-    expect(mockShowToast).toHaveBeenCalledWith(expect.any(String), 'error');
-    expect(loadRotaEParadas).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledWith(MENSAGEM_ROTA_MUDOU, 'info');
+    expect(loadRotaEParadas).toHaveBeenCalledTimes(1);
+  });
+
+  it('toque duplo executa uma vez', async () => {
+    const adiada = promessaAdiada<{ data: { id: string }[]; error: null }>();
+    mockRotasSelect.mockReturnValue(adiada.promessa);
+    const { result } = setupAlterarMotorista();
+
+    let primeira!: Promise<void>;
+    let segunda!: Promise<void>;
+    act(() => {
+      primeira = result.current.handleChangeDriver('m-novo', 'Novo');
+      segunda = result.current.handleChangeDriver('m-novo', 'Novo');
+    });
+    expect(result.current.acaoEmVoo).toBe(true);
+
+    await act(async () => {
+      adiada.resolver({ data: [{ id: 'rota-1' }], error: null });
+      await primeira;
+      await segunda;
+    });
+
+    expect(mockRotasUpdate).toHaveBeenCalledTimes(1);
+    expect(mockLogInsert).toHaveBeenCalledTimes(1);
+    expect(result.current.acaoEmVoo).toBe(false);
   });
 
   it('erro explícito do Supabase: não grava auditoria nem anuncia sucesso', async () => {
@@ -853,5 +1040,40 @@ describe('useMapaRotaHandlers — salvar edição de parada', () => {
       'Parada atualizada com sucesso',
       'success',
     );
+  });
+});
+
+describe('useMapaRotaHandlers — remover parada (toque duplo)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('toque duplo executa uma vez e acaoEmVoo acompanha a ação', async () => {
+    const adiada = promessaAdiada<{ success: boolean }>();
+    (removerParadaERecalcular as jest.Mock).mockReturnValue(adiada.promessa);
+    const paradas = [makeParada('p1', 1), makeParada('p2', 2)];
+    const { result } = setup(paradas);
+
+    act(() => {
+      result.current.handleRemoveStopRequest(paradas[0]);
+    });
+    expect(result.current.paradaToRemove?.id).toBe('p1');
+
+    let primeira!: Promise<void>;
+    let segunda!: Promise<void>;
+    act(() => {
+      primeira = result.current.handleConfirmRemoveStop();
+      segunda = result.current.handleConfirmRemoveStop();
+    });
+    expect(result.current.acaoEmVoo).toBe(true);
+
+    await act(async () => {
+      adiada.resolver({ success: true });
+      await primeira;
+      await segunda;
+    });
+
+    expect(removerParadaERecalcular).toHaveBeenCalledTimes(1);
+    expect(result.current.acaoEmVoo).toBe(false);
   });
 });

@@ -1,35 +1,40 @@
 /**
  * Route export utilities (XLSX / Excel)
  *
- * xlsx is loaded lazily via require() at function entry so that the ~0.6 MB
- * gzip weight is only paid when the user actually triggers an export.
- * require() inside an async function is compatible with jest.mock() because
- * Babel/jest-expo transforms ESM imports to require() calls at test time, so
- * jest.mock("xlsx", ...) intercepts both top-level imports and inline require().
+ * xlsx é carregado sob demanda com import() dinâmico na entrada da função, então
+ * o peso (~0,16 MB gzip, chunk próprio no web) só é pago quando o usuário exporta.
+ * Nos testes, o plugin do `env.test` em babel.config.js troca o import() por
+ * require(), e o jest.mock("xlsx", ...) o intercepta.
  */
 
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
-import { Platform } from "react-native";
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 
-import { formatDateBR, formatDateTimeBR } from "@/lib/dateUtils";
-import { logger } from "@/lib/logger";
-import { ROTA_STATUS_LABELS, type FiltroStatus } from "@/lib/statusLabels";
-import { supabase } from "@/lib/supabase";
+import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
+import { logger } from '@/lib/logger';
+import { ROTA_STATUS_LABELS, type FiltroStatus } from '@/lib/statusLabels';
+import { supabase } from '@/lib/supabase';
 import {
   showError,
   showInfo,
   showSuccess,
   showWarning,
-} from "@/utils/errorHandling";
+} from '@/utils/errorHandling';
 
-import type { RotaHistorico } from "./types";
+import {
+  FalhaCargaBibliotecaError,
+  MENSAGEM_FALHA_CARGA,
+  carregarBiblioteca,
+} from './carregarBiblioteca';
+
+import type { RotaHistorico } from './types';
 
 // -----------------------------------------------------------------------
 // MIME type constant so it is never duplicated across the file
 // -----------------------------------------------------------------------
 const XLSX_MIME_TYPE =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 interface ExportOptions {
   rotas: RotaHistorico[];
@@ -48,25 +53,27 @@ export async function exportRotasToXLSX({
 }: ExportOptions): Promise<void> {
   try {
     if (rotas.length === 0) {
-      showWarning("Atenção", "Não há rotas para exportar");
+      showWarning('Atenção', 'Não há rotas para exportar');
       return;
     }
 
-    // Lazy-load xlsx: defers ~0.6 MB gzip from initial bundle to export-time.
-    // jest.mock("xlsx", ...) intercepts this require() correctly in tests.
-    const XLSX = require("xlsx") as typeof import("xlsx");
+    // Carga sob demanda: import() dinâmico mantém o xlsx fora do bundle de
+    // entrada do web. O módulo é CJS; normaliza o default do interop ESM.
+    // jest.mock("xlsx", ...) intercepta o import() nos testes.
+    const xlsxModulo = await carregarBiblioteca(() => import('xlsx'));
+    const XLSX = (xlsxModulo.default ?? xlsxModulo) as typeof xlsxModulo;
 
     const sheetData = buildSheetData(rotas);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    XLSX.utils.book_append_sheet(wb, ws, "Rotas");
+    XLSX.utils.book_append_sheet(wb, ws, 'Rotas');
 
     const dataAtual = new Date()
-      .toLocaleDateString("pt-BR")
-      .replace(/\//g, "-");
+      .toLocaleDateString('pt-BR')
+      .replace(/\//g, '-');
     const nomeArquivo = `gestao-rotas-${dataAtual}.xlsx`;
 
-    if (Platform.OS === "web") {
+    if (Platform.OS === 'web') {
       downloadXLSXWeb(XLSX, wb, nomeArquivo);
     } else {
       await shareXLSXMobile(XLSX, wb, nomeArquivo);
@@ -76,12 +83,16 @@ export async function exportRotasToXLSX({
       logExportAction(userId, rotas.length, filtroStatus);
     }
 
-    if (Platform.OS === "web") {
-      showSuccess("Sucesso", `${rotas.length} rotas exportadas com sucesso!`);
+    if (Platform.OS === 'web') {
+      showSuccess('Sucesso', `${rotas.length} rotas exportadas com sucesso!`);
     }
   } catch (error) {
-    logger.error("Erro ao exportar XLSX:", error);
-    showError("Erro", "Não foi possível exportar os dados");
+    logger.error('Erro ao exportar XLSX:', error);
+    if (error instanceof FalhaCargaBibliotecaError) {
+      showError('Erro', MENSAGEM_FALHA_CARGA);
+      return;
+    }
+    showError('Erro', 'Não foi possível exportar os dados');
   }
 }
 
@@ -95,19 +106,19 @@ export async function exportRotasToXLSX({
  */
 function buildSheetData(rotas: RotaHistorico[]): unknown[][] {
   const headers = [
-    "Data",
-    "Motorista",
-    "Paradas Concluídas",
-    "Total Paradas",
-    "Distância (km)",
-    "Iniciada em",
-    "Concluída em",
-    "Status",
+    'Data',
+    'Motorista',
+    'Paradas Concluídas',
+    'Total Paradas',
+    'Distância (km)',
+    'Iniciada em',
+    'Concluída em',
+    'Status',
   ];
 
   const rows = rotas.map((rota) => [
     formatDateBR(rota.data),
-    rota.motorista_nome || "Sem motorista",
+    rota.motorista_nome || 'Sem motorista',
     rota.paradas_concluidas,
     rota.paradas_count,
     rota.distancia_total ? Number(rota.distancia_total.toFixed(1)) : null,
@@ -123,18 +134,18 @@ function buildSheetData(rotas: RotaHistorico[]): unknown[][] {
  * Trigger browser download of the workbook as .xlsx.
  */
 function downloadXLSXWeb(
-  XLSX: typeof import("xlsx"),
-  wb: import("xlsx").WorkBook,
+  XLSX: typeof import('xlsx'),
+  wb: import('xlsx').WorkBook,
   fileName: string,
 ): void {
-  const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([buffer], { type: XLSX_MIME_TYPE });
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
 
-  link.setAttribute("href", url);
-  link.setAttribute("download", fileName);
-  link.style.visibility = "hidden";
+  link.setAttribute('href', url);
+  link.setAttribute('download', fileName);
+  link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -145,11 +156,11 @@ function downloadXLSXWeb(
  * Write the workbook to a temp file and share it via expo-sharing.
  */
 async function shareXLSXMobile(
-  XLSX: typeof import("xlsx"),
-  wb: import("xlsx").WorkBook,
+  XLSX: typeof import('xlsx'),
+  wb: import('xlsx').WorkBook,
   fileName: string,
 ): Promise<void> {
-  const base64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" }) as string;
+  const base64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' }) as string;
   const fileUri = FileSystem.documentDirectory + fileName;
 
   await FileSystem.writeAsStringAsync(fileUri, base64, {
@@ -160,11 +171,11 @@ async function shareXLSXMobile(
   if (isAvailable) {
     await Sharing.shareAsync(fileUri, {
       mimeType: XLSX_MIME_TYPE,
-      dialogTitle: "Exportar Relatório de Rotas (Excel)",
-      UTI: "org.openxmlformats.spreadsheetml.sheet",
+      dialogTitle: 'Exportar Relatório de Rotas (Excel)',
+      UTI: 'org.openxmlformats.spreadsheetml.sheet',
     });
   } else {
-    showInfo("Arquivo Salvo", `O arquivo foi salvo em: ${fileUri}`);
+    showInfo('Arquivo Salvo', `O arquivo foi salvo em: ${fileUri}`);
   }
 }
 
@@ -177,21 +188,21 @@ function logExportAction(
   filtroStatus: FiltroStatus,
 ): void {
   supabase
-    .from("logs")
+    .from('logs')
     .insert({
       usuario_id: userId,
-      evento: "exportacao_rotas",
+      evento: 'exportacao_rotas',
       detalhes: {
         total_rotas: totalRotas,
         filtro_status: filtroStatus,
-        formato: "xlsx",
+        formato: 'xlsx',
         plataforma: Platform.OS,
       },
     })
     .then(({ error }) => {
       if (error)
         logger.warn(
-          "Falha ao registrar log de exportação XLSX:",
+          'Falha ao registrar log de exportação XLSX:',
           error.message,
         );
     });

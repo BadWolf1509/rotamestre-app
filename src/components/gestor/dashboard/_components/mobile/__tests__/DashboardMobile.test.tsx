@@ -216,6 +216,25 @@ describe('DashboardMobile', () => {
       expect(getByTestId('stats-km Total')).toBeTruthy();
     });
 
+    it('KPI indisponível (null) aparece como "—", não como 0 nem "--"', () => {
+      const props = {
+        ...defaultProps,
+        kpis: {
+          ...defaultProps.kpis,
+          rotasMes: null,
+          rotasSemana: null,
+          tempoMedioMinutos: null,
+        },
+      };
+      const { getAllByText, queryByText } = render(
+        <DashboardMobile {...(props as any)} />,
+      );
+
+      // Rotas no Mês, Tempo Médio e Esta Semana
+      expect(getAllByText('—').length).toBeGreaterThanOrEqual(3);
+      expect(queryByText('0')).toBeNull();
+    });
+
     it('deve renderizar rotas cards', () => {
       const { getByTestId } = render(<DashboardMobile {...defaultProps} />);
 

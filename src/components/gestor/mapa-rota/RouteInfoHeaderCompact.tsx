@@ -12,7 +12,10 @@ import {
   type RouteStatusType,
 } from '@/constants/statusConfig';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+import { permissoesRota } from './permissoesRota';
 
 import type { Rota, ResumoParadas } from './types';
 
@@ -51,16 +54,13 @@ export function RouteInfoHeaderCompact({
   }, [rota.status]);
 
   const statusColor = theme.colors[statusConfig.colorKey];
-  const canCancel =
-    rota.status !== 'cancelada' &&
-    rota.status !== 'concluida' &&
-    rota.status !== 'nao_executada';
-  const canReactivate = rota.status === 'nao_executada';
-  const canChangeDriver = rota.status === 'pendente';
-  const canAddStop =
-    rota.status === 'pendente' || rota.status === 'em_andamento';
-  const canReorder =
-    rota.status === 'pendente' || rota.status === 'em_andamento';
+  const {
+    cancelar: canCancel,
+    reativar: canReactivate,
+    trocarMotorista: canChangeDriver,
+    adicionarParada: canAddStop,
+    reordenar: canReorder,
+  } = permissoesRota(rota.status);
 
   return (
     <View style={styles.container}>
@@ -68,7 +68,7 @@ export function RouteInfoHeaderCompact({
       <View style={styles.driverSection}>
         <Ionicons name="person-circle" size={24} color={theme.colors.primary} />
         <Text style={styles.driverName} numberOfLines={1}>
-          {rota.motorista?.nome || 'Sem motorista'}
+          {nomeMotoristaDaRota(rota.motorista?.nome, rota.motorista_id)}
         </Text>
         {canChangeDriver && onChangeDriverPress && (
           <TouchableOpacity
@@ -105,7 +105,7 @@ export function RouteInfoHeaderCompact({
       {/* Métricas */}
       <View style={styles.metrics}>
         {/* Distância */}
-        {rota.distancia_total && (
+        {rota.distancia_total != null && rota.distancia_total > 0 ? (
           <View style={styles.metric}>
             <Ionicons
               name="speedometer-outline"
@@ -116,10 +116,10 @@ export function RouteInfoHeaderCompact({
               {formatarDecimal(rota.distancia_total)} km
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Tempo estimado */}
-        {rota.tempo_total && (
+        {rota.tempo_total != null && rota.tempo_total > 0 ? (
           <View style={styles.metric}>
             <Ionicons
               name="hourglass-outline"
@@ -130,7 +130,7 @@ export function RouteInfoHeaderCompact({
               {formatTempoTotal(rota.tempo_total)}
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Paradas */}
         <View style={styles.metric}>

@@ -10,6 +10,7 @@ import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { SKIP_REASON_LABELS } from '@/constants/skipReasons';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
+import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { useUnistyles } from '@/utils/styles';
 
@@ -23,10 +24,23 @@ interface ParadaCardProps {
   onImagePress: (url: string) => void;
   selected?: boolean;
   onPress?: (id: string) => void;
+  /** Situação da rota: com `onEdit`/`onRemove`, decide se as ações aparecem. */
+  rotaStatus?: string;
+  onEdit?: (parada: Parada) => void;
+  onRemove?: (parada: Parada) => void;
 }
 
 export const ParadaCard = React.memo<ParadaCardProps>(
-  ({ parada, index: _index, onImagePress, selected, onPress }) => {
+  ({
+    parada,
+    index: _index,
+    onImagePress,
+    selected,
+    onPress,
+    rotaStatus,
+    onEdit,
+    onRemove,
+  }) => {
     const { theme } = useUnistyles();
     const [imageError, setImageError] = useState(false);
     const { url: fotoUrl } = useSignedUrl(parada.foto_url);
@@ -205,6 +219,59 @@ export const ParadaCard = React.memo<ParadaCardProps>(
             </Text>
           </View>
         )}
+
+        {/* Editar/remover: mesma regra do ParadaCardCompact (desktop) */}
+        {podeAlterarParada(parada.status, rotaStatus) &&
+          (onEdit || onRemove) && (
+            <View style={styles.paradaAcoes}>
+              {onEdit && (
+                <TouchableOpacity
+                  style={styles.paradaAcaoBotao}
+                  onPress={() => onEdit(parada)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar parada"
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={18}
+                    color={theme.colors.secondary}
+                  />
+                  <Text
+                    style={[
+                      styles.paradaAcaoTexto,
+                      { color: theme.colors.secondary },
+                    ]}
+                  >
+                    Editar
+                  </Text>
+                </TouchableOpacity>
+              )}
+              {onRemove && (
+                <TouchableOpacity
+                  style={styles.paradaAcaoBotao}
+                  onPress={() => onRemove(parada)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remover parada"
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={theme.colors.error}
+                  />
+                  <Text
+                    style={[
+                      styles.paradaAcaoTexto,
+                      { color: theme.colors.error },
+                    ]}
+                  >
+                    Remover
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
       </View>
     );
   },
@@ -214,7 +281,9 @@ export const ParadaCard = React.memo<ParadaCardProps>(
       prevProps.parada.status === nextProps.parada.status &&
       prevProps.parada.foto_url === nextProps.parada.foto_url &&
       prevProps.index === nextProps.index &&
-      prevProps.selected === nextProps.selected
+      prevProps.selected === nextProps.selected &&
+      // A rota mudar de situação (ex.: cancelada) esconde editar/remover.
+      prevProps.rotaStatus === nextProps.rotaStatus
     );
   },
 );

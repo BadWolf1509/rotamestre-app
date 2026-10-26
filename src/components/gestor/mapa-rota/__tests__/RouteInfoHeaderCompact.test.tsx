@@ -93,6 +93,20 @@ describe('RouteInfoHeaderCompact', () => {
       expect(getByText('Sem motorista')).toBeTruthy();
     });
 
+    it('rota com motorista_id e motorista escondido pela RLS não mostra "Sem motorista"', () => {
+      const rotaOculta = {
+        ...mockRota,
+        motorista_id: 'mot-1',
+        motorista: undefined,
+      };
+      const { getByText, queryByText } = render(
+        <RouteInfoHeaderCompact {...defaultProps} rota={rotaOculta} />,
+      );
+
+      expect(getByText('Motorista removido da loja')).toBeTruthy();
+      expect(queryByText('Sem motorista')).toBeNull();
+    });
+
     it('deve exibir status Pendente', () => {
       const { getByText } = render(
         <RouteInfoHeaderCompact {...defaultProps} />,
@@ -414,6 +428,21 @@ describe('RouteInfoHeaderCompact', () => {
       );
 
       expect(getByTestId('icon-hourglass-outline')).toBeTruthy();
+    });
+  });
+
+  describe('Distância e tempo zerados', () => {
+    it('não vaza "0" na tela quando distancia_total e tempo_total são 0', () => {
+      const { queryByText, toJSON } = render(
+        <RouteInfoHeaderCompact
+          {...defaultProps}
+          rota={{ ...mockRota, distancia_total: 0, tempo_total: 0 }}
+        />,
+      );
+
+      expect(queryByText('0')).toBeNull();
+      // O "0" vazado é texto solto (fora de <Text>), que o queryByText não vê.
+      expect(JSON.stringify(toJSON())).not.toContain('"0"');
     });
   });
 });

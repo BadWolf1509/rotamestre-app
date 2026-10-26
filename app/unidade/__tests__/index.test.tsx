@@ -415,9 +415,16 @@ describe('tela Minha Unidade', () => {
     // Sem coordenadas, a RPC ignoraria a sede em silêncio (v_atualiza_sede
     // = false) e o resto do formulário salvaria normalmente — o toast de
     // sucesso esconderia que a sede antiga continua valendo.
+    // waitFor: a trava roda depois da validação do form (handleSubmit), que é
+    // assíncrona.
+    await waitFor(() =>
+      expect(global.mockUseAlert.showWarning).toHaveBeenCalledWith(
+        'Confirme o endereço da sede',
+        expect.any(String),
+      ),
+    );
     expect(chamadasDeSalvar()).toHaveLength(0);
     expect(screen.queryByText(/atualizados com sucesso/i)).toBeNull();
-    expect(global.mockUseAlert.showWarning).toHaveBeenCalled();
   });
 
   it('avisa no próprio campo que a sede precisa ser confirmada, sem esperar o submit', async () => {
@@ -527,6 +534,70 @@ describe('tela Minha Unidade', () => {
     expect(
       await screen.findByPlaceholderText('Nenhuma sede cadastrada'),
     ).toBeTruthy();
+  });
+
+  it('CEP incompleto: erro no próprio campo e a RPC não é chamada', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.changeText(screen.getByPlaceholderText('00000-000'), '1234');
+    await salvar();
+
+    expect(await screen.findByText('CEP deve ter 8 dígitos')).toBeTruthy();
+    expect(chamadasDeSalvar()).toHaveLength(0);
+  });
+
+  it('UF e telefone inválidos aparecem no campo, sem chamar a RPC', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.changeText(screen.getByPlaceholderText('UF'), 'XX');
+    fireEvent.changeText(screen.getByPlaceholderText('(00) 00000-0000'), '123');
+    await salvar();
+
+    expect(await screen.findByText('UF inválida')).toBeTruthy();
+    expect(screen.getByText('Telefone deve ter 10 ou 11 dígitos')).toBeTruthy();
+    expect(chamadasDeSalvar()).toHaveLength(0);
+  });
+
+  it('nome vazio: erro no campo, sem diálogo e sem RPC', async () => {
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Nome da unidade').props.value).toBe(
+        'Unidade Teste',
+      ),
+    );
+    fireEvent.changeText(screen.getByPlaceholderText('Nome da unidade'), '  ');
+    await salvar();
+
+    expect(await screen.findByText('Informe o nome da unidade')).toBeTruthy();
+    expect(chamadasDeSalvar()).toHaveLength(0);
+  });
+
+  it('escolher a sede limpa o erro do CEP que ela acabou de preencher', async () => {
+    (googlePlacesService.getPlaceDetails as jest.Mock).mockResolvedValue({
+      logradouro: 'Avenida Epitácio Pessoa',
+      numero: '100',
+      cidade: 'João Pessoa',
+      estado: 'Paraíba',
+      cep: '58039000',
+    });
+
+    render(<UnidadeScreen />);
+    await entrarEmEdicao();
+    fireEvent.changeText(screen.getByPlaceholderText('00000-000'), '1234');
+    await salvar();
+    expect(await screen.findByText('CEP deve ter 8 dígitos')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('mock-selecionar-sugestao'));
+
+    // `setValue` não revalida: sem o clearErrors, o erro ficaria ao lado do
+    // CEP certo que a sede acabou de escrever.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('00000-000').props.value).toBe(
+        '58039-000',
+      ),
+    );
+    expect(screen.queryByText('CEP deve ter 8 dígitos')).toBeNull();
   });
 
   it('formata o CEP enquanto o gestor digita', async () => {

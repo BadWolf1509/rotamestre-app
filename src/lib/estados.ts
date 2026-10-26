@@ -39,6 +39,11 @@ const NOME_PARA_UF: Record<string, string> = {
 
 const SIGLAS_VALIDAS = new Set(Object.values(NOME_PARA_UF));
 
+/** A sigla é de um estado brasileiro? Ignora caixa e espaços nas pontas. */
+export function ehSiglaDeUF(valor: string): boolean {
+  return SIGLAS_VALIDAS.has(valor.trim().toUpperCase());
+}
+
 /** Remove acentos e caixa para comparar "Paraíba", "paraiba" e "PARAÍBA". */
 function normalizar(valor: string): string {
   return valor

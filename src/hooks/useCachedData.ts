@@ -40,8 +40,10 @@ export interface UseCachedDataOptions {
 export interface UseCachedDataReturn<T> {
   /** Dados (do cache ou frescos) */
   data: T | null;
-  /** Indica se está carregando */
+  /** Indica se está carregando SEM nada para mostrar (skeleton) */
   loading: boolean;
+  /** Recarga em andamento com dado da mesma chave já na tela (não é skeleton) */
+  refreshing: boolean;
   /** Indica se os dados atuais são do cache (stale) */
   isStale: boolean;
   /** Erro ocorrido */
@@ -72,6 +74,7 @@ export function useCachedData<T>(
 
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(enabled);
+  const [refreshing, setRefreshing] = useState(false);
   const [isStale, setIsStale] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -134,9 +137,18 @@ export function useCachedData<T>(
         }
       }
 
-      // Se não tem cache, mostrar loading
-      if (vigente() && (!hasCachedData || ignoreCache)) {
-        setLoading(true);
+      // Recarga com dado da MESMA chave na tela (refresh, revalidação, evento
+      // ao vivo) não vira `loading`: o consumidor troca a lista por skeleton
+      // quando `loading` é true, e o dado visível sumia a cada evento (DAT-1).
+      // Descartado: `refresh` nunca ligar `loading` — sem dado nenhum (1ª
+      // carga falhou) a tela ficaria vazia durante a nova tentativa.
+      const temDadoDaChave = chaveDoDadoRef.current === key;
+      if (vigente()) {
+        if (temDadoDaChave) {
+          if (ignoreCache || !hasCachedData) setRefreshing(true);
+        } else if (!hasCachedData || ignoreCache) {
+          setLoading(true);
+        }
       }
 
       try {
@@ -165,7 +177,10 @@ export function useCachedData<T>(
         // Só a carga mais recente encerra o indicador e libera a chave.
         if (minha === requisicaoRef.current) {
           chaveEmVooRef.current = null;
-          if (mountedRef.current) setLoading(false);
+          if (mountedRef.current) {
+            setLoading(false);
+            setRefreshing(false);
+          }
         }
       }
     },
@@ -224,6 +239,7 @@ export function useCachedData<T>(
   return {
     data,
     loading,
+    refreshing,
     isStale,
     error,
     refresh,

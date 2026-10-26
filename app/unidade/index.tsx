@@ -1,5 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
   View,
   Text,
@@ -10,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FieldError } from '@/components/auth/FieldError';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -35,6 +38,7 @@ import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { cleanPhone, formatPhone } from '@/lib/phone';
 import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
+import { type UnidadeFormInput, unidadeSchema } from '@/lib/schemas/unidade';
 import { supabase } from '@/lib/supabase';
 import { maskCEP } from '@/lib/viacep';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -54,6 +58,16 @@ const codigoDoErro = (erro: unknown): string | undefined =>
   typeof erro === 'object' && erro !== null && 'code' in erro
     ? String((erro as { code: unknown }).code)
     : undefined;
+
+/** Valores do formulário a partir da linha da loja (máscaras aplicadas). */
+const valoresDoForm = (dados?: UnidadeData | null): UnidadeFormInput => ({
+  nome: dados?.nome || '',
+  telefone: formatPhone(dados?.telefone || ''),
+  endereco: dados?.endereco || '',
+  cidade: dados?.cidade || '',
+  estado: dados?.uf || '',
+  cep: maskCEP(dados?.cep || ''),
+});
 
 const formatCnpj = (value?: string | null): string => {
   if (!value) return '';
@@ -92,13 +106,21 @@ export default function UnidadeScreen() {
   const [saving, setSaving] = useState(false);
   const [equipe, setEquipe] = useState({ total: 0, ativos: 0, inativos: 0 });
 
-  // Form state
-  const [nome, setNome] = useState('');
-  const [telefone, setTelefone] = useState('');
-  const [endereco, setEndereco] = useState('');
-  const [cidade, setCidade] = useState('');
-  const [estado, setEstado] = useState('');
-  const [cep, setCep] = useState('');
+  // Campos da ficha no react-hook-form, validados pelo `unidadeSchema`. A sede
+  // fica fora, em estado próprio: ela só vale com as coordenadas da sugestão
+  // escolhida e já tem trava própria (`sedePrecisaConfirmacao`), com aviso no
+  // campo enquanto o gestor edita.
+  const {
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    clearErrors,
+    formState: { errors },
+  } = useForm<UnidadeFormInput>({
+    resolver: zodResolver(unidadeSchema),
+    defaultValues: valoresDoForm(null),
+  });
   const [sedeEndereco, setSedeEndereco] = useState('');
   const [sedeLatitude, setSedeLatitude] = useState<number | undefined>();
   const [sedeLongitude, setSedeLongitude] = useState<number | undefined>();
@@ -145,12 +167,7 @@ export default function UnidadeScreen() {
       if (error) throw error;
 
       setUnidade(data);
-      setNome(data.nome || '');
-      setTelefone(formatPhone(data.telefone || ''));
-      setEndereco(data.endereco || '');
-      setCidade(data.cidade || '');
-      setEstado(data.uf || '');
-      setCep(maskCEP(data.cep || ''));
+      reset(valoresDoForm(data));
       setSedeEndereco(data.sede_endereco || '');
 
       // Campo só de leitura: sem CNPJ a tela segue, com "Não informado".
@@ -171,7 +188,7 @@ export default function UnidadeScreen() {
     } finally {
       if (minhaCarga === cargaUnidadeRef.current) setLoading(false);
     }
-  }, [showToast, unidadeAtiva]);
+  }, [reset, showToast, unidadeAtiva]);
 
   const loadMembrosCount = useCallback(async () => {
     const unidadeId = unidadeAtiva;
@@ -194,12 +211,16 @@ export default function UnidadeScreen() {
     loadMembrosCount();
   }, [loadMembrosCount, loadUnidade]);
 
-  async function handleSave() {
-    if (!nome.trim()) {
-      showWarning('Campo obrigatório', 'Informe o nome da unidade.');
-      return;
-    }
-
+  // Só chega aqui com os campos válidos pelo `unidadeSchema` (nome, telefone,
+  // CEP, UF); o erro de cada um aparece no próprio campo, pelo handleSubmit.
+  async function salvarFicha({
+    nome,
+    telefone,
+    endereco,
+    cidade,
+    estado,
+    cep,
+  }: UnidadeFormInput) {
     // Texto da sede mudou mas sem coordenadas: a sugestão nunca foi
     // selecionada (usuário só digitou), ou o geocoding da sugestão falhou
     // (AddressAutocomplete cai no fallback sem coords — ver
@@ -233,7 +254,7 @@ export default function UnidadeScreen() {
         p_telefone: cleanPhone(telefone),
         p_endereco: endereco.trim(),
         p_cidade: cidade.trim(),
-        p_uf: estado.trim(),
+        p_uf: estado.trim().toUpperCase(),
         p_cep: cep.trim(),
         p_sede_endereco: sedeEndereco.trim() || null,
         p_sede_latitude: sedeLatitude ?? null,
@@ -256,6 +277,8 @@ export default function UnidadeScreen() {
       setSaving(false);
     }
   }
+
+  const handleSave = handleSubmit(salvarFicha);
 
   // Selecionar uma sugestão de sede também preenche os campos de cadastro.
   // Sem isso dava para mudar a sede de cidade e deixar CEP e UF da cidade
@@ -290,21 +313,29 @@ export default function UnidadeScreen() {
       // chega como "Paraíba" e precisa virar "PB" — o campo tem maxLength 2.
       const uf = nomeEstadoParaUF(detalhes.estado);
 
+      // `setValue` sem opções não revalida: sem o clearErrors, um "CEP deve
+      // ter 8 dígitos" de um submit anterior ficaria preso ao lado do CEP
+      // certo que a sede acabou de escrever (regra "Erro cruzado em form").
+      // Se o valor novo ainda for inválido, o próximo submit o reintroduz.
+      const preencher = (campo: keyof UnidadeFormInput, valor: string) => {
+        setValue(campo, valor);
+        clearErrors(campo);
+      };
       const preenchidos: string[] = [];
       if (logradouro) {
-        setEndereco(logradouro);
+        preencher('endereco', logradouro);
         preenchidos.push('endereço');
       }
       if (detalhes.cidade) {
-        setCidade(detalhes.cidade);
+        preencher('cidade', detalhes.cidade);
         preenchidos.push('cidade');
       }
       if (uf) {
-        setEstado(uf);
+        preencher('estado', uf);
         preenchidos.push('UF');
       }
       if (detalhes.cep) {
-        setCep(maskCEP(detalhes.cep));
+        preencher('cep', maskCEP(detalhes.cep));
         preenchidos.push('CEP');
       }
 
@@ -325,12 +356,8 @@ export default function UnidadeScreen() {
   }
 
   function handleCancel() {
-    setNome(unidade?.nome || '');
-    setTelefone(formatPhone(unidade?.telefone || ''));
-    setEndereco(unidade?.endereco || '');
-    setCidade(unidade?.cidade || '');
-    setEstado(unidade?.uf || '');
-    setCep(maskCEP(unidade?.cep || ''));
+    // `reset` também limpa os erros dos campos.
+    reset(valoresDoForm(unidade));
     setSedeEndereco(unidade?.sede_endereco || '');
     setSedeLatitude(undefined);
     setSedeLongitude(undefined);
@@ -381,6 +408,49 @@ export default function UnidadeScreen() {
     </View>
   );
 
+  // Campo de texto da ficha ligado ao form, com o erro do schema logo abaixo.
+  // Também é função chamada como `{renderCampoTexto(...)}`, pelo mesmo motivo
+  // das funções acima. `mascara` formata enquanto o gestor digita.
+  const renderCampoTexto = (
+    campo: keyof UnidadeFormInput,
+    props: {
+      placeholder: string;
+      maxLength?: number;
+      keyboardType?: 'phone-pad' | 'numeric';
+      autoCapitalize?: 'characters';
+      mascara?: (texto: string) => string;
+    },
+  ) => {
+    const { mascara, ...propsDoInput } = props;
+    const mensagem = errors[campo]?.message;
+    return (
+      <>
+        <Controller
+          control={control}
+          name={campo}
+          render={({ field: { onChange, onBlur, value } }) => (
+            <TextInput
+              style={[
+                styles.input,
+                isDesktopView && styles.inputDesktop,
+                !editMode && styles.inputDisabled,
+                !!mensagem && styles.inputError,
+              ]}
+              value={value}
+              onChangeText={(texto) =>
+                onChange(mascara ? mascara(texto) : texto)
+              }
+              onBlur={onBlur}
+              editable={editMode}
+              {...propsDoInput}
+            />
+          )}
+        />
+        <FieldError message={mensagem} />
+      </>
+    );
+  };
+
   // Componente Formulário - reutilizável
   const renderFormularioUnidade = () => (
     <View style={styles.formContainer}>
@@ -392,18 +462,10 @@ export default function UnidadeScreen() {
           style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
         >
           <Text style={styles.inputLabel}>Nome da Unidade</Text>
-          <TextInput
-            style={[
-              styles.input,
-              isDesktopView && styles.inputDesktop,
-              !editMode && styles.inputDisabled,
-            ]}
-            value={nome}
-            onChangeText={setNome}
-            editable={editMode}
-            placeholder="Nome da unidade"
-            maxLength={255}
-          />
+          {renderCampoTexto('nome', {
+            placeholder: 'Nome da unidade',
+            maxLength: 255,
+          })}
         </View>
 
         {/* CNPJ (sempre bloqueado) */}
@@ -428,18 +490,11 @@ export default function UnidadeScreen() {
           style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
         >
           <Text style={styles.inputLabel}>Telefone</Text>
-          <TextInput
-            style={[
-              styles.input,
-              isDesktopView && styles.inputDesktop,
-              !editMode && styles.inputDisabled,
-            ]}
-            value={telefone}
-            onChangeText={(text) => setTelefone(formatPhone(text))}
-            editable={editMode}
-            placeholder="(00) 00000-0000"
-            keyboardType="phone-pad"
-          />
+          {renderCampoTexto('telefone', {
+            placeholder: '(00) 00000-0000',
+            keyboardType: 'phone-pad',
+            mascara: formatPhone,
+          })}
         </View>
 
         {/* Endereço */}
@@ -447,17 +502,9 @@ export default function UnidadeScreen() {
           style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
         >
           <Text style={styles.inputLabel}>Endereço</Text>
-          <TextInput
-            style={[
-              styles.input,
-              isDesktopView && styles.inputDesktop,
-              !editMode && styles.inputDisabled,
-            ]}
-            value={endereco}
-            onChangeText={setEndereco}
-            editable={editMode}
-            placeholder="Rua, número, complemento"
-          />
+          {renderCampoTexto('endereco', {
+            placeholder: 'Rua, número, complemento',
+          })}
           <Text style={styles.helperText}>
             Endereço de cadastro da unidade. Não define de onde as rotas partem.
           </Text>
@@ -473,18 +520,10 @@ export default function UnidadeScreen() {
             ]}
           >
             <Text style={styles.inputLabel}>Cidade</Text>
-            <TextInput
-              style={[
-                styles.input,
-                isDesktopView && styles.inputDesktop,
-                !editMode && styles.inputDisabled,
-              ]}
-              value={cidade}
-              onChangeText={setCidade}
-              editable={editMode}
-              placeholder="Cidade"
-              maxLength={100}
-            />
+            {renderCampoTexto('cidade', {
+              placeholder: 'Cidade',
+              maxLength: 100,
+            })}
           </View>
 
           <View
@@ -495,19 +534,13 @@ export default function UnidadeScreen() {
             ]}
           >
             <Text style={styles.inputLabel}>UF</Text>
-            <TextInput
-              style={[
-                styles.input,
-                isDesktopView && styles.inputDesktop,
-                !editMode && styles.inputDisabled,
-              ]}
-              value={estado}
-              onChangeText={setEstado}
-              editable={editMode}
-              placeholder="UF"
-              maxLength={2}
-              autoCapitalize="characters"
-            />
+            {/* Caixa alta na digitação: o `autoCapitalize` não vale na web. */}
+            {renderCampoTexto('estado', {
+              placeholder: 'UF',
+              maxLength: 2,
+              autoCapitalize: 'characters',
+              mascara: (texto) => texto.toUpperCase(),
+            })}
           </View>
         </View>
 
@@ -516,19 +549,12 @@ export default function UnidadeScreen() {
           style={[styles.inputGroup, isDesktopView && styles.inputGroupDesktop]}
         >
           <Text style={styles.inputLabel}>CEP</Text>
-          <TextInput
-            style={[
-              styles.input,
-              isDesktopView && styles.inputDesktop,
-              !editMode && styles.inputDisabled,
-            ]}
-            value={cep}
-            onChangeText={(text) => setCep(maskCEP(text))}
-            editable={editMode}
-            placeholder="00000-000"
-            keyboardType="numeric"
-            maxLength={9}
-          />
+          {renderCampoTexto('cep', {
+            placeholder: '00000-000',
+            keyboardType: 'numeric',
+            maxLength: 9,
+            mascara: maskCEP,
+          })}
         </View>
 
         {/* Sede: define de onde toda rota parte e para onde volta. Aparece
@@ -867,6 +893,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   inputDisabled: {
     backgroundColor: theme.colors.gray100,
     color: theme.colors.gray500,
+  },
+  inputError: {
+    borderColor: theme.colors.error,
   },
   helperText: {
     fontSize: theme.typography.xs,
