@@ -497,4 +497,34 @@ describe('ParadaCard', () => {
       expect(queryByLabelText('Editar parada')).toBeNull();
     });
   });
+
+  describe('Observação do pulo (Migration 73)', () => {
+    const pulada: Parada = {
+      ...mockParada,
+      status: 'pulada',
+      motivo_skip: 'cliente_ausente',
+      observacoes: 'Portão azul',
+      observacao_pulo: 'Ficou para amanhã',
+    };
+
+    it('parada pulada mostra a observação do gestor e, junto do motivo, o texto do motorista', () => {
+      const { getByText } = render(
+        <ParadaCard {...defaultProps} parada={pulada} />,
+      );
+      expect(getByText('Portão azul')).toBeTruthy();
+      expect(getByText('Cliente ausente')).toBeTruthy();
+      expect(getByText('Motorista: Ficou para amanhã')).toBeTruthy();
+    });
+
+    it('parada pulada sem observacao_pulo mostra só o motivo', () => {
+      const { getByText, queryByText } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={{ ...pulada, observacao_pulo: null }}
+        />,
+      );
+      expect(getByText('Cliente ausente')).toBeTruthy();
+      expect(queryByText(/^Motorista:/)).toBeNull();
+    });
+  });
 });

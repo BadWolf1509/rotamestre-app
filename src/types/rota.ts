@@ -37,8 +37,11 @@ export interface Checkpoint {
   endereco: Endereco;
   ordem: number;
   status: StatusCheckpoint;
+  /** Instrução do gestor; só o gestor ativo da loja muda (Migration 73). */
   observacoes?: string;
   motivo_skip?: MotivoSkip;
+  /** Texto do motorista ao pular (Migration 73). */
+  observacao_pulo?: string | null;
   timestamp_conclusao?: string;
   concluida_em?: string;
   is_checkpoint?: boolean;

@@ -30,6 +30,8 @@ export interface ParadaDB {
   latitude: number;
   longitude: number;
   observacoes: string | null;
+  /** Texto do motorista ao pular (Migration 73); `observacoes` é do gestor. */
+  observacao_pulo: string | null;
   motivo_skip: MotivoSkip | null;
   foto_url: string | null;
   is_checkpoint: boolean;
@@ -64,6 +66,7 @@ export interface ParadaUpdate {
   destinatario?: string | null;
   telefone?: string | null;
   observacoes?: string | null;
+  observacao_pulo?: string | null;
   motivo_skip?: MotivoSkip | null;
   foto_url?: string | null;
   concluida_em?: string | null;
@@ -264,7 +267,8 @@ export async function skipParada(
 ): Promise<QueryResult<ParadaDB>> {
   return updateParadaStatus(paradaId, 'pulada', {
     motivo_skip: motivo,
-    observacoes: observacoes || null,
+    // Texto do pulo em campo próprio: `observacoes` é a instrução do gestor.
+    observacao_pulo: observacoes || null,
   });
 }
 

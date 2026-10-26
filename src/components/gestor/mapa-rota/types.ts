@@ -15,8 +15,11 @@ export interface Parada {
   longitude: number | null;
   destinatario?: string;
   telefone?: string;
+  /** Instrução do gestor. */
   observacoes?: string;
   motivo_skip?: MotivoSkip;
+  /** Texto do motorista ao pular (Migration 73). */
+  observacao_pulo?: string | null;
   foto_url?: string | null;
   is_checkpoint?: boolean;
   concluida_em?: string;

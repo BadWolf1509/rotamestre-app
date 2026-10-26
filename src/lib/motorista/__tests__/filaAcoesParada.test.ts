@@ -52,6 +52,7 @@ interface ParadaFake {
   concluida_em?: string | null;
   motivo_skip?: string | null;
   observacoes?: string | null;
+  observacao_pulo?: string | null;
 }
 interface RotaFake {
   id: string;
@@ -189,8 +190,9 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
     expect(banco.paradas.get('p1')!.status).toBe('concluida');
   });
 
-  it('pular grava motivo e observações', async () => {
+  it('pular grava motivo e o texto do motorista em observacao_pulo, sem tocar a observação do gestor', async () => {
     const banco = cenario();
+    banco.paradas.get('p1')!.observacoes = 'Portão azul, tocar o interfone';
     await aplicarAcaoParada(
       criarAcaoParada({
         tipo: 'pular',
@@ -206,7 +208,107 @@ describe('aplicarAcaoParada (idempotente no servidor)', () => {
     expect(banco.paradas.get('p1')).toMatchObject({
       status: 'pulada',
       motivo_skip: 'recusa',
-      observacoes: 'portão fechado',
+      observacao_pulo: 'portão fechado',
+      observacoes: 'Portão azul, tocar o interfone',
+    });
+  });
+
+  describe('observação do pulo (Migration 73: campo próprio)', () => {
+    function capturarDados(banco: ReturnType<typeof cenario>) {
+      const enviados: Record<string, unknown>[] = [];
+      const original = banco.porta.atualizarSeAberta;
+      banco.porta.atualizarSeAberta = async (id, dados) => {
+        enviados.push(dados);
+        return original(id, dados);
+      };
+      return enviados;
+    }
+
+    const pularP1 = (extra: {
+      motivo?: 'outro' | 'recusa';
+      observacoes?: string;
+    }) =>
+      criarAcaoParada({
+        tipo: 'pular',
+        paradaId: 'p1',
+        rotaId: 'rota-1',
+        motoristaId: 'mot-1',
+        em: '2026-10-23T12:00:00.000Z',
+        ...extra,
+      });
+
+    it('pular grava observacao_pulo e nunca observacoes', async () => {
+      const banco = cenario();
+      const enviados = capturarDados(banco);
+      await aplicarAcaoParada(
+        pularP1({ observacoes: 'Portão fechado' }),
+        banco.porta,
+      );
+      expect(enviados).toEqual([
+        {
+          status: 'pulada',
+          motivo_skip: 'outro',
+          observacao_pulo: 'Portão fechado',
+        },
+      ]);
+      expect(enviados[0]).not.toHaveProperty('observacoes');
+    });
+
+    it('pular sem texto grava observacao_pulo: null (limpa o texto de um pulo anterior)', async () => {
+      const banco = cenario();
+      banco.paradas.get('p1')!.observacao_pulo = 'Ficou para amanhã';
+      const enviados = capturarDados(banco);
+      await aplicarAcaoParada(pularP1({ motivo: 'recusa' }), banco.porta);
+      expect(enviados).toEqual([
+        { status: 'pulada', motivo_skip: 'recusa', observacao_pulo: null },
+      ]);
+      expect(banco.paradas.get('p1')!.observacao_pulo).toBeNull();
+    });
+
+    it('ação da fila gravada pela 1.14.7 (campo observacoes) sai como observacao_pulo', async () => {
+      const banco = cenario();
+      banco.paradas.get('p1')!.observacoes = 'Ligar antes';
+      const enviados = capturarDados(banco);
+      // Exatamente o JSON que a 1.14.7 deixou no aparelho.
+      await AsyncStorage.setItem(
+        '@rotamestre:fila_acoes_parada',
+        JSON.stringify([
+          {
+            id: 'acao-1147',
+            tipo: 'pular',
+            paradaId: 'p1',
+            rotaId: 'rota-1',
+            motoristaId: 'mot-1',
+            em: '2026-10-25T18:00:00.000Z',
+            motivo: 'cliente_ausente',
+            observacoes: 'Ficou para tarde',
+            tentativas: 0,
+          },
+        ]),
+      );
+      _resetFilaAcoesParada();
+      const r = await processarFilaAcoesParada({
+        usuarioAtual: 'mot-1',
+        porta: banco.porta,
+      });
+      expect(r.enviadas).toBe(1);
+      expect(enviados[0]).toEqual({
+        status: 'pulada',
+        motivo_skip: 'cliente_ausente',
+        observacao_pulo: 'Ficou para tarde',
+      });
+      expect(banco.paradas.get('p1')).toMatchObject({
+        observacoes: 'Ligar antes',
+        observacao_pulo: 'Ficou para tarde',
+      });
+    });
+
+    it('concluir não leva observacoes nem observacao_pulo', async () => {
+      const banco = cenario();
+      const enviados = capturarDados(banco);
+      await aplicarAcaoParada(concluirP1(), banco.porta);
+      expect(enviados[0]).not.toHaveProperty('observacoes');
+      expect(enviados[0]).not.toHaveProperty('observacao_pulo');
     });
   });
 

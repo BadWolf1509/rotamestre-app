@@ -182,6 +182,20 @@ export const ParadaCard = React.memo<ParadaCardProps>(
           </View>
         )}
 
+        {/* Texto do motorista no pulo (Migration 73); "Observações" acima é do gestor */}
+        {parada.status === 'pulada' && parada.observacao_pulo ? (
+          <View style={styles.skipReasonContainer}>
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={14}
+              color={theme.colors.warning}
+            />
+            <Text style={styles.skipReasonText}>
+              {`Motorista: ${parada.observacao_pulo}`}
+            </Text>
+          </View>
+        ) : null}
+
         {/* Foto da entrega com overlay melhorado */}
         {fotoUrl && !imageError && (
           <TouchableOpacity
