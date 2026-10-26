@@ -393,7 +393,8 @@ BEGIN
          AND pg_get_userbyid(p.proowner) = 'postgres'
          AND p.proacl IS NOT NULL
          AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee = 0)
-         AND NOT has_function_privilege('anon', p.oid, 'EXECUTE');
+         AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+         AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE');
       r := r || CASE WHEN v_n = 1 AND v_n2 = 1
         THEN ' | 10 OK: gatilho BEFORE UPDATE OF status por linha habilitado; função INVOKER, search_path vazio, dono postgres, sem EXECUTE de PUBLIC e anon'
         ELSE ' | 10 FALHOU: gatilho no esperado ' || v_n || ', função no esperado ' || v_n2

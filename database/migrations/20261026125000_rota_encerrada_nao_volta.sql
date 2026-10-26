@@ -87,6 +87,9 @@
 --     - motorista (qualquer versão): nenhum — não há caminho que mude status
 --       de rota encerrada;
 --     - gestor 1.14.8 (web): nenhum — cancela e reativa pela RPC;
+--     - gestor 1.14.6 (cancela e reativa por UPDATE sem filtro de status):
+--       cancelar rota já concluida ou reativar rota cancelada/concluida passa
+--       a ser recusado com ROTA_ENCERRADA — o comportamento certo;
 --     - gestor no app nativo 1.14.7 que reativar (UPDATE direto
 --       `nao_executada → pendente`): passa a receber o erro e a tela mostra a
 --       mensagem de erro dela (aceito na Decisão D2; atualiza para 1.14.8);
@@ -97,9 +100,10 @@
 --       duas rotas abertas do motorista demo (`e2e/fixtures/planoDaRotaDoMapa.ts`).
 --       O fixture novo precisa estar na main antes de aplicar.
 --
---   `SET LOCAL lock_timeout = '3s'`: o CREATE TRIGGER pede SHARE ROW
---   EXCLUSIVE em `rotas`, que segura as escritas do app; se a trava não vier
---   em 3 s, a migration para sem efeito e é repetida.
+--   `SET LOCAL lock_timeout = '3s'`: o DROP TRIGGER IF EXISTS pede ACCESS
+--   EXCLUSIVE em `rotas` (mesmo sem o gatilho existir) e o CREATE TRIGGER pede
+--   SHARE ROW EXCLUSIVE; enquanto esperam, seguram leituras e escritas do app.
+--   Se a trava não vier em 3 s, a migration para sem efeito e é repetida.
 -- ============================================================================
 
 BEGIN;
