@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import {
   decidirRestauracao,
@@ -6,6 +6,14 @@ import {
   type RotaDoFixture,
 } from './decidirRestauracao';
 import { contarEntregasAbertas } from './entregasAbertas';
+import {
+  chaveDaCopia,
+  escolherRotaDoMapa,
+  montarParadasDaCopia,
+  type ParadaDoModelo,
+  type PlanoDaRotaDoMapa,
+  type RotaCandidata,
+} from './planoDaRotaDoMapa';
 
 /**
  * Garante que o motorista de E2E tenha uma rota cujo mapa monta.
@@ -31,10 +39,17 @@ import { contarEntregasAbertas } from './entregasAbertas';
  * hoje —, inútil como fixture, porque morre às 22:00.
  *
  * POSTURA: isto faz o CI **escrever no banco de produção**, que é o único que
- * existe. A escrita é a menor possível e idempotente: um UPDATE de status/data
- * numa rota que já existe, nunca criação. Não acumula dado, não precisa de
- * cleanup, e se o teste morrer no meio não deixa resíduo. Se um dia houver
- * staging, isto deve apontar para lá.
+ * existe. A escrita é a menor possível e idempotente: com rota aberta, um
+ * UPDATE de status/data nela. Sem rota aberta — a rota demo encerrada —, uma
+ * CÓPIA da encerrada mais recente pela RPC do painel (`criar_rota_com_paradas`),
+ * iniciada como o app (`pendente → em_andamento`). Desde a Migration 75 rota
+ * `cancelada`/`concluida`/`nao_executada` não muda de status por UPDATE da API
+ * (P0001 ROTA_ENCERRADA); reabrir a encerrada, como o fixture fazia até
+ * 26/10/2026, deixou de ser possível. A cópia acumula uma rota por vez que a
+ * demo se encerra (o histórico do motorista demo cresce), e nunca existe mais
+ * de uma aberta: o fixture só cria quando não há rota aberta, e usa a mesma
+ * que o app abre (ver `planoDaRotaDoMapa.ts`). Se um dia houver staging, isto
+ * deve apontar para lá.
  *
  * COMPARE-AND-SET. PRs concorrentes rodam este fixture ao mesmo tempo sobre a
  * MESMA linha (há uma só rota demo): um PR lê 'concluida' e outro já a reabriu,
@@ -61,8 +76,8 @@ function exigirEnv(nome: string): string {
 }
 
 export interface ResultadoDoFixture {
-  /** O que foi feito com a ROTA. */
-  acao: 'nada-a-fazer' | 'restaurada';
+  /** O que foi feito com a ROTA ('criada' = cópia da encerrada `statusAntes`). */
+  acao: 'nada-a-fazer' | 'restaurada' | 'criada';
   /** O que foi feito com as PARADAS — independente da rota. */
   paradas: 'nada-a-fazer' | 'reabertas';
   rotaId: string;
@@ -122,38 +137,58 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
   }
 
   let motorista: (typeof motoristas)[number] | null = null;
-  let rota: (RotaDoFixture & { id: string }) | null = null;
+  let plano: PlanoDaRotaDoMapa<RotaCandidata> = { tipo: 'sem-rota' };
 
   for (const candidato of motoristas) {
+    // Todas as abertas entram na conta (o app abre a em_andamento de data
+    // MAIS ANTIGA, não a mais recente); as encerradas mais recentes vêm junto
+    // para servir de modelo quando não há aberta.
     const { data: rotas, error: erroRota } = await supabase
       .from('rotas')
-      .select('id, status, data, iniciada_em, concluida_em')
+      .select('id, status, data, created_at, iniciada_em, concluida_em')
       .eq('motorista_id', candidato.id)
       .eq('unidade_id', UNIDADE_DEMO)
       .order('data', { ascending: false })
-      .limit(1);
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (erroRota) {
       throw new Error(`Não foi possível ler as rotas: ${erroRota.message}`);
     }
-    if (rotas?.length) {
+    const abertasForaDoLote = await contarAbertasForaDoLote(
+      supabase,
+      candidato.id,
+      rotas ?? [],
+    );
+    if (abertasForaDoLote > 0) {
+      throw new Error(
+        `O motorista demo tem ${abertasForaDoLote} rota(s) aberta(s) além das ` +
+          '50 mais recentes. Encerre as antigas antes — o app abriria uma delas.',
+      );
+    }
+    plano = escolherRotaDoMapa(rotas ?? []);
+    if (plano.tipo !== 'sem-rota') {
       motorista = candidato;
-      rota = rotas[0];
       break;
     }
   }
 
-  if (!motorista || !rota) {
-    // Deliberadamente NÃO cria rota: fabricar dado aqui esconderia um problema
-    // real de cadastro atrás de um teste verde.
+  if (!motorista || plano.tipo === 'sem-rota') {
+    // Deliberadamente NÃO cria rota do nada: sem modelo, fabricar dado aqui
+    // esconderia um problema real de cadastro atrás de um teste verde.
     const nomes = motoristas.map((m) => m.nome).join(', ');
     throw new Error(
       `Nenhum motorista ativo da unidade demo tem rota (${nomes}). O fixture ` +
-        'restaura estado, não inventa cenário — crie a rota demo antes.',
+        'restaura ou copia a rota demo, não inventa cenário — crie a rota demo antes.',
     );
   }
   const hoje = new Date();
   const hojeStr = diaLocal(hoje);
+
+  if (plano.tipo === 'criar') {
+    return criarCopiaEmAndamento(supabase, motorista.id, plano.modelo, hoje);
+  }
+  const rota: RotaDoFixture & { id: string } = plano.rota;
 
   // NÃO BASTA A ROTA ESTAR ATIVA — ela precisa ter parada pendente.
   //
@@ -282,5 +317,166 @@ export async function garantirRotaDoMapa(): Promise<ResultadoDoFixture> {
     dataAntes: rota.data,
     iniciadaAntes: rota.iniciada_em,
     pendentesAntes,
+  };
+}
+
+const STATUS_ABERTOS = ['pendente', 'em_andamento'];
+
+/**
+ * Abertas do motorista na loja demo que ficaram fora do lote lido. Sem isso, um
+ * lote só de encerradas faria o fixture criar uma cópia enquanto uma rota
+ * aberta antiga continua lá — e o app abriria a antiga.
+ */
+async function contarAbertasForaDoLote(
+  supabase: SupabaseClient,
+  motoristaId: string,
+  lote: ReadonlyArray<{ status: string }>,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from('rotas')
+    .select('id', { count: 'exact', head: true })
+    .eq('motorista_id', motoristaId)
+    .eq('unidade_id', UNIDADE_DEMO)
+    .in('status', STATUS_ABERTOS);
+  if (error) {
+    throw new Error(
+      `Não foi possível contar as rotas abertas: ${error.message}`,
+    );
+  }
+  const noLote = lote.filter((r) => STATUS_ABERTOS.includes(r.status)).length;
+  return Math.max(0, (count ?? 0) - noLote);
+}
+
+/**
+ * Sem rota aberta: copia a encerrada mais recente pela RPC do painel e a
+ * inicia como o app. A chave idempotente vem do modelo (`chaveDaCopia`), então
+ * dois PRs concorrentes recebem a MESMA rota da RPC; o início é compare-and-set
+ * (`.eq('status', 'pendente')`), e 0 linhas com a rota já `em_andamento` é o
+ * outro PR que chegou antes.
+ */
+async function criarCopiaEmAndamento(
+  supabase: SupabaseClient,
+  motoristaId: string,
+  modelo: RotaCandidata,
+  hoje: Date,
+): Promise<ResultadoDoFixture> {
+  const { data: dadosModelo, error: erroModelo } = await supabase
+    .from('rotas')
+    .select('distancia_total, tempo_total, polyline')
+    .eq('id', modelo.id)
+    .eq('unidade_id', UNIDADE_DEMO)
+    .maybeSingle();
+  if (erroModelo || !dadosModelo) {
+    throw new Error(
+      `Não foi possível ler a rota modelo ${modelo.id}: ` +
+        (erroModelo?.message ?? 'não encontrada'),
+    );
+  }
+
+  const { data: paradasModelo, error: erroParadas } = await supabase
+    .from('paradas')
+    .select(
+      'tipo, endereco, latitude, longitude, ordem, is_checkpoint, destinatario, telefone, observacoes, status',
+    )
+    .eq('rota_id', modelo.id)
+    .returns<(ParadaDoModelo & { status: string })[]>();
+  if (erroParadas || !paradasModelo?.length) {
+    throw new Error(
+      `Não foi possível ler as paradas da rota modelo ${modelo.id}: ` +
+        (erroParadas?.message ?? 'nenhuma parada'),
+    );
+  }
+
+  const { data: criada, error: erroCriar } = await supabase.rpc(
+    'criar_rota_com_paradas',
+    {
+      p_request_id: chaveDaCopia(modelo.id),
+      p_unidade_id: UNIDADE_DEMO,
+      p_motorista_id: motoristaId,
+      p_data: diaLocal(hoje),
+      p_distancia_total: dadosModelo.distancia_total,
+      p_tempo_total: dadosModelo.tempo_total,
+      p_polyline: dadosModelo.polyline,
+      p_paradas: montarParadasDaCopia(paradasModelo),
+    },
+  );
+  const rotaId = (criada as { success?: boolean; rota_id?: string } | null)
+    ?.rota_id;
+  if (erroCriar || !rotaId) {
+    throw new Error(
+      `Não foi possível criar a cópia da rota demo ${modelo.id}: ` +
+        (erroCriar?.message ?? 'a RPC não devolveu rota_id'),
+    );
+  }
+
+  // Início como o app (`startRoute`): só se ainda pendente.
+  const agoraIso = hoje.toISOString();
+  const { data: iniciadas, error: erroIniciar } = await supabase
+    .from('rotas')
+    .update({ status: 'em_andamento', iniciada_em: agoraIso })
+    .eq('id', rotaId)
+    .eq('unidade_id', UNIDADE_DEMO)
+    .eq('status', 'pendente')
+    .select('id');
+  if (erroIniciar) {
+    throw new Error(`Não foi possível iniciar a cópia: ${erroIniciar.message}`);
+  }
+  if (!iniciadas?.length) {
+    const { data: relida } = await supabase
+      .from('rotas')
+      .select('status')
+      .eq('id', rotaId)
+      .eq('unidade_id', UNIDADE_DEMO)
+      .maybeSingle();
+    if (relida?.status !== 'em_andamento') {
+      throw new Error(
+        `A cópia ${rotaId} não ficou em andamento (está ` +
+          `'${relida?.status ?? 'ausente'}'). Outro PR pode estar mexendo na ` +
+          'rota demo — rode de novo.',
+      );
+    }
+  } else {
+    // Partida (ordem 0) concluída, como o `startRoute` faz.
+    const { error: erroPartida } = await supabase
+      .from('paradas')
+      .update({ status: 'concluida', concluida_em: agoraIso })
+      .eq('rota_id', rotaId)
+      .eq('ordem', 0)
+      .eq('is_checkpoint', false)
+      .eq('status', 'pendente');
+    if (erroPartida) {
+      throw new Error(
+        `Não foi possível concluir a partida da cópia: ${erroPartida.message}`,
+      );
+    }
+  }
+
+  // Nunca duas em andamento: o app abriria a de data mais antiga.
+  const { count: emAndamento, error: erroContar } = await supabase
+    .from('rotas')
+    .select('id', { count: 'exact', head: true })
+    .eq('motorista_id', motoristaId)
+    .eq('unidade_id', UNIDADE_DEMO)
+    .eq('status', 'em_andamento');
+  if (erroContar) {
+    throw new Error(
+      `Não foi possível conferir as rotas em andamento: ${erroContar.message}`,
+    );
+  }
+  if ((emAndamento ?? 0) > 1) {
+    throw new Error(
+      `O motorista demo ficou com ${emAndamento} rotas em andamento depois da ` +
+        `cópia ${rotaId}. O app abre a de data mais antiga — encerre a sobra.`,
+    );
+  }
+
+  return {
+    acao: 'criada',
+    paradas: 'nada-a-fazer',
+    rotaId,
+    statusAntes: modelo.status,
+    dataAntes: modelo.data,
+    iniciadaAntes: modelo.iniciada_em,
+    pendentesAntes: contarEntregasAbertas(paradasModelo),
   };
 }
