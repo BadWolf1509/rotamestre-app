@@ -8,7 +8,6 @@ import { useEffect, useRef } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
-import { notifyRoutePending } from '@/lib/notifications';
 import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 import { notifyNewRouteWeb } from '@/utils/browserNotification';
@@ -116,19 +115,18 @@ export function useRouteRealtimeSubscription({
           table: 'rotas',
           filter: `motorista_id=eq.${motoristaId}`,
         },
-        async (payload) => {
-          // Feedback imediato para o motorista
-          const newRecord = payload.new as Record<string, unknown>;
-          const unidades = newRecord.unidades as { nome?: string } | undefined;
-          const unidadeNome = unidades?.nome || 'Nova rota';
-
+        () => {
+          // Feedback imediato para o motorista. No nativo, sem notificação
+          // local: o push `nova_rota_atribuida` do servidor já avisa (também
+          // com o app aberto), e a local duplicava o aviso sem levar a lugar
+          // nenhum no toque. O payload do realtime não traz o embed
+          // `unidades`, então o aviso do web não cita a loja.
           if (Platform.OS === 'web') {
-            notifyNewRouteWeb(unidadeNome);
+            notifyNewRouteWeb();
             playNotificationSound();
           } else {
             warningHaptic();
             playNotificationSound();
-            notifyRoutePending(unidadeNome);
           }
 
           debouncedReload();

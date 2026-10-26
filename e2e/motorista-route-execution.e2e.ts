@@ -55,38 +55,11 @@ test.describe('Motorista Route Execution E2E Tests', () => {
       await expect(miniMapa).toHaveText(/\d+(,\d+)? km no total/i);
     });
 
-    test('should show route status indicators', async ({ page }) => {
-      await motoristaPage.expectOnMotoristaDashboard();
-      // No lugar de 3 s fixos: a Início saiu do carregamento. O cartão
-      // principal monta em TODO estado da rota — inclusive sem rota (o
-      // `testID` fica no invólucro do `MainCard`, fora do switch de estados) —
-      // e só falta enquanto carrega e no "sem conexão", que mostra o aviso.
-      // `.first()`: com dados antigos e recarga falha, os dois aparecem juntos.
-      await expect(
-        page
-          .getByTestId('motorista-main-card')
-          .or(page.getByTestId('aviso-sem-conexao'))
-          .first(),
-      ).toBeVisible({ timeout: 15000 });
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Look for status indicators - broader search to match any route state
-      const hasStatusInfo =
-        bodyText?.includes('Pendente') ||
-        bodyText?.includes('Em Andamento') ||
-        bodyText?.includes('Concluída') ||
-        bodyText?.includes('Iniciar') ||
-        bodyText?.includes('Nenhuma') ||
-        bodyText?.includes('rota') ||
-        bodyText?.includes('Rota') ||
-        bodyText?.includes('parada') ||
-        bodyText?.includes('Parada') ||
-        bodyText?.includes('motorista') ||
-        (bodyText?.length || 0) > 200;
-
-      expect(hasStatusInfo).toBeTruthy();
-    });
+    // O antigo "should show route status indicators" saiu: depois de esperar o
+    // cartão principal (o que o teste acima já afirma), ele só conferia que o
+    // body continha 'rota', 'motorista' ou mais de 200 caracteres — o menu
+    // lateral basta para isso, com o cartão quebrado. O estado da rota que o
+    // cartão mostra é coberto pelo chip do mini-mapa ("N paradas restantes").
   });
 
   test.describe('Stops List (Paradas Tab)', () => {

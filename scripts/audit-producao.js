@@ -14,7 +14,9 @@
  * pacote continua quebrando o check. Cada entrada carrega motivo e data de
  * revisão, para não virar tapete.
  *
- * Sai com código 1 se houver high/critical fora da allowlist; 0 caso contrário.
+ * Sai com código 1 se houver high/critical fora da allowlist OU revisão vencida;
+ * com 2 se o npm audit não devolver um relatório válido (registro fora do ar:
+ * sem relatório não há veredito); 0 caso contrário.
  * Quando roda no GitHub Actions, escreve um resumo em $GITHUB_STEP_SUMMARY.
  */
 
@@ -57,6 +59,12 @@ const ACEITOS = {
 
 const GRAVES = new Set(['high', 'critical']);
 
+/** Dias de antecedência com que o resumo avisa que uma revisão vai vencer. */
+const DIAS_DE_AVISO = 14;
+
+const ESPERA_ENTRE_TENTATIVAS_MS = 5000;
+const TENTATIVAS = 2;
+
 function rodarAudit() {
   try {
     return execFileSync(
@@ -70,6 +78,31 @@ function rodarAudit() {
     if (erro.stdout) return erro.stdout;
     throw erro;
   }
+}
+
+/**
+ * Confere se a saída do `npm audit --json` é um RELATÓRIO. Quando o registro
+ * falha (instabilidade, rate limit, DNS), o npm devolve só `{message, error}`,
+ * sem `vulnerabilities`: tratar isso como "nenhuma vulnerabilidade" deixaria um
+ * advisory novo passar no dia em que o registro estivesse ruim.
+ *
+ * Devolve `null` quando o relatório é válido, ou o motivo da recusa.
+ */
+function motivoDeRelatorioInvalido(relatorio) {
+  if (!relatorio || typeof relatorio !== 'object') {
+    return 'a saída do npm audit não é um objeto JSON';
+  }
+  if (relatorio.error) {
+    const detalhe = relatorio.error.summary || relatorio.error.code || relatorio.message || '';
+    return `o npm audit devolveu erro${detalhe ? `: ${detalhe}` : ''}`;
+  }
+  if (!relatorio.vulnerabilities || typeof relatorio.vulnerabilities !== 'object') {
+    return 'o relatório não traz `vulnerabilities`';
+  }
+  if (!relatorio.metadata || typeof relatorio.metadata !== 'object') {
+    return 'o relatório não traz `metadata`';
+  }
+  return null;
 }
 
 /**
@@ -94,20 +127,32 @@ function advisoriesRaiz(nome, vulnerabilidades, visitados = new Set()) {
   return encontrados;
 }
 
-function main() {
-  const relatorio = JSON.parse(rodarAudit());
-  const vulnerabilidades = relatorio.vulnerabilities || {};
+/** Diferença em dias inteiros entre duas datas ISO `AAAA-MM-DD` (b - a). */
+function diasEntre(a, b) {
+  return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+}
 
+/**
+ * Classifica o relatório. Pura: recebe o relatório, a allowlist e o "hoje"
+ * (ISO) para ser testável sem rede e sem relógio.
+ */
+function analisar(relatorio, aceitosPermitidos, hoje) {
+  const vulnerabilidades = relatorio.vulnerabilities;
   const bloqueantes = [];
   const aceitos = [];
+  const idsVistos = new Set();
 
   for (const [nome, vuln] of Object.entries(vulnerabilidades)) {
+    // Para a limpeza da allowlist, conta qualquer advisory que ainda case,
+    // da gravidade que for.
+    for (const a of advisoriesRaiz(nome, vulnerabilidades)) idsVistos.add(a.id);
+
     if (!GRAVES.has(vuln.severity)) continue;
 
     const raizes = advisoriesRaiz(nome, vulnerabilidades);
     if (raizes.length === 0) continue;
 
-    const naoAceitos = raizes.filter((a) => !ACEITOS[a.id]);
+    const naoAceitos = raizes.filter((a) => !aceitosPermitidos[a.id]);
     if (naoAceitos.length > 0) {
       bloqueantes.push({ pacote: nome, severidade: vuln.severity, advisories: naoAceitos });
     } else {
@@ -115,6 +160,26 @@ function main() {
     }
   }
 
+  // Revisão vencida falha: a data existe "para não virar tapete", e um aviso
+  // que só vive no resumo de um job verde ninguém lê. Vale para toda entrada
+  // da allowlist, esteja o pacote ainda na árvore ou não.
+  const vencidos = [];
+  const aVencer = [];
+  for (const [id, entrada] of Object.entries(aceitosPermitidos)) {
+    const dias = diasEntre(hoje, entrada.revisarEm);
+    if (dias < 0) vencidos.push({ id, pacote: entrada.pacote, revisarEm: entrada.revisarEm });
+    else if (dias <= DIAS_DE_AVISO) {
+      aVencer.push({ id, pacote: entrada.pacote, revisarEm: entrada.revisarEm, dias });
+    }
+  }
+
+  const semCorrespondencia = Object.keys(aceitosPermitidos).filter((id) => !idsVistos.has(id));
+
+  return { bloqueantes, aceitos, vencidos, aVencer, semCorrespondencia };
+}
+
+function montarResumo(resultado, aceitosPermitidos) {
+  const { bloqueantes, aceitos, vencidos, aVencer, semCorrespondencia } = resultado;
   const linhas = [];
 
   if (bloqueantes.length > 0) {
@@ -131,44 +196,118 @@ function main() {
       'Se não houver correção upstream e o risco for aceitável, adicione o ID ' +
         'do advisory a `ACEITOS` em `scripts/audit-producao.js`, com motivo e data de revisão.',
     );
-  } else {
+  } else if (vencidos.length === 0) {
     linhas.push('### :white_check_mark: Nenhuma vulnerabilidade high/critical fora da allowlist');
   }
 
+  if (vencidos.length > 0) {
+    linhas.push('');
+    linhas.push('### :rotating_light: Revisão da allowlist vencida');
+    linhas.push('');
+    for (const v of vencidos) {
+      linhas.push(`- \`${v.pacote}\` — ${v.id} (venceu em ${v.revisarEm})`);
+    }
+    linhas.push('');
+    linhas.push(
+      'Reconfirme se já há correção upstream (se houver, remova a entrada e suba o ' +
+        'pacote); se o advisory segue sem correção, renove `revisarEm` em ' +
+        '`scripts/audit-producao.js` com a data da reconferência no motivo.',
+    );
+  }
+
+  if (aVencer.length > 0) {
+    linhas.push('');
+    for (const v of aVencer) {
+      linhas.push(
+        `> :warning: Revisão de \`${v.pacote}\` (${v.id}) vence em ${v.dias} dia(s), em ${v.revisarEm}.`,
+      );
+    }
+  }
+
   if (aceitos.length > 0) {
-    const vencidos = [];
     linhas.push('');
     linhas.push('<details><summary>Advisories aceitos conscientemente</summary>');
     linhas.push('');
     for (const a of aceitos) {
       for (const adv of a.advisories) {
-        const entrada = ACEITOS[adv.id];
-        const vencido = entrada.revisarEm < new Date().toISOString().slice(0, 10);
-        if (vencido) vencidos.push(adv.id);
-        linhas.push(
-          `- \`${a.pacote}\` — ${adv.id}${vencido ? ' **(revisão vencida)**' : ` (revisar em ${entrada.revisarEm})`}`,
-        );
+        linhas.push(`- \`${a.pacote}\` — ${adv.id} (revisar em ${aceitosPermitidos[adv.id].revisarEm})`);
       }
     }
     linhas.push('');
     linhas.push('</details>');
-
-    if (vencidos.length > 0) {
-      linhas.push('');
-      linhas.push(
-        `> :warning: Revisão vencida para: ${vencidos.join(', ')}. Verifique se já há correção upstream.`,
-      );
-    }
   }
 
-  const resumo = linhas.join('\n');
+  if (semCorrespondencia.length > 0) {
+    linhas.push('');
+    linhas.push(
+      `> :broom: Entradas de \`ACEITOS\` que não casam com nada na árvore (advisory resolvido?): ` +
+        `${semCorrespondencia.join(', ')}. Remova-as.`,
+    );
+  }
+
+  return linhas.join('\n');
+}
+
+function esperar(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Roda o audit e devolve um relatório VÁLIDO, com uma nova tentativa para a
+ * instabilidade passageira do registro. Falha (lança) se nenhuma serve.
+ */
+function obterRelatorio() {
+  let ultimoMotivo = '';
+  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
+    let motivo;
+    try {
+      const relatorio = JSON.parse(rodarAudit());
+      motivo = motivoDeRelatorioInvalido(relatorio);
+      if (!motivo) return relatorio;
+    } catch (erro) {
+      motivo = `não foi possível executar/ler o npm audit (${erro.message})`;
+    }
+    ultimoMotivo = motivo;
+    if (tentativa < TENTATIVAS) {
+      console.error(`Audit sem relatório válido (${motivo}); nova tentativa em ${ESPERA_ENTRE_TENTATIVAS_MS / 1000}s.`);
+      esperar(ESPERA_ENTRE_TENTATIVAS_MS);
+    }
+  }
+  throw new Error(ultimoMotivo);
+}
+
+function main() {
+  let relatorio;
+  try {
+    relatorio = obterRelatorio();
+  } catch (erro) {
+    // Sem relatório não há veredito: "não consegui consultar" não é "limpo".
+    console.error(`FALHA: o audit não pôde ser concluído — ${erro.message}.`);
+    console.error('O check fica vermelho de propósito; rode de novo quando o registro do npm responder.');
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      fs.appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `### :x: Audit não concluído\n\n${erro.message}. Nenhum veredito foi emitido.\n`,
+      );
+    }
+    process.exit(2);
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const resultado = analisar(relatorio, ACEITOS, hoje);
+  const resumo = montarResumo(resultado, ACEITOS);
+
   console.log(resumo.replace(/^### /gm, '').replace(/:[a-z_]+:/g, '').trim());
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${resumo}\n`);
   }
 
-  process.exit(bloqueantes.length > 0 ? 1 : 0);
+  process.exit(resultado.bloqueantes.length > 0 || resultado.vencidos.length > 0 ? 1 : 0);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { ACEITOS, analisar, montarResumo, motivoDeRelatorioInvalido };

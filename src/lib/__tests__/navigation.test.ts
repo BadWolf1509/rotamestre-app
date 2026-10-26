@@ -152,6 +152,22 @@ describe('navigation lib', () => {
 
       expect(Linking.openURL).toHaveBeenCalled();
     });
+
+    it('o link web do Google Maps já inicia a navegação (dir_action=navigate)', async () => {
+      // Android 11+ sem <queries> e iOS sem LSApplicationQueriesSchemes:
+      // canOpenURL responde false com o Maps instalado, e o caminho real é
+      // este fallback — sem dir_action ele só mostra a prévia da rota.
+      (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(false);
+
+      await abrirNavegacaoDireta(mockCoords, 'google');
+
+      const url = (Linking.openURL as jest.Mock).mock.calls[0][0] as string;
+      expect(url).toMatch(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1/);
+      expect(url).toContain('dir_action=navigate');
+      expect(url).toContain(
+        `destination=${mockCoords.latitude},${mockCoords.longitude}`,
+      );
+    });
   });
 
   describe('verificarAppInstalado', () => {

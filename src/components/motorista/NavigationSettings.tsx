@@ -19,6 +19,7 @@ import { useAlert } from '@/hooks/useAlert';
 import LocationTrackingService, {
   type ModoNavegar,
 } from '@/services/locationTracking';
+import { coresDoSwitch } from '@/utils/coresDoSwitch';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type NavAppPreference = 'waze' | 'google_maps' | 'apple_maps' | 'default';
@@ -297,11 +298,7 @@ export function NavigationSettings({
           <Switch
             value={settings.soundAlerts}
             onValueChange={(value) => handleSettingChange('soundAlerts', value)}
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
+            {...coresDoSwitch(theme, settings.soundAlerts)}
           />
         </View>
 
@@ -317,11 +314,7 @@ export function NavigationSettings({
             onValueChange={(value) =>
               handleSettingChange('vibrationAlerts', value)
             }
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
+            {...coresDoSwitch(theme, settings.vibrationAlerts)}
           />
         </View>
       </View>
@@ -347,11 +340,7 @@ export function NavigationSettings({
             onValueChange={(value) =>
               handleSettingChange('showSpeedometer', value)
             }
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
+            {...coresDoSwitch(theme, settings.showSpeedometer)}
             disabled={isWeb}
           />
         </View>
@@ -373,11 +362,7 @@ export function NavigationSettings({
             onValueChange={(value) =>
               handleSettingChange('preventScreenSleep', value)
             }
-            trackColor={{
-              false: theme.colors.gray300,
-              true: theme.colors.primary,
-            }}
-            thumbColor={theme.colors.white}
+            {...coresDoSwitch(theme, settings.preventScreenSleep)}
             disabled={isWeb}
           />
         </View>

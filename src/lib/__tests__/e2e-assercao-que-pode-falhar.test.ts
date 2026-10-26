@@ -55,6 +55,17 @@ const SINTOMAS: { padrao: RegExp; explicacao: string }[] = [
       'valor computado e descartado (`const _algo = ...`, com o `_` calando o linter). ' +
       'Se valeu computar, vale afirmar: troque por `await expect(...)`.',
   },
+  {
+    // `const hasX = a?.includes('..') || b?.includes('..') || length > 200;
+    // expect(hasX).toBeTruthy()`: o OR de textos comuns (o menu lateral já os
+    // traz) passa com o componente quebrado. Variável booleana afirmada com
+    // `toBeTruthy` num teste e2e é sempre este padrão; afirme o elemento.
+    padrao: /\bexpect\(\s*[A-Za-z_]\w*\s*\)\s*\.\s*toBeTruthy\(\)/,
+    explicacao:
+      'booleano montado com `||` de `includes` e afirmado com `toBeTruthy()` — ' +
+      'passa com qualquer página que traga as palavras no menu. ' +
+      'Afirme o elemento que a tela deve mostrar.',
+  },
 ];
 
 const CONVERTIDOS = [

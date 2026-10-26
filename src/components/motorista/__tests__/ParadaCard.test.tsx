@@ -527,6 +527,11 @@ describe('ParadaCard', () => {
 
       const accessibleView = findAccessibleView(UNSAFE_root);
       expect(accessibleView).toBeTruthy();
+      // Concluir está nas leftActions (aparecem deslizando para a DIREITA),
+      // como ensina o SwipeOnboarding; Pular, nas rightActions.
+      expect(accessibleView.props.accessibilityHint).toBe(
+        'Deslize para a direita para concluir ou para a esquerda para pular',
+      );
     });
   });
 

@@ -37,7 +37,7 @@
   "ignoreDependencies": [
     "@cspell/dict-pt-br", // cspell.json
     "lint-staged", // .lintstagedrc.json + .husky/pre-commit
-    "supabase", // CLI: .github/workflows/expire-routes.yml
+    "supabase", // CLI local: npx supabase db query (o expire-routes.yml usa curl + jq, não o CLI)
 
     // Heurística do plugin do Expo, a partir do app.config.js — NÃO é um
     // `import` de ninguém, e o pacote sequer está instalado. Os três
