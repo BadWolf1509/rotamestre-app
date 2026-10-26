@@ -275,6 +275,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                   <TouchableOpacity
                     style={styles.editActionButton}
                     onPress={() => onEdit(parada)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Editar parada"
                   >
                     <Ionicons
                       name="create-outline"
@@ -295,6 +297,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
                   <TouchableOpacity
                     style={[styles.editActionButton, styles.removeButton]}
                     onPress={() => onRemove(parada)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remover parada"
                   >
                     <Ionicons
                       name="trash-outline"

@@ -360,3 +360,76 @@ describe('useTimelineData — revalidação', () => {
     expect(cargasDaPagina1()).toBe(antes);
   });
 });
+
+// DAT-1: evento ao vivo recarregava a 1ª página, zerava as páginas de
+// "Carregar mais" e (com `loading`) trocava a lista por skeleton.
+describe('useTimelineData — recarga com "Carregar mais" aberto', () => {
+  const fullPage = Array.from({ length: 50 }, (_, i) => ({
+    id: `${i}`,
+    evento: 'x',
+    timestamp: `2023-01-02T${String(i % 24).padStart(2, '0')}:00:00Z`,
+  }));
+  const olderPage = [
+    { id: 'old', evento: 'x', timestamp: '2022-12-01T10:00:00Z' },
+  ];
+
+  it('mantém as páginas abertas, não liga loading e preserva hasMore', async () => {
+    const limites: number[] = [];
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === 'logs') {
+        const m = chain(fullPage);
+        m.limit = jest.fn((n: number) => {
+          limites.push(n);
+          return Promise.resolve({
+            data: n > 50 ? [...fullPage, ...olderPage] : fullPage,
+            error: null,
+          });
+        });
+        m.range = jest.fn(() =>
+          Promise.resolve({ data: olderPage, error: null }),
+        );
+        return m;
+      }
+      if (table === 'paradas') {
+        const m = chain([]);
+        m.not = jest.fn(() => Promise.resolve({ data: [], error: null }));
+        return m;
+      }
+      if (table === 'incidentes') {
+        const m = chain([]);
+        m.eq = jest.fn(() => Promise.resolve({ data: [], error: null }));
+        return m;
+      }
+      return chain([]);
+    });
+    const handlers: Record<string, () => void> = {};
+    (supabase.on as jest.Mock).mockImplementation(
+      (_evt: string, cfg: any, cb: () => void) => {
+        if (cfg.table === 'paradas') handlers.parada = cb;
+        return supabase;
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: true }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.events.some((e) => e.id === 'log-old')).toBe(true);
+    expect(result.current.hasMore).toBe(false);
+
+    const loadings: boolean[] = [];
+    await act(async () => {
+      handlers.parada();
+      loadings.push(result.current.loading);
+    });
+    await waitFor(() => expect(limites).toContain(100));
+
+    expect(loadings).not.toContain(true);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.events.some((e) => e.id === 'log-old')).toBe(true);
+    expect(result.current.hasMore).toBe(false);
+  });
+});

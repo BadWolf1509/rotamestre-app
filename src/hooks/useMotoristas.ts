@@ -33,9 +33,17 @@ export function useMotoristas(): UseMotoristaResult {
   const [loading, setLoading] = useState(true);
   const [fromCache, setFromCache] = useState(false);
 
-  const fetchingRef = useRef(false);
+  // Contador de requisição: toda carga roda e só a MAIS RECENTE escreve no
+  // estado (mesma regra do `useCachedData`). Antes, um `fetchingRef`
+  // descartava a carga da loja nova enquanto a da anterior estava em voo, e a
+  // resposta atrasada da anterior ainda sobrescrevia a lista.
+  const requisicaoRef = useRef(0);
+  // Loja da última carga iniciada: se mudou, a lista na tela é da OUTRA loja.
+  const lojaDaCargaRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
-  const loadMotoristasRef = useRef<(forceRefresh?: boolean) => Promise<void>>(async () => {});
+  const loadMotoristasRef = useRef<(forceRefresh?: boolean) => Promise<void>>(
+    async () => {},
+  );
 
   const fetchMotoristas = useCallback(async (): Promise<Motorista[]> => {
     if (!unidadeAtiva) return [];
@@ -43,10 +51,12 @@ export function useMotoristas(): UseMotoristaResult {
     // Buscar motoristas vinculados à unidade via usuario_unidades
     const { data: vinculacoes, error: vinculacoesError } = await supabase
       .from('usuario_unidades')
-      .select(`
+      .select(
+        `
         usuario_id,
         usuarios!inner(id, nome, email, telefone, ativo)
-      `)
+      `,
+      )
       .eq('unidade_id', unidadeAtiva)
       .eq('papel', 'motorista')
       .eq('ativo', true);
@@ -66,50 +76,68 @@ export function useMotoristas(): UseMotoristaResult {
     return motoristasData.sort((a, b) => a.nome.localeCompare(b.nome));
   }, [unidadeAtiva]);
 
-  const loadMotoristas = useCallback(async (forceRefresh = false) => {
-    if (!unidadeAtiva) {
-      setMotoristas([]);
-      setLoading(false);
-      return;
-    }
+  const loadMotoristas = useCallback(
+    async (forceRefresh = false) => {
+      const minha = ++requisicaoRef.current;
+      const vigente = () =>
+        mountedRef.current && minha === requisicaoRef.current;
 
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
+      if (!unidadeAtiva) {
+        lojaDaCargaRef.current = null;
+        setMotoristas([]);
+        setLoading(false);
+        return;
+      }
 
-    const cacheKey = CACHE_KEYS.MOTORISTAS(unidadeAtiva);
+      // Loja trocada: os motoristas da anterior saem da tela e o carregamento
+      // volta (ou o cache da loja nova, logo abaixo).
+      if (lojaDaCargaRef.current !== unidadeAtiva) {
+        if (lojaDaCargaRef.current !== null) {
+          setMotoristas([]);
+          setFromCache(false);
+          setLoading(true);
+        }
+        lojaDaCargaRef.current = unidadeAtiva;
+      }
 
-    try {
-      // 1. Verificar cache primeiro
-      if (!forceRefresh) {
-        const cached = await getCache<Motorista[]>(cacheKey);
-        if (cached !== null && mountedRef.current) {
-          setMotoristas(cached);
-          setFromCache(true);
+      const cacheKey = CACHE_KEYS.MOTORISTAS(unidadeAtiva);
+
+      try {
+        // 1. Verificar cache primeiro
+        if (!forceRefresh) {
+          const cached = await getCache<Motorista[]>(cacheKey);
+          if (cached !== null && vigente()) {
+            setMotoristas(cached);
+            setFromCache(true);
+            setLoading(false);
+            // Continua para revalidar em background (SWR)
+          }
+        }
+
+        // 2. Buscar dados frescos
+        const freshData = await fetchMotoristas();
+
+        if (mountedRef.current) {
+          // O cache é por loja: a resposta atrasada ainda é válida para a chave
+          // dela, só não pode entrar na tela da loja atual.
+          await setCache(cacheKey, freshData, CACHE_TTL.MOTORISTAS);
+        }
+        if (vigente()) {
+          setMotoristas(freshData);
+          setFromCache(false);
+        }
+      } catch (error) {
+        // A lista fica como está: vazia (loja trocada) ou o cache já mostrado.
+        logger.error('[useMotoristas] Erro ao carregar:', error);
+      } finally {
+        // Só a carga mais recente encerra o carregamento.
+        if (vigente()) {
           setLoading(false);
-          // Continua para revalidar em background (SWR)
         }
       }
-
-      // 2. Buscar dados frescos
-      const freshData = await fetchMotoristas();
-
-      if (mountedRef.current) {
-        setMotoristas(freshData);
-        setFromCache(false);
-        await setCache(cacheKey, freshData, CACHE_TTL.MOTORISTAS);
-      }
-    } catch (error) {
-      logger.error('[useMotoristas] Erro ao carregar:', error);
-      if (mountedRef.current && motoristas.length === 0) {
-        setMotoristas([]);
-      }
-    } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
-      fetchingRef.current = false;
-    }
-  }, [unidadeAtiva, fetchMotoristas, motoristas.length]);
+    },
+    [unidadeAtiva, fetchMotoristas],
+  );
 
   // Sync ref with latest loadMotoristas function
   useEffect(() => {
@@ -132,9 +160,12 @@ export function useMotoristas(): UseMotoristaResult {
   }, [loadMotoristas]);
 
   // Helper para buscar motorista por ID
-  const getMotoristaById = useCallback((id: string): Motorista | undefined => {
-    return motoristas.find(m => m.id === id);
-  }, [motoristas]);
+  const getMotoristaById = useCallback(
+    (id: string): Motorista | undefined => {
+      return motoristas.find((m) => m.id === id);
+    },
+    [motoristas],
+  );
 
   return {
     motoristas,

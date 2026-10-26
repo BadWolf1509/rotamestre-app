@@ -30,4 +30,13 @@ describe('delete-account/index.ts', () => {
       /jsonResponse\(\s*\{\s*error:\s*recusa\.mensagem,\s*code:\s*recusa\.codigo\s*\},\s*recusa\.status,?\s*\)/,
     );
   });
+
+  it('só remove o avatar da própria conta, pelo módulo avatarDaConta', () => {
+    expect(fonte).toMatch(/from '\.\/avatarDaConta\.ts'/);
+    expect(fonte).toMatch(
+      /caminhoDoAvatarDaConta\(\s*profile\?\.foto_url,\s*user\.id\s*\)/,
+    );
+    expect(fonte).not.toContain('getAvatarPath');
+    expect(fonte).not.toContain("'/fotos-entrega/'");
+  });
 });

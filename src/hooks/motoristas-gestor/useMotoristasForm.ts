@@ -1,155 +1,91 @@
 /**
- * Form State Hook for Motoristas Management
+ * Formulários de motorista do gestor (criar e editar).
  *
- * Handles form state, validation, and form-related callbacks.
+ * Encapsula o `useForm` + `zodResolver` para que a lista de Motoristas e o
+ * perfil do motorista usem o MESMO schema e os mesmos valores iniciais:
+ * criar com `motoristaSchema`, editar com `motoristaEdicaoSchema`. A tela só
+ * liga os campos por `Controller` e mostra `formState.errors` inline.
+ *
+ * `raw: true` no resolver: o schema VALIDA, mas o submit recebe o valor como
+ * digitado — o telefone continua mascarado "(11) 99999-8888", o formato que
+ * a tela sempre gravou (o schema o reduziria a dígitos e mudaria o que vai
+ * para o banco). Trim de nome/e-mail fica com quem grava.
  */
 
-import { useState, useCallback } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useCallback } from 'react';
+import { useForm, type UseFormReturn } from 'react-hook-form';
+import { type z } from 'zod';
 
-import { maskPhone, validatePhone, getPhoneErrorMessage } from '@/lib/phone';
+import {
+  motoristaEdicaoSchema,
+  motoristaSchema,
+} from '@/lib/schemas/motorista';
 
-export interface MotoristasFormState {
+type ValoresCriarMotorista = z.input<typeof motoristaSchema>;
+type ValoresEditarMotorista = z.input<typeof motoristaEdicaoSchema>;
+
+const VAZIO_CRIAR: ValoresCriarMotorista = {
+  nome: '',
+  email: '',
+  telefone: '',
+  senha: '',
+};
+
+const VAZIO_EDITAR: ValoresEditarMotorista = { nome: '', telefone: '' };
+
+/** Formulário de criação (lista de Motoristas). */
+export function useFormCriarMotorista(): UseFormReturn<ValoresCriarMotorista> {
+  return useForm<ValoresCriarMotorista>({
+    resolver: zodResolver(motoristaSchema, undefined, { raw: true }),
+    defaultValues: VAZIO_CRIAR,
+    mode: 'onTouched',
+  });
+}
+
+/** Formulário de edição (lista de Motoristas e perfil do motorista). */
+export function useFormEditarMotorista(): UseFormReturn<ValoresEditarMotorista> {
+  return useForm<ValoresEditarMotorista>({
+    resolver: zodResolver(motoristaEdicaoSchema, undefined, { raw: true }),
+    defaultValues: VAZIO_EDITAR,
+    mode: 'onTouched',
+  });
+}
+
+/** Valores de edição a partir do motorista salvo (telefone pode vir null). */
+export function valoresEdicaoDe(motorista: {
   nome: string;
-  email: string;
-  telefone: string;
-  senha: string;
-  emailError: string;
-  telefoneError: string;
+  telefone?: string | null;
+}): ValoresEditarMotorista {
+  return { nome: motorista.nome, telefone: motorista.telefone ?? '' };
 }
 
 export interface UseMotoristasFormReturn {
-  // Form state
-  formNome: string;
-  formEmail: string;
-  formTelefone: string;
-  formSenha: string;
-  emailError: string;
-  telefoneError: string;
-
-  // Form setters
-  setFormNome: (value: string) => void;
-  setFormEmail: (value: string) => void;
-  setFormTelefone: (value: string) => void;
-  setFormSenha: (value: string) => void;
-
-  // Form actions
+  formCriar: UseFormReturn<ValoresCriarMotorista>;
+  formEditar: UseFormReturn<ValoresEditarMotorista>;
+  /** Limpa os dois formulários (valores e erros). */
   resetFormulario: () => void;
-  validateEmail: (email: string) => boolean;
-  handleTelefoneChange: (text: string) => void;
-  validateForm: (requirePassword?: boolean) => { valid: boolean; message?: string };
-
-  // Prefill form for editing
-  prefillForm: (data: { nome: string; email: string; telefone?: string }) => void;
+  /** Preenche a edição com o motorista escolhido. */
+  prefillForm: (motorista: { nome: string; telefone?: string | null }) => void;
 }
 
 export function useMotoristasForm(): UseMotoristasFormReturn {
-  // Form state
-  const [formNome, setFormNome] = useState('');
-  const [formEmail, setFormEmail] = useState('');
-  const [formTelefone, setFormTelefone] = useState('');
-  const [formSenha, setFormSenha] = useState('');
+  const formCriar = useFormCriarMotorista();
+  const formEditar = useFormEditarMotorista();
+  const { reset: resetCriar } = formCriar;
+  const { reset: resetEditar } = formEditar;
 
-  // Validation state
-  const [emailError, setEmailError] = useState('');
-  const [telefoneError, setTelefoneError] = useState('');
-
-  // Reset form to initial state
   const resetFormulario = useCallback(() => {
-    setFormNome('');
-    setFormEmail('');
-    setFormTelefone('');
-    setFormSenha('');
-    setEmailError('');
-    setTelefoneError('');
-  }, []);
+    resetCriar(VAZIO_CRIAR);
+    resetEditar(VAZIO_EDITAR);
+  }, [resetCriar, resetEditar]);
 
-  // Validate email field
-  const validateEmail = useCallback((email: string): boolean => {
-    setEmailError('');
-    if (!email.trim()) return true;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setEmailError('Digite um email válido');
-      return false;
-    }
-    return true;
-  }, []);
-
-  // Handle phone input with mask
-  const handleTelefoneChange = useCallback((text: string) => {
-    const formatted = maskPhone(text);
-    setFormTelefone(formatted);
-
-    if (text.length > 0) {
-      const error = getPhoneErrorMessage(formatted);
-      setTelefoneError(error || '');
-    } else {
-      setTelefoneError('');
-    }
-  }, []);
-
-  // Validate entire form
-  const validateForm = useCallback(
-    (requirePassword = true): { valid: boolean; message?: string } => {
-      // Validate required fields
-      if (!formNome.trim() || !formEmail.trim()) {
-        return { valid: false, message: 'Preencha todos os campos obrigatórios' };
-      }
-
-      if (requirePassword && !formSenha.trim()) {
-        return { valid: false, message: 'Preencha todos os campos obrigatórios' };
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formEmail.trim())) {
-        return { valid: false, message: 'Digite um email válido' };
-      }
-
-      // Validate phone if filled
-      if (formTelefone && !validatePhone(formTelefone)) {
-        return { valid: false, message: 'Telefone inválido' };
-      }
-
-      return { valid: true };
-    },
-    [formNome, formEmail, formTelefone, formSenha]
-  );
-
-  // Prefill form for editing
   const prefillForm = useCallback(
-    (data: { nome: string; email: string; telefone?: string }) => {
-      setFormNome(data.nome);
-      setFormEmail(data.email);
-      setFormTelefone(data.telefone || '');
-      setFormSenha('');
-      setEmailError('');
-      setTelefoneError('');
+    (motorista: { nome: string; telefone?: string | null }) => {
+      resetEditar(valoresEdicaoDe(motorista));
     },
-    []
+    [resetEditar],
   );
 
-  return {
-    // Form state
-    formNome,
-    formEmail,
-    formTelefone,
-    formSenha,
-    emailError,
-    telefoneError,
-
-    // Form setters
-    setFormNome,
-    setFormEmail,
-    setFormTelefone,
-    setFormSenha,
-
-    // Form actions
-    resetFormulario,
-    validateEmail,
-    handleTelefoneChange,
-    validateForm,
-    prefillForm,
-  };
+  return { formCriar, formEditar, resetFormulario, prefillForm };
 }

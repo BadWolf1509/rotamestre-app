@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { supabase } from '@/lib/supabase';
@@ -175,6 +175,18 @@ jest.mock('@expo/vector-icons', () => ({
   Ionicons: 'Ionicons',
 }));
 
+// Permite um teste forçar o resultado do hook (loading true COM eventos);
+// sem sobrescrita, usa o hook de verdade.
+let mockSobrescritaTimeline: unknown = null;
+jest.mock('@/hooks/gestao-rotas/useTimelineData', () => {
+  const actual = jest.requireActual('@/hooks/gestao-rotas/useTimelineData');
+  return {
+    ...actual,
+    useTimelineData: (...args: unknown[]) =>
+      mockSobrescritaTimeline ?? actual.useTimelineData(...args),
+  };
+});
+
 describe('RouteTimeline', () => {
   const mockLogs = [
     {
@@ -315,5 +327,67 @@ describe('RouteTimeline', () => {
     await waitFor(() => {
       expect(supabase.channel).not.toHaveBeenCalled();
     });
+  });
+
+  // DAT-1: evento ao vivo recarrega a timeline; com eventos na tela, a lista
+  // fica (antes virava skeleton enquanto a recarga estava em voo).
+  it('recarga em voo com eventos na tela não troca a lista por skeleton', async () => {
+    const { getByText, queryByText } = render(
+      <RouteTimeline rotaId="123" realtime={true} />,
+    );
+    await waitFor(() => expect(getByText('Rota Iniciada')).toBeTruthy(), {
+      timeout: 5000,
+    });
+
+    const chamada = (supabase.on as jest.Mock).mock.calls.find(
+      ([, cfg]) => cfg.table === 'paradas',
+    );
+    const aoMudarParada = chamada?.[2] as () => void;
+
+    // A próxima carga fica pendurada: simula a recarga em voo.
+    (supabase.from as jest.Mock).mockImplementation(() => {
+      const m: Record<string, jest.Mock> = {};
+      m.select = jest.fn(() => m);
+      m.eq = jest.fn(() => m);
+      m.order = jest.fn(() => m);
+      m.not = jest.fn(() => new Promise(() => {}));
+      m.limit = jest.fn(() => new Promise(() => {}));
+      return m;
+    });
+
+    await act(async () => {
+      aoMudarParada();
+    });
+
+    expect(queryByText('Rota Iniciada')).toBeTruthy();
+    expect(queryByText('Parada #1 Concluída')).toBeTruthy();
+  });
+
+  it('loading true com eventos presentes renderiza os eventos, não o skeleton', () => {
+    mockSobrescritaTimeline = {
+      events: [
+        {
+          id: 'e1',
+          type: 'status_change',
+          timestamp: '2023-01-01T10:00:00Z',
+          title: 'Rota Iniciada',
+          description: 'Início',
+          icon: 'flag',
+          colorKey: 'success',
+        },
+      ],
+      loading: true,
+      isStale: false,
+      hasMore: false,
+      loadingMore: false,
+      loadMore: jest.fn(),
+      refresh: jest.fn(),
+    };
+    try {
+      const { getByText } = render(<RouteTimeline rotaId="123" />);
+      expect(getByText('Rota Iniciada')).toBeTruthy();
+    } finally {
+      mockSobrescritaTimeline = null;
+    }
   });
 });

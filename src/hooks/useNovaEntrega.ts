@@ -16,8 +16,8 @@ import type {
   RouteDraftValidation,
 } from '@/components/gestor/nova-entrega/types';
 import type {
-  BulkImportResult,
-  BulkParadaInput,
+  ImportParadasFn,
+  LocalizarLoteFn,
 } from '@/hooks/nova-entrega/useParadasManagement';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
@@ -109,7 +109,8 @@ export interface UseNovaEntregaReturn {
     vinculoId?: string,
     allowDuplicate?: boolean,
   ) => Promise<boolean>;
-  importParadas: (items: BulkParadaInput[]) => Promise<BulkImportResult>;
+  localizarLote: LocalizarLoteFn;
+  importParadas: ImportParadasFn;
   startEditParada: (index: number) => void;
   cancelEditParada: () => void;
   removeParada: (index: number) => void;
@@ -159,6 +160,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     motoristaSelecionado,
     setMotoristaSelecionado,
     isLoading: isLoadingMotoristas,
+    reload: recarregarMotoristas,
   } = useMotoristaSelection(handleError);
 
   const routeOptimization = useRouteOptimization({
@@ -197,6 +199,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     paradas,
     setParadas,
     rotaOtimizada,
+    enderecoUnidade,
     onOrdemManualChange: setOrdemManual,
     onRotaOtimizadaReset: () => setRotaOtimizada(null),
     onDistanciaManualRealReset: resetDistanciaReal,
@@ -313,6 +316,14 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     ],
   );
 
+  // O banco recusou o motorista escolhido: a seleção não vale mais e a lista
+  // na tela está velha. O recarregamento zera a seleção; limpar aqui cobre o
+  // intervalo até a lista nova chegar.
+  const aoMotoristaIndisponivel = useCallback(() => {
+    setMotoristaSelecionado('');
+    void recarregarMotoristas();
+  }, [recarregarMotoristas, setMotoristaSelecionado]);
+
   const { gerarRota } = useRouteCreation({
     paradas,
     enderecoUnidade,
@@ -327,6 +338,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     setIsLoading: setRouteLoading,
     showToast,
     onSuccess: clearAfterSuccess,
+    onMotoristaIndisponivel: aoMotoristaIndisponivel,
   });
 
   const onAddParada = useCallback(
@@ -470,6 +482,7 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     setMotoristaSelecionado,
     setVinculoSelecionado,
     onAddParada,
+    localizarLote: paradasManagement.localizarLote,
     importParadas: paradasManagement.importParadas,
     startEditParada,
     cancelEditParada,

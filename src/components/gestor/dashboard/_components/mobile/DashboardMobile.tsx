@@ -39,7 +39,8 @@ interface DashboardMobileProps extends DashboardData {
 // HELPERS
 // ============================================================================
 
-function formatTempo(minutos: number): string {
+function formatTempo(minutos: number | null): string {
+  if (minutos === null) return '—';
   if (!minutos || minutos <= 0 || isNaN(minutos)) return '--';
   return `${Math.floor(minutos / 60)}h ${minutos % 60}m`;
 }
@@ -80,7 +81,7 @@ export function DashboardMobile({
   const kpiConfig = useMemo(
     () => [
       {
-        value: String(kpis.rotasMes),
+        value: kpis.rotasMes === null ? '—' : String(kpis.rotasMes),
         label: 'Rotas no Mês',
         icon: 'calendar-outline' as keyof typeof Ionicons.glyphMap,
         color: theme.colors.primary,
@@ -98,7 +99,7 @@ export function DashboardMobile({
         color: theme.colors.kpiDistancia,
       },
       {
-        value: String(kpis.rotasSemana ?? 0),
+        value: kpis.rotasSemana === null ? '—' : String(kpis.rotasSemana),
         label: 'Esta Semana',
         icon: 'trending-up-outline' as keyof typeof Ionicons.glyphMap,
         color: theme.colors.secondary,

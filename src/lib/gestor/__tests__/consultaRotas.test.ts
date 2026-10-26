@@ -18,6 +18,8 @@ import {
   escaparIlike,
   filtroDepoisDoCursor,
   interpretarBusca,
+  nomeMotoristaDaRota,
+  ROTULO_MOTORISTA_OCULTO,
   TAMANHO_PAGINA_ROTAS,
   TETO_EXPORTACAO_ROTAS,
   type FiltrosRotas,
@@ -135,6 +137,29 @@ describe('filtroDepoisDoCursor', () => {
 });
 
 describe('buscarRotas', () => {
+  it('motorista que a RLS esconde: mantém o motorista_id e usa o rótulo, não "sem motorista"', async () => {
+    montar(
+      rotas(2, (i) =>
+        i === 0
+          ? { motorista_id: 'm9', usuarios: null }
+          : { motorista_id: null, usuarios: null },
+      ),
+    );
+
+    const { rotas: pagina } = await buscarRotas({
+      filtros: filtros(),
+      quantidade: 10,
+    });
+    const oculta = pagina.find((r) => r.id === 'r00000');
+    const sem = pagina.find((r) => r.id === 'r00001');
+
+    expect(oculta?.motorista_id).toBe('m9');
+    expect(oculta?.motorista_nome).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(ROTULO_MOTORISTA_OCULTO).toBe('Motorista removido da loja');
+    expect(sem?.motorista_id).toBeUndefined();
+    expect(sem?.motorista_nome).toBeUndefined();
+  });
+
   it('primeira página: 100 rotas mais recentes e o total da loja', async () => {
     montar(rotas(437));
 
@@ -373,5 +398,22 @@ describe('contarRotasPorStatus', () => {
       { concluidas: 0, pendentes: 20 },
     );
     expect(falso.requisicoes).toHaveLength(1);
+  });
+});
+
+describe('nomeMotoristaDaRota', () => {
+  it('mostra o nome quando o embed trouxe o motorista', () => {
+    expect(nomeMotoristaDaRota('Ana', 'm1')).toBe('Ana');
+  });
+
+  it('rota com motorista_id e embed escondido pela RLS não vira "Sem motorista"', () => {
+    expect(nomeMotoristaDaRota(undefined, 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(nomeMotoristaDaRota(null, 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+    expect(nomeMotoristaDaRota('', 'm1')).toBe(ROTULO_MOTORISTA_OCULTO);
+  });
+
+  it('só é "Sem motorista" quando a rota não tem motorista_id', () => {
+    expect(nomeMotoristaDaRota(undefined, null)).toBe('Sem motorista');
+    expect(nomeMotoristaDaRota(null, undefined)).toBe('Sem motorista');
   });
 });

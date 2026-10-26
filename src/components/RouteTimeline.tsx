@@ -401,7 +401,8 @@ export function RouteTimeline({
   );
 
   // Render
-  if (loading) return <TimelineSkeleton showFilters={showFilters} />;
+  if (loading && events.length === 0)
+    return <TimelineSkeleton showFilters={showFilters} />;
 
   if (events.length === 0) {
     return (

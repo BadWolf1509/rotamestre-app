@@ -30,6 +30,8 @@ Every new migration should be reviewed against these items before being saved:
 ### 2. Security definer functions
 
 - Any `CREATE OR REPLACE FUNCTION` with `SECURITY DEFINER` **must** set `SET search_path = public` to avoid `function_search_path_mutable` warnings (see `20251022000000_fix_security_warnings.sql`).
+- Desde a Migration 69 (`20261025164000`), função nova criada pelo `postgres` nasce sem EXECUTE para PUBLIC/anon e, em public, com EXECUTE para `authenticated`/`service_role`. O `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon;` explícito continua obrigatório: `CREATE OR REPLACE` de função existente preserva a ACL antiga, e o privilégio-padrão não vale para quem cria a função como outro papel.
+- Função usada como hook do Auth precisa de `GRANT EXECUTE ON FUNCTION ... TO supabase_auth_admin;` explícito (sem PUBLIC no padrão, o Auth não a executa). Função criada fora de public/storage/extensions precisa de `GRANT EXECUTE ... TO authenticated, service_role;` explícito: desde a Migration 69 só esses três schemas têm padrão do `postgres` que concede EXECUTE a esses papéis.
 - Views should **not** use `SECURITY DEFINER` — rely on the RLS of base tables (see Migration 3 in `MIGRATIONS.md`).
 
 ### 3. Foreign key indexes

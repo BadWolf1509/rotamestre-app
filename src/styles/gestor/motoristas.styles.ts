@@ -249,11 +249,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray100,
     color: theme.colors.gray500,
   },
-  errorText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.error,
-    marginTop: theme.spacing.xs,
-  },
   hintText: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,

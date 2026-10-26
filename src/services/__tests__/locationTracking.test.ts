@@ -49,8 +49,17 @@ jest.mock('expo-location', () => ({
   Accuracy: { BestForNavigation: 6, High: 4 },
 }));
 
+// A tarefa de segundo plano é registrada quando o módulo carrega: guarda o
+// callback aqui, antes de qualquer clearAllMocks apagar o histórico de chamadas.
+let mockNomeDaTarefa: string | undefined;
+let mockCallbackDaTarefa:
+  ((corpo: { data?: unknown; error?: unknown }) => Promise<void>) | undefined;
+
 jest.mock('expo-task-manager', () => ({
-  defineTask: jest.fn(),
+  defineTask: jest.fn((nome: string, callback: typeof mockCallbackDaTarefa) => {
+    mockNomeDaTarefa = nome;
+    mockCallbackDaTarefa = callback;
+  }),
   isTaskRegisteredAsync: jest.fn().mockResolvedValue(false),
   unregisterTaskAsync: jest.fn().mockResolvedValue(undefined),
 }));
@@ -1092,6 +1101,177 @@ describe('LocationTrackingService', () => {
       expect((locationTrackingService as any).lastNotificationTime).toBe(
         timeBefore,
       );
+    });
+  });
+  // =========================================================================
+  // Chegada anunciada UMA vez por parada (TST-8)
+  // =========================================================================
+
+  describe('aviso de chegada', () => {
+    const naParada = {
+      latitude: -23.55,
+      longitude: -46.63,
+      accuracy: 10,
+      timestamp: 1_700_000_000_000,
+    };
+    let enviar: jest.SpyInstance;
+
+    beforeEach(() => {
+      (locationTrackingService as any).navigationState = {
+        enabled: true,
+        soundAlerts: false,
+        vibrationAlerts: false,
+        proximityRadius: 50,
+        currentStopLocation: { latitude: -23.55, longitude: -46.63 },
+        currentStopId: 'stop-1',
+        rotaId: 'rota-1',
+      };
+      enviar = jest.spyOn(locationTrackingService as any, 'sendNotification');
+    });
+
+    afterEach(() => enviar.mockRestore());
+
+    it('a segunda leitura no mesmo lugar não repete o aviso', async () => {
+      await locationTrackingService.processLocationUpdate(naParada);
+      await locationTrackingService.processLocationUpdate(naParada);
+
+      expect(enviar).toHaveBeenCalledTimes(1);
+      expect(enviar.mock.calls[0][0]).toContain('chegou');
+    });
+
+    it('sai do raio e volta: avisa de novo', async () => {
+      await locationTrackingService.processLocationUpdate(naParada);
+      // ~1100 m adiante: sai do raio
+      await locationTrackingService.processLocationUpdate({
+        ...naParada,
+        latitude: -23.56,
+      });
+      enviar.mockClear();
+      await locationTrackingService.processLocationUpdate(naParada);
+
+      expect(enviar).toHaveBeenCalledTimes(1);
+      expect(enviar.mock.calls[0][0]).toContain('chegou');
+    });
+
+    it('precisão pior que 50 m não anuncia chegada (cai no aviso de proximidade)', async () => {
+      await locationTrackingService.processLocationUpdate({
+        ...naParada,
+        accuracy: 51,
+      });
+
+      expect(
+        enviar.mock.calls.some(([t]) => String(t).includes('chegou')),
+      ).toBe(false);
+      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
+    });
+
+    it('sem parada atual no estado, não anuncia', async () => {
+      (locationTrackingService as any).navigationState.currentStopId =
+        undefined;
+
+      await locationTrackingService.processLocationUpdate(naParada);
+
+      expect(enviar).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // Tarefa de segundo plano registrada no carregamento do módulo (TST-8)
+  // =========================================================================
+
+  describe('tarefa de segundo plano', () => {
+    let processar: jest.SpyInstance;
+
+    beforeEach(() => {
+      processar = jest
+        .spyOn(locationTrackingService, 'processLocationUpdate')
+        .mockResolvedValue(undefined);
+    });
+
+    afterEach(() => processar.mockRestore());
+
+    it('registra a tarefa com o nome do rastreamento em segundo plano', () => {
+      expect(mockNomeDaTarefa).toBe('background-location-tracking');
+      expect(mockCallbackDaTarefa).toEqual(expect.any(Function));
+    });
+
+    it('erro da tarefa vai para o logger e nada é processado', async () => {
+      const erro = new Error('gps caiu');
+      const erroSpy = jest.spyOn(logger, 'error').mockImplementation();
+
+      await mockCallbackDaTarefa!({ error: erro });
+
+      expect(erroSpy).toHaveBeenCalledWith(
+        '[LocationTracking] Background location error',
+        erro,
+      );
+      expect(processar).not.toHaveBeenCalled();
+      erroSpy.mockRestore();
+    });
+
+    it('converte a primeira leitura para o formato do serviço', async () => {
+      await mockCallbackDaTarefa!({
+        data: {
+          locations: [
+            {
+              timestamp: 123,
+              coords: {
+                latitude: -23.5,
+                longitude: -46.6,
+                accuracy: 12,
+                speed: 3,
+                heading: 90,
+              },
+            },
+            { timestamp: 999, coords: { latitude: 0, longitude: 0 } },
+          ],
+        },
+      });
+
+      expect(processar).toHaveBeenCalledTimes(1);
+      expect(processar).toHaveBeenCalledWith({
+        latitude: -23.5,
+        longitude: -46.6,
+        accuracy: 12,
+        timestamp: 123,
+        speed: 3,
+        heading: 90,
+      });
+    });
+
+    it('precisão e velocidade nulas: accuracy vira 0 e o resto, undefined', async () => {
+      await mockCallbackDaTarefa!({
+        data: {
+          locations: [
+            {
+              timestamp: 5,
+              coords: {
+                latitude: 1,
+                longitude: 2,
+                accuracy: null,
+                speed: null,
+                heading: null,
+              },
+            },
+          ],
+        },
+      });
+
+      expect(processar).toHaveBeenCalledWith({
+        latitude: 1,
+        longitude: 2,
+        accuracy: 0,
+        timestamp: 5,
+        speed: undefined,
+        heading: undefined,
+      });
+    });
+
+    it('sem leituras ou sem dados, não processa nada', async () => {
+      await mockCallbackDaTarefa!({ data: { locations: [] } });
+      await mockCallbackDaTarefa!({});
+
+      expect(processar).not.toHaveBeenCalled();
     });
   });
 });

@@ -173,6 +173,8 @@ export function useIncidentesGestor(
   const chaveFiltrosRef = useRef<string | null>(null);
   // Só a resposta da carga mais recente vale (filtro trocado no meio).
   const geracaoRef = useRef(0);
+  // Loja da última carga iniciada: se mudou, a lista na tela é da OUTRA loja.
+  const lojaDaCargaRef = useRef<string | null>(null);
   const incidentesRef = useRef<Incidente[]>([]);
   incidentesRef.current = incidentes;
   // Travas do "carregar mais" (as mesmas da Gestão de Rotas). Por ref, não
@@ -195,9 +197,21 @@ export function useIncidentesGestor(
 
   // Fetch incidentes from database
   const fetchIncidentes = useCallback(async () => {
-    if (unidadeLoading || !userData?.id || !filtros) {
+    if (unidadeLoading) return;
+    if (!filtros) {
+      // Sem loja: lista, total e contagens da anterior saem da tela, e a
+      // carga dela em voo é invalidada (a geração avança) — antes ficavam
+      // visíveis no "sem loja".
+      ++geracaoRef.current;
+      cargaEmVooRef.current = false;
+      lojaDaCargaRef.current = null;
+      setIncidentes([]);
+      setTotal(null);
+      setContagens(null);
+      setLoading(false);
       return;
     }
+    if (!userData?.id) return;
 
     const chave = JSON.stringify(filtros);
     if (chave !== chaveFiltrosRef.current) {
@@ -206,6 +220,18 @@ export function useIncidentesGestor(
     }
     const geracao = ++geracaoRef.current;
     cargaEmVooRef.current = true;
+
+    // Loja trocada: lista, total e contagens da anterior saem da tela antes
+    // da carga. Se ela falhar, a tela fica vazia + toast, nunca com os
+    // incidentes da OUTRA loja.
+    if (lojaDaCargaRef.current !== filtros.unidadeId) {
+      if (lojaDaCargaRef.current !== null) {
+        setIncidentes([]);
+        setTotal(null);
+        setContagens(null);
+      }
+      lojaDaCargaRef.current = filtros.unidadeId;
+    }
 
     try {
       setLoading(true);
@@ -249,12 +275,7 @@ export function useIncidentesGestor(
   const carregarMais = useCallback(async () => {
     // Com uma carga em voo o toque é ignorado: o cursor de agora ficaria
     // velho quando ela chegasse e substituísse a lista.
-    if (
-      !filtros ||
-      !temMais ||
-      maisEmVooRef.current ||
-      cargaEmVooRef.current
-    ) {
+    if (!filtros || !temMais || maisEmVooRef.current || cargaEmVooRef.current) {
       return;
     }
     maisEmVooRef.current = true;

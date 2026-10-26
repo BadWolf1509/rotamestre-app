@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Controller } from 'react-hook-form';
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 
+import { FieldError } from '@/components/auth/FieldError';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MotoristaAvatar } from '@/components/gestor/motoristas/MotoristaAvatar';
 import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
@@ -33,8 +35,13 @@ import {
 } from '@/hooks/useMotoristasGestor';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUser } from '@/hooks/useUser';
+import { maskPhone } from '@/lib/phone';
+import { PASSWORD_MIN_LENGTH } from '@/lib/schemas/basic';
 import { styles } from '@/styles/gestor/motoristas.styles';
 import { useUnistyles } from '@/utils/styles';
+
+/** A regra real do passwordSchema (a mesma do cadastro do gestor). */
+const PLACEHOLDER_SENHA = `Mín. ${PASSWORD_MIN_LENGTH} caracteres: maiúscula, minúscula, número e especial`;
 
 export default function MotoristasGestor() {
   const { theme } = useUnistyles();
@@ -60,17 +67,9 @@ export default function MotoristasGestor() {
     showConfirmModal,
     motoristaEditando,
     motoristaParaToggle,
-    // Form state
-    formNome,
-    formEmail,
-    formTelefone,
-    formSenha,
-    emailError,
-    telefoneError,
-    // Form setters
-    setFormNome,
-    setFormEmail,
-    setFormSenha,
+    // Formulários (useForm + Zod)
+    formCriar,
+    formEditar,
     // Modal controls
     setShowAddModal,
     setShowEditModal,
@@ -88,9 +87,6 @@ export default function MotoristasGestor() {
     resetFormulario,
     bloqueioDesativacao,
     fecharBloqueioDesativacao,
-    // Validation
-    validateEmail,
-    handleTelefoneChange,
     // Toast
     toastState,
     hideToast,
@@ -100,114 +96,174 @@ export default function MotoristasGestor() {
   // Modal Content Renderers (Desktop)
   // ============================================
 
+  // Telefone igual nos dois formulários (criar e editar): máscara no
+  // onChange, validação do schema. Função de render do Controller, não
+  // componente (identidade nova a cada render remontaria o campo).
+  const renderCampoTelefone = ({
+    field,
+    fieldState,
+  }: {
+    field: {
+      value?: string;
+      onChange: (valor: string) => void;
+      onBlur: () => void;
+    };
+    fieldState: { error?: { message?: string } };
+  }) => (
+    <View style={[styles.field, isDesktop && styles.fieldCompact]}>
+      <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+        Telefone (opcional)
+      </Text>
+      <TextInput
+        style={[
+          styles.input,
+          isDesktop && styles.inputCompact,
+          fieldState.error && styles.inputError,
+        ]}
+        value={field.value ?? ''}
+        onChangeText={(text) => field.onChange(maskPhone(text))}
+        onBlur={field.onBlur}
+        placeholder="(00) 00000-0000"
+        placeholderTextColor={theme.colors.gray400}
+        keyboardType="phone-pad"
+        maxLength={15}
+        accessibilityLabel="Campo de telefone do motorista"
+      />
+      <FieldError message={fieldState.error?.message} />
+    </View>
+  );
+
+  // Campos ligados por Controller; o erro do schema aparece no campo.
   const renderAddModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
-      <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
-          Nome Completo *
-        </Text>
-        <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact]}
-          value={formNome}
-          onChangeText={setFormNome}
-          placeholder="Digite o nome completo"
-          placeholderTextColor={theme.colors.gray400}
-          autoCapitalize="words"
-          accessibilityLabel="Campo de nome do motorista"
-        />
-      </View>
+      <Controller
+        control={formCriar.control}
+        name="nome"
+        render={({ field, fieldState }) => (
+          <View style={[styles.field, isDesktop && styles.fieldCompact]}>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Nome Completo *
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                isDesktop && styles.inputCompact,
+                fieldState.error && styles.inputError,
+              ]}
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              placeholder="Digite o nome completo"
+              placeholderTextColor={theme.colors.gray400}
+              autoCapitalize="words"
+              accessibilityLabel="Campo de nome do motorista"
+            />
+            <FieldError message={fieldState.error?.message} />
+          </View>
+        )}
+      />
 
-      <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
-          Email *
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            isDesktop && styles.inputCompact,
-            emailError && styles.inputError,
-          ]}
-          value={formEmail}
-          onChangeText={(text) => {
-            setFormEmail(text.toLowerCase());
-            validateEmail(text.toLowerCase());
-          }}
-          onBlur={() => validateEmail(formEmail)}
-          placeholder="email@exemplo.com"
-          placeholderTextColor={theme.colors.gray400}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          accessibilityLabel="Campo de email do motorista"
-        />
-        {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
-        <Text style={styles.hintText}>
-          Motorista que já usa o RotaMestre em outra loja? Fale com o suporte
-          para usar a mesma conta nas duas lojas.
-        </Text>
-      </View>
+      <Controller
+        control={formCriar.control}
+        name="email"
+        render={({ field, fieldState }) => (
+          <View style={[styles.field, isDesktop && styles.fieldCompact]}>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Email *
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                isDesktop && styles.inputCompact,
+                fieldState.error && styles.inputError,
+              ]}
+              value={field.value}
+              onChangeText={(text) => field.onChange(text.toLowerCase())}
+              onBlur={field.onBlur}
+              placeholder="email@exemplo.com"
+              placeholderTextColor={theme.colors.gray400}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              accessibilityLabel="Campo de email do motorista"
+            />
+            <FieldError message={fieldState.error?.message} />
+            <Text style={styles.hintText}>
+              Motorista que já usa o RotaMestre em outra loja? Fale com o
+              suporte para usar a mesma conta nas duas lojas.
+            </Text>
+          </View>
+        )}
+      />
 
-      <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
-          Telefone (opcional)
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            isDesktop && styles.inputCompact,
-            telefoneError && styles.inputError,
-          ]}
-          value={formTelefone}
-          onChangeText={handleTelefoneChange}
-          placeholder="(00) 00000-0000"
-          placeholderTextColor={theme.colors.gray400}
-          keyboardType="phone-pad"
-          maxLength={15}
-          accessibilityLabel="Campo de telefone do motorista"
-        />
-        {telefoneError ? (
-          <Text style={styles.errorText}>{telefoneError}</Text>
-        ) : null}
-      </View>
+      <Controller
+        control={formCriar.control}
+        name="telefone"
+        render={renderCampoTelefone}
+      />
 
-      <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
-          Senha Inicial *
-        </Text>
-        <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact]}
-          value={formSenha}
-          onChangeText={setFormSenha}
-          placeholder="Mínimo 6 caracteres"
-          placeholderTextColor={theme.colors.gray400}
-          secureTextEntry
-          autoCapitalize="none"
-          accessibilityLabel="Campo de senha do motorista"
-        />
-        <Text
-          style={[styles.helperText, isDesktop && styles.helperTextCompact]}
-        >
-          O motorista poderá alterar a senha no primeiro acesso
-        </Text>
-      </View>
+      <Controller
+        control={formCriar.control}
+        name="senha"
+        render={({ field, fieldState }) => (
+          <View style={[styles.field, isDesktop && styles.fieldCompact]}>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Senha Inicial *
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                isDesktop && styles.inputCompact,
+                fieldState.error && styles.inputError,
+              ]}
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              placeholder={PLACEHOLDER_SENHA}
+              placeholderTextColor={theme.colors.gray400}
+              secureTextEntry
+              autoCapitalize="none"
+              accessibilityLabel="Campo de senha do motorista"
+            />
+            <FieldError message={fieldState.error?.message} />
+            <Text
+              style={[styles.helperText, isDesktop && styles.helperTextCompact]}
+            >
+              O motorista poderá alterar a senha no primeiro acesso
+            </Text>
+          </View>
+        )}
+      />
     </ScrollView>
   );
 
   const renderEditModalContent = () => (
     <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'}>
-      <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
-          Nome Completo *
-        </Text>
-        <TextInput
-          style={[styles.input, isDesktop && styles.inputCompact]}
-          value={formNome}
-          onChangeText={setFormNome}
-          placeholder="Digite o nome completo"
-          placeholderTextColor={theme.colors.gray400}
-          autoCapitalize="words"
-          accessibilityLabel="Campo de nome do motorista"
-        />
-      </View>
+      <Controller
+        control={formEditar.control}
+        name="nome"
+        render={({ field, fieldState }) => (
+          <View style={[styles.field, isDesktop && styles.fieldCompact]}>
+            <Text style={[styles.label, isDesktop && styles.labelCompact]}>
+              Nome Completo *
+            </Text>
+            <TextInput
+              style={[
+                styles.input,
+                isDesktop && styles.inputCompact,
+                fieldState.error && styles.inputError,
+              ]}
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              placeholder="Digite o nome completo"
+              placeholderTextColor={theme.colors.gray400}
+              autoCapitalize="words"
+              accessibilityLabel="Campo de nome do motorista"
+            />
+            <FieldError message={fieldState.error?.message} />
+          </View>
+        )}
+      />
 
       <View style={[styles.field, isDesktop && styles.fieldCompact]}>
         <Text style={[styles.label, isDesktop && styles.labelCompact]}>
@@ -230,28 +286,11 @@ export default function MotoristasGestor() {
         </Text>
       </View>
 
-      <View style={[styles.field, isDesktop && styles.fieldCompact]}>
-        <Text style={[styles.label, isDesktop && styles.labelCompact]}>
-          Telefone (opcional)
-        </Text>
-        <TextInput
-          style={[
-            styles.input,
-            isDesktop && styles.inputCompact,
-            telefoneError && styles.inputError,
-          ]}
-          value={formTelefone}
-          onChangeText={handleTelefoneChange}
-          placeholder="(00) 00000-0000"
-          placeholderTextColor={theme.colors.gray400}
-          keyboardType="phone-pad"
-          maxLength={15}
-          accessibilityLabel="Campo de telefone do motorista"
-        />
-        {telefoneError ? (
-          <Text style={styles.errorText}>{telefoneError}</Text>
-        ) : null}
-      </View>
+      <Controller
+        control={formEditar.control}
+        name="telefone"
+        render={renderCampoTelefone}
+      />
     </ScrollView>
   );
 
@@ -350,7 +389,7 @@ export default function MotoristasGestor() {
   // ============================================
 
   const desktopStats = (
-    <View style={styles.headerStats}>
+    <View style={styles.headerStats} testID="motoristas-contadores">
       <View style={styles.headerStat}>
         <Text style={styles.headerStatValue}>{totalMotoristas}</Text>
         <Text style={styles.headerStatLabel}>Cadastrados</Text>
@@ -440,7 +479,7 @@ export default function MotoristasGestor() {
             noPadding={motoristas.length > 0}
           >
             {motoristas.length === 0 ? (
-              <View style={styles.emptyContainer}>
+              <View style={styles.emptyContainer} testID="motoristas-vazio">
                 <Ionicons
                   name="people-outline"
                   size={64}
@@ -454,16 +493,18 @@ export default function MotoristasGestor() {
                 </Text>
               </View>
             ) : (
-              <DataTable
-                data={motoristas}
-                columns={columns}
-                actions={actions}
-                keyExtractor={(item) => item.id}
-                itemsPerPage={20}
-                pagination
-                isLoading={loading}
-                skeletonRows={10}
-              />
+              <View testID="motoristas-tabela">
+                <DataTable
+                  data={motoristas}
+                  columns={columns}
+                  actions={actions}
+                  keyExtractor={(item) => item.id}
+                  itemsPerPage={20}
+                  pagination
+                  isLoading={loading}
+                  skeletonRows={10}
+                />
+              </View>
             )}
           </DesktopCard>
         </DesktopPageLayout>

@@ -43,21 +43,10 @@ config.resolver.assetExts.push(
   'xml'
 );
 
-// Fix for Supabase Realtime dynamic imports on web
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (
-    platform === 'web' &&
-    moduleName.includes('async-require')
-  ) {
-    // Return a mock module for async-require on web
-    return {
-      type: 'empty',
-    };
-  }
-
-  // Let Metro handle all other imports normally
-  return context.resolveRequest(context, moduleName, platform);
-};
+// Sem resolver próprio para `async-require`: é o módulo que faz o `import()`
+// dinâmico funcionar no web (exportação de PDF/XLSX). Trocá-lo por módulo vazio
+// mantém o build verde e quebra todo `import()` em produção — guarda em
+// src/lib/__tests__/metro-config-import-dinamico.test.ts.
 
 // Add web-specific optimizations for Edge DevTools
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];

@@ -26,23 +26,6 @@ test.describe('Gestor Team Management E2E Tests', () => {
       await gestorPage.gotoMotoristas();
       await gestorPage.expectOnMotoristas();
     });
-
-    test('should display motoristas management interface', async ({ page }) => {
-      await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
-
-      // Should have motorista-related content
-      const bodyText = await page.locator('body').textContent();
-      expect(bodyText).toBeTruthy();
-
-      const hasMotoristaContent =
-        bodyText?.includes('motorista') ||
-        bodyText?.includes('Motorista') ||
-        bodyText?.includes('equipe') ||
-        bodyText?.includes('Adicionar');
-
-      expect(hasMotoristaContent).toBeTruthy();
-    });
   });
 
   test.describe('Motoristas List Display', () => {
@@ -50,60 +33,27 @@ test.describe('Gestor Team Management E2E Tests', () => {
       page,
     }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Either has list of drivers or shows empty state
-      const hasDriverContent =
-        bodyText?.includes('Nome') ||
-        bodyText?.includes('Email') ||
-        bodyText?.includes('Nenhum') ||
-        bodyText?.includes('cadastrado') ||
-        bodyText?.includes('motorista');
-
-      expect(hasDriverContent).toBeTruthy();
+      // Locators da própria tela: antes o teste procurava "motorista"/"Nome" no
+      // texto do body, que o menu lateral já contém mesmo com a lista quebrada.
+      const lista = page.getByTestId('motoristas-tabela');
+      const vazio = page.getByTestId('motoristas-vazio');
+      await expect(lista.or(vazio)).toBeVisible({ timeout: 15000 });
     });
 
     test('should show driver statistics if drivers exist', async ({ page }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(3000);
 
-      // Look for statistics or count
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show count or statistics
-      const hasStats =
-        bodyText?.includes('cadastrados') ||
-        bodyText?.includes('ativos') ||
-        bodyText?.includes('Rotas') ||
-        /\d+/.test(bodyText || '');
-
-      expect(hasStats).toBeTruthy();
+      // O texto real do contador do cabeçalho ("N Cadastrados  M Ativos"); o
+      // `/\d+/` anterior casava com qualquer número do body.
+      await expect(page.getByTestId('motoristas-contadores')).toHaveText(
+        /\d+\s*Cadastrados\s*\d+\s*Ativos/,
+        { timeout: 15000 },
+      );
     });
   });
 
   test.describe('Add Motorista Button', () => {
-    test('should have add motorista button', async ({ page }) => {
-      await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
-
-      // Look for add button
-      const addButton = page
-        .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
-        .first();
-      const isVisible = await addButton.isVisible().catch(() => false);
-
-      // Either has button or page shows add functionality
-      const bodyText = await page.locator('body').textContent();
-      const hasAddFunctionality =
-        isVisible ||
-        bodyText?.includes('Adicionar') ||
-        bodyText?.includes('Novo');
-
-      expect(hasAddFunctionality).toBeTruthy();
-    });
-
     test('should open add motorista modal when clicking add button', async ({
       page,
     }) => {
@@ -138,7 +88,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
         /Digite o nome completo/i,
         /email@exemplo\.com/i,
         /\(00\) 00000-0000/,
-        /Mínimo 6 caracteres/i,
+        /Mín\. 8 caracteres/i,
       ]) {
         await expect(page.getByPlaceholder(placeholder).first()).toBeVisible({
           timeout: 15000,
@@ -166,7 +116,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
         /Digite o nome completo/i,
         /email@exemplo\.com/i,
         /\(00\) 00000-0000/,
-        /Mínimo 6 caracteres/i,
+        /Mín\. 8 caracteres/i,
       ]) {
         await expect(page.getByPlaceholder(placeholder).first()).toBeVisible({
           timeout: 15000,
@@ -216,39 +166,21 @@ test.describe('Gestão Rotas E2E Tests', () => {
       await gestorPage.gotoGestaoRotas();
       await gestorPage.expectOnGestaoRotas();
     });
-
-    test('should display route management interface', async ({ page }) => {
-      await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
-
-      const bodyText = await page.locator('body').textContent();
-
-      // Should have route management content
-      const hasRouteContent =
-        bodyText?.includes('Rotas') ||
-        bodyText?.includes('Filtro') ||
-        bodyText?.includes('Data') ||
-        bodyText?.includes('Motorista');
-
-      expect(hasRouteContent).toBeTruthy();
-    });
   });
 
   test.describe('Route Filtering', () => {
     test('should have status filter buttons', async ({ page }) => {
       await gestorPage.gotoGestaoRotas();
-      await page.waitForTimeout(2000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Should have filter options
-      const hasFilters =
-        bodyText?.includes('Todas') ||
-        bodyText?.includes('Pendente') ||
-        bodyText?.includes('Em Andamento') ||
-        bodyText?.includes('Concluída');
-
-      expect(hasFilters).toBeTruthy();
+      // O grupo de filtros da própria tela (radiogroup): o texto 'Pendente' ou
+      // 'Todas' no body casaria com qualquer outra tela. Os quatro chips
+      // precisam estar lá.
+      const filtros = page.getByRole('radiogroup');
+      for (const nome of ['Todas', 'Pendente', 'Em Andamento', 'Concluída']) {
+        await expect(
+          filtros.getByRole('button', { name: nome, exact: true }),
+        ).toBeVisible({ timeout: 15000 });
+      }
     });
 
     test('a busca de rotas filtra a contagem de resultados', async ({

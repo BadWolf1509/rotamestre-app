@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { getTodayISO, toLocalISODate } from '@/lib/dateUtils';
+import { getTodayISO, parseLocalDate, toLocalISODate } from '@/lib/dateUtils';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -21,10 +22,13 @@ export interface TodayStats {
 }
 
 export interface KPIs {
-  rotasSemana: number;
-  rotasMes: number;
+  /** null = indisponível (a consulta falhou); a tela mostra "—", nunca 0. */
+  rotasSemana: number | null;
+  /** null = indisponível (a consulta do mês falhou). */
+  rotasMes: number | null;
   taxaSucesso: number;
-  tempoMedioMinutos: number;
+  /** null = indisponível (a consulta do mês falhou). */
+  tempoMedioMinutos: number | null;
   totalParadas: number;
   paradasConcluidas: number;
   motoristaDestaque: {
@@ -151,7 +155,10 @@ function processarRotasComParadas(rotasData: any[]): RotaResumo[] {
       id: rota.id,
       data: rota.data,
       status: rota.status,
-      motorista_nome: rota.usuarios?.nome || 'Sem motorista',
+      motorista_nome: nomeMotoristaDaRota(
+        rota.usuarios?.nome,
+        rota.motorista_id,
+      ),
       motorista_id: rota.motorista_id,
       total_paradas: paradasReais.length,
       paradas_concluidas: paradasReais.filter(
@@ -179,6 +186,22 @@ function kpisDaLista(
         ? Math.round((paradasConcluidas / totalParadas) * 100)
         : 0,
   };
+}
+
+/**
+ * Janela máxima de um período aberto (só `dataInicio`), em dias à frente do
+ * início efetivo. Alternativa comparada: limite de linhas + aviso "mostrando
+ * as N mais recentes". Ficou o teto de data porque (a) a consulta carrega as
+ * paradas embutidas e o custo cresce com as rotas futuras, (b) corte por linhas
+ * esconderia rotas de forma arbitrária e exigiria estado/aviso novo na tela, e
+ * (c) rota agendada com mais de 60 dias é rara; quem precisa informa `dataFim`.
+ */
+const JANELA_PERIODO_ABERTO_DIAS = 60;
+
+function tetoDoPeriodoAberto(inicio: string): string {
+  const base = parseLocalDate(inicio) ?? new Date();
+  base.setDate(base.getDate() + JANELA_PERIODO_ABERTO_DIAS);
+  return toLocalISODate(base);
 }
 
 interface FiltrosDaLista {
@@ -216,10 +239,13 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
     // superior: "hoje" incluía as rotas já agendadas para amanhã.
     query = query.eq('data', hoje);
   } else {
-    query = query.gte('data', f.dataInicioStr ?? hoje);
-    if (f.dataFimStr) {
-      query = query.lte('data', f.dataFimStr);
-    }
+    const inicio = f.dataInicioStr ?? hoje;
+    query = query.gte('data', inicio);
+    // Sem dataFim a consulta não tinha teto; a partir de hoje (ou do início,
+    // se for futuro) vale a janela fixa.
+    const fim =
+      f.dataFimStr ?? tetoDoPeriodoAberto(inicio > hoje ? inicio : hoje);
+    query = query.lte('data', fim);
   }
   if (f.filtroStatus) query = query.eq('status', f.filtroStatus);
   if (f.filtroMotoristaId) {
@@ -234,13 +260,33 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
 
 /** Rotas de hoje da loja (ignora os filtros). null = a consulta falhou. */
 async function buscarTotalHoje(unidadeId: string): Promise<number | null> {
-  const { data, error } = await supabase
+  // Contagem HEAD: só o total, sem baixar as linhas.
+  const { count, error } = await supabase
     .from('rotas')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('unidade_id', unidadeId)
     .eq('data', getTodayISO());
-  return !error && data ? data.length : null;
+  return !error && count !== null ? count : null;
 }
+
+// Estado de "nada carregado ainda" (e de "loja trocada"): objetos no módulo,
+// compartilhados só como valor inicial/reset — nunca mutados.
+const STATS_VAZIO: Stats = {
+  total: 0,
+  emAndamento: 0,
+  concluidas: 0,
+  distanciaTotal: 0,
+};
+const HOJE_VAZIO: TodayStats = { totalHoje: 0 };
+const KPIS_VAZIO: KPIs = {
+  rotasSemana: 0,
+  rotasMes: 0,
+  taxaSucesso: 0,
+  tempoMedioMinutos: 0,
+  totalParadas: 0,
+  paradasConcluidas: 0,
+  motoristaDestaque: null,
+};
 
 // ============================================================================
 // HOOK PRINCIPAL
@@ -266,22 +312,9 @@ export function useDashboardData(
   const unidadeId = unidadeAtiva;
 
   // Estados
-  const [stats, setStats] = useState<Stats>({
-    total: 0,
-    emAndamento: 0,
-    concluidas: 0,
-    distanciaTotal: 0,
-  });
-  const [todayStats, setTodayStats] = useState<TodayStats>({ totalHoje: 0 });
-  const [kpis, setKpis] = useState<KPIs>({
-    rotasSemana: 0,
-    rotasMes: 0,
-    taxaSucesso: 0,
-    tempoMedioMinutos: 0,
-    totalParadas: 0,
-    paradasConcluidas: 0,
-    motoristaDestaque: null,
-  });
+  const [stats, setStats] = useState<Stats>(STATS_VAZIO);
+  const [todayStats, setTodayStats] = useState<TodayStats>(HOJE_VAZIO);
+  const [kpis, setKpis] = useState<KPIs>(KPIS_VAZIO);
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -309,6 +342,9 @@ export function useDashboardData(
   // carga inicial; recarga por filtro sinaliza via `refreshing`, que preserva a
   // árvore. Mesma regra do useGestaoRotas ("only show loading if no cache").
   const cargaInicialFeitaRef = useRef(false);
+  // Loja da última carga iniciada: se mudou, o que está na tela é de OUTRA
+  // loja (ver o reset em `fetchDashboardData`).
+  const lojaDaCargaRef = useRef<string | null>(null);
 
   // ============================================================================
   // FUNÇÃO PRINCIPAL DE FETCH (extraída para eliminar duplicação)
@@ -325,21 +361,45 @@ export function useDashboardData(
       const listaVigente = () =>
         mountedRef.current && minhaLista === requisicaoListaRef.current;
 
-      // Se não há unidade, limpar dados
+      // Tudo o que é da loja anterior: lista, KPIs, contagens, erro, "dados
+      // de HH:MM" e a marca da última carga boa. Uma função só para o "sem
+      // loja" e a troca de loja zerarem o MESMO conjunto — o "sem loja"
+      // zerava só parte e deixava KPIs e a hora da loja anterior para a
+      // próxima (o `lojaDaCargaRef` nulo pulava o zerar da troca).
+      const zerarDadosDaLoja = () => {
+        cargaInicialFeitaRef.current = false;
+        ultimaCargaOkRef.current = null;
+        erroDoVivoRef.current = false;
+        if (!mountedRef.current) return;
+        setStats(STATS_VAZIO);
+        setTodayStats(HOJE_VAZIO);
+        setKpis(KPIS_VAZIO);
+        setRotas([]);
+        setErroCarga(null);
+        setDadosDe(null);
+      };
+
+      // Sem loja: nada a mostrar, e nada da anterior fica.
       if (!unidadeId) {
+        lojaDaCargaRef.current = null;
+        zerarDadosDaLoja();
         if (mountedRef.current) {
-          setStats({
-            total: 0,
-            emAndamento: 0,
-            concluidas: 0,
-            distanciaTotal: 0,
-          });
-          setTodayStats({ totalHoje: 0 });
-          setRotas([]);
           setLoading(false);
           setRefreshing(false);
         }
         return;
+      }
+
+      // Loja trocada: lista, KPIs, contagens e erro da anterior saem da tela e
+      // a carga inicial volta a valer (tela de carregamento, não a "recarga"
+      // discreta). Sem isso, um erro na carga da loja nova ofereceria os dados
+      // da OUTRA loja como "dados de HH:MM". Só a carga completa zera: o
+      // evento de realtime (`carregarAoVivo`) é sempre da loja vigente.
+      if (lojaDaCargaRef.current !== unidadeId) {
+        if (lojaDaCargaRef.current !== null && mountedRef.current) {
+          zerarDadosDaLoja();
+        }
+        lojaDaCargaRef.current = unidadeId;
       }
 
       try {
@@ -521,15 +581,30 @@ export function useDashboardData(
 
         // KPIs
         const [kpiSemana, kpiMes] = kpisResult;
-        const rotasSemanaData = kpiSemana.data || [];
-        const rotasMesData = kpiMes.data || [];
+        // Erro vira INDISPONÍVEL (null), nunca 0: "0 rotas" seria falso. Mesmo
+        // modelo de `incidentesAbertos`.
+        if (kpiSemana.error) {
+          logger.warn(
+            '[Dashboard] KPI da semana indisponível',
+            kpiSemana.error,
+          );
+        }
+        if (kpiMes.error) {
+          logger.warn('[Dashboard] KPI do mês indisponível', kpiMes.error);
+        }
+        const rotasSemanaData = kpiSemana.error ? null : kpiSemana.data || [];
+        const rotasMesData = kpiMes.error ? null : kpiMes.data || [];
 
         const listaEhDestaCarga = listaVigente();
         setKpis((anteriores) => ({
-          rotasSemana: rotasSemanaData.length,
-          rotasMes: rotasMesData.length,
-          tempoMedioMinutos: calcularTempoMedio(rotasMesData),
-          motoristaDestaque: encontrarMotoristaDestaque(rotasMesData),
+          rotasSemana: rotasSemanaData ? rotasSemanaData.length : null,
+          rotasMes: rotasMesData ? rotasMesData.length : null,
+          tempoMedioMinutos: rotasMesData
+            ? calcularTempoMedio(rotasMesData)
+            : null,
+          motoristaDestaque: rotasMesData
+            ? encontrarMotoristaDestaque(rotasMesData)
+            : null,
           // Com lista mais nova (evento), os derivados dela continuam valendo.
           ...(listaEhDestaCarga
             ? kpisDaLista(rotasComDetalhes)

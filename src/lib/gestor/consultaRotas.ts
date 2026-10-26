@@ -54,6 +54,25 @@ const COLUNAS =
 const EMBED_MOTORISTA = 'usuarios!rotas_motorista_id_fkey';
 const FORMATO_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Nome exibido/exportado quando a rota tem `motorista_id` mas a RLS esconde o
+ * motorista. O nome real exigiria RPC/view `security definer` (fora do escopo).
+ */
+export const ROTULO_MOTORISTA_OCULTO = 'Motorista removido da loja';
+
+/**
+ * Nome do motorista para exibir numa rota. Embed vazio com `motorista_id`
+ * preenchido = a RLS escondeu o motorista (saiu da loja): "Sem motorista"
+ * seria falso. Um helper só para as telas não divergirem — a regra inline
+ * em cada uma já deixou quatro delas para trás.
+ */
+export function nomeMotoristaDaRota(
+  nome: string | null | undefined,
+  motoristaId: string | null | undefined,
+): string {
+  return nome || (motoristaId ? ROTULO_MOTORISTA_OCULTO : 'Sem motorista');
+}
+
 /** O que a lista mostra na rota sem motorista (em minúsculas). */
 const ROTULO_SEM_MOTORISTA = 'sem motorista';
 
@@ -295,8 +314,17 @@ async function comParadas(
       distancia_total: rota.distancia_total,
       iniciada_em: rota.iniciada_em,
       concluida_em: rota.concluida_em,
-      motorista_id: motorista?.id,
-      motorista_nome: motorista?.nome,
+      // O id vem da COLUNA da rota: o embed `usuarios` some quando a RLS
+      // esconde o motorista (vínculo desativado/outra loja), e a rota não
+      // pode virar "sem motorista" por isso. Alternativa descartada: manter
+      // `motorista?.id` e marcar o oculto só pelo nome — perderia o id que
+      // filtros e ações da tela usam.
+      motorista_id: rota.motorista_id ?? undefined,
+      motorista_nome: motorista
+        ? motorista.nome
+        : rota.motorista_id
+          ? ROTULO_MOTORISTA_OCULTO
+          : undefined,
       paradas_count: stats?.total ?? 0,
       paradas_concluidas: stats?.concluidas ?? 0,
     };

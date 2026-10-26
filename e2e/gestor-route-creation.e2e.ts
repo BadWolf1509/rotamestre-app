@@ -153,19 +153,16 @@ test.describe('Gestor Dashboard E2E Tests', () => {
     });
   });
 
-  test('should have navigation to other gestor sections', async ({ page }) => {
+  test('o menu lateral leva o gestor à tela de motoristas', async ({
+    page,
+  }) => {
+    // O texto "Motoristas" no body casaria só por existir no menu; o que
+    // prova a navegação é clicar e chegar na tela (URL + botão exclusivo dela).
     await gestorPage.gotoInicio();
-    await page.waitForTimeout(2000);
 
-    // Check for navigation elements
-    const bodyText = await page.locator('body').textContent();
+    await page.getByText('Motoristas', { exact: true }).first().click();
 
-    // Should have links to other sections
-    const hasNavigation =
-      bodyText?.includes('Motoristas') ||
-      bodyText?.includes('Rotas') ||
-      bodyText?.includes('Nova');
-
-    expect(hasNavigation).toBeTruthy();
+    await gestorPage.expectOnMotoristas();
+    await expect(gestorPage.motoristasPronta).toBeVisible({ timeout: 30000 });
   });
 });

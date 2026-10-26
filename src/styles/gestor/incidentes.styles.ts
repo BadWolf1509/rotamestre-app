@@ -273,6 +273,15 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray900,
     minHeight: 100,
   },
+  observacoesContador: {
+    alignSelf: 'flex-end',
+    marginTop: theme.spacing.xs,
+    fontSize: theme.typography.xs,
+    color: theme.colors.gray500,
+  },
+  observacoesContadorErro: {
+    color: theme.colors.error,
+  },
 
   // Resumo cards
   resumoRow: {

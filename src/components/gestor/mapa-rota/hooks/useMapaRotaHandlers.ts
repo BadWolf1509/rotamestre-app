@@ -30,7 +30,8 @@ import type { Parada, Rota } from '../types';
  * RLS pode barrar um UPDATE devolvendo 204 com ZERO linhas e `error: null`
  * (o `Prefer: return=minimal` default não distingue "0 linhas" de "N linhas"
  * sem `.select()` encadeado) — checar só `error` não basta. Por isso todo
- * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui.
+ * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui —
+ * ou, no UPDATE condicionado ao status da ROTA, por `assertRotaAtualizada`.
  *
  * `esperado` não é sempre 1: o UPDATE de paradas em `handleConfirmReactivate`
  * tem `.neq('status', 'concluida')`, e zero linhas é o resultado CORRETO
@@ -68,6 +69,35 @@ function assertUpdateAfetouLinhas(
   }
 }
 
+/**
+ * Aviso para o UPDATE da ROTA que volta com zero linhas. Com o filtro de status
+ * (cancelar só aberta, trocar motorista só pendente, reativar só não
+ * executada), zero linhas quase sempre é a rota que mudou enquanto a tela
+ * estava aberta — mas pode ser RLS, e o cliente não distingue os dois. Nos dois
+ * casos o certo é o mesmo: não anunciar sucesso e recarregar o estado real.
+ */
+export const MENSAGEM_ROTA_MUDOU =
+  'A rota mudou de situação enquanto a tela estava aberta. A tela foi atualizada.';
+
+/** Lançada quando o UPDATE condicional da rota não afetou nenhuma linha. */
+class RotaMudouDeSituacao extends Error {
+  constructor() {
+    super('UPDATE da rota não afetou linhas (situação mudou ou RLS)');
+    this.name = 'RotaMudouDeSituacao';
+    // Mantém o `instanceof` confiável mesmo se o transpilador rebaixar a classe.
+    Object.setPrototypeOf(this, RotaMudouDeSituacao.prototype);
+  }
+}
+
+/** Como `assertUpdateAfetouLinhas`, para o UPDATE condicional da ROTA. */
+function assertRotaAtualizada(
+  data: { id: string }[] | null,
+  error: unknown,
+): void {
+  if (error) throw error;
+  if ((data?.length ?? 0) === 0) throw new RotaMudouDeSituacao();
+}
+
 interface UseMapaRotaHandlersOptions {
   rotaId: string | string[] | undefined;
   rota: Rota | null;
@@ -94,6 +124,12 @@ interface UseMapaRotaHandlersResult {
   isReordering: boolean;
   hasReorderChanges: boolean;
   setHasReorderChanges: (value: boolean) => void;
+
+  /**
+   * Cancelar, reativar, trocar motorista ou remover parada em andamento. Os
+   * `Dialog`s usam no `loading`; a trava de verdade é um ref interno.
+   */
+  acaoEmVoo: boolean;
 
   // Refs
   listaParadasRef: React.RefObject<FlatList<Parada> | null>;
@@ -154,6 +190,38 @@ export function useMapaRotaHandlers({
   // Refs
   const listaParadasRef = useRef<FlatList<Parada> | null>(null);
 
+  // Trava de toque duplo. O ref decide (é síncrono: o 2º clique no mesmo
+  // quadro já o vê); o estado só serve para a tela mostrar o `loading`. Uma
+  // trava só para as quatro ações: duas ações da rota ao mesmo tempo (ex.:
+  // cancelar enquanto troca o motorista) também não devem correr juntas.
+  const acaoEmVooRef = useRef(false);
+  const [acaoEmVoo, setAcaoEmVoo] = useState(false);
+
+  const comTrava = useCallback(async (acao: () => Promise<void>) => {
+    if (acaoEmVooRef.current) return;
+    acaoEmVooRef.current = true;
+    setAcaoEmVoo(true);
+    try {
+      await acao();
+    } finally {
+      acaoEmVooRef.current = false;
+      setAcaoEmVoo(false);
+    }
+  }, []);
+
+  // Zero linhas no UPDATE da rota: avisa e traz o estado real. Devolve true
+  // quando tratou o erro.
+  const tratarRotaMudou = useCallback(
+    async (error: unknown): Promise<boolean> => {
+      if (!(error instanceof RotaMudouDeSituacao)) return false;
+      logger.warn('[useMapaRotaHandlers] Rota mudou de situação', error);
+      showToast(MENSAGEM_ROTA_MUDOU, 'info');
+      await loadRotaEParadas();
+      return true;
+    },
+    [loadRotaEParadas, showToast],
+  );
+
   // Helper to get ID string
   const getIdString = useCallback(() => {
     return Array.isArray(rotaId) ? rotaId[0] : rotaId;
@@ -204,101 +272,106 @@ export function useMapaRotaHandlers({
     const id = getIdString();
     if (!id) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('rotas')
-        .update({ status: 'cancelada' })
-        .eq('id', id)
-        .select('id');
+    // A RPC atômica `cancelar_rota` segue pendente; até lá, o UPDATE só passa
+    // se a rota ainda estiver aberta (conferido no banco, não no retrato da
+    // tela).
+    await comTrava(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('rotas')
+          .update({ status: 'cancelada' })
+          .eq('id', id)
+          .in('status', ['pendente', 'em_andamento'])
+          .select('id');
 
-      assertUpdateAfetouLinhas(
-        data,
-        error,
-        1,
-        'Rota não foi cancelada (RLS ou rota inexistente)',
-      );
+        assertRotaAtualizada(data, error);
 
-      showToast('Rota cancelada com sucesso', 'success');
-      await loadRotaEParadas();
-    } catch (error) {
-      logger.error('[useMapaRotaHandlers] Erro ao cancelar rota', error);
-      showToast('Erro ao cancelar rota', 'error');
-    }
-  }, [getIdString, loadRotaEParadas, showToast]);
+        showToast('Rota cancelada com sucesso', 'success');
+        await loadRotaEParadas();
+      } catch (error) {
+        if (await tratarRotaMudou(error)) return;
+        logger.error('[useMapaRotaHandlers] Erro ao cancelar rota', error);
+        showToast('Erro ao cancelar rota', 'error');
+      }
+    });
+  }, [comTrava, getIdString, loadRotaEParadas, showToast, tratarRotaMudou]);
 
   const handleConfirmReactivate = useCallback(async () => {
     const id = getIdString();
     if (!id) return;
 
-    try {
-      const todayStr = getTodayISO();
+    await comTrava(async () => {
+      try {
+        const todayStr = getTodayISO();
 
-      const { data: rotaData, error: rotaError } = await supabase
-        .from('rotas')
-        .update({
-          status: 'pendente',
-          data: todayStr,
-          iniciada_em: null,
-          concluida_em: null,
-        })
-        .eq('id', id)
-        .select('id');
+        // Só reativa a rota que ainda está 'nao_executada'. O filtro vale para a
+        // ROTA; o UPDATE das paradas abaixo segue como era.
+        const { data: rotaData, error: rotaError } = await supabase
+          .from('rotas')
+          .update({
+            status: 'pendente',
+            data: todayStr,
+            iniciada_em: null,
+            concluida_em: null,
+          })
+          .eq('id', id)
+          .eq('status', 'nao_executada')
+          .select('id');
 
-      assertUpdateAfetouLinhas(
-        rotaData,
-        rotaError,
-        1,
-        'Rota não foi reativada (RLS ou rota inexistente)',
-      );
+        assertRotaAtualizada(rotaData, rotaError);
 
-      // `paradasReais` exclui partida e chegada (is_checkpoint=false —
-      // useMapaRotaData.ts:44-47), mas o UPDATE abaixo filtra só por
-      // rota_id + status, sem is_checkpoint — pode afetar até 2 linhas A
-      // MAIS do que esta contagem, se partida/chegada também não
-      // estiverem 'concluida'. Por isso `paradasNaoConcluidas` NÃO é
-      // "quantas linhas o UPDATE deveria afetar": serve só de booleano pra
-      // assertUpdateAfetouLinhas — "havia algo pra reativar?" (`> 0`) vs.
-      // "tudo já estava concluído, zero afetadas é o resultado certo"
-      // (`=== 0`) — nunca uma contagem exata.
-      const paradasNaoConcluidas = paradasReais.filter(
-        (p) => p.status !== 'concluida',
-      ).length;
+        // `paradasReais` exclui partida e chegada (is_checkpoint=false —
+        // useMapaRotaData.ts:44-47), mas o UPDATE abaixo filtra só por
+        // rota_id + status, sem is_checkpoint — pode afetar até 2 linhas A
+        // MAIS do que esta contagem, se partida/chegada também não
+        // estiverem 'concluida'. Por isso `paradasNaoConcluidas` NÃO é
+        // "quantas linhas o UPDATE deveria afetar": serve só de booleano pra
+        // assertUpdateAfetouLinhas — "havia algo pra reativar?" (`> 0`) vs.
+        // "tudo já estava concluído, zero afetadas é o resultado certo"
+        // (`=== 0`) — nunca uma contagem exata.
+        const paradasNaoConcluidas = paradasReais.filter(
+          (p) => p.status !== 'concluida',
+        ).length;
 
-      const { data: paradasData, error: paradasError } = await supabase
-        .from('paradas')
-        .update({ status: 'pendente', concluida_em: null })
-        .eq('rota_id', id)
-        .neq('status', 'concluida')
-        .select('id');
+        const { data: paradasData, error: paradasError } = await supabase
+          .from('paradas')
+          .update({ status: 'pendente', concluida_em: null })
+          .eq('rota_id', id)
+          .neq('status', 'concluida')
+          .select('id');
 
-      // Duas escritas independentes: se a de rotas passou e esta falhar, a
-      // rota já voltou a 'pendente' mas as paradas continuam 'concluida' —
-      // estado inconsistente. Não é seguro anunciar sucesso, nem tentar
-      // desfazer sozinho aqui (não há RPC atômica para isso ainda).
-      assertUpdateAfetouLinhas(
-        paradasData,
-        paradasError,
-        paradasNaoConcluidas,
-        'Nenhuma parada foi reativada (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
-      );
+        // Duas escritas independentes: se a de rotas passou e esta falhar, a
+        // rota já voltou a 'pendente' mas as paradas continuam 'concluida' —
+        // estado inconsistente. Não é seguro anunciar sucesso, nem tentar
+        // desfazer sozinho aqui (não há RPC atômica para isso ainda).
+        assertUpdateAfetouLinhas(
+          paradasData,
+          paradasError,
+          paradasNaoConcluidas,
+          'Nenhuma parada foi reativada (RLS ou concorrência) — rota e paradas ficaram inconsistentes',
+        );
 
-      await supabase.from('logs').insert({
-        usuario_id: userData?.id,
-        rota_id: id,
-        evento: 'rota_reativada',
-        detalhes: {
-          nova_data: todayStr,
-          reativado_por: userData?.nome,
-        },
-      });
+        await supabase.from('logs').insert({
+          usuario_id: userData?.id,
+          rota_id: id,
+          evento: 'rota_reativada',
+          detalhes: {
+            nova_data: todayStr,
+            reativado_por: userData?.nome,
+          },
+        });
 
-      showToast('Rota reativada com sucesso', 'success');
-      await loadRotaEParadas();
-    } catch (error) {
-      logger.error('[useMapaRotaHandlers] Erro ao reativar rota', error);
-      showToast('Erro ao reativar rota', 'error');
-    }
+        showToast('Rota reativada com sucesso', 'success');
+        await loadRotaEParadas();
+      } catch (error) {
+        if (await tratarRotaMudou(error)) return;
+        logger.error('[useMapaRotaHandlers] Erro ao reativar rota', error);
+        showToast('Erro ao reativar rota', 'error');
+      }
+    });
   }, [
+    comTrava,
+    tratarRotaMudou,
     getIdString,
     loadRotaEParadas,
     paradasReais,
@@ -312,41 +385,49 @@ export function useMapaRotaHandlers({
       const id = getIdString();
       if (!id || !rota) return;
 
-      try {
-        const { data, error } = await supabase
-          .from('rotas')
-          .update({ motorista_id: newMotoristaId })
-          .eq('id', id)
-          .select('id');
+      // O `ChangeDriverModal` tem o próprio `isLoading`, mas a trava fica aqui
+      // para o handler ser seguro sozinho, venha a chamada de onde vier.
+      await comTrava(async () => {
+        try {
+          // Só troca enquanto a rota está 'pendente': motorista que já iniciou
+          // a rota no celular não pode perdê-la por uma tela aberta há tempos.
+          const { data, error } = await supabase
+            .from('rotas')
+            .update({ motorista_id: newMotoristaId })
+            .eq('id', id)
+            .eq('status', 'pendente')
+            .select('id');
 
-        assertUpdateAfetouLinhas(
-          data,
-          error,
-          1,
-          'Motorista não foi alterado (RLS ou rota inexistente)',
-        );
+          assertRotaAtualizada(data, error);
 
-        await supabase.from('logs').insert({
-          usuario_id: userData?.id,
-          rota_id: id,
-          evento: 'motorista_alterado',
-          detalhes: {
-            motorista_anterior_id: rota.motorista_id,
-            motorista_anterior_nome: rota.motorista?.nome,
-            motorista_novo_id: newMotoristaId,
-            motorista_novo_nome: newMotoristaNome,
-            alterado_por: userData?.nome,
-          },
-        });
+          await supabase.from('logs').insert({
+            usuario_id: userData?.id,
+            rota_id: id,
+            evento: 'motorista_alterado',
+            detalhes: {
+              motorista_anterior_id: rota.motorista_id,
+              motorista_anterior_nome: rota.motorista?.nome,
+              motorista_novo_id: newMotoristaId,
+              motorista_novo_nome: newMotoristaNome,
+              alterado_por: userData?.nome,
+            },
+          });
 
-        showToast('Motorista alterado com sucesso', 'success');
-        await loadRotaEParadas();
-      } catch (error) {
-        logger.error('[useMapaRotaHandlers] Erro ao alterar motorista', error);
-        showToast('Erro ao alterar motorista', 'error');
-      }
+          showToast('Motorista alterado com sucesso', 'success');
+          await loadRotaEParadas();
+        } catch (error) {
+          if (await tratarRotaMudou(error)) return;
+          logger.error(
+            '[useMapaRotaHandlers] Erro ao alterar motorista',
+            error,
+          );
+          showToast('Erro ao alterar motorista', 'error');
+        }
+      });
     },
     [
+      comTrava,
+      tratarRotaMudou,
       getIdString,
       rota,
       loadRotaEParadas,
@@ -405,64 +486,68 @@ export function useMapaRotaHandlers({
   const handleConfirmRemoveStop = useCallback(async () => {
     const id = getIdString();
     if (!paradaToRemove || !id || !rota) return;
-    // Conferência de última hora, pelo estado vivo: o efeito acima fecha o
-    // diálogo, mas a confirmação pode ter chegado antes dele rodar.
-    if (recusarAlteracao(paradaToRemove)) {
-      setParadaToRemove(null);
-      return;
-    }
 
-    try {
-      if (!enderecoUnidade) {
-        showToast('Erro: Coordenadas da unidade não encontradas', 'error');
+    await comTrava(async () => {
+      // Conferência de última hora, pelo estado vivo: o efeito acima fecha o
+      // diálogo, mas a confirmação pode ter chegado antes dele rodar.
+      if (recusarAlteracao(paradaToRemove)) {
+        setParadaToRemove(null);
         return;
       }
 
-      const paradasRestantes = paradasReais
-        .filter((p) => p.id !== paradaToRemove.id)
-        .map((p, idx) => ({
-          ...p,
-          ordem: idx + 1,
-        }));
-
-      const result = await removerParadaERecalcular(
-        paradaToRemove.id,
-        id,
-        paradasRestantes,
-        enderecoUnidade,
-        userData?.id,
-      );
-
-      if (result.success) {
-        if (rota.motorista_id) {
-          await notificarMotoristaRotaEditada({
-            rotaId: id,
-            motoristaId: rota.motorista_id,
-            tipo: 'rota_parada_removida',
-            titulo: '🗑️ Parada removida',
-            mensagem: `Uma parada foi removida da sua rota: ${paradaToRemove.endereco?.substring(0, 50)}${(paradaToRemove.endereco?.length || 0) > 50 ? '...' : ''}`,
-          });
+      try {
+        if (!enderecoUnidade) {
+          showToast('Erro: Coordenadas da unidade não encontradas', 'error');
+          return;
         }
 
-        showToast(
-          result.routeRecalculationFailed
-            ? 'Parada removida. O trajeto será recalculado ao carregar o mapa.'
-            : 'Parada removida com sucesso',
-          result.routeRecalculationFailed ? 'info' : 'success',
+        const paradasRestantes = paradasReais
+          .filter((p) => p.id !== paradaToRemove.id)
+          .map((p, idx) => ({
+            ...p,
+            ordem: idx + 1,
+          }));
+
+        const result = await removerParadaERecalcular(
+          paradaToRemove.id,
+          id,
+          paradasRestantes,
+          enderecoUnidade,
+          userData?.id,
         );
-        setParadaToRemove(null);
-        await loadRotaEParadas();
-      } else {
-        showToast(result.error || 'Erro ao remover parada', 'error');
-        // Se o banco recusou (parada finalizada, linha sumida), a tela estava
-        // velha: traz o estado real.
-        await loadRotaEParadas();
+
+        if (result.success) {
+          if (rota.motorista_id) {
+            await notificarMotoristaRotaEditada({
+              rotaId: id,
+              motoristaId: rota.motorista_id,
+              tipo: 'rota_parada_removida',
+              titulo: '🗑️ Parada removida',
+              mensagem: `Uma parada foi removida da sua rota: ${paradaToRemove.endereco?.substring(0, 50)}${(paradaToRemove.endereco?.length || 0) > 50 ? '...' : ''}`,
+            });
+          }
+
+          showToast(
+            result.routeRecalculationFailed
+              ? 'Parada removida. O trajeto será recalculado ao carregar o mapa.'
+              : 'Parada removida com sucesso',
+            result.routeRecalculationFailed ? 'info' : 'success',
+          );
+          setParadaToRemove(null);
+          await loadRotaEParadas();
+        } else {
+          showToast(result.error || 'Erro ao remover parada', 'error');
+          // Se o banco recusou (parada finalizada, linha sumida), a tela estava
+          // velha: traz o estado real.
+          await loadRotaEParadas();
+        }
+      } catch (error) {
+        logger.error('[useMapaRotaHandlers] Erro ao remover parada', error);
+        showToast('Erro ao remover parada', 'error');
       }
-    } catch (error) {
-      logger.error('[useMapaRotaHandlers] Erro ao remover parada', error);
-      showToast('Erro ao remover parada', 'error');
-    }
+    });
   }, [
+    comTrava,
     getIdString,
     paradaToRemove,
     rota,
@@ -690,6 +775,8 @@ export function useMapaRotaHandlers({
     isReordering,
     hasReorderChanges,
     setHasReorderChanges,
+
+    acaoEmVoo,
 
     // Refs
     listaParadasRef,

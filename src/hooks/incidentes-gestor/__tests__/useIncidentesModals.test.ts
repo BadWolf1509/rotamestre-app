@@ -295,6 +295,30 @@ describe('useIncidentesModals', () => {
       mockLinhasAfetadas = [{ id: 'inc-1' }];
     });
 
+    it('observação acima de 1000 caracteres é recusada antes do UPDATE', async () => {
+      const { supabase } = jest.requireMock('@/lib/supabase');
+      const { result } = renderHook(() =>
+        useIncidentesModals({
+          showToast: mockShowToast,
+          incidentes: mockIncidentes,
+          onStatusUpdate: mockOnStatusUpdate,
+        }),
+      );
+
+      act(() => result.current.handleAlterarStatus(mockIncidente));
+      act(() => result.current.setObservacoes('a'.repeat(1001)));
+      await act(async () => {
+        await result.current.confirmarAlterarStatus();
+      });
+
+      expect(supabase.from).not.toHaveBeenCalled();
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Observações devem ter no máximo 1000 caracteres',
+        'error',
+      );
+      expect(result.current.showAlterarStatusModal).toBe(true);
+    });
+
     it('UPDATE que altera a linha confirma o sucesso', async () => {
       mockLinhasAfetadas = [{ id: 'inc-1' }];
       const { result } = renderHook(() =>

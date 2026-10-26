@@ -98,11 +98,11 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
         </View>
         <View style={styles.rotaInfo}>
           <Text style={styles.rotaData}>{formatDateBR(rota.data)}</Text>
-          {rota.distancia_total && (
+          {rota.distancia_total != null && rota.distancia_total > 0 ? (
             <Text style={styles.rotaDistancia}>
               {formatarDecimal(rota.distancia_total)} km
             </Text>
-          )}
+          ) : null}
         </View>
       </View>
 

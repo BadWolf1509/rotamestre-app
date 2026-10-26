@@ -2,7 +2,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 
-import type { BulkParadaInput } from '@/hooks/nova-entrega/useParadasManagement';
+import type {
+  BulkParadaInput,
+  EnderecoLocalizado,
+} from '@/hooks/nova-entrega/useParadasManagement';
 
 import { ParadasListAndActions } from '../ParadasListAndActions';
 
@@ -93,10 +96,14 @@ describe('ParadasListAndActions', () => {
     onRemove: jest.fn(),
     onEdit: jest.fn(),
     onReorder: jest.fn(),
-    onImport: jest.fn().mockResolvedValue({
+    onLocalizarLote: jest
+      .fn()
+      .mockResolvedValue({ localizados: [], erros: [] }),
+    onImport: jest.fn().mockReturnValue({
       adicionadas: 0,
       ignoradas: 0,
       erros: [],
+      linhasAdicionadas: [],
     }),
     onOptimize: jest.fn(),
     onSelectMotorista: jest.fn(),
@@ -229,20 +236,41 @@ describe('ParadasListAndActions', () => {
 
     function TelaComImportacao() {
       const [paradas, setParadas] = useState<typeof baseParadas>([]);
-      const onImport = async (items: BulkParadaInput[]) => {
-        const aceitas = items.slice(0, 2).map((item, index) => ({
-          ...baseParadas[index]!,
-          ...item,
-          vinculo_parada_id: undefined,
-        }));
+      // A 3ª linha cai como duplicada já na localização; as 2 primeiras entram.
+      const onLocalizarLote = async (items: BulkParadaInput[]) => ({
+        localizados: items.slice(0, 2).map((item): EnderecoLocalizado => ({
+          linha: item.linha,
+          item,
+          enderecoEncontrado: item.endereco,
+          latitude: -7.1,
+          longitude: -34.9,
+          fonte: 'google',
+          distanciaSedeKm: 1,
+        })),
+        erros: [erroDuplicada],
+      });
+      const onImport = (confirmados: EnderecoLocalizado[]) => {
+        const aceitas = confirmados.map(
+          ({ item: { linha: _linha, ...item } }, index) => ({
+            ...baseParadas[index]!,
+            ...item,
+            vinculo_parada_id: undefined,
+          }),
+        );
         setParadas(aceitas);
-        return { adicionadas: 2, ignoradas: 1, erros: [erroDuplicada] };
+        return {
+          adicionadas: 2,
+          ignoradas: 0,
+          erros: [],
+          linhasAdicionadas: confirmados.map((item) => item.linha),
+        };
       };
       return (
         <ParadasListAndActions
           {...baseProps}
           paradas={paradas}
           paradasStatus={{ texto: 'ok', cor: 'default', icone: null }}
+          onLocalizarLote={onLocalizarLote}
           onImport={onImport}
         />
       );
@@ -260,10 +288,20 @@ describe('ParadasListAndActions', () => {
       ].join('\n'),
     );
     await act(async () => {
-      fireEvent.press(getByText('Importar 3 parada(s)'));
+      fireEvent.press(getByText('Localizar endereços'));
+    });
+    await act(async () => {
+      fireEvent.press(getByText('Adicionar 2 paradas'));
     });
 
     await waitFor(() => expect(getByText(/Paradas Adicionadas/)).toBeTruthy());
-    expect(getByText(`• ${erroDuplicada}`)).toBeTruthy();
+    // A linha recusada volta sozinha ao campo — vira a linha 1 dele, e a
+    // mensagem acompanha a numeração que está na tela.
+    expect(
+      getByText('• Linha 1: entrega duplicada (mesmo endereço ou telefone).'),
+    ).toBeTruthy();
+    expect(
+      getByLabelText('Linhas de paradas para importação').props.value,
+    ).toBe('entrega;Rua A, 123;Cliente A;(83) 99999-0001');
   });
 });

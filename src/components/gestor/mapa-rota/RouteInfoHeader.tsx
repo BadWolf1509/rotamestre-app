@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
 import { formatarDecimal } from '@/lib/formatNumber';
+import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import type { StatusRota } from '@/types/rota';
 import { useUnistyles, type Theme } from '@/utils/styles';
 
@@ -159,7 +160,7 @@ export function RouteInfoHeader({
           <View>
             <Text style={styles.driverLabel}>Motorista</Text>
             <Text style={styles.driverName}>
-              {rota?.motorista?.nome || 'Sem motorista'}
+              {nomeMotoristaDaRota(rota?.motorista?.nome, rota?.motorista_id)}
             </Text>
           </View>
         </View>
@@ -195,7 +196,7 @@ export function RouteInfoHeader({
           </View>
 
           {/* Distância */}
-          {rota.distancia_total && (
+          {rota.distancia_total != null && rota.distancia_total > 0 ? (
             <View
               style={{
                 flexDirection: 'row',
@@ -208,10 +209,10 @@ export function RouteInfoHeader({
                 {formatarDecimal(rota.distancia_total)} km
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Tempo Estimado */}
-          {rota.tempo_total && (
+          {rota.tempo_total != null && rota.tempo_total > 0 ? (
             <View
               style={{
                 flexDirection: 'row',
@@ -224,7 +225,7 @@ export function RouteInfoHeader({
                 {formatTempoTotal(rota.tempo_total)}
               </Text>
             </View>
-          )}
+          ) : null}
 
           {/* Paradas */}
           <View
