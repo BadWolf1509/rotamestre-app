@@ -140,6 +140,24 @@ describe('Migration 80: desempenho do motorista pelo realizado', () => {
     expect(semComentarios(sonda)).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
+  it('cabeçalho e MIGRATIONS.md citam os mesmos números medidos', () => {
+    const doc = ler(caminhoDoc);
+    const i = doc.search(/### .*Migration 80: /);
+    const fim = i < 0 ? -1 : doc.indexOf('\n---', i);
+    const entrada = (
+      i < 0 ? '' : doc.slice(i, fim < 0 ? undefined : fim)
+    ).replace(/\s+/g, ' ');
+    const cabecalho = sql.replace(/\n--\s*/g, ' ').replace(/\s+/g, ' ');
+    for (const trecho of [
+      'planejado 59, 47 e 52 min',
+      'real sem teto 224, 376 e 242',
+      'real com o teto de 24 h da view 204, 230 e 174',
+    ]) {
+      expect(cabecalho).toContain(trecho);
+      expect(entrada).toContain(trecho);
+    }
+  });
+
   it('MIGRATIONS.md registra a Migration 80 com o arquivo', () => {
     const doc = ler(caminhoDoc);
     expect(doc).toMatch(/### .*Migration 80: /);

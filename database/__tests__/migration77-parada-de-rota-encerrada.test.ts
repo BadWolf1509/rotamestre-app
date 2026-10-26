@@ -97,10 +97,14 @@ describe('Migration 77: parada de rota encerrada não muda de status pela API', 
     expect(corpoFuncao.match(/RAISE EXCEPTION/g)).toHaveLength(1);
   });
 
-  it('a única exceção é a chegada concluída em rota concluída', () => {
+  it('a única exceção é a chegada ainda aberta concluída em rota concluída', () => {
     expect(corpoFuncao).toMatch(
-      /IF v_status_rota = 'concluida'\s+AND OLD\.is_checkpoint = false\s+AND NEW\.status = 'concluida' THEN\s+RETURN NEW;/,
+      /IF v_status_rota = 'concluida'\s+AND OLD\.is_checkpoint = false\s+AND OLD\.status IN \('pendente', 'em_andamento'\)\s+AND NEW\.status = 'concluida' THEN\s+RETURN NEW;/,
     );
+  });
+
+  it('a sonda prova que a chegada pulada não vira concluida em rota concluída', () => {
+    expect(sonda).toMatch(/' \| 11 OK: chegada pulada/);
   });
 
   it('gatilho BEFORE UPDATE OF status, por linha, com WHEN de status mudado', () => {
@@ -140,9 +144,9 @@ describe('Migration 77: parada de rota encerrada não muda de status pela API', 
     expect(func).toBeGreaterThan(trig);
   });
 
-  it('a sonda cobre os 10 casos e termina desfeita por RAISE', () => {
+  it('a sonda cobre os 11 casos e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M77 \(desfeita\)/);
-    for (let caso = 1; caso <= 10; caso += 1) {
+    for (let caso = 1; caso <= 11; caso += 1) {
       expect(sonda).toContain(`' | ${caso} OK: `);
     }
     for (const rpc of ['reativar_rota', 'cancelar_rota', 'finalizar_rota']) {

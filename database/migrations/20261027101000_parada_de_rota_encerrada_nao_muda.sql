@@ -25,11 +25,12 @@
 --     - a chave secreta (`service_role`) e o CLI (`postgres`);
 --     - UPDATE de outras colunas (foto, observação, ordem): o gatilho só olha
 --       `status`;
---     - a chegada (`is_checkpoint = false`) indo a `concluida` numa rota
---       `concluida`: é a ordem do app até a 1.14.2, que finaliza por UPDATE
---       direto (rota primeiro, chegada depois; a RPC `finalizar_rota` entrou
---       em 23/10/2026, #630). A exceção é só essa — partida, entrega e
---       retirada não entram, nem rota cancelada ou não executada.
+--     - a chegada (`is_checkpoint = false`) ainda aberta (`pendente` ou
+--       `em_andamento`) indo a `concluida` numa rota `concluida`: é a ordem
+--       do app até a 1.14.2, que finaliza por UPDATE direto (rota primeiro,
+--       chegada depois; a RPC `finalizar_rota` entrou em 23/10/2026, #630).
+--       A exceção é só essa — chegada `pulada`, partida, entrega e retirada
+--       não entram, nem rota cancelada ou não executada.
 --
 --   Fila offline (conclusão feita antes do cancelamento chegando depois):
 --   recusada. O app atual já descarta essa ação antes de gravar
@@ -125,9 +126,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Chegada concluída depois da rota: a finalização do app até a 1.14.2.
+  -- Chegada ainda aberta concluída depois da rota: a finalização do app até
+  -- a 1.14.2. Chegada pulada não vira concluida.
   IF v_status_rota = 'concluida'
      AND OLD.is_checkpoint = false
+     AND OLD.status IN ('pendente', 'em_andamento')
      AND NEW.status = 'concluida' THEN
     RETURN NEW;
   END IF;
@@ -143,7 +146,7 @@ ALTER FUNCTION public.parada_de_rota_encerrada_nao_muda() OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.parada_de_rota_encerrada_nao_muda() FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION public.parada_de_rota_encerrada_nao_muda() IS
-  'Migration 77: gatilho BEFORE UPDATE OF status de paradas. Parada de rota cancelada, concluida ou nao_executada não muda de status por UPDATE dos papéis da API (authenticated, anon): P0001 PARADA_DE_ROTA_ENCERRADA. Exceção: a chegada (is_checkpoint = false) indo a concluida em rota concluida. SECURITY INVOKER de propósito, para que as RPCs SECURITY DEFINER, a chave secreta e o cron passem.';
+  'Migration 77: gatilho BEFORE UPDATE OF status de paradas. Parada de rota cancelada, concluida ou nao_executada não muda de status por UPDATE dos papéis da API (authenticated, anon): P0001 PARADA_DE_ROTA_ENCERRADA. Exceção: a chegada (is_checkpoint = false) pendente ou em_andamento indo a concluida em rota concluida. SECURITY INVOKER de propósito, para que as RPCs SECURITY DEFINER, a chave secreta e o cron passem.';
 
 DROP TRIGGER IF EXISTS trg_parada_de_rota_encerrada_nao_muda ON public.paradas;
 CREATE TRIGGER trg_parada_de_rota_encerrada_nao_muda

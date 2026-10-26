@@ -152,9 +152,9 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
     expect(func).toBeGreaterThan(trig);
   });
 
-  it('a sonda cobre os 10 casos e termina desfeita por RAISE', () => {
+  it('a sonda cobre os 11 casos e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M76 \(desfeita\)/);
-    for (let caso = 1; caso <= 10; caso += 1) {
+    for (let caso = 1; caso <= 11; caso += 1) {
       expect(sonda).toContain(`' | ${caso} OK: `);
     }
     for (const rpc of ['cancelar_rota', 'finalizar_rota']) {
@@ -167,6 +167,9 @@ describe('Migration 76: rota muda de loja e de status pelo gestor', () => {
       /to_regprocedure\('public\.rotas_loja_e_status_pelo_gestor\(\)'\)/,
     );
     expect(sonda).toMatch(/sonda-m76-/);
+    // Gestor com vínculo inativo na loja de destino também é recusado.
+    expect(sonda).toMatch(/' \| 11 OK: gestor com vínculo inativo/);
+    expect(sonda).toMatch(/'gestor',\s+false, false\)/);
     const ultimoRaise = sonda.lastIndexOf('RAISE EXCEPTION');
     expect(sonda.slice(ultimoRaise)).toMatch(
       /^RAISE EXCEPTION 'SONDA M76 \(desfeita\):%', r;\s*END\s*\$\$;\s*$/,

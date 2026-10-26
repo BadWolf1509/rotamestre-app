@@ -29,9 +29,11 @@
 --
 --   Medido em 26/10/2026 (só SELECT): definição viva igual à desta migration
 --   fora as duas colunas; `reloptions = {security_invoker=true}`; nenhuma
---   view depende dela; exemplos de planejado × real por motorista: 59 × 224
---   min, 47 × 376, 52 × 242; um motorista sem rota concluída aparecia com
---   226,1 km (3 rotas canceladas/não executadas).
+--   view depende dela; tempo médio de três motoristas: planejado 59, 47 e 52
+--   min (o que a view mostrava); real sem teto 224, 376 e 242; real com o
+--   teto de 24 h da view 204, 230 e 174 (o que ela passa a mostrar); um
+--   motorista sem rota concluída aparecia com 226,1 km (3 rotas
+--   canceladas/não executadas).
 --
 --   Alternativas consideradas:
 --     (a) mudar a view (escolhida): o número passa a servir para avaliar, e o

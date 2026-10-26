@@ -5,13 +5,14 @@
 -- mesma sessão: depois de aplicá-la, ou, para conferir antes, na MESMA
 -- execução que o corpo da migration (sem o BEGIN/COMMIT dela), para que o
 -- RAISE do fim desfaça as duas coisas. Sem a migration, saem FALHOU os casos
--- 1, 4 e 5 (o UPDATE é aceito), o 2 (o RLS recusa, mas com a mensagem da
--- policy, não a do gatilho) e o 10 (catálogo); os casos 3, 6, 7, 8 e 9 já
+-- 1, 4 e 5 (o UPDATE é aceito), o 2 e o 11 (o RLS recusa, mas com a mensagem
+-- da policy, não a do gatilho) e o 10 (catálogo); os casos 3, 6, 7, 8 e 9 já
 -- saem OK — são os caminhos que precisam continuar valendo.
 --
 -- Cenário comum (não depende de dado real): lojas A e B; motorista M com
 -- vínculo ativo de motorista nas duas; gestor GA, gestor ativo só de A;
--- gestor GAB, gestor ativo de A e de B. Cada caso monta a própria rota como
+-- gestor GAB, gestor ativo de A e de B; gestor GX, gestor ativo de A e com
+-- vínculo de gestor INATIVO em B. Cada caso monta a própria rota como
 -- postgres, sem sessão, com partida (ordem 0) e chegada (última), as duas com
 -- `is_checkpoint = false`. As escritas da API rodam como `authenticated`
 -- (SET LOCAL ROLE + claims do JWT), com os corpos de UPDATE do app; a
@@ -39,6 +40,8 @@
 --   10. catálogo: gatilho BEFORE UPDATE OF unidade_id, status, por linha,
 --       habilitado; função DEFINER, search_path vazio, dono postgres, proacl
 --       sem PUBLIC, anon e authenticated sem EXECUTE
+--   11. GX (vínculo de gestor inativo em B) muda a rota de A para B → 42501
+--       com a mensagem do gatilho; rota segue em A
 -- ============================================================================
 DO $$
 DECLARE
@@ -49,6 +52,7 @@ DECLARE
   v_m uuid := gen_random_uuid();      -- motorista em A e B
   v_ga uuid := gen_random_uuid();     -- gestor só de A
   v_gab uuid := gen_random_uuid();    -- gestor de A e de B
+  v_gx uuid := gen_random_uuid();     -- gestor ativo em A, inativo em B
   v_hoje date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
   v_rota uuid;
   v_rota2 uuid;
@@ -69,7 +73,8 @@ BEGIN
   INSERT INTO auth.users (id, email, aud, role) VALUES
     (v_m,   'sonda-m76-m-'   || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
     (v_ga,  'sonda-m76-ga-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
-    (v_gab, 'sonda-m76-gab-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
+    (v_gab, 'sonda-m76-gab-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
+    (v_gx,  'sonda-m76-gx-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
 
   INSERT INTO public.unidades (id, nome, cidade) VALUES
     (v_ua, 'Sonda M76 A', 'Sonda'),
@@ -78,14 +83,17 @@ BEGIN
   INSERT INTO public.usuarios (id, nome, email, papel, unidade_id, ativo) VALUES
     (v_m,   'Sonda motorista M', 'sonda-m76-m-'   || v_sufixo || '@example.invalid', 'motorista', v_ua, true),
     (v_ga,  'Sonda gestor A',    'sonda-m76-ga-'  || v_sufixo || '@example.invalid', 'gestor',    v_ua, true),
-    (v_gab, 'Sonda gestor AB',   'sonda-m76-gab-' || v_sufixo || '@example.invalid', 'gestor',    v_ua, true);
+    (v_gab, 'Sonda gestor AB',   'sonda-m76-gab-' || v_sufixo || '@example.invalid', 'gestor',    v_ua, true),
+    (v_gx,  'Sonda gestor AX',   'sonda-m76-gx-'  || v_sufixo || '@example.invalid', 'gestor',    v_ua, true);
 
   INSERT INTO public.usuario_unidades (usuario_id, unidade_id, papel, ativo, is_principal) VALUES
     (v_m,   v_ua, 'motorista', true, true),
     (v_m,   v_ub, 'motorista', true, false),
     (v_ga,  v_ua, 'gestor',    true, true),
     (v_gab, v_ua, 'gestor',    true, true),
-    (v_gab, v_ub, 'gestor',    true, false);
+    (v_gab, v_ub, 'gestor',    true, false),
+    (v_gx,  v_ua, 'gestor',    true, true),
+    (v_gx,  v_ub, 'gestor',    false, false);
 
   -- ---------------------------------------------------------------------------
   -- 1. M: unidade_id da própria rota de A para B
@@ -407,6 +415,36 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 10 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
   END;
+
+  -- ---------------------------------------------------------------------------
+  -- 11. GX (vínculo de gestor inativo em B): rota de A para B
+  -- ---------------------------------------------------------------------------
+  PERFORM set_config('request.jwt.claims', '', true);
+  v_rota := gen_random_uuid();
+  INSERT INTO public.rotas (id, unidade_id, motorista_id, status, data) VALUES
+    (v_rota, v_ua, v_m, 'pendente', v_hoje);
+  BEGIN
+    v_err := NULL;
+    BEGIN
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_gx, 'role', 'authenticated')::text, true);
+      SET LOCAL ROLE authenticated;
+      UPDATE public.rotas SET unidade_id = v_ub WHERE id = v_rota;
+      GET DIAGNOSTICS v_n = ROW_COUNT;
+      RESET ROLE;
+      v_err := 'UPDATE aceito (' || v_n || ' linha)';
+    EXCEPTION WHEN OTHERS THEN
+      v_err := SQLSTATE || ' ' || SQLERRM;
+    END;
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    SELECT unidade_id INTO v_loja FROM public.rotas WHERE id = v_rota;
+    r := r || CASE WHEN v_err = '42501 A rota só muda de loja pelo gestor das duas lojas.' AND v_loja = v_ua
+      THEN ' | 11 OK: gestor com vínculo inativo na loja de destino não muda a loja da rota (42501 do gatilho)'
+      ELSE ' | 11 FALHOU: ' || coalesce(v_err, 'nulo') || ', rota na loja ' || CASE WHEN v_loja = v_ua THEN 'A' WHEN v_loja = v_ub THEN 'B' ELSE 'nula' END END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 11 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
 
   RAISE EXCEPTION 'SONDA M76 (desfeita):%', r;
 END

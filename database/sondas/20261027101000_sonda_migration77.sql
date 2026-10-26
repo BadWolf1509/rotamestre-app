@@ -5,7 +5,7 @@
 -- mesma sessão: depois de aplicá-la, ou, para conferir antes, na MESMA
 -- execução que o corpo da migration (sem o BEGIN/COMMIT dela), para que o
 -- RAISE do fim desfaça as duas coisas. Sem a migration, saem FALHOU os casos
--- 1, 2, 3 e 6 (o UPDATE é aceito) e o 10 (catálogo); os casos 4, 5, 7, 8 e 9
+-- 1, 2, 3, 6 e 11 (o UPDATE é aceito) e o 10 (catálogo); os casos 4, 5, 7, 8 e 9
 -- já saem OK — são os caminhos que precisam continuar valendo.
 --
 -- Cenário comum (não depende de dado real): loja A; motorista M, ativo em A;
@@ -41,6 +41,9 @@
 --   10. catálogo: gatilho BEFORE UPDATE OF status, por linha, habilitado;
 --       função SECURITY INVOKER, search_path vazio, dono postgres, proacl sem
 --       PUBLIC, anon e authenticated sem EXECUTE
+--   11. M leva a chegada `pulada` a `concluida` numa rota `concluida` →
+--       P0001; chegada segue `pulada` (a exceção do caso 5 vale só para a
+--       chegada `pendente`/`em_andamento`)
 -- ============================================================================
 DO $$
 DECLARE
@@ -455,6 +458,41 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 10 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
   END;
+
+  -- ---------------------------------------------------------------------------
+  -- 11. M leva a chegada pulada a concluida numa rota concluida
+  -- ---------------------------------------------------------------------------
+  PERFORM set_config('request.jwt.claims', '', true);
+  v_rota := gen_random_uuid();
+  v_chegada := gen_random_uuid();
+  INSERT INTO public.rotas (id, unidade_id, motorista_id, status, data, iniciada_em, concluida_em) VALUES
+    (v_rota, v_ua, v_m, 'concluida', v_hoje, now() - interval '2 hours', now() - interval '5 minutes');
+  INSERT INTO public.paradas (id, rota_id, tipo, endereco, latitude, longitude, ordem, status, is_checkpoint, motivo_skip) VALUES
+    (gen_random_uuid(), v_rota, 'entrega', 'sonda partida', -7.1, -34.8, 0, 'concluida', false, NULL),
+    (gen_random_uuid(), v_rota, 'entrega', 'sonda p1',      -7.1, -34.8, 1, 'concluida', true,  NULL),
+    (v_chegada,         v_rota, 'entrega', 'sonda chegada', -7.1, -34.8, 2, 'pulada',    false, 'cliente_ausente');
+  BEGIN
+    v_err := NULL;
+    BEGIN
+      PERFORM set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+      SET LOCAL ROLE authenticated;
+      UPDATE public.paradas SET status = 'concluida', concluida_em = now() WHERE id = v_chegada;
+      GET DIAGNOSTICS v_n = ROW_COUNT;
+      RESET ROLE;
+      v_err := 'UPDATE aceito (' || v_n || ' linha)';
+    EXCEPTION WHEN OTHERS THEN
+      v_err := SQLSTATE || ' ' || SQLERRM;
+    END;
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    SELECT status INTO v_status FROM public.paradas WHERE id = v_chegada;
+    r := r || CASE WHEN v_err = 'P0001 PARADA_DE_ROTA_ENCERRADA' AND v_status = 'pulada'
+      THEN ' | 11 OK: chegada pulada não vira concluida em rota concluida (P0001; a exceção vale só para chegada aberta)'
+      ELSE ' | 11 FALHOU: ' || coalesce(v_err, 'nulo') || ', chegada ' || coalesce(v_status, 'nula') END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 11 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
 
   RAISE EXCEPTION 'SONDA M77 (desfeita):%', r;
 END

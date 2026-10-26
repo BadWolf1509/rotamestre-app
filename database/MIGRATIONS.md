@@ -3309,7 +3309,7 @@ migration saem FALHOU os casos 1, 2, 3 e 10. Rollback colável no arquivo.
 
 ### ⏳ Migration 76: rota muda de loja e de status pelo gestor
 
-**Arquivo:** `20261027100000_rota_loja_e_status_pelo_gestor.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 4, 5 e 10, e 10/10 OK depois.
+**Arquivo:** `20261027100000_rota_loja_e_status_pelo_gestor.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 4, 5, 10 e 11, e 11/11 OK depois.
 
 **O que faz.** Cria o gatilho `trg_rotas_loja_e_status_pelo_gestor` (BEFORE
 UPDATE OF unidade_id, status em `rotas`, por linha, `WHEN` uma das duas muda)
@@ -3334,9 +3334,9 @@ até a 1.14.2, que por isso segue aberto; o gestor é gestor ativo da loja. Fech
 
 **Verificação.** Guarda estática
 `database/__tests__/migration76-rota-loja-e-status-pelo-gestor.test.ts`; sonda
-`database/sondas/20261027100000_sonda_migration76.sql` (10 casos, desfeita pelo
-RAISE): troca de loja pelo motorista das duas lojas, pelo gestor só da origem e
-pelo gestor das duas; motorista cancelando e levando a `nao_executada`; início
+`database/sondas/20261027100000_sonda_migration76.sql` (11 casos, desfeita pelo
+RAISE): troca de loja pelo motorista das duas lojas, pelo gestor só da origem,
+pelo gestor com vínculo inativo no destino e pelo gestor das duas; motorista cancelando e levando a `nao_executada`; início
 com o corpo de `startRoute`; conclusão direta da 1.14.2; `finalizar_rota` e
 `cancelar_rota`; postgres e `service_role`; catálogo. Rollback colável no
 arquivo.
@@ -3345,7 +3345,7 @@ arquivo.
 
 ### ⏳ Migration 77: parada de rota encerrada não muda de status pela API
 
-**Arquivo:** `20261027101000_parada_de_rota_encerrada_nao_muda.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3, 6 e 10, e 10/10 OK depois.
+**Arquivo:** `20261027101000_parada_de_rota_encerrada_nao_muda.sql` · **⏳ a aplicar** pelo CLI (`db query --linked`), registrando a versão do arquivo. Sonda: esperados FALHOU antes nos casos 1, 2, 3, 6, 10 e 11, e 11/11 OK depois.
 
 **O que faz.** Cria o gatilho `trg_parada_de_rota_encerrada_nao_muda` (BEFORE
 UPDATE OF status em `paradas`, por linha, `WHEN` o status muda) com a função
@@ -3355,8 +3355,9 @@ da parada `cancelada`/`concluida`/`nao_executada`, P0001
 `PARADA_DE_ROTA_ENCERRADA`. As RPCs SECURITY DEFINER (`reativar_rota`,
 `cancelar_rota`, `finalizar_rota`), a chave secreta e o CLI passam; outras
 colunas (foto, observação) e o mesmo status passam. Exceção única: a chegada
-(`is_checkpoint = false`) indo a `concluida` numa rota `concluida` — a ordem da
-finalização do app até a 1.14.2 (rota primeiro, chegada depois).
+(`is_checkpoint = false`) ainda `pendente`/`em_andamento` indo a `concluida`
+numa rota `concluida` — a ordem da finalização do app até a 1.14.2 (rota
+primeiro, chegada depois). Chegada `pulada` não vira `concluida`.
 
 **Fila offline.** Conclusão feita antes do cancelamento e enviada depois é
 recusada. O app atual já a descarta antes de gravar (`filaAcoesParada` só grava
@@ -3376,11 +3377,12 @@ iniciar e finalizar seguem. Gestor: nenhum efeito.
 
 **Verificação.** Guarda estática
 `database/__tests__/migration77-parada-de-rota-encerrada.test.ts`; sonda
-`database/sondas/20261027101000_sonda_migration77.sql` (10 casos, desfeita pelo
+`database/sondas/20261027101000_sonda_migration77.sql` (11 casos, desfeita pelo
 RAISE): "Retomar" em rota concluída, fila offline em rota cancelada, gestor em
 rota não executada, conclusão e avanço em rota em andamento, chegada depois da
 rota (1.14.2), entrega em rota concluída, as três RPCs, postgres e
-`service_role`, outra coluna e mesmo status, catálogo. Rollback colável.
+`service_role`, outra coluna e mesmo status, catálogo, chegada `pulada` em rota
+concluída. Rollback colável.
 
 ---
 
@@ -3462,7 +3464,9 @@ distância percorrida (`number | null` já cobre o NULL).
 `database/__tests__/migration80-desempenho-pelo-realizado.test.ts`; sonda
 `database/sondas/20261027104000_sonda_migration80.sql` (5 casos, desfeita pelo
 RAISE). O SELECT novo foi conferido em produção só como leitura (tipos
-`numeric`; por motorista, 59 → 204, 47 → 230 e 52 → 174 min). Rollback colável.
+`numeric`). Tempo médio de três motoristas: planejado 59, 47 e 52 min (o que a
+view mostrava); real sem teto 224, 376 e 242; real com o teto de 24 h da view
+204, 230 e 174 (o que ela passa a mostrar). Rollback colável.
 
 ---
 
