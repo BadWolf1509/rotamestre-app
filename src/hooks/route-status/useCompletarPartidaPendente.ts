@@ -14,35 +14,47 @@
  * assim; (b) este reparo idempotente na carga confirmada. Ficou (b) no app;
  * (a) segue recomendada no banco.
  *
- * Uma tentativa por rota (falha não vira laço de escrita), só com a carga
- * confirmada pelo banco e com o UPDATE condicionado a `status = 'pendente'`.
+ * Só com a carga confirmada pelo banco e com o UPDATE condicionado a
+ * `status = 'pendente'`. Gravou ou o servidor recusou: não tenta mais nesta
+ * sessão (recusa não vira laço de escrita). Falha de rede: tenta de novo na
+ * próxima carga confirmada.
  */
 import { useEffect, useRef } from 'react';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
 import { logger } from '@/lib/logger';
+import { ehErroDefinitivo } from '@/lib/motorista/filaAcoesParada';
 import { supabase } from '@/lib/supabase';
 
-/** Devolve true quando gravou (ou já estava concluída por outro caminho). */
+/**
+ * 'gravou' (ou já estava concluída por outro caminho); 'rede' = sem resposta
+ * definitiva (rede, sessão, 5xx), tenta de novo na próxima carga confirmada;
+ * 'recusada' = o servidor recusou de verdade, não insiste nesta sessão.
+ */
+export type ResultadoConclusaoPartida = 'gravou' | 'rede' | 'recusada';
+
 export type ConcluirPartida = (
   paradaId: string,
   concluidaEm: string,
-) => Promise<boolean>;
+) => Promise<ResultadoConclusaoPartida>;
 
 export const concluirPartidaSupabase: ConcluirPartida = async (
   paradaId,
   concluidaEm,
 ) => {
-  const { error } = await supabase
-    .from('paradas')
-    .update({ status: 'concluida', concluida_em: concluidaEm })
-    .eq('id', paradaId)
-    .eq('status', 'pendente');
-  if (error) {
+  try {
+    const { error } = await supabase
+      .from('paradas')
+      .update({ status: 'concluida', concluida_em: concluidaEm })
+      .eq('id', paradaId)
+      .eq('status', 'pendente');
+    if (!error) return 'gravou';
     logger.warn('[RouteStatus] Falha ao concluir a partida pendente', error);
-    return false;
+    return ehErroDefinitivo(error) ? 'recusada' : 'rede';
+  } catch (erro) {
+    logger.warn('[RouteStatus] Falha ao concluir a partida pendente', erro);
+    return 'rede';
   }
-  return true;
 };
 
 interface Opcoes {
@@ -62,6 +74,7 @@ export function useCompletarPartidaPendente({
   concluirPartida = concluirPartidaSupabase,
 }: Opcoes): void {
   const tentadasRef = useRef(new Set<string>());
+  const emVooRef = useRef(false);
 
   const partidaPendente =
     cargaConfirmada && route?.status === 'em_andamento'
@@ -78,15 +91,22 @@ export function useCompletarPartidaPendente({
 
   useEffect(() => {
     if (!rotaId || !partidaId) return;
-    if (tentadasRef.current.has(rotaId)) return;
-    tentadasRef.current.add(rotaId);
+    if (tentadasRef.current.has(rotaId) || emVooRef.current) return;
+    emVooRef.current = true;
 
     void (async () => {
-      const gravou = await concluirPartida(
-        partidaId,
-        iniciadaEm ?? new Date().toISOString(),
-      );
-      if (gravou) await loadActiveRoute();
+      try {
+        const resultado = await concluirPartida(
+          partidaId,
+          iniciadaEm ?? new Date().toISOString(),
+        );
+        // Falha de rede não conta: a próxima carga confirmada (que passa por
+        // "carregando" e reabre este efeito) tenta de novo.
+        if (resultado !== 'rede') tentadasRef.current.add(rotaId);
+        if (resultado === 'gravou') await loadActiveRoute();
+      } finally {
+        emVooRef.current = false;
+      }
     })();
   }, [rotaId, partidaId, iniciadaEm, concluirPartida, loadActiveRoute]);
 }

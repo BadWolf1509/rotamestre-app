@@ -56,7 +56,7 @@ function montar(
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockConcluirPartida.mockResolvedValue(true);
+  mockConcluirPartida.mockResolvedValue('gravou');
 });
 
 describe('useCompletarPartidaPendente', () => {
@@ -78,18 +78,39 @@ describe('useCompletarPartidaPendente', () => {
     expect(mockConcluirPartida).not.toHaveBeenCalled();
   });
 
-  it('tenta uma vez por rota: falha não vira laço de escrita', async () => {
-    mockConcluirPartida.mockResolvedValue(false);
-    const { rerender, loadActiveRoute } = montar();
-    await waitFor(() => expect(mockConcluirPartida).toHaveBeenCalledTimes(1));
-    rerender({
+  /** Nova carga confirmada: passa por "carregando" e volta. */
+  function recarregar(
+    rerender: (p: Parameters<typeof useCompletarPartidaPendente>[0]) => void,
+    loadActiveRoute: jest.Mock,
+  ) {
+    const props = {
       route: rota(),
       paradas: [{ ...PARTIDA }, parada({ id: 'p1' })],
-      cargaConfirmada: true,
       loadActiveRoute,
       concluirPartida: mockConcluirPartida,
-    });
+    };
+    rerender({ ...props, cargaConfirmada: false });
+    rerender({ ...props, cargaConfirmada: true });
+  }
+
+  it('recusa do servidor: uma vez por rota, sem laço de escrita', async () => {
+    mockConcluirPartida.mockResolvedValue('recusada');
+    const { rerender, loadActiveRoute } = montar();
+    await waitFor(() => expect(mockConcluirPartida).toHaveBeenCalledTimes(1));
+    recarregar(rerender, loadActiveRoute);
+    await new Promise((r) => setTimeout(r, 0));
     expect(mockConcluirPartida).toHaveBeenCalledTimes(1);
     expect(loadActiveRoute).not.toHaveBeenCalled();
+  });
+
+  it('falha de rede não marca como tentada: a próxima carga confirmada tenta de novo', async () => {
+    mockConcluirPartida.mockResolvedValueOnce('rede');
+    const { rerender, loadActiveRoute } = montar();
+    await waitFor(() => expect(mockConcluirPartida).toHaveBeenCalledTimes(1));
+    expect(loadActiveRoute).not.toHaveBeenCalled();
+
+    recarregar(rerender, loadActiveRoute);
+    await waitFor(() => expect(mockConcluirPartida).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(loadActiveRoute).toHaveBeenCalled());
   });
 });
