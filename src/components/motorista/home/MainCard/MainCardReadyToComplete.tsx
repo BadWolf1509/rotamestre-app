@@ -7,6 +7,7 @@ import React, { memo } from 'react';
 import { View } from 'react-native';
 
 import { Text } from '@/design-system';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from '../MainCard.styles';
@@ -92,7 +93,7 @@ export const MainCardReadyToComplete = memo(function MainCardReadyToComplete({
         <View style={styles.summaryItem}>
           <Text style={styles.summaryLabel}>Distância</Text>
           <Text style={styles.summaryValue}>
-            {route?.distancia_total || 0} km
+            {formatarDecimal(route?.distancia_total ?? 0)} km
           </Text>
         </View>
       </View>

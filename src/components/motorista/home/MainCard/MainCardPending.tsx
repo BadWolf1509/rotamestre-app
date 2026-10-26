@@ -7,6 +7,7 @@ import React, { memo } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { Text } from '@/design-system';
+import { formatarDecimal } from '@/lib/formatNumber';
 import { useUnistyles } from '@/utils/styles';
 
 import { ExpirationWarning } from '../ExpirationWarning';
@@ -91,7 +92,7 @@ export const MainCardPending = memo(function MainCardPending({
         <View style={styles.pendingStatItem}>
           <Ionicons name="speedometer" size={18} color={theme.colors.primary} />
           <Text style={styles.pendingStatValue}>
-            {route?.distancia_total || 0}
+            {formatarDecimal(route?.distancia_total ?? 0)}
           </Text>
           <Text style={styles.pendingStatLabel}>km</Text>
         </View>

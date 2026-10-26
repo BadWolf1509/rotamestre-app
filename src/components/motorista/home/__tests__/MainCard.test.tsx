@@ -490,7 +490,7 @@ describe('MainCard', () => {
 
     expect(getByText('Tempo total')).toBeTruthy();
     expect(getByText('Distância')).toBeTruthy();
-    expect(getByText('25 km')).toBeTruthy();
+    expect(getByText('25,0 km')).toBeTruthy();
   });
 
   it('deve renderizar estado completed', () => {
@@ -508,8 +508,55 @@ describe('MainCard', () => {
 
     // UI atualizada: com 100% de sucesso mostra "Perfeição!"
     expect(getByText('Perfeição!')).toBeTruthy();
-    expect(getByText('40 km')).toBeTruthy();
+    expect(getByText('40,0 km')).toBeTruthy();
     expect(getByText('Ver Detalhes da Rota')).toBeTruthy();
+  });
+
+  describe('distância com vírgula (numeric chega como 45.54)', () => {
+    it('pending mostra 45,5 e não 45.54', () => {
+      const { getByText, queryByText } = render(
+        <MainCard
+          {...defaultProps}
+          state="pending"
+          route={{ unidade_nome: 'Empresa', distancia_total: 45.54 }}
+          paradas={[]}
+        />,
+      );
+
+      expect(getByText('45,5')).toBeTruthy();
+      expect(queryByText(/45\.54/)).toBeNull();
+    });
+
+    it('ready-to-complete mostra 45,5 km', () => {
+      const { getByText, queryByText } = render(
+        <MainCard
+          {...defaultProps}
+          state="ready-to-complete"
+          route={{ distancia_total: 45.54 }}
+          paradas={[]}
+        />,
+      );
+
+      expect(getByText('45,5 km')).toBeTruthy();
+      expect(queryByText(/45\.54/)).toBeNull();
+    });
+
+    it('completed mostra 45,5 km', () => {
+      const { getByText, queryByText } = render(
+        <MainCard
+          {...defaultProps}
+          state="completed"
+          route={{ distancia_total: 45.54 }}
+          paradas={[
+            { id: '1', status: 'concluida' },
+            { id: '2', status: 'concluida' },
+          ]}
+        />,
+      );
+
+      expect(getByText('45,5 km')).toBeTruthy();
+      expect(queryByText(/45\.54/)).toBeNull();
+    });
   });
 
   it('deve chamar onPress quando tocado em active', () => {
