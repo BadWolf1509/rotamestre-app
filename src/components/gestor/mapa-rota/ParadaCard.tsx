@@ -290,11 +290,23 @@ export const ParadaCard = React.memo<ParadaCardProps>(
     );
   },
   (prevProps, nextProps) => {
+    // Todo campo exibido entra aqui: a parada editada pelo gestor ou pulada
+    // pelo motorista chega com o mesmo id e status, e o card (e o `onEdit`,
+    // que recebe esta `parada`) ficaria com o dado antigo.
+    const antes = prevProps.parada;
+    const depois = nextProps.parada;
     return (
-      prevProps.parada.id === nextProps.parada.id &&
-      prevProps.parada.status === nextProps.parada.status &&
-      prevProps.parada.foto_url === nextProps.parada.foto_url &&
-      prevProps.parada.observacao_pulo === nextProps.parada.observacao_pulo &&
+      antes.id === depois.id &&
+      antes.status === depois.status &&
+      antes.foto_url === depois.foto_url &&
+      antes.observacao_pulo === depois.observacao_pulo &&
+      antes.motivo_skip === depois.motivo_skip &&
+      antes.observacoes === depois.observacoes &&
+      antes.endereco === depois.endereco &&
+      antes.destinatario === depois.destinatario &&
+      antes.telefone === depois.telefone &&
+      antes.tipo === depois.tipo &&
+      antes.ordem === depois.ordem &&
       prevProps.index === nextProps.index &&
       prevProps.selected === nextProps.selected &&
       // A rota mudar de situação (ex.: cancelada) esconde editar/remover.

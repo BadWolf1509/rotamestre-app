@@ -533,6 +533,29 @@ describe('ParadaCard', () => {
       expect(getByText('Motorista: Segundo')).toBeTruthy();
     });
 
+    // O comparador do memo tem de cobrir todo campo exibido: a parada editada
+    // pelo gestor (ou o pulo do motorista) chega pelo realtime com o mesmo id
+    // e status, e o card ficaria com o texto antigo.
+    it.each([
+      [
+        'motivo_skip',
+        { motivo_skip: 'endereco_incorreto' as const },
+        'Endereço incorreto',
+      ],
+      ['observacoes', { observacoes: 'Portão verde' }, 'Portão verde'],
+      ['endereco', { endereco: 'Rua Nova, 99' }, 'Rua Nova, 99'],
+      ['destinatario', { destinatario: 'Maria Nova' }, 'Maria Nova'],
+      ['telefone', { telefone: '83911112222' }, /1111/],
+    ])('re-renderiza quando só o %s muda', (_campo, mudanca, esperado) => {
+      const { getByText, rerender } = render(
+        <ParadaCard {...defaultProps} parada={pulada} />,
+      );
+      rerender(
+        <ParadaCard {...defaultProps} parada={{ ...pulada, ...mudanca }} />,
+      );
+      expect(getByText(esperado)).toBeTruthy();
+    });
+
     it('parada pulada sem observacao_pulo mostra só o motivo', () => {
       const { getByText, queryByText } = render(
         <ParadaCard
