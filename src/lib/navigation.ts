@@ -82,7 +82,14 @@ function gerarUrlGoogleMaps(coords: Coordenadas): OpcaoNavegacao {
   return {
     nome: 'Google Maps',
     url,
-    fallback: `https://www.google.com/maps/dir/?api=1&destination=${coords.latitude},${coords.longitude}`,
+    // `dir_action=navigate`: o fallback é o caminho REAL na maioria dos
+    // aparelhos — o manifesto não declara <queries> para `google.navigation`
+    // (Android 11+) nem o Info.plist `comgooglemaps` (iOS), então
+    // `canOpenURL` responde false com o Maps instalado. Sem o parâmetro, o
+    // link abre só a prévia da rota e o motorista tocava "Iniciar" a cada
+    // parada. Preferido a declarar as queries por plugin: vale sem build
+    // nativo novo e cobre os dois sistemas.
+    fallback: `https://www.google.com/maps/dir/?api=1&destination=${coords.latitude},${coords.longitude}&dir_action=navigate`,
     icone: '🗺️',
   };
 }
