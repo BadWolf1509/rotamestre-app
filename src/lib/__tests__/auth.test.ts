@@ -48,6 +48,34 @@ describe('AuthService - Unit Tests', () => {
   // GRUPO 1: signIn - Login
   // ============================================
   describe('signIn', () => {
+    // No login a rede acabou de responder (signInWithPassword) e não há
+    // perfil conhecido de reserva: o retry do postgrest-js fica.
+    it('busca o perfil COM o retry do postgrest-js (sem retry(false))', async () => {
+      mockSupabase.auth.signInWithPassword.mockResolvedValue({
+        data: {
+          session: { access_token: 't', user: { id: 'user-123' } },
+          user: { id: 'user-123' },
+        } as any,
+        error: null,
+      });
+      const retry = jest.fn();
+      const builder: Record<string, jest.Mock> = {};
+      builder.select = jest.fn(() => builder);
+      builder.update = jest.fn(() => builder);
+      builder.eq = jest.fn(() => builder);
+      builder.retry = retry.mockImplementation(() => builder);
+      builder.maybeSingle = jest.fn().mockResolvedValue({
+        data: { id: 'user-123', papel: 'motorista', ativo: true },
+        error: null,
+      });
+      mockSupabase.from.mockReturnValue(builder as any);
+
+      await authService.signIn('teste@rotamestre.com', 'senha123');
+
+      expect(builder.maybeSingle).toHaveBeenCalled();
+      expect(retry).not.toHaveBeenCalledWith(false);
+    });
+
     it('deve fazer login com sucesso e retornar sessão e usuário', async () => {
       const mockSession = {
         access_token: 'mock-token-123',

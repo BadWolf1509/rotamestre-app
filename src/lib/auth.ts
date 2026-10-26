@@ -173,7 +173,9 @@ export const authService = {
 
     // Buscar dados do usuário na tabela usuarios
     if (data.user) {
-      const usuario = await this.getUsuario(data.user.id);
+      // Com o retry: a rede acabou de responder e não há perfil conhecido
+      // de reserva — uma falha passageira aqui derrubaria o login.
+      const usuario = await this.getUsuario(data.user.id, { comRetry: true });
       if (usuario) await this.garantirContaAtiva(usuario);
       await supabase
         .from('usuarios')
@@ -427,7 +429,16 @@ export const authService = {
   lerSessao,
 
   // Obter dados do usuário
-  async getUsuario(userId: string): Promise<Usuario | null> {
+  async getUsuario(
+    userId: string,
+    opcoes?: {
+      /**
+       * Mantém o retry do postgrest-js. Só o login (`signIn`) pede: ali não
+       * há perfil conhecido para cair. O padrão continua `retry(false)`.
+       */
+      comRetry?: boolean;
+    },
+  ): Promise<Usuario | null> {
     // `.maybeSingle()`, não `.single()`: entre o cadastro e a RPC do onboarding
     // a pessoa legitimamente não tem linha em `usuarios` — é assim que o fluxo
     // self-service funciona, e `app/index.tsx` conta com o null para mandar ao
@@ -446,17 +457,18 @@ export const authService = {
     // meio).
     await exigirSessaoDe(userId);
 
-    const { data, error, status } = await supabase
+    let consulta = supabase
       .from('usuarios')
       .select('*, unidades(nome)')
-      .eq('id', userId)
-      // Sem o retry do postgrest-js (3 tentativas com recuo, ~20 s na
-      // abertura sem rede): quem chama já tem o perfil conhecido do aparelho
-      // como reserva, então uma falha só cai nele. Alternativa descartada:
-      // `db.retry: false` no cliente inteiro, que tiraria a resiliência de
-      // todo GET do app.
-      .retry(false)
-      .maybeSingle();
+      .eq('id', userId);
+    // Sem o retry do postgrest-js (3 tentativas com recuo, ~20 s na abertura
+    // sem rede): quem chama já tem o perfil conhecido do aparelho como
+    // reserva, então uma falha só cai nele. Alternativa descartada:
+    // `db.retry: false` no cliente inteiro, que tiraria a resiliência de todo
+    // GET do app. O login pede `comRetry` e fica com o padrão do cliente (não
+    // `retry(true)`, que passaria por cima de uma config do cliente).
+    if (!opcoes?.comRetry) consulta = consulta.retry(false);
+    const { data, error, status } = await consulta.maybeSingle();
 
     if (error) {
       const falha = classificarFalhaPerfil(error, status);
