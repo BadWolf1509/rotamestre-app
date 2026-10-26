@@ -15,8 +15,12 @@
  *
  * - **Fila vazia:** insert direto de uma linha, como antes.
  * - **Falha de rede:** a posição vai para o AsyncStorage, com o horário dela.
- * - **Falha que não é de rede, com a fila vazia:** a posição não entra na
- *   fila (uma posição só, como antes desta fila). Fica o `logger.error`.
+ * - **Recusa de sessão, com a fila vazia** (`ehRecusaDeSessao`: PGRST301,
+ *   PGRST303, 401): a posição entra na fila já com `tentativas: 1`.
+ * - **Outra falha que não é de rede, com a fila vazia** (dado, 42501, 5xx):
+ *   a posição não entra na fila (uma posição só). Fica o `logger.error`. O
+ *   42501 é recusa real da RLS e o `'perdida'` dele dispara a conferência da
+ *   rota no rastreamento.
  * - **Fila com algo:** a posição nova entra no fim da fila e a fila inteira é
  *   enviada em lote, em ordem cronológica. A nova chega por último porque o
  *   marcador do gestor segue o último INSERT do realtime: enviar a fila depois
@@ -134,6 +138,26 @@ function ehRecusaDeDado(error: unknown): boolean {
     return false;
   }
   return CODIGOS_RECUSA_DE_DADO.has(String(error.code));
+}
+
+/**
+ * Recusa de SESSÃO: sem sessão (PGRST301, que o porteiro do fetch nativo
+ * devolve), JWT vencido (PGRST303) ou 401. Passa quando a sessão volta — por
+ * isso, com a fila vazia, a posição é guardada em vez de perdida.
+ *
+ * 42501 fica de fora de propósito: com o porteiro, a requisição sem sessão
+ * já volta PGRST301, e o 42501 que sobra é recusa real da RLS (rota
+ * encerrada ou reatribuída) — o `'perdida'` dela é o gatilho da conferência
+ * da rota em `unifiedLocationTracking`. Lista própria, e não o
+ * `ehErroDeSessao` de `filaAcoesParada`, que casa também por texto da
+ * mensagem: acoplar as duas filas faria uma mudança de lá mexer aqui.
+ */
+function ehRecusaDeSessao(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  if ('status' in error && error.status === 401) return true;
+  return (
+    'code' in error && (error.code === 'PGRST301' || error.code === 'PGRST303')
+  );
 }
 
 /**
@@ -393,11 +417,13 @@ export function espacarFila<T extends { rota_id: string; timestamp: string }>(
 
 /**
  * false = não ficou guardada (sem rastreamento nem sessão do motorista, ou o
- * AsyncStorage recusou a gravação).
+ * AsyncStorage recusou a gravação). `tentativasIniciais` > 0 = a posição já
+ * foi recusada pelo servidor (não por rede) antes de entrar na fila.
  */
 function guardar(
   linha: LinhaGuardada,
   geracaoDeOrigem: number,
+  tentativasIniciais = 0,
 ): Promise<boolean> {
   return emSerie(async () => {
     if (!(await aindaEhDoAparelho(linha.motorista_id))) return false;
@@ -407,7 +433,11 @@ function guardar(
         ? atual
         : { userId: linha.motorista_id, posicoes: [], estourou: false };
 
-    registro.posicoes.push(linha);
+    registro.posicoes.push(
+      tentativasIniciais > 0
+        ? { ...linha, tentativas: tentativasIniciais }
+        : linha,
+    );
 
     if (registro.posicoes.length > TETO_FILA_POSICOES) {
       registro.posicoes = espacarFila(registro.posicoes, TETO_FILA_POSICOES);
@@ -669,8 +699,13 @@ export async function registrarPosicao(
       const { error } = await inserir(linha);
       if (!error) return 'enviada';
       logarFalha(rotulo, error);
-      if (!isNetworkError(error)) return 'perdida';
-      return (await guardar(linha, geracaoDaPosicao)) ? 'na_fila' : 'perdida';
+      // Sem rede: guarda sem tentativa. Sessão: guarda com a tentativa já
+      // contada (o teto `MAX_TENTATIVAS_POSICAO` limita a espera). Resto —
+      // dado, 42501, 5xx: perdida.
+      const daRede = isNetworkError(error);
+      if (!daRede && !ehRecusaDeSessao(error)) return 'perdida';
+      const guardou = await guardar(linha, geracaoDaPosicao, daRede ? 0 : 1);
+      return guardou ? 'na_fila' : 'perdida';
     }
 
     // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a
