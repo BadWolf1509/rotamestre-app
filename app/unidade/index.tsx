@@ -139,6 +139,7 @@ export default function UnidadeScreen() {
   // Guarda de sequência: ao trocar de loja com a carga anterior em voo, só
   // a resposta da carga MAIS RECENTE escreve no formulário.
   const cargaUnidadeRef = useRef(0);
+  const cargaEquipeRef = useRef(0);
 
   const loadUnidade = useCallback(async () => {
     const unidadeId = unidadeAtiva;
@@ -191,17 +192,21 @@ export default function UnidadeScreen() {
   }, [reset, showToast, unidadeAtiva]);
 
   const loadMembrosCount = useCallback(async () => {
+    // Mesmo contador da ficha (`cargaUnidadeRef`): na troca de loja a
+    // contagem lenta da anterior não sobrescreve a da atual.
+    const minhaCarga = ++cargaEquipeRef.current;
     const unidadeId = unidadeAtiva;
-    if (!unidadeId) {
-      setEquipe({ total: 0, ativos: 0, inativos: 0 });
-      return;
-    }
+    setEquipe({ total: 0, ativos: 0, inativos: 0 });
+    if (!unidadeId) return;
 
     try {
       // A MESMA fonte da tela Equipe (vínculo com a loja, incluindo motorista
       // inativo só nesta loja): os dois números não podem divergir.
-      setEquipe(resumoDaEquipe(await carregarEquipeDaLoja(unidadeId)));
+      const membros = await carregarEquipeDaLoja(unidadeId);
+      if (minhaCarga !== cargaEquipeRef.current) return;
+      setEquipe(resumoDaEquipe(membros));
     } catch (error) {
+      if (minhaCarga !== cargaEquipeRef.current) return;
       logger.error('Erro ao contar membros', error);
     }
   }, [unidadeAtiva]);
