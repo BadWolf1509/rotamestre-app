@@ -10,6 +10,7 @@ import { useUser } from '@/hooks/useUser';
 import {
   cancelarRota,
   MENSAGEM_ROTA_JA_CANCELADA,
+  MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR,
   MENSAGEM_SEM_PERMISSAO_ROTA,
   reativarRota,
   type ResultadoCancelarRota,
@@ -322,6 +323,9 @@ export function useMapaRotaHandlers({
           break;
         case 'sem_permissao':
           showToast(MENSAGEM_SEM_PERMISSAO_ROTA, 'error');
+          break;
+        case 'motorista_indisponivel':
+          showToast(MENSAGEM_MOTORISTA_INDISPONIVEL_REATIVAR, 'error');
           break;
         default: {
           const naoTratado: never = resultado;
