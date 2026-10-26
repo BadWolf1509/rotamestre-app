@@ -738,10 +738,16 @@ describe('useMotoristasOperations', () => {
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it('handles updateUsuario failure', async () => {
+    // Antes o toast mostrava o texto cru do erro ("Email duplicado", ou o
+    // inglês do Postgres). Erro que não é regra do banco vira o genérico.
+    it('falha sem regra do banco mostra o genérico, nunca o texto cru', async () => {
       mockUpdateUsuario.mockResolvedValue({
         success: false,
-        error: { message: 'Email duplicado' },
+        error: {
+          type: 'unknown',
+          message: 'Email duplicado',
+          originalError: { code: 'XX000', message: 'Email duplicado' },
+        },
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -757,8 +763,63 @@ describe('useMotoristasOperations', () => {
         );
       });
 
-      expect(mockShowToast).toHaveBeenCalledWith('Email duplicado', 'error');
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Não foi possível editar o motorista.',
+        'error',
+      );
       expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('regra do banco (P0001, motorista de outra loja) chega ao toast com o texto do banco', async () => {
+      const regra =
+        'Este motorista atende outra loja: aqui só nome e telefone podem mudar.';
+      mockUpdateUsuario.mockResolvedValue({
+        success: false,
+        error: {
+          type: 'unknown',
+          code: 'P0001',
+          message: regra,
+          originalError: { code: 'P0001', message: regra },
+        },
+      });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.editarMotorista(
+          validEditData,
+          'motorista-1',
+          onSuccess,
+        );
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(regra, 'error');
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
+    it('exceção inesperada na edição também vira o genérico', async () => {
+      mockUpdateUsuario.mockRejectedValue(
+        new Error('TypeError: x is undefined'),
+      );
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.editarMotorista(
+          validEditData,
+          'motorista-1',
+          jest.fn(),
+        );
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Não foi possível editar o motorista.',
+        'error',
+      );
+      expect(result.current.salvando).toBe(false);
     });
 
     it('sets salvando during edit operation', async () => {

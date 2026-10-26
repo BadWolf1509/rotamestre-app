@@ -311,6 +311,20 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
     ) => {
       const { nome, telefone } = formData;
 
+      // Toast nunca leva o texto cru do erro: só a colisão de telefone e a
+      // regra do banco (P0001, já em português) têm frase própria. O erro
+      // ORIGINAL do PostgREST é o que carrega o `code`; embrulhá-lo num
+      // `new Error` (como antes) apagaria o P0001.
+      const falhar = (error: unknown) => {
+        logger.error('[Motoristas] Erro ao editar motorista', error);
+        showToast(
+          mensagemTelefoneDuplicado(error) ??
+            mensagemRegraDoBanco(error) ??
+            'Não foi possível editar o motorista.',
+          'error',
+        );
+      };
+
       setSalvando(true);
       try {
         // E-mail não é editável (é o login, no Auth): a edição não o regrava.
@@ -319,7 +333,10 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           telefone: telefone?.trim() || null,
         });
 
-        if (!result.success) throw new Error(result.error.message);
+        if (!result.success) {
+          falhar(result.error.originalError ?? result.error);
+          return;
+        }
 
         // Log action using centralized logging
         if (userData) {
@@ -333,17 +350,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
         onSuccess();
         loadMotoristas();
       } catch (error: unknown) {
-        logger.error('[Motoristas] Erro ao editar motorista', error);
-        let message = 'Não foi possível editar o motorista';
-        const telefoneDuplicado = mensagemTelefoneDuplicado(error);
-        if (telefoneDuplicado) {
-          message = telefoneDuplicado;
-        } else if (error instanceof Error) {
-          message = error.message;
-        } else if (error && typeof error === 'object' && 'message' in error) {
-          message = String(error.message);
-        }
-        showToast(message, 'error');
+        falhar(error);
       } finally {
         setSalvando(false);
       }
