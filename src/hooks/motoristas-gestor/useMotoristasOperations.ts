@@ -49,6 +49,9 @@ const MSG_FALHA_CRIAR = 'Não foi possível criar o motorista. Tente de novo.';
  * vira "Sem conexão"; o resto, a mensagem genérica. Nunca o texto técnico.
  */
 function mensagemFalhaCriacao(error: unknown): string {
+  // Hoje a criação usa fetch cru (não supabase.functions.invoke), então este
+  // ramo não dispara; cobre a migração futura para invoke, cuja falha de
+  // rede tem mensagem que o isNetworkError não reconhece.
   if (error instanceof Error && error.name === 'FunctionsFetchError') {
     return MSG_SEM_CONEXAO;
   }

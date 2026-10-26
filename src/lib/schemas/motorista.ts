@@ -9,7 +9,23 @@
 import { z } from 'zod';
 
 import { optionalPhoneSchema } from '../phone';
-import { emailSchema, passwordSchema, nomeSchema } from './basic';
+import { emailSchema, passwordSchema } from './basic';
+
+/**
+ * Nome do motorista: regra própria, mais larga que o `nomeSchema` do
+ * cadastro do gestor (só letras), que fica intocado. Motorista já cadastrado
+ * tem nome com parênteses ("Carlos (Moto)"); com a regra do gestor, a edição
+ * dele seria recusada mesmo trocando só o telefone. Aceita letras Unicode,
+ * dígitos, espaço e ( ) ' . - ; o trim vem antes da medida.
+ */
+export const nomeMotoristaSchema = z
+  .string()
+  .trim()
+  .min(3, 'Nome deve ter no mínimo 3 caracteres')
+  .max(100, 'Nome deve ter no máximo 100 caracteres')
+  .regex(/^[\p{L}\p{M}\d\s()'.-]+$/u, {
+    message: "Nome aceita letras, números, espaço e ( ) ' . -",
+  });
 
 /**
  * Criação de motorista. A senha segue o `passwordSchema` — a mesma regra do
@@ -20,7 +36,7 @@ import { emailSchema, passwordSchema, nomeSchema } from './basic';
  * `phoneSchema.optional()` só aceitaria `undefined`.
  */
 export const motoristaSchema = z.object({
-  nome: nomeSchema,
+  nome: nomeMotoristaSchema,
   email: emailSchema,
   telefone: optionalPhoneSchema,
   senha: passwordSchema,

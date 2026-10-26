@@ -114,6 +114,34 @@ describe('MotoristaPerfil: editar', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
+  it('nome com parênteses (já cadastrado) trocando só o telefone grava', async () => {
+    // 1 dos 7 motoristas em produção tem parênteses no nome; a regra do
+    // cadastro do gestor (só letras) recusaria a edição dele.
+    const nomeOriginal = MOTORISTA.nome;
+    MOTORISTA.nome = 'Carlos (Moto)';
+    try {
+      await abrirEdicao();
+
+      fireEvent.changeText(
+        screen.getByLabelText('Campo de telefone do motorista'),
+        '11999887766',
+      );
+      fireEvent.press(screen.getByText('Salvar'));
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith(
+          'usuarios',
+          expect.objectContaining({
+            nome: 'Carlos (Moto)',
+            telefone: '(11) 99988-7766',
+          }),
+        ),
+      );
+    } finally {
+      MOTORISTA.nome = nomeOriginal;
+    }
+  });
+
   it('válido: grava nome e telefone mascarado', async () => {
     await abrirEdicao();
 

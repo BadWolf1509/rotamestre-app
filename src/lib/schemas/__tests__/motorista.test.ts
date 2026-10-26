@@ -13,10 +13,13 @@ describe('motoristaSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects nome with numbers (inherits nomeSchema)', () => {
+  // Regra própria do motorista (nomeMotoristaSchema): dígito vale; o que
+  // não vale é caractere fora da lista, como '<'. O nomeSchema do gestor
+  // (só letras) não se aplica aqui.
+  it('rejects nome with characters outside the allowed list', () => {
     const result = motoristaSchema.safeParse({
       ...validMotorista,
-      nome: 'Carlos 123',
+      nome: 'Carlos <b>',
     });
     expect(result.success).toBe(false);
   });
@@ -114,5 +117,27 @@ describe('motoristaEdicaoSchema', () => {
 
   it('continua exigindo nome válido', () => {
     expect(motoristaEdicaoSchema.safeParse({ nome: 'Ca' }).success).toBe(false);
+  });
+});
+
+describe('nome do motorista (regra própria, não a do cadastro do gestor)', () => {
+  const base = {
+    nome: 'Carlos Eduardo',
+    email: 'carlos@example.com',
+    telefone: '',
+    senha: 'Abcdef1!',
+  };
+
+  it.each(['Carlos (Moto)', 'Ana-Maria', "D'Ávila Jr.", 'João 2'])(
+    'aceita "%s"',
+    (nome) => {
+      expect(motoristaSchema.safeParse({ ...base, nome }).success).toBe(true);
+      expect(motoristaEdicaoSchema.safeParse({ nome }).success).toBe(true);
+    },
+  );
+
+  it.each(['AB', 'Carlos <script>', '   ab   '])('recusa "%s"', (nome) => {
+    expect(motoristaSchema.safeParse({ ...base, nome }).success).toBe(false);
+    expect(motoristaEdicaoSchema.safeParse({ nome }).success).toBe(false);
   });
 });
