@@ -3026,3 +3026,53 @@ além da margem, em rota pendente e cancelada, de pessoa desativada (com e sem
 rota), com vínculo inativo e na rota de outro motorista; catálogo da policy com
 `usuario_atual_ativo` e `concluida_em`, sem `now()`. Sem a migration: casos 4,
 5, 6, 9b e 11 FALHOU. Rollback colável com a policy viva de 25/10/2026.
+
+### ⏳ Migration 69: privilégios-padrão da API — função nova sem EXECUTE para PUBLIC/anon, `anon` só leitura
+
+**Arquivo:** `20261025164000_privilegios_padrao_da_api.sql` · **⏳ aguardando aplicação**
+
+**O que faz.** Quatro instruções: (1) privilégio-padrão global do `postgres`
+sem EXECUTE para PUBLIC em função; (2) privilégio-padrão do `postgres` em
+public sem EXECUTE para `anon` em função; (3) REVOKE de INSERT, UPDATE e
+DELETE de `anon` em todas as tabelas de public; (4) o mesmo no
+privilégio-padrão de tabelas do `postgres` em public. Função nova do
+`postgres` em public nasce com EXECUTE só para `postgres`, `authenticated` e
+`service_role`; tabela nova dá a `anon` só SELECT. `authenticated`,
+`service_role`, o SELECT de `anon` e a ACL das funções existentes não mudam.
+O PUBLIC sai pelo padrão global (sem `IN SCHEMA`) porque padrão por schema só
+soma ao global, e o EXECUTE de PUBLIC é o padrão embutido.
+
+**Alternativas.** (a) Privilégio-padrão + REVOKE em ALL TABLES — escolhida:
+função e tabela novas já nascem certas mesmo quando a migration esquece o
+REVOKE. (b) Só o checklist da skill `/new-migration`: depende de memória e não
+alcança as tabelas existentes. (c) REVOKE de EXECUTE em ALL FUNCTIONS de
+`anon`: mexeria em funções que já têm o REVOKE onde precisam.
+
+**Limites.** Ficam fora o padrão do `supabase_admin` (o `postgres` não pode
+alterá-lo), as sequências (`rwU` de `anon`), o padrão de storage e o EXECUTE de
+`anon`/PUBLIC nas três funções SECURITY INVOKER existentes
+(`calcular_distancia`, `normalizar_telefone`, `update_updated_at_column`).
+`CREATE OR REPLACE` de função existente preserva a ACL, então o
+`REVOKE ... FROM PUBLIC, anon` explícito continua obrigatório.
+
+**Medido em 25/10/2026.** `anon` com DELETE, INSERT e UPDATE em `admin_logs`,
+`incidentes`, `logs`, `motorista_locations`, `paradas`, `plan_prices`,
+`push_notification_logs` e `unidades`; DELETE e INSERT em `rotas`; só DELETE
+em `notificacoes` e `usuarios` (todas com `postgres` como grantor, nenhuma via
+PUBLIC, sem ACL de coluna para `anon`). Padrão do `postgres` em public: `f` com
+`anon=X`, `r` com `anon=arwd`; sem entrada global. A CLI roda como `postgres`.
+
+**App.** Sem mudança de código. As telas pré-login (`app/auth/*`,
+`app/index.tsx`, `app/exclusao-de-conta.tsx`) não escrevem nem chamam `.rpc(`;
+as escritas de `src/lib/auth.ts` rodam com sessão; o e2e escreve logado como
+gestor.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration69-privilegios-padrao-da-api.test.ts`; sonda
+`database/sondas/20261025164000_sonda_migration69.sql` (8 casos, catálogo +
+uma função e uma tabela de nome único desfeitas pelo RAISE; casos 6 e 7
+conferem que rodam como `postgres`): nenhuma escrita de `anon` em public;
+`authenticated` mantém o que o app usa; `anon` mantém SELECT; padrões de tabela
+e função do `postgres`; função e tabela novas; `finalizar_rota` e
+`calcular_distancia` intocadas. Sem a migration: casos 1, 4, 5, 6 e 7 FALHOU.
+Rollback colável, tabela a tabela, com o que foi medido.
