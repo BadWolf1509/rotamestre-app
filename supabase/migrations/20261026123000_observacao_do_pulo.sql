@@ -27,11 +27,16 @@
 --          b. gestor ativo (`usuario_unidades.papel = 'gestor'`, `ativo`) da
 --             loja da rota → deixa passar (o mesmo EXISTS de
 --             `paradas_foto_vinculada_preservada`);
---          c. pulo (`status` → 'pulada') sem a coluna nova no pedido
---             (`observacao_pulo` igual ao de antes = app até a 1.14.7) → o
---             texto mandado em `observacoes` vai para `observacao_pulo`; pulo
---             sem texto deixa `observacao_pulo` nulo (não fica o texto de um
---             pulo anterior);
+--          c. pulo (`status` → 'pulada') que muda `observacoes` sem mexer
+--             em `observacao_pulo` (o pedido do app até a 1.14.7 com texto)
+--             → o texto mandado em `observacoes` vai para
+--             `observacao_pulo`. Fora disso `observacao_pulo` não é tocado:
+--             o app 1.14.8 que pula, retoma e pula de novo com o mesmo texto
+--             manda `observacao_pulo` igual ao de antes e ele fica; o pulo
+--             sem texto do app antigo também deixa o `observacao_pulo` de um
+--             pulo anterior como estava (aceito: o texto antigo segue
+--             visível, e só existe em parada pulada, retomada e pulada de
+--             novo);
 --          d. em todos os casos fora de a/b, `observacoes` volta ao valor
 --             antigo — sem erro: o UPDATE segue valendo para as outras
 --             colunas.
@@ -84,8 +89,13 @@
 --       merge do PR do app; sem a coluna, o PostgREST recusa o pulo.
 --   Limite registrado: um mesmo texto mandado no pulo pela 1.14.7 igual à
 --   observação do gestor não é visto como texto do pulo (`observacoes` não
---   mudou) e `observacao_pulo` fica nulo; a instrução, que é o mesmo texto,
---   continua visível.
+--   mudou) e `observacao_pulo` fica como estava; a instrução, que é o mesmo
+--   texto, continua visível.
+--
+--   `SET LOCAL lock_timeout = '3s'`: o ADD COLUMN pede ACCESS EXCLUSIVE em
+--   `paradas`, tabela de escrita contínua; se a trava não vier em 3 s, a
+--   migration para sem efeito e é repetida, em vez de enfileirar as escritas
+--   do app atrás dela.
 --
 --   Função nova: SECURITY DEFINER (lê `usuario_unidades` sem depender da RLS
 --   de quem faz o UPDATE), `SET search_path = ''` (nomes qualificados), dono
@@ -94,6 +104,8 @@
 -- ============================================================================
 
 BEGIN;
+
+SET LOCAL lock_timeout = '3s';
 
 ALTER TABLE public.paradas
   ADD COLUMN IF NOT EXISTS observacao_pulo text;
@@ -126,11 +138,10 @@ BEGIN
 
   IF NEW.status = 'pulada'
      AND OLD.status IS DISTINCT FROM 'pulada'
+     AND NEW.observacoes IS DISTINCT FROM OLD.observacoes
      AND NEW.observacao_pulo IS NOT DISTINCT FROM OLD.observacao_pulo
   THEN
-    NEW.observacao_pulo := CASE
-      WHEN NEW.observacoes IS DISTINCT FROM OLD.observacoes THEN NEW.observacoes
-    END;
+    NEW.observacao_pulo := NEW.observacoes;
   END IF;
 
   NEW.observacoes := OLD.observacoes;
@@ -165,15 +176,16 @@ COMMIT;
 --   FROM pg_proc p WHERE p.oid = to_regprocedure('public.paradas_observacao_do_gestor()');
 -- ============================================================================
 
+-- Opcional, fora do rollback: para devolver o texto do pulo a `observacoes`
+-- sem apagar a instrução do gestor, rodar sem sessão (postgres):
+--   UPDATE public.paradas
+--      SET observacoes = concat_ws(' | ', observacoes, 'Pulo: ' || observacao_pulo)
+--    WHERE status = 'pulada' AND observacao_pulo IS NOT NULL;
+-- A coluna `observacao_pulo` fica no rollback: o app 1.14.8 grava nela, e
+-- apagá-la faria o PostgREST recusar o pulo.
+
 -- ROLLBACK:
--- Antes, reverter o app: depois do rollback, o app 1.14.8 tem o pulo recusado
--- (coluna inexistente). O UPDATE abaixo roda sem sessão (postgres), e o
--- gatilho ainda presente o deixa passar.
 -- BEGIN;
--- UPDATE public.paradas
---    SET observacoes = observacao_pulo
---  WHERE status = 'pulada' AND observacao_pulo IS NOT NULL;
 -- DROP TRIGGER IF EXISTS trg_paradas_observacao_do_gestor ON public.paradas;
 -- DROP FUNCTION IF EXISTS public.paradas_observacao_do_gestor();
--- ALTER TABLE public.paradas DROP COLUMN IF EXISTS observacao_pulo;
 -- COMMIT;

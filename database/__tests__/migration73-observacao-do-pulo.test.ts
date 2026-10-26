@@ -59,8 +59,10 @@ describe('Migration 73: observação do pulo em coluna própria', () => {
     expect(ler(caminhoSupa)).toBe(sql);
   });
 
-  it('roda numa transação só', () => {
-    expect(executavel).toMatch(/^\s*BEGIN;/m);
+  it('roda numa transação só, com lock_timeout logo depois do BEGIN', () => {
+    expect(executavel).toMatch(
+      /^\s*BEGIN;\s+SET LOCAL lock_timeout = '3s';\s+ALTER TABLE public\.paradas/m,
+    );
     expect(executavel).toMatch(/^\s*COMMIT;/m);
   });
 
@@ -107,13 +109,13 @@ describe('Migration 73: observação do pulo em coluna própria', () => {
     );
   });
 
-  it('pulo sem a coluna nova (app instalado) leva o texto para observacao_pulo', () => {
+  it('só o pulo que muda observacoes sem mexer em observacao_pulo (app instalado) leva o texto para observacao_pulo', () => {
     expect(corpoFuncao).toMatch(
-      /NEW\.status = 'pulada'\s+AND OLD\.status IS DISTINCT FROM 'pulada'\s+AND NEW\.observacao_pulo IS NOT DISTINCT FROM OLD\.observacao_pulo/,
+      /IF NEW\.status = 'pulada'\s+AND OLD\.status IS DISTINCT FROM 'pulada'\s+AND NEW\.observacoes IS DISTINCT FROM OLD\.observacoes\s+AND NEW\.observacao_pulo IS NOT DISTINCT FROM OLD\.observacao_pulo\s+THEN\s+NEW\.observacao_pulo := NEW\.observacoes;\s+END IF;/,
     );
-    expect(corpoFuncao).toMatch(
-      /NEW\.observacao_pulo := CASE\s+WHEN NEW\.observacoes IS DISTINCT FROM OLD\.observacoes THEN NEW\.observacoes\s+END;/,
-    );
+    // Fora desse caso, observacao_pulo não é tocado (nada de CASE que zere).
+    expect(corpoFuncao.match(/NEW\.observacao_pulo :=/g)).toHaveLength(1);
+    expect(corpoFuncao).not.toMatch(/\bCASE\b/);
   });
 
   it('o restante devolve a observação antiga', () => {
@@ -136,34 +138,30 @@ describe('Migration 73: observação do pulo em coluna própria', () => {
     );
   });
 
-  it('rollback colável: devolve o texto do pulo a observacoes e apaga gatilho, função e coluna', () => {
+  it('rollback colável: remove gatilho e função e mantém a coluna e observacoes', () => {
     expect(rollback).toMatch(/^BEGIN;/m);
     expect(rollback).toMatch(/^COMMIT;/m);
-    expect(rollback).toMatch(
-      /UPDATE public\.paradas\s+SET observacoes = observacao_pulo\s+WHERE status = 'pulada' AND observacao_pulo IS NOT NULL/,
-    );
-    const i = (t: string) => rollback.indexOf(t);
-    const update = rollback.search(/UPDATE public\.paradas/);
-    const trig = i(
+    const trig = rollback.indexOf(
       'DROP TRIGGER IF EXISTS trg_paradas_observacao_do_gestor ON public.paradas;',
     );
-    const func = i(
+    const func = rollback.indexOf(
       'DROP FUNCTION IF EXISTS public.paradas_observacao_do_gestor();',
     );
-    const col = i(
-      'ALTER TABLE public.paradas DROP COLUMN IF EXISTS observacao_pulo;',
-    );
-    // O UPDATE do rollback roda ANTES do DROP do gatilho; como roda sem
-    // sessão (postgres), o gatilho o deixa passar.
-    expect(update).toBeGreaterThan(-1);
-    expect(trig).toBeGreaterThan(update);
+    expect(trig).toBeGreaterThan(-1);
     expect(func).toBeGreaterThan(trig);
-    expect(col).toBeGreaterThan(func);
+    // A coluna fica (o app 1.14.8 grava nela) e a instrução do gestor não é
+    // substituída.
+    expect(rollback).not.toMatch(/DROP COLUMN/);
+    expect(rollback).not.toMatch(/UPDATE public\.paradas/);
+    // A devolução opcional do texto, se documentada, preserva a instrução.
+    expect(sql).toMatch(
+      /concat_ws\(' \| ', observacoes, 'Pulo: ' \|\| observacao_pulo\)/,
+    );
   });
 
-  it('a sonda cobre os 14 casos e termina desfeita por RAISE', () => {
+  it('a sonda cobre os 16 casos e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M73 \(desfeita\)/);
-    for (let caso = 1; caso <= 14; caso += 1) {
+    for (let caso = 1; caso <= 16; caso += 1) {
       expect(sonda).toContain(`' | ${caso} OK: `);
     }
     // Corpos de UPDATE do app reproduzidos (filaAcoesParada / useEditStopForm).

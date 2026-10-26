@@ -6,9 +6,9 @@
 -- mesma sessão: depois de aplicá-la, ou, para conferir antes, na MESMA
 -- execução que o corpo da migration (sem o BEGIN/COMMIT dela), para que o
 -- RAISE do fim desfaça as duas coisas. Sem a migration, os casos 1, 2, 3, 4,
--- 6, 8 e 10 saem FALHOU (é o vermelho esperado: a coluna não existe, 42703, e
--- o motorista ainda substitui `observacoes`); os casos 5, 7, 9, 11, 12, 13 e
--- 14 saem OK antes e depois (são o comportamento que a migration preserva).
+-- 6, 8, 10 e 15 saem FALHOU (é o vermelho esperado: a coluna não existe, 42703, e
+-- o motorista ainda substitui `observacoes`); os casos 5, 7, 9, 11, 12, 13,
+-- 14 e 16 saem OK antes e depois (são o comportamento que a migration preserva).
 --
 -- Os UPDATEs reproduzem o corpo que o app manda pelo PostgREST:
 --   - pulo/conclusão do motorista (`src/lib/motorista/filaAcoesParada.ts`,
@@ -28,7 +28,8 @@
 -- — a contagem de linhas que o app confere.
 --
 -- Cenário (não depende de dado real), montado como postgres, sem sessão: loja
--- A; motorista M, ativo em A; gestor GA, gestor ativo de A. Rota R
+-- A e B; motorista M, ativo em A; gestor GA, gestor ativo de A; gestor GB,
+-- gestor ativo só de B. Rota R
 -- `em_andamento` de M com partida (ordem 0, `concluida`) e chegada (ordem
 -- 900, `pendente`), as duas com `is_checkpoint = false`; cada caso de 1 a 11
 -- cria a própria parada em R (ordem própria) com `observacoes = 'instrução do
@@ -44,7 +45,8 @@
 --    2. M (corpo 1.14.8) pula com `observacao_pulo = 'Portão fechado'` → 1
 --       linha; `observacao_pulo` gravado; `observacoes` igual
 --    3. M (corpo 1.14.7, sem texto) pula parada com `observacao_pulo` antigo
---       → `observacao_pulo` nulo; `observacoes` igual
+--       → `observacao_pulo` antigo fica (aceito: o pulo sem texto não o
+--       limpa); `observacoes` igual
 --    4. M muda só `observacoes` de parada pendente → 1 linha (sucesso sem
 --       efeito); `observacoes` igual
 --    5. GA edita a parada pendente com o corpo do `useEditStopForm` → 1
@@ -71,6 +73,11 @@
 --       'cancelada', parada `pendente`; GA `reativar_rota` (rota
 --       `nao_executada` com parada pulada) → 'reativada', parada `pendente`;
 --       `observacoes` iguais nas duas
+--   15. M (corpo 1.14.8) pula com `observacao_pulo = 'Ficou para amanhã'`,
+--       retoma e pula de novo com o mesmo texto → `observacao_pulo = 'Ficou
+--       para amanhã'`; `observacoes` igual
+--   16. GB (gestor de outra loja) faz UPDATE de `observacoes` → 0 linhas;
+--       `observacoes` igual
 -- ============================================================================
 DO $$
 DECLARE
@@ -79,6 +86,10 @@ DECLARE
   v_ua uuid := gen_random_uuid();     -- loja A
   v_m uuid := gen_random_uuid();      -- motorista de A
   v_ga uuid := gen_random_uuid();     -- gestor ativo de A
+  v_ub uuid := gen_random_uuid();     -- loja B
+  v_gb uuid := gen_random_uuid();     -- gestor ativo só de B
+  v_p15 uuid := gen_random_uuid();
+  v_p16 uuid := gen_random_uuid();
   v_hoje date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
   v_obs constant text := 'instrução do gestor';
   v_r uuid := gen_random_uuid();      -- rota R (casos 1 a 11)
@@ -121,17 +132,22 @@ BEGIN
 
   INSERT INTO auth.users (id, email, aud, role) VALUES
     (v_m,  'sonda-m73-m-'  || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
-    (v_ga, 'sonda-m73-ga-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
+    (v_ga, 'sonda-m73-ga-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated'),
+    (v_gb, 'sonda-m73-gb-' || v_sufixo || '@example.invalid', 'authenticated', 'authenticated');
 
-  INSERT INTO public.unidades (id, nome, cidade) VALUES (v_ua, 'Sonda M73 A', 'Sonda');
+  INSERT INTO public.unidades (id, nome, cidade) VALUES
+    (v_ua, 'Sonda M73 A', 'Sonda'),
+    (v_ub, 'Sonda M73 B', 'Sonda');
 
   INSERT INTO public.usuarios (id, nome, email, papel, unidade_id, ativo) VALUES
     (v_m,  'Sonda motorista M', 'sonda-m73-m-'  || v_sufixo || '@example.invalid', 'motorista', v_ua, true),
-    (v_ga, 'Sonda gestor A',    'sonda-m73-ga-' || v_sufixo || '@example.invalid', 'gestor',    v_ua, true);
+    (v_ga, 'Sonda gestor A',    'sonda-m73-ga-' || v_sufixo || '@example.invalid', 'gestor',    v_ua, true),
+    (v_gb, 'Sonda gestor B',    'sonda-m73-gb-' || v_sufixo || '@example.invalid', 'gestor',    v_ub, true);
 
   INSERT INTO public.usuario_unidades (usuario_id, unidade_id, papel, ativo, is_principal) VALUES
     (v_m,  v_ua, 'motorista', true, true),
-    (v_ga, v_ua, 'gestor',    true, true);
+    (v_ga, v_ua, 'gestor',    true, true),
+    (v_gb, v_ub, 'gestor',    true, true);
 
   INSERT INTO public.rotas (id, unidade_id, motorista_id, status, data, iniciada_em) VALUES
     (v_r, v_ua, v_m, 'em_andamento', v_hoje, now());
@@ -150,7 +166,9 @@ BEGIN
     (v_p7,   v_r, 'entrega', 'sonda p7',  -7.1, -34.8, 7,  'pendente',     true, v_obs, NULL,    NULL,          NULL),
     (v_p9,   v_r, 'entrega', 'sonda p9',  -7.1, -34.8, 9,  'pulada',       true, v_obs, 'outro', 'sonda/x.jpg', now()),
     (v_p11,  v_r, 'entrega', 'sonda p11', -7.1, -34.8, 11, 'pendente',     true, v_obs, NULL,    NULL,          NULL),
-    (v_p11b, v_r, 'entrega', 'sonda p12', -7.1, -34.8, 12, 'pendente',     true, v_obs, NULL,    NULL,          NULL);
+    (v_p11b, v_r, 'entrega', 'sonda p12', -7.1, -34.8, 12, 'pendente',     true, v_obs, NULL,    NULL,          NULL),
+    (v_p15,  v_r, 'entrega', 'sonda p15', -7.1, -34.8, 15, 'pendente',     true, v_obs, NULL,    NULL,          NULL),
+    (v_p16,  v_r, 'entrega', 'sonda p16', -7.1, -34.8, 16, 'pendente',     true, v_obs, NULL,    NULL,          NULL);
 
   -- ---------------------------------------------------------------------------
   -- 1. M (corpo 1.14.7) pula com texto em observacoes
@@ -221,9 +239,9 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     SELECT count(*) INTO v_n2 FROM public.paradas
      WHERE id = v_p3 AND status = 'pulada' AND motivo_skip = 'cliente_ausente'
-       AND observacoes = v_obs AND observacao_pulo IS NULL;
+       AND observacoes = v_obs AND observacao_pulo = 'texto de um pulo anterior';
     r := r || CASE WHEN v_n = 1 AND v_n2 = 1
-      THEN ' | 3 OK: pulo sem texto do app instalado limpa observacao_pulo antigo, observação do gestor igual'
+      THEN ' | 3 OK: pulo sem texto do app instalado: observacao_pulo antigo fica (aceito), observação do gestor igual'
       ELSE ' | 3 FALHOU: linhas ' || v_n || ', parada no esperado ' || v_n2 END;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 3 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
@@ -542,6 +560,66 @@ BEGIN
       ELSE ' | 14 FALHOU: cancelar ' || coalesce(v_res, 'nulo') || ', reativar ' || coalesce(v_res2, 'nulo') || ', paradas no esperado ' || v_n || ' de 2' END;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 14 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  -- ---------------------------------------------------------------------------
+  -- 15. M (corpo 1.14.8) pula, retoma e pula de novo com o mesmo texto
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_m, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    WITH u AS (
+      UPDATE public.paradas
+         SET status = 'pulada', motivo_skip = 'outro', observacao_pulo = 'Ficou para amanhã'
+       WHERE id = v_p15 AND status IN ('pendente', 'em_andamento')
+      RETURNING id
+    ) SELECT count(*) INTO v_n FROM u;
+    WITH u AS (
+      UPDATE public.paradas SET status = 'pendente'
+       WHERE id = v_p15
+      RETURNING id
+    ) SELECT count(*) INTO v_n2 FROM u;
+    WITH u AS (
+      UPDATE public.paradas
+         SET status = 'pulada', motivo_skip = 'outro', observacao_pulo = 'Ficou para amanhã'
+       WHERE id = v_p15 AND status IN ('pendente', 'em_andamento')
+      RETURNING id
+    ) SELECT count(*) INTO v_n3 FROM u;
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    SELECT count(*) INTO v_n4 FROM public.paradas
+     WHERE id = v_p15 AND status = 'pulada'
+       AND observacoes = v_obs AND observacao_pulo = 'Ficou para amanhã';
+    r := r || CASE WHEN v_n = 1 AND v_n2 = 1 AND v_n3 = 1 AND v_n4 = 1
+      THEN ' | 15 OK: app novo pula, retoma e pula de novo com o mesmo texto: observacao_pulo fica, observação do gestor igual'
+      ELSE ' | 15 FALHOU: linhas ' || v_n || '/' || v_n2 || '/' || v_n3 || ', parada no esperado ' || v_n4 END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 15 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
+  END;
+  RESET ROLE;
+  PERFORM set_config('request.jwt.claims', '', true);
+
+  -- ---------------------------------------------------------------------------
+  -- 16. GB (gestor de outra loja) muda observacoes
+  -- ---------------------------------------------------------------------------
+  BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_gb, 'role', 'authenticated')::text, true);
+    SET LOCAL ROLE authenticated;
+    WITH u AS (
+      UPDATE public.paradas SET observacoes = 'texto de outra loja'
+       WHERE id = v_p16
+      RETURNING id
+    ) SELECT count(*) INTO v_n FROM u;
+    RESET ROLE;
+    PERFORM set_config('request.jwt.claims', '', true);
+    SELECT count(*) INTO v_n2 FROM public.paradas WHERE id = v_p16 AND observacoes = v_obs;
+    r := r || CASE WHEN v_n = 0 AND v_n2 = 1
+      THEN ' | 16 OK: gestor de outra loja: 0 linhas, observação igual'
+      ELSE ' | 16 FALHOU: linhas ' || v_n || ', observação igual ' || v_n2 END;
+  EXCEPTION WHEN OTHERS THEN
+    r := r || ' | 16 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
   END;
   RESET ROLE;
   PERFORM set_config('request.jwt.claims', '', true);
