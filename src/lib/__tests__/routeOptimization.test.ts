@@ -24,7 +24,6 @@ import {
   WAYPOINTS_RECOMENDADO,
   limparCacheOtimizacao,
   estatisticasCache,
-  precarregarCache,
   validarVinculos,
   validarRotaParaOtimizacao,
   formatarDescricaoVinculo,
@@ -71,11 +70,34 @@ describe('routeOptimization', () => {
     });
 
     it('should preload cache from storage', async () => {
-      // precarregarCache is already called internally, just verify the function works
-      await precarregarCache();
+      // O módulo carrega o storage só uma vez; os testes acima já o
+      // carregaram. Um módulo novo, com uma entrada persistida, deixa o
+      // efeito observável: a chave é lida e a entrada passa para a memória.
+      const entradaPersistida = JSON.stringify({
+        version: 1,
+        entries: {
+          'hash-persistido': {
+            resultado: { paradasOrdenadas: [] },
+            timestamp: Date.now(),
+          },
+        },
+      });
 
-      // The function should complete without error
-      expect(true).toBe(true);
+      let storage!: { getItem: jest.Mock };
+      let cache!: typeof import('../routeOptimization');
+      jest.isolateModules(() => {
+        storage = require('@react-native-async-storage/async-storage');
+        storage.getItem.mockResolvedValue(entradaPersistida);
+        cache = require('../routeOptimization');
+      });
+
+      await expect(cache.precarregarCache()).resolves.toBeUndefined();
+
+      expect(storage.getItem).toHaveBeenCalledWith(
+        '@rotamestre/route-optimization-cache',
+      );
+      const stats = await cache.estatisticasCache();
+      expect(stats.entradas).toContain('hash-persistido');
     });
 
     it('should handle loading cache entries', async () => {

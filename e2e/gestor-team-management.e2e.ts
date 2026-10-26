@@ -50,60 +50,27 @@ test.describe('Gestor Team Management E2E Tests', () => {
       page,
     }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(3000);
 
-      const bodyText = await page.locator('body').textContent();
-
-      // Either has list of drivers or shows empty state
-      const hasDriverContent =
-        bodyText?.includes('Nome') ||
-        bodyText?.includes('Email') ||
-        bodyText?.includes('Nenhum') ||
-        bodyText?.includes('cadastrado') ||
-        bodyText?.includes('motorista');
-
-      expect(hasDriverContent).toBeTruthy();
+      // Locators da própria tela: antes o teste procurava "motorista"/"Nome" no
+      // texto do body, que o menu lateral já contém mesmo com a lista quebrada.
+      const lista = page.getByTestId('motoristas-tabela');
+      const vazio = page.getByTestId('motoristas-vazio');
+      await expect(lista.or(vazio)).toBeVisible({ timeout: 15000 });
     });
 
     test('should show driver statistics if drivers exist', async ({ page }) => {
       await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(3000);
 
-      // Look for statistics or count
-      const bodyText = await page.locator('body').textContent();
-
-      // Should show count or statistics
-      const hasStats =
-        bodyText?.includes('cadastrados') ||
-        bodyText?.includes('ativos') ||
-        bodyText?.includes('Rotas') ||
-        /\d+/.test(bodyText || '');
-
-      expect(hasStats).toBeTruthy();
+      // O texto real do contador do cabeçalho ("N Cadastrados  M Ativos"); o
+      // `/\d+/` anterior casava com qualquer número do body.
+      await expect(page.getByTestId('motoristas-contadores')).toHaveText(
+        /\d+\s*Cadastrados\s*\d+\s*Ativos/,
+        { timeout: 15000 },
+      );
     });
   });
 
   test.describe('Add Motorista Button', () => {
-    test('should have add motorista button', async ({ page }) => {
-      await gestorPage.gotoMotoristas();
-      await page.waitForTimeout(2000);
-
-      // Look for add button
-      const addButton = page
-        .getByText(/adicionar.*motorista|novo.*motorista|\+ novo/i)
-        .first();
-      const isVisible = await addButton.isVisible().catch(() => false);
-
-      // Either has button or page shows add functionality
-      const bodyText = await page.locator('body').textContent();
-      const hasAddFunctionality =
-        isVisible ||
-        bodyText?.includes('Adicionar') ||
-        bodyText?.includes('Novo');
-
-      expect(hasAddFunctionality).toBeTruthy();
-    });
-
     test('should open add motorista modal when clicking add button', async ({
       page,
     }) => {
