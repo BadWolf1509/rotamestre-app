@@ -153,6 +153,27 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray700,
   },
+  // Editar/remover parada no card do celular e tablet (alvo de toque 44 px)
+  paradaAcoes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+  },
+  paradaAcaoBotao: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  paradaAcaoTexto: {
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansMedium,
+  },
   // Foto com overlay melhorado
   paradaFotoContainer: {
     marginTop: theme.spacing.sm,
@@ -597,6 +618,10 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     ...theme.shadows.sm,
+  },
+  // Linha do tempo no rodapé do celular/tablet
+  linhaDoTempoMobile: {
+    marginTop: theme.spacing.lg,
   },
   resumoTitle: {
     fontSize: theme.typography.fontSize.lg,

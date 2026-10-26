@@ -14,6 +14,8 @@ import {
 import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+import { permissoesRota } from './permissoesRota';
+
 import type { Rota, ResumoParadas } from './types';
 
 interface RouteInfoHeaderCompactProps {
@@ -51,16 +53,13 @@ export function RouteInfoHeaderCompact({
   }, [rota.status]);
 
   const statusColor = theme.colors[statusConfig.colorKey];
-  const canCancel =
-    rota.status !== 'cancelada' &&
-    rota.status !== 'concluida' &&
-    rota.status !== 'nao_executada';
-  const canReactivate = rota.status === 'nao_executada';
-  const canChangeDriver = rota.status === 'pendente';
-  const canAddStop =
-    rota.status === 'pendente' || rota.status === 'em_andamento';
-  const canReorder =
-    rota.status === 'pendente' || rota.status === 'em_andamento';
+  const {
+    cancelar: canCancel,
+    reativar: canReactivate,
+    trocarMotorista: canChangeDriver,
+    adicionarParada: canAddStop,
+    reordenar: canReorder,
+  } = permissoesRota(rota.status);
 
   return (
     <View style={styles.container}>

@@ -7,7 +7,11 @@
 export { ParadaCard } from './ParadaCard';
 export { ResumoStats } from './ResumoStats';
 export { BaseInfoContent, useHasBaseInfo } from './BaseInfoContent';
-export { RouteInfoHeader, getStatusBadgeVariant, formatStatusLabel } from './RouteInfoHeader';
+export {
+  RouteInfoHeader,
+  getStatusBadgeVariant,
+  formatStatusLabel,
+} from './RouteInfoHeader';
 export { PhotoModal } from './PhotoModal';
 export { MapaRotaSkeleton } from './MapaRotaSkeleton';
 
@@ -16,6 +20,7 @@ export { ParadaCardCompact } from './ParadaCardCompact';
 export { ResumoInline } from './ResumoInline';
 export { TimelineCollapsible } from './TimelineCollapsible';
 export { RouteInfoHeaderCompact } from './RouteInfoHeaderCompact';
+export { AcoesRotaMobile } from './AcoesRotaMobile';
 export { ChangeDriverModal } from './ChangeDriverModal';
 export { EditStopModal } from './EditStopModal';
 export { AddStopModal } from './AddStopModal';

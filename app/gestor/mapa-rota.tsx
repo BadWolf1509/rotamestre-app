@@ -20,6 +20,7 @@ import {
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
+  AcoesRotaMobile,
   ParadaCard,
   ParadaCardCompact,
   ResumoStats,
@@ -38,7 +39,10 @@ import {
   formatStatusLabel,
   styles,
 } from '@/components/gestor/mapa-rota';
-import type { DraggableStopListControl } from '@/components/gestor/mapa-rota';
+import type {
+  DraggableStopListControl,
+  Parada,
+} from '@/components/gestor/mapa-rota';
 import {
   useFecharModalSemParada,
   useMapaRotaData,
@@ -266,6 +270,208 @@ export default function MapaRota() {
     );
   }
 
+  // Editar/remover parada: o card (desktop ou celular) pede, o modal abre.
+  const abrirEditarParada = (parada: Parada) => {
+    handleEditStop(parada);
+    modals.openEditStopModal();
+  };
+  const abrirRemoverParada = (parada: Parada) => {
+    handleRemoveStopRequest(parada);
+    modals.openRemoveStopModal();
+  };
+
+  // Linha do tempo e modais das ações valem para os dois layouts (desktop e
+  // < 1024 px): funções chamadas nos dois ramos, nunca componente declarado
+  // aqui dentro (remontaria a cada render). Toast e logoutModal continuam um
+  // por ramo.
+  const renderLinhaDoTempo = () => (
+    <TimelineCollapsible
+      rotaId={id as string}
+      rotaCreatedAt={rota.created_at}
+      sinalAtualizacao={sinalTimeline}
+    />
+  );
+
+  const renderModais = () => (
+    <>
+      <PhotoModal
+        visible={!!fotoSelecionada}
+        photoUrl={fotoSelecionada}
+        onClose={clearFotoSelecionada}
+      />
+
+      <Dialog
+        visible={modals.showCancelModal}
+        variant="confirm"
+        title="Cancelar rota"
+        message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
+        confirmText="Sim, cancelar"
+        cancelText="Não"
+        onConfirm={async () => {
+          await handleConfirmCancel();
+          modals.closeCancelModal();
+        }}
+        onCancel={modals.closeCancelModal}
+        loading={acaoEmVoo}
+        type="danger"
+        icon="close-circle-outline"
+      />
+
+      <Dialog
+        visible={modals.showReactivateModal}
+        variant="confirm"
+        title="Reativar rota"
+        message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
+        confirmText="Sim, reativar"
+        cancelText="Cancelar"
+        onConfirm={async () => {
+          await handleConfirmReactivate();
+          modals.closeReactivateModal();
+        }}
+        onCancel={modals.closeReactivateModal}
+        loading={acaoEmVoo}
+        type="success"
+      />
+
+      <ChangeDriverModal
+        visible={modals.showChangeDriverModal}
+        currentMotoristaId={rota.motorista_id}
+        currentMotoristaNome={rota.motorista?.nome}
+        unidadeId={rota.unidade_id || ''}
+        onConfirm={async (newId, newNome) => {
+          await handleChangeDriver(newId, newNome);
+          modals.closeChangeDriverModal();
+        }}
+        onCancel={modals.closeChangeDriverModal}
+        ocupado={acaoEmVoo}
+      />
+
+      <Dialog
+        visible={modals.showRemoveStopModal && !!paradaToRemove}
+        variant="confirm"
+        title="Remover parada"
+        message={
+          paradaToRemove
+            ? mensagemConfirmarRemocaoParada(paradas, paradaToRemove)
+            : ''
+        }
+        confirmText="Sim, remover"
+        cancelText="Cancelar"
+        onConfirm={async () => {
+          await handleConfirmRemoveStop();
+          modals.closeRemoveStopModal();
+        }}
+        onCancel={() => {
+          modals.closeRemoveStopModal();
+          clearParadaToRemove();
+        }}
+        loading={acaoEmVoo}
+        type="danger"
+      />
+
+      <EditStopModal
+        visible={modals.showEditStopModal && !!paradaToEdit}
+        parada={paradaToEdit}
+        rotaId={Array.isArray(id) ? id[0] : id || ''}
+        enderecoUnidade={enderecoUnidade}
+        allParadas={paradasReais}
+        onDesatualizada={recarregarSilencioso}
+        onSave={async ({ routeRecalculationFailed, vinculoNaoDesfeito }) => {
+          await handleEditStopSave(
+            routeRecalculationFailed,
+            vinculoNaoDesfeito,
+          );
+          modals.closeEditStopModal();
+        }}
+        onCancel={() => {
+          modals.closeEditStopModal();
+          clearParadaToEdit();
+        }}
+        usuarioId={userData?.id}
+        motoristaId={rota?.motorista_id}
+      />
+
+      <AddStopModal
+        visible={modals.showAddStopModal}
+        rotaId={Array.isArray(id) ? id[0] : id || ''}
+        enderecoUnidade={enderecoUnidade}
+        currentParadasCount={paradasReais.length}
+        allParadas={paradasReais}
+        onSave={async ({ routeRecalculationFailed }) => {
+          await handleAddStopSave(routeRecalculationFailed);
+          modals.closeAddStopModal();
+        }}
+        onCancel={modals.closeAddStopModal}
+        usuarioId={userData?.id}
+        motoristaId={rota?.motorista_id}
+      />
+
+      <DesktopModal
+        visible={modals.showReorderModal}
+        onClose={() => {
+          if (hasReorderChanges) {
+            modals.openReorderConfirmClose();
+          } else {
+            modals.closeReorderModal();
+          }
+        }}
+        title="Reordenar Paradas"
+        maxWidth={500}
+        primaryButton={
+          Platform.OS === 'web'
+            ? {
+                text: 'Salvar',
+                onPress: () => reorderControlRef.current?.saveChanges(),
+                loading: isReordering,
+                disabled: !hasReorderChanges,
+              }
+            : undefined
+        }
+        secondaryButton={
+          Platform.OS === 'web'
+            ? {
+                text: 'Cancelar',
+                onPress: () => {
+                  reorderControlRef.current?.cancelChanges();
+                  setHasReorderChanges(false);
+                },
+                disabled: isReordering || !hasReorderChanges,
+              }
+            : undefined
+        }
+      >
+        <DraggableStopList
+          paradas={paradas}
+          onReorder={async (newOrder) => {
+            await handleReorderParadas(newOrder);
+            modals.closeReorderModal();
+          }}
+          rotaStatus={rota?.status || ''}
+          isLoading={isReordering}
+          onWebChangesChange={setHasReorderChanges}
+          controlRef={reorderControlRef}
+        />
+      </DesktopModal>
+
+      <Dialog
+        visible={modals.showReorderConfirmClose}
+        variant="confirm"
+        title="Descartar Alterações?"
+        message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
+        type="warning"
+        confirmText="Descartar"
+        cancelText="Voltar"
+        onConfirm={() => {
+          reorderControlRef.current?.cancelChanges();
+          setHasReorderChanges(false);
+          modals.closeReorderConfirmClose();
+          modals.closeReorderModal();
+        }}
+        onCancel={modals.closeReorderConfirmClose}
+      />
+    </>
+  );
+
   // ===== Desktop Layout =====
   if (isDesktop) {
     return (
@@ -370,14 +576,8 @@ export default function MapaRota() {
                               selected={selectedParadaId === parada.id}
                               onPress={handleParadaPress}
                               rotaStatus={rota?.status}
-                              onRemove={(parada) => {
-                                handleRemoveStopRequest(parada);
-                                modals.openRemoveStopModal();
-                              }}
-                              onEdit={(parada) => {
-                                handleEditStop(parada);
-                                modals.openEditStopModal();
-                              }}
+                              onRemove={abrirRemoverParada}
+                              onEdit={abrirEditarParada}
                             />
                           )}
                         />
@@ -406,13 +606,7 @@ export default function MapaRota() {
             )}
 
             {/* Collapsible Timeline */}
-            <View style={{ marginTop: 16 }}>
-              <TimelineCollapsible
-                rotaId={id as string}
-                rotaCreatedAt={rota?.created_at}
-                sinalAtualizacao={sinalTimeline}
-              />
-            </View>
+            <View style={{ marginTop: 16 }}>{renderLinhaDoTempo()}</View>
 
             {/* Unit Base Points */}
             {hasBaseInfo && (
@@ -437,184 +631,7 @@ export default function MapaRota() {
             )}
           </DesktopPageLayout>
 
-          {/* Modals */}
-          <PhotoModal
-            visible={!!fotoSelecionada}
-            photoUrl={fotoSelecionada}
-            onClose={clearFotoSelecionada}
-          />
-
-          <Dialog
-            visible={modals.showCancelModal}
-            variant="confirm"
-            title="Cancelar rota"
-            message="Tem certeza que deseja cancelar esta rota? Esta ação não pode ser desfeita."
-            confirmText="Sim, cancelar"
-            cancelText="Não"
-            onConfirm={async () => {
-              await handleConfirmCancel();
-              modals.closeCancelModal();
-            }}
-            onCancel={modals.closeCancelModal}
-            loading={acaoEmVoo}
-            type="danger"
-            icon="close-circle-outline"
-          />
-
-          <Dialog
-            visible={modals.showReactivateModal}
-            variant="confirm"
-            title="Reativar rota"
-            message="Deseja reativar esta rota expirada? A rota será reprogramada para hoje e as paradas não concluídas voltarão ao status pendente."
-            confirmText="Sim, reativar"
-            cancelText="Cancelar"
-            onConfirm={async () => {
-              await handleConfirmReactivate();
-              modals.closeReactivateModal();
-            }}
-            onCancel={modals.closeReactivateModal}
-            loading={acaoEmVoo}
-            type="success"
-          />
-
-          <ChangeDriverModal
-            visible={modals.showChangeDriverModal}
-            currentMotoristaId={rota.motorista_id}
-            currentMotoristaNome={rota.motorista?.nome}
-            unidadeId={rota.unidade_id || ''}
-            onConfirm={async (newId, newNome) => {
-              await handleChangeDriver(newId, newNome);
-              modals.closeChangeDriverModal();
-            }}
-            onCancel={modals.closeChangeDriverModal}
-          />
-
-          <Dialog
-            visible={modals.showRemoveStopModal && !!paradaToRemove}
-            variant="confirm"
-            title="Remover parada"
-            message={
-              paradaToRemove
-                ? mensagemConfirmarRemocaoParada(paradas, paradaToRemove)
-                : ''
-            }
-            confirmText="Sim, remover"
-            cancelText="Cancelar"
-            onConfirm={async () => {
-              await handleConfirmRemoveStop();
-              modals.closeRemoveStopModal();
-            }}
-            onCancel={() => {
-              modals.closeRemoveStopModal();
-              clearParadaToRemove();
-            }}
-            loading={acaoEmVoo}
-            type="danger"
-          />
-
-          <EditStopModal
-            visible={modals.showEditStopModal && !!paradaToEdit}
-            parada={paradaToEdit}
-            rotaId={Array.isArray(id) ? id[0] : id || ''}
-            enderecoUnidade={enderecoUnidade}
-            allParadas={paradasReais}
-            onDesatualizada={recarregarSilencioso}
-            onSave={async ({
-              routeRecalculationFailed,
-              vinculoNaoDesfeito,
-            }) => {
-              await handleEditStopSave(
-                routeRecalculationFailed,
-                vinculoNaoDesfeito,
-              );
-              modals.closeEditStopModal();
-            }}
-            onCancel={() => {
-              modals.closeEditStopModal();
-              clearParadaToEdit();
-            }}
-            usuarioId={userData?.id}
-            motoristaId={rota?.motorista_id}
-          />
-
-          <AddStopModal
-            visible={modals.showAddStopModal}
-            rotaId={Array.isArray(id) ? id[0] : id || ''}
-            enderecoUnidade={enderecoUnidade}
-            currentParadasCount={paradasReais.length}
-            allParadas={paradasReais}
-            onSave={async ({ routeRecalculationFailed }) => {
-              await handleAddStopSave(routeRecalculationFailed);
-              modals.closeAddStopModal();
-            }}
-            onCancel={modals.closeAddStopModal}
-            usuarioId={userData?.id}
-            motoristaId={rota?.motorista_id}
-          />
-
-          <DesktopModal
-            visible={modals.showReorderModal}
-            onClose={() => {
-              if (hasReorderChanges) {
-                modals.openReorderConfirmClose();
-              } else {
-                modals.closeReorderModal();
-              }
-            }}
-            title="Reordenar Paradas"
-            maxWidth={500}
-            primaryButton={
-              Platform.OS === 'web'
-                ? {
-                    text: 'Salvar',
-                    onPress: () => reorderControlRef.current?.saveChanges(),
-                    loading: isReordering,
-                    disabled: !hasReorderChanges,
-                  }
-                : undefined
-            }
-            secondaryButton={
-              Platform.OS === 'web'
-                ? {
-                    text: 'Cancelar',
-                    onPress: () => {
-                      reorderControlRef.current?.cancelChanges();
-                      setHasReorderChanges(false);
-                    },
-                    disabled: isReordering || !hasReorderChanges,
-                  }
-                : undefined
-            }
-          >
-            <DraggableStopList
-              paradas={paradas}
-              onReorder={async (newOrder) => {
-                await handleReorderParadas(newOrder);
-                modals.closeReorderModal();
-              }}
-              rotaStatus={rota?.status || ''}
-              isLoading={isReordering}
-              onWebChangesChange={setHasReorderChanges}
-              controlRef={reorderControlRef}
-            />
-          </DesktopModal>
-
-          <Dialog
-            visible={modals.showReorderConfirmClose}
-            variant="confirm"
-            title="Descartar Alterações?"
-            message="Você tem alterações não salvas na ordem das paradas. Deseja descartá-las?"
-            type="warning"
-            confirmText="Descartar"
-            cancelText="Voltar"
-            onConfirm={() => {
-              reorderControlRef.current?.cancelChanges();
-              setHasReorderChanges(false);
-              modals.closeReorderConfirmClose();
-              modals.closeReorderModal();
-            }}
-            onCancel={modals.closeReorderConfirmClose}
-          />
+          {renderModais()}
 
           <Toast {...toast} onDismiss={hideToast} />
           {logoutModal}
@@ -649,6 +666,15 @@ export default function MapaRota() {
             </View>
           ) : null}
         </View>
+
+        <AcoesRotaMobile
+          rota={rota}
+          onCancelPress={modals.openCancelModal}
+          onReactivatePress={modals.openReactivateModal}
+          onChangeDriverPress={modals.openChangeDriverModal}
+          onAddStopPress={modals.openAddStopModal}
+          onReorderPress={modals.openReorderModal}
+        />
 
         {paradas.length > 0 ? (
           // FlatList (não ScrollView): scrollToParada depende de ref.scrollToIndex (useMapaRotaHandlers)
@@ -705,6 +731,9 @@ export default function MapaRota() {
                 onImagePress={handleImagePress}
                 selected={selectedParadaId === parada.id}
                 onPress={handleParadaPress}
+                rotaStatus={rota.status}
+                onEdit={abrirEditarParada}
+                onRemove={abrirRemoverParada}
               />
             )}
             ListFooterComponent={
@@ -719,6 +748,9 @@ export default function MapaRota() {
                   <Text style={styles.resumoTitle}>Resumo da Rota</Text>
                   <ResumoStats resumoParadas={resumoParadas} />
                 </View>
+                <View style={styles.linhaDoTempoMobile}>
+                  {renderLinhaDoTempo()}
+                </View>
               </>
             }
           />
@@ -730,15 +762,14 @@ export default function MapaRota() {
                   Nenhuma parada nesta rota
                 </Text>
               </View>
+              <View style={styles.linhaDoTempoMobile}>
+                {renderLinhaDoTempo()}
+              </View>
             </View>
           </ScrollView>
         )}
 
-        <PhotoModal
-          visible={!!fotoSelecionada}
-          photoUrl={fotoSelecionada}
-          onClose={clearFotoSelecionada}
-        />
+        {renderModais()}
 
         <Toast {...toast} onDismiss={hideToast} />
         {logoutModal}

@@ -349,7 +349,8 @@ describe('ChangeDriverModal', () => {
         utils.getByTestId('primary-button').props.accessibilityState?.disabled,
       ).toBeFalsy();
       expect(
-        utils.getByTestId('secondary-button').props.accessibilityState?.disabled,
+        utils.getByTestId('secondary-button').props.accessibilityState
+          ?.disabled,
       ).toBeFalsy();
     });
 
@@ -361,7 +362,11 @@ describe('ChangeDriverModal', () => {
       await selecionarEConfirmar(utils);
 
       utils.rerender(
-        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} visible={false} />,
+        <ChangeDriverModal
+          {...defaultProps}
+          onConfirm={onConfirm}
+          visible={false}
+        />,
       );
       utils.rerender(
         <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} visible />,
@@ -371,8 +376,57 @@ describe('ChangeDriverModal', () => {
         expect(utils.getByText('Maria Santos')).toBeTruthy();
       });
       expect(
-        utils.getByTestId('secondary-button').props.accessibilityState?.disabled,
+        utils.getByTestId('secondary-button').props.accessibilityState
+          ?.disabled,
       ).toBeFalsy();
+    });
+  });
+
+  // Outra ação da rota (cancelar, remover parada…) em voo: a trava do handler
+  // recusaria a troca e a página fecharia o modal sem trocar nada. O botão
+  // fica carregando/desabilitado até a outra ação terminar.
+  describe('Outra ação da rota em andamento (ocupado)', () => {
+    it('desabilita Confirmar e não chama onConfirm', async () => {
+      const onConfirm = jest.fn();
+      const utils = render(
+        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} ocupado />,
+      );
+      await waitFor(() => {
+        expect(utils.getByText('Maria Santos')).toBeTruthy();
+      });
+      fireEvent.press(utils.getByText('Maria Santos'));
+      await act(async () => {
+        fireEvent.press(utils.getByText('Confirmar'));
+      });
+
+      expect(onConfirm).not.toHaveBeenCalled();
+      expect(
+        utils.getByTestId('primary-button').props.accessibilityState?.disabled,
+      ).toBe(true);
+    });
+
+    it('volta a confirmar quando a outra ação termina', async () => {
+      const onConfirm = jest.fn().mockResolvedValue(undefined);
+      const utils = render(
+        <ChangeDriverModal {...defaultProps} onConfirm={onConfirm} ocupado />,
+      );
+      await waitFor(() => {
+        expect(utils.getByText('Maria Santos')).toBeTruthy();
+      });
+      fireEvent.press(utils.getByText('Maria Santos'));
+
+      utils.rerender(
+        <ChangeDriverModal
+          {...defaultProps}
+          onConfirm={onConfirm}
+          ocupado={false}
+        />,
+      );
+      await act(async () => {
+        fireEvent.press(utils.getByText('Confirmar'));
+      });
+
+      expect(onConfirm).toHaveBeenCalledWith('motorista-2', 'Maria Santos');
     });
   });
 
@@ -492,7 +546,10 @@ describe('ChangeDriverModal', () => {
     it('falha ao carregar mostra o erro e "Tentar de novo", que recarrega', async () => {
       const returns = jest
         .fn()
-        .mockResolvedValueOnce({ data: null, error: { message: 'Database error' } })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'Database error' },
+        })
         .mockResolvedValueOnce({
           data: mockMotoristas.map((m) => ({ usuario_id: m.id, usuarios: m })),
           error: null,
@@ -508,7 +565,9 @@ describe('ChangeDriverModal', () => {
       );
 
       await waitFor(() => {
-        expect(getByText('Não foi possível carregar os motoristas.')).toBeTruthy();
+        expect(
+          getByText('Não foi possível carregar os motoristas.'),
+        ).toBeTruthy();
       });
       expect(queryByText('Nenhum motorista cadastrado na unidade')).toBeNull();
       expect(queryByText('Carregando motoristas...')).toBeNull();
@@ -519,7 +578,9 @@ describe('ChangeDriverModal', () => {
       await waitFor(() => {
         expect(getByText('Maria Santos')).toBeTruthy();
       });
-      expect(queryByText('Não foi possível carregar os motoristas.')).toBeNull();
+      expect(
+        queryByText('Não foi possível carregar os motoristas.'),
+      ).toBeNull();
     });
 
     it('rota sem loja não fica em "Carregando motoristas..." para sempre', async () => {
@@ -531,7 +592,9 @@ describe('ChangeDriverModal', () => {
         expect(queryByText('Carregando motoristas...')).toBeNull();
       });
       // Mensagem própria e sem "Tentar de novo": repetir não muda nada.
-      expect(getByText('Esta rota não tem loja: não há motoristas para listar.')).toBeTruthy();
+      expect(
+        getByText('Esta rota não tem loja: não há motoristas para listar.'),
+      ).toBeTruthy();
       expect(queryByText('Tentar de novo')).toBeNull();
     });
 

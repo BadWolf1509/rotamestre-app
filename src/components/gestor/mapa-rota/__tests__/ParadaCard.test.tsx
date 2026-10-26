@@ -429,4 +429,72 @@ describe('ParadaCard', () => {
       expect(queryByText('Observacoes')).toBeNull();
     });
   });
+
+  // Celular e tablet: o card ganha as mesmas ações do ParadaCardCompact do
+  // desktop, pela mesma regra (`podeAlterarParada`).
+  describe('Editar e remover', () => {
+    it('parada pendente em rota pendente mostra e dispara editar/remover', () => {
+      const onEdit = jest.fn();
+      const onRemove = jest.fn();
+      const { getByLabelText } = render(
+        <ParadaCard
+          {...defaultProps}
+          rotaStatus="pendente"
+          onEdit={onEdit}
+          onRemove={onRemove}
+        />,
+      );
+
+      fireEvent.press(getByLabelText('Editar parada'));
+      fireEvent.press(getByLabelText('Remover parada'));
+
+      expect(onEdit).toHaveBeenCalledWith(mockParada);
+      expect(onRemove).toHaveBeenCalledWith(mockParada);
+    });
+
+    it('parada concluída não mostra editar/remover', () => {
+      const { queryByLabelText } = render(
+        <ParadaCard
+          {...defaultProps}
+          parada={{ ...mockParada, status: 'concluida' }}
+          rotaStatus="em_andamento"
+          onEdit={jest.fn()}
+          onRemove={jest.fn()}
+        />,
+      );
+
+      expect(queryByLabelText('Editar parada')).toBeNull();
+      expect(queryByLabelText('Remover parada')).toBeNull();
+    });
+
+    it('rota cancelada não mostra editar/remover', () => {
+      const { queryByLabelText } = render(
+        <ParadaCard
+          {...defaultProps}
+          rotaStatus="cancelada"
+          onEdit={jest.fn()}
+          onRemove={jest.fn()}
+        />,
+      );
+
+      expect(queryByLabelText('Editar parada')).toBeNull();
+      expect(queryByLabelText('Remover parada')).toBeNull();
+    });
+
+    it('a rota mudar de situação re-renderiza o card (memo)', () => {
+      const props = {
+        ...defaultProps,
+        onEdit: jest.fn(),
+        onRemove: jest.fn(),
+      };
+      const { queryByLabelText, rerender } = render(
+        <ParadaCard {...props} rotaStatus="pendente" />,
+      );
+      expect(queryByLabelText('Editar parada')).toBeTruthy();
+
+      rerender(<ParadaCard {...props} rotaStatus="cancelada" />);
+
+      expect(queryByLabelText('Editar parada')).toBeNull();
+    });
+  });
 });
