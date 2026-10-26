@@ -8,8 +8,13 @@ import type {
   LocalizarLoteOpcoes,
   LocalizarLoteResult,
 } from '@/hooks/nova-entrega/useParadasManagement';
+import { logger } from '@/lib/logger';
 
 import { BulkStopImporter, parseBulkStops } from '../BulkStopImporter';
+
+jest.mock('@/lib/logger', () => ({
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+}));
 
 describe('parseBulkStops', () => {
   it('parses a header and quoted semicolons', () => {
@@ -379,5 +384,125 @@ describe('BulkStopImporter — conferência do lote', () => {
       tela.getByLabelText('Linhas de paradas para importação').props.value,
     ).toBe(texto);
     expect(tela.onImport).not.toHaveBeenCalled();
+  });
+
+  describe('falhas e corridas da correção', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('"Localizar de novo" rejeitando devolve os botões e diz o que houve', async () => {
+      const onLocalizar = jest.fn(localizarPadrao);
+      const tela = montar({ onLocalizar });
+      await localizar(tela);
+      onLocalizar.mockRejectedValueOnce(new Error('Network request failed'));
+
+      fireEvent.press(tela.getByLabelText('Corrigir linha 1'));
+      fireEvent.changeText(
+        tela.getByLabelText('Endereço da linha 1'),
+        'Rua A, 10, Cabedelo - PB',
+      );
+      await act(async () => {
+        fireEvent.press(tela.getByText('Localizar de novo'));
+      });
+
+      expect(
+        tela.getByText('Linha 1: não foi possível localizar. Tente de novo.'),
+      ).toBeTruthy();
+      expect(tela.getByText('Localizar de novo')).toBeEnabled();
+      expect(tela.getByText('Cancelar')).toBeEnabled();
+      expect(tela.getByText('Voltar')).toBeEnabled();
+      expect(tela.getByLabelText('Endereço da linha 1')).toHaveProp(
+        'editable',
+        true,
+      );
+      expect(logger.warn).toHaveBeenCalled();
+      // A linha antiga continua na conferência.
+      expect(
+        tela.getByText('Rua A, 10 - Centro, João Pessoa - PB'),
+      ).toBeTruthy();
+    });
+
+    it('fechar com correção em voo: a resposta velha não sobrescreve a conferência nova', async () => {
+      const onLocalizar = jest.fn(localizarPadrao);
+      const tela = montar({ onLocalizar });
+      await localizar(tela);
+
+      let responderVelha: (r: LocalizarLoteResult) => void = () => {};
+      onLocalizar.mockImplementationOnce(
+        () =>
+          new Promise<LocalizarLoteResult>((resolve) => {
+            responderVelha = resolve;
+          }),
+      );
+      fireEvent.press(tela.getByLabelText('Corrigir linha 1'));
+      fireEvent.changeText(
+        tela.getByLabelText('Endereço da linha 1'),
+        'Rua Velha, 99',
+      );
+      await act(async () => {
+        fireEvent.press(tela.getByText('Localizar de novo'));
+      });
+
+      fireEvent.press(tela.getByLabelText('Fechar importação em lote'));
+      fireEvent.press(tela.getByText('Importar em lote'));
+      await localizar(tela);
+      // Correção nova aberta na conferência nova.
+      fireEvent.press(tela.getByLabelText('Corrigir linha 2'));
+
+      const item = onLocalizar.mock.calls[1][0][0] as BulkParadaInput;
+      await act(async () => {
+        responderVelha({
+          localizados: [
+            localizado(item, { enderecoEncontrado: 'Rua Velha, 99 - Velho' }),
+          ],
+          erros: [],
+        });
+      });
+
+      expect(tela.queryByText('Rua Velha, 99 - Velho')).toBeNull();
+      expect(
+        tela.getByText('Rua A, 10 - Centro, João Pessoa - PB'),
+      ).toBeTruthy();
+      // A correção aberta depois não é fechada pela resposta velha.
+      expect(tela.getByLabelText('Endereço da linha 2')).toBeTruthy();
+    });
+
+    it('"Localizar endereços" rejeitando mostra o erro no modal e loga', async () => {
+      const onLocalizar = jest.fn().mockRejectedValue(new Error('boom'));
+      const tela = montar({ onLocalizar });
+
+      await localizar(tela);
+
+      expect(
+        tela.getByText(
+          '• Não foi possível localizar os endereços. Tente de novo.',
+        ),
+      ).toBeTruthy();
+      expect(tela.getByText('Localizar endereços')).toBeEnabled();
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('"Adicionar" fica desabilitado com a correção aberta (o texto editado não se perde)', async () => {
+      const tela = montar();
+      await localizar(tela);
+
+      fireEvent.press(tela.getByLabelText('Corrigir linha 1'));
+      fireEvent.changeText(
+        tela.getByLabelText('Endereço da linha 1'),
+        'Rua A, 10, Cabedelo - PB',
+      );
+
+      expect(tela.getByText('Adicionar 2 paradas')).toBeDisabled();
+      // Botão desabilitado: o toque sobe ao Pressable do modal, que pede o
+      // evento (stopPropagation) — daí o evento falso.
+      fireEvent.press(tela.getByText('Adicionar 2 paradas'), {
+        stopPropagation: () => {},
+      });
+      expect(tela.onImport).not.toHaveBeenCalled();
+
+      fireEvent.press(tela.getByText('Cancelar'));
+      expect(tela.getByText('Adicionar 2 paradas')).toBeEnabled();
+    });
   });
 });

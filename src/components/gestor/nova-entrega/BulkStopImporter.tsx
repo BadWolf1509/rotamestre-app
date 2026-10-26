@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -18,6 +18,7 @@ import type {
   LocalizarLoteFn,
 } from '@/hooks/nova-entrega/useParadasManagement';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { logger } from '@/lib/logger';
 import {
   DISTANCIA_CONFERIR_LOTE_KM,
   type FonteEnderecoLote,
@@ -326,6 +327,16 @@ export function BulkStopImporter({
   const [correcao, setCorrecao] = useState<Correcao | null>(null);
   const [resultErrors, setResultErrors] = useState<string[]>([]);
   const parsed = useMemo(() => parseBulkStops(text), [text]);
+  /*
+   * Geração da conferência: avança ao fechar, voltar e localizar o lote. Uma
+   * resposta (lote ou correção) só escreve se a geração de quando partiu
+   * ainda vale — fechar o modal com uma correção em voo e localizar de novo
+   * daria a linha N da conferência NOVA à resposta da antiga. Alternativa
+   * descartada: travar "Fechar" enquanto a correção voa — o gestor ficaria
+   * preso num modal à espera da rede, e a corrida seguiria aberta para
+   * qualquer outro caminho que limpe a conferência.
+   */
+  const geracaoRef = useRef(0);
 
   const localizando = progresso !== null;
   const podeLocalizar =
@@ -340,12 +351,14 @@ export function BulkStopImporter({
 
   const fechar = () => {
     if (localizando) return;
+    geracaoRef.current += 1;
     setVisible(false);
     setEtapa('colar');
     limparConferencia();
   };
 
   const voltar = () => {
+    geracaoRef.current += 1;
     setEtapa('colar');
     limparConferencia();
   };
@@ -358,17 +371,25 @@ export function BulkStopImporter({
    */
   const handleLocalizar = async () => {
     if (!podeLocalizar) return;
+    const geracao = ++geracaoRef.current;
     setResultErrors([]);
     setProgresso({ atual: 0, total: parsed.items.length });
     try {
       const resultado = await onLocalizar(parsed.items, {
         onProgresso: (atual, total) => setProgresso({ atual, total }),
       });
+      if (geracao !== geracaoRef.current) return;
       setConferencia(resultado.localizados);
       setErrosLocalizacao(resultado.erros);
       setRemovidas([]);
       setCorrecao(null);
       setEtapa('conferir');
+    } catch (error) {
+      logger.warn('[Importação em lote] Falha ao localizar o lote', error);
+      if (geracao !== geracaoRef.current) return;
+      setResultErrors([
+        'Não foi possível localizar os endereços. Tente de novo.',
+      ]);
     } finally {
       setProgresso(null);
     }
@@ -391,32 +412,40 @@ export function BulkStopImporter({
     const original = conferencia.find((item) => item.linha === correcao.linha);
     if (!original) return;
     const linha = correcao.linha;
-    setCorrecao({ ...correcao, emVoo: true, erro: null });
-    const resultado = await onLocalizar([
-      { ...original.item, endereco: correcao.texto.trim() },
-    ]);
-    const novo = resultado.localizados[0];
-    if (novo) {
-      setConferencia((atual) =>
-        atual.map((item) => (item.linha === linha ? novo : item)),
+    const geracao = geracaoRef.current;
+    const vigente = () => geracao === geracaoRef.current;
+    const sairComErro = (erro: string) =>
+      setCorrecao((atual) =>
+        atual?.linha === linha ? { ...atual, emVoo: false, erro } : atual,
       );
-      setCorrecao(null);
-      return;
+    setCorrecao({ ...correcao, emVoo: true, erro: null });
+    try {
+      const resultado = await onLocalizar([
+        { ...original.item, endereco: correcao.texto.trim() },
+      ]);
+      if (!vigente()) return;
+      const novo = resultado.localizados[0];
+      if (novo) {
+        setConferencia((atual) =>
+          atual.map((item) => (item.linha === linha ? novo : item)),
+        );
+        setCorrecao(null);
+        return;
+      }
+      sairComErro(
+        resultado.erros[0] ?? `Linha ${linha}: endereço não localizado.`,
+      );
+    } catch (error) {
+      logger.warn('[Importação em lote] Falha ao localizar a correção', error);
+      if (!vigente()) return;
+      sairComErro(`Linha ${linha}: não foi possível localizar. Tente de novo.`);
     }
-    setCorrecao((atual) =>
-      atual?.linha === linha
-        ? {
-            ...atual,
-            emVoo: false,
-            erro:
-              resultado.erros[0] ?? `Linha ${linha}: endereço não localizado.`,
-          }
-        : atual,
-    );
   };
 
   const handleAdicionar = () => {
-    if (conferencia.length === 0 || correcao?.emVoo) return;
+    // Correção aberta (em voo ou não): adicionar agora descartaria o texto
+    // que o gestor está editando, sem aviso.
+    if (conferencia.length === 0 || correcao) return;
     const resultado = onImport(conferencia, {
       foraDoLote: parsed.items.length - conferencia.length,
     });
@@ -564,10 +593,11 @@ export function BulkStopImporter({
         <TouchableOpacity
           style={[
             styles.importButton,
-            conferencia.length === 0 && styles.importButtonDisabled,
+            (conferencia.length === 0 || correcao !== null) &&
+              styles.importButtonDisabled,
           ]}
           onPress={handleAdicionar}
-          disabled={conferencia.length === 0 || (correcao?.emVoo ?? false)}
+          disabled={conferencia.length === 0 || correcao !== null}
           accessibilityRole="button"
         >
           <Text style={styles.importText}>
