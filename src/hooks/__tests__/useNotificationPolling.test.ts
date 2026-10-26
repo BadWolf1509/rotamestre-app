@@ -196,6 +196,44 @@ describe('useNotificationPolling', () => {
     expect(onRecuperar).toHaveBeenCalledTimes(1);
   });
 
+  // A carga inicial do provider já trouxe a lista: recarregar no primeiro
+  // SUBSCRIBED era carga dupla a cada abertura e login.
+  it('primeira conexão do realtime não chama onRecuperar', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    await avancar(1_000);
+
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).not.toHaveBeenCalled();
+  });
+
+  it('queda e volta do realtime chamam onRecuperar uma vez', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+
+    rerender({ ...props, onRecuperar, ativo: true });
+    await avancar(1_000);
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).toHaveBeenCalledTimes(1);
+  });
+
+  it('troca de conta: a primeira conexão da nova conta não chama onRecuperar', async () => {
+    const onRecuperar = jest.fn();
+    const { rerender, props } = montar({ onRecuperar });
+    rerender({ ...props, onRecuperar, ativo: false });
+    await esvaziarPromessas();
+
+    rerender({ ...props, onRecuperar, userId: 'user-2', ativo: true });
+    await avancar(1_000);
+    rerender({ ...props, onRecuperar, userId: 'user-2', ativo: false });
+    await esvaziarPromessas();
+    expect(onRecuperar).not.toHaveBeenCalled();
+  });
+
   it('descarta a resposta atrasada da conta anterior', async () => {
     let responder: (r: Resposta) => void = () => {};
     mockResposta = new Promise((r) => {

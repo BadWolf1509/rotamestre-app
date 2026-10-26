@@ -42,7 +42,8 @@ interface UseNotificationPollingOptions {
  * Quando o realtime volta (`ativo` true → false) faz UMA busca de recuperação:
  * entre o último evento e o SUBSCRIBED o canal não ouviu nada. É também o que
  * fecha a janela entre a carga inicial e a primeira inscrição. Se `onRecuperar`
- * existir, ele roda junto, para a lista inteira ser recarregada.
+ * existir, ele roda junto, para a lista inteira ser recarregada — mas não no
+ * primeiro SUBSCRIBED rápido da conta, logo depois da carga inicial.
  */
 export function useNotificationPolling({
   userId,
@@ -103,10 +104,16 @@ export function useNotificationPolling({
     }
   };
 
+  // Para a recuperação (abaixo): o canal desta conta já esteve de pé? E
+  // quantos ciclos do polling rodaram desde que ele caiu?
+  const jaConectouRef = useRef(false);
+  const ciclosNaAusenciaRef = useRef(0);
+
   useEffect(() => {
     if (!userId || !ativo) return;
 
     const intervalo = setInterval(() => {
+      ciclosNaAusenciaRef.current += 1;
       buscarNovasRef.current?.();
     }, INTERVALO_MS);
 
@@ -116,13 +123,34 @@ export function useNotificationPolling({
   }, [userId, ativo]);
 
   // Recuperação: o realtime acabou de voltar.
+  //
+  // `onRecuperar` (recarga da lista inteira) só quando a lista pode estar
+  // velha: o canal desta conta já esteve de pé e caiu, OU a ausência durou
+  // ao menos um ciclo do polling. No primeiro SUBSCRIBED da abertura/login a
+  // carga inicial do provider acabou de trazer a lista — recarregar ali era
+  // carga dupla. A busca das novas continua sempre: ela fecha a janela entre
+  // a carga inicial e a inscrição. Comparado: só "já conectou" deixaria sem
+  // recarga a abertura em que o canal demorou minutos para subir (a lista
+  // da carga inicial envelhece); uma flag vinda do provider espalharia a
+  // regra por dois arquivos.
   const ativoAnteriorRef = useRef(ativo);
+  useEffect(() => {
+    // Troca de conta: o canal da conta nova ainda não conectou.
+    jaConectouRef.current = false;
+    ciclosNaAusenciaRef.current = 0;
+  }, [userId]);
   useEffect(() => {
     const voltou = ativoAnteriorRef.current && !ativo;
     ativoAnteriorRef.current = ativo;
     if (voltou && userId) {
       buscarNovasRef.current?.();
-      onRecuperarRef.current?.();
+      if (jaConectouRef.current || ciclosNaAusenciaRef.current > 0) {
+        onRecuperarRef.current?.();
+      }
+    }
+    if (!ativo) {
+      jaConectouRef.current = true;
+      ciclosNaAusenciaRef.current = 0;
     }
   }, [ativo, userId]);
 }
