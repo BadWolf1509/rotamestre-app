@@ -8,6 +8,21 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.14.10 (26/10/2026, noite)
+
+**1.14.10 (3048, #696):** build no Actions (SHA do `.aab` igual ao do log), interna e alpha em 26/10, com as notas:
+
+- Abre mais rápido com Wi-Fi sem internet
+- Aviso antes de sair com entregas ainda não enviadas
+- Toque na notificação leva à tela certa
+- Parada editada pelo gestor atualiza na hora
+- Gestor: Configurações no menu e otimização mais estável
+- Correções gerais
+
+Validada no moto g15 pela Play (detalhe na pendência 23 do PROJECT_CONTEXT). A primeira nota não se confirmou: a abertura com Wi-Fi sem internet ficou em ≈ 11 s, porque a espera passou do `index` para o `useUser`. Achado novo: posições duplicadas pela fila na reconexão. As duas correções vão para a 1.14.11.
+
+**Scratchpad apagado:** na mesma noite a pasta temporária da sessão foi limpa por inteiro, levando os arquivos guardados da Migration 51, os consolidados das varreduras e as notas de release. A M51 será reescrita a partir da especificação (pendência 30c).
+
 ## Varredura de 26/10/2026 (pós-1.14.9) e correções (#690–#695)
 
 Seis trilhas só de leitura (motorista, gestor, banco, dados, offline, testes/CI) acharam 48 itens: 0 Critical, 9 Important, 23 Minor, 16 Melhoria. Corrigidos em cinco trilhas paralelas, cada PR com revisão de código independente antes do merge:
