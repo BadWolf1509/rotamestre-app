@@ -6,8 +6,8 @@
 
 import { z } from 'zod';
 
-import { soDigitos } from '../documentos';
-import { phoneSchema, telefoneComDDD } from '../phone';
+import { soDigitos, telefoneComDDD } from '../documentos';
+import { phoneSchema } from '../phone';
 import { enderecoSchema, observacoesSchema } from './basic';
 
 /**

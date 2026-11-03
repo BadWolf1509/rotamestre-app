@@ -76,6 +76,5 @@ export {
   // Logs (centralized logging utilities)
   logAction,
   logUserAction,
-  // Note: logRotaAction and logParadaAction are also available in paradas.ts
-  // Use logsQueries.logRotaAction or logsQueries.logParadaAction for the centralized versions
+  // Os helpers de log moram em logs.ts; paradas.ts só reexporta logParadaAction.
 } from './logs';

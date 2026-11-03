@@ -10,7 +10,6 @@ import {
   maskPhone,
   getPhoneErrorMessage,
   telefoneInternacional,
-  telefoneComDDD,
 } from '../phone';
 
 describe('phone utils', () => {
@@ -180,28 +179,11 @@ describe('telefoneInternacional', () => {
     expect(telefoneInternacional('')).toBeNull();
     expect(telefoneInternacional('12345')).toBeNull();
   });
+});
 
-  describe('telefoneComDDD', () => {
-    it.each(['(83) 3333-4444', '83987654321'])('aceita %s', (valor) => {
-      expect(telefoneComDDD(valor)).toBe(true);
-    });
-
-    it.each(['', '833334444', '558398765432', '+55 83 98765-4321', null])(
-      'recusa %s',
-      (valor) => {
-        expect(telefoneComDDD(valor)).toBe(false);
-      },
-    );
-  });
-
-  it('os aliases legados não são mais exportados', async () => {
-    const chaves = Object.keys(await import('../phone'));
-    for (const alias of [
-      'telefoneSchema',
-      'isValidTelefone',
-      'formatTelefone',
-    ]) {
-      expect(chaves).not.toEqual(expect.arrayContaining([alias]));
-    }
-  });
+it('os aliases legados não são mais exportados', async () => {
+  const chaves = Object.keys(await import('../phone'));
+  for (const alias of ['telefoneSchema', 'isValidTelefone', 'formatTelefone']) {
+    expect(chaves).not.toEqual(expect.arrayContaining([alias]));
+  }
 });

@@ -64,6 +64,25 @@ describe('criarSerie', () => {
     await expect(segundo).resolves.toBe('ok');
   });
 
+  it('imediato: passo que rejeita devolve a rejeição e libera a série', async () => {
+    const emSerie = criarSerie({ imediato: true });
+    const erro = new Error('falhou');
+
+    await expect(
+      emSerie(async () => {
+        throw erro;
+      }),
+    ).rejects.toBe(erro);
+    await escoar();
+
+    let iniciou = false;
+    const passo = emSerie(async () => {
+      iniciou = true;
+    });
+    expect(iniciou).toBe(true);
+    await passo;
+  });
+
   it('padrão: o passo não começa na mesma volta síncrona', async () => {
     const emSerie = criarSerie();
     let iniciou = false;

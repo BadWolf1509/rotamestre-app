@@ -169,16 +169,6 @@ export const optionalPhoneSchema = z
   });
 
 /**
- * Telefone com DDD: 10 ou 11 dígitos, nada além disso. Mais frouxa que
- * `validatePhone` de propósito (não confere o DDD): é a regra do cadastro de
- * parada e da importação em lote.
- */
-export function telefoneComDDD(valor: string | null | undefined): boolean {
-  const digitos = soDigitos(valor);
-  return digitos.length === 10 || digitos.length === 11;
-}
-
-/**
  * Telefone em formato internacional, só dígitos, com um único `55`:
  * 10/11 dígitos ganham o `55`; 12/13 dígitos começando em `55` ficam como
  * estão (mesma regra de `normalizar_telefone` no banco, que tira o `55` nesses
