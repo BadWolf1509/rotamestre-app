@@ -169,5 +169,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginLeft: theme.spacing['1'],
   },
 }));
-
-export default Alert;

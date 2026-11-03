@@ -127,5 +127,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginHorizontal: theme.spacing['1'],
   },
 }));
-
-export default Breadcrumbs;

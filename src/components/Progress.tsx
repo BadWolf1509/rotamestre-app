@@ -152,14 +152,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
 }));
 
 // Export default para facilitar import
-export default Progress;
 
 /**
  * ============================================
  * EXEMPLOS DE USO
  * ============================================
  *
- * import Progress from '@/components/Progress';
+ * import { Progress } from '@/components/Progress';
  *
  * // Progress bar básica
  * <Progress progress={0.65} />

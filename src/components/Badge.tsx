@@ -144,14 +144,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
 }));
 
 // Export default para facilitar import
-export default Badge;
 
 /**
  * ============================================
  * EXEMPLO DE USO
  * ============================================
  *
- * import Badge from '@/components/Badge';
+ * import { Badge } from '@/components/Badge';
  *
  * // Badge básico
  * <Badge status="em_andamento" />

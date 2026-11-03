@@ -12,13 +12,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  Animated,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
+import { View, Text, Animated, TouchableOpacity, Platform } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -35,7 +29,9 @@ export interface SwipeOnboardingProps {
  */
 export async function hasSeenSwipeOnboarding(): Promise<boolean> {
   try {
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    const AsyncStorage = (
+      await import('@react-native-async-storage/async-storage')
+    ).default;
     const value = await AsyncStorage.getItem(STORAGE_KEY);
     return value === 'true';
   } catch {
@@ -48,7 +44,9 @@ export async function hasSeenSwipeOnboarding(): Promise<boolean> {
  */
 export async function markSwipeOnboardingSeen(): Promise<void> {
   try {
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+    const AsyncStorage = (
+      await import('@react-native-async-storage/async-storage')
+    ).default;
     await AsyncStorage.setItem(STORAGE_KEY, 'true');
   } catch {
     // Silently fail - worst case user sees it again
@@ -83,7 +81,7 @@ export function SwipeOnboarding({ onDismiss }: SwipeOnboardingProps) {
           useNativeDriver: true,
         }),
         Animated.delay(500),
-      ])
+      ]),
     );
 
     const loopRight = Animated.loop(
@@ -100,7 +98,7 @@ export function SwipeOnboarding({ onDismiss }: SwipeOnboardingProps) {
           useNativeDriver: true,
         }),
         Animated.delay(100),
-      ])
+      ]),
     );
 
     loopLeft.start();
@@ -138,7 +136,11 @@ export function SwipeOnboarding({ onDismiss }: SwipeOnboardingProps) {
               { transform: [{ translateX: leftSwipeAnim }] },
             ]}
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.warning} />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.warning}
+            />
           </Animated.View>
           <View style={styles.gestureText}>
             <Text style={styles.gestureLabel}>Deslize para esquerda</Text>
@@ -155,7 +157,11 @@ export function SwipeOnboarding({ onDismiss }: SwipeOnboardingProps) {
               { transform: [{ translateX: rightSwipeAnim }] },
             ]}
           >
-            <Ionicons name="arrow-forward" size={24} color={theme.colors.success} />
+            <Ionicons
+              name="arrow-forward"
+              size={24}
+              color={theme.colors.success}
+            />
           </Animated.View>
           <View style={styles.gestureText}>
             <Text style={styles.gestureLabel}>Deslize para direita</Text>
@@ -164,7 +170,11 @@ export function SwipeOnboarding({ onDismiss }: SwipeOnboardingProps) {
         </View>
 
         {/* Dismiss button */}
-        <TouchableOpacity style={styles.button} onPress={handleDismiss} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleDismiss}
+          activeOpacity={0.8}
+        >
           <Text style={styles.buttonText}>Entendi!</Text>
         </TouchableOpacity>
       </View>
@@ -255,5 +265,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
   },
 }));
-
-export default SwipeOnboarding;

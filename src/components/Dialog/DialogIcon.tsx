@@ -76,5 +76,3 @@ export const DialogIcon = memo(function DialogIcon({
     </View>
   );
 });
-
-export default DialogIcon;
