@@ -27,13 +27,6 @@ import { GoogleDirectionsResult } from '../types/google-directions';
 
 // Re-export polyline utilities for backwards compatibility
 export { decodePolyline, encodePolyline, mergePolylines } from '@/lib/polyline';
-// Re-export shared utilities for backwards compatibility
-export {
-  RoutesAPIResponse,
-  adaptRoutesAPIResponse,
-  mapRoutesAPIError,
-  parseDuration,
-} from './google-shared';
 
 // PlaceSuggestion is now exported from google-shared.ts
 export type { PlaceSuggestion } from './google-shared';
