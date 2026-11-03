@@ -41,8 +41,8 @@ interface RotaCardProps {
  * Cor do badge: a da fonte única de status. Status fora da lista (valor novo
  * no banco) fica no cinza neutro, sem quebrar.
  */
-function corDoStatus(status: string, theme: Theme): string {
-  const config = ROUTE_STATUS_CONFIG[status.toLowerCase() as RouteStatusType];
+function corDoStatus(status: string | null | undefined, theme: Theme): string {
+  const config = ROUTE_STATUS_CONFIG[status?.toLowerCase() as RouteStatusType];
   return config ? theme.colors[config.colorKey] : theme.colors.gray500;
 }
 

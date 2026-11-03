@@ -144,6 +144,14 @@ describe('RotaCard', () => {
     });
   });
 
+  describe('Status ausente', () => {
+    it('status null não quebra e cai em gray500', () => {
+      const rota = { ...baseRota, status: null as any };
+      const { getByTestId } = render(<RotaCard rota={rota} />);
+      expect(corDoBadge(getByTestId)).toBe('#6b7280');
+    });
+  });
+
   describe('Progress bar', () => {
     it('deve renderizar barra de progresso quando há paradas', () => {
       const rota = { ...baseRota, paradas_concluidas: 2, total_paradas: 5 };
