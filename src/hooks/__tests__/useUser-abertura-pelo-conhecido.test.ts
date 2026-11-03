@@ -156,6 +156,34 @@ describe('useUser: abertura que seguiu pelo perfil guardado', () => {
     expect(perfilDaAberturaPara('user-123')).toEqual(perfilGuardado);
   });
 
+  it('revalidação com erro de verdade (4xx) não fica escondida atrás do perfil guardado', async () => {
+    marcarAberturaPeloPerfilConhecido(perfilGuardado);
+    const { result } = renderHook(() => useUser());
+    await waitFor(() => expect(respostas).toHaveLength(1));
+    expect(result.current.userData).toEqual(perfilGuardado);
+
+    const negado = {
+      data: null,
+      error: { message: 'permission denied', code: '42501' },
+      status: 403,
+    };
+    // Consulta completa e a simples (fallback de RLS) recusam.
+    await act(async () => {
+      respostas[0](negado);
+    });
+    await waitFor(() => expect(respostas).toHaveLength(2));
+    await act(async () => {
+      respostas[1](negado);
+    });
+
+    await waitFor(() =>
+      expect(result.current.perfilIndisponivel).toBe('erro'),
+    );
+    expect(result.current.userData).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(perfilDaAberturaPara('user-123')).toBeNull();
+  });
+
   it('revalidação com papel diferente substitui (vale o comportamento atual)', async () => {
     marcarAberturaPeloPerfilConhecido(perfilGuardado);
     const { result } = renderHook(() => useUser());
