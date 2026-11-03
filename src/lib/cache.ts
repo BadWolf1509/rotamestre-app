@@ -9,8 +9,6 @@
  * - Automatic expiration based on TTL
  * - Memory-first lookup for performance
  * - Persistence to survive app restarts
- * - SWR pattern support via getCacheWithFetch()
- * - Automatic cache invalidation for related entities
  *
  * TTL Guidelines:
  * - USER_DATA: 5 min - User profile, permissions
@@ -37,13 +35,6 @@
  * // Using standardized keys
  * const dashboardKey = CACHE_KEYS.DASHBOARD(unidadeId);
  * const data = await getCache(dashboardKey);
- *
- * // SWR pattern
- * const { data, fromCache } = await getCacheWithFetch(
- *   'rotas_list',
- *   () => fetchRotas(),
- *   { ttl: CACHE_TTL.ROUTES_LIST }
- * );
  * ```
  */
 
@@ -58,11 +49,6 @@ interface CacheEntry<T> {
   data: T;
   timestamp: number;
   ttl: number; // em milissegundos
-}
-
-interface CacheOptions {
-  ttl?: number; // TTL em milissegundos (padrão: 5 minutos)
-  forceRefresh?: boolean; // Ignorar cache e forçar refresh
 }
 
 // TTLs padrão para diferentes tipos de dados
@@ -275,106 +261,6 @@ export function cleanExpiredCache(): Promise<void> {
     varreduraEmVoo = null;
   });
   return varreduraEmVoo;
-}
-
-/**
- * Fetches data with cache-first strategy (SWR pattern).
- *
- * Behavior:
- * 1. If cache exists and valid → return cached data immediately
- * 2. If cache miss or forceRefresh → call fetcher, cache result, return
- *
- * This is NOT true SWR (doesn't revalidate in background), but provides
- * the cache-first benefit for better UX.
- *
- * @param key - Cache key (without prefix)
- * @param fetcher - Async function to fetch fresh data
- * @param options - Cache options (ttl, forceRefresh)
- * @returns Object with data and fromCache flag
- *
- * @example
- * ```ts
- * // Normal usage - returns cached data if available
- * const { data: rotas, fromCache } = await getCacheWithFetch(
- *   'rotas_list',
- *   () => supabase.from('rotas').select('*'),
- *   { ttl: CACHE_TTL.ROUTES_LIST }
- * );
- *
- * // Force refresh - ignores cache
- * const { data } = await getCacheWithFetch(
- *   'rotas_list',
- *   () => supabase.from('rotas').select('*'),
- *   { forceRefresh: true }
- * );
- * ```
- */
-export async function getCacheWithFetch<T>(
-  key: string,
-  fetcher: () => Promise<T>,
-  options: CacheOptions = {},
-): Promise<{ data: T; fromCache: boolean }> {
-  const { ttl = CACHE_TTL.USER_DATA, forceRefresh = false } = options;
-
-  // Se forçar refresh, buscar dados frescos
-  if (forceRefresh) {
-    const freshData = await fetcher();
-    await setCache(key, freshData, ttl);
-    return { data: freshData, fromCache: false };
-  }
-
-  // Tentar obter do cache
-  const cached = await getCache<T>(key);
-  if (cached !== null) {
-    return { data: cached, fromCache: true };
-  }
-
-  // Cache miss - buscar dados frescos
-  const freshData = await fetcher();
-  await setCache(key, freshData, ttl);
-  return { data: freshData, fromCache: false };
-}
-
-/**
- * Invalidates related caches when data changes.
- *
- * Call this after mutations (create/update/delete) to ensure
- * dependent views show fresh data.
- *
- * Entity → Invalidated Caches:
- * - rotas: dashboard, rotas_list, kpis
- * - paradas: dashboard, rotas_list
- * - usuarios: user_data, motoristas
- * - incidentes: dashboard, incidentes_list
- *
- * @param entity - The entity type that changed
- *
- * @example
- * ```ts
- * // After creating a new route
- * await supabase.from('rotas').insert(newRota);
- * await invalidateRelatedCaches('rotas');
- *
- * // After updating a stop
- * await supabase.from('paradas').update({ status: 'concluida' });
- * await invalidateRelatedCaches('paradas');
- * ```
- */
-export async function invalidateRelatedCaches(
-  entity: 'rotas' | 'paradas' | 'usuarios' | 'incidentes',
-): Promise<void> {
-  const relatedKeys: Record<string, string[]> = {
-    rotas: ['dashboard', 'rotas_list', 'kpis'],
-    paradas: ['dashboard', 'rotas_list'],
-    usuarios: ['user_data', 'motoristas'],
-    incidentes: ['dashboard', 'incidentes_list'],
-  };
-
-  const keysToInvalidate = relatedKeys[entity] || [];
-
-  for (const key of keysToInvalidate) {
-    await clearCache(key);
-  }
 }
 
 // Chaves de cache padronizadas

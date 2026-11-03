@@ -22,7 +22,6 @@ import { criarSerie } from './serie';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
-const OFFLINE_DATA_KEY = '@rotamestre:offline_data';
 const OFFLINE_PHOTOS_DIR = `${FileSystem.documentDirectory}offline_photos/`;
 const OFFLINE_PHOTOS_INDEX_KEY = '@rotamestre:offline_photos_index';
 
@@ -165,12 +164,6 @@ async function usuarioDaSessao(): Promise<string | null> {
     logger.warn('[Offline] Falha ao ler a sessão', error);
     return null;
   }
-}
-
-interface OfflineData {
-  rota?: any;
-  paradas?: any[];
-  lastSync?: string;
 }
 
 // ============================================================================
@@ -482,56 +475,6 @@ export async function getOfflinePhotoPath(
 export async function isOnline(): Promise<boolean> {
   const netInfo = await NetInfo.fetch();
   return netInfo.isConnected === true && netInfo.isInternetReachable === true;
-}
-
-/**
- * Salva dados offline para acesso posterior
- */
-export async function saveOfflineData(data: OfflineData): Promise<void> {
-  const currentData = await getOfflineData();
-  const updatedData = {
-    ...currentData,
-    ...data,
-    lastSync: new Date().toISOString(),
-  };
-  await AsyncStorage.setItem(OFFLINE_DATA_KEY, JSON.stringify(updatedData));
-}
-
-/**
- * Obtém dados salvos offline
- */
-export async function getOfflineData(): Promise<OfflineData> {
-  try {
-    const dataStr = await AsyncStorage.getItem(OFFLINE_DATA_KEY);
-    return dataStr ? JSON.parse(dataStr) : {};
-  } catch (error) {
-    logger.warn('Falha ao ler dados offline', error);
-    return {};
-  }
-}
-
-/**
- * Limpa dados offline
- */
-export async function clearOfflineData(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(OFFLINE_DATA_KEY);
-  } catch {
-    // Silently fail
-  }
-}
-
-/**
- * Verifica se há dados offline disponíveis
- */
-export async function hasOfflineData(): Promise<boolean> {
-  try {
-    const data = await getOfflineData();
-    return Boolean(data.rota || (data.paradas && data.paradas.length > 0));
-  } catch (error) {
-    logger.warn('Falha ao verificar dados offline', error);
-    return false;
-  }
 }
 
 /**
