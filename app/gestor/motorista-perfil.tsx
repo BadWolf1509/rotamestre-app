@@ -178,7 +178,13 @@ export default function MotoristaPerfil() {
 
   // Toggle active status
   const handleToggleStatus = useCallback(async () => {
-    if (!motorista || !unidadeAtiva) return;
+    if (!motorista) return;
+    // Loja ativa ainda carregando: sem ela a RPC não tem escopo. Avisa em vez
+    // de deixar o "Confirmar" sem resposta (o modal fica, dá para tentar de novo).
+    if (!unidadeAtiva) {
+      showToast('Loja ativa ainda não carregou. Tente de novo.', 'error');
+      return;
+    }
 
     try {
       const newStatus = !motorista.ativo;

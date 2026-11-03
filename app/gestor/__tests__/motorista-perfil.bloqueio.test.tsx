@@ -25,8 +25,9 @@ jest.mock('@/hooks/useResponsive', () => ({
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({ userData: { id: 'gestor-1', nome: 'Gestor' } }),
 }));
+let mockUnidadeAtiva: string | null = 'loja-ativa';
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: 'loja-ativa' }),
+  useUnidadeAtiva: () => ({ unidadeAtiva: mockUnidadeAtiva }),
 }));
 jest.mock('@/hooks/useDesktopHeaderMenu', () => ({
   useDesktopHeaderMenu: () => ({
@@ -99,6 +100,19 @@ async function desativarPelaTela() {
 describe('MotoristaPerfil: desativar com rota aberta', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUnidadeAtiva = 'loja-ativa';
+  });
+
+  it('loja ativa ainda não carregou: avisa com toast e não chama a RPC', async () => {
+    mockUnidadeAtiva = null;
+
+    await desativarPelaTela();
+
+    expect(
+      await screen.findByText('Loja ativa ainda não carregou. Tente de novo.'),
+    ).toBeTruthy();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockLog).not.toHaveBeenCalled();
   });
 
   it('recusa e lista as três rotas; o motorista continua ativo', async () => {
