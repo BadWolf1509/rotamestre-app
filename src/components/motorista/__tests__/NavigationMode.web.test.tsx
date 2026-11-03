@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./jest.ambiente-jsdom.js
  */
 
 /**

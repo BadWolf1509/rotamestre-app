@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./jest.ambiente-jsdom.js
  */
 
 /**
@@ -24,8 +24,12 @@ function createMockDialog() {
   const listeners: Record<string, Function[]> = {};
   return {
     open: false,
-    showModal: jest.fn(function (this: any) { this.open = true; }),
-    close: jest.fn(function (this: any) { this.open = false; }),
+    showModal: jest.fn(function (this: any) {
+      this.open = true;
+    }),
+    close: jest.fn(function (this: any) {
+      this.open = false;
+    }),
     addEventListener: jest.fn((event: string, handler: Function) => {
       if (!listeners[event]) listeners[event] = [];
       listeners[event].push(handler);
@@ -74,7 +78,10 @@ describe('useDialogState', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', { value: originalPlatformOS, writable: true });
+    Object.defineProperty(Platform, 'OS', {
+      value: originalPlatformOS,
+      writable: true,
+    });
   });
 
   it('calls showModal when visible is true and dialog is closed', () => {
@@ -202,7 +209,10 @@ describe('useDialogBackdropHandler', () => {
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', { value: originalPlatformOS, writable: true });
+    Object.defineProperty(Platform, 'OS', {
+      value: originalPlatformOS,
+      writable: true,
+    });
   });
 
   it('adds cancel and click event listeners', () => {
@@ -212,8 +222,14 @@ describe('useDialogBackdropHandler', () => {
 
     renderHook(() => useDialogBackdropHandler(dialogRef, onClose));
 
-    expect(dialog.addEventListener).toHaveBeenCalledWith('cancel', expect.any(Function));
-    expect(dialog.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
+    expect(dialog.addEventListener).toHaveBeenCalledWith(
+      'cancel',
+      expect.any(Function),
+    );
+    expect(dialog.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function),
+    );
   });
 
   it('calls onClose when ESC key pressed (cancel event)', () => {
@@ -285,12 +301,20 @@ describe('useDialogBackdropHandler', () => {
     const dialogRef = { current: dialog as any };
     const onClose = jest.fn();
 
-    const { unmount } = renderHook(() => useDialogBackdropHandler(dialogRef, onClose));
+    const { unmount } = renderHook(() =>
+      useDialogBackdropHandler(dialogRef, onClose),
+    );
 
     unmount();
 
-    expect(dialog.removeEventListener).toHaveBeenCalledWith('cancel', expect.any(Function));
-    expect(dialog.removeEventListener).toHaveBeenCalledWith('click', expect.any(Function));
+    expect(dialog.removeEventListener).toHaveBeenCalledWith(
+      'cancel',
+      expect.any(Function),
+    );
+    expect(dialog.removeEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function),
+    );
   });
 
   it('does nothing on non-web platforms', () => {
@@ -324,12 +348,19 @@ describe('useWebDialog', () => {
       writable: true,
       configurable: true,
     });
-    Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true });
+    Object.defineProperty(window, 'scrollY', {
+      value: 0,
+      writable: true,
+      configurable: true,
+    });
     window.scrollTo = jest.fn();
   });
 
   afterEach(() => {
-    Object.defineProperty(Platform, 'OS', { value: originalPlatformOS, writable: true });
+    Object.defineProperty(Platform, 'OS', {
+      value: originalPlatformOS,
+      writable: true,
+    });
   });
 
   it('combines dialog state and backdrop handling', () => {
@@ -342,8 +373,14 @@ describe('useWebDialog', () => {
     // Dialog opened
     expect(dialog.showModal).toHaveBeenCalled();
     // Listeners registered
-    expect(dialog.addEventListener).toHaveBeenCalledWith('cancel', expect.any(Function));
-    expect(dialog.addEventListener).toHaveBeenCalledWith('click', expect.any(Function));
+    expect(dialog.addEventListener).toHaveBeenCalledWith(
+      'cancel',
+      expect.any(Function),
+    );
+    expect(dialog.addEventListener).toHaveBeenCalledWith(
+      'click',
+      expect.any(Function),
+    );
   });
 
   it('respects closeOnBackdrop option', () => {
@@ -351,7 +388,9 @@ describe('useWebDialog', () => {
     const dialogRef = { current: dialog as any };
     const onClose = jest.fn();
 
-    renderHook(() => useWebDialog(true, dialogRef, onClose, { closeOnBackdrop: false }));
+    renderHook(() =>
+      useWebDialog(true, dialogRef, onClose, { closeOnBackdrop: false }),
+    );
 
     dialog._fireEvent('click', { target: dialog });
 

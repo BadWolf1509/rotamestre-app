@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @jest-environment ./jest.ambiente-jsdom.js
  */
 
 /**
@@ -55,8 +55,9 @@ jest.mock('maplibre-gl', () => {
     flyTo: jest.fn(),
     style: {},
   }));
-  const Marker = jest.fn().mockImplementation(
-    ({ element }: { element: HTMLElement }) => {
+  const Marker = jest
+    .fn()
+    .mockImplementation(({ element }: { element: HTMLElement }) => {
       mockElementos.push(element);
       const marcador = {
         setLngLat: jest.fn(() => marcador),
@@ -64,8 +65,7 @@ jest.mock('maplibre-gl', () => {
         remove: jest.fn(),
       };
       return marcador;
-    },
-  );
+    });
   const lib = {
     Map: MockMap,
     Marker,
