@@ -8,8 +8,8 @@
  * ```typescript
  * import { paradasQueries, usuariosQueries } from '@/lib/queries';
  *
- * // Fetch paradas of a route
- * const result = await paradasQueries.fetchParadasByRota(rotaId);
+ * // Update the status of a parada
+ * const result = await paradasQueries.updateParadaStatus(paradaId, 'concluida');
  * if (result.success) {
  *   console.log(result.data);
  * } else {
@@ -24,7 +24,6 @@ export {
   withRetry,
   safeQuery,
   classifyError,
-  buildCacheKey,
   type QueryResult,
   type QueryError,
   type QueryErrorType,
@@ -32,12 +31,7 @@ export {
 
 // Paradas queries
 export * as paradasQueries from './paradas';
-export type {
-  ParadaDB as ParadaDBFromParadas,
-  ParadaInsert,
-  ParadaUpdate,
-  ParadaWithDetails,
-} from './paradas';
+export type { ParadaDB as ParadaDBFromParadas, ParadaUpdate } from './paradas';
 
 // Usuarios queries
 export * as usuariosQueries from './usuarios';
@@ -49,7 +43,6 @@ export type {
   IncidenteDB,
   IncidenteWithRelations,
   IncidenteInsert,
-  IncidenteUpdate,
   IncidenteStatus,
   IncidenteCategoria,
   FetchIncidentesOptions,
@@ -63,19 +56,7 @@ export { LOG_EVENTS } from './logs';
 // Re-export individual functions for direct imports
 export {
   // Paradas
-  fetchParadasByRota,
-  fetchParadaById,
-  fetchCheckpointsByRota,
-  fetchParadasStats,
-  createParadasBatch,
   updateParadaStatus,
-  completeParada,
-  skipParada,
-  updateParada,
-  updateParadaOrder,
-  deleteParada,
-  deleteParadasByRota,
-  fetchNextPendingParada,
   logParadaAction,
 } from './paradas';
 
@@ -87,12 +68,7 @@ export {
 export {
   // Incidentes
   fetchIncidentesForGestor,
-  fetchIncidenteById,
-  fetchIncidentesByMotorista,
   createIncidente,
-  updateIncidenteStatus,
-  updateIncidente,
-  fetchIncidentesStats,
   logIncidenteAction,
 } from './incidentes';
 

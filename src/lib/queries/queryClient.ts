@@ -344,14 +344,3 @@ export async function safeQuery<T>(
     return { success: false, error: queryError };
   }
 }
-
-/**
- * Build cache key for queries
- */
-export function buildCacheKey(
-  namespace: string,
-  ...parts: (string | number | undefined)[]
-): string {
-  const validParts = parts.filter((p): p is string | number => p !== undefined);
-  return [namespace, ...validParts].join(':');
-}

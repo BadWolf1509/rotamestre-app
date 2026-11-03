@@ -62,12 +62,7 @@ import { logger } from '@/lib/logger';
 
 import {
   fetchIncidentesForGestor,
-  fetchIncidenteById,
-  fetchIncidentesByMotorista,
   createIncidente,
-  updateIncidenteStatus,
-  updateIncidente,
-  fetchIncidentesStats,
   logIncidenteAction,
 } from '../incidentes';
 
@@ -229,64 +224,6 @@ describe('incidentes queries', () => {
     });
   });
 
-  describe('fetchIncidenteById', () => {
-    it('should fetch single incidente', async () => {
-      const mockIncidente = {
-        id: 'inc-1',
-        motorista_id: 'motorista-1',
-        categoria: 'accident',
-        descricao: 'Test',
-        endereco: 'Test address',
-        status: 'aberto',
-      };
-
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: mockIncidente, error: null }),
-      );
-
-      const result = await fetchIncidenteById('inc-1');
-
-      expect(mockFrom).toHaveBeenCalledWith('incidentes');
-      expect(result.success).toBe(true);
-    });
-  });
-
-  describe('fetchIncidentesByMotorista', () => {
-    it('should fetch incidentes by motorista id', async () => {
-      const mockData = [
-        { id: 'inc-1', motorista_id: 'motorista-1', status: 'aberto' },
-        { id: 'inc-2', motorista_id: 'motorista-1', status: 'resolvido' },
-      ];
-
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: mockData, error: null }),
-      );
-
-      const result = await fetchIncidentesByMotorista('motorista-1');
-
-      expect(result.success).toBe(true);
-      expect(mockFrom).toHaveBeenCalledWith('incidentes');
-    });
-
-    it('should apply status filter', async () => {
-      const chain = setupChain({ data: [], error: null });
-      mockFrom.mockImplementation(() => chain);
-
-      await fetchIncidentesByMotorista('motorista-1', { status: 'aberto' });
-
-      expect(chain.eq).toHaveBeenCalled();
-    });
-
-    it('should apply limit', async () => {
-      const chain = setupChain({ data: [], error: null });
-      mockFrom.mockImplementation(() => chain);
-
-      await fetchIncidentesByMotorista('motorista-1', { limit: 10 });
-
-      expect(chain.limit).toHaveBeenCalledWith(10);
-    });
-  });
-
   describe('createIncidente', () => {
     it('should create incidente with default status', async () => {
       const mockIncidente = {
@@ -354,126 +291,6 @@ describe('incidentes queries', () => {
       });
 
       expect(result.success).toBe(false);
-    });
-  });
-
-  describe('updateIncidenteStatus', () => {
-    it('should update status without observacoes', async () => {
-      const mockIncidente = {
-        id: 'inc-1',
-        status: 'em_analise',
-      };
-
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: mockIncidente, error: null }),
-      );
-
-      const result = await updateIncidenteStatus('inc-1', 'em_analise');
-
-      expect(mockFrom).toHaveBeenCalledWith('incidentes');
-      expect(result.success).toBe(true);
-    });
-
-    it('should update status with observacoes', async () => {
-      const mockIncidente = {
-        id: 'inc-1',
-        status: 'resolvido',
-        observacoes_gestao: 'Fixed the issue',
-      };
-
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: mockIncidente, error: null }),
-      );
-
-      const result = await updateIncidenteStatus(
-        'inc-1',
-        'resolvido',
-        'Fixed the issue',
-      );
-
-      expect(result.success).toBe(true);
-    });
-
-    it('should set resolvido_em when status is resolvido', async () => {
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: { id: 'inc-1' }, error: null }),
-      );
-
-      await updateIncidenteStatus('inc-1', 'resolvido');
-
-      // The function should have been called - we can verify the from call
-      expect(mockFrom).toHaveBeenCalledWith('incidentes');
-    });
-  });
-
-  describe('updateIncidente', () => {
-    it('should update incidente fields', async () => {
-      const mockIncidente = {
-        id: 'inc-1',
-        status: 'fechado',
-      };
-
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: mockIncidente, error: null }),
-      );
-
-      const result = await updateIncidente('inc-1', { status: 'fechado' });
-
-      expect(mockFrom).toHaveBeenCalledWith('incidentes');
-      expect(result.success).toBe(true);
-    });
-  });
-
-  describe('fetchIncidentesStats', () => {
-    it('should return zero stats for empty motoristasIds', async () => {
-      const result = await fetchIncidentesStats([]);
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual({
-        total: 0,
-        abertos: 0,
-        emAnalise: 0,
-        resolvidos: 0,
-        fechados: 0,
-        porCategoria: {},
-      });
-    });
-
-    it('should calculate stats correctly', async () => {
-      const mockData = [
-        { id: 'inc-1', status: 'aberto', categoria: 'accident' },
-        { id: 'inc-2', status: 'aberto', categoria: 'accident' },
-        { id: 'inc-3', status: 'em_analise', categoria: 'vehicle' },
-        { id: 'inc-4', status: 'resolvido', categoria: 'accident' },
-        { id: 'inc-5', status: 'fechado', categoria: 'other' },
-      ];
-
-      mockFrom.mockImplementation(() =>
-        setupChain({ data: mockData, error: null }),
-      );
-
-      const result = await fetchIncidentesStats(['motorista-1']);
-
-      expect(result.success).toBe(true);
-      expect(result.data!.total).toBe(5);
-      expect(result.data!.abertos).toBe(2);
-      expect(result.data!.emAnalise).toBe(1);
-      expect(result.data!.resolvidos).toBe(1);
-      expect(result.data!.fechados).toBe(1);
-      expect(result.data!.porCategoria).toEqual({
-        accident: 3,
-        vehicle: 1,
-        other: 1,
-      });
-    });
-
-    it('should handle empty data', async () => {
-      mockFrom.mockImplementation(() => setupChain({ data: [], error: null }));
-
-      const result = await fetchIncidentesStats(['motorista-1']);
-
-      expect(result.success).toBe(true);
-      expect(result.data!.total).toBe(0);
     });
   });
 
