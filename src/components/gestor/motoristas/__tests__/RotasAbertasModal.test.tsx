@@ -30,6 +30,13 @@ describe('RotasAbertasModal', () => {
     expect(screen.getByText(/reatribua.*ou cancele/i)).toBeTruthy();
   });
 
+  it('rota em andamento e pendente mostram "Em andamento" e "Pendente"', () => {
+    render(<RotasAbertasModal bloqueio={bloqueio} onClose={jest.fn()} />);
+
+    expect(screen.getAllByText('Em andamento')).toHaveLength(1);
+    expect(screen.getAllByText('Pendente')).toHaveLength(2);
+  });
+
   it('não promete trocar o motorista da rota em andamento: ela só pode ser cancelada', () => {
     render(<RotasAbertasModal bloqueio={bloqueio} onClose={jest.fn()} />);
 
@@ -101,7 +108,10 @@ describe('RotasAbertasModal', () => {
   it('com várias rotas pendentes, o texto conta e fica no plural', () => {
     render(
       <RotasAbertasModal
-        bloqueio={{ nomeMotorista: 'João Silva', rotas: bloqueio.rotas.slice(1) }}
+        bloqueio={{
+          nomeMotorista: 'João Silva',
+          rotas: bloqueio.rotas.slice(1),
+        }}
         onClose={jest.fn()}
       />,
     );

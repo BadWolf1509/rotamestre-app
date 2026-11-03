@@ -1,5 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet as RNStyleSheet } from 'react-native';
 
 import { RotaCard } from '../RotaCard';
 
@@ -12,6 +13,8 @@ jest.mock('@/utils/styles', () => ({
         secondary: '#FF9500',
         success: '#34C759',
         error: '#FF3B30',
+        warning: '#F59E0B',
+        info: '#3B82F6',
         gray500: '#6b7280',
         white: '#fff',
       },
@@ -39,6 +42,11 @@ jest.mock('@/utils/styles', () => ({
       }),
   },
 }));
+
+function corDoBadge(getByTestId: (id: string) => any): string {
+  return RNStyleSheet.flatten(getByTestId('rota-card-badge-rota-1').props.style)
+    .backgroundColor;
+}
 
 describe('RotaCard', () => {
   const baseRota = {
@@ -94,10 +102,26 @@ describe('RotaCard', () => {
       expect(getByText('Pendente')).toBeTruthy();
     });
 
-    it('deve mostrar badge "Em Andamento" para status em_andamento', () => {
+    it('mostra "Em andamento" (sentence case, como o desktop) em info', () => {
       const rota = { ...baseRota, status: 'em_andamento' as const };
-      const { getByText } = render(<RotaCard rota={rota} />);
-      expect(getByText('Em Andamento')).toBeTruthy();
+      const { getByText, getByTestId } = render(<RotaCard rota={rota} />);
+      expect(getByText('Em andamento')).toBeTruthy();
+      expect(corDoBadge(getByTestId)).toBe('#3B82F6');
+    });
+
+    it('pendente usa warning', () => {
+      const { getByTestId } = render(<RotaCard rota={baseRota} />);
+      expect(corDoBadge(getByTestId)).toBe('#F59E0B');
+    });
+
+    it('nao_executada mostra "Não executada" em error, nunca o texto cru', () => {
+      const rota = { ...baseRota, status: 'nao_executada' as const };
+      const { getByText, queryByText, getByTestId } = render(
+        <RotaCard rota={rota} />,
+      );
+      expect(getByText('Não executada')).toBeTruthy();
+      expect(queryByText('nao_executada')).toBeNull();
+      expect(corDoBadge(getByTestId)).toBe('#FF3B30');
     });
 
     it('deve mostrar badge "Concluída" para status concluida', () => {
@@ -112,10 +136,19 @@ describe('RotaCard', () => {
       expect(getByText('Cancelada')).toBeTruthy();
     });
 
-    it('deve mostrar status original para status desconhecido', () => {
-      const rota = { ...baseRota, status: 'novo_status' as any };
-      const { getByText } = render(<RotaCard rota={rota} />);
-      expect(getByText('novo_status')).toBeTruthy();
+    it('status desconhecido "status_novo" vira "status novo" em gray500', () => {
+      const rota = { ...baseRota, status: 'status_novo' as any };
+      const { getByText, getByTestId } = render(<RotaCard rota={rota} />);
+      expect(getByText('status novo')).toBeTruthy();
+      expect(corDoBadge(getByTestId)).toBe('#6b7280');
+    });
+  });
+
+  describe('Status ausente', () => {
+    it('status null não quebra e cai em gray500', () => {
+      const rota = { ...baseRota, status: null as any };
+      const { getByTestId } = render(<RotaCard rota={rota} />);
+      expect(corDoBadge(getByTestId)).toBe('#6b7280');
     });
   });
 

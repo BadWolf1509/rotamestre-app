@@ -27,7 +27,7 @@ const PRINCIPAL_DE_OUTRA_LOJA = {
 };
 let mockUsuario: Record<string, unknown> = GESTOR_PRINCIPAL;
 
-const MOTORISTAS = [
+let MOTORISTAS = [
   {
     id: 'motorista-1',
     nome: 'Motorista Um',
@@ -83,6 +83,11 @@ jest.mock('@/hooks/useResponsive', () => ({
 }));
 
 const mockUpdate = jest.fn().mockResolvedValue({ error: null });
+const mockLog = jest.fn();
+jest.mock('@/lib/queries', () => ({
+  ...jest.requireActual('@/lib/queries'),
+  logUserAction: (...a: unknown[]) => mockLog(...a),
+}));
 const mockEqGestores = jest.fn();
 
 // A segunda carga de motoristas fica pendurada de propósito. Sem isso ela
@@ -130,6 +135,7 @@ describe('EquipeScreen', () => {
     mockCargas = 0;
     mockResolverSegundaCarga = null;
     mockUsuario = GESTOR_PRINCIPAL;
+    MOTORISTAS = [{ ...MOTORISTAS[0], ativo: true }];
     global.mockUseAlert.showConfirm.mockResolvedValue(true);
   });
 
@@ -247,5 +253,49 @@ describe('EquipeScreen', () => {
     expect(screen.getByText('24/10/2026')).toBeTruthy();
     // não é sucesso: nada de recarregar a lista
     expect(mockCargas).toBe(1);
+  });
+
+  it('reativar motorista grava motorista_ativado', async () => {
+    MOTORISTAS = [{ ...MOTORISTAS[0], ativo: false }];
+    render(<EquipeScreen />);
+
+    expect(await screen.findByText('Motorista Um')).toBeTruthy();
+    fireEvent.press(screen.getByText('Reativar'));
+
+    await waitFor(() =>
+      expect(mockLog).toHaveBeenCalledWith(
+        'gestor-1',
+        'motorista_ativado',
+        expect.objectContaining({ motorista_id: 'motorista-1' }),
+      ),
+    );
+  });
+
+  it('reativar esbarrando no telefone de outro motorista ativo mostra a mensagem específica', async () => {
+    MOTORISTAS = [{ ...MOTORISTAS[0], ativo: false }];
+    mockRpc.mockImplementationOnce(() => {
+      mockCargas += 1;
+      return Promise.resolve({ data: MOTORISTAS, error: null });
+    });
+    mockRpc.mockImplementationOnce(() =>
+      Promise.resolve({
+        data: null,
+        error: {
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+        },
+      }),
+    );
+    render(<EquipeScreen />);
+
+    expect(await screen.findByText('Motorista Um')).toBeTruthy();
+    fireEvent.press(screen.getByText('Reativar'));
+
+    expect(
+      await screen.findByText(
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+      ),
+    ).toBeTruthy();
   });
 });

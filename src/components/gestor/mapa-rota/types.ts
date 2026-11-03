@@ -37,7 +37,7 @@ export interface Rota {
    * O tipo é uma **afirmação** sobre o que o Supabase devolve, não uma
    * garantia: o select devolve string crua do Postgres e a tipagem só a
    * afirma. Por isso quem consome mantém fallback de runtime —
-   * ver `getStatusBadgeVariant` e `formatStatusLabel` em `RouteInfoHeader.tsx`.
+   * ver `badgeDoStatusDaRota` e `rotuloDoStatus` (statusConfig).
    */
   status: StatusRota;
   distancia_total?: number;

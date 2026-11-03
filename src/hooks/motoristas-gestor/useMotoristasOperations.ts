@@ -9,10 +9,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { getErrorMessage, isNetworkError } from '@/lib/errorMapping';
+import { isNetworkError } from '@/lib/errorMapping';
+import {
+  alternarMotoristaNaLoja,
+  editarDadosMotorista,
+  mensagemErroMotorista,
+} from '@/lib/gestor/motoristaNaLoja';
 import { logger } from '@/lib/logger';
-import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
-import { updateUsuario, logUserAction } from '@/lib/queries';
+import { logUserAction } from '@/lib/queries';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -21,24 +25,6 @@ import {
 } from './useBloqueioDesativacao';
 
 import type { MotoristaDetalhado } from '../useMotoristasGestor';
-
-const INDICE_TELEFONE_MOTORISTA = 'usuarios_motorista_telefone_unico';
-
-/**
- * Se o erro é a colisão do índice único de telefone entre motoristas ativos,
- * devolve a mensagem amigável do errorMapping; senão, null (quem chama mantém
- * o comportamento de sempre). Aceita o Error relançado e o erro do Postgres.
- */
-function mensagemTelefoneDuplicado(error: unknown): string | null {
-  const texto =
-    error instanceof Error
-      ? error.message
-      : error && typeof error === 'object' && 'message' in error
-        ? String(error.message)
-        : '';
-  if (!texto.includes(INDICE_TELEFONE_MOTORISTA)) return null;
-  return getErrorMessage(error).message;
-}
 
 const MSG_SEM_CONEXAO = 'Sem conexão. Tente de novo.';
 const MSG_FALHA_CRIAR = 'Não foi possível criar o motorista. Tente de novo.';
@@ -329,33 +315,21 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
       const falhar = (error: unknown) => {
         logger.error('[Motoristas] Erro ao editar motorista', error);
         showToast(
-          mensagemTelefoneDuplicado(error) ??
-            mensagemRegraDoBanco(error) ??
-            'Não foi possível editar o motorista.',
+          mensagemErroMotorista(error, 'Não foi possível editar o motorista.'),
           'error',
         );
       };
 
       setSalvando(true);
       try {
-        // E-mail não é editável (é o login, no Auth): a edição não o regrava.
-        const result = await updateUsuario(motoristaId, {
-          nome: nome.trim(),
-          telefone: telefone?.trim() || null,
+        // E-mail não é editável (é o login, no Auth): a lib só grava nome e
+        // telefone e registra a auditoria.
+        await editarDadosMotorista({
+          motoristaId,
+          nome,
+          telefone,
+          gestorId: userData?.id,
         });
-
-        if (!result.success) {
-          falhar(result.error.originalError ?? result.error);
-          return;
-        }
-
-        // Log action using centralized logging
-        if (userData) {
-          logUserAction(userData.id, 'motorista_editado', {
-            motorista_id: motoristaId,
-            motorista_nome: nome.trim(),
-          });
-        }
 
         showToast('Motorista atualizado com sucesso!', 'success');
         onSuccess();
@@ -381,29 +355,15 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
       try {
         await withToast(
           async () => {
-            // Quem atende outra loja é desativado só nesta (o vínculo); quem
-            // atende uma só, a pessoa. A decisão é do banco.
-            const { error } = await supabase.rpc(
-              'alternar_motorista_na_unidade',
-              {
-                p_motorista_id: motorista.id,
-                p_unidade_id: unidadeAtiva,
-                p_ativo: novoStatus,
-              },
-            );
-            if (error) throw error;
-
-            // Log action using centralized logging
-            if (userData) {
-              logUserAction(
-                userData.id,
-                novoStatus ? 'motorista_ativado' : 'motorista_desativado',
-                {
-                  motorista_id: motorista.id,
-                  motorista_nome: motorista.nome,
-                },
-              );
-            }
+            // Quem atende outra loja é desativado só nesta (o vínculo); a
+            // decisão é do banco. A lib também grava a auditoria.
+            await alternarMotoristaNaLoja({
+              motoristaId: motorista.id,
+              motoristaNome: motorista.nome,
+              unidadeId: unidadeAtiva,
+              ativo: novoStatus,
+              gestorId: userData?.id,
+            });
           },
           {
             loading: `${novoStatus ? 'Ativando' : 'Desativando'} motorista...`,
@@ -411,9 +371,10 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
             // No caso do telefone, o motivo é a informação útil (reativar
             // esbarra em outro motorista ativo); um toast só, sem piscar.
             error: (e) =>
-              mensagemTelefoneDuplicado(e) ??
-              mensagemRegraDoBanco(e) ??
-              'Não foi possível alterar o status do motorista',
+              mensagemErroMotorista(
+                e,
+                'Não foi possível alterar o status do motorista',
+              ),
           },
         );
         onSuccess();

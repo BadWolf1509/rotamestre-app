@@ -541,3 +541,62 @@ describe('useEditStopForm: validação Zod e erro cruzado (G14)', () => {
     expect(onSave).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('useEditStopForm: auditoria da parada editada (B7)', () => {
+  const { logger } = jest.requireMock('@/lib/logger') as {
+    logger: { warn: jest.Mock };
+  };
+
+  function bancoComLogs(insertLogs: jest.Mock) {
+    const cadeia = cadeiaUpdate({ data: [{ id: 'p1' }], error: null });
+    mockFrom.mockImplementation((tabela: string) =>
+      tabela === 'paradas' ? { update: cadeia.update } : { insert: insertLogs },
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRecalcular.mockResolvedValue({ success: true });
+    mockNotificar.mockResolvedValue({ success: true });
+  });
+
+  it('log recusado pelo banco vira logger.warn e a parada continua editada', async () => {
+    bancoComLogs(
+      jest.fn().mockResolvedValue({
+        error: { message: 'new row violates row-level security policy' },
+      }),
+    );
+    const { result, onSave } = montar();
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Failed to log action:',
+      expect.objectContaining({ evento: 'parada_editada' }),
+    );
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('o insert de logs não tem coluna parada_id: ela vai em detalhes', async () => {
+    const insertLogs = jest.fn().mockResolvedValue({ error: null });
+    bancoComLogs(insertLogs);
+    const { result } = montar();
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(insertLogs).toHaveBeenCalledTimes(1);
+    const linha = insertLogs.mock.calls[0][0];
+    expect(linha).not.toHaveProperty('parada_id');
+    expect(linha).toMatchObject({
+      usuario_id: 'u-1',
+      rota_id: 'rota-1',
+      evento: 'parada_editada',
+    });
+    expect(linha.detalhes.parada_id).toBe('p1');
+  });
+});

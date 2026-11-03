@@ -19,6 +19,11 @@
 import { memo, useMemo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import {
+  ROUTE_STATUS_CONFIG,
+  rotuloDoStatus,
+  type RouteStatusType,
+} from '@/constants/statusConfig';
 import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -32,34 +37,13 @@ interface RotaCardProps {
   onPress?: () => void;
 }
 
-function getStatusColor(status: string, theme: Theme): string {
-  switch (status) {
-    case 'em_andamento':
-      return theme.colors.secondary;
-    case 'concluida':
-      return theme.colors.success;
-    case 'pendente':
-      return theme.colors.gray500;
-    case 'cancelada':
-      return theme.colors.error;
-    default:
-      return theme.colors.gray500;
-  }
-}
-
-function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'em_andamento':
-      return 'Em Andamento';
-    case 'concluida':
-      return 'Concluída';
-    case 'pendente':
-      return 'Pendente';
-    case 'cancelada':
-      return 'Cancelada';
-    default:
-      return status;
-  }
+/**
+ * Cor do badge: a da fonte única de status. Status fora da lista (valor novo
+ * no banco) fica no cinza neutro, sem quebrar.
+ */
+function corDoStatus(status: string | null | undefined, theme: Theme): string {
+  const config = ROUTE_STATUS_CONFIG[status?.toLowerCase() as RouteStatusType];
+  return config ? theme.colors[config.colorKey] : theme.colors.gray500;
 }
 
 /**
@@ -77,8 +61,8 @@ export const RotaCard = memo(
           rota.total_paradas > 0
             ? (rota.paradas_concluidas / rota.total_paradas) * 100
             : 0,
-        statusColor: getStatusColor(rota.status, theme),
-        statusLabel: getStatusLabel(rota.status),
+        statusColor: corDoStatus(rota.status, theme),
+        statusLabel: rotuloDoStatus(rota.status),
       }),
       [rota.total_paradas, rota.paradas_concluidas, rota.status, theme],
     );
@@ -93,7 +77,10 @@ export const RotaCard = memo(
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.motoristaNome}>{rota.motorista_nome}</Text>
-          <View style={[styles.badge, { backgroundColor: statusColor }]}>
+          <View
+            testID={`rota-card-badge-${rota.id}`}
+            style={[styles.badge, { backgroundColor: statusColor }]}
+          >
             <Text style={styles.badgeText}>{statusLabel}</Text>
           </View>
         </View>

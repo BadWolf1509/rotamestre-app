@@ -8,26 +8,23 @@
  */
 
 import type { IconName } from '@/types/icons';
+import type { StatusParada, StatusRota } from '@/types/rota';
 
 /**
  * Route status types used throughout the app
  */
-export type RouteStatusType =
-  | 'pendente'
-  | 'em_andamento'
-  | 'concluida'
-  | 'cancelada'
-  | 'nao_executada';
+export type RouteStatusType = StatusRota;
 
 /**
  * Stop status types
  */
-export type StopStatusType = 'pendente' | 'concluida' | 'pulada';
+export type StopStatusType = StatusParada;
 
 /**
  * Theme color keys for status mapping
  */
-export type StatusColorKey = 'warning' | 'info' | 'success' | 'error' | 'gray600';
+export type StatusColorKey =
+  'warning' | 'info' | 'success' | 'error' | 'gray600';
 
 /**
  * Status configuration with label, color key, and icon
@@ -83,6 +80,11 @@ export const STOP_STATUS_CONFIG: Record<StopStatusType, StatusConfig> = {
     colorKey: 'warning',
     icon: 'ellipse-outline',
   },
+  em_andamento: {
+    label: 'Em andamento',
+    colorKey: 'info',
+    icon: 'navigate-circle',
+  },
   concluida: {
     label: 'Concluída',
     colorKey: 'success',
@@ -98,7 +100,9 @@ export const STOP_STATUS_CONFIG: Record<StopStatusType, StatusConfig> = {
 /**
  * Get status label from status type
  */
-export function getStatusLabel(status: RouteStatusType | StopStatusType): string {
+export function getStatusLabel(
+  status: RouteStatusType | StopStatusType,
+): string {
   return (
     ROUTE_STATUS_CONFIG[status as RouteStatusType]?.label ||
     STOP_STATUS_CONFIG[status as StopStatusType]?.label ||
@@ -109,7 +113,9 @@ export function getStatusLabel(status: RouteStatusType | StopStatusType): string
 /**
  * Get status color key from status type
  */
-export function getStatusColorKey(status: RouteStatusType | StopStatusType): StatusColorKey {
+export function getStatusColorKey(
+  status: RouteStatusType | StopStatusType,
+): StatusColorKey {
   return (
     ROUTE_STATUS_CONFIG[status as RouteStatusType]?.colorKey ||
     STOP_STATUS_CONFIG[status as StopStatusType]?.colorKey ||
@@ -120,7 +126,9 @@ export function getStatusColorKey(status: RouteStatusType | StopStatusType): Sta
 /**
  * Get status icon from status type
  */
-export function getStatusIcon(status: RouteStatusType | StopStatusType): IconName {
+export function getStatusIcon(
+  status: RouteStatusType | StopStatusType,
+): IconName {
   return (
     ROUTE_STATUS_CONFIG[status as RouteStatusType]?.icon ||
     STOP_STATUS_CONFIG[status as StopStatusType]?.icon ||
@@ -138,7 +146,7 @@ export function getStatusIcon(status: RouteStatusType | StopStatusType): IconNam
  */
 export function getStatusColor(
   status: RouteStatusType | StopStatusType | string | undefined,
-  colorResolver: (colorKey: StatusColorKey) => string
+  colorResolver: (colorKey: StatusColorKey) => string,
 ): string {
   if (!status) return colorResolver('warning');
 
@@ -148,4 +156,34 @@ export function getStatusColor(
     'warning';
 
   return colorResolver(colorKey);
+}
+
+/**
+ * Rótulo legível de qualquer status de rota ou de parada, tolerante ao que vem
+ * do banco: normaliza a caixa e, para valor fora das listas (status novo no
+ * CHECK), devolve o texto sem o sublinhado em vez de quebrar.
+ * Vazio, null ou undefined viram '-'.
+ */
+export function rotuloDoStatus(status: string | null | undefined): string {
+  if (!status) return '-';
+  const chave = status.toLowerCase();
+  return (
+    ROUTE_STATUS_CONFIG[chave as RouteStatusType]?.label ||
+    STOP_STATUS_CONFIG[chave as StopStatusType]?.label ||
+    chave.replace(/_/g, ' ')
+  );
+}
+
+/**
+ * Cor de cada status de rota, resolvida pelo chamador (tema). Mantém o
+ * statusConfig puro: quem tem o `theme` passa o resolvedor.
+ */
+export function coresPorStatusDaRota(
+  resolver: (colorKey: StatusColorKey) => string,
+): Record<RouteStatusType, string> {
+  const cores = {} as Record<RouteStatusType, string>;
+  (Object.keys(ROUTE_STATUS_CONFIG) as RouteStatusType[]).forEach((status) => {
+    cores[status] = resolver(ROUTE_STATUS_CONFIG[status].colorKey);
+  });
+  return cores;
 }

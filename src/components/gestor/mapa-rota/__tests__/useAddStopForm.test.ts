@@ -25,6 +25,10 @@ jest.mock('@/lib/gestor/otimizacaoRota', () => ({
     mockMarcarOtimizacao(...args),
 }));
 
+jest.mock('@/lib/logger', () => ({
+  logger: { error: jest.fn(), warn: jest.fn(), debug: jest.fn() },
+}));
+
 jest.mock('@/lib/photon', () => ({
   photonService: { geocodeAddress: jest.fn() },
 }));
@@ -358,5 +362,81 @@ describe('useAddStopForm: validação Zod e erro cruzado (G14)', () => {
 
     expect(result.current.error).toBe('Limite de 50 paradas atingido');
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('useAddStopForm: auditoria da parada adicionada (B7)', () => {
+  const { logger } = jest.requireMock('@/lib/logger') as {
+    logger: { warn: jest.Mock };
+  };
+
+  async function inserirComUsuario() {
+    const onSave = jest.fn();
+    const { result } = renderHook(() =>
+      useAddStopForm({
+        visible: true,
+        rotaId: 'rota-1',
+        enderecoUnidade: UNIDADE,
+        currentParadasCount: 4,
+        allParadas: ANTES as never,
+        onSave,
+        usuarioId: 'u-1',
+      }),
+    );
+    act(() => {
+      result.current.handleAddressSelect('Rua Nova, 1', 'x', {
+        latitude: NOVA.latitude,
+        longitude: NOVA.longitude,
+      });
+      result.current.setPosicaoInsercao(2);
+    });
+    await act(async () => {
+      await result.current.handleSave();
+    });
+    return onSave;
+  }
+
+  function bancoComLogs(insertLogs: jest.Mock) {
+    prepararBanco();
+    const base = mockFrom.getMockImplementation() as (t: string) => unknown;
+    mockFrom.mockImplementation((tabela: string) =>
+      tabela === 'logs' ? { insert: insertLogs } : base(tabela),
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('log recusado pelo banco vira logger.warn e a parada continua adicionada', async () => {
+    const insertLogs = jest.fn().mockResolvedValue({
+      error: { message: 'new row violates row-level security policy' },
+    });
+    bancoComLogs(insertLogs);
+
+    const onSave = await inserirComUsuario();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Failed to log action:',
+      expect.objectContaining({ evento: 'parada_adicionada' }),
+    );
+    expect(onSave).toHaveBeenCalledWith({ routeRecalculationFailed: false });
+  });
+
+  it('o insert de logs não tem coluna parada_id: ela vai em detalhes', async () => {
+    const insertLogs = jest.fn().mockResolvedValue({ error: null });
+    bancoComLogs(insertLogs);
+
+    await inserirComUsuario();
+
+    expect(insertLogs).toHaveBeenCalledTimes(1);
+    const linha = insertLogs.mock.calls[0][0];
+    expect(linha).not.toHaveProperty('parada_id');
+    expect(linha).toMatchObject({
+      usuario_id: 'u-1',
+      rota_id: 'rota-1',
+      evento: 'parada_adicionada',
+    });
+    expect(linha.detalhes.parada_id).toBe('nova');
   });
 });

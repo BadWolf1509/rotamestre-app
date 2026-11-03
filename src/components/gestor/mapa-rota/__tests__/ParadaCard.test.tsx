@@ -189,6 +189,15 @@ describe('ParadaCard', () => {
 
       expect(getByText('Em andamento')).toBeTruthy();
     });
+
+    it('status fora da lista não some: "status_novo" aparece como "status novo"', () => {
+      const paradaNova = { ...mockParada, status: 'status_novo' };
+      const { getByText } = render(
+        <ParadaCard {...defaultProps} parada={paradaNova} />,
+      );
+
+      expect(getByText('status novo')).toBeTruthy();
+    });
   });
 
   describe('Interações com telefone', () => {

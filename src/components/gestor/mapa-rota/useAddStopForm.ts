@@ -16,6 +16,7 @@ import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
+import { logParadaAction } from '@/lib/queries/logs';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import {
   recalcularRota,
@@ -330,12 +331,12 @@ export function useAddStopForm({
 
         // Log the addition
         if (usuarioId) {
-          await supabase.from('logs').insert({
-            usuario_id: usuarioId,
-            rota_id: rotaId,
-            evento: 'parada_adicionada',
-            detalhes: {
-              parada_id: newParadaId,
+          await logParadaAction(
+            usuarioId,
+            newParadaId,
+            rotaId,
+            'parada_adicionada',
+            {
               endereco,
               tipo,
               ordem: newStopOrdem,
@@ -344,7 +345,7 @@ export function useAddStopForm({
                   ? 'final'
                   : `posicao_${posicaoInsercao}`,
             },
-          });
+          );
         }
 
         // Notify motorista about the new stop (if assigned)

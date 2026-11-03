@@ -326,53 +326,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     fontFamily: theme.typography.fontSansSemiBold,
   },
 
-  // ===== RouteInfoHeader =====
-  infoHeaderBar: {
-    backgroundColor: theme.colors.white,
-    padding: 24,
-    borderRadius: 12,
-    marginBottom: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray100,
-  },
-  infoHeaderRow: {
-    flexDirection: 'row',
-    gap: 32,
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  infoHeaderChipGroup: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  driverChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.gray100,
-    backgroundColor: theme.colors.gray50,
-  },
-  driverLabel: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.gray500,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  driverName: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray900,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
+  // ===== Badge de status (cabeçalho mobile) =====
   statusBadge: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
@@ -381,42 +335,10 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
     backgroundColor: theme.colors.gray100,
   },
-  statusBadgeDesktop: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
-  },
   statusBadgeText: {
     fontSize: theme.typography.fontSize.xs,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray700,
-  },
-  statusBadgeTextDesktop: {
-    fontSize: theme.typography.fontSize.sm,
-  },
-  cancelChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs + 2,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: `${theme.colors.error}55`,
-    backgroundColor: `${theme.colors.errorBg}50`,
-  },
-  cancelChipText: {
-    color: theme.colors.error,
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontSansSemiBold,
-  },
-  infoChipLabel: {
-    fontSize: 14,
-    color: theme.colors.gray600,
-  },
-  infoChipValue: {
-    fontSize: 14,
-    color: theme.colors.gray900,
-    fontWeight: '600',
   },
 
   // ===== Skeleton =====
