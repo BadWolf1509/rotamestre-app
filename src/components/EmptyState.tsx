@@ -129,15 +129,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 }));
 
-// Export default para facilitar import
-export default EmptyState;
-
 /**
  * ============================================
  * EXEMPLOS DE USO
  * ============================================
  *
- * import EmptyState from '@/components/EmptyState';
+ * import { EmptyState } from '@/components/EmptyState';
  *
  * // Empty state básico
  * <EmptyState

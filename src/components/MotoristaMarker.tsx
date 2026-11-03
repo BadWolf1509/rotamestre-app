@@ -3,9 +3,9 @@ import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useMemo, memo } from 'react';
 import { View, Text } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
-import { CORES_SOBRE_O_MAPA } from '@/components/motorista/home/miniMapCompartilhado';
 import { toLngLat } from '@/lib/maplibre';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, type Theme } from '@/utils/styles';

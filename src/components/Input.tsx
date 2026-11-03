@@ -9,7 +9,14 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { View, Text, TextInput, ViewStyle, TextInputProps, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  ViewStyle,
+  TextInputProps,
+  Platform,
+} from 'react-native';
 
 import { platformOverrides } from '@/design-system/tokens';
 import { boxShadow } from '@/utils/color';
@@ -48,7 +55,8 @@ export function Input({
   const isDisabled = textInputProps.editable === false;
   const sizeTokens = theme.components.input.size[size];
   const iconSize = Math.round(sizeTokens.fontSize * 1.25);
-  const platformConfig = platformOverrides[Platform.OS as keyof typeof platformOverrides];
+  const platformConfig =
+    platformOverrides[Platform.OS as keyof typeof platformOverrides];
   const minTouchSize = platformConfig?.touchTarget?.minSize ?? 0;
   const inputHeight = Math.max(sizeTokens.height, minTouchSize);
   const { onFocus, onBlur, ...inputProps } = textInputProps;
@@ -88,7 +96,10 @@ export function Input({
             name={leftIcon}
             size={iconSize}
             color={hasError ? theme.colors.error : theme.colors.gray400}
-            style={[styles.leftIcon, { marginLeft: sizeTokens.paddingHorizontal }]}
+            style={[
+              styles.leftIcon,
+              { marginLeft: sizeTokens.paddingHorizontal },
+            ]}
           />
         )}
 
@@ -122,7 +133,10 @@ export function Input({
             name={rightIcon}
             size={iconSize}
             color={hasError ? theme.colors.error : theme.colors.gray400}
-            style={[styles.rightIcon, { marginRight: sizeTokens.paddingHorizontal }]}
+            style={[
+              styles.rightIcon,
+              { marginRight: sizeTokens.paddingHorizontal },
+            ]}
             onPress={onRightIconPress}
           />
         )}
@@ -163,10 +177,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray300,
     borderRadius: theme.components.input.radius,
     // Web: transição suave para estados de foco/erro (as any needed due to Unistyles type limitations)
-    ...(Platform.OS === 'web' && {
-      transitionProperty: 'border-color, box-shadow',
-      transitionDuration: '150ms',
-    } as any),
+    ...(Platform.OS === 'web' &&
+      ({
+        transitionProperty: 'border-color, box-shadow',
+        transitionDuration: '150ms',
+      } as any)),
   },
   inputContainerError: {
     borderColor: theme.colors.error,
@@ -186,7 +201,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
         0,
         platformOverrides.web.focusRing.width,
         platformOverrides.web.focusRing.color,
-        1
+        1,
       ),
     }),
   },
@@ -198,10 +213,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: 'transparent',
     borderWidth: 0,
     // Web: remover estilos de foco nativos do navegador (as any needed due to Unistyles type limitations)
-    ...(Platform.OS === 'web' && {
-      outlineWidth: 0,
-      outlineStyle: 'none',
-    } as any),
+    ...(Platform.OS === 'web' &&
+      ({
+        outlineWidth: 0,
+        outlineStyle: 'none',
+      } as any)),
   },
   inputWithLeftIcon: {
     paddingLeft: 4,
@@ -229,15 +245,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 }));
 
-// Export default para facilitar import
-export default Input;
-
 /**
  * ============================================
  * EXEMPLOS DE USO
  * ============================================
  *
- * import Input from '@/components/Input';
+ * import { Input } from '@/components/Input';
  *
  * // Input básico
  * <Input

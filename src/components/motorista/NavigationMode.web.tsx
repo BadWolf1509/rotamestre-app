@@ -20,6 +20,7 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import {
   useNavigationModeLogic,
   type NavigationModeProps,
@@ -219,14 +220,14 @@ export function NavigationMode({
           width: 32px;
           height: 32px;
           border-radius: 16px;
-          background: white;
+          background: ${CORES_SOBRE_O_MAPA.branco};
           display: flex;
           align-items: center;
           justify-content: center;
           box-shadow: 0 2px 4px rgba(0,0,0,0.25);
           transform: rotate(${userLocation.heading}deg);
         ">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="${theme.colors.info}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.usuario}">
             <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71L12 2z"/>
           </svg>
         </div>
@@ -247,7 +248,7 @@ export function NavigationMode({
             height: 12px;
             border-radius: 6px;
             background: #4285F4;
-            border: 2px solid white;
+            border: 2px solid ${CORES_SOBRE_O_MAPA.branco};
           "></div>
         </div>
       `;
@@ -256,7 +257,7 @@ export function NavigationMode({
     userMarkerRef.current = new maplibregl.Marker({ element: el })
       .setLngLat([userLocation.longitude, userLocation.latitude])
       .addTo(mapRef.current);
-  }, [userLocation, mapLoaded, theme.colors.info]);
+  }, [userLocation, mapLoaded]);
 
   // Create/update destination and stop markers
   useEffect(() => {
@@ -268,20 +269,22 @@ export function NavigationMode({
 
     // Current destination marker
     const destEl = document.createElement('div');
-    const destColor = isEntrega ? theme.colors.error : theme.colors.warning;
+    const destColor = isEntrega
+      ? CORES_SOBRE_O_MAPA.erro
+      : CORES_SOBRE_O_MAPA.proxima;
     destEl.innerHTML = `
       <div style="
         width: 36px;
         height: 36px;
         border-radius: 18px;
         background: ${destColor};
-        border: 3px solid white;
+        border: 3px solid ${CORES_SOBRE_O_MAPA.branco};
         display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       ">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.branco}">
           ${
             isEntrega
               ? '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-7-2l4-4-4-4v3H8v2h4v3z"/>'
@@ -304,15 +307,15 @@ export function NavigationMode({
           width: ${isNext ? '28px' : '24px'};
           height: ${isNext ? '28px' : '24px'};
           border-radius: ${isNext ? '14px' : '12px'};
-          background: ${isNext ? theme.colors.warning : theme.colors.gray400};
-          border: 2px solid white;
+          background: ${isNext ? CORES_SOBRE_O_MAPA.proxima : CORES_SOBRE_O_MAPA.apagada};
+          border: 2px solid ${CORES_SOBRE_O_MAPA.branco};
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: ${CORES_SOBRE_O_MAPA.branco};
           font-size: ${isNext ? '11px' : '10px'};
           font-weight: 600;
-          ${isNext ? `box-shadow: 0 1px 3px ${theme.colors.warning}80;` : ''}
+          ${isNext ? `box-shadow: 0 1px 3px ${CORES_SOBRE_O_MAPA.proxima}80;` : ''}
         ">
           ${parada.ordem}
         </div>
@@ -331,14 +334,14 @@ export function NavigationMode({
           width: 28px;
           height: 28px;
           border-radius: 14px;
-          background: white;
-          border: 2px solid ${theme.colors.gray200};
+          background: ${CORES_SOBRE_O_MAPA.branco};
+          border: 2px solid ${CORES_SOBRE_O_MAPA.contorno};
           display: flex;
           align-items: center;
           justify-content: center;
           box-shadow: 0 1px 2px rgba(0,0,0,0.15);
         ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${theme.colors.success}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.concluida}">
             <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/>
           </svg>
         </div>
@@ -357,14 +360,14 @@ export function NavigationMode({
           width: 28px;
           height: 28px;
           border-radius: 14px;
-          background: white;
-          border: 2px solid ${theme.colors.gray200};
+          background: ${CORES_SOBRE_O_MAPA.branco};
+          border: 2px solid ${CORES_SOBRE_O_MAPA.contorno};
           display: flex;
           align-items: center;
           justify-content: center;
           box-shadow: 0 1px 2px rgba(0,0,0,0.15);
         ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${theme.colors.info}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.usuario}">
             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
           </svg>
         </div>
@@ -382,9 +385,6 @@ export function NavigationMode({
     endCheckpoint,
     isEntrega,
     mapLoaded,
-    // theme.colors, não theme: o useUnistyles devolve um theme novo a cada
-    // render, e com ele nas deps os marcadores eram recriados em todo render.
-    theme.colors,
   ]);
 
   // Add/update route polyline
@@ -418,7 +418,7 @@ export function NavigationMode({
       source: sourceId,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': theme.colors.primary,
+        'line-color': CORES_SOBRE_O_MAPA.marca,
         'line-width': 4,
         'line-opacity': 1,
       },
@@ -428,7 +428,7 @@ export function NavigationMode({
       if (map.getLayer(layerId)) map.removeLayer(layerId);
       if (map.getSource(sourceId)) map.removeSource(sourceId);
     };
-  }, [routePath, mapLoaded, theme.colors.primary]);
+  }, [routePath, mapLoaded]);
 
   // Recenter map on user location
   const recenterMap = useCallback(() => {

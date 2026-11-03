@@ -24,7 +24,12 @@ interface AnimatedListItemProps {
  * </AnimatedListItem>
  * ```
  */
-function AnimatedListItemInner({ index, children, delay = 50, style }: AnimatedListItemProps) {
+function AnimatedListItemInner({
+  index,
+  children,
+  delay = 50,
+  style,
+}: AnimatedListItemProps) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
 
@@ -60,4 +65,3 @@ function AnimatedListItemInner({ index, children, delay = 50, style }: AnimatedL
 }
 
 export const AnimatedListItem = React.memo(AnimatedListItemInner);
-export default AnimatedListItem;

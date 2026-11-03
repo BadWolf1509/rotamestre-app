@@ -26,7 +26,12 @@ import { useDataTableState } from './useDataTableState';
 import type { DataTableProps, DataTableItem } from './types';
 
 // Re-export types for external use
-export type { DataTableColumn, DataTableAction, DataTableProps, DataTableItem } from './types';
+export type {
+  DataTableColumn,
+  DataTableAction,
+  DataTableProps,
+  DataTableItem,
+} from './types';
 
 function DataTableInner<T extends DataTableItem = DataTableItem>({
   data,
@@ -66,7 +71,9 @@ function DataTableInner<T extends DataTableItem = DataTableItem>({
   // Loading state (Skeleton)
   if (isLoading) {
     if (isMobileView) {
-      return <SkeletonMobile rows={skeletonRows} title={title} testID={testID} />;
+      return (
+        <SkeletonMobile rows={skeletonRows} title={title} testID={testID} />
+      );
     }
     return (
       <SkeletonDesktop
@@ -138,6 +145,3 @@ function DataTableInner<T extends DataTableItem = DataTableItem>({
 
 // Export memoized component
 export const DataTable = memo(DataTableInner) as typeof DataTableInner;
-
-// Default export for backwards compatibility
-export default DataTable;

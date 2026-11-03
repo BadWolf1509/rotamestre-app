@@ -17,6 +17,7 @@ import {
 
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
@@ -31,7 +32,6 @@ import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
-  CORES_SOBRE_O_MAPA,
   MAX_FONTE_SOBRE_O_MAPA,
   rotuloParadasRestantes,
   textoDoChip,

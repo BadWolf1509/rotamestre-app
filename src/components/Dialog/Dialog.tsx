@@ -283,5 +283,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginBottom: theme.spacing.lg,
   },
 }));
-
-export default Dialog;

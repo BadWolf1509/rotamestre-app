@@ -36,7 +36,8 @@ export const DialogDestructiveInput = memo(function DialogDestructiveInput({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>
-        Digite <Text style={styles.highlight}>{confirmText}</Text> para confirmar:
+        Digite <Text style={styles.highlight}>{confirmText}</Text> para
+        confirmar:
       </Text>
       <TextInput
         style={[
@@ -96,5 +97,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: `${theme.colors.success}05`,
   },
 }));
-
-export default DialogDestructiveInput;
