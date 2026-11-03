@@ -16,16 +16,25 @@ import {
 describe('lib/utils', () => {
   describe('array utils', () => {
     it('groupBy deve agrupar itens', () => {
-      const items = [{ type: 'a', val: 1 }, { type: 'b', val: 2 }, { type: 'a', val: 3 }];
+      const items = [
+        { type: 'a', val: 1 },
+        { type: 'b', val: 2 },
+        { type: 'a', val: 3 },
+      ];
       expect(groupBy(items, 'type')).toEqual({
-        a: [{ type: 'a', val: 1 }, { type: 'a', val: 3 }],
+        a: [
+          { type: 'a', val: 1 },
+          { type: 'a', val: 3 },
+        ],
         b: [{ type: 'b', val: 2 }],
       });
     });
 
     it('groupBy deve aceitar funcao de chave', () => {
       const items = [{ val: 1 }, { val: 2 }, { val: 3 }];
-      const result = groupBy(items, (item) => (item.val % 2 === 0 ? 'par' : 'impar'));
+      const result = groupBy(items, (item) =>
+        item.val % 2 === 0 ? 'par' : 'impar',
+      );
       expect(result.par).toHaveLength(1);
       expect(result.impar).toHaveLength(2);
     });
@@ -150,7 +159,7 @@ describe('lib/utils', () => {
         detalhes: { motorista_novo_nome: 'Novo Motorista' },
       });
 
-      expect(finalizada?.title).toContain('Rota');
+      expect(finalizada?.title).toBe('Resumo Confirmado');
       expect(alterado?.description).toContain('Novo Motorista');
     });
 
@@ -469,7 +478,9 @@ describe('lib/utils', () => {
   describe('escapeHtml', () => {
     it('deve escapar caracteres HTML', () => {
       const result = escapeHtml('<div>"teste"&\'</div>');
-      expect(result).toBe('&lt;div&gt;&quot;teste&quot;&amp;&#039;&lt;/div&gt;');
+      expect(result).toBe(
+        '&lt;div&gt;&quot;teste&quot;&amp;&#039;&lt;/div&gt;',
+      );
     });
 
     it('deve lidar com valores vazios', () => {
