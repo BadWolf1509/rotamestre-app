@@ -44,9 +44,9 @@ import {
 
 import type { RouteStatusContextData } from './types';
 
-const RouteStatusContext = createContext<RouteStatusContextData>(
-  {} as RouteStatusContextData,
-);
+// `null` = fora do provider. Um default `{}` fazia `useRouteStatus()` devolver
+// campos undefined em silêncio, em vez de acusar a montagem errada.
+const RouteStatusContext = createContext<RouteStatusContextData | null>(null);
 
 export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const { userData, loading: userLoading } = useUser();
@@ -233,7 +233,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useRouteStatus() {
+export function useRouteStatus(): RouteStatusContextData {
   const context = useContext(RouteStatusContext);
 
   if (!context) {
@@ -241,4 +241,12 @@ export function useRouteStatus() {
   }
 
   return context;
+}
+
+/**
+ * Leitura opcional, para quem monta nos dois layouts (o menu lateral aparece
+ * no do gestor, que não tem o provider): devolve `null` em vez de lançar.
+ */
+export function useRouteStatusSeHouver(): RouteStatusContextData | null {
+  return useContext(RouteStatusContext);
 }

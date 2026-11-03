@@ -7,7 +7,7 @@ import { Alert } from 'react-native';
 
 // Mock dependencies
 jest.mock('@/context/RouteStatusContext', () => ({
-  useRouteStatus: jest.fn(() => ({
+  useRouteStatusSeHouver: jest.fn(() => ({
     route: null,
     currentStop: null,
   })),
@@ -60,19 +60,25 @@ describe('useDrawerContact', () => {
 
   describe('initialization', () => {
     it('should initialize with showContactModal = false', () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       expect(result.current.showContactModal).toBe(false);
     });
 
     it('should initialize with gestorDataForModal = null', () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       expect(result.current.gestorDataForModal).toBeNull();
     });
 
     it('should provide all required functions', () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       expect(typeof result.current.handleContactGestor).toBe('function');
       expect(typeof result.current.handleWebReasonSelect).toBe('function');
@@ -82,7 +88,9 @@ describe('useDrawerContact', () => {
 
   describe('handleCloseContactModal', () => {
     it('should set showContactModal to false', () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       act(() => {
         result.current.handleCloseContactModal();
@@ -94,7 +102,9 @@ describe('useDrawerContact', () => {
 
   describe('handleContactGestor', () => {
     it('should call supabase rpc to get gestor data', async () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       await act(async () => {
         await result.current.handleContactGestor();
@@ -104,7 +114,9 @@ describe('useDrawerContact', () => {
     });
 
     it('consulta com maybeSingle, nunca single (resposta vazia não é erro)', async () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       await act(async () => {
         await result.current.handleContactGestor();
@@ -120,13 +132,18 @@ describe('useDrawerContact', () => {
         error: { message: 'Database error' },
       });
 
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       await act(async () => {
         await result.current.handleContactGestor();
       });
 
-      expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Não foi possível obter os dados do gestor');
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Erro',
+        'Não foi possível obter os dados do gestor',
+      );
     });
 
     it('sem gestor: mensagem própria, sem log de erro e sem menu de motivos', async () => {
@@ -136,7 +153,9 @@ describe('useDrawerContact', () => {
         error: null,
       });
 
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       await act(async () => {
         await result.current.handleContactGestor();
@@ -145,7 +164,7 @@ describe('useDrawerContact', () => {
       expect(Alert.alert).toHaveBeenCalledTimes(1);
       expect(Alert.alert).toHaveBeenCalledWith(
         'Nenhum gestor disponível',
-        'Não há gestor ativo cadastrado para a sua loja no momento. Procure a empresa por outro canal.'
+        'Não há gestor ativo cadastrado para a sua loja no momento. Procure a empresa por outro canal.',
       );
       expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
@@ -154,17 +173,24 @@ describe('useDrawerContact', () => {
     it('should handle exception during contact', async () => {
       mockMaybeSingle.mockRejectedValueOnce(new Error('Network error'));
 
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       await act(async () => {
         await result.current.handleContactGestor();
       });
 
-      expect(Alert.alert).toHaveBeenCalledWith('Erro', 'Não foi possível contatar o gestor');
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Erro',
+        'Não foi possível contatar o gestor',
+      );
     });
 
     it('should show reason menu when gestor found', async () => {
-      const { result } = renderHook(() => useDrawerContact({ onClose: mockOnClose }));
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
 
       await act(async () => {
         await result.current.handleContactGestor();
