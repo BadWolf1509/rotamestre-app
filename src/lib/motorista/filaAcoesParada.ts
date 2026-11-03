@@ -35,8 +35,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
 import { lerSessao, type EstadoSessao } from '@/lib/auth/sessao';
-import { lerJsonParaGravar } from '@/lib/leituraLocal';
+import { lerJsonParaExibir, lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
+import { criarSerie } from '@/lib/serie';
 import { supabase } from '@/lib/supabase';
 
 import { ehRecusaPorRotaEncerrada } from './recusaRotaEncerrada';
@@ -134,23 +135,11 @@ export interface PortaParadas {
 // Persistência (serializada: toda leitura-modificação-escrita passa por aqui)
 // ---------------------------------------------------------------------------
 
-let cadeia: Promise<unknown> = Promise.resolve();
-
-function emSerie<T>(fn: () => Promise<T>): Promise<T> {
-  const proxima = cadeia.then(fn, fn);
-  cadeia = proxima.catch(() => undefined);
-  return proxima;
-}
+let emSerie = criarSerie();
 
 /** Só para ler/exibir: na falha devolve vazio. Quem regrava usa `lerParaGravar`. */
-async function lerLista<T>(chave: string): Promise<T[]> {
-  try {
-    const bruto = await AsyncStorage.getItem(chave);
-    return bruto ? (JSON.parse(bruto) as T[]) : [];
-  } catch (error) {
-    logger.warn('[FilaParada] Falha ao ler a fila', error);
-    return [];
-  }
+function lerLista<T>(chave: string): Promise<T[]> {
+  return lerJsonParaExibir<T[]>(chave, [], '[FilaParada] Falha ao ler a fila');
 }
 
 /**
@@ -686,6 +675,6 @@ export const portaParadasSupabase: PortaParadas = {
  */
 export function _resetFilaAcoesParada(): void {
   processando = false;
-  cadeia = Promise.resolve();
+  emSerie = criarSerie();
   ouvintes.clear();
 }
