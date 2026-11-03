@@ -5,6 +5,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { renderHook } from '@testing-library/react-native';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
 import { getErrorMessage } from '@/lib/errorMapping';
@@ -63,13 +64,19 @@ beforeEach(() => {
 });
 
 it('offline com a fila ilegível: completeStop rejeita com "Não ficou salvo"', async () => {
-  const { completeStop } = useRouteActions({
-    route,
-    paradas,
-    userData: { id: 'user-1', nome: 'Joao' },
-    loadActiveRoute: jest.fn().mockResolvedValue(undefined),
-    portaParadas: porta,
-  });
+  const {
+    result: {
+      current: { completeStop },
+    },
+  } = renderHook(() =>
+    useRouteActions({
+      route,
+      paradas,
+      userData: { id: 'user-1', nome: 'Joao' },
+      loadActiveRoute: jest.fn().mockResolvedValue(undefined),
+      portaParadas: porta,
+    }),
+  );
 
   const erro = await completeStop('p1').then(
     (destino) => destino,

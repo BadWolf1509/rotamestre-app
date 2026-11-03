@@ -2,6 +2,7 @@
  * Hook for route action operations (start, complete stop, skip, complete route)
  */
 
+import { useCallback } from 'react';
 import { Platform } from 'react-native';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
@@ -94,6 +95,15 @@ async function lerInicioProprio(
   }
 }
 
+// "Parada 4 — Rua X", guardado na ação para o aviso de descarte
+function rotuloDe(
+  paradas: ParadaData[],
+  paradaId: string,
+): { rotulo?: string } {
+  const parada = paradas.find((p) => p.id === paradaId);
+  return parada ? { rotulo: rotuloDaParada(parada) } : {};
+}
+
 export function useRouteActions({
   route,
   paradas,
@@ -101,9 +111,15 @@ export function useRouteActions({
   loadActiveRoute,
   portaParadas = portaParadasSupabase,
 }: UseRouteActionsOptions) {
+  // Deps em primitivos: o provider monta `userData` como objeto novo a cada
+  // render, e dependência por objeto refaria as ações (e o valor do contexto
+  // inteiro) a cada render, re-renderizando quem só as chama.
+  const motoristaId = userData?.id;
+  const motoristaNome = userData?.nome;
+
   // Inicia rota
-  const startRoute = async () => {
-    if (!route || !userData) return;
+  const startRoute = useCallback(async () => {
+    if (!route || !motoristaId) return;
 
     // Validar se a rota está em status pendente
     if (route.status !== 'pendente') {
@@ -129,7 +145,7 @@ export function useRouteActions({
         })
         .eq('id', route.id)
         .eq('status', 'pendente')
-        .eq('motorista_id', userData.id)
+        .eq('motorista_id', motoristaId)
         .select('id');
 
       if (error) throw error;
@@ -141,7 +157,7 @@ export function useRouteActions({
       // — fecharia a janela de vez, mas pede migration (fora deste PR).
       const jaIniciadaPorMim =
         !iniciadas || iniciadas.length === 0
-          ? await lerInicioProprio(route.id, userData.id)
+          ? await lerInicioProprio(route.id, motoristaId)
           : null;
       if (jaIniciadaPorMim) now = jaIniciadaPorMim;
 
@@ -186,8 +202,8 @@ export function useRouteActions({
       if (Platform.OS !== 'web') {
         await requestAndStartTracking({
           rotaId: route.id,
-          motoristaId: userData.id,
-          motoristaNome: userData.nome || 'Motorista',
+          motoristaId,
+          motoristaNome: motoristaNome || 'Motorista',
           startedAt: now,
         });
       }
@@ -197,145 +213,145 @@ export function useRouteActions({
       logger.error('[RouteStatus] Erro ao iniciar rota', error);
       throw error;
     }
-  };
+  }, [route, paradas, motoristaId, motoristaNome, loadActiveRoute]);
 
   // Concluir e pular passam pela fila de ações de parada
   // (`src/lib/motorista/filaAcoesParada.ts`): sem rede — ou com a rede caindo
   // no meio do envio — a ação fica guardada no aparelho e sobe sozinha quando
   // o sinal voltar, em vez de virar erro e a entrega sumir.
-  const executarOuEnfileirar = async (
-    acao: AcaoParada,
-    rotulo: string,
-  ): Promise<DestinoDaAcao> => {
-    if (!(await isOnline())) {
-      await enfileirarAcaoParada(acao);
-      return 'na_fila';
-    }
-
-    let resultado: ResultadoAplicacao;
-    try {
-      resultado = await aplicarAcaoParada(acao, portaParadas);
-    } catch (error) {
-      // Só recusa definitiva aparece como erro. Rede, sessão vencida, 5xx,
-      // 408/429 ou resposta sem código: guarda e envia depois.
-      if (!ehErroDefinitivo(error)) {
+  const executarOuEnfileirar = useCallback(
+    async (acao: AcaoParada, rotulo: string): Promise<DestinoDaAcao> => {
+      if (!(await isOnline())) {
         await enfileirarAcaoParada(acao);
         return 'na_fila';
       }
-      logger.error(`[RouteStatus] Erro ao ${rotulo} parada`, error);
-      throw error;
-    }
 
-    if (resultado.tipo === 'descartada') {
-      // Mesmas sentinelas do `errorMapping`: a mensagem diz o que houve.
-      throw new Error(
-        resultado.motivo === 'rota_encerrada'
-          ? 'ROTA_NAO_EM_ANDAMENTO: a rota não está mais em andamento'
-          : resultado.motivo === 'status_divergente'
-            ? 'PARADA_JA_RESOLVIDA: a parada já foi concluída ou pulada por outro caminho'
-            : 'PARADA_INDISPONIVEL: a parada foi removida ou a rota mudou de motorista',
-      );
-    }
-
-    // Lê o estado fresco do banco (não o da closure) e só promove a próxima
-    // quando nenhuma outra está em andamento — pular uma parada fora da vez
-    // não pode deixar duas "em andamento". A entrega JÁ está gravada: falhar
-    // aqui não pode virar erro na tela, ou o motorista a refaria.
-    if (resultado.tipo === 'aplicada') {
+      let resultado: ResultadoAplicacao;
       try {
-        await portaParadas.avancarProxima(acao.rotaId);
+        resultado = await aplicarAcaoParada(acao, portaParadas);
       } catch (error) {
-        logger.warn('[RouteStatus] Falha ao promover a próxima parada', error);
-      }
-    }
-
-    await loadActiveRoute();
-    // A rede respondeu: é a hora de mandar o que tenha ficado na fila antes
-    // (ex.: timeout com o NetInfo dizendo "conectado").
-    void solicitarEnvioFila();
-    return 'enviada';
-  };
-
-  // "Parada 4 — Rua X", guardado na ação para o aviso de descarte
-  const rotuloDe = (paradaId: string): { rotulo?: string } => {
-    const parada = paradas.find((p) => p.id === paradaId);
-    return parada ? { rotulo: rotuloDaParada(parada) } : {};
-  };
-
-  // Completa parada
-  const completeStop = async (
-    paradaId: string,
-    fotoUrl?: string,
-  ): Promise<DestinoDaAcao> => {
-    if (!route || route.status !== 'em_andamento' || !userData) {
-      logger.warn(
-        `[RouteStatus] completeStop Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`,
-      );
-      throw new Error(
-        'A rota precisa estar em andamento para concluir paradas',
-      );
-    }
-
-    if (fotoUrl) {
-      // Caminho legado: hoje ninguém passa URL (o upload liga a foto à
-      // parada sozinho). Fica online, porque `foto_url` não entra na fila.
-      const { error } = await supabase
-        .from('paradas')
-        .update({ foto_url: fotoUrl })
-        .eq('id', paradaId);
-      if (error) {
-        logger.error('[RouteStatus] Erro ao concluir parada', error);
+        // Só recusa definitiva aparece como erro. Rede, sessão vencida, 5xx,
+        // 408/429 ou resposta sem código: guarda e envia depois.
+        if (!ehErroDefinitivo(error)) {
+          await enfileirarAcaoParada(acao);
+          return 'na_fila';
+        }
+        logger.error(`[RouteStatus] Erro ao ${rotulo} parada`, error);
         throw error;
       }
-    }
 
-    return executarOuEnfileirar(
-      criarAcaoParada({
-        tipo: 'concluir',
-        paradaId,
-        rotaId: route.id,
-        motoristaId: userData.id,
-        em: new Date().toISOString(),
-        ...rotuloDe(paradaId),
-      }),
-      'concluir',
-    );
-  };
+      if (resultado.tipo === 'descartada') {
+        // Mesmas sentinelas do `errorMapping`: a mensagem diz o que houve.
+        throw new Error(
+          resultado.motivo === 'rota_encerrada'
+            ? 'ROTA_NAO_EM_ANDAMENTO: a rota não está mais em andamento'
+            : resultado.motivo === 'status_divergente'
+              ? 'PARADA_JA_RESOLVIDA: a parada já foi concluída ou pulada por outro caminho'
+              : 'PARADA_INDISPONIVEL: a parada foi removida ou a rota mudou de motorista',
+        );
+      }
+
+      // Lê o estado fresco do banco (não o da closure) e só promove a próxima
+      // quando nenhuma outra está em andamento — pular uma parada fora da vez
+      // não pode deixar duas "em andamento". A entrega JÁ está gravada: falhar
+      // aqui não pode virar erro na tela, ou o motorista a refaria.
+      if (resultado.tipo === 'aplicada') {
+        try {
+          await portaParadas.avancarProxima(acao.rotaId);
+        } catch (error) {
+          logger.warn(
+            '[RouteStatus] Falha ao promover a próxima parada',
+            error,
+          );
+        }
+      }
+
+      await loadActiveRoute();
+      // A rede respondeu: é a hora de mandar o que tenha ficado na fila antes
+      // (ex.: timeout com o NetInfo dizendo "conectado").
+      void solicitarEnvioFila();
+      return 'enviada';
+    },
+    [portaParadas, loadActiveRoute],
+  );
+
+  // Completa parada
+  const completeStop = useCallback(
+    async (paradaId: string, fotoUrl?: string): Promise<DestinoDaAcao> => {
+      if (!route || route.status !== 'em_andamento' || !motoristaId) {
+        logger.warn(
+          `[RouteStatus] completeStop Tentativa de concluir parada com rota em status '${route?.status}' - ignorado`,
+        );
+        throw new Error(
+          'A rota precisa estar em andamento para concluir paradas',
+        );
+      }
+
+      if (fotoUrl) {
+        // Caminho legado: hoje ninguém passa URL (o upload liga a foto à
+        // parada sozinho). Fica online, porque `foto_url` não entra na fila.
+        const { error } = await supabase
+          .from('paradas')
+          .update({ foto_url: fotoUrl })
+          .eq('id', paradaId);
+        if (error) {
+          logger.error('[RouteStatus] Erro ao concluir parada', error);
+          throw error;
+        }
+      }
+
+      return executarOuEnfileirar(
+        criarAcaoParada({
+          tipo: 'concluir',
+          paradaId,
+          rotaId: route.id,
+          motoristaId,
+          em: new Date().toISOString(),
+          ...rotuloDe(paradas, paradaId),
+        }),
+        'concluir',
+      );
+    },
+    [route, paradas, motoristaId, executarOuEnfileirar],
+  );
 
   // Pula parada com motivo estruturado
-  const skipStop = async (
-    paradaId: string,
-    motivo: MotivoSkip,
-    observacoes?: string,
-  ): Promise<DestinoDaAcao> => {
-    if (!route || route.status !== 'em_andamento' || !userData) {
-      logger.warn(
-        `[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`,
-      );
-      throw new Error('A rota precisa estar em andamento para pular paradas');
-    }
+  const skipStop = useCallback(
+    async (
+      paradaId: string,
+      motivo: MotivoSkip,
+      observacoes?: string,
+    ): Promise<DestinoDaAcao> => {
+      if (!route || route.status !== 'em_andamento' || !motoristaId) {
+        logger.warn(
+          `[RouteStatus] skipStop Tentativa de pular parada com rota em status '${route?.status}' - ignorado`,
+        );
+        throw new Error('A rota precisa estar em andamento para pular paradas');
+      }
 
-    return executarOuEnfileirar(
-      criarAcaoParada({
-        tipo: 'pular',
-        paradaId,
-        rotaId: route.id,
-        motoristaId: userData.id,
-        em: new Date().toISOString(),
-        motivo,
-        ...(observacoes ? { observacoes } : {}),
-        ...rotuloDe(paradaId),
-      }),
-      'pular',
-    );
-  };
+      return executarOuEnfileirar(
+        criarAcaoParada({
+          tipo: 'pular',
+          paradaId,
+          rotaId: route.id,
+          motoristaId,
+          em: new Date().toISOString(),
+          motivo,
+          ...(observacoes ? { observacoes } : {}),
+          ...rotuloDe(paradas, paradaId),
+        }),
+        'pular',
+      );
+    },
+    [route, paradas, motoristaId, executarOuEnfileirar],
+  );
 
   // Finaliza rota. Uma operação só no banco (RPC `finalizar_rota`, em
   // transação): confere que a rota é do motorista e está em andamento, que não
   // há parada real pendente, e marca chegada + rota juntas. O rastreamento só
   // para DEPOIS do sucesso — antes parava primeiro, e uma falha deixava a rota
   // em andamento sem rastreamento.
-  const completeRoute = async () => {
+  const completeRoute = useCallback(async () => {
     if (!route) return;
 
     // Atalho de UX: o banco confere de novo, isto só evita a ida e volta.
@@ -359,7 +375,7 @@ export function useRouteActions({
     // Mesmo id com que `completeStop`/`skipStop` gravam o `motoristaId`.
     const contarNaFila = async () =>
       (await lerFilaAcoesParada()).filter(
-        (a) => a.rotaId === route.id && a.motoristaId === userData?.id,
+        (a) => a.rotaId === route.id && a.motoristaId === motoristaId,
       ).length;
     let naFila = await contarNaFila();
     if (naFila > 0) {
@@ -404,7 +420,7 @@ export function useRouteActions({
     }
 
     await loadActiveRoute();
-  };
+  }, [route, paradas, motoristaId, loadActiveRoute]);
 
   return { startRoute, completeStop, skipStop, completeRoute };
 }

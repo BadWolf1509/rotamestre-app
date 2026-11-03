@@ -2425,3 +2425,45 @@ describe('RouteStatusContext edge cases', () => {
     expect(getByTestId('routeStatus')).toBeTruthy();
   });
 });
+
+describe('RouteStatusContext identidade do valor', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRotasData = [createMockRoute({ status: 'em_andamento' })];
+    mockRotasConcluidas = null;
+    mockParadasData = [createMockParada({ id: 'p1', status: 'em_andamento' })];
+    mockUpdateError = null;
+    mockUpdateCalls.length = 0;
+    mockLeituraSemRede = false;
+  });
+
+  it('o valor do contexto não muda quando o provider re-renderiza sem mudança de dados', async () => {
+    const valores: ReturnType<typeof useRouteStatus>[] = [];
+    function Consumidor() {
+      const valor = useRouteStatus();
+      valores.push(valor);
+      return <Text testID="carregando">{String(valor.loading)}</Text>;
+    }
+
+    const { getByTestId, rerender } = render(
+      <RouteStatusProvider>
+        <Consumidor />
+      </RouteStatusProvider>,
+    );
+    await waitFor(() => {
+      expect(getByTestId('carregando').props.children).toBe('false');
+    });
+    // deixa assentar o que a carga dispara (fila, rastreamento)
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    rerender(
+      <RouteStatusProvider>
+        <Consumidor />
+      </RouteStatusProvider>,
+    );
+
+    expect(valores.at(-1)).toBe(valores.at(-2));
+  });
+});
