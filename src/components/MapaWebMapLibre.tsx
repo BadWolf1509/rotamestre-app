@@ -26,10 +26,10 @@ import React, {
 } from 'react';
 import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
-import { CORES_SOBRE_O_MAPA } from '@/components/motorista/home/miniMapCompartilhado';
 import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
