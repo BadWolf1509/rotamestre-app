@@ -5,41 +5,22 @@
 // papel, deixe de fora o incidente sem rota, tire a cláusula WHEN (que deixa
 // passar o ON DELETE SET NULL da FK), exponha a função de gatilho ou deixe as
 // duas cópias divergirem.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261025150000_incidente_mantem_o_motorista.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261025150000_sonda_migration61.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261025150000_sonda_migration61.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 const FUNCAO = 'incidentes_mantem_o_motorista';
 const GATILHO = 'trg_incidentes_mantem_o_motorista';
@@ -61,11 +42,7 @@ const gatilho = (() => {
 })();
 
 describe('Migration 61: o incidente mantém o motorista que o registrou', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -176,7 +153,7 @@ describe('Migration 61: o incidente mantém o motorista que o registrou', () => 
   });
 
   it('MIGRATIONS.md registra a Migration 61 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 61: /);
     expect(doc).toContain(ARQUIVO);
   });

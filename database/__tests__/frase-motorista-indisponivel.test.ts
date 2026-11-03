@@ -5,16 +5,14 @@
 // Mudar o texto de um lado sem o outro derruba o aviso amigável sem erro
 // visível. Esta guarda lê a constante do app e confere a última migration que
 // define a função.
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { readdirSync } from 'fs';
 import { join } from 'path';
 
-const raiz = join(__dirname, '..', '..');
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
+import { ler, RAIZ } from './_helpers/migration';
 
 const HOOK = 'src/hooks/nova-entrega/useRouteCreation.ts';
-const hook = ler(join(raiz, HOOK));
-const doc = ler(join(raiz, 'database', 'MIGRATIONS.md'));
+const hook = ler(join(RAIZ, HOOK));
+const doc = ler(join(RAIZ, 'database', 'MIGRATIONS.md'));
 
 const frase = (() => {
   const m = hook.match(
@@ -23,7 +21,7 @@ const frase = (() => {
   return m ? m[1] : '';
 })();
 
-const pastaMigrations = join(raiz, 'database', 'migrations');
+const pastaMigrations = join(RAIZ, 'database', 'migrations');
 const ultima = (() => {
   const arquivos = readdirSync(pastaMigrations)
     .filter((n) => n.endsWith('.sql'))

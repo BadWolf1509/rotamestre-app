@@ -10,40 +10,26 @@
 // sem usuário (cron, chave secreta, CLI) deixe de passar, que as duas
 // transições do motorista saiam da lista, que a regra volte a olhar a loja e
 // que as cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
 
-const ARQUIVO = '20261027100000_rota_status_pelo_gestor.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261027100000_sonda_migration76.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  RAIZ,
+  semComentarios,
+} from './_helpers/migration';
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const ARQUIVO = '20261027100000_rota_status_pelo_gestor.sql';
+
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261027100000_sonda_migration76.sql');
+const { executavel } = m;
+const { rollback } = m;
 const FUNCAO = 'public.rota_status_pelo_gestor()';
 const corpoFuncao = (() => {
   const i = executavel.indexOf(`CREATE OR REPLACE FUNCTION ${FUNCAO}`);
@@ -53,18 +39,14 @@ const corpoFuncao = (() => {
 })();
 
 describe('Migration 76: status da rota pelo gestor', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('o nome antigo (com loja) não existe mais em nenhuma pasta', () => {
     const antigo = '20261027100000_rota_loja_e_status_pelo_gestor.sql';
-    expect(existsSync(join(raiz, 'database', 'migrations', antigo))).toBe(
+    expect(existsSync(join(RAIZ, 'database', 'migrations', antigo))).toBe(
       false,
     );
-    expect(existsSync(join(raiz, 'supabase', 'migrations', antigo))).toBe(
+    expect(existsSync(join(RAIZ, 'supabase', 'migrations', antigo))).toBe(
       false,
     );
   });
@@ -189,7 +171,7 @@ describe('Migration 76: status da rota pelo gestor', () => {
   });
 
   it('MIGRATIONS.md registra a Migration 76 com o arquivo e a permissão de coluna', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 76: /);
     expect(doc).toContain(ARQUIVO);
     expect(doc).not.toContain('20261027100000_rota_loja_e_status_pelo_gestor');
@@ -201,7 +183,7 @@ describe('Migration 76: status da rota pelo gestor', () => {
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const i = doc.search(/### .*Migration 76: /);
     const fim = i < 0 ? -1 : doc.indexOf('\n---', i);
     const entrada = i < 0 ? '' : doc.slice(i, fim < 0 ? undefined : fim);

@@ -5,41 +5,21 @@
 // conferir o cadastro ativo de quem chama, mude a assinatura ou o formato do
 // retorno (o app já instalado depende dele), ou deixe as duas cópias
 // (database/ e supabase/) divergirem.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024140000_contato_do_gestor_pelo_vinculo_ativo.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024140000_sonda_migration52.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const { executavel } = m;
+const { rollback } = m;
 
 const corpo = (() => {
   const inicio = executavel.indexOf(
@@ -52,11 +32,7 @@ const corpo = (() => {
 })();
 
 describe('Migration 52: contato do gestor segue o vínculo ativo', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só e não derruba a função (mantém assinatura e grants)', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -69,7 +45,9 @@ describe('Migration 52: contato do gestor segue o vínculo ativo', () => {
     expect(corpo).toMatch(
       /RETURNS TABLE\(nome text, telefone text, email text\)/,
     );
-    expect(corpo).toMatch(/SELECT\s+u\.nome::text,\s*u\.telefone::text,\s*u\.email::text/);
+    expect(corpo).toMatch(
+      /SELECT\s+u\.nome::text,\s*u\.telefone::text,\s*u\.email::text/,
+    );
   });
 
   it('SECURITY DEFINER com search_path vazio e nomes qualificados', () => {
@@ -86,7 +64,9 @@ describe('Migration 52: contato do gestor segue o vínculo ativo', () => {
   });
 
   it('quem chama precisa estar ativo no cadastro (mesmo critério da Migration 49)', () => {
-    expect(corpo).toMatch(/IF NOT public\.usuario_atual_ativo\(\) THEN\s+RETURN;/);
+    expect(corpo).toMatch(
+      /IF NOT public\.usuario_atual_ativo\(\) THEN\s+RETURN;/,
+    );
   });
 
   it('a loja sai de vínculo ativo de quem chama, nunca da coluna usuarios.unidade_id', () => {
@@ -100,7 +80,9 @@ describe('Migration 52: contato do gestor segue o vínculo ativo', () => {
     // regra determinística: rota aberta (em andamento antes de pendente),
     // depois a rota mais recente, depois o vínculo
     expect(corpo).toMatch(/r\.status IN \('em_andamento', 'pendente'\)/);
-    expect(corpo).toMatch(/ORDER BY \(r\.status = 'em_andamento'\) DESC, r\.data ASC, r\.created_at ASC, r\.id ASC/);
+    expect(corpo).toMatch(
+      /ORDER BY \(r\.status = 'em_andamento'\) DESC, r\.data ASC, r\.created_at ASC, r\.id ASC/,
+    );
     expect(corpo).toMatch(/ORDER BY r\.created_at DESC, r\.id DESC/);
     expect(corpo).toMatch(
       /ORDER BY uu\.is_principal DESC NULLS LAST, uu\.created_at ASC NULLS LAST, uu\.unidade_id ASC/,
@@ -125,7 +107,9 @@ describe('Migration 52: contato do gestor segue o vínculo ativo', () => {
 
   it('ROLLBACK traz o corpo anterior inteiro, colável, e os grants', () => {
     expect(rollback).toMatch(/BEGIN;/);
-    expect(rollback).toMatch(/CREATE OR REPLACE FUNCTION public\.get_gestor_contato\(\)/);
+    expect(rollback).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.get_gestor_contato\(\)/,
+    );
     expect(rollback).toMatch(/SET search_path TO 'public'/);
     expect(rollback).toMatch(/ORDER BY uu\.created_at DESC/);
     expect(rollback).toMatch(/u\.is_gestor_principal DESC NULLS LAST/);
@@ -138,14 +122,16 @@ describe('Migration 52: contato do gestor segue o vínculo ativo', () => {
   });
 
   it('sonda transacional existe, não apaga nada e termina em RAISE', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024140000_sonda_migration52.sql');
     expect(sonda).not.toBe('');
     expect(semComentarios(sonda)).not.toMatch(/\bDELETE\b/i);
-    expect(sonda).toMatch(/RAISE EXCEPTION 'SONDA M52 \(desfeita\):%', r;\s*END\s*\$\$;\s*$/);
+    expect(sonda).toMatch(
+      /RAISE EXCEPTION 'SONDA M52 \(desfeita\):%', r;\s*END\s*\$\$;\s*$/,
+    );
   });
 
   it('MIGRATIONS.md registra a Migration 52 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 52: /);
     expect(doc).toContain(ARQUIVO);
   });

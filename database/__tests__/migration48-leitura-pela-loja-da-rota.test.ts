@@ -4,32 +4,21 @@
 // uma edição tire o filtro pela loja da rota, devolva a leitura pelo vínculo
 // do autor, abra a linha sem rota ao gestor, ou deixe as duas cópias
 // (database/ e supabase/) divergirem.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024110000_logs_posicoes_push_pela_loja_da_rota.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024110000_sonda_migration48.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 
 function blocoEntreParenteses(
   texto: string,
@@ -83,15 +72,15 @@ function confereDonoOuLojaDaRota(expr: string, tabela: string, dono: string) {
 }
 
 describe('Migration 48: logs, posições e logs de push pela loja da rota', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('logs_select: o autor ou o gestor ativo da loja da rota', () => {
     expect.hasAssertions();
-    confereDonoOuLojaDaRota(usingDe('logs_select', 'logs'), 'logs', 'usuario_id');
+    confereDonoOuLojaDaRota(
+      usingDe('logs_select', 'logs'),
+      'logs',
+      'usuario_id',
+    );
   });
 
   it('motorista_locations_select_optimized: o motorista ou o gestor ativo da loja da rota', () => {
@@ -161,7 +150,9 @@ describe('Migration 48: logs, posições e logs de push pela loja da rota', () =
   it('tem bloco de rollback com as quatro policies e a remoção do helper', () => {
     expect(sql).toMatch(/^-- ROLLBACK:/m);
     const rollback = sql.slice(sql.search(/^-- ROLLBACK:/m));
-    expect(rollback).toMatch(/ALTER POLICY logs_select ON public\.logs\s*\n--\s*TO public/);
+    expect(rollback).toMatch(
+      /ALTER POLICY logs_select ON public\.logs\s*\n--\s*TO public/,
+    );
     expect(rollback).toMatch(
       /ALTER POLICY motorista_locations_select_optimized ON public\.motorista_locations\s*\n--\s*TO authenticated/,
     );
@@ -177,7 +168,7 @@ describe('Migration 48: logs, posições e logs de push pela loja da rota', () =
   });
 
   it('a sonda existe, testa como authenticated, não apaga nada e termina desfeita', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024110000_sonda_migration48.sql');
     expect(sonda).not.toBe('');
     const sondaExec = semComentarios(sonda);
     expect(sondaExec).toMatch(/SET LOCAL ROLE authenticated/);
@@ -190,7 +181,7 @@ describe('Migration 48: logs, posições e logs de push pela loja da rota', () =
   });
 
   it('está documentada no MIGRATIONS.md', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### (⏳|✅) Migration 48:/);
     expect(doc).toContain(ARQUIVO);
   });

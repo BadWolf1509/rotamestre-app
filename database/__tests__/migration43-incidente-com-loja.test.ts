@@ -5,31 +5,21 @@
 // incidente sem rota: a coluna, o gatilho que a preenche e a congela, o
 // backfill, as três policies pela loja gravada (sem o ramo "rota_id IS NULL →
 // vínculo do motorista") e o aviso ao gestor pela mesma loja.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024000000_incidente_com_loja.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024000000_sonda_migration43.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 // Conteúdo do parêntese que abre logo depois de `palavra` (a partir de
@@ -89,11 +79,7 @@ function corpoDaFuncao(nome: string): string {
 }
 
 describe('Migration 43: o incidente grava a própria loja', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('acrescenta incidentes.unidade_id com FK para unidades e índice', () => {
     expect(executavel).toMatch(
@@ -217,7 +203,7 @@ describe('Migration 43: o incidente grava a própria loja', () => {
   });
 
   it('a sonda existe, testa como authenticated, só apaga o que criou e termina desfeita', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024000000_sonda_migration43.sql');
     expect(sonda).not.toBe('');
     const sondaExec = semComentarios(sonda);
     expect(sondaExec).toMatch(/SET LOCAL ROLE authenticated/);
@@ -241,7 +227,7 @@ describe('Migration 43: o incidente grava a própria loja', () => {
   });
 
   it('está documentada no MIGRATIONS.md', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### (⏳|✅) Migration 43:/);
     expect(doc).toContain(ARQUIVO);
   });

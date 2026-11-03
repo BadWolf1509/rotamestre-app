@@ -9,24 +9,15 @@
 //
 // Vale para as migrations a partir de 20261023000000 e para todas as sondas
 // (as antigas não são reescritas; o histórico já foi aplicado).
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
+
+import { ler, semComentarios } from './_helpers/migration';
 
 const raiz = join(__dirname, '..', '..');
 const PRIMEIRA = '20261023000000';
 
 type Problema = string;
-
-/** Tira comentários de linha `--` (inclusive dentro de corpos de função). */
-function semComentarios(sql: string): string {
-  return sql
-    .split('\n')
-    .map((linha) => {
-      const i = linha.indexOf('--');
-      return i === -1 ? linha : linha.slice(0, i);
-    })
-    .join('\n');
-}
 
 function problemasDeDollarQuote(sql: string): Problema[] {
   const texto = semComentarios(sql);
@@ -86,7 +77,6 @@ function arquivosDaGuarda(): string[] {
   const sondas = join(raiz, 'database', 'sondas');
   const lista = readdirSync(migrations)
     .filter((f) => /^\d{14}_.*\.sql$/.test(f) && f.slice(0, 14) >= PRIMEIRA)
-    .filter((f) => !f.startsWith('99999999999999'))
     .map((f) => join(migrations, f));
   if (existsSync(sondas)) {
     lista.push(
@@ -109,7 +99,7 @@ describe('estrutura dos SQL novos', () => {
   it.each(arquivos.map((f) => [f.slice(raiz.length + 1), f]))(
     '%s: dollar-quotes e corpos de função bem formados',
     (_nome, caminho) => {
-      const sql = readFileSync(caminho, 'utf8');
+      const sql = ler(caminho);
       expect([
         ...problemasDeDollarQuote(sql),
         ...problemasDeFuncao(sql),

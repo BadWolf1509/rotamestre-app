@@ -95,8 +95,7 @@ rotamestre-app/
 ├── __mocks__/                    # Mocks globais
 │   ├── @react-native-async-storage/
 │   ├── @supabase/
-│   ├── fileMock.js              # Mock para assets (imagens, fontes)
-│   └── test-data.ts             # Dados de teste reutilizáveis
+│   └── fileMock.js              # Mock para assets (imagens, fontes)
 ├── jest.mocks/                   # Mocks modulares
 │   ├── expo.js                  # Mocks de módulos Expo
 │   ├── reactNative.js           # Mocks de React Native
@@ -329,7 +328,7 @@ O arquivo `jest.setup.js` configura:
 
 1. **React Native Mocks**: Alert, Keyboard, Platform, Dimensions
 2. **Expo Mocks**: expo-router, expo-camera, expo-image-picker
-3. **Supabase Mock**: Cliente mockado com query builder
+3. **Supabase Mock**: Cliente mockado com query builder, definido só em `jest.mocks/supabase.js` (`setupSupabaseMocks`)
 4. **Unistyles Mock**: Theme e StyleSheet para testes
 5. **AsyncStorage Mock**: Operações de storage
 6. **Console Mock**: Suprime logs em testes

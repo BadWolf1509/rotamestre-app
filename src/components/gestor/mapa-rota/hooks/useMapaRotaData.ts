@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 import type { Parada, Rota, ResumoParadas } from '../types';
 
 /** Junta a rajada de eventos de uma conclusão numa recarga só. */
-const DEBOUNCE_RECARGA_MS = 300;
+export const DEBOUNCE_RECARGA_MS = 300;
 
 interface UseMapaRotaDataOptions {
   rotaId: string | string[] | undefined;

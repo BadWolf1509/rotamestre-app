@@ -5,37 +5,25 @@
 // impede que uma edição perca as peças que fecham o caso: a tabela fora de
 // `usuarios` (cuja RLS deixa o gestor ler e alterar a linha do motorista), o
 // default ligado, a RLS só do dono nas três operações e os grants sem DELETE.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024200000_preferencias_notificacao.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024200000_sonda_migration47.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 const exec = normaliza(semComentarios(sql));
 
 describe('Migration 47: arquivos', () => {
   it('existe em database/ e a cópia em supabase/ é idêntica', () => {
     expect(sql.length).toBeGreaterThan(0);
-    expect(ler(caminhoSupa)).toBe(sql);
+    expect(ler(m.caminhoSupa)).toBe(sql);
   });
 
   it('roda numa transação e tem ROLLBACK e roteiro de conferência', () => {
@@ -46,7 +34,7 @@ describe('Migration 47: arquivos', () => {
   });
 
   it('está no MIGRATIONS.md', () => {
-    expect(ler(caminhoDoc)).toMatch(
+    expect(ler(CAMINHO_DOC)).toMatch(
       new RegExp(
         `### (?:⏳|✅) Migration 47[^\\n]*\\n[\\s\\S]{0,400}${ARQUIVO}`,
       ),
@@ -122,7 +110,7 @@ describe('Migration 47: RLS e grants', () => {
 });
 
 describe('Migration 47: sonda', () => {
-  const sonda = ler(caminhoSonda);
+  const sonda = lerSonda('20261024200000_sonda_migration47.sql');
 
   it('termina em RAISE e cobre os casos do brief', () => {
     expect(sonda).not.toBe('');

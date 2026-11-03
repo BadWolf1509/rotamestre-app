@@ -6,47 +6,32 @@
 // de `authenticated`/`service_role` (quebraria o app e as Edge Functions), que
 // conceda algo, que o rollback perca a granularidade medida, que a sonda
 // escreva em tabela de verdade ou que as duas cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  RAIZ,
+  semComentarios,
+} from './_helpers/migration';
+
 const ARQUIVO = '20261025164000_privilegios_padrao_da_api.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261025164000_sonda_migration69.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 const caminhoSkill = join(
-  raiz,
+  RAIZ,
   '.claude',
   'skills',
   'new-migration',
   'SKILL.md',
 );
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261025164000_sonda_migration69.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 // Única concessão: mantém para função de extensão futura do postgres o
 // EXECUTE que authenticated/service_role hoje têm via PUBLIC.
@@ -62,11 +47,7 @@ const LINHAS = [
 ];
 
 describe('Migration 69: privilégios-padrão da API', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -166,7 +147,7 @@ describe('Migration 69: privilégios-padrão da API', () => {
   });
 
   it('MIGRATIONS.md registra a Migration 69 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 69: /);
     expect(doc).toContain(ARQUIVO);
   });

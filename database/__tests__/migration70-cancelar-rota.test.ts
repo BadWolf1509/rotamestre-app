@@ -6,48 +6,26 @@
 // algo fora dos quatro resultados, que a trava vire FOR UPDATE simples, que as
 // pendentes passem a ser puladas (Decisão D1), que o EXECUTE volte a PUBLIC ou
 // anon, que o ajuste do passado saia do id medido e que as cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261026120000_cancelar_rota_rpc.sql';
 const PARADA_MEDIDA = 'af99fbdf-d040-41d9-b41c-011868640f7e';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261026120000_sonda_migration70.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261026120000_sonda_migration70.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 describe('Migration 70: RPC cancelar_rota', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -63,7 +41,9 @@ describe('Migration 70: RPC cancelar_rota', () => {
     expect(executavel).toContain(
       'ALTER FUNCTION public.cancelar_rota(uuid) OWNER TO postgres;',
     );
-    expect(executavel).toMatch(/COMMENT ON FUNCTION public\.cancelar_rota\(uuid\) IS\s+'[^']*Migration 70/);
+    expect(executavel).toMatch(
+      /COMMENT ON FUNCTION public\.cancelar_rota\(uuid\) IS\s+'[^']*Migration 70/,
+    );
   });
 
   it('devolve só os quatro resultados', () => {
@@ -142,13 +122,13 @@ describe('Migration 70: RPC cancelar_rota', () => {
   });
 
   it('MIGRATIONS.md registra a Migration 70 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 70: /);
     expect(doc).toContain(ARQUIVO);
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const i = doc.search(/### .*Migration 70: /);
     const entrada = i < 0 ? '' : doc.slice(i);
     const publicos = [sql, sonda, entrada].join('\n').toLowerCase();

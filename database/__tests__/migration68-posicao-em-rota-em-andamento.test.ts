@@ -5,40 +5,22 @@
 // (recusaria a fila offline enviada horas depois), que o cadastro ativo ou o
 // vínculo ativo saiam da policy, que outra policy seja recriada junto e que
 // as duas cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261025163000_posicao_em_rota_em_andamento.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261025163000_sonda_migration68.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261025163000_sonda_migration68.sql');
+const { executavel } = m;
+const { rollback } = m;
 const umaLinha = (texto: string) => texto.replace(/\s+/g, ' ');
 
 /** Trecho de `inicio` até o primeiro `fim` depois dele ('' se não houver). */
@@ -54,11 +36,7 @@ const CABECA =
 const policy = trecho(executavel, CABECA, ';\n');
 
 describe('Migration 68: posição gravada só em rota em andamento, por motorista ativo', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -116,7 +94,20 @@ describe('Migration 68: posição gravada só em rota em andamento, por motorist
 
   it('a sonda cobre os 11 casos e termina desfeita por RAISE', () => {
     expect(sonda).toMatch(/SONDA M68 \(desfeita\)/);
-    for (const caso of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '9b', '10', '11']) {
+    for (const caso of [
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '9b',
+      '10',
+      '11',
+    ]) {
       expect(sonda).toContain(`' | ${caso} OK: `);
     }
     const ultimoRaise = sonda.lastIndexOf('RAISE EXCEPTION');
@@ -129,13 +120,13 @@ describe('Migration 68: posição gravada só em rota em andamento, por motorist
   });
 
   it('MIGRATIONS.md registra a Migration 68 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 68: /);
     expect(doc).toContain(ARQUIVO);
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const entrada = doc.slice(doc.search(/### .*Migration 68: /));
     const publicos = [sql, sonda, entrada].join('\n').toLowerCase();
     for (const termo of [

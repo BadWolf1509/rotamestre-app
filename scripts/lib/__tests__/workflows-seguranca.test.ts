@@ -168,6 +168,12 @@ describe('test.yml: artefatos de falha só com captura de tela', () => {
     expect(executado).not.toMatch(/\.zip|trace/);
   });
 
+  it('o artefato test-results não lista jest-results.json sem comando que o gere', () => {
+    const lista = /^\s+jest-results\.json\s*$/m.test(executado);
+    const gera = /--outputFile[= ]jest-results\.json/.test(executado);
+    expect(lista && !gera).toBe(false);
+  });
+
   it('o e2e autenticado sobe as capturas de tela quando falha', () => {
     expect(executado).toContain('name: e2e-screenshots');
     expect(executado).toContain('path: test-results/**/*.png');
