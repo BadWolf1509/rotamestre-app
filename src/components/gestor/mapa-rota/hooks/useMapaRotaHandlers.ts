@@ -21,6 +21,7 @@ import {
   podeAlterarParada,
 } from '@/lib/gestor/paradaEditavel';
 import { logger } from '@/lib/logger';
+import { logRotaAction } from '@/lib/queries/logs';
 import {
   removerParadaERecalcular,
   reordenarParadas,
@@ -356,18 +357,15 @@ export function useMapaRotaHandlers({
 
           assertRotaAtualizada(data, error);
 
-          await supabase.from('logs').insert({
-            usuario_id: userData?.id,
-            rota_id: id,
-            evento: 'motorista_alterado',
-            detalhes: {
+          if (userData?.id) {
+            await logRotaAction(userData.id, id, 'motorista_alterado', {
               motorista_anterior_id: rota.motorista_id,
               motorista_anterior_nome: rota.motorista?.nome,
               motorista_novo_id: newMotoristaId,
               motorista_novo_nome: newMotoristaNome,
-              alterado_por: userData?.nome,
-            },
-          });
+              alterado_por: userData.nome,
+            });
+          }
 
           showToast('Motorista alterado com sucesso', 'success');
           await loadRotaEParadas();
@@ -661,13 +659,10 @@ export function useMapaRotaHandlers({
         }
 
         // 4. Log action
-        await supabase.from('logs').insert({
-          usuario_id: userData?.id,
-          rota_id: id,
-          evento: 'paradas_reordenadas',
-          detalhes: {
+        if (userData?.id) {
+          await logRotaAction(userData.id, id, 'paradas_reordenadas', {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
-            alterado_por: userData?.nome,
+            alterado_por: userData.nome,
             // Reflete o que de fato foi gravado: `otimizacaoMarcadaComoDesfeita`
             // só fica `true` quando o UPDATE acima passou por
             // `assertUpdateAfetouLinhas` sem lançar — ou seja, quando ele
@@ -675,8 +670,8 @@ export function useMapaRotaHandlers({
             // RLS), `rotas.otimizacao_estado` continua 'otimizada' no banco —
             // o log não pode afirmar que a otimização foi desfeita.
             desfez_otimizacao: otimizacaoMarcadaComoDesfeita,
-          },
-        });
+          });
+        }
 
         // 5. Notify motorista
         if (rota.motorista_id) {

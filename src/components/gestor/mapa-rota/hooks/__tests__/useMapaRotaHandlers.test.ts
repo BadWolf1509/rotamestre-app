@@ -21,6 +21,7 @@ import {
 } from '@/lib/gestor/acoesRota';
 import { logger } from '@/lib/logger';
 import {
+  notificarMotoristaRotaEditada,
   recalcularRota,
   removerParadaERecalcular,
   reordenarParadas,
@@ -40,8 +41,12 @@ jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({ showToast: mockShowToast }),
 }));
 
+let mockUserData: { id?: string; nome: string } | undefined = {
+  id: 'user-1',
+  nome: 'Gestor',
+};
 jest.mock('@/hooks/useUser', () => ({
-  useUser: () => ({ userData: { id: 'user-1', nome: 'Gestor' } }),
+  useUser: () => ({ userData: mockUserData }),
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -978,5 +983,117 @@ describe('useMapaRotaHandlers — remover parada (toque duplo)', () => {
 
     expect(removerParadaERecalcular).toHaveBeenCalledTimes(1);
     expect(result.current.acaoEmVoo).toBe(false);
+  });
+});
+
+describe('useMapaRotaHandlers — auditoria pelo helper que confere o erro (B7)', () => {
+  const LOG_RECUSADO = {
+    error: { message: 'new row violates row-level security policy' },
+  };
+  const rotaPendente: Rota = {
+    id: 'rota-1',
+    data: '2026-06-22',
+    status: 'pendente',
+    motorista_id: 'motorista-antigo',
+  };
+  const newOrder = [makeParada('p2', 2), makeParada('p1', 1)];
+
+  let mockLogInsert: jest.Mock;
+
+  const prepararBanco = (resultadoLog: unknown) => {
+    mockLogInsert = jest.fn().mockResolvedValue(resultadoLog);
+    const select = jest
+      .fn()
+      .mockResolvedValue({ data: [{ id: 'rota-1' }], error: null });
+    (supabase.from as jest.Mock).mockImplementation((table: string) =>
+      table === 'logs'
+        ? { insert: mockLogInsert }
+        : { update: jest.fn(() => criarCadeiaUpdate(select)) },
+    );
+    (reordenarParadas as jest.Mock).mockResolvedValue({ success: true });
+    (recalcularRota as jest.Mock).mockResolvedValue({ success: true });
+  };
+
+  const montar = (rota: Rota) =>
+    renderHook(() =>
+      useMapaRotaHandlers({
+        showToast: mockShowToast,
+        rotaId: 'rota-1',
+        rota,
+        paradas: [makeParada('p1', 1), makeParada('p2', 2)],
+        paradasReais: [makeParada('p1', 1), makeParada('p2', 2)],
+        enderecoUnidade: { latitude: -23.5, longitude: -46.6 },
+        loadRotaEParadas: jest.fn().mockResolvedValue(undefined),
+      }),
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUserData = { id: 'user-1', nome: 'Gestor' };
+  });
+
+  afterAll(() => {
+    mockUserData = { id: 'user-1', nome: 'Gestor' };
+  });
+
+  it('trocar motorista: log recusado vira logger.warn e o toast de sucesso aparece', async () => {
+    prepararBanco(LOG_RECUSADO);
+    const { result } = montar(rotaPendente);
+
+    await act(async () => {
+      await result.current.handleChangeDriver('motorista-novo', 'Novo');
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Failed to log action:',
+      expect.objectContaining({ evento: 'motorista_alterado' }),
+    );
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Motorista alterado com sucesso',
+      'success',
+    );
+  });
+
+  it('reordenar: log recusado vira logger.warn e a reordenação segue até a notificação', async () => {
+    prepararBanco(LOG_RECUSADO);
+    const { result } = montar({ ...rotaPendente, status: 'em_andamento' });
+
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Failed to log action:',
+      expect.objectContaining({ evento: 'paradas_reordenadas' }),
+    );
+    expect(notificarMotoristaRotaEditada).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Paradas reordenadas com sucesso',
+      'success',
+    );
+  });
+
+  it('sem userData.id não tenta gravar log e o toast de sucesso aparece', async () => {
+    mockUserData = undefined;
+    prepararBanco({ error: null });
+    const { result } = montar(rotaPendente);
+
+    await act(async () => {
+      await result.current.handleChangeDriver('motorista-novo', 'Novo');
+    });
+    await act(async () => {
+      await result.current.handleReorderParadas(newOrder);
+    });
+
+    expect(supabase.from).not.toHaveBeenCalledWith('logs');
+    expect(mockLogInsert).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Motorista alterado com sucesso',
+      'success',
+    );
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Paradas reordenadas com sucesso',
+      'success',
+    );
   });
 });
