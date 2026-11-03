@@ -141,6 +141,8 @@ export default function EquipeScreen() {
   }, [filterPapel, membros, searchQuery]);
 
   async function handleToggleAtivo(membro: Membro) {
+    if (!unidadeAtiva) return;
+
     // Não permitir desativar o próprio usuário
     if (membro.id === userData?.id) {
       showWarning('Erro', 'Você não pode desativar sua própria conta.');

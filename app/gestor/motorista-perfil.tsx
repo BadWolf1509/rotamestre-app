@@ -178,7 +178,7 @@ export default function MotoristaPerfil() {
 
   // Toggle active status
   const handleToggleStatus = useCallback(async () => {
-    if (!motorista) return;
+    if (!motorista || !unidadeAtiva) return;
 
     try {
       const newStatus = !motorista.ativo;
