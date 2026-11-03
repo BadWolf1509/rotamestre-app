@@ -106,6 +106,26 @@ const mockAddNotificationReceivedListener =
 const mockAddNotificationResponseReceivedListener =
   Notifications.addNotificationResponseReceivedListener as jest.Mock;
 
+// Capturado antes de qualquer clearAllMocks: o handler é registrado no import.
+const handlerRegistrado = (Notifications.setNotificationHandler as jest.Mock)
+  .mock.calls[0]?.[0];
+
+describe('handler de notificação em primeiro plano', () => {
+  // expo-notifications 58: shouldShowAlert é depreciado (avisa a cada
+  // notificação); banner e lista são as chaves que decidem a exibição.
+  it('mostra banner e lista, com som e sem badge, sem a chave depreciada', async () => {
+    expect(handlerRegistrado).toBeDefined();
+    const decisao = await handlerRegistrado.handleNotification();
+    expect(decisao).toEqual({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    });
+    expect(decisao).not.toHaveProperty('shouldShowAlert');
+  });
+});
+
 describe('notifications', () => {
   const originalPlatform = Platform.OS;
 
