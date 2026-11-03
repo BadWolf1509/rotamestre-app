@@ -2,36 +2,25 @@
 // não muda de endereço/tipo). O comportamento se prova com a sonda
 // transacional (`database/sondas/`), no banco; esta guarda impede que uma
 // edição perca as peças que fecham o caso.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024120000_parada_finalizada_imutavel.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024120000_sonda_migration53.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (t: string) =>
-  t
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 const exec = normaliza(semComentarios(sql));
 
 describe('Migration 53: arquivos', () => {
   it('existe em database/ e a cópia em supabase/ é idêntica', () => {
     expect(sql.length).toBeGreaterThan(0);
-    expect(ler(caminhoSupa)).toBe(sql);
+    expect(ler(m.caminhoSupa)).toBe(sql);
   });
 
   it('roda numa transação e tem ROLLBACK', () => {
@@ -41,7 +30,7 @@ describe('Migration 53: arquivos', () => {
   });
 
   it('está no MIGRATIONS.md', () => {
-    expect(ler(caminhoDoc)).toMatch(
+    expect(ler(CAMINHO_DOC)).toMatch(
       new RegExp(
         String.raw`### (?:⏳|✅) Migration 53[^\n]*\n[\s\S]{0,500}` + ARQUIVO,
       ),
@@ -49,7 +38,7 @@ describe('Migration 53: arquivos', () => {
   });
 
   it('tem sonda que termina em RAISE EXCEPTION', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024120000_sonda_migration53.sql');
     expect(sonda).toMatch(/RAISE EXCEPTION 'SONDA M53 \(desfeita\):%', r;/);
   });
 });

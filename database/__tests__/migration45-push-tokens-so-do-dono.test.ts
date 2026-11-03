@@ -7,33 +7,20 @@
 // o backfill antes da CHECK que mantém a coluna vazia, o gatilho de
 // compatibilidade das versões antigas, o leitor do banco trocado, o token
 // mascarado nos logs e o UPDATE de `usuarios` só nas colunas que o app escreve.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024020000_push_tokens_so_do_dono.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024020000_sonda_migration45.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras, e
-// `--.*$` deixaria de casar o comentário (o `.` para no `\r`).
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 const exec = normaliza(executavel);
 
@@ -56,7 +43,7 @@ function cabecalhoDaFuncao(nome: string): string {
 describe('Migration 45: arquivos', () => {
   it('existe em database/ e a cópia em supabase/ é idêntica', () => {
     expect(sql.length).toBeGreaterThan(0);
-    expect(ler(caminhoSupa)).toBe(sql);
+    expect(ler(m.caminhoSupa)).toBe(sql);
   });
 
   it('roda numa transação e tem ROLLBACK e roteiro de conferência', () => {
@@ -67,7 +54,7 @@ describe('Migration 45: arquivos', () => {
   });
 
   it('está no MIGRATIONS.md como pendente (⏳)', () => {
-    expect(ler(caminhoDoc)).toMatch(
+    expect(ler(CAMINHO_DOC)).toMatch(
       new RegExp(
         `### (?:⏳|✅) Migration 45[^\\n]*\\n[\\s\\S]{0,400}${ARQUIVO}`,
       ),
@@ -284,7 +271,7 @@ describe('Migration 45: UPDATE de usuarios só nas colunas que o app escreve', (
 });
 
 describe('Migration 45: sonda', () => {
-  const sonda = ler(caminhoSonda);
+  const sonda = lerSonda('20261024020000_sonda_migration45.sql');
   const sondaExec = normaliza(semComentarios(sonda));
 
   it('existe e termina sempre em RAISE EXCEPTION', () => {

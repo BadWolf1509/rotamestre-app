@@ -2,31 +2,21 @@
 // recusado). O comportamento se prova com a sonda transacional
 // (`database/sondas/`), no banco; esta guarda impede que uma edição perca as
 // peças que fecham o caso — e amarra a sentinela do banco à do app.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 
 import { SENTINELA_ROTA_ABERTA } from '@/lib/motorista/rotasAbertasDoMotorista';
 
-const ARQUIVO = '20261024154000_desativar_motorista_com_rota_aberta.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024154000_sonda_migration54.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (t: string) =>
-  t
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const ARQUIVO = '20261024154000_desativar_motorista_com_rota_aberta.sql';
+
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 const exec = normaliza(semComentarios(sql));
 const rollback = normaliza(
@@ -40,7 +30,7 @@ const rollback = normaliza(
 describe('Migration 54: arquivos', () => {
   it('existe em database/ e a cópia em supabase/ é idêntica', () => {
     expect(sql.length).toBeGreaterThan(0);
-    expect(ler(caminhoSupa)).toBe(sql);
+    expect(ler(m.caminhoSupa)).toBe(sql);
   });
 
   it('roda numa transação', () => {
@@ -60,7 +50,7 @@ describe('Migration 54: arquivos', () => {
   });
 
   it('está no MIGRATIONS.md', () => {
-    expect(ler(caminhoDoc)).toMatch(
+    expect(ler(CAMINHO_DOC)).toMatch(
       new RegExp(
         String.raw`### (?:⏳|✅) Migration 54[^\n]*\n[\s\S]{0,500}` + ARQUIVO,
       ),
@@ -68,7 +58,7 @@ describe('Migration 54: arquivos', () => {
   });
 
   it('tem sonda que termina em RAISE EXCEPTION', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024154000_sonda_migration54.sql');
     expect(sonda).toMatch(/RAISE EXCEPTION 'SONDA M54 \(desfeita\):%', r;/);
   });
 });
