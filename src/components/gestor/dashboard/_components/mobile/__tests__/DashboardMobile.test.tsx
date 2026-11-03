@@ -29,14 +29,6 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-// Mock useToast
-jest.mock('@/hooks/useToast', () => ({
-  useToast: () => ({
-    toast: { visible: false, message: '', type: 'success' },
-    hideToast: jest.fn(),
-  }),
-}));
-
 // Mock styles
 jest.mock('@/utils/styles', () => {
   const { defaultTheme } = require('@/utils/styles.base');
@@ -54,11 +46,6 @@ jest.mock('@/utils/styles', () => {
 // Mock RouteFilters
 jest.mock('@/components/RouteFilters', () => ({
   RouteFilters: () => null,
-}));
-
-// Mock Toast
-jest.mock('@/components/Toast', () => ({
-  Toast: () => null,
 }));
 
 // Mock useMotoristas
