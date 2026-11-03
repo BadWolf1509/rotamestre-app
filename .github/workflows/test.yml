@@ -102,7 +102,7 @@ jobs:
         # Jest e o build rodam a lib sem o patch (a guarda
         # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
         # difere do da Vercel e do EAS, que rodam o postinstall.
-        run: npx patch-package
+        run: npx patch-package --error-on-fail
 
       - name: Run tests
         run: npm test -- --coverage --maxWorkers=2
@@ -187,7 +187,7 @@ jobs:
         # Jest e o build rodam a lib sem o patch (a guarda
         # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
         # difere do da Vercel e do EAS, que rodam o postinstall.
-        run: npx patch-package
+        run: npx patch-package --error-on-fail
 
       - name: Copiar worker do MapLibre
         # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
@@ -390,7 +390,7 @@ jobs:
         # Jest e o build rodam a lib sem o patch (a guarda
         # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
         # difere do da Vercel e do EAS, que rodam o postinstall.
-        run: npx patch-package
+        run: npx patch-package --error-on-fail
 
       - name: Copiar worker do MapLibre
         # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este

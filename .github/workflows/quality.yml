@@ -177,7 +177,7 @@ jobs:
         # Jest e o build rodam a lib sem o patch (a guarda
         # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
         # difere do da Vercel e do EAS, que rodam o postinstall.
-        run: npx patch-package
+        run: npx patch-package --error-on-fail
 
       - name: Build web
         run: npm run build:web
