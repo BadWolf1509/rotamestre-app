@@ -6,7 +6,7 @@
  *   - catch block when getOptimizedDirections throws
  *
  * Kept in a separate file so the osrm jest.mock doesn't interfere with
- * the fetch-based tests in google.test.ts / google.web.test.ts.
+ * the fetch-based tests in google.test.ts / google.fallback-haversine.test.ts.
  */
 
 // Mock the entire osrm module so we can control getOptimizedDirections
@@ -72,6 +72,52 @@ describe('googleMapsService - osrm null/throw paths', () => {
 
       expect(result.data?.sem_rota_entre_paradas).toBe(true);
     });
+  });
+
+  describe('conversão do resultado do OSRM', () => {
+    const a = { latitude: 0, longitude: 0 };
+    const b = { latitude: 1, longitude: 1 };
+    const c = { latitude: 0.5, longitude: 0.5 };
+    const base = {
+      polyline: 'abc',
+      distancia_total_metros: 1000,
+      duracao_total_segundos: 100,
+      ordem_otimizada: [0],
+      legs: [],
+    };
+
+    it('getDirectionsSequentialWithError repassa is_estimated e sem_rota_entre_paradas', async () => {
+      mockGetOptimizedDirections.mockResolvedValueOnce({
+        ...base,
+        is_estimated: true,
+        sem_rota_entre_paradas: true,
+      });
+
+      const r = await googleMapsService.getDirectionsSequentialWithError(a, b, [
+        c,
+      ]);
+
+      expect(r.data).toMatchObject({
+        is_estimated: true,
+        sem_rota_entre_paradas: true,
+        ordem_otimizada: [],
+      });
+    });
+
+    it.each([
+      'getDirectionsWithError',
+      'getDirectionsSequentialWithError',
+    ] as const)(
+      '%s: sem o aviso do OSRM, o resultado não ganha sem_rota_entre_paradas',
+      async (metodo) => {
+        mockGetOptimizedDirections.mockResolvedValueOnce({ ...base });
+
+        const r = await googleMapsService[metodo](a, b, [c]);
+
+        expect(r.data?.is_estimated).toBe(false);
+        expect(r.data).not.toHaveProperty('sem_rota_entre_paradas');
+      },
+    );
   });
 
   describe('getDirections (wrapper)', () => {

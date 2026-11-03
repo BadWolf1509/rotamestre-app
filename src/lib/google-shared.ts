@@ -1,7 +1,7 @@
 /**
  * Google Maps Service - Shared Utilities
  *
- * Utilitários compartilhados entre google.ts (mobile) e google.web.ts (web).
+ * Utilitários compartilhados por google.ts.
  * Centraliza tipos e funções para evitar duplicação.
  *
  * @module google-shared
@@ -27,7 +27,7 @@ import type {
 
 /**
  * Interface para sugestões de endereço do Google Places Autocomplete.
- * Compartilhada entre google.ts e google.web.ts.
+ * Usada por google.ts.
  */
 export interface PlaceSuggestion {
   place_id: string;
@@ -224,7 +224,7 @@ export function createAccumulators(): DirectionsAccumulators {
 
 /**
  * Processa um segmento de rota e acumula nos totais.
- * Usado por getDirectionsSequentialWithError em google.ts e google.web.ts.
+ * Usado por getDirectionsSequentialWithError em google.ts.
  *
  * @param apiResponse - Resposta da Routes API para o segmento
  * @param accumulators - Objeto de acumuladores para atualizar
@@ -268,7 +268,7 @@ export function processDirectionsSegment(
 
 /**
  * Trata erros de requisição e retorna RouteError apropriado.
- * Centraliza o padrão de tratamento de erros usado em google.ts e google.web.ts.
+ * Centraliza o padrão de tratamento de erros usado em google.ts.
  *
  * @param err - Erro capturado
  * @returns RouteError formatado
