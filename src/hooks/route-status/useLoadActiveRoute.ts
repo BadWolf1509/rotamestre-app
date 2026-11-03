@@ -21,9 +21,10 @@
  *
  * E uma quinta (1.14.5): **o processo morre, a rota não.** Cada carga
  * bem-sucedida guarda o retrato no aparelho, por conta
- * (`src/lib/motorista/rotaGuardada.ts`). Reaberto do zero sem rede, a busca
- * falha sem nada em memória: aí vale o retrato, com `atualizadoEm` = hora em
- * que ele foi lido do banco ("Sem conexão — dados de HH:MM"). Busca que
+ * (`src/lib/motorista/rotaGuardada.ts`). Reaberto do zero, sem nada em
+ * memória, o retrato entra na hora (1.14.12), com `atualizadoEm` = hora em
+ * que ele foi lido do banco, e a busca segue por trás; se ela falha, o
+ * retrato fica com o erro ("Sem conexão — dados de HH:MM"). Busca que
  * responde sempre vence e regrava, inclusive "sem rota".
  */
 
@@ -73,6 +74,13 @@ export interface EstadoDaRotaAtiva {
   error: Error | null;
   /** Epoch (ms) da última carga bem-sucedida; null se nunca carregou. */
   atualizadoEm: number | null;
+  /**
+   * Os dados em memória vieram de uma resposta do banco nesta sessão — não do
+   * retrato guardado no aparelho. Quem DECIDE pela rota (desligar o
+   * rastreamento, concluir a partida) exige isto, além de `!loading && !error`:
+   * o retrato pode estar velho (rota `pendente` que o banco já iniciou).
+   */
+  confirmadoPeloBanco: boolean;
   loadActiveRoute: (opcoes?: OpcoesCargaDaRota) => Promise<void>;
   /**
    * Ações de parada que já subiram (a fila esvaziou) entram no estado base
@@ -214,6 +222,7 @@ export function useLoadActiveRoute({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState<number | null>(null);
+  const [confirmadoPeloBanco, setConfirmadoPeloBanco] = useState(false);
 
   // Guarda de sequência: só a resposta da chamada mais recente é aplicada.
   const ultimaChamadaRef = useRef(0);
@@ -235,6 +244,7 @@ export function useLoadActiveRoute({
           setPendingRoutesCount(0);
           setError(null);
           setAtualizadoEm(null);
+          setConfirmadoPeloBanco(false);
           setLoading(false);
         }
         return;
@@ -256,6 +266,28 @@ export function useLoadActiveRoute({
         const temDadoEmMemoria = carregadoParaRef.current === motoristaId;
         const ignorarQuedaObservada =
           temDadoEmMemoria || opcoes?.pedidoDoUsuario === true;
+
+        // Sem dado em memória (reaberto do zero), o retrato guardado entra
+        // ANTES da busca, e ela segue por trás: resposta vence e substitui,
+        // falha deixa o retrato com o erro. Antes, o retrato só entrava na
+        // falha — com Wi-Fi sem internet o NetInfo diz "conectado", a busca
+        // leva o retry inteiro do postgrest-js, e a Início ficou 26,5 s no
+        // esqueleto (1.14.11, moto g15), embora a rota estivesse no aparelho.
+        // Mesmo modelo do perfil na abertura (`perfilDaAberturaPara`).
+        if (!temDadoEmMemoria) {
+          const guardado = await lerRotaGuardada(motoristaId);
+          if (chamada !== ultimaChamadaRef.current) return;
+          if (guardado) {
+            carregadoParaRef.current = motoristaId;
+            setRoute(guardado.route);
+            setParadas(guardado.paradas);
+            setPendingRoutesCount(guardado.pendingRoutesCount);
+            setAtualizadoEm(guardado.guardadoEm);
+            setConfirmadoPeloBanco(false);
+            setLoading(false);
+          }
+        }
+
         if (await semRedeConfirmada({ ignorarQuedaObservada })) {
           throw new Error(SEM_REDE);
         }
@@ -273,6 +305,7 @@ export function useLoadActiveRoute({
         setPendingRoutesCount(snapshot.pendingRoutesCount);
         setError(null);
         setAtualizadoEm(agora);
+        setConfirmadoPeloBanco(true);
         // Sem await: a tela não espera o disco. `gravarRotaGuardada` não lança.
         void gravarRotaGuardada(motoristaId, {
           ...snapshot,
@@ -304,6 +337,7 @@ export function useLoadActiveRoute({
           );
           setPendingRoutesCount(guardado?.pendingRoutesCount ?? 0);
           setAtualizadoEm(guardado?.guardadoEm ?? null);
+          setConfirmadoPeloBanco(false);
         }
         setError(comoErro(erro));
       } finally {
@@ -334,6 +368,7 @@ export function useLoadActiveRoute({
     loading,
     error,
     atualizadoEm,
+    confirmadoPeloBanco,
     loadActiveRoute,
     aplicarAcoesEnviadas,
   };
