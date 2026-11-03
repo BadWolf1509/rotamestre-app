@@ -581,7 +581,8 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
     await guardarDeSessaoAnterior('m1', 123, rota('r-velha'));
     const hook = montarPara('m1');
 
-    // Chamada A falha; a leitura do disco fica pendurada até B aplicar.
+    // A leitura do disco da chamada A (antes da busca) fica pendurada até B
+    // aplicar; A não chega a consultar o banco.
     let soltarLeitura!: () => void;
     (AsyncStorage.getItem as jest.Mock).mockImplementationOnce(
       (k: string) =>
@@ -589,7 +590,6 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
           soltarLeitura = () => r(memoria.get(k) ?? null);
         }),
     );
-    enfileirar('rotas', new Error('Network request failed')); // A
     enfileirar('rotas', { data: [rota('r-nova')], error: null }); // B
     enfileirar('paradas', { data: [parada('p-nova')], error: null });
 
@@ -662,9 +662,11 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
       expect(hook.result.current.error).not.toBeNull();
     });
 
-    // Rede fraca: o NetInfo diz "conectado" e não prova nada. Segue a busca
-    // (que desiste no timeout do cliente) e o guardado só entra na falha.
-    it('conectado + busca pendurada: espera a busca, como antes', async () => {
+    // Rede fraca ou Wi-Fi sem internet: o NetInfo diz "conectado" e não prova
+    // nada, e a busca leva o retry inteiro do postgrest-js para desistir. Medido
+    // na 1.14.11 (03/11, moto g15): 26,5 s de esqueleto com a rota no aparelho.
+    // O guardado entra na hora e a busca segue por trás.
+    it('conectado + busca pendurada: guardado na hora, e a busca segue', async () => {
       await guardarDeSessaoAnterior('m1', 123);
       const pendurada = deferido();
       enfileirar('rotas', pendurada.promise);
@@ -673,12 +675,17 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
       let carga!: Promise<void>;
       await act(async () => {
         carga = hook.result.current.loadActiveRoute();
-        for (let i = 0; i < 10; i++) await Promise.resolve();
+        for (let i = 0; i < 20; i++) await Promise.resolve();
       });
 
       expect(supabase.from).toHaveBeenCalledWith('rotas');
-      expect(hook.result.current.loading).toBe(true);
-      expect(hook.result.current.route).toBeNull();
+      expect(hook.result.current.loading).toBe(false);
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.paradas.map((p) => p.id)).toEqual([
+        'p1',
+        'p2',
+      ]);
+      expect(hook.result.current.atualizadoEm).toBe(123);
 
       await act(async () => {
         pendurada.resolve({ data: null, error: { message: 'timeout' } });
@@ -686,6 +693,92 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
       });
       expect(hook.result.current.route?.id).toBe('r1');
       expect(hook.result.current.atualizadoEm).toBe(123);
+      expect(hook.result.current.error).not.toBeNull();
+    });
+
+    it('conectado + busca lenta que responde: o fresco substitui o guardado', async () => {
+      await guardarDeSessaoAnterior('m1', 123, rota('r-velha'), [
+        parada('p-velha'),
+      ]);
+      const pendurada = deferido();
+      enfileirar('rotas', pendurada.promise);
+      enfileirar('paradas', { data: [parada('p-nova')], error: null });
+
+      const hook = montarPara('m1');
+      let carga!: Promise<void>;
+      await act(async () => {
+        carga = hook.result.current.loadActiveRoute();
+        for (let i = 0; i < 20; i++) await Promise.resolve();
+      });
+      expect(hook.result.current.route?.id).toBe('r-velha');
+
+      await act(async () => {
+        pendurada.resolve({ data: [rota('r-nova')], error: null });
+        await carga;
+      });
+      expect(hook.result.current.route?.id).toBe('r-nova');
+      expect(hook.result.current.paradas.map((p) => p.id)).toEqual(['p-nova']);
+      expect(hook.result.current.error).toBeNull();
+      expect(hook.result.current.atualizadoEm).not.toBe(123);
+    });
+
+    // O retrato do disco não confirma nada: com ele, `cargaConfirmada` (do
+    // provider) desligava o rastreamento de uma rota que o retrato mostrava
+    // `pendente` mas o banco já tinha em andamento.
+    it('retrato na tela não é dado confirmado pelo banco; a resposta é', async () => {
+      await guardarDeSessaoAnterior('m1', 123, rota('r1', 'pendente'));
+      const pendurada = deferido();
+      enfileirar('rotas', pendurada.promise);
+      enfileirar('paradas', { data: [parada('p1')], error: null });
+
+      const hook = montarPara('m1');
+      let carga!: Promise<void>;
+      await act(async () => {
+        carga = hook.result.current.loadActiveRoute();
+        for (let i = 0; i < 20; i++) await Promise.resolve();
+      });
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.loading).toBe(false);
+      expect(hook.result.current.confirmadoPeloBanco).toBe(false);
+
+      await act(async () => {
+        pendurada.resolve({ data: [rota('r1')], error: null });
+        await carga;
+      });
+      expect(hook.result.current.confirmadoPeloBanco).toBe(true);
+    });
+
+    it('retrato com a busca falhando segue sem confirmação', async () => {
+      await guardarDeSessaoAnterior('m1', 123);
+      enfileirar('rotas', new Error('Network request failed'));
+
+      const hook = montarPara('m1');
+      await carregar(hook);
+
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.confirmadoPeloBanco).toBe(false);
+    });
+
+    it('conectado + busca lenta que diz "sem rota": limpa o guardado da tela', async () => {
+      await guardarDeSessaoAnterior('m1', 123);
+      const pendurada = deferido();
+      enfileirar('rotas', pendurada.promise);
+      enfileirar('rotas', { data: null, error: null });
+
+      const hook = montarPara('m1');
+      let carga!: Promise<void>;
+      await act(async () => {
+        carga = hook.result.current.loadActiveRoute();
+        for (let i = 0; i < 20; i++) await Promise.resolve();
+      });
+      expect(hook.result.current.route?.id).toBe('r1');
+
+      await act(async () => {
+        pendurada.resolve({ data: [], error: null });
+        await carga;
+      });
+      expect(hook.result.current.route).toBeNull();
+      expect(hook.result.current.paradas).toEqual([]);
     });
   });
 });
