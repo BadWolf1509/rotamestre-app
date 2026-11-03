@@ -54,3 +54,10 @@ describe('CORES_SOBRE_O_MAPA', () => {
     expect(ofensores).toEqual([]);
   });
 });
+
+describe('CORES_SOBRE_O_MAPA: chaves do modo navegação', () => {
+  it('contorno e apagada vêm da paleta clara', () => {
+    expect(CORES_SOBRE_O_MAPA.contorno).toBe(defaultTheme.colors.gray200);
+    expect(CORES_SOBRE_O_MAPA.apagada).toBe(defaultTheme.colors.gray400);
+  });
+});

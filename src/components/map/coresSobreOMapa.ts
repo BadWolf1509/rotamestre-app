@@ -21,4 +21,7 @@ export const CORES_SOBRE_O_MAPA = {
   concluida: claro.success,
   usuario: claro.info,
   erro: claro.error,
+  // Modo navegação: contorno do checkpoint e pino de parada não-próxima.
+  contorno: claro.gray200,
+  apagada: claro.gray400,
 } as const;

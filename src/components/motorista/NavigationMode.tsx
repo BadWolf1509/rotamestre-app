@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import {
   useNavigationModeLogic,
   useNavigationFeedback,
@@ -423,7 +424,7 @@ export function NavigationMode({
             <Ionicons
               name={isEntrega ? 'cube' : 'arrow-up-circle'}
               size={18}
-              color={theme.colors.white}
+              color={CORES_SOBRE_O_MAPA.branco}
             />
           </View>
         </MapLibreGL.Marker>
@@ -468,7 +469,10 @@ export function NavigationMode({
             <MapLibreGL.Layer
               id="rota-navigation-line"
               type="line"
-              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
+              paint={{
+                'line-color': CORES_SOBRE_O_MAPA.marca,
+                'line-width': 4,
+              }}
             />
           </MapLibreGL.GeoJSONSource>
         )}
@@ -483,7 +487,11 @@ export function NavigationMode({
             anchor="center"
           >
             <View style={styles.checkpointMarker}>
-              <Ionicons name="flag" size={14} color={theme.colors.success} />
+              <Ionicons
+                name="flag"
+                size={14}
+                color={CORES_SOBRE_O_MAPA.concluida}
+              />
             </View>
           </MapLibreGL.Marker>
         )}
@@ -498,7 +506,11 @@ export function NavigationMode({
             anchor="center"
           >
             <View style={styles.checkpointMarker}>
-              <Ionicons name="home" size={14} color={theme.colors.info} />
+              <Ionicons
+                name="home"
+                size={14}
+                color={CORES_SOBRE_O_MAPA.usuario}
+              />
             </View>
           </MapLibreGL.Marker>
         )}
@@ -705,79 +717,79 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: theme.colors.black,
+    shadowColor: CORES_SOBRE_O_MAPA.sombra,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 6,
     borderWidth: 3,
-    borderColor: theme.colors.white,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
   },
   userLocationMarker: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: withOpacity(theme.colors.info, 0.2),
+    backgroundColor: withOpacity(CORES_SOBRE_O_MAPA.usuario, 0.2),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: theme.colors.white,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
   },
   userLocationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: theme.colors.info,
+    backgroundColor: CORES_SOBRE_O_MAPA.usuario,
   },
   currentDestinationEntrega: {
-    backgroundColor: theme.colors.error,
+    backgroundColor: CORES_SOBRE_O_MAPA.erro,
   },
   currentDestinationRetirada: {
-    backgroundColor: theme.colors.warning,
+    backgroundColor: CORES_SOBRE_O_MAPA.proxima,
   },
   // Checkpoint markers (start/end)
   checkpointMarker: {
     width: 28,
     height: 28,
     borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.white,
+    backgroundColor: CORES_SOBRE_O_MAPA.branco,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: theme.colors.black,
+    shadowColor: CORES_SOBRE_O_MAPA.sombra,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
     borderWidth: 2,
-    borderColor: theme.colors.gray200,
+    borderColor: CORES_SOBRE_O_MAPA.contorno,
   },
   // Other pending stops marker
   otherMarker: {
-    backgroundColor: theme.colors.gray400,
+    backgroundColor: CORES_SOBRE_O_MAPA.apagada,
     width: 24,
     height: 24,
     borderRadius: theme.borderRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: theme.colors.white,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
   },
   // Next stop marker (highlighted)
   nextStopMarker: {
-    backgroundColor: theme.colors.warning,
+    backgroundColor: CORES_SOBRE_O_MAPA.proxima,
     width: 28,
     height: 28,
     borderRadius: theme.borderRadius.full,
     borderWidth: 2,
-    borderColor: theme.colors.white,
-    shadowColor: theme.colors.warning,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
+    shadowColor: CORES_SOBRE_O_MAPA.proxima,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 4,
   },
   markerText: {
-    color: theme.colors.white,
+    color: CORES_SOBRE_O_MAPA.branco,
     fontSize: 10,
     fontFamily: theme.typography.fontSansSemiBold,
   },
