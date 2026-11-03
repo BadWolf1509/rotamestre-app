@@ -82,6 +82,9 @@ describe('layout raiz', () => {
     const { toJSON } = render(<RootLayout />);
 
     const raiz = screen.getByTestId('gesture-handler-root');
+    // Objeto simples, não estilo do Unistyles: no web este vira classe, que o
+    // View de dentro do GestureHandlerRootView ignora (raiz com altura 0).
+    expect(raiz.props.style).toEqual({ flex: 1 });
     expect(StyleSheet.flatten(raiz.props.style)).toEqual(
       expect.objectContaining({ flex: 1 }),
     );

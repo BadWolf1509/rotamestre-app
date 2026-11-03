@@ -40,6 +40,12 @@ import { migrateNavigationPreferences } from '@/utils/navigationPreferencesMigra
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
+// Objeto simples, não do StyleSheet do Unistyles: no web o Unistyles entrega o
+// estilo como classe, e o View de dentro do GestureHandlerRootView (de
+// node_modules, fora do plugin) a ignorava — a raiz ficava com altura 0 e a
+// tela de login saía cortada (visto no dist servido).
+const ESTILO_RAIZ_DE_GESTOS = { flex: 1 } as const;
+
 // Configurar LogBox para ignorar warnings de desenvolvimento conhecidos
 configureLogBox();
 
@@ -273,7 +279,7 @@ export default function RootLayout() {
     // Um único root view do Gesture Handler para o app inteiro: no RNGH 3 todo
     // detector exige um acima (em __DEV__ lança erro, no release o gesto não é
     // reconhecido), e a Nova Entrega e a vitrine não tinham nenhum.
-    <GestureHandlerRootView style={styles.gestureRoot}>
+    <GestureHandlerRootView style={ESTILO_RAIZ_DE_GESTOS}>
       <SafeAreaProvider>
         {/* Loja ativa: um estado só para o app inteiro (a troca vale em todas
           as telas). Acima do layout, cuja Sidebar e telas leem a loja. */}
@@ -361,9 +367,6 @@ function renderToast(
 
 // Estilos para o layout desktop com Sidebar
 const styles = StyleSheet.create((theme: Theme) => ({
-  gestureRoot: {
-    flex: 1,
-  },
   desktopLayout: {
     flex: 1,
     flexDirection: 'row',
