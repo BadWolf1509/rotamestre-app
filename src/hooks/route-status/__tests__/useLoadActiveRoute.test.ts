@@ -722,6 +722,43 @@ describe('useLoadActiveRoute: rota guardada para reabrir sem rede', () => {
       expect(hook.result.current.atualizadoEm).not.toBe(123);
     });
 
+    // O retrato do disco não confirma nada: com ele, `cargaConfirmada` (do
+    // provider) desligava o rastreamento de uma rota que o retrato mostrava
+    // `pendente` mas o banco já tinha em andamento.
+    it('retrato na tela não é dado confirmado pelo banco; a resposta é', async () => {
+      await guardarDeSessaoAnterior('m1', 123, rota('r1', 'pendente'));
+      const pendurada = deferido();
+      enfileirar('rotas', pendurada.promise);
+      enfileirar('paradas', { data: [parada('p1')], error: null });
+
+      const hook = montarPara('m1');
+      let carga!: Promise<void>;
+      await act(async () => {
+        carga = hook.result.current.loadActiveRoute();
+        for (let i = 0; i < 20; i++) await Promise.resolve();
+      });
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.loading).toBe(false);
+      expect(hook.result.current.confirmadoPeloBanco).toBe(false);
+
+      await act(async () => {
+        pendurada.resolve({ data: [rota('r1')], error: null });
+        await carga;
+      });
+      expect(hook.result.current.confirmadoPeloBanco).toBe(true);
+    });
+
+    it('retrato com a busca falhando segue sem confirmação', async () => {
+      await guardarDeSessaoAnterior('m1', 123);
+      enfileirar('rotas', new Error('Network request failed'));
+
+      const hook = montarPara('m1');
+      await carregar(hook);
+
+      expect(hook.result.current.route?.id).toBe('r1');
+      expect(hook.result.current.confirmadoPeloBanco).toBe(false);
+    });
+
     it('conectado + busca lenta que diz "sem rota": limpa o guardado da tela', async () => {
       await guardarDeSessaoAnterior('m1', 123);
       const pendurada = deferido();

@@ -59,6 +59,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     loading,
     error,
     atualizadoEm,
+    confirmadoPeloBanco,
     loadActiveRoute,
     aplicarAcoesEnviadas,
   } = useLoadActiveRoute({ userLoading, motoristaId });
@@ -144,12 +145,16 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
     },
   );
 
+  // Só a resposta do banco decide: o retrato do aparelho (que entra na hora na
+  // abertura) pode mostrar `pendente` uma rota que o banco já iniciou.
+  const cargaConfirmada = !loading && !error && confirmadoPeloBanco;
+
   // Religa o rastreamento em segundo plano que uma reinstalação apagou, e o
   // desliga quando o banco diz que a rota não está mais em andamento
   const rastreamentoSegundoPlano = useGarantirRastreamentoDaRota({
     route,
     motorista: userData ? { id: userData.id, nome: userData.nome } : null,
-    cargaConfirmada: !loading && !error,
+    cargaConfirmada,
   });
 
   // Partida pendente numa rota já em andamento (início interrompido pela
@@ -157,7 +162,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   useCompletarPartidaPendente({
     route,
     paradas: paradasDoBanco,
-    cargaConfirmada: !loading && !error,
+    cargaConfirmada,
     loadActiveRoute,
   });
 

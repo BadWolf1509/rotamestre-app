@@ -74,6 +74,13 @@ export interface EstadoDaRotaAtiva {
   error: Error | null;
   /** Epoch (ms) da última carga bem-sucedida; null se nunca carregou. */
   atualizadoEm: number | null;
+  /**
+   * Os dados em memória vieram de uma resposta do banco nesta sessão — não do
+   * retrato guardado no aparelho. Quem DECIDE pela rota (desligar o
+   * rastreamento, concluir a partida) exige isto, além de `!loading && !error`:
+   * o retrato pode estar velho (rota `pendente` que o banco já iniciou).
+   */
+  confirmadoPeloBanco: boolean;
   loadActiveRoute: (opcoes?: OpcoesCargaDaRota) => Promise<void>;
   /**
    * Ações de parada que já subiram (a fila esvaziou) entram no estado base
@@ -215,6 +222,7 @@ export function useLoadActiveRoute({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState<number | null>(null);
+  const [confirmadoPeloBanco, setConfirmadoPeloBanco] = useState(false);
 
   // Guarda de sequência: só a resposta da chamada mais recente é aplicada.
   const ultimaChamadaRef = useRef(0);
@@ -236,6 +244,7 @@ export function useLoadActiveRoute({
           setPendingRoutesCount(0);
           setError(null);
           setAtualizadoEm(null);
+          setConfirmadoPeloBanco(false);
           setLoading(false);
         }
         return;
@@ -274,6 +283,7 @@ export function useLoadActiveRoute({
             setParadas(guardado.paradas);
             setPendingRoutesCount(guardado.pendingRoutesCount);
             setAtualizadoEm(guardado.guardadoEm);
+            setConfirmadoPeloBanco(false);
             setLoading(false);
           }
         }
@@ -295,6 +305,7 @@ export function useLoadActiveRoute({
         setPendingRoutesCount(snapshot.pendingRoutesCount);
         setError(null);
         setAtualizadoEm(agora);
+        setConfirmadoPeloBanco(true);
         // Sem await: a tela não espera o disco. `gravarRotaGuardada` não lança.
         void gravarRotaGuardada(motoristaId, {
           ...snapshot,
@@ -326,6 +337,7 @@ export function useLoadActiveRoute({
           );
           setPendingRoutesCount(guardado?.pendingRoutesCount ?? 0);
           setAtualizadoEm(guardado?.guardadoEm ?? null);
+          setConfirmadoPeloBanco(false);
         }
         setError(comoErro(erro));
       } finally {
@@ -356,6 +368,7 @@ export function useLoadActiveRoute({
     loading,
     error,
     atualizadoEm,
+    confirmadoPeloBanco,
     loadActiveRoute,
     aplicarAcoesEnviadas,
   };
