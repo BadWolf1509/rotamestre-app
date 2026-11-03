@@ -8,6 +8,21 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.14.11 (03/11/2026)
+
+**Dependabot e audit (02–03/11):** o audit de produção ficou vermelho na `main` com advisories novos. O `node-forge` subiu para 1.4.2 pelo lockfile, e os que só o Expo SDK 58 corrige entraram na allowlist com revisão em 24/11 (#704, pendência 31). Mesclados #698–#703; o #698 não foi rebaseado pelo Dependabot ("don't have any knowledge about this pull request") e foi atualizado pelo GitHub. O #701 (`maplibre-gl`) passou antes pelo e2e autenticado disparado à parte.
+
+**Correções (#706, #707):** a mesma posição do GPS era gravada em dobro porque a task de segundo plano, o hook de transmissão e o modo navegação assinam o GPS cada um por si e recebem o mesmo `Location` (diagnóstico pelo `xmin` das linhas; a trava de envio único da fila já existia). Agora a porta `registrarPosicao` grava cada fix uma vez (memória de 100, `guardar` sem repetição, lote sem cópias). Na abertura sem internet, o `useUser` passa a usar na hora o perfil guardado com que o `index` seguiu e revalida em segundo plano; 4xx de verdade ainda mostra erro. Revisão independente sem Critical/Important. Pequenos adiados: fix compartilhado que falha com 5xx no 1º chamador vira `perdida` para o 2º (um ponto de GPS); fila antiga com cópias gasta uma requisição a mais na sonda do 42501.
+
+**1.14.11 (3049, #708):** build no Actions (SHA do `.aab` igual ao do log), interna em 03/11 com as notas:
+
+- Abre na hora com Wi-Fi sem internet, usando os dados já salvos
+- Posições do motorista enviadas sem duplicar
+- Atualização da biblioteca de temas
+- Correções gerais
+
+Rotas de exemplo da unidade de avaliação da Play renovadas de 03 a 16/11 (pela RPC, como o gestor de avaliação, com OK). Conferido em 26/10 que o robô de pré-lançamento entra só na conta de avaliação.
+
 ## Release 1.14.10 (26/10/2026, noite)
 
 **1.14.10 (3048, #696):** build no Actions (SHA do `.aab` igual ao do log), interna e alpha em 26/10, com as notas:
