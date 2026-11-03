@@ -24,6 +24,7 @@ import {
 import { logger } from '@/lib/logger';
 import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
+import { logParadaAction } from '@/lib/queries/logs';
 import {
   recalcularRota,
   notificarMotoristaRotaEditada,
@@ -358,12 +359,12 @@ export function useEditStopForm({
 
         // Log the edit
         if (usuarioId) {
-          await supabase.from('logs').insert({
-            usuario_id: usuarioId,
-            rota_id: rotaId,
-            evento: 'parada_editada',
-            detalhes: {
-              parada_id: parada.id,
+          await logParadaAction(
+            usuarioId,
+            parada.id,
+            rotaId,
+            'parada_editada',
+            {
               campos_alterados: {
                 endereco: enderecoNovo !== parada.endereco,
                 destinatario: destinatarioNovo !== parada.destinatario,
@@ -373,7 +374,7 @@ export function useEditStopForm({
               },
               coordenadas_alteradas: coordinatesChanged,
             },
-          });
+          );
         }
 
         // Notify motorista about the edit (if assigned)
