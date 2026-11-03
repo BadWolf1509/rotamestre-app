@@ -10,10 +10,8 @@ import { ler, PASTA_DB, PASTA_SUPA } from './_helpers/migration';
 
 const NOME_DE_MIGRATION = /^\d{3,14}_[a-z0-9_]+\.sql$/;
 
-const PASTA_DATABASE = join(__dirname, '..', 'migrations');
-
 describe('database/migrations só guarda migration', () => {
-  const nomes = readdirSync(PASTA_DATABASE).filter((n) => n !== 'README.md');
+  const nomes = readdirSync(PASTA_DB).filter((n) => n !== 'README.md');
 
   it('todo arquivo tem nome de migration', () => {
     expect(nomes.filter((n) => !NOME_DE_MIGRATION.test(n))).toEqual([]);
@@ -26,6 +24,7 @@ describe('database/migrations só guarda migration', () => {
 
 describe('supabase/migrations é subconjunto fiel de database/migrations', () => {
   const CORTE = '20260101000000';
+  const PISO_CANDIDATOS = 50;
   // Aplicadas antes de a regra ser cobrada (MCP/Dashboard) e registradas como
   // aplicadas no MIGRATIONS.md. A lista só encolhe: não acrescente nome aqui.
   const SO_EM_DATABASE = [
@@ -56,12 +55,14 @@ describe('supabase/migrations é subconjunto fiel de database/migrations', () =>
   });
 
   it('migration a partir do corte tem cópia em supabase/migrations', () => {
-    const semCopia = emDatabase.filter(
-      (n) =>
-        /^\d{14}_/.test(n) &&
-        n.slice(0, 14) >= CORTE &&
-        !SO_EM_DATABASE.includes(n) &&
-        !emSupabase.includes(n),
+    // Prefixo de 8 a 14 dígitos: o nome curto (AAAAMMDD_) também é migration.
+    const candidatos = emDatabase.filter(
+      (n) => /^\d{8,14}_/.test(n) && n.slice(0, 8) >= CORTE.slice(0, 8),
+    );
+    // Piso: se o filtro deixar de casar, semCopia ficaria vazio e passaria.
+    expect(candidatos.length).toBeGreaterThanOrEqual(PISO_CANDIDATOS);
+    const semCopia = candidatos.filter(
+      (n) => !SO_EM_DATABASE.includes(n) && !emSupabase.includes(n),
     );
     // Cada nome listado: copie byte a byte para supabase/migrations.
     expect(semCopia).toEqual([]);
