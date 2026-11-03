@@ -3,7 +3,8 @@ import React from 'react';
 
 import { useUnistyles, type Theme } from '@/utils/styles';
 
-type IconTone = 'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse';
+type IconTone =
+  'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse';
 type IconSize = 'sm' | 'md' | 'lg' | 'xl' | number;
 
 interface IconProps {
@@ -40,12 +41,15 @@ const getToneColor = (theme: Theme, tone: IconTone): string => {
   }
 };
 
-export function Icon({ name, size = 'md', tone = 'default', color }: IconProps) {
+export function Icon({
+  name,
+  size = 'md',
+  tone = 'default',
+  color,
+}: IconProps) {
   const { theme } = useUnistyles();
   const resolvedSize = typeof size === 'number' ? size : sizeMap[size];
   const resolvedColor = color ?? getToneColor(theme, tone);
 
   return <Ionicons name={name} size={resolvedSize} color={resolvedColor} />;
 }
-
-export default Icon;

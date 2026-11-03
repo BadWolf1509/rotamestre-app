@@ -180,3 +180,10 @@ describe('telefoneInternacional', () => {
     expect(telefoneInternacional('12345')).toBeNull();
   });
 });
+
+it('os aliases legados não são mais exportados', async () => {
+  const chaves = Object.keys(await import('../phone'));
+  for (const alias of ['telefoneSchema', 'isValidTelefone', 'formatTelefone']) {
+    expect(chaves).not.toEqual(expect.arrayContaining([alias]));
+  }
+});

@@ -11,6 +11,7 @@ import { ScrollView, TouchableOpacity, View } from 'react-native';
 
 import { DesktopModal } from '@/components/desktop/DesktopModal';
 import { Text } from '@/components/Text';
+import { rotuloDoStatus } from '@/constants/statusConfig';
 import type { BloqueioDesativacao } from '@/hooks/motoristas-gestor/useBloqueioDesativacao';
 // `rotas.data` é coluna date: formatDateBR monta o dia com componentes locais.
 import { formatDateBR } from '@/lib/dateUtils';
@@ -57,11 +58,6 @@ function dicaDoBloqueio(rotas: BloqueioDesativacao['rotas']): string {
   return 'Toque numa rota para abrir e trocar o motorista ou cancelar.';
 }
 
-const ROTULO_STATUS: Record<string, string> = {
-  em_andamento: 'Em andamento',
-  pendente: 'Pendente',
-};
-
 interface RotasAbertasModalProps {
   bloqueio: BloqueioDesativacao | null;
   onClose: () => void;
@@ -92,9 +88,7 @@ export function RotasAbertasModal({
     >
       {bloqueio && (
         <View style={styles.corpo}>
-          <Text style={styles.texto}>
-            {textoDoBloqueio(nome, rotas)}
-          </Text>
+          <Text style={styles.texto}>{textoDoBloqueio(nome, rotas)}</Text>
           {rotas.length > 0 && (
             <Text style={styles.dica}>{dicaDoBloqueio(rotas)}</Text>
           )}
@@ -125,9 +119,7 @@ export function RotasAbertasModal({
                   }
                 />
                 <Text style={styles.data}>{formatDateBR(rota.data)}</Text>
-                <Text style={styles.status}>
-                  {ROTULO_STATUS[rota.status] ?? rota.status}
-                </Text>
+                <Text style={styles.status}>{rotuloDoStatus(rota.status)}</Text>
                 <Ionicons
                   name="chevron-forward"
                   size={18}

@@ -326,5 +326,3 @@ export function DialogWeb({
 
   return visible ? createPortal(dialogContent, document.body) : null;
 }
-
-export default DialogWeb;

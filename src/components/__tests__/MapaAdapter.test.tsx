@@ -1,6 +1,8 @@
 import { render } from '@testing-library/react-native';
 import React from 'react';
 
+import type { MapaAdapterProps } from '@/types/parada-map';
+
 import { MapaAdapter } from '../MapaAdapter';
 
 /**
@@ -128,6 +130,31 @@ describe('MapaAdapter (Mobile)', () => {
       expect(callArgs.unidadeNome).toBe('Unidade Centro');
       expect(callArgs.polyline).toBe('encoded-road-geometry');
       expect(callArgs.storedRouteInfo).toBe(storedRouteInfo);
+    });
+  });
+
+  describe('Repasse por spread', () => {
+    it('repassa todas as props da interface ao MapaMobile', () => {
+      // O Required<…> só documenta: os testes ficam fora do tsc. Quem garante que prop
+      // nova chega ao mapa é o spread do adapter, vigiado pela guarda interfaceUnica.
+      const props: Required<MapaAdapterProps> = {
+        paradas: mockParadas,
+        selectedParadaId: '1',
+        onMarkerPress: jest.fn(),
+        onSelectedMarkerPress: jest.fn(),
+        onMapPress: jest.fn(),
+        statusFilter: 'pendente',
+        rotaId: 'rota-123',
+        motoristaNome: 'João',
+        showMotorista: true,
+        unidadeNome: 'Unidade Centro',
+        polyline: 'encoded-road-geometry',
+        storedRouteInfo: { distanceMeters: 9300, durationSeconds: 660 },
+      };
+
+      render(<MapaAdapter {...props} />);
+
+      expect(mockMapaMobile.mock.calls[0][0]).toEqual(props);
     });
   });
 

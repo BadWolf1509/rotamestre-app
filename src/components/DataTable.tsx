@@ -7,7 +7,6 @@
 
 export {
   DataTable,
-  default,
   type DataTableColumn,
   type DataTableAction,
   type DataTableProps,

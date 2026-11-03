@@ -17,6 +17,7 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import {
   OPENFREEMAP_STYLE_URL,
@@ -31,7 +32,6 @@ import { withOpacity } from '@/utils/color';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import {
-  CORES_SOBRE_O_MAPA,
   MAX_FONTE_SOBRE_O_MAPA,
   rotuloParadasRestantes,
   textoDoChip,

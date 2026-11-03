@@ -3,6 +3,8 @@
  * Funções de manipulação de rotas
  */
 
+import { logger } from '@/lib/logger';
+
 import {
   recalcularRota,
   reordenarParadas,
@@ -24,7 +26,8 @@ jest.mock('@/lib/supabase', () => ({
 
 const mockMarcarOtimizacao = jest.fn();
 jest.mock('@/lib/gestor/otimizacaoRota', () => ({
-  marcarOtimizacaoAlterada: (...args: unknown[]) => mockMarcarOtimizacao(...args),
+  marcarOtimizacaoAlterada: (...args: unknown[]) =>
+    mockMarcarOtimizacao(...args),
 }));
 
 // Mock do Google Maps service
@@ -662,6 +665,44 @@ describe('routeUtils', () => {
 
       // Verificar que log foi inserido
       expect(mockFrom).toHaveBeenCalledWith('logs');
+    });
+
+    it('parada_removida: parada_id vai em detalhes e recusa do banco avisa por logger.warn (B7)', async () => {
+      const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const insert = jest
+        .fn()
+        .mockResolvedValue({ data: null, error: { message: 'recusado' } });
+      mockFrom
+        .mockReturnValueOnce(
+          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+        )
+        .mockReturnValueOnce({
+          update: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ data: null, error: null }),
+        })
+        .mockReturnValueOnce({ insert });
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      const result = await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+        'user-123',
+      );
+
+      expect(insert).toHaveBeenCalledWith({
+        usuario_id: 'user-123',
+        rota_id: mockRotaId,
+        evento: 'parada_removida',
+        detalhes: { parada_id: mockParadaId, paradas_restantes: 1 },
+      });
+      expect(aviso).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ evento: 'parada_removida' }),
+      );
+      expect(result.success).toBe(true);
     });
 
     it('só apaga parada que ainda não foi finalizada (condiciona o DELETE ao status)', async () => {

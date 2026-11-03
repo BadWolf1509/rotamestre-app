@@ -47,8 +47,11 @@ export function SeletorUnidadeTrigger({
   podeTrocar?: boolean;
 }) {
   const { theme } = useUnistyles();
-  const { unidadeAtivaData, temMultiplasUnidades: multiplas, loading } =
-    useUnidadeAtiva();
+  const {
+    unidadeAtivaData,
+    temMultiplasUnidades: multiplas,
+    loading,
+  } = useUnidadeAtiva();
   const temMultiplasUnidades = podeTrocar ?? multiplas;
 
   if (loading) {
@@ -104,10 +107,7 @@ function UnidadeItem({
 
   return (
     <TouchableOpacity
-      style={[
-        styles.unidadeItem,
-        isSelected && styles.unidadeItemSelected,
-      ]}
+      style={[styles.unidadeItem, isSelected && styles.unidadeItemSelected]}
       onPress={onSelect}
       activeOpacity={0.7}
     >
@@ -156,7 +156,11 @@ function UnidadeItem({
 /**
  * Componente principal: Header trigger + Modal de seleção
  */
-export function SeletorUnidade({ compact, onUnidadeChange, papel }: SeletorUnidadeProps) {
+export function SeletorUnidade({
+  compact,
+  onUnidadeChange,
+  papel,
+}: SeletorUnidadeProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const {
     unidadeAtiva,
@@ -185,21 +189,27 @@ export function SeletorUnidade({ compact, onUnidadeChange, papel }: SeletorUnida
     }
   }, [temMultiplasUnidades]);
 
-  const handleSelectUnidade = useCallback(async (unidadeId: string) => {
-    if (unidadeId !== unidadeAtiva) {
-      await trocarUnidade(unidadeId);
-      onUnidadeChange?.(unidadeId);
-    }
-    setModalVisible(false);
-  }, [unidadeAtiva, trocarUnidade, onUnidadeChange]);
+  const handleSelectUnidade = useCallback(
+    async (unidadeId: string) => {
+      if (unidadeId !== unidadeAtiva) {
+        await trocarUnidade(unidadeId);
+        onUnidadeChange?.(unidadeId);
+      }
+      setModalVisible(false);
+    },
+    [unidadeAtiva, trocarUnidade, onUnidadeChange],
+  );
 
-  const renderUnidade = useCallback(({ item }: { item: UsuarioUnidade }) => (
-    <UnidadeItem
-      vinculacao={item}
-      isSelected={item.unidade_id === unidadeAtiva}
-      onSelect={() => handleSelectUnidade(item.unidade_id)}
-    />
-  ), [unidadeAtiva, handleSelectUnidade]);
+  const renderUnidade = useCallback(
+    ({ item }: { item: UsuarioUnidade }) => (
+      <UnidadeItem
+        vinculacao={item}
+        isSelected={item.unidade_id === unidadeAtiva}
+        onSelect={() => handleSelectUnidade(item.unidade_id)}
+      />
+    ),
+    [unidadeAtiva, handleSelectUnidade],
+  );
 
   // Se não tem múltiplas unidades, não mostra o seletor
   if (!temMultiplasUnidades && compact) {
@@ -353,5 +363,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
   },
 }));
-
-export default SeletorUnidade;

@@ -19,45 +19,23 @@ import { useBalaoSobreposto } from '@/components/map/mobile/useBalaoSobreposto';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
-import type { RouteInfo } from '@/hooks/useRouteDirections';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { OPENFREEMAP_STYLE_URL, toLngLat } from '@/lib/maplibre';
 import { montarPinosPorLocal } from '@/lib/motorista/pinosPorLocal';
-import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
+import type {
+  MapaAdapterProps,
+  ParadaMapItem as Parada,
+} from '@/types/parada-map';
 import { useUnistyles } from '@/utils/styles';
 
 import type { MapRef } from '@maplibre/maplibre-react-native';
 
-interface MapaMobileProps {
-  paradas: Parada[];
-  selectedParadaId?: string | null;
-  onMarkerPress?: (paradaId: string) => void;
-  /**
-   * Toque no pino que já está selecionado (ou no balão dele): abre as ações
-   * da parada. Sem ela, o toque repetido só seleciona de novo, e o balão não
-   * mostra a dica "Toque para ver ações".
-   */
-  onSelectedMarkerPress?: (paradaId: string) => void;
-  /** Callback quando toca fora dos marcadores (deselecionar) */
-  onMapPress?: () => void;
+interface MapaMobileProps extends MapaAdapterProps {
   /**
    * Long-press no marcador. Não dispara no nativo: o Marker do Android não
    * expõe long press (maplibre-react-native#1729) e nenhuma tela o usa.
    */
   onMarkerLongPress?: (paradaId: string) => void;
-  statusFilter?: StatusFilter;
-  /** ID da rota para rastreamento em tempo real do motorista */
-  rotaId?: string;
-  /** Nome do motorista para exibir no marcador */
-  motoristaNome?: string;
-  /** Se true e rota em andamento, mostra posição do motorista em tempo real */
-  showMotorista?: boolean;
-  /** Nome da unidade para exibir nos checkpoints (PARTIDA/CHEGADA) */
-  unidadeNome?: string;
-  /** Geometria viária persistida em rotas.polyline. */
-  polyline?: string | null;
-  /** Totais persistidos da rota, em metros e segundos. */
-  storedRouteInfo?: RouteInfo | null;
 }
 
 /** Altura do pino de PARTIDA/CHEGADA (styles.checkpointMarkerCompact). */

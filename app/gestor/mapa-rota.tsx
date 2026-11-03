@@ -35,8 +35,7 @@ import {
   EditStopModal,
   AddStopModal,
   DraggableStopList,
-  getStatusBadgeVariant,
-  formatStatusLabel,
+  badgeDoStatusDaRota,
   styles,
 } from '@/components/gestor/mapa-rota';
 import type {
@@ -52,6 +51,7 @@ import {
 import { sinalLinhaDoTempo } from '@/components/gestor/mapa-rota/sinalLinhaDoTempo';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { rotuloDoStatus } from '@/constants/statusConfig';
 import {
   Button,
   DesktopCard,
@@ -170,11 +170,11 @@ export default function MapaRota() {
 
   // ===== Computed Values =====
   const statusBadgeVariant = useMemo(
-    () => getStatusBadgeVariant(theme, rota?.status),
-    [theme, rota?.status],
+    () => badgeDoStatusDaRota(theme.colors, rota?.status),
+    [theme.colors, rota?.status],
   );
   const statusLabel = useMemo(
-    () => formatStatusLabel(rota?.status),
+    () => rotuloDoStatus(rota?.status),
     [rota?.status],
   );
   const hasBaseInfo = useHasBaseInfo(pontosBase);

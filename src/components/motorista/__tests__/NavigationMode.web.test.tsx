@@ -146,6 +146,8 @@ jest.mock('maplibre-gl', () => {
   return { __esModule: true, default: lib, ...lib };
 });
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+
 import { NavigationMode } from '../NavigationMode.web';
 
 const MockMap = maplibregl.Map as unknown as jest.Mock;
@@ -269,5 +271,90 @@ describe('NavigationMode.web – aviso de chegada', () => {
     tela.rerender(elemento(PROXIMA));
 
     expect(mockShowConfirm).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('NavigationMode.web – tema escuro', () => {
+  const PALETA = Object.values(CORES_SOBRE_O_MAPA) as string[];
+  const escuro = jest.requireActual('@/utils/styles.base').darkTheme;
+  const c = escuro.colors;
+  // Tokens do escuro que a paleta clara não tem: se algum aparecer no HTML, o
+  // marcador voltou a ler o tema (o estilo do mapa é sempre claro).
+  const TOKENS_ESCUROS = [
+    c.white,
+    c.black,
+    c.gray200,
+    c.gray400,
+    c.warning,
+    c.error,
+    c.info,
+    c.success,
+    c.primary,
+  ].filter((valor: string) => !PALETA.includes(valor));
+
+  let espiaoTema: jest.SpyInstance;
+
+  const original = {
+    routePath: mockLogica.routePath,
+    startCheckpoint: mockLogica.startCheckpoint,
+    endCheckpoint: mockLogica.endCheckpoint,
+    pendingStops: mockLogica.pendingStops,
+    userLocation: mockLogica.userLocation,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMapa.handlers.clear();
+    espiaoTema = jest
+      .spyOn(estilos, 'useUnistyles')
+      .mockReturnValue({ theme: escuro } as never);
+    // Cobre todos os desenhos: checkpoints, pino não-próximo e seta do motorista.
+    mockLogica.startCheckpoint = mockParada('ini', 0);
+    mockLogica.endCheckpoint = mockParada('fim', 9);
+    mockLogica.pendingStops = [PROXIMA, mockParada('p3', 3)];
+    mockLogica.userLocation = {
+      latitude: -23.5,
+      longitude: -46.6,
+      heading: 90,
+    };
+  });
+
+  afterEach(() => {
+    Object.assign(mockLogica, original);
+    espiaoTema.mockRestore();
+  });
+
+  it('os tokens escuros de fato diferem da paleta (a asserção não é vazia)', () => {
+    expect(TOKENS_ESCUROS.length).toBeGreaterThan(0);
+  });
+
+  it('nenhum marcador usa token do tema escuro', async () => {
+    await renderizarCarregado();
+    const html = MockMarker.mock.calls
+      .map((chamada) => chamada[0].element.outerHTML)
+      .join('\n')
+      .toLowerCase();
+
+    for (const token of TOKENS_ESCUROS) {
+      expect(html).not.toContain(token.toLowerCase());
+    }
+    expect(html).toContain(CORES_SOBRE_O_MAPA.erro); // destino de entrega
+    expect(html).toContain(CORES_SOBRE_O_MAPA.proxima); // próxima parada
+    expect(html).toContain(CORES_SOBRE_O_MAPA.apagada); // parada não-próxima
+    expect(html).toContain(CORES_SOBRE_O_MAPA.contorno); // checkpoint
+    expect(html).toContain(CORES_SOBRE_O_MAPA.concluida); // checkpoint de partida
+    expect(html).toContain(CORES_SOBRE_O_MAPA.usuario); // seta do motorista
+  });
+
+  it('linha da rota usa a cor da marca da paleta clara', async () => {
+    mockLogica.routePath = [
+      { latitude: -23.5, longitude: -46.6 },
+      { latitude: -23.6, longitude: -46.7 },
+    ];
+    await renderizarCarregado();
+
+    const mapa = MockMap.mock.results[0].value;
+    const camada = mapa.addLayer.mock.calls[0][0];
+    expect(camada.paint['line-color']).toBe(CORES_SOBRE_O_MAPA.marca);
   });
 });

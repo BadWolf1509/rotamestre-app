@@ -7,11 +7,7 @@
 export { ParadaCard } from './ParadaCard';
 export { ResumoStats } from './ResumoStats';
 export { BaseInfoContent, useHasBaseInfo } from './BaseInfoContent';
-export {
-  RouteInfoHeader,
-  getStatusBadgeVariant,
-  formatStatusLabel,
-} from './RouteInfoHeader';
+export { badgeDoStatusDaRota } from './badgeDoStatusDaRota';
 export { PhotoModal } from './PhotoModal';
 export { MapaRotaSkeleton } from './MapaRotaSkeleton';
 
