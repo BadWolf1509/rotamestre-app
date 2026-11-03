@@ -38,6 +38,8 @@ const RETIRADA = {
 // Mutável: o último caso tira a p3 do contexto entre um render e outro.
 let mockParadasDoContexto: Array<typeof ENTREGA | typeof RETIRADA> = [];
 
+let mockUltimoOnConcluir: (p: unknown) => void = () => undefined;
+
 const mockPropsFluxo = jest.fn();
 const mockPropsPulo = jest.fn();
 
@@ -87,16 +89,21 @@ jest.mock('@/components/motorista/ParadaCard', () => {
       parada: { id: string };
       onConcluir: (p: unknown) => void;
       onPular: (p: unknown) => void;
-    }) => (
-      <>
-        <P onPress={() => props.onConcluir(props.parada)}>
-          <T>{`concluir:${props.parada.id}`}</T>
-        </P>
-        <P onPress={() => props.onPular(props.parada)}>
-          <T>{`pular:${props.parada.id}`}</T>
-        </P>
-      </>
-    ),
+    }) => {
+      // Guarda o handler MAIS RECENTE: depois de a p3 sair do contexto o card
+      // dela some, mas o handler atual da tela continua alcançável pelos demais.
+      mockUltimoOnConcluir = props.onConcluir;
+      return (
+        <>
+          <P onPress={() => props.onConcluir(props.parada)}>
+            <T>{`concluir:${props.parada.id}`}</T>
+          </P>
+          <P onPress={() => props.onPular(props.parada)}>
+            <T>{`pular:${props.parada.id}`}</T>
+          </P>
+        </>
+      );
+    },
   };
 });
 
@@ -185,6 +192,27 @@ describe('aba Paradas — a parada do contexto', () => {
     act(() => restaurar(p3DoContexto()));
 
     expect(mockPropsFluxo.mock.calls.at(-1)[0].parada).toBe(p3DoContexto());
+    // O 2º argumento é o array de ParadaData do contexto, não as Parada do card.
+    expect(
+      (useRestaurarConclusaoEmVoo as jest.Mock).mock.calls.at(-1)[1],
+    ).toContain(p3DoContexto());
+  });
+
+  it('parada que sumiu do contexto não abre o fluxo de conclusão', () => {
+    const { queryByText, rerender } = render(<CheckpointsMotorista />);
+
+    mockParadasDoContexto = mockParadasDoContexto.filter((p) => p.id !== 'p3');
+    rerender(<CheckpointsMotorista />);
+    // O card da p3 some com ela; o handler atual é o mesmo dos demais cards.
+    expect(queryByText('concluir:p3')).toBeNull();
+    mockPropsFluxo.mockClear();
+
+    act(() => mockUltimoOnConcluir({ id: 'p3' }));
+
+    expect(queryByText('fluxo-conclusao:p3')).toBeNull();
+    expect(
+      mockPropsFluxo.mock.calls.filter(([props]) => props.parada !== null),
+    ).toHaveLength(0);
   });
 
   it('parada que sumiu do contexto não abre o modal de pulo', () => {

@@ -3,7 +3,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { ActionSheetIOS, Alert, Linking } from 'react-native';
 
 // Mock dependencies
 jest.mock('@/context/RouteStatusContext', () => ({
@@ -39,6 +39,7 @@ jest.mock('@/lib/supabase', () => ({
 // Spy on Alert
 jest.spyOn(Alert, 'alert');
 
+import { useRouteStatusSeHouver } from '@/context/RouteStatusContext';
 import { logger } from '@/lib/logger';
 
 import { useDrawerContact } from '../useDrawerContact';
@@ -168,6 +169,41 @@ describe('useDrawerContact', () => {
       );
       expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
+    });
+
+    it('a mensagem ao gestor cita a rota em andamento e o endereço atual', async () => {
+      (useRouteStatusSeHouver as jest.Mock).mockReturnValue({
+        route: { id: 'abcdef12-3456-7890', status: 'em_andamento' },
+        currentStop: { endereco: 'Rua das Flores, 100' },
+      });
+      const canOpen = jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
+      const abrir = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+
+      // No Jest a plataforma é iOS: o menu de motivos é o ActionSheet, e o
+      // teste escolhe o primeiro motivo.
+      const menu = jest
+        .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+        .mockImplementation((_opcoes, aoEscolher) => aoEscolher(0));
+
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
+      await act(async () => {
+        await result.current.handleContactGestor();
+      });
+
+      expect(abrir).toHaveBeenCalledTimes(1);
+      const url = decodeURIComponent(abrir.mock.calls[0][0]);
+      expect(url).toContain('rota #abcdef12');
+      expect(url).toContain('Endereço atual: Rua das Flores, 100');
+
+      menu.mockRestore();
+      canOpen.mockRestore();
+      abrir.mockRestore();
+      (useRouteStatusSeHouver as jest.Mock).mockReturnValue({
+        route: null,
+        currentStop: null,
+      });
     });
 
     it('should handle exception during contact', async () => {
