@@ -29,9 +29,11 @@ import {
   resumoDaEquipe,
   type MembroDaEquipe,
 } from '@/lib/gestor/equipeDaLoja';
+import {
+  alternarMotoristaNaLoja,
+  mensagemErroMotorista,
+} from '@/lib/gestor/motoristaNaLoja';
 import { logger } from '@/lib/logger';
-import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 type Membro = MembroDaEquipe;
@@ -170,16 +172,14 @@ export default function EquipeScreen() {
     try {
       // Motorista que atende outra loja sai só desta (o vínculo); o banco
       // decide e recusa mexer na pessoa por aqui.
-      const { data, error } = await supabase.rpc(
-        'alternar_motorista_na_unidade',
-        {
-          p_motorista_id: membro.id,
-          p_unidade_id: unidadeAtiva,
-          p_ativo: !membro.ativo,
-        },
-      );
-      if (error) throw error;
-      const soNestaLoja = data === 'vinculo';
+      const escopo = await alternarMotoristaNaLoja({
+        motoristaId: membro.id,
+        motoristaNome: membro.nome,
+        unidadeId: unidadeAtiva,
+        ativo: !membro.ativo,
+        gestorId: userData?.id,
+      });
+      const soNestaLoja = escopo === 'vinculo';
 
       showToast(
         soNestaLoja
@@ -194,7 +194,7 @@ export default function EquipeScreen() {
       if (mostrarSeBloqueado(error, membro.nome)) return;
       logger.error('Erro ao atualizar usuário', error);
       showToast(
-        mensagemRegraDoBanco(error) ?? 'Erro ao atualizar usuário',
+        mensagemErroMotorista(error, 'Erro ao atualizar usuário'),
         'error',
         4000,
       );
