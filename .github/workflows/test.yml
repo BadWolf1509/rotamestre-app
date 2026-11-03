@@ -97,6 +97,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Aplicar patches (patch-package)
+        # `--ignore-scripts` pula o postinstall, que aplica patches/. Sem isto o
+        # Jest e o build rodam a lib sem o patch (a guarda
+        # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
+        # difere do da Vercel e do EAS, que rodam o postinstall.
+        run: npx patch-package
+
       - name: Run tests
         run: npm test -- --coverage --maxWorkers=2
 
@@ -174,6 +181,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
+
+      - name: Aplicar patches (patch-package)
+        # `--ignore-scripts` pula o postinstall, que aplica patches/. Sem isto o
+        # Jest e o build rodam a lib sem o patch (a guarda
+        # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
+        # difere do da Vercel e do EAS, que rodam o postinstall.
+        run: npx patch-package
 
       - name: Copiar worker do MapLibre
         # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
@@ -370,6 +384,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
+
+      - name: Aplicar patches (patch-package)
+        # `--ignore-scripts` pula o postinstall, que aplica patches/. Sem isto o
+        # Jest e o build rodam a lib sem o patch (a guarda
+        # draggable-flatlist-sem-interaction-manager falha) e o artefato do CI
+        # difere do da Vercel e do EAS, que rodam o postinstall.
+        run: npx patch-package
 
       - name: Copiar worker do MapLibre
         # `npm ci --ignore-scripts` pula o postinstall, que é quem roda este
