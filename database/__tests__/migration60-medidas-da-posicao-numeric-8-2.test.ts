@@ -6,30 +6,23 @@
 // fila do lock bloqueando os inserts de posição), deixe as duas cópias
 // divergirem ou desalinhe o teto do tipo do teto que o app saneia
 // (`TETO_MEDIDA_POSICAO`).
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
 
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+} from './_helpers/migration';
 import { TETO_MEDIDA_POSICAO } from '../../src/lib/motorista/filaPosicoes';
 
 jest.mock('@/lib/supabase', () => ({ supabase: {} }));
 
 const ARQUIVO = '20261025140000_medidas_da_posicao_numeric_8_2.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261025140000_sonda_migration60.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261025140000_sonda_migration60.sql');
 const executavel = sql
   .split('\n')
   .map((l) => l.replace(/--.*$/, ''))
@@ -42,11 +35,7 @@ const rollback = (() => {
 const COLUNAS = ['velocidade', 'precisao', 'heading'];
 
 describe('Migration 60: medidas da posição em numeric(8,2)', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('alarga as três colunas para numeric(8,2), mantendo a escala', () => {
     expect(executavel).toMatch(/ALTER TABLE public\.motorista_locations\b/);
@@ -94,6 +83,6 @@ describe('Migration 60: medidas da posição em numeric(8,2)', () => {
   });
 
   it('está no MIGRATIONS.md', () => {
-    expect(ler(caminhoDoc)).toContain(ARQUIVO);
+    expect(ler(CAMINHO_DOC)).toContain(ARQUIVO);
   });
 });

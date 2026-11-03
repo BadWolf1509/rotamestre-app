@@ -4,40 +4,23 @@
 // guarda impede que uma edição tire a isenção do gestor ou de quem não tem
 // sessão, deixe a ligação tardia NULL → valor de fora, solte a regra da parada
 // finalizada, exponha as funções de gatilho ou deixe as duas cópias divergirem.
-import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const ARQUIVO = '20261024190000_foto_comprovante_vinculada_preservada.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024190000_sonda_migration57.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  RAIZ,
+  semComentarios,
+} from './_helpers/migration';
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const ARQUIVO = '20261024190000_foto_comprovante_vinculada_preservada.sql';
+
+const m = carregarMigration(ARQUIVO);
+const { executavel } = m;
+const { rollback } = m;
 
 function corpoDaFuncao(nome: string): string {
   const inicio = executavel.indexOf(
@@ -61,11 +44,7 @@ const ISENCAO_GESTOR =
   /uu\.usuario_id = auth\.uid\(\)\s+AND uu\.ativo = true\s+AND uu\.papel::text = 'gestor'/;
 
 describe('Migration 57: foto de comprovante vinculada', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -174,7 +153,7 @@ describe('Migration 57: foto de comprovante vinculada', () => {
   });
 
   it('sonda existe, cobre os casos e termina em RAISE EXCEPTION', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024190000_sonda_migration57.sql');
     expect(sonda).not.toBe('');
     expect(sonda).toMatch(/SET LOCAL ROLE authenticated/);
     for (const caso of [
@@ -203,14 +182,14 @@ describe('Migration 57: foto de comprovante vinculada', () => {
   });
 
   it('o app liga a foto da fila só com foto_url nula (a regra conta com isso)', () => {
-    const storage = ler(join(raiz, 'src', 'lib', 'storage.ts'));
+    const storage = ler(join(RAIZ, 'src', 'lib', 'storage.ts'));
     expect(storage).toMatch(
       /\.update\(\{ foto_url: path \}\)\s+\.eq\('id', paradaId\)\s+\.is\('foto_url', null\)/,
     );
   });
 
   it('MIGRATIONS.md registra a Migration 57 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/Migration 57/);
     expect(doc).toContain(ARQUIVO);
   });
