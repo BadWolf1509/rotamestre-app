@@ -5,6 +5,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { authService } from '@/lib/auth';
+import { marcarAberturaPeloPerfilConhecido } from '@/lib/auth/aberturaPeloPerfilConhecido';
 import { ContaDesativada } from '@/lib/auth/contaAtiva';
 import { classificarFalhaPerfil } from '@/lib/auth/falhaPerfil';
 import {
@@ -122,6 +123,9 @@ function IndexContent() {
             logger.warn(
               '[index] Perfil sem resposta a tempo — seguindo pelo perfil conhecido',
             );
+            // O useUser do layout usa o mesmo perfil na hora e revalida em
+            // segundo plano, em vez de esperar o mesmo DNS de novo.
+            marcarAberturaPeloPerfilConhecido(perfil.usuario);
             rotearPeloPerfil(perfil.usuario);
             // Perfil guardado não decide se a conta foi desativada. Com a
             // busca ainda em voo (prazo estourado), o portão roda quando a

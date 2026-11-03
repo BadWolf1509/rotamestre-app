@@ -5,6 +5,10 @@
 import { act, render, waitFor } from '@testing-library/react-native';
 
 import { authService } from '@/lib/auth';
+import {
+  _reiniciarAberturaPeloPerfilConhecido,
+  perfilDaAberturaPara,
+} from '@/lib/auth/aberturaPeloPerfilConhecido';
 import { ContaDesativada } from '@/lib/auth/contaAtiva';
 import { lerPerfilConhecido } from '@/lib/auth/perfilConhecido';
 import { PRAZO_PERFIL_ABERTURA_MS } from '@/lib/auth/perfilNaAbertura';
@@ -42,6 +46,7 @@ const motorista = { id: 'm1', papel: 'motorista', primeira_senha: false };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  _reiniciarAberturaPeloPerfilConhecido();
   mockRedeCaida = false;
   mockAuth.lerSessao.mockResolvedValue({
     session: { user: { id: 'm1' } },
@@ -61,6 +66,7 @@ it('queda de rede observada + perfil conhecido: entra sem consultar o perfil', a
   expect(mockAuth.getUsuario).not.toHaveBeenCalled();
   // Perfil guardado não passa pelo portão da conta (igual ao ramo offline)
   expect(mockAuth.garantirContaAtiva).not.toHaveBeenCalled();
+  expect(perfilDaAberturaPara('m1')).toEqual(motorista);
 });
 
 it('perfil guardado e resposta dentro do prazo: vale o perfil fresco, com o portão da conta', async () => {
@@ -74,6 +80,7 @@ it('perfil guardado e resposta dentro do prazo: vale o perfil fresco, com o port
     expect(mockReplace).toHaveBeenCalledWith('/auth/login?conta=desativada'),
   );
   expect(mockReplace).not.toHaveBeenCalledWith('/motorista');
+  expect(perfilDaAberturaPara('m1')).toBeNull();
 });
 
 describe('prazo estourado (rede lenta, internet funcionando)', () => {
@@ -102,6 +109,8 @@ describe('prazo estourado (rede lenta, internet funcionando)', () => {
   it('entra pelo perfil guardado e roda o portão quando a resposta chega', async () => {
     const responder = await abrirComRespostaAtrasada();
     expect(mockReplace).toHaveBeenCalledWith('/motorista');
+    // O useUser do layout usa o mesmo perfil na hora, sem esperar o DNS.
+    expect(perfilDaAberturaPara('m1')).toEqual(motorista);
     expect(mockAuth.garantirContaAtiva).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -138,4 +147,6 @@ it('online sem perfil guardado: consulta e passa pelo portão, como antes', asyn
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/motorista'));
   expect(mockAuth.getUsuario).toHaveBeenCalledWith('m1');
   expect(mockAuth.garantirContaAtiva).toHaveBeenCalled();
+  // Perfil do servidor: o useUser busca como sempre.
+  expect(perfilDaAberturaPara('m1')).toBeNull();
 });
