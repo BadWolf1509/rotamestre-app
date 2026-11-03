@@ -17,11 +17,7 @@ import {
 const ARQUIVO = '20261024130000_incidente_sobrevive_ao_motorista.sql';
 
 const m = carregarMigration(ARQUIVO);
-const { sql } = m;
-const executavel = sql
-  .split('\n')
-  .map((l) => l.replace(/--.*$/, ''))
-  .join('\n');
+const { executavel } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 const exec = normaliza(executavel);
 

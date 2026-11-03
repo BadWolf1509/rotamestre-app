@@ -23,10 +23,7 @@ const ARQUIVO = '20261025140000_medidas_da_posicao_numeric_8_2.sql';
 const m = carregarMigration(ARQUIVO);
 const { sql } = m;
 const sonda = lerSonda('20261025140000_sonda_migration60.sql');
-const executavel = sql
-  .split('\n')
-  .map((l) => l.replace(/--.*$/, ''))
-  .join('\n');
+const { executavel } = m;
 const rollback = (() => {
   const i = sql.indexOf('-- ROLLBACK:');
   return i < 0 ? '' : sql.slice(i);
