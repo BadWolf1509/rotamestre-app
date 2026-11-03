@@ -7,6 +7,8 @@
 
 import { z } from 'zod';
 
+import { soDigitos } from './documentos';
+
 // ============================================================================
 // CORE UTILITIES
 // ============================================================================
@@ -15,7 +17,7 @@ import { z } from 'zod';
  * Remove all non-digit characters from phone string
  */
 export function cleanPhone(phone: string): string {
-  return phone.replace(/\D/g, '');
+  return soDigitos(phone);
 }
 
 /**
@@ -144,7 +146,7 @@ export function getPhoneErrorMessage(phone: string): string | null {
  */
 export const phoneSchema = z
   .string()
-  .transform((val) => val.replace(/\D/g, '')) // Remove non-digits
+  .transform((val) => soDigitos(val)) // Remove non-digits
   .refine((val) => val.length >= 10 && val.length <= 11, {
     message: 'Telefone deve ter 10 ou 11 dígitos',
   })
@@ -158,7 +160,7 @@ export const phoneSchema = z
 export const optionalPhoneSchema = z
   .string()
   .optional()
-  .transform((val) => (val ? val.replace(/\D/g, '') : ''))
+  .transform((val) => soDigitos(val))
   .refine((val) => !val || (val.length >= 10 && val.length <= 11), {
     message: 'Telefone deve ter 10 ou 11 dígitos',
   })
@@ -166,18 +168,15 @@ export const optionalPhoneSchema = z
     message: 'DDD inválido',
   });
 
-// ============================================================================
-// LEGACY ALIASES (for backwards compatibility)
-// ============================================================================
-
-/** @deprecated Use phoneSchema instead */
-export const telefoneSchema = phoneSchema;
-
-/** @deprecated Use validatePhone instead */
-export const isValidTelefone = validatePhone;
-
-/** @deprecated Use formatPhone instead */
-export const formatTelefone = formatPhone;
+/**
+ * Telefone com DDD: 10 ou 11 dígitos, nada além disso. Mais frouxa que
+ * `validatePhone` de propósito (não confere o DDD): é a regra do cadastro de
+ * parada e da importação em lote.
+ */
+export function telefoneComDDD(valor: string | null | undefined): boolean {
+  const digitos = soDigitos(valor);
+  return digitos.length === 10 || digitos.length === 11;
+}
 
 /**
  * Telefone em formato internacional, só dígitos, com um único `55`:

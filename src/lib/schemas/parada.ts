@@ -6,7 +6,8 @@
 
 import { z } from 'zod';
 
-import { phoneSchema } from '../phone';
+import { soDigitos } from '../documentos';
+import { phoneSchema, telefoneComDDD } from '../phone';
 import { enderecoSchema, observacoesSchema } from './basic';
 
 /**
@@ -48,12 +49,10 @@ export const paradaModalSchema = z.object({
   telefone: z
     .string()
     .optional()
-    .refine((valor) => {
-      const digitos = (valor ?? '').replace(/\D/g, '');
-      return (
-        digitos.length === 0 || digitos.length === 10 || digitos.length === 11
-      );
-    }, 'Telefone deve ter DDD e 10 ou 11 dígitos.'),
+    .refine(
+      (valor) => !soDigitos(valor) || telefoneComDDD(valor),
+      'Telefone deve ter DDD e 10 ou 11 dígitos.',
+    ),
   observacoes: z
     .string()
     .max(300, 'As observações devem ter no máximo 300 caracteres.')
