@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { soDigitos } from '../documentos';
 import { ehSiglaDeUF } from '../estados';
 import { phoneSchema } from '../phone';
 
@@ -25,7 +26,7 @@ export const unidadeSchema = z.object({
   // campo vazio passar. `optionalPhoneSchema` faria o mesmo, mas transforma o
   // valor em dígitos e duplica as regras em vez de usar o schema de referência.
   telefone: z.string().superRefine((valor, ctx) => {
-    if (!valor.replace(/\D/g, '')) return;
+    if (!soDigitos(valor)) return;
     const resultado = phoneSchema.safeParse(valor);
     if (!resultado.success) {
       ctx.addIssue({
@@ -40,7 +41,7 @@ export const unidadeSchema = z.object({
     .string()
     .refine((valor) => !valor.trim() || ehSiglaDeUF(valor), 'UF inválida'),
   cep: z.string().refine((valor) => {
-    const digitos = valor.replace(/\D/g, '');
+    const digitos = soDigitos(valor);
     return digitos.length === 0 || digitos.length === 8;
   }, 'CEP deve ter 8 dígitos'),
 });

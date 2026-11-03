@@ -13,9 +13,6 @@ export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
  * tipam o parâmetro como `string` (ver `rotuloDoStatus` em
  * `src/constants/statusConfig.ts`), então o typecheck nunca teve chance de
  * reclamar.
- *
- * Ao adicionar valor aqui, atualize também `validStatusRota` em
- * `src/lib/type-guards.ts` — a lista é manual e não deriva deste tipo.
  */
 export type StatusRota =
   'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';

@@ -18,8 +18,8 @@
  *   vazio, para a fila voltar a funcionar. Se nem a quarentena grava, lança:
  *   não se apaga o que não se conseguiu guardar.
  *
- * Leituras só para EXIBIR continuam com o vazio na falha — lançar ali
- * espalharia `try` pela UI sem proteger dado nenhum.
+ * Leituras só para EXIBIR (`lerJsonParaExibir`) continuam com o vazio na
+ * falha — lançar ali espalharia `try` pela UI sem proteger dado nenhum.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -73,6 +73,27 @@ export async function lerJsonParaGravar<T>(
     } catch (erroQuarentena) {
       throw new FalhaDeLeituraLocal(chave, erroQuarentena);
     }
+    return vazio;
+  }
+}
+
+/**
+ * Lê o JSON de `chave` só para EXIBIR. Sem nada guardado, JSON `null` ou
+ * inválido, ou `getItem` que lança → devolve `vazio`; na falha avisa com
+ * `aviso`. Nunca grava: sem quarentena, porque leitura de exibição não
+ * escreve — quem regrava usa `lerJsonParaGravar`.
+ */
+export async function lerJsonParaExibir<T>(
+  chave: string,
+  vazio: T,
+  aviso: string,
+): Promise<T> {
+  try {
+    const bruto = await AsyncStorage.getItem(chave);
+    if (!bruto) return vazio;
+    return (JSON.parse(bruto) as T | null) ?? vazio;
+  } catch (error) {
+    logger.warn(aviso, error);
     return vazio;
   }
 }

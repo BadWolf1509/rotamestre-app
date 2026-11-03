@@ -24,7 +24,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
 
+import { lerJsonParaExibir } from '../leituraLocal';
 import { logger } from '../logger';
+import { criarSerie } from '../serie';
 import { sobreporAcoesPendentes, type AcaoParada } from './filaAcoesParada';
 
 export const CHAVE_ROTA_GUARDADA = '@rotamestre:rota_guardada';
@@ -42,15 +44,9 @@ interface Registro {
   retrato: RotaGuardada;
 }
 
-// Gravações em série, na ordem das chamadas: a correção por ação enviada
-// (ler-modificar-gravar) não pode sobrescrever um retrato fresco gravado no
-// meio dela.
-let cadeia: Promise<unknown> = Promise.resolve();
-function emSerie(fn: () => Promise<void>): Promise<void> {
-  const proxima = cadeia.then(fn, fn);
-  cadeia = proxima.catch(() => undefined);
-  return proxima;
-}
+// Gravações em série (`serie.ts`): a correção por ação enviada não pode
+// sobrescrever um retrato fresco gravado no meio dela.
+const emSerie = criarSerie();
 
 export function gravarRotaGuardada(
   userId: string,
@@ -106,13 +102,10 @@ export function aplicarAcoesNaRotaGuardada(
 export async function lerRotaGuardada(
   userId: string,
 ): Promise<RotaGuardada | null> {
-  try {
-    const bruto = await AsyncStorage.getItem(CHAVE_ROTA_GUARDADA);
-    if (!bruto) return null;
-    const registro = JSON.parse(bruto) as Registro;
-    return registro?.userId === userId ? registro.retrato : null;
-  } catch (error) {
-    logger.warn('[RouteStatus] Falha ao ler a rota guardada', error);
-    return null;
-  }
+  const registro = await lerJsonParaExibir<Registro | null>(
+    CHAVE_ROTA_GUARDADA,
+    null,
+    '[RouteStatus] Falha ao ler a rota guardada',
+  );
+  return registro?.userId === userId ? registro.retrato : null;
 }

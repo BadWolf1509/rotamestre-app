@@ -13,8 +13,6 @@ import {
   cleanExpiredCache,
   reiniciarLimpezaDeCacheParaTeste,
   INTERVALO_LIMPEZA_CACHE_MS,
-  getCacheWithFetch,
-  invalidateRelatedCaches,
   CACHE_TTL,
   CACHE_KEYS,
 } from '../cache';
@@ -272,95 +270,6 @@ describe('cache', () => {
       } finally {
         jest.useRealTimers();
       }
-    });
-  });
-
-  describe('getCacheWithFetch', () => {
-    it('should return cached data when available', async () => {
-      const now = Date.now();
-      const cacheEntry = {
-        data: { cached: true },
-        timestamp: now - 1000,
-        ttl: 60000,
-      };
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify(cacheEntry),
-      );
-
-      const fetcher = jest.fn().mockResolvedValue({ fresh: true });
-
-      const result = await getCacheWithFetch('cached-key', fetcher);
-
-      expect(result.data).toEqual({ cached: true });
-      expect(result.fromCache).toBe(true);
-      expect(fetcher).not.toHaveBeenCalled();
-    });
-
-    it('should fetch data when cache miss', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
-
-      const fetcher = jest.fn().mockResolvedValue({ fresh: true });
-
-      const result = await getCacheWithFetch('miss-key', fetcher);
-
-      expect(result.data).toEqual({ fresh: true });
-      expect(result.fromCache).toBe(false);
-      expect(fetcher).toHaveBeenCalled();
-    });
-
-    it('should force refresh when option is set', async () => {
-      const now = Date.now();
-      const cacheEntry = {
-        data: { cached: true },
-        timestamp: now - 1000,
-        ttl: 60000,
-      };
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify(cacheEntry),
-      );
-
-      const fetcher = jest.fn().mockResolvedValue({ fresh: true });
-
-      const result = await getCacheWithFetch('force-key', fetcher, {
-        forceRefresh: true,
-      });
-
-      expect(result.data).toEqual({ fresh: true });
-      expect(result.fromCache).toBe(false);
-      expect(fetcher).toHaveBeenCalled();
-    });
-  });
-
-  describe('invalidateRelatedCaches', () => {
-    it('should clear related caches for rotas', async () => {
-      await invalidateRelatedCaches('rotas');
-
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_dashboard');
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_rotas_list');
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_kpis');
-    });
-
-    it('should clear related caches for paradas', async () => {
-      await invalidateRelatedCaches('paradas');
-
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_dashboard');
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_rotas_list');
-    });
-
-    it('should clear related caches for usuarios', async () => {
-      await invalidateRelatedCaches('usuarios');
-
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_user_data');
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_motoristas');
-    });
-
-    it('should clear related caches for incidentes', async () => {
-      await invalidateRelatedCaches('incidentes');
-
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('@cache_dashboard');
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
-        '@cache_incidentes_list',
-      );
     });
   });
 });

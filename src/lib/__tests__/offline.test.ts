@@ -3,10 +3,6 @@ import NetInfo from '@react-native-community/netinfo';
 
 import {
   isOnline,
-  saveOfflineData,
-  getOfflineData,
-  clearOfflineData,
-  hasOfflineData,
   setupOfflineSync,
   getOfflinePhotosIndex,
   getPendingPhotosCount,
@@ -143,142 +139,6 @@ describe('offline', () => {
       } as any);
 
       const result = await isOnline();
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('saveOfflineData', () => {
-    it('deve salvar dados no storage', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await saveOfflineData({ rota: { id: '1', nome: 'Teste' } });
-
-      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        '@rotamestre:offline_data',
-        expect.stringContaining('rota'),
-      );
-    });
-
-    it('deve mesclar com dados existentes', async () => {
-      const existingData = { rota: { id: '1' } };
-      mockAsyncStorage.getItem.mockResolvedValueOnce(
-        JSON.stringify(existingData),
-      );
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await saveOfflineData({ paradas: [{ id: 'p1' }] });
-
-      const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
-      expect(savedData.rota).toEqual({ id: '1' });
-      expect(savedData.paradas).toEqual([{ id: 'p1' }]);
-    });
-
-    it('deve adicionar lastSync automaticamente', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockResolvedValueOnce(undefined);
-
-      await saveOfflineData({ rota: {} });
-
-      const savedData = JSON.parse(mockAsyncStorage.setItem.mock.calls[0][1]);
-      expect(savedData.lastSync).toBeDefined();
-    });
-
-    it('deve propagar erro quando falha ao salvar', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-      mockAsyncStorage.setItem.mockRejectedValueOnce(new Error('Save failed'));
-
-      await expect(saveOfflineData({})).rejects.toThrow('Save failed');
-    });
-  });
-
-  describe('getOfflineData', () => {
-    it('deve retornar objeto vazio quando não há dados', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-
-      const result = await getOfflineData();
-      expect(result).toEqual({});
-    });
-
-    it('deve retornar dados parseados', async () => {
-      const data = { rota: { id: '1' }, paradas: [] };
-      mockAsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify(data));
-
-      const result = await getOfflineData();
-      expect(result).toEqual(data);
-    });
-
-    it('deve retornar objeto vazio quando há erro', async () => {
-      mockAsyncStorage.getItem.mockRejectedValueOnce(new Error('Read error'));
-
-      const result = await getOfflineData();
-      expect(result).toEqual({});
-    });
-  });
-
-  describe('clearOfflineData', () => {
-    it('deve remover dados do storage', async () => {
-      mockAsyncStorage.removeItem.mockResolvedValueOnce(undefined);
-
-      await clearOfflineData();
-
-      expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
-        '@rotamestre:offline_data',
-      );
-    });
-
-    it('deve lidar silenciosamente com erro', async () => {
-      mockAsyncStorage.removeItem.mockRejectedValueOnce(new Error('Error'));
-
-      await expect(clearOfflineData()).resolves.toBeUndefined();
-    });
-  });
-
-  describe('hasOfflineData', () => {
-    it('deve retornar false quando não há dados', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(null);
-
-      const result = await hasOfflineData();
-      expect(result).toBe(false);
-    });
-
-    it('deve retornar true quando há rota', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(
-        JSON.stringify({
-          rota: { id: '1' },
-        }),
-      );
-
-      const result = await hasOfflineData();
-      expect(result).toBe(true);
-    });
-
-    it('deve retornar true quando há paradas', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(
-        JSON.stringify({
-          paradas: [{ id: 'p1' }],
-        }),
-      );
-
-      const result = await hasOfflineData();
-      expect(result).toBe(true);
-    });
-
-    it('deve retornar false quando paradas está vazio', async () => {
-      mockAsyncStorage.getItem.mockResolvedValueOnce(
-        JSON.stringify({
-          paradas: [],
-        }),
-      );
-
-      const result = await hasOfflineData();
-      expect(result).toBe(false);
-    });
-
-    it('deve retornar false quando há erro', async () => {
-      mockAsyncStorage.getItem.mockRejectedValueOnce(new Error('Error'));
-
-      const result = await hasOfflineData();
       expect(result).toBe(false);
     });
   });
@@ -1095,4 +955,3 @@ describe('offline', () => {
     });
   });
 });
-

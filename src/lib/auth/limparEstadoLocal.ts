@@ -38,7 +38,7 @@ export const CHAVES_DA_CONTA = [
   '@rotamestre:unidade_ativa', // src/hooks/useUnidadeAtiva.ts
   '@rotamestre:conclusao_em_voo', // src/lib/motorista/conclusaoEmVoo.ts
   '@rotamestre:rascunho_incidente', // src/lib/motorista/rascunhoIncidente.ts
-  '@rotamestre:offline_data', // src/lib/offline.ts (rota/paradas em cache, não a fila)
+  '@rotamestre:offline_data', // chave legada (sem escritor desde 11/2026): fica para limpar instalações antigas
   '@rotamestre:ultimo_usuario', // src/lib/auth/ultimoUsuario.ts
   '@rotamestre:perfil_conhecido', // src/lib/auth/perfilConhecido.ts
   '@rotamestre:rota_guardada', // src/lib/motorista/rotaGuardada.ts

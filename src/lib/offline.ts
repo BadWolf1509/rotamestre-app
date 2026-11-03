@@ -5,7 +5,7 @@ import { AppState, Platform } from 'react-native';
 
 import { lerSessao } from './auth/sessao';
 import { gravarUltimoUsuario, lerUltimoUsuario } from './auth/ultimoUsuario';
-import { lerJsonParaGravar } from './leituraLocal';
+import { lerJsonParaExibir, lerJsonParaGravar } from './leituraLocal';
 import { logger } from './logger';
 import {
   ehErroDefinitivo,
@@ -18,10 +18,10 @@ import {
   notifyOfflineMode,
 } from './notifications';
 import { redeCaidaObservada } from './redeObservada';
+import { criarSerie } from './serie';
 import { subirFotoDaFilaOffline } from './storage';
 import { supabase } from './supabase';
 
-const OFFLINE_DATA_KEY = '@rotamestre:offline_data';
 const OFFLINE_PHOTOS_DIR = `${FileSystem.documentDirectory}offline_photos/`;
 const OFFLINE_PHOTOS_INDEX_KEY = '@rotamestre:offline_photos_index';
 
@@ -108,30 +108,11 @@ function adotarFotosSemDono(userId: string): Promise<void> {
 }
 
 /**
- * Fila em série do índice de fotos (OFF-3). O índice é um item só no
- * AsyncStorage, lido e regravado inteiro: sem a fila, a remoção da foto que
- * acabou de subir e a inclusão de uma foto nova liam o mesmo índice, e quem
- * gravava por último apagava a outra. Mesmo desenho das filas de ações e de
- * posições (`emSerie`). Alternativa descartada: trava (mutex) com fila de
- * espera — mais código para o mesmo efeito.
- *
- * Diferença das outras: livre (null), o passo começa na hora, sem passar por
- * `.then`. Guardar a foto sem rede tem de terminar "na hora", sem timer
- * (`offline-foto-sem-esperar-refresh.test.ts`); o caminho antigo já gastava
- * as 20 microtarefas daquela medida, e o `.then` sempre o levava a 22.
+ * Fila em série do índice de fotos (OFF-3, ver `serie.ts`). `imediato`: a
+ * remoção da foto que subiu e a inclusão de uma nova não se atropelam, e
+ * guardar a foto sem rede termina "na hora".
  */
-let cadeiaIndice: Promise<unknown> | null = null;
-
-function emSerieNoIndice<T>(fn: () => Promise<T>): Promise<T> {
-  const anterior = cadeiaIndice;
-  const proxima = anterior ? anterior.then(fn, fn) : fn();
-  const fim = proxima.catch(() => undefined);
-  cadeiaIndice = fim;
-  void fim.then(() => {
-    if (cadeiaIndice === fim) cadeiaIndice = null;
-  });
-  return proxima;
-}
+let emSerieNoIndice = criarSerie({ imediato: true });
 
 /**
  * Lê, muda e grava o índice num passo só da fila em série. `mudar` devolve o
@@ -183,12 +164,6 @@ async function usuarioDaSessao(): Promise<string | null> {
     logger.warn('[Offline] Falha ao ler a sessão', error);
     return null;
   }
-}
-
-interface OfflineData {
-  rota?: any;
-  paradas?: any[];
-  lastSync?: string;
 }
 
 // ============================================================================
@@ -269,14 +244,12 @@ function addToPhotosIndex(photoData: OfflinePhotoData): Promise<void> {
  * Obtém índice de fotos offline pendentes. Só para ler/exibir: na falha
  * devolve vazio. Quem regrava o índice passa por `mudarIndiceDeFotos`.
  */
-export async function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
-  try {
-    const indexStr = await AsyncStorage.getItem(OFFLINE_PHOTOS_INDEX_KEY);
-    return indexStr ? JSON.parse(indexStr) : [];
-  } catch (error) {
-    logger.warn('Falha ao ler índice de fotos offline', error);
-    return [];
-  }
+export function getOfflinePhotosIndex(): Promise<OfflinePhotoData[]> {
+  return lerJsonParaExibir<OfflinePhotoData[]>(
+    OFFLINE_PHOTOS_INDEX_KEY,
+    [],
+    'Falha ao ler índice de fotos offline',
+  );
 }
 
 /**
@@ -505,63 +478,13 @@ export async function isOnline(): Promise<boolean> {
 }
 
 /**
- * Salva dados offline para acesso posterior
- */
-export async function saveOfflineData(data: OfflineData): Promise<void> {
-  const currentData = await getOfflineData();
-  const updatedData = {
-    ...currentData,
-    ...data,
-    lastSync: new Date().toISOString(),
-  };
-  await AsyncStorage.setItem(OFFLINE_DATA_KEY, JSON.stringify(updatedData));
-}
-
-/**
- * Obtém dados salvos offline
- */
-export async function getOfflineData(): Promise<OfflineData> {
-  try {
-    const dataStr = await AsyncStorage.getItem(OFFLINE_DATA_KEY);
-    return dataStr ? JSON.parse(dataStr) : {};
-  } catch (error) {
-    logger.warn('Falha ao ler dados offline', error);
-    return {};
-  }
-}
-
-/**
- * Limpa dados offline
- */
-export async function clearOfflineData(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(OFFLINE_DATA_KEY);
-  } catch {
-    // Silently fail
-  }
-}
-
-/**
- * Verifica se há dados offline disponíveis
- */
-export async function hasOfflineData(): Promise<boolean> {
-  try {
-    const data = await getOfflineData();
-    return Boolean(data.rota || (data.paradas && data.paradas.length > 0));
-  } catch (error) {
-    logger.warn('Falha ao verificar dados offline', error);
-    return false;
-  }
-}
-
-/**
  * Resets concurrency locks for testing purposes only.
  * @internal Exported for tests — do not use in production code.
  */
 export function _resetProcessingLocks(): void {
   isProcessingPhotos = false;
   fotosEmCurso = null;
-  cadeiaIndice = null;
+  emSerieNoIndice = criarSerie({ imediato: true });
   envioEmCurso = null;
   pedirEnvioDeNovo = false;
   hasNotifiedOffline = false;

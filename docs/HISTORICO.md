@@ -8,6 +8,16 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Release 1.14.12 (03/11/2026)
+
+Na interna e na alpha (3050). A 1.14.11 (3049) foi validada no moto g15 e não subiu à alpha: com Wi-Fi sem internet a rota guardada só aparecia aos 26,5 s (1.14.10: ≈ 11 s). Causa: com o #707 o perfil sai do aparelho sem ir à rede, e a busca da rota passou a ser a primeira a esbarrar no DNS, com o retry do postgrest-js; antes, a falha do perfil ligava o "sem rede" observado e a rota pegava o atalho.
+
+- **#711:** sem dado em memória, o retrato guardado entra antes da busca e ela segue por trás (resposta vence, inclusive "sem rota"; falha mantém o retrato com a faixa "Sem conexão"). A revisão independente pegou que o retrato passava a contar como carga confirmada e podia desligar o rastreamento de rota já iniciada: o hook expõe `confirmadoPeloBanco` e o provider o exige. Alternativa descartada: só desligar o retry da carga inicial (voltaria aos ~10 s).
+- **Medido no aparelho (Play):** sem internet 7,0–7,7 s; com rede 6,9 s; 120 posições sem duplicata em 15 min com três `force-stop` e reconexão.
+- **Posições ainda podem duplicar** (2 em 30 min na 1.14.11): o banco grava o lote e o processo morre antes do `remover` da fila. Proposta a decidir: `id` derivado do fix + `ON CONFLICT DO NOTHING` (pendência 23).
+- O SDK 58 (#710) passou a versionCode 3051.
+- Notas: "Abre na hora com Wi-Fi sem internet, mostrando a rota já salva no aparelho / Posições do motorista enviadas sem duplicar / Ajustes de estabilidade nas telas".
+
 ## Release 1.14.11 (03/11/2026)
 
 **Dependabot e audit (02–03/11):** o audit de produção ficou vermelho na `main` com advisories novos. O `node-forge` subiu para 1.4.2 pelo lockfile, e os que só o Expo SDK 58 corrige entraram na allowlist com revisão em 24/11 (#704, pendência 31). Mesclados #698–#703; o #698 não foi rebaseado pelo Dependabot ("don't have any knowledge about this pull request") e foi atualizado pelo GitHub. O #701 (`maplibre-gl`) passou antes pelo e2e autenticado disparado à parte.

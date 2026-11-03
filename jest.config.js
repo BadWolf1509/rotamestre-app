@@ -25,10 +25,9 @@ module.exports = {
     // Variantes .web: o Jest resolve a versão nativa, então estas nunca são
     // carregadas na suíte. As de mapa (NavigationMode.web, MiniMap.web) usam
     // maplibre, que só roda em navegador, e o e2e (Playwright) as exercita.
-    // google.web.ts e navigation.web.ts não têm cobertura e2e própria: ficam
-    // fora por não terem teste unitário, e tirá-las da exclusão exige medir a
-    // cobertura global contra os thresholds abaixo (margem de cerca de 1 ponto).
-    '!src/lib/google.web.ts',
+    // navigation.web.ts não tem cobertura e2e própria: fica fora por não ter
+    // teste unitário, e tirá-lo da exclusão exige medir a cobertura global
+    // contra os thresholds abaixo (margem de cerca de 1 ponto).
     '!src/lib/navigation.web.ts',
     '!src/components/motorista/NavigationMode.web.tsx',
     '!src/components/motorista/home/MiniMap.web.tsx',
