@@ -4,8 +4,8 @@
  */
 
 import { nomeDoMotorista } from '@/lib/incidentes/nomeDoMotorista';
-import { logger } from '@/lib/logger';
 
+import { logAction } from './logs';
 import {
   supabase,
   safeQuery,
@@ -228,16 +228,9 @@ export async function logIncidenteAction(
   evento: string,
   detalhes?: Record<string, unknown>,
 ): Promise<void> {
-  try {
-    await supabase.from('logs').insert({
-      usuario_id: usuarioId,
-      evento,
-      detalhes: {
-        ...detalhes,
-        incidente_id: incidenteId,
-      },
-    });
-  } catch (error) {
-    logger.warn('Failed to log incidente action:', error);
-  }
+  return logAction({
+    usuario_id: usuarioId,
+    evento,
+    detalhes: { ...detalhes, incidente_id: incidenteId },
+  });
 }

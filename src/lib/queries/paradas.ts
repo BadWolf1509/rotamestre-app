@@ -4,7 +4,6 @@
  */
 
 import type { MotivoSkip } from '@/constants/skipReasons';
-import { logger } from '@/lib/logger';
 import type { StatusCheckpoint } from '@/types/rota';
 
 import {
@@ -89,27 +88,9 @@ export async function updateParadaStatus(
 }
 
 /**
- * Log parada action to audit trail
+ * Log parada action to audit trail.
+ *
+ * Reexport do helper central: ele checa o `error` do insert e grava `parada_id`
+ * dentro de `detalhes` (a tabela `logs` não tem essa coluna).
  */
-export async function logParadaAction(
-  usuarioId: string,
-  paradaId: string,
-  rotaId: string,
-  evento: string,
-  detalhes?: Record<string, unknown>,
-): Promise<void> {
-  try {
-    // `logs` não tem coluna `parada_id` (ver comentário em queries/logs.ts):
-    // mandá-la fazia o PostgREST recusar com 400 e o registro sumir sem aviso.
-    // A parada vai em `detalhes`.
-    await supabase.from('logs').insert({
-      usuario_id: usuarioId,
-      rota_id: rotaId,
-      evento,
-      detalhes: { ...(detalhes ?? {}), parada_id: paradaId },
-    });
-  } catch (error) {
-    // Log failures are not critical, just warn
-    logger.warn('Failed to log parada action:', error);
-  }
-}
+export { logParadaAction } from './logs';

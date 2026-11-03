@@ -327,8 +327,40 @@ describe('incidentes queries', () => {
       await logIncidenteAction('user-123', 'inc-1', 'test_event');
 
       expect(logger.warn).toHaveBeenCalledWith(
-        'Failed to log incidente action:',
-        expect.any(Error),
+        'Failed to log action:',
+        expect.objectContaining({
+          evento: 'test_event',
+          error: expect.any(Error),
+        }),
+      );
+    });
+
+    it('manda incidente_id dentro de detalhes, sem rota_id e sem coluna própria', async () => {
+      const chain = setupChain({ data: null, error: null });
+      mockFrom.mockImplementation(() => chain);
+
+      await logIncidenteAction('user-123', 'inc-1', 'status_alterado', {
+        novo: 'resolvido',
+      });
+
+      expect(chain.insert).toHaveBeenCalledWith({
+        usuario_id: 'user-123',
+        evento: 'status_alterado',
+        rota_id: null,
+        detalhes: { novo: 'resolvido', incidente_id: 'inc-1' },
+      });
+    });
+
+    it('avisa por logger.warn quando o banco recusa o insert (resolve com error)', async () => {
+      mockFrom.mockImplementation(() =>
+        setupChain({ data: null, error: { message: 'recusado' } }),
+      );
+
+      await logIncidenteAction('user-123', 'inc-1', 'test_event');
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ evento: 'test_event' }),
       );
     });
   });

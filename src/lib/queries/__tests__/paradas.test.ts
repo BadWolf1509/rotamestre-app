@@ -2,11 +2,14 @@
  * Tests for paradas queries
  */
 
+import { logger } from '@/lib/logger';
 import type { StatusCheckpoint } from '@/types/rota';
 
 // Mock data stores
 const mockSupabaseData: Record<string, unknown> = {};
 const mockSupabaseError: Record<string, unknown> = {};
+// Último corpo de INSERT por tabela
+const mockUltimoInsert: Record<string, unknown> = {};
 // Último corpo de UPDATE por tabela (para conferir as colunas mandadas)
 const mockUltimoUpdate: Record<string, unknown> = {};
 
@@ -14,7 +17,10 @@ const mockUltimoUpdate: Record<string, unknown> = {};
 const createChainableMock = (tableName: string) => {
   const chain: any = {
     select: jest.fn(() => chain),
-    insert: jest.fn(() => chain),
+    insert: jest.fn((dados: unknown) => {
+      mockUltimoInsert[tableName] = dados;
+      return chain;
+    }),
     update: jest.fn((dados: unknown) => {
       mockUltimoUpdate[tableName] = dados;
       return chain;
@@ -80,7 +86,7 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 // Import after mocks
-import { updateParadaStatus, type ParadaDB } from '../paradas';
+import { updateParadaStatus, logParadaAction, type ParadaDB } from '../paradas';
 
 describe('paradas queries', () => {
   beforeEach(() => {
@@ -92,6 +98,32 @@ describe('paradas queries', () => {
     for (const key of Object.keys(mockSupabaseError)) {
       delete mockSupabaseError[key];
     }
+  });
+
+  describe('logParadaAction', () => {
+    it('grava parada_id dentro de detalhes, nunca como coluna', async () => {
+      await logParadaAction('user-1', 'parada-1', 'rota-1', 'evento_x', {
+        a: 1,
+      });
+
+      expect(mockUltimoInsert.logs).toEqual({
+        usuario_id: 'user-1',
+        rota_id: 'rota-1',
+        evento: 'evento_x',
+        detalhes: { a: 1, parada_id: 'parada-1' },
+      });
+    });
+
+    it('avisa por logger.warn quando o banco recusa o insert (resolve com error)', async () => {
+      mockSupabaseError.logs = { message: 'recusado' };
+
+      await logParadaAction('user-1', 'parada-1', 'rota-1', 'evento_x');
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ evento: 'evento_x' }),
+      );
+    });
   });
 
   describe('updateParadaStatus', () => {
