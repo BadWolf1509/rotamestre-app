@@ -8,18 +8,17 @@
  */
 
 import type { IconName } from '@/types/icons';
+import type { StatusParada, StatusRota } from '@/types/rota';
 
 /**
  * Route status types used throughout the app
  */
-export type RouteStatusType =
-  'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
+export type RouteStatusType = StatusRota;
 
 /**
  * Stop status types
  */
-export type StopStatusType =
-  'pendente' | 'em_andamento' | 'concluida' | 'pulada';
+export type StopStatusType = StatusParada;
 
 /**
  * Theme color keys for status mapping

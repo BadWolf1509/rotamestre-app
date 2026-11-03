@@ -1,3 +1,5 @@
+import { STATUS_PARADA } from '@/types/rota';
+
 import {
   ROUTE_STATUS_CONFIG,
   STOP_STATUS_CONFIG,
@@ -52,3 +54,8 @@ it('coresPorStatusDaRota: nao_executada é error e em_andamento é info', () => 
 
 it('getStatusColorKey de em_andamento segue info (marcadores do mapa intactos)', () =>
   expect(getStatusColorKey('em_andamento')).toBe('info'));
+
+it('STOP_STATUS_CONFIG tem exatamente STATUS_PARADA', () =>
+  expect(Object.keys(STOP_STATUS_CONFIG).sort()).toEqual(
+    [...STATUS_PARADA].sort(),
+  ));
