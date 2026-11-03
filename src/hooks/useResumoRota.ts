@@ -27,13 +27,15 @@ function normalizeStatus(status?: string): Checkpoint['status'] {
 }
 
 export function useResumoRota(rotaIdParam?: string): UseResumoRotaResult {
-  const { userData } = useUser();
+  const { userData, loading: carregandoUsuario } = useUser();
   const [rota, setRota] = useState<RotaComUnidade | null>(null);
   const [paradas, setParadas] = useState<Checkpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadRota = useCallback(async () => {
+    // Perfil ainda chegando: segue carregando, em vez de mostrar "sem rota".
+    if (carregandoUsuario) return;
     if (!userData?.id) {
       setLoading(false);
       return;
@@ -98,7 +100,7 @@ export function useResumoRota(rotaIdParam?: string): UseResumoRotaResult {
     } finally {
       setLoading(false);
     }
-  }, [userData?.id, rotaIdParam]);
+  }, [userData?.id, carregandoUsuario, rotaIdParam]);
 
   useEffect(() => {
     loadRota();

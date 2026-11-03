@@ -24,13 +24,16 @@ interface UseHistoricoDataReturn {
 }
 
 export function useHistoricoData(): UseHistoricoDataReturn {
-  const { userData } = useUser();
+  const { userData, loading: carregandoUsuario } = useUser();
   const { showError, AlertDialog } = useAlert();
   const [rotas, setRotas] = useState<RotaHistorico[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadHistorico = useCallback(async () => {
+    // Perfil ainda chegando: segue no esqueleto. Encerrar o loading aqui
+    // mostrava "Nenhuma rota registrada" até o perfil chegar.
+    if (carregandoUsuario) return;
     if (!userData?.id) {
       setRotas([]);
       setLoading(false);
@@ -102,7 +105,7 @@ export function useHistoricoData(): UseHistoricoDataReturn {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [userData?.id, showError]);
+  }, [userData?.id, carregandoUsuario, showError]);
 
   useEffect(() => {
     loadHistorico();
