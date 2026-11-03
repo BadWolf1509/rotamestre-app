@@ -1,7 +1,10 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative, sep } from 'path';
 
-import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+import {
+  CORES_DE_STATUS_SOBRE_O_MAPA,
+  CORES_SOBRE_O_MAPA,
+} from '@/components/map/coresSobreOMapa';
 import { darkTheme, defaultTheme } from '@/utils/styles.base';
 
 const RAIZ = join(__dirname, '..', '..', '..', '..');
@@ -59,5 +62,28 @@ describe('CORES_SOBRE_O_MAPA: chaves do modo navegação', () => {
   it('contorno e apagada vêm da paleta clara', () => {
     expect(CORES_SOBRE_O_MAPA.contorno).toBe(defaultTheme.colors.gray200);
     expect(CORES_SOBRE_O_MAPA.apagada).toBe(defaultTheme.colors.gray400);
+  });
+});
+
+describe('CORES_SOBRE_O_MAPA: popup e pinos do mapa web do gestor', () => {
+  it('textoSecundario é o da paleta clara (popup tem fundo branco)', () => {
+    expect(CORES_SOBRE_O_MAPA.textoSecundario).toBe(
+      defaultTheme.colors.textSecondary,
+    );
+    expect(CORES_SOBRE_O_MAPA.textoSecundario).not.toBe(
+      darkTheme.colors.textSecondary,
+    );
+  });
+
+  it('CORES_DE_STATUS_SOBRE_O_MAPA é o recorte claro das cores de status', () => {
+    const { primary, successDark, warningDark, errorDark, gray500 } =
+      defaultTheme.colors;
+    expect(CORES_DE_STATUS_SOBRE_O_MAPA).toEqual({
+      primary,
+      successDark,
+      warningDark,
+      errorDark,
+      gray500,
+    });
   });
 });

@@ -26,7 +26,10 @@ import React, {
 } from 'react';
 import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
-import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+import {
+  CORES_DE_STATUS_SOBRE_O_MAPA,
+  CORES_SOBRE_O_MAPA,
+} from '@/components/map/coresSobreOMapa';
 import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
@@ -87,14 +90,15 @@ export function htmlBotaoVerAcoes(cor: string): string {
 }
 
 /**
- * Create popup HTML content
+ * HTML do popup. O popup do MapLibre tem fundo sempre branco: as cores vêm
+ * de CORES_SOBRE_O_MAPA, não do tema ativo (no escuro, o texto secundário
+ * #d1d5db sumia no branco).
  */
 function createPopupContent(
   parada: Parada,
   isCheckpoint: boolean,
   isPartida: boolean,
   unidadeNome: string | undefined,
-  colors: Theme['colors'],
   comAcoes: boolean,
 ): string {
   if (isCheckpoint) {
@@ -103,7 +107,7 @@ function createPopupContent(
     return `
       <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
         <strong style="font-size: 14px;">${title}</strong>
-        <p style="margin: 4px 0; font-size: 12px; color: ${colors.textSecondary};">${subtitle}</p>
+        <p style="margin: 4px 0; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${subtitle}</p>
         ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ''}
         <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       </div>
@@ -115,12 +119,12 @@ function createPopupContent(
   return `
     <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
       <strong style="font-size: 14px;">Parada ${escapeHtml(String(parada.ordem))}</strong>
-      <span style="margin-left: 8px; font-size: 12px; color: ${colors.textSecondary};">${tipoLabel}</span>
-      <p style="margin: 4px 0; font-size: 12px; color: ${colors.textSecondary};">${STATUS_LABEL[parada.status] || escapeHtml(parada.status)}</p>
+      <span style="margin-left: 8px; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${tipoLabel}</span>
+      <p style="margin: 4px 0; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${STATUS_LABEL[parada.status] || escapeHtml(parada.status)}</p>
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       ${parada.destinatario ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Destinatário:</strong> ${escapeHtml(parada.destinatario)}</p>` : ''}
       ${parada.telefone ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Telefone:</strong> ${escapeHtml(parada.telefone)}</p>` : ''}
-      ${comAcoes ? htmlBotaoVerAcoes(colors.primary) : ''}
+      ${comAcoes ? htmlBotaoVerAcoes(CORES_SOBRE_O_MAPA.marca) : ''}
     </div>
   `;
 }
@@ -245,10 +249,10 @@ export default function MapaWebMapLibre({
   polyline,
   storedRouteInfo,
 }: MapaWebMapLibreProps) {
+  // Só a UI sobre a tela (carregando) lê o tema; o que é desenhado sobre o
+  // mapa usa CORES_SOBRE_O_MAPA. Nunca ponha `theme` em deps de efeito: o
+  // proxy é NOVO a cada render (useProxifiedUnistyles).
   const { theme } = useUnistyles();
-  // O proxy de `theme` é NOVO a cada render (useProxifiedUnistyles); nas deps,
-  // ele refazia marcadores e popup em todo re-render. `theme.colors` é estável.
-  const colors = theme.colors;
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -411,15 +415,14 @@ export default function MapaWebMapLibre({
           membros.length > 1
             ? createGrupoPopupContent(
                 membros,
-                colors.textSecondary,
-                temAcoes ? colors.primary : undefined,
+                CORES_SOBRE_O_MAPA.textoSecundario,
+                temAcoes ? CORES_SOBRE_O_MAPA.marca : undefined,
               )
             : createPopupContent(
                 parada,
                 isCheckpoint,
                 isPartida,
                 unidadeNome,
-                colors,
                 temAcoes && !isCheckpoint,
               ),
         )
@@ -432,7 +435,7 @@ export default function MapaWebMapLibre({
           onSelectedMarkerPressRef.current?.(parada.id),
         );
     },
-    [unidadeNome, colors, temAcoes],
+    [unidadeNome, temAcoes],
   );
 
   // Initialize map
@@ -546,7 +549,7 @@ export default function MapaWebMapLibre({
         'line-cap': 'round',
       },
       paint: {
-        'line-color': theme.colors.primary,
+        'line-color': CORES_SOBRE_O_MAPA.marca,
         'line-width': 4,
         'line-opacity': 0.8,
       },
@@ -561,7 +564,7 @@ export default function MapaWebMapLibre({
         map.removeSource(sourceId);
       }
     };
-  }, [mapLoaded, polylineCoordinates, theme.colors.primary]);
+  }, [mapLoaded, polylineCoordinates]);
 
   // Create markers as layers to avoid drift with zoom/scaling
   useEffect(() => {
@@ -579,9 +582,10 @@ export default function MapaWebMapLibre({
       features: markerFeatures,
     };
 
-    // Centralized marker colors from statusConfig (WCAG-compliant dark variants)
+    // Cores de status da paleta clara (variantes escuras, contraste WCAG com o
+    // número branco), não do tema ativo: o estilo do mapa é sempre claro.
     const circleColorExpression = getMarkerColorExpression(
-      colors,
+      CORES_DE_STATUS_SOBRE_O_MAPA,
     ) as maplibregl.ExpressionSpecification;
 
     // Radius: checkpoints 18, regular 16, selected +4
@@ -633,7 +637,7 @@ export default function MapaWebMapLibre({
         paint: {
           'circle-color': circleColorExpression,
           'circle-radius': circleRadiusExpression,
-          'circle-stroke-color': colors.white,
+          'circle-stroke-color': CORES_SOBRE_O_MAPA.branco,
           'circle-stroke-width': circleStrokeWidthExpression,
           'circle-blur': circleBlurExpression,
         },
@@ -672,8 +676,8 @@ export default function MapaWebMapLibre({
           'text-ignore-placement': true,
         },
         paint: {
-          'text-color': colors.white,
-          'text-halo-color': withOpacity(colors.black, 0.3),
+          'text-color': CORES_SOBRE_O_MAPA.branco,
+          'text-halo-color': withOpacity(CORES_SOBRE_O_MAPA.sombra, 0.3),
           'text-halo-width': 0.8,
         },
       });
@@ -734,7 +738,6 @@ export default function MapaWebMapLibre({
   }, [
     mapLoaded,
     markerFeatures,
-    colors,
     onMarkerPress,
     openPopup,
     paradaLookup,

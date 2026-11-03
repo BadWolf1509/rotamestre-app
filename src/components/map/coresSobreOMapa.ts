@@ -24,4 +24,20 @@ export const CORES_SOBRE_O_MAPA = {
   // Modo navegação: contorno do checkpoint e pino de parada não-próxima.
   contorno: claro.gray200,
   apagada: claro.gray400,
+  // Texto secundário do popup do mapa web: o popup do MapLibre tem fundo
+  // sempre branco, e o `textSecondary` do escuro (#d1d5db) some nele.
+  textoSecundario: claro.textSecondary,
+} as const;
+
+/**
+ * Cores de status dos pinos (`getMarkerColorExpression`), da paleta clara:
+ * no escuro, as variantes mudam (primary vira #7a9bdf) e perdem o contraste
+ * com o número branco do pino.
+ */
+export const CORES_DE_STATUS_SOBRE_O_MAPA = {
+  primary: claro.primary,
+  successDark: claro.successDark,
+  warningDark: claro.warningDark,
+  errorDark: claro.errorDark,
+  gray500: claro.gray500,
 } as const;
