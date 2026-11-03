@@ -47,8 +47,6 @@ const MOTORISTA = {
   created_at: '2026-08-01T00:00:00Z',
 };
 
-const mockUpdate = jest.fn();
-
 const mockUpdateUsuario = jest.fn();
 const mockLog = jest.fn();
 jest.mock('@/lib/queries', () => ({
@@ -70,10 +68,6 @@ jest.mock('@/lib/supabase', () => ({
               ? { data: MOTORISTA, error: null }
               : { data: null, error: null },
           ),
-        update: (dados: unknown) => {
-          mockUpdate(tabela, dados);
-          return { eq: () => Promise.resolve({ error: null }) };
-        },
       };
       return consulta;
     },
