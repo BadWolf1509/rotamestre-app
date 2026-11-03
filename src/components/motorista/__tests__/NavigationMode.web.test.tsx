@@ -19,6 +19,7 @@ import { act, render } from '@testing-library/react-native';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { PREFERENCIAS_PADRAO } from '@/lib/motorista/preferenciasNavegacaoPadrao';
 
 jest.mock('expo-location', () => ({
@@ -145,8 +146,6 @@ jest.mock('maplibre-gl', () => {
   const lib = { Map: MockMap, Marker };
   return { __esModule: true, default: lib, ...lib };
 });
-
-import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 
 import { NavigationMode } from '../NavigationMode.web';
 
