@@ -58,8 +58,8 @@ For migrations claimed as ⏳ pending, confirm their effects are NOT yet in the 
 
 Flag files that:
 
-- Don't start with a `YYYYMMDD` or `YYYYMMDDhhmmss` prefix (legacy uppercase helpers like `IDENTIFY_DUPLICATE_FUNCTIONS.sql` are exempt — they're diagnostic scripts, not migrations)
-- Use `99999999999999_` prefix (the seed file `seed_test_data.sql` is the only known case — fine)
+- Don't start with a `YYYYMMDD` or `YYYYMMDDhhmmss` prefix (a guarda `database/__tests__/pastas-de-migration.test.ts` já exige nome de migration na pasta canônica)
+- Use `99999999999999_` prefix (seed de dados não fica na pasta de migrations)
 - Have collisions on the same timestamp prefix (two `20251220_*.sql` files with no `hhmmss` differentiator)
 
 ## Workflow

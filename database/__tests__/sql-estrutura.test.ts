@@ -86,7 +86,6 @@ function arquivosDaGuarda(): string[] {
   const sondas = join(raiz, 'database', 'sondas');
   const lista = readdirSync(migrations)
     .filter((f) => /^\d{14}_.*\.sql$/.test(f) && f.slice(0, 14) >= PRIMEIRA)
-    .filter((f) => !f.startsWith('99999999999999'))
     .map((f) => join(migrations, f));
   if (existsSync(sondas)) {
     lista.push(
