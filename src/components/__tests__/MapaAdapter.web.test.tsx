@@ -18,7 +18,8 @@ describe('MapaAdapter (Web)', () => {
   });
 
   it('repassa todas as props da interface ao MapaWebMapLibre', () => {
-    // Required<…>: prop nova na interface obriga este teste a citá-la.
+    // O Required<…> só documenta: os testes ficam fora do tsc. Quem garante que prop
+    // nova chega ao mapa é o spread do adapter, vigiado pela guarda interfaceUnica.
     const props: Required<MapaAdapterProps> = {
       paradas: [
         {

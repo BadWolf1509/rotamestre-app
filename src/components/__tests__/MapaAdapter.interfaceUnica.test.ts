@@ -35,4 +35,16 @@ describe('MapaAdapter: interface de props única', () => {
       );
     },
   );
+
+  it('MapaAdapter.tsx repassa as props por spread ao MapaMobile', () => {
+    expect(lerVariante('MapaAdapter.tsx')).toMatch(
+      /<MapaMobile\s+\{\.\.\.props\}\s*\/>/,
+    );
+  });
+
+  it('MapaAdapter.web.tsx repassa as props por spread ao MapaWebMapLibre', () => {
+    expect(lerVariante('MapaAdapter.web.tsx')).toMatch(
+      /<MapaWebMapLibre\s+\{\.\.\.props\}\s*\/>/,
+    );
+  });
 });

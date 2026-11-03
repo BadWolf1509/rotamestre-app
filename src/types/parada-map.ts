@@ -1,7 +1,7 @@
 /**
  * Shared type for parada/stop data used by map components.
  *
- * All map components (MapaWebMapLibre, MapaMobile, MapaRN, MapaAdapter)
+ * All map components (MapaWebMapLibre, MapaMobile, MapaAdapter e os mini-mapas)
  * use this type to avoid duplicated local interfaces and `as any` casts.
  */
 
