@@ -15,7 +15,8 @@
 2. Crie a migration com timestamp `YYYYMMDDhhmmss` em
    `database/migrations/`.
 3. Para alterações novas de schema, mantenha uma cópia byte-idêntica em
-   `supabase/migrations/`.
+   `supabase/migrations/` (cobrado por
+   `database/__tests__/pastas-de-migration.test.ts`).
 4. Revise RLS, `SECURITY DEFINER`, grants, `search_path`, índices de FKs,
    idempotência e rollback.
 5. Aplique pelo fluxo versionado do Supabase e valide o efeito no banco vivo.

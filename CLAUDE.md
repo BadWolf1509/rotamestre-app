@@ -37,7 +37,7 @@ rotamestre-app/
 │   ├── types/            # Hand-curated domain types (Rota, Parada, Usuario, ...)
 │   └── constants/        # gestorPageMeta, skipReasons, statusConfig (TTL de cache fica em `lib/cache`)
 ├── database/migrations/  # SQL migrations (YYYYMMDDhhmmss prefix; canonical dir)
-├── supabase/migrations/  # Subset for `supabase db push` / branch workflows (drift-prone — see migration-drift-auditor)
+├── supabase/migrations/  # Subset for `supabase db push` / branch workflows (drift-prone — see migration-drift-auditor; paridade com `database/migrations` cobrada por `database/__tests__/pastas-de-migration.test.ts`)
 ├── tools/scripts/        # Build helpers, visual tests, asset copy
 ├── scripts/              # Dev/release scripts (bump-android-version, coverage-report, ...)
 └── docs/                 # Human-readable docs (TESTING, deployment, plans, superpowers)
