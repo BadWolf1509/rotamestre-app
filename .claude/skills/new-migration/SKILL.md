@@ -116,6 +116,7 @@ COMMIT;
    - `npm run type-check`
    - `npm run lint`
    - Spot-check at least one affected query in `src/lib/` or `src/hooks/`.
+   - If you add a static guard for the migration (`database/__tests__/migrationNN-*.test.ts`), import `carregarMigration`, `itExisteNasDuasPastas`, `lerSonda`, `CAMINHO_DOC` etc. from `database/__tests__/_helpers/migration.ts` instead of redefining `ler`/`semComentarios`/paths.
 5. **Commit** the SQL file, `MIGRATIONS.md` update, and any consumer code changes together.
 
 ## Pitfalls

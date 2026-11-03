@@ -9,40 +9,22 @@
 // passar por ele), que a exceção do gestor ativo / sessão nula suma, que a
 // função ganhe EXECUTE para PUBLIC, anon ou authenticated, que o rollback
 // perca a devolução do texto e que as cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261026123000_observacao_do_pulo.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261026123000_sonda_migration73.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261026123000_sonda_migration73.sql');
+const { executavel } = m;
+const { rollback } = m;
 const corpoFuncao = (() => {
   const i = executavel.indexOf(
     'CREATE OR REPLACE FUNCTION public.paradas_observacao_do_gestor()',
@@ -53,11 +35,7 @@ const corpoFuncao = (() => {
 })();
 
 describe('Migration 73: observação do pulo em coluna própria', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só, com lock_timeout logo depois do BEGIN', () => {
     expect(executavel).toMatch(
@@ -189,13 +167,13 @@ describe('Migration 73: observação do pulo em coluna própria', () => {
   });
 
   it('MIGRATIONS.md registra a Migration 73 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 73: /);
     expect(doc).toContain(ARQUIVO);
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const i = doc.search(/### .*Migration 73: /);
     const entrada = i < 0 ? '' : doc.slice(i);
     const publicos = [sql, sonda, entrada].join('\n').toLowerCase();
