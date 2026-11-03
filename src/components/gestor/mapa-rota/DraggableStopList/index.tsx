@@ -20,11 +20,9 @@
 
 import React, { useEffect } from 'react';
 import { Text, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { StyleSheet, type Theme } from '@/utils/styles';
-
 
 import { EmptyState } from './EmptyState';
 import { FixedStopsList } from './FixedStopsList';
@@ -98,23 +96,23 @@ export function DraggableStopList({
   // Estado: Rota não pode ser reordenada
   if (!canReorder) {
     return (
-      <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
         <EmptyState variant="locked" />
-      </GestureHandlerRootView>
+      </View>
     );
   }
 
   // Estado: Sem paradas
   if (reorderableParadas.length === 0 && fixedParadas.length === 0) {
     return (
-      <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container}>
         <EmptyState variant="empty" />
-      </GestureHandlerRootView>
+      </View>
     );
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <View style={styles.container}>
       {/* Loading overlay */}
       <LoadingOverlay visible={isLoading} />
 
@@ -145,7 +143,7 @@ export function DraggableStopList({
         onDragEnd={handleDragEnd}
         isDesktop={isDesktop}
       />
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

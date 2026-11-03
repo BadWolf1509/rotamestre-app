@@ -13,6 +13,7 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
@@ -269,74 +270,79 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      {/* Loja ativa: um estado só para o app inteiro (a troca vale em todas
+    // Um único root view do Gesture Handler para o app inteiro: no RNGH 3 todo
+    // detector exige um acima (em __DEV__ lança erro, no release o gesto não é
+    // reconhecido), e a Nova Entrega e a vitrine não tinham nenhum.
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <SafeAreaProvider>
+        {/* Loja ativa: um estado só para o app inteiro (a troca vale em todas
           as telas). Acima do layout, cuja Sidebar e telas leem a loja. */}
-      <UnidadeAtivaProvider>
-        <NotificationDataProvider>
-          <NotificationModalProvider>
-            <ConditionalLayout>
-              <Stack
-                screenOptions={{
-                  headerStyle: {
-                    backgroundColor: theme.colors.primary,
-                  },
-                  headerTintColor: theme.colors.white,
-                  headerTitleStyle: {
-                    fontFamily: theme.typography.fontDisplay,
-                    fontSize: theme.typography.lg,
-                  },
-                  headerShown: false,
+        <UnidadeAtivaProvider>
+          <NotificationDataProvider>
+            <NotificationModalProvider>
+              <ConditionalLayout>
+                <Stack
+                  screenOptions={{
+                    headerStyle: {
+                      backgroundColor: theme.colors.primary,
+                    },
+                    headerTintColor: theme.colors.white,
+                    headerTitleStyle: {
+                      fontFamily: theme.typography.fontDisplay,
+                      fontSize: theme.typography.lg,
+                    },
+                    headerShown: false,
+                  }}
+                >
+                  <Stack.Screen
+                    name="index"
+                    options={{
+                      title: 'Rota Mestre - Início',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="auth"
+                    options={{
+                      title: 'Rota Mestre - Autenticação',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="gestor"
+                    options={{
+                      title: 'Rota Mestre - Painel do Gestor',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="motorista"
+                    options={{
+                      title: 'Rota Mestre - Motorista',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="onboarding"
+                    options={{
+                      title: 'Rota Mestre - Configuração Inicial',
+                    }}
+                  />
+                </Stack>
+              </ConditionalLayout>
+              <Toast
+                config={{
+                  success: ({ text1, text2 }) =>
+                    renderToast(theme.colors.success, text1, text2),
+                  error: ({ text1, text2 }) =>
+                    renderToast(theme.colors.error, text1, text2),
+                  info: ({ text1, text2 }) =>
+                    renderToast(theme.colors.primary, text1, text2),
+                  warning: ({ text1, text2 }) =>
+                    renderToast(theme.colors.secondary, text1, text2),
                 }}
-              >
-                <Stack.Screen
-                  name="index"
-                  options={{
-                    title: 'Rota Mestre - Início',
-                  }}
-                />
-                <Stack.Screen
-                  name="auth"
-                  options={{
-                    title: 'Rota Mestre - Autenticação',
-                  }}
-                />
-                <Stack.Screen
-                  name="gestor"
-                  options={{
-                    title: 'Rota Mestre - Painel do Gestor',
-                  }}
-                />
-                <Stack.Screen
-                  name="motorista"
-                  options={{
-                    title: 'Rota Mestre - Motorista',
-                  }}
-                />
-                <Stack.Screen
-                  name="onboarding"
-                  options={{
-                    title: 'Rota Mestre - Configuração Inicial',
-                  }}
-                />
-              </Stack>
-            </ConditionalLayout>
-            <Toast
-              config={{
-                success: ({ text1, text2 }) =>
-                  renderToast(theme.colors.success, text1, text2),
-                error: ({ text1, text2 }) =>
-                  renderToast(theme.colors.error, text1, text2),
-                info: ({ text1, text2 }) =>
-                  renderToast(theme.colors.primary, text1, text2),
-                warning: ({ text1, text2 }) =>
-                  renderToast(theme.colors.secondary, text1, text2),
-              }}
-            />
-          </NotificationModalProvider>
-        </NotificationDataProvider>
-      </UnidadeAtivaProvider>
-    </SafeAreaProvider>
+              />
+            </NotificationModalProvider>
+          </NotificationDataProvider>
+        </UnidadeAtivaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -355,6 +361,9 @@ function renderToast(
 
 // Estilos para o layout desktop com Sidebar
 const styles = StyleSheet.create((theme: Theme) => ({
+  gestureRoot: {
+    flex: 1,
+  },
   desktopLayout: {
     flex: 1,
     flexDirection: 'row',
