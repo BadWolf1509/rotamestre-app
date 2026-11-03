@@ -4,6 +4,9 @@
  * Tests CRUD operations, loading, error handling, and toast feedback.
  */
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 
 import { useToast } from '@/hooks/useToast';
@@ -1192,5 +1195,15 @@ describe('useMotoristasOperations', () => {
       });
       expect(result.current.motoristas).toHaveLength(1);
     });
+  });
+
+  it('não mantém cópia própria da regra do telefone', () => {
+    // Fonte única: a regra do telefone duplicado mora em motoristaNaLoja.
+    const fonte = readFileSync(
+      join(__dirname, '..', 'useMotoristasOperations.ts'),
+      'utf8',
+    );
+    expect(fonte).not.toContain('usuarios_motorista_telefone_unico');
+    expect(fonte).toContain("from '@/lib/gestor/motoristaNaLoja'");
   });
 });
