@@ -50,6 +50,11 @@ const MOTORISTA = {
 };
 
 const mockRpc = jest.fn();
+const mockLog = jest.fn();
+jest.mock('@/lib/queries', () => ({
+  ...jest.requireActual('@/lib/queries'),
+  logUserAction: (...a: unknown[]) => mockLog(...a),
+}));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (tabela: string) => {
@@ -126,5 +131,30 @@ describe('MotoristaPerfil: desativar com rota aberta', () => {
       expect(screen.getByText('Motorista desativado com sucesso')).toBeTruthy(),
     );
     expect(screen.queryByTestId(/^rota-aberta-/)).toBeNull();
+  });
+
+  it('desativar grava motorista_desativado', async () => {
+    mockRpc.mockResolvedValue({ data: 'pessoa', error: null });
+
+    await desativarPelaTela();
+
+    await waitFor(() =>
+      expect(mockLog).toHaveBeenCalledWith(
+        'gestor-1',
+        'motorista_desativado',
+        expect.objectContaining({ motorista_id: 'motorista-1' }),
+      ),
+    );
+  });
+
+  it('escopo vinculo desativando volta para a lista', async () => {
+    mockRpc.mockResolvedValue({ data: 'vinculo', error: null });
+
+    await desativarPelaTela();
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(
+      await screen.findByText('Motorista desativado só nesta loja'),
+    ).toBeTruthy();
   });
 });

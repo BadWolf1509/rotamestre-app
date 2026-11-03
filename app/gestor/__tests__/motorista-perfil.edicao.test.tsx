@@ -48,6 +48,14 @@ const MOTORISTA = {
 };
 
 const mockUpdate = jest.fn();
+
+const mockUpdateUsuario = jest.fn();
+const mockLog = jest.fn();
+jest.mock('@/lib/queries', () => ({
+  ...jest.requireActual('@/lib/queries'),
+  updateUsuario: (...a: unknown[]) => mockUpdateUsuario(...a),
+  logUserAction: (...a: unknown[]) => mockLog(...a),
+}));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (tabela: string) => {
@@ -82,6 +90,7 @@ async function abrirEdicao() {
 describe('MotoristaPerfil: editar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUpdateUsuario.mockResolvedValue({ success: true, data: {} });
   });
 
   it('telefone incompleto: erro no campo e nada gravado', async () => {
@@ -96,7 +105,7 @@ describe('MotoristaPerfil: editar', () => {
     expect(
       await screen.findByText('Telefone deve ter 10 ou 11 dígitos'),
     ).toBeTruthy();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateUsuario).not.toHaveBeenCalled();
   });
 
   it('nome com menos de 3 letras: erro no campo e nada gravado', async () => {
@@ -111,7 +120,7 @@ describe('MotoristaPerfil: editar', () => {
     expect(
       await screen.findByText('Nome deve ter no mínimo 3 caracteres'),
     ).toBeTruthy();
-    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockUpdateUsuario).not.toHaveBeenCalled();
   });
 
   it('nome com parênteses (já cadastrado) trocando só o telefone grava', async () => {
@@ -129,13 +138,10 @@ describe('MotoristaPerfil: editar', () => {
       fireEvent.press(screen.getByText('Salvar'));
 
       await waitFor(() =>
-        expect(mockUpdate).toHaveBeenCalledWith(
-          'usuarios',
-          expect.objectContaining({
-            nome: 'Carlos (Moto)',
-            telefone: '(11) 99988-7766',
-          }),
-        ),
+        expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-1', {
+          nome: 'Carlos (Moto)',
+          telefone: '(11) 99988-7766',
+        }),
       );
     } finally {
       MOTORISTA.nome = nomeOriginal;
@@ -152,16 +158,57 @@ describe('MotoristaPerfil: editar', () => {
     fireEvent.press(screen.getByText('Salvar'));
 
     await waitFor(() =>
-      expect(mockUpdate).toHaveBeenCalledWith(
-        'usuarios',
-        expect.objectContaining({
-          nome: 'João Silva',
-          telefone: '(11) 99988-7766',
-        }),
-      ),
+      expect(mockUpdateUsuario).toHaveBeenCalledWith('motorista-1', {
+        nome: 'João Silva',
+        telefone: '(11) 99988-7766',
+      }),
     );
     expect(
       await screen.findByText('Motorista atualizado com sucesso'),
     ).toBeTruthy();
+  });
+
+  it('telefone de outro motorista ativo mostra a mensagem específica, não "Não foi possível salvar"', async () => {
+    mockUpdateUsuario.mockResolvedValue({
+      success: false,
+      error: {
+        originalError: {
+          code: '23505',
+          message:
+            'duplicate key value violates unique constraint "usuarios_motorista_telefone_unico"',
+        },
+      },
+    });
+    await abrirEdicao();
+
+    fireEvent.changeText(
+      screen.getByLabelText('Campo de telefone do motorista'),
+      '11999887766',
+    );
+    fireEvent.press(screen.getByText('Salvar'));
+
+    expect(
+      await screen.findByText(
+        'Já existe um motorista ativo com este telefone. Confira se ele já tem conta.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('editar grava motorista_editado', async () => {
+    await abrirEdicao();
+
+    fireEvent.changeText(
+      screen.getByLabelText('Campo de telefone do motorista'),
+      '11999887766',
+    );
+    fireEvent.press(screen.getByText('Salvar'));
+
+    await waitFor(() =>
+      expect(mockLog).toHaveBeenCalledWith(
+        'gestor-1',
+        'motorista_editado',
+        expect.objectContaining({ motorista_id: 'motorista-1' }),
+      ),
+    );
   });
 });
