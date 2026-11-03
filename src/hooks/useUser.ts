@@ -3,6 +3,10 @@ import { Platform } from 'react-native';
 
 import { useAuth } from './useAuth';
 import {
+  encerrarAberturaPeloPerfilConhecido,
+  perfilDaAberturaPara,
+} from '../lib/auth/aberturaPeloPerfilConhecido';
+import {
   classificarFalhaPerfil,
   FalhaAoCarregarPerfil,
 } from '../lib/auth/falhaPerfil';
@@ -103,6 +107,8 @@ function buscarPerfilCompartilhado(
     .then((perfil) => {
       const resultado = { seq, perfil };
       if (!entrada.esquecida) {
+        // Resposta fresca: a abertura pelo perfil guardado acabou.
+        encerrarAberturaPeloPerfilConhecido(userId);
         ouvintesDePerfil.get(userId)?.forEach((ouvir) => ouvir(resultado));
       }
       return resultado;
@@ -330,6 +336,7 @@ export function useUser() {
         // login seguinte da MESMA conta seria pulado como "já em voo".
         geracaoRef.current += 1;
         carregandoDeRef.current = null;
+        encerrarAberturaPeloPerfilConhecido();
         setUserData(null);
         setPerfilIndisponivel(null);
         setLoading(false);
@@ -348,6 +355,9 @@ export function useUser() {
       // estado ainda guarda o perfil de A, que não pode responder por B.
       let exibido: Usuario | null =
         userDataRef.current?.id === userId ? userDataRef.current : null;
+      // O exibido veio da marca da abertura (perfil guardado, não cache):
+      // ele não pode esconder falha de verdade da revalidação (ver o catch).
+      let exibidoDaAbertura = false;
 
       try {
         // 1. Verificar cache primeiro (se não for refresh forçado)
@@ -367,6 +377,27 @@ export function useUser() {
             setFromCache(true);
             exibido = cached;
             // NÃO definir loading=false aqui - aguardar query Supabase validar sessão
+          }
+
+          // A abertura já seguiu pelo perfil guardado desta conta (prazo do
+          // index estourado, ver `aberturaPeloPerfilConhecido.ts`): ele vale
+          // na hora, e a busca abaixo só revalida em segundo plano — falha
+          // dela mantém o exibido (catch), resposta fresca o substitui.
+          const daAbertura = perfilDaAberturaPara(userId);
+          if (
+            daAbertura &&
+            mountedRef.current &&
+            vigente() &&
+            userIdRef.current === userId
+          ) {
+            if (!exibido) {
+              setUserData(daAbertura);
+              setFromCache(true);
+              exibido = daAbertura;
+              exibidoDaAbertura = true;
+            }
+            setPerfilIndisponivel(null);
+            setLoading(false);
           }
         }
 
@@ -415,6 +446,12 @@ export function useUser() {
           );
         } else {
           logger.error('Error loading user data:', error);
+        }
+        // Perfil guardado só responde por falha transitória: 4xx na
+        // revalidação da abertura vira 'erro', como sem a marca.
+        if (exibidoDaAbertura && !falha.transitoria) {
+          exibido = null;
+          encerrarAberturaPeloPerfilConhecido(userId);
         }
         const conhecido =
           exibido ??
