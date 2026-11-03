@@ -19,6 +19,8 @@ import { act, render } from '@testing-library/react-native';
 import * as maplibregl from 'maplibre-gl';
 import React from 'react';
 
+import { PREFERENCIAS_PADRAO } from '@/lib/motorista/preferenciasNavegacaoPadrao';
+
 jest.mock('expo-location', () => ({
   Accuracy: { BestForNavigation: 6 },
   requestForegroundPermissionsAsync: jest.fn(),
@@ -93,7 +95,8 @@ const mockLogica: { distance: number | null; [chave: string]: unknown } = {
   showSettings: false,
   setShowSettings: jest.fn(),
   routePath: [],
-  preferences: {},
+  // O hook real devolve as preferências completas (o componente não preenche mais).
+  preferences: PREFERENCIAS_PADRAO,
   realParadas: PARADAS,
   startCheckpoint: null,
   endCheckpoint: null,

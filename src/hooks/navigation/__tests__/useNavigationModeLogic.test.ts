@@ -4,6 +4,8 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 
+import { PREFERENCIAS_PADRAO } from '@/lib/motorista/preferenciasNavegacaoPadrao';
+
 import { useNavigationModeLogic } from '../useNavigationModeLogic';
 
 // Mock dependencies
@@ -22,6 +24,8 @@ jest.mock('@/services/locationTracking', () => ({
     startTracking: jest.fn().mockResolvedValue(true),
     stopTracking: jest.fn().mockResolvedValue(undefined),
     getNavigationPreferences: jest.fn().mockResolvedValue({
+      ...jest.requireActual('@/lib/motorista/preferenciasNavegacaoPadrao')
+        .PREFERENCIAS_PADRAO,
       soundAlerts: true,
       vibrationAlerts: true,
       showSpeedometer: true,
@@ -100,15 +104,7 @@ describe('useNavigationModeLogic', () => {
         }),
       );
 
-      expect(result.current.preferences).toEqual({
-        soundAlerts: true,
-        vibrationAlerts: true,
-        showSpeedometer: true,
-        preventScreenSleep: true,
-        navegarCom: 'mapa',
-        preferredNavApp: 'default',
-        proximityRadius: 50,
-      });
+      expect(result.current.preferences).toEqual(PREFERENCIAS_PADRAO);
     });
   });
 

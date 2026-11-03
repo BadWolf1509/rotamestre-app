@@ -9,6 +9,12 @@ import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { maisRecente } from '@/lib/motorista/posicaoMaisRecente';
+import {
+  PREFERENCIAS_PADRAO,
+  type ModoNavegar,
+  type NavigationState,
+  type PreferenciasDeNavegacao,
+} from '@/lib/motorista/preferenciasNavegacaoPadrao';
 import { supabase } from '@/lib/supabase';
 import {
   checkLocationPermissions,
@@ -49,61 +55,8 @@ function destinoValido(
   );
 }
 
-/** Para onde o botão "Navegar" leva: o mapa do app ou o app externo. */
-export type ModoNavegar = 'mapa' | 'externo';
-
-interface NavigationState {
-  enabled: boolean;
-  /**
-   * Destino do botão "Navegar". Substituiu `autoAdvance` ("Avanço
-   * Automático") em 05/10/2026: desde 02/10 nada avança sozinho, e o nome
-   * prometia exatamente o comportamento que gerou entregas sem foto.
-   */
-  navegarCom: ModoNavegar;
-  soundAlerts: boolean;
-  vibrationAlerts: boolean;
-  proximityRadius: number;
-  // Extended preferences from NavigationSettings
-  showSpeedometer?: boolean;
-  preventScreenSleep?: boolean;
-  // Unified preferences (migrated from configuracoes.tsx)
-  preferredNavApp?: 'waze' | 'google_maps' | 'apple_maps' | 'default';
-  // Navigation session state
-  rotaId?: string;
-  currentStopId?: string;
-  nextStopId?: string;
-  currentStopLocation?: {
-    latitude: number;
-    longitude: number;
-  };
-}
-
-/**
- * As preferências com todas as chaves obrigatórias — o que
- * `getNavigationPreferences` devolve.
- */
-export type PreferenciasDeNavegacao = NavigationState &
-  Required<
-    Pick<
-      NavigationState,
-      'showSpeedometer' | 'preventScreenSleep' | 'preferredNavApp'
-    >
-  >;
-
-/**
- * Fonte única dos padrões. Antes existiam duas cópias, em componentes
- * diferentes; elas concordavam por sorte, não por construção.
- */
-export const PREFERENCIAS_PADRAO: PreferenciasDeNavegacao = {
-  enabled: true,
-  navegarCom: 'mapa',
-  soundAlerts: true,
-  vibrationAlerts: true,
-  proximityRadius: 50,
-  showSpeedometer: true,
-  preventScreenSleep: true,
-  preferredNavApp: 'default',
-};
+export { PREFERENCIAS_PADRAO };
+export type { ModoNavegar, NavigationState, PreferenciasDeNavegacao };
 
 class LocationTrackingService {
   private static instance: LocationTrackingService;
@@ -464,17 +417,12 @@ class LocationTrackingService {
    * Preferências de navegação, SEMPRE completas.
    *
    * POR QUE O DEFAULT MORA AQUI. Isto devolvia `Partial<NavigationState>` e um
-   * `{}` quando nada estava salvo, deixando cada consumidor preencher o resto.
-   * Dois deles carregavam tabelas de default SEPARADAS
-   * (`DEFAULT_SETTINGS` em `NavigationSettings`, `DEFAULT_PREFERENCES` em
-   * `useNavigationModeLogic`) e outros não aplicavam default nenhum.
-   *
-   * O efeito foi medido em aparelho: a tela de Configurações mostrava "Avanço
-   * Automático" LIGADO — default dela — enquanto `handleNavigateToStop` lia
-   * `prefs.autoAdvance` (hoje `navegarCom`) cru, recebia `undefined` e
-   * mandava o motorista para o app de navegação externo. A navegação interna
-   * ficava inalcançável, e a tela afirmava que estava ligada. Nenhum teste
-   * pegava, porque cada lado estava certo sozinho.
+   * `{}` quando nada estava salvo, deixando cada consumidor preencher o resto,
+   * e as cópias de default que cada um carregava discordavam do serviço: a
+   * tela mostrava a opção ligada enquanto `handleNavigateToStop` lia
+   * `undefined` e mandava o motorista para o app externo.
+   * As cópias foram apagadas: tela e hook leem `PREFERENCIAS_PADRAO`
+   * (`@/lib/motorista/preferenciasNavegacaoPadrao`), a mesma tabela daqui.
    *
    * Com o default na fonte, esquecer deixa de ser possível.
    */

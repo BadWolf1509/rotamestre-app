@@ -104,10 +104,7 @@ export function NavigationMode({
     rotaId,
   });
 
-  const { proximityRadius, showSpeedometer } = {
-    proximityRadius: preferences.proximityRadius ?? 50,
-    showSpeedometer: preferences.showSpeedometer ?? true,
-  };
+  const { proximityRadius, showSpeedometer } = preferences;
 
   // Calculate map center based on user location and destination
   const mapCenter = useMemo(() => {
