@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 
-import { MiniMap } from '../MiniMap';
+import { MiniMap, TETO_ESPERA_ENQUADRAMENTO_MS } from '../MiniMap';
 
 // Mock styles
 jest.mock('@/utils/styles', () => {
@@ -701,6 +701,44 @@ describe('MiniMap', () => {
 
       const mapView = getByTestId('map-view');
       expect(mapView.props.mapStyle).toBeTruthy();
+    });
+  });
+  describe('Enquadramento', () => {
+    // O RN 0.88 tirou o InteractionManager; o enquadramento espera o JS ociosar
+    // com requestIdleCallback, mas com teto, para não ficar adiado sem prazo.
+    it('espera o JS ociosar com teto de tempo ao enquadrar as paradas', () => {
+      // O Jest não tem requestIdleCallback (o RN tem): instala um dublê.
+      const global = globalThis as unknown as Record<string, unknown>;
+      const espiao = jest.fn(
+        (_cb: () => void, _opcoes?: { timeout: number }) => 1,
+      );
+      global.requestIdleCallback = espiao;
+      global.cancelIdleCallback = jest.fn();
+      const { getByTestId, UNSAFE_root, unmount } = render(
+        <MiniMap {...defaultProps} />,
+      );
+      const mapa = getByTestId('map-view');
+      const comLayout = UNSAFE_root.findAll(
+        (no) =>
+          typeof no.type === 'string' &&
+          typeof no.props.onLayout === 'function',
+      )[0];
+
+      act(() => {
+        mapa.props.onDidFinishLoadingMap();
+        comLayout.props.onLayout({
+          nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 150 } },
+        });
+      });
+
+      expect(espiao).toHaveBeenCalledWith(expect.any(Function), {
+        timeout: TETO_ESPERA_ENQUADRAMENTO_MS,
+      });
+      expect(TETO_ESPERA_ENQUADRAMENTO_MS).toBeLessThanOrEqual(500);
+      unmount();
+      expect(global.cancelIdleCallback).toHaveBeenCalledWith(1);
+      delete global.requestIdleCallback;
+      delete global.cancelIdleCallback;
     });
   });
 });

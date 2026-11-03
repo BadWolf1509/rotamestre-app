@@ -67,6 +67,9 @@ interface Rota {
  */
 const isDeliveryStop = (p: Parada): boolean => p.is_checkpoint !== false;
 
+/** Prazo máximo (ms) para o enquadramento esperar o JS ficar ocioso. */
+export const TETO_ESPERA_ENQUADRAMENTO_MS = 300;
+
 interface MiniMapProps {
   paradas: Parada[];
   userLocation?: { latitude: number; longitude: number };
@@ -344,12 +347,16 @@ export function MiniMap({
     const heightMatches = Math.abs(actualMapHeight - expectedHeight) < 10;
 
     if (mapReady && coordsForBounds.length > 0 && heightMatches) {
-      // Espera o thread JS ficar ocioso (animações e layout concluídos). Era
-      // InteractionManager.runAfterInteractions, removido no RN 0.88; o
-      // substituto indicado pelo RN é requestIdleCallback.
-      const handle = requestIdleCallback(() => {
-        fitMapToParadas();
-      });
+      // Era InteractionManager.runAfterInteractions, removido no RN 0.88 (e que
+      // na 0.86 já era só um stub sobre setImmediate, quase imediato). O
+      // requestIdleCallback espera o JS ociosar; o timeout garante que, com GPS
+      // e realtime ocupando o JS, o enquadramento não fique adiado sem prazo.
+      const handle = requestIdleCallback(
+        () => {
+          fitMapToParadas();
+        },
+        { timeout: TETO_ESPERA_ENQUADRAMENTO_MS },
+      );
       return () => cancelIdleCallback(handle);
     }
   }, [
