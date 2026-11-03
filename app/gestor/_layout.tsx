@@ -88,7 +88,13 @@ function GestorStack() {
       style={{ paddingHorizontal: 12, paddingVertical: 4 }}
       hitSlop={8}
     >
-      <Ionicons name="menu" size={22} color={tintColor ?? theme.colors.white} />
+      {/* O ColorValue do RN 0.88 inclui number e null; o Ionicons só aceita
+          string (ou cor opaca). A navegação sempre passa string. */}
+      <Ionicons
+        name="menu"
+        size={22}
+        color={typeof tintColor === 'string' ? tintColor : theme.colors.white}
+      />
     </Pressable>
   );
 

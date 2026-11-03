@@ -448,9 +448,11 @@ export const FormularioParada = memo(function FormularioParada({
 
       <TouchableOpacity
         style={[styles.addButton, isDesktop && styles.addButtonDesktop]}
-        onPress={handleSubmit((data: ParadaFormData) => {
-          onAddParada(data, vinculoSelecionado || undefined);
-        })}
+        onPress={() =>
+          handleSubmit((data: ParadaFormData) => {
+            onAddParada(data, vinculoSelecionado || undefined);
+          })()
+        }
         disabled={isLoading}
         accessibilityLabel={
           isEditing ? 'Salvar alterações da parada' : 'Adicionar parada à lista'

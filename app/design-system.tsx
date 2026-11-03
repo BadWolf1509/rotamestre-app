@@ -35,6 +35,7 @@ import {
   Pressable,
   LayoutChangeEvent,
   TextInput,
+  type ScrollViewInstance,
 } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
@@ -1013,7 +1014,7 @@ function Playground({
 export default function DesignSystemScreen() {
   const { theme } = useUnistyles();
   const { isDesktop, isMobile } = useResponsive();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const sectionOffsets = useRef<Record<string, number>>({});
 
   // Query params para testes E2E de visual regression

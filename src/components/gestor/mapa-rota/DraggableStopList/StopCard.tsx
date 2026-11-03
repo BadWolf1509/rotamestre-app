@@ -108,10 +108,11 @@ export const StopCard = memo(function StopCard({
       }
     : undefined;
 
-  const CardContainer = animatedValue ? Animated.View : View;
-
+  // Sempre Animated.View: sem valor animado ele se comporta como View. A união
+  // `Animated.View | View` deixou de tipar no RN 0.88 (o style vira a
+  // interseção dos dois) e trocava o tipo do elemento quando o pulso começava.
   return (
-    <CardContainer
+    <Animated.View
       style={[
         isFixed ? styles.fixedItem : styles.draggableItem,
         isDesktop &&
@@ -264,7 +265,7 @@ export const StopCard = memo(function StopCard({
           />
         </View>
       )}
-    </CardContainer>
+    </Animated.View>
   );
 });
 

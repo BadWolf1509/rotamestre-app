@@ -419,7 +419,7 @@ function LoginContent() {
 
               <TouchableOpacity
                 style={styles.buttonDesktop}
-                onPress={handleSubmit(onSubmit)}
+                onPress={() => handleSubmit(onSubmit)()}
                 disabled={loading}
                 testID="auth-login-submit"
                 accessibilityLabel="Entrar"
@@ -559,7 +559,7 @@ function LoginContent() {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={handleSubmit(onSubmit)}
+            onPress={() => handleSubmit(onSubmit)()}
             disabled={loading}
             testID="auth-login-submit"
             accessibilityLabel="Entrar"
