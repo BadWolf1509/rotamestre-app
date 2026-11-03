@@ -113,6 +113,7 @@ import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
 import { logger } from '@/lib/logger';
+import { invalidarPosicoesEmVoo } from '@/lib/motorista/filaPosicoes';
 
 import locationTrackingService, {
   PREFERENCIAS_PADRAO,
@@ -123,6 +124,9 @@ describe('LocationTrackingService', () => {
   let consoleWarnSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    // A memória do fix único da fila (`fixesRegistrados`) é do módulo: sem
+    // isto, o mesmo fix de um teste anterior contaria como já registrado.
+    invalidarPosicoesEmVoo();
     jest.clearAllMocks();
     // Suppress logger output in tests
     consoleSpy = jest.spyOn(console, 'error').mockImplementation();

@@ -101,6 +101,9 @@ function lotesEnviados(): Array<Array<Record<string, unknown>>> {
 }
 
 beforeEach(() => {
+  // A memória do fix único (`fixesRegistrados`) é do módulo: sem isto, o
+  // mesmo fix de um teste anterior seria reconhecido como já registrado.
+  invalidarPosicoesEmVoo();
   jest.clearAllMocks();
   memoria.clear();
   (AsyncStorage.getItem as jest.Mock).mockImplementation(

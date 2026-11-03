@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { AppState, Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
+import { invalidarPosicoesEmVoo } from '@/lib/motorista/filaPosicoes';
 
 import { useDriverLocationBroadcast } from '../useDriverLocationBroadcast';
 
@@ -93,6 +94,9 @@ describe('useDriverLocationBroadcast', () => {
   const originalPlatformOS = Platform.OS;
 
   beforeEach(() => {
+    // A memória do fix único da fila (`fixesRegistrados`) é do módulo: sem
+    // isto, o mesmo fix de um teste anterior contaria como já registrado.
+    invalidarPosicoesEmVoo();
     jest.clearAllMocks();
     mockGetSession.mockResolvedValue({
       data: { session: { user: { id: 'user-123' } } },
@@ -874,9 +878,13 @@ describe('useDriverLocationBroadcast', () => {
       // Avancar tempo
       jest.advanceTimersByTime(11000);
 
-      // Terceiro update apos intervalo
+      // Terceiro update apos intervalo: um fix novo, com o horário dele (o
+      // mesmo fix entregue de novo não é gravado outra vez — fix único).
       await act(async () => {
-        locationCallback!(mockLocation);
+        locationCallback!({
+          ...mockLocation,
+          timestamp: mockLocation.timestamp + 11000,
+        });
       });
 
       await waitFor(() => {

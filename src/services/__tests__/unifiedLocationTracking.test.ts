@@ -6,6 +6,7 @@
 import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
+import { invalidarPosicoesEmVoo } from '@/lib/motorista/filaPosicoes';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -114,6 +115,9 @@ describe('unifiedLocationTracking', () => {
   };
 
   beforeEach(() => {
+    // A memória do fix único da fila (`fixesRegistrados`) é do módulo: sem
+    // isto, o mesmo fix de um teste anterior contaria como já registrado.
+    invalidarPosicoesEmVoo();
     jest.clearAllMocks();
     mockGetItem.mockReset();
     mockSetItem.mockReset();
@@ -415,11 +419,15 @@ describe('unifiedLocationTracking', () => {
 
     it('remove o contexto mesmo quando parar a task falha (a task não segue com contexto de quem saiu)', async () => {
       mockHasStartedLocationUpdates.mockResolvedValueOnce(true);
-      mockStopLocationUpdates.mockRejectedValueOnce(new Error('falha ao parar'));
+      mockStopLocationUpdates.mockRejectedValueOnce(
+        new Error('falha ao parar'),
+      );
 
       await expect(stopBackgroundTracking()).resolves.toBeUndefined();
 
-      expect(mockRemoveItem).toHaveBeenCalledWith('@rotamestre:tracking_context');
+      expect(mockRemoveItem).toHaveBeenCalledWith(
+        '@rotamestre:tracking_context',
+      );
     });
 
     it('deve apenas remover contexto se não está rastreando', async () => {
@@ -728,6 +736,9 @@ describe('unifiedLocationTracking', () => {
     let rotaNoBanco: { data: unknown; error: unknown };
     let selectsDaRota: number;
 
+    // Cada chamada é um fix NOVO (outro horário): o mesmo fix entregue de
+    // novo não é gravado outra vez (fix único em `filaPosicoes`).
+    let fixesEntregues = 0;
     const umaPosicao = () =>
       tarefaDeSegundoPlano({
         data: {
@@ -740,7 +751,7 @@ describe('unifiedLocationTracking', () => {
                 speed: null,
                 heading: null,
               },
-              timestamp: Date.UTC(2026, 9, 24, 12, 0),
+              timestamp: Date.UTC(2026, 9, 24, 12, 0) + 1000 * fixesEntregues++,
             },
           ],
         },
