@@ -69,6 +69,15 @@
  * - **Voo único.** Duas posições quase juntas não enviam o mesmo lote duas
  *   vezes: o envio em andamento é compartilhado, e toda leitura-escrita do
  *   AsyncStorage passa por uma fila em série.
+ * - **Fix único.** O mesmo fix do GPS (mesma conta, rota, horário e
+ *   coordenada) é gravado uma vez só, venha de quantos chamadores vier: a
+ *   task, o hook e a navegação assinam o GPS cada um por conta própria, e o
+ *   Android entrega o mesmo `Location` a todos. Três barreiras, porque cada
+ *   uma cobre um caminho — `fixesRegistrados` (o 2º chamador pega o destino
+ *   do 1º, inclusive com o 1º ainda no ar), `guardar` (fila que já tem o fix
+ *   não o recebe de novo) e o envio (lote sem cópia, para filas gravadas antes
+ *   desta regra). Medido em 27 e 30/10/2026: as cópias saíam em transações
+ *   consecutivas e, depois de um período sem rede, dentro do mesmo lote.
  *
  * LIMITES CONHECIDOS (aceitos para GPS: custam pontos repetidos ou uma
  * posição, nunca a fila):
@@ -81,6 +90,9 @@
  *   headless ainda enviando um lote. Risco baixo: no pior caso, uma posição
  *   sobrescrita no ler-modificar-gravar (perdida) ou o mesmo lote inserido
  *   duas vezes (o `remover` relê e filtra por identidade, então não perde).
+ *   O fix único tem o mesmo limite: `fixesRegistrados` é memória do
+ *   contexto; entre contextos só a barreira da fila (offline) vale, e com rede
+ *   os dois contextos podem gravar o mesmo fix.
  * - **Timeout com o insert já gravado.** Em sinal fraco, o lote pode chegar ao
  *   banco e a resposta não voltar: ele fica na fila e sobe de novo. A tabela
  *   não tem chave natural para deduplicar — o trajeto ganha pontos repetidos,
@@ -282,6 +294,7 @@ let geracao = 0;
  */
 export function invalidarPosicoesEmVoo(): void {
   geracao++;
+  fixesRegistrados.clear();
 }
 
 let cadeia: Promise<unknown> = Promise.resolve();
@@ -453,6 +466,11 @@ function guardar(
         ? atual
         : { userId: linha.motorista_id, posicoes: [], estourou: false };
 
+    // O mesmo fix já guardado por outro chamador (ou outro contexto JS):
+    // está na fila, e uma segunda cópia subiria no mesmo lote.
+    const chave = chaveDa(linha);
+    if (registro.posicoes.some((p) => chaveDa(p) === chave)) return true;
+
     registro.posicoes.push(
       tentativasIniciais > 0
         ? { ...linha, tentativas: tentativasIniciais }
@@ -491,8 +509,19 @@ function descartarFilaDeOutraConta(
   });
 }
 
-const chaveDa = (p: PosicaoGuardada) =>
+const chaveDa = (p: LinhaGuardada) =>
   `${p.rota_id}|${p.timestamp}|${p.latitude}|${p.longitude}`;
+
+/** O lote sem cópia do mesmo fix (a primeira fica). */
+function semCopias(lote: PosicaoGuardada[]): PosicaoGuardada[] {
+  const vistas = new Set<string>();
+  return lote.filter((p) => {
+    const chave = chaveDa(p);
+    if (vistas.has(chave)) return false;
+    vistas.add(chave);
+    return true;
+  });
+}
 
 /**
  * Tira da fila as posições do lote. Por identidade, não por posição na
@@ -636,7 +665,9 @@ async function enviarFila(
     if (sequencia.length === 0) return false;
     const rota = sequencia[0].rota_id;
     const lote = sequencia.slice(0, limite.get(rota) ?? sequencia.length);
-    const { error } = await inserir(lote.map(paraLinha));
+    // Sem cópia do mesmo fix: a fila gravada antes da barreira do `guardar`
+    // pode tê-la. O `remover` tira as duas, porque tira por identidade.
+    const { error } = await inserir(semCopias(lote).map(paraLinha));
     if (error && isNetworkError(error)) {
       // Sem rede, nenhum outro lote subiria: para e tenta na próxima posição.
       logarFalha(rotulo, error);
@@ -727,26 +758,76 @@ async function esvaziarFila(
 // ---------------------------------------------------------------------------
 
 /**
+ * Fixes registrados por último neste contexto JS, com o destino de cada um
+ * (a promessa, para o 2º chamador do mesmo fix esperar o 1º em vez de gravar
+ * de novo). Chave: conta + `chaveDa`.
+ *
+ * POR QUE NA MEMÓRIA, E LIMITADA. O mesmo fix chega junto (o Android entrega
+ * o `Location` aos assinantes ao mesmo tempo) ou logo depois (a task pode
+ * reentregar a última posição): basta lembrar os últimos `MEMORIA_FIXES`.
+ * Fix 'perdida' sai da memória ao terminar, para uma nova entrega dele poder
+ * tentar de novo. Esvaziada pelo logout (`invalidarPosicoesEmVoo`).
+ */
+const MEMORIA_FIXES = 100;
+const fixesRegistrados = new Map<string, Promise<DestinoDaPosicao>>();
+
+/**
  * Grava uma posição em `motorista_locations`, guardando no aparelho se faltar
  * rede. `capturadaEm` é o epoch (ms) do fix do GPS; `rotulo` é a mensagem de
  * log de quem chama (falha de rede vira warn; o resto, error).
+ *
+ * O mesmo fix registrado de novo (outro chamador, ou reentrega) não é gravado
+ * outra vez: devolve o destino do primeiro registro (ver "Fix único").
  */
-export async function registrarPosicao(
+export function registrarPosicao(
   posicao: Posicao,
   capturadaEm: number,
   rotulo: string,
 ): Promise<DestinoDaPosicao> {
   // Antes de qualquer espera: o logout no meio do insert invalida esta.
   const geracaoDaPosicao = geracao;
+  let linha: LinhaGuardada;
   try {
-    const linha = comHorario(posicao, capturadaEm);
+    linha = comHorario(posicao, capturadaEm);
+  } catch (error) {
+    logarFalha(rotulo, error);
+    return Promise.resolve('perdida');
+  }
+
+  // Síncrono da consulta até o registro: dois chamadores do mesmo fix no
+  // mesmo instante não passam os dois.
+  const chave = `${linha.motorista_id}|${chaveDa(linha)}`;
+  const anterior = fixesRegistrados.get(chave);
+  if (anterior) return anterior;
+
+  const promessa = gravarFix(linha, geracaoDaPosicao, rotulo);
+  fixesRegistrados.set(chave, promessa);
+  if (fixesRegistrados.size > MEMORIA_FIXES) {
+    const maisAntigo = fixesRegistrados.keys().next().value;
+    if (maisAntigo !== undefined) fixesRegistrados.delete(maisAntigo);
+  }
+  // `gravarFix` não rejeita (o catch dele devolve 'perdida').
+  void promessa.then((destino) => {
+    if (destino === 'perdida' && fixesRegistrados.get(chave) === promessa) {
+      fixesRegistrados.delete(chave);
+    }
+  });
+  return promessa;
+}
+
+async function gravarFix(
+  linha: LinhaGuardada,
+  geracaoDaPosicao: number,
+  rotulo: string,
+): Promise<DestinoDaPosicao> {
+  try {
     const fila = await emSerie(ler);
     const temFila =
-      fila?.userId === posicao.motorista_id && fila.posicoes.length > 0;
+      fila?.userId === linha.motorista_id && fila.posicoes.length > 0;
 
     if (!temFila && !envioEmVoo) {
       if (fila) {
-        await descartarFilaDeOutraConta(posicao.motorista_id, geracaoDaPosicao);
+        await descartarFilaDeOutraConta(linha.motorista_id, geracaoDaPosicao);
       }
       const { error } = await inserir(linha);
       if (!error) return 'enviada';
@@ -763,7 +844,7 @@ export async function registrarPosicao(
     // Sem gravar a nova, não envia a fila: com o AsyncStorage recusando, a
     // remoção do lote também falharia e o mesmo lote subiria de novo.
     if (!(await guardar(linha, geracaoDaPosicao))) return 'perdida';
-    const esvaziou = await esvaziarFila(posicao.motorista_id, rotulo);
+    const esvaziou = await esvaziarFila(linha.motorista_id, rotulo);
     return esvaziou ? 'enviada' : 'na_fila';
   } catch (error) {
     logarFalha(rotulo, error);

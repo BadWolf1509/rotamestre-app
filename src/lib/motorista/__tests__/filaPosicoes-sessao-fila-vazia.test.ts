@@ -7,7 +7,11 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { registrarPosicao, type Posicao } from '../filaPosicoes';
+import {
+  invalidarPosicoesEmVoo,
+  registrarPosicao,
+  type Posicao,
+} from '../filaPosicoes';
 
 jest.mock('@/lib/logger');
 
@@ -43,6 +47,9 @@ function filaGuardada() {
 }
 
 beforeEach(() => {
+  // A memória do fix único (`fixesRegistrados`) é do módulo: sem isto, o
+  // mesmo fix de um teste anterior seria reconhecido como já registrado.
+  invalidarPosicoesEmVoo();
   jest.clearAllMocks();
   memoria.clear();
   (AsyncStorage.getItem as jest.Mock).mockImplementation(
