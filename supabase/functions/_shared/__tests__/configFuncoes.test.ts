@@ -53,11 +53,11 @@ describe('funções Google mortas', () => {
   );
 
   it('o app não chama google-distance-matrix', () => {
-    const web = readFileSync(
-      join(pastaFuncoes, '..', '..', 'src', 'lib', 'google.web.ts'),
+    const google = readFileSync(
+      join(pastaFuncoes, '..', '..', 'src', 'lib', 'google.ts'),
       'utf8',
     );
-    expect(web).not.toContain('google-distance-matrix');
+    expect(google).not.toContain('google-distance-matrix');
   });
 
   it('deploy.sh não volta (publicava criar-motorista com verify_jwt e sem --project-ref)', () => {

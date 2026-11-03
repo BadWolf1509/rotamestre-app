@@ -8,6 +8,7 @@ import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
+import { logRotaAction } from '@/lib/queries/logs';
 import { supabase } from '@/lib/supabase';
 import { Coordenadas } from '@/types/endereco';
 
@@ -417,14 +418,10 @@ export async function removerParadaERecalcular(
 
     // 4. Registrar log (opcional)
     if (usuarioId) {
-      await supabase.from('logs').insert({
-        usuario_id: usuarioId,
-        rota_id: rotaId,
-        evento: 'parada_removida',
-        detalhes: {
-          parada_id: paradaId,
-          paradas_restantes: paradasRestantes.length,
-        },
+      // Checa o `error` do insert (o supabase-js devolve em vez de lançar)
+      await logRotaAction(usuarioId, rotaId, 'parada_removida', {
+        parada_id: paradaId,
+        paradas_restantes: paradasRestantes.length,
       });
     }
 

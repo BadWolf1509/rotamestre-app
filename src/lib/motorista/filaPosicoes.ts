@@ -82,7 +82,7 @@
  * LIMITES CONHECIDOS (aceitos para GPS: custam pontos repetidos ou uma
  * posição, nunca a fila):
  *
- * - **A garantia do voo único é por contexto JS.** `cadeia` e `envioEmVoo`
+ * - **A garantia do voo único é por contexto JS.** `emSerie` e `envioEmVoo`
  *   vivem em memória. Com o app vivo (primeiro ou segundo plano), a task, o
  *   hook e a navegação rodam no MESMO contexto e ficam serializados. A task só
  *   roda num contexto headless separado quando o processo do app não está de
@@ -103,9 +103,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lerSessao } from '@/lib/auth/sessao';
 import { lerUltimoUsuario } from '@/lib/auth/ultimoUsuario';
 import { isNetworkError } from '@/lib/errorMapping';
-import { lerJsonParaGravar } from '@/lib/leituraLocal';
+import { lerJsonParaExibir, lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { criarSerie } from '@/lib/serie';
 import { supabase } from '@/lib/supabase';
 
 import { motoristaDoContexto } from './contextoRastreamento';
@@ -297,24 +298,16 @@ export function invalidarPosicoesEmVoo(): void {
   fixesRegistrados.clear();
 }
 
-let cadeia: Promise<unknown> = Promise.resolve();
-
 /** Executa `fn` depois de toda leitura-escrita anterior da fila. */
-function emSerie<T>(fn: () => Promise<T>): Promise<T> {
-  const resultado = cadeia.then(fn, fn);
-  cadeia = resultado.catch(() => undefined);
-  return resultado;
-}
+const emSerie = criarSerie();
 
 /** Só para ler: na falha devolve null. Quem regrava usa `lerParaGravar`. */
-async function ler(): Promise<Registro | null> {
-  try {
-    const bruto = await AsyncStorage.getItem(CHAVE_FILA_POSICOES);
-    return bruto ? (JSON.parse(bruto) as Registro) : null;
-  } catch (error) {
-    logger.warn('[FilaPosicoes] Falha ao ler a fila de posições', error);
-    return null;
-  }
+function ler(): Promise<Registro | null> {
+  return lerJsonParaExibir<Registro | null>(
+    CHAVE_FILA_POSICOES,
+    null,
+    '[FilaPosicoes] Falha ao ler a fila de posições',
+  );
 }
 
 /**

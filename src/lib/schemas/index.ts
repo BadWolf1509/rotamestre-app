@@ -29,7 +29,7 @@ export {
 } from './basic';
 
 // Phone schemas (re-exported from phone module)
-export { phoneSchema, optionalPhoneSchema, telefoneSchema } from '../phone';
+export { phoneSchema, optionalPhoneSchema } from '../phone';
 
 // Auth schemas
 export {

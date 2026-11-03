@@ -21,7 +21,11 @@ jest.mock('../logger', () => ({
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { FalhaDeLeituraLocal, lerJsonParaGravar } from '../leituraLocal';
+import {
+  FalhaDeLeituraLocal,
+  lerJsonParaExibir,
+  lerJsonParaGravar,
+} from '../leituraLocal';
 import { logger } from '../logger';
 
 const CHAVE = '@rotamestre:qualquer_fila';
@@ -69,5 +73,43 @@ describe('lerJsonParaGravar', () => {
     await expect(lerJsonParaGravar(CHAVE, [])).rejects.toBeInstanceOf(
       FalhaDeLeituraLocal,
     );
+  });
+});
+
+describe('lerJsonParaExibir', () => {
+  it('devolve o JSON guardado', async () => {
+    mockDisco[CHAVE] = JSON.stringify([{ id: 1 }]);
+    await expect(lerJsonParaExibir(CHAVE, [], 'x')).resolves.toEqual([
+      { id: 1 },
+    ]);
+  });
+
+  it('sem nada guardado, devolve o vazio', async () => {
+    await expect(lerJsonParaExibir(CHAVE, [], 'x')).resolves.toEqual([]);
+  });
+
+  it('JSON "null" guardado devolve o vazio', async () => {
+    mockDisco[CHAVE] = 'null';
+    await expect(lerJsonParaExibir(CHAVE, [], 'x')).resolves.toEqual([]);
+  });
+
+  it('getItem lança → devolve o vazio, avisa com o texto dado e não grava', async () => {
+    const erro = new Error('Row too big to fit into CursorWindow');
+    mockFalhaNaLeitura = erro;
+
+    await expect(lerJsonParaExibir(CHAVE, [], 'x')).resolves.toEqual([]);
+
+    expect(logger.warn).toHaveBeenCalledWith('x', erro);
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  });
+
+  it('JSON inválido → devolve o vazio e não grava quarentena', async () => {
+    mockDisco[CHAVE] = '{quebrado';
+
+    await expect(lerJsonParaExibir(CHAVE, [], 'x')).resolves.toEqual([]);
+
+    expect(logger.warn).toHaveBeenCalledWith('x', expect.any(SyntaxError));
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    expect(mockDisco[`${CHAVE}:quarentena`]).toBeUndefined();
   });
 });
