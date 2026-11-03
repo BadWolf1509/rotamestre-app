@@ -143,8 +143,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 }));
 
-// Export default para facilitar import
-
 /**
  * ============================================
  * EXEMPLO DE USO

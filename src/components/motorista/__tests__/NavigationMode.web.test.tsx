@@ -289,6 +289,8 @@ describe('NavigationMode.web – tema escuro', () => {
     c.primary,
   ].filter((valor: string) => !PALETA.includes(valor));
 
+  let espiaoTema: jest.SpyInstance;
+
   const original = {
     routePath: mockLogica.routePath,
     startCheckpoint: mockLogica.startCheckpoint,
@@ -300,7 +302,7 @@ describe('NavigationMode.web – tema escuro', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMapa.handlers.clear();
-    jest
+    espiaoTema = jest
       .spyOn(estilos, 'useUnistyles')
       .mockReturnValue({ theme: escuro } as never);
     // Cobre todos os desenhos: checkpoints, pino não-próximo e seta do motorista.
@@ -316,7 +318,7 @@ describe('NavigationMode.web – tema escuro', () => {
 
   afterEach(() => {
     Object.assign(mockLogica, original);
-    jest.restoreAllMocks();
+    espiaoTema.mockRestore();
   });
 
   it('os tokens escuros de fato diferem da paleta (a asserção não é vazia)', () => {

@@ -145,5 +145,3 @@ function DataTableInner<T extends DataTableItem = DataTableItem>({
 
 // Export memoized component
 export const DataTable = memo(DataTableInner) as typeof DataTableInner;
-
-// Default export for backwards compatibility

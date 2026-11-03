@@ -102,7 +102,9 @@ jest.mock('maplibre-gl', () => {
 
 import MapaWebMapLibre from '../MapaWebMapLibre';
 
-// Partida (is_checkpoint false, a primeira), duas paradas e a chegada.
+// Partida (a primeira), duas paradas e a chegada. Neste componente a semântica
+// de `is_checkpoint` é invertida: `false` marca partida/chegada e `true` marca
+// parada comum.
 const PARADAS = [
   {
     id: 'partida',

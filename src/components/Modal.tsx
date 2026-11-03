@@ -477,8 +477,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
 }));
 
-// Export default para facilitar import
-
 /**
  * ============================================
  * EXEMPLOS DE USO
