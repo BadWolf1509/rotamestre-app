@@ -33,7 +33,7 @@ import {
 import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
-import { useRouteDirections, type RouteInfo } from '@/hooks/useRouteDirections';
+import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
@@ -46,29 +46,16 @@ import {
   installOpenFreeMapMissingImageHandler,
 } from '@/lib/openFreeMapStyle';
 import { escapeHtml } from '@/lib/utils';
-import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
+import type {
+  MapaAdapterProps,
+  ParadaMapItem as Parada,
+} from '@/types/parada-map';
 import { withOpacity } from '@/utils/color';
 import { getMarkerColorExpression } from '@/utils/mapMarkerColors';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // maplibre-gl v6 precisa do web worker servido de public/ (ver maplibreWorker.ts).
 configureMaplibreWorker();
-
-interface MapaWebMapLibreProps {
-  paradas: Parada[];
-  selectedParadaId?: string | null;
-  onMarkerPress?: (paradaId: string) => void;
-  /** Clique no pino já selecionado, ou no "Ver ações" do popup. */
-  onSelectedMarkerPress?: (paradaId: string) => void;
-  onMapPress?: () => void;
-  statusFilter?: StatusFilter;
-  rotaId?: string;
-  motoristaNome?: string;
-  showMotorista?: boolean;
-  unidadeNome?: string;
-  polyline?: string | null;
-  storedRouteInfo?: RouteInfo | null;
-}
 
 // Default center (Brasília)
 const DEFAULT_CENTER: [number, number] = [-47.8822, -15.7942];
@@ -248,7 +235,7 @@ export default function MapaWebMapLibre({
   unidadeNome,
   polyline,
   storedRouteInfo,
-}: MapaWebMapLibreProps) {
+}: MapaAdapterProps) {
   // Só a UI sobre a tela (carregando) lê o tema; o que é desenhado sobre o
   // mapa usa CORES_SOBRE_O_MAPA. Nunca ponha `theme` em deps de efeito: o
   // proxy é NOVO a cada render (useProxifiedUnistyles).

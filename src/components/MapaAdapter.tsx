@@ -9,61 +9,15 @@
 
 import React from 'react';
 
-import type { RouteInfo } from '@/hooks/useRouteDirections';
-import type { ParadaMapItem, StatusFilter } from '@/types/parada-map';
+import type { MapaAdapterProps } from '@/types/parada-map';
 
 import { MapaMobile } from './MapaMobile';
 
-interface MapaAdapterProps {
-  paradas: ParadaMapItem[];
-  selectedParadaId?: string | null;
-  onMarkerPress?: (paradaId: string) => void;
-  /** Toque no pino já selecionado: abre as ações da parada. */
-  onSelectedMarkerPress?: (paradaId: string) => void;
-  onMapPress?: () => void;
-  onMarkerLongPress?: (paradaId: string) => void;
-  statusFilter?: StatusFilter;
-  rotaId?: string;
-  motoristaNome?: string;
-  showMotorista?: boolean;
-  unidadeNome?: string;
-  polyline?: string | null;
-  storedRouteInfo?: RouteInfo | null;
-}
-
 /**
- * MapaAdapter para Mobile - usa MapLibre Native
+ * MapaAdapter para Mobile - usa MapLibre Native.
+ * As props vão por spread: prop nova de MapaAdapterProps chega ao mapa sem
+ * edição aqui.
  */
-export function MapaAdapter({
-  paradas,
-  selectedParadaId,
-  onMarkerPress,
-  onSelectedMarkerPress,
-  onMapPress,
-  onMarkerLongPress,
-  statusFilter,
-  rotaId,
-  motoristaNome,
-  showMotorista,
-  unidadeNome,
-  polyline,
-  storedRouteInfo,
-}: MapaAdapterProps) {
-  return (
-    <MapaMobile
-      paradas={paradas}
-      selectedParadaId={selectedParadaId}
-      onMarkerPress={onMarkerPress}
-      onSelectedMarkerPress={onSelectedMarkerPress}
-      onMapPress={onMapPress}
-      onMarkerLongPress={onMarkerLongPress}
-      statusFilter={statusFilter}
-      rotaId={rotaId}
-      motoristaNome={motoristaNome}
-      showMotorista={showMotorista}
-      unidadeNome={unidadeNome}
-      polyline={polyline}
-      storedRouteInfo={storedRouteInfo}
-    />
-  );
+export function MapaAdapter(props: MapaAdapterProps) {
+  return <MapaMobile {...props} />;
 }
