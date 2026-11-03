@@ -35,7 +35,7 @@ import { paradasDaVisita } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-import { toParada, toParadaData } from '@/utils/typeMappers';
+import { toParada } from '@/utils/typeMappers';
 
 export default function CheckpointsMotorista() {
   const { theme } = useUnistyles();
@@ -58,9 +58,6 @@ export default function CheckpointsMotorista() {
 
   // Estados locais de UI apenas
   const [refreshing, setRefreshing] = useState(false);
-  const [concluindoParada, _setConcluindoParada] = useState<string | null>(
-    null,
-  );
   const [pulandoParada, setPulandoParada] = useState<string | null>(null);
   const [retomandoParada, setRetomandoParada] = useState<string | null>(null);
   const [showIncidentWizard, setShowIncidentWizard] = useState(false);
@@ -73,10 +70,20 @@ export default function CheckpointsMotorista() {
   // Estado para o modal de motivo de skip
   const [skipModalParada, setSkipModalParada] = useState<Parada | null>(null);
 
-  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada)
-  // e converter para tipo Parada do ParadaCard
-  const paradas = useMemo(
-    () => paradasContext.filter((p) => p.is_checkpoint !== false).map(toParada),
+  // Filtrar apenas paradas reais (excluindo checkpoints de partida/chegada).
+  // `paradasReais` é o ParadaData do contexto; `paradas` é a versão do card.
+  const paradasReais = useMemo(
+    () => paradasContext.filter((p) => p.is_checkpoint !== false),
+    [paradasContext],
+  );
+  const paradas = useMemo(() => paradasReais.map(toParada), [paradasReais]);
+
+  // O card devolve `Parada`, que não carrega todos os campos do ParadaData
+  // (`foto_url`, `updated_at`...). Concluir e pular buscam pelo id a parada
+  // do contexto, em vez de reconstruí-la a partir do card.
+  const paradaDoContexto = useCallback(
+    (id: string): ParadaData | null =>
+      paradasContext.find((p) => p.id === id) ?? null,
     [paradasContext],
   );
 
@@ -110,9 +117,10 @@ export default function CheckpointsMotorista() {
         return;
       }
 
-      sequencia.iniciar(toParadaData(parada));
+      const daRota = paradaDoContexto(parada.id);
+      if (daRota) sequencia.iniciar(daRota);
     },
-    [route?.status, showWarning, sequencia],
+    [route?.status, showWarning, sequencia, paradaDoContexto],
   );
 
   // O StopCompletionFlow chama onSuccess e onClose no mesmo tique; esperar o
@@ -125,8 +133,10 @@ export default function CheckpointsMotorista() {
 
   // Reabre o fluxo de conclusão que a recriação da Activity interrompeu.
   // Ver `src/hooks/motorista/useRestaurarConclusaoEmVoo.ts`.
-  useRestaurarConclusaoEmVoo(route, paradas, (parada) => {
-    sequencia.iniciar(toParadaData(parada));
+  // Recebe as paradas do contexto: a conferência do marcador
+  // (`paradaParaReabrir`) devolve a própria parada da rota, sem conversão.
+  useRestaurarConclusaoEmVoo(route, paradasReais, (parada) => {
+    sequencia.iniciar(parada);
   });
 
   // Reabre o wizard de incidente interrompido. Mesma razão do de cima: o
@@ -141,6 +151,12 @@ export default function CheckpointsMotorista() {
     setSkipModalParada(parada);
   }, []);
 
+  // A parada a pular vem do contexto; se ela sumiu dele (rota recarregada,
+  // parada removida pelo gestor), o modal não monta.
+  const paradaParaPular = skipModalParada
+    ? paradaDoContexto(skipModalParada.id)
+    : null;
+
   // Confirma o skip com motivo estruturado (usa contexto para promover próxima parada)
   const confirmarSkip = useCallback(
     async (
@@ -148,14 +164,14 @@ export default function CheckpointsMotorista() {
       observacoes?: string,
       incluirOutros?: boolean,
     ) => {
-      const parada = skipModalParada;
-      if (!parada) return;
+      const parada = paradaParaPular;
       setSkipModalParada(null);
+      if (!parada) return;
 
       setPulandoParada(parada.id);
       try {
         const { falha } = await pularVisita(
-          toParadaData(parada),
+          parada,
           motivo,
           observacoes,
           incluirOutros,
@@ -165,7 +181,7 @@ export default function CheckpointsMotorista() {
         setPulandoParada(null);
       }
     },
-    [skipModalParada, pularVisita],
+    [paradaParaPular, pularVisita],
   );
 
   const retomarParada = useCallback(
@@ -291,7 +307,6 @@ export default function CheckpointsMotorista() {
         onRetomar={retomarParada}
         onNavegar={handleNavegar}
         onReportar={handleReportar}
-        concluindo={concluindoParada === item.id}
         pulando={pulandoParada === item.id}
         retomando={retomandoParada === item.id}
         isProxima={item.id === proximaParadaId}
@@ -299,7 +314,6 @@ export default function CheckpointsMotorista() {
       />
     ),
     [
-      concluindoParada,
       pulandoParada,
       retomandoParada,
       route?.status,
@@ -582,13 +596,13 @@ export default function CheckpointsMotorista() {
         />
 
         {/* Modal de Motivo de Skip */}
-        {skipModalParada && (
+        {paradaParaPular && (
           <SkipReasonModal
-            visible={!!skipModalParada}
-            parada={toParadaData(skipModalParada)}
+            visible
+            parada={paradaParaPular}
             outrosServicosNoLocal={paradasDaVisita(
               paradasContext,
-              toParadaData(skipModalParada),
+              paradaParaPular,
             ).slice(1)}
             onConfirm={confirmarSkip}
             onCancel={() => setSkipModalParada(null)}
