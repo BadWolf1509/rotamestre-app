@@ -4,30 +4,21 @@
 // impede que a migration perca, numa edição, o filtro pela loja da rota, que o
 // ramo antigo (vínculo do motorista) volte a valer para incidente COM rota, e
 // que as duas cópias (database/ e supabase/) divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261023120000_incidentes_visiveis_so_na_loja_da_rota.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261023120000_sonda_migration42.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) => (existsSync(p) ? readFileSync(p, 'utf8') : '');
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 
 // Extrai o conteúdo do parêntese que abre logo depois de `palavra`, a partir
 // de `inicio`, casando parênteses (as expressões têm subconsultas aninhadas).
@@ -94,11 +85,7 @@ function confereExpressao(expr: string) {
 }
 
 describe('Migration 42: incidentes visíveis só na loja da rota', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('incidentes_select: só authenticated, filtrando pela loja da rota', () => {
     const p = alterPolicy('incidentes_select');
@@ -144,7 +131,7 @@ describe('Migration 42: incidentes visíveis só na loja da rota', () => {
   });
 
   it('a sonda existe, testa como authenticated, não apaga nada e termina desfeita', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261023120000_sonda_migration42.sql');
     expect(sonda).not.toBe('');
     const sondaExec = semComentarios(sonda);
     expect(sondaExec).toMatch(/SET LOCAL ROLE authenticated/);
@@ -159,7 +146,7 @@ describe('Migration 42: incidentes visíveis só na loja da rota', () => {
   });
 
   it('está documentada como pendente no MIGRATIONS.md', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     // ⏳ a aplicar ou ✅ aplicada: a entrada existe nos dois estados.
     expect(doc).toMatch(/### (⏳|✅) Migration 42:/);
     expect(doc).toContain(ARQUIVO);

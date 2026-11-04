@@ -6,31 +6,21 @@
 // ativo (e não só a do vínculo principal); com rota, só a loja da rota; o
 // texto por `descricao`; o SOS nunca derrubando o INSERT do log; e a RPC que
 // diz ao app quantos gestores receberam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024100000_sos_chega_a_um_gestor.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024100000_sonda_migration46.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 function corpoDaFuncao(nome: string): string {
@@ -48,11 +38,7 @@ function cabecalhoDaFuncao(nome: string): string {
 }
 
 describe('Migration 46: o SOS chega a um gestor, ou o motorista sabe', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -191,7 +177,7 @@ describe('Migration 46: o SOS chega a um gestor, ou o motorista sabe', () => {
   });
 
   it('tem sonda transacional que termina em RAISE e cobre os casos do brief', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024100000_sonda_migration46.sql');
     expect(sonda).not.toBe('');
     expect(sonda).toMatch(/RAISE EXCEPTION 'SONDA M46 \(desfeita\):%', r;/);
     expect(sonda).toMatch(/registrar_sos/);
@@ -202,13 +188,15 @@ describe('Migration 46: o SOS chega a um gestor, ou o motorista sabe', () => {
   });
 
   it('a sonda não usa DELETE nem DROP', () => {
-    const sonda = semComentarios(ler(caminhoSonda));
+    const sonda = semComentarios(
+      lerSonda('20261024100000_sonda_migration46.sql'),
+    );
     expect(sonda).not.toMatch(/\bDELETE\b/i);
     expect(sonda).not.toMatch(/\bDROP\b/i);
   });
 
   it('está documentada no MIGRATIONS.md', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .* Migration 46: /);
     expect(doc).toContain(ARQUIVO);
   });

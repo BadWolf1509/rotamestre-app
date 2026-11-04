@@ -6,40 +6,22 @@
 // (o app e as Edge Functions usariam sequência nova sem USAGE), que conceda
 // algo, que o rollback perca o que foi medido, que a sonda escreva em tabela
 // de verdade ou que as duas cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261026124000_sequencias_sem_anon.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261026124000_sonda_migration74.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261026124000_sonda_migration74.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 const LINHAS = [
   'REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon;',
@@ -47,11 +29,7 @@ const LINHAS = [
 ];
 
 describe('Migration 74: sequências de public sem privilégio para anon', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só, com exatamente as duas instruções', () => {
     const instrucoes = executavel
@@ -106,13 +84,13 @@ describe('Migration 74: sequências de public sem privilégio para anon', () => 
   });
 
   it('MIGRATIONS.md registra a Migration 74 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 74: /);
     expect(doc).toContain(ARQUIVO);
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const i = doc.search(/### .*Migration 74: /);
     const entrada = i < 0 ? '' : doc.slice(i);
     const publicos = [sql, sonda, entrada].join('\n').toLowerCase();

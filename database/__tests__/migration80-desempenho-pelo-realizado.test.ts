@@ -6,40 +6,22 @@
 // lida pelo gestor e depende do RLS de `rotas`), que as colunas mudem de nome
 // ou de ordem (CREATE OR REPLACE VIEW exige as mesmas), que o tempo volte a
 // ser o estimado (`tempo_total`) e que as cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261027104000_desempenho_motorista_pelo_realizado.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261027104000_sonda_migration80.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261027104000_sonda_migration80.sql');
+const { executavel } = m;
+const { rollback } = m;
 const corpoView = (() => {
   const i = executavel.indexOf(
     'CREATE OR REPLACE VIEW public.vw_performance_motoristas',
@@ -65,11 +47,7 @@ const COLUNAS = [
 ];
 
 describe('Migration 80: desempenho do motorista pelo realizado', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só, com lock_timeout logo depois do BEGIN', () => {
     expect(executavel).toMatch(/^\s*BEGIN;\s+SET LOCAL lock_timeout = '3s';/m);
@@ -141,7 +119,7 @@ describe('Migration 80: desempenho do motorista pelo realizado', () => {
   });
 
   it('cabeçalho e MIGRATIONS.md citam os mesmos números medidos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const i = doc.search(/### .*Migration 80: /);
     const fim = i < 0 ? -1 : doc.indexOf('\n---', i);
     const entrada = (
@@ -159,7 +137,7 @@ describe('Migration 80: desempenho do motorista pelo realizado', () => {
   });
 
   it('MIGRATIONS.md registra a Migration 80 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 80: /);
     expect(doc).toContain(ARQUIVO);
   });

@@ -8,47 +8,25 @@
 // devolver outra coluna de `usuarios`, que o vínculo do motorista passe a
 // exigir `ativo` (ou deixe de exigir a mesma loja), que o teto de 1000 ids
 // suma, que o EXECUTE volte a PUBLIC ou anon e que as cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261026122000_nomes_motoristas_das_rotas.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261026122000_sonda_migration72.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261026122000_sonda_migration72.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -87,9 +65,13 @@ describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
     expect(executavel).not.toMatch(/\b(email|telefone|foto_url)\b/);
     // `usuarios.nome` é varchar(255): sem o cast, o RETURN QUERY não bate
     // com o RETURNS TABLE (42804).
-    expect(executavel).toMatch(/RETURN QUERY\s+SELECT r\.id, u\.nome::text\s+FROM/);
+    expect(executavel).toMatch(
+      /RETURN QUERY\s+SELECT r\.id, u\.nome::text\s+FROM/,
+    );
     // Só leitura.
-    expect(executavel).not.toMatch(/\b(INSERT INTO|UPDATE public|DELETE FROM)\b/);
+    expect(executavel).not.toMatch(
+      /\b(INSERT INTO|UPDATE public|DELETE FROM)\b/,
+    );
   });
 
   it('recusa lista com mais de 1000 ids (22023)', () => {
@@ -136,13 +118,13 @@ describe('Migration 72: RPC nomes_motoristas_das_rotas', () => {
   });
 
   it('MIGRATIONS.md registra a Migration 72 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 72: /);
     expect(doc).toContain(ARQUIVO);
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const i = doc.search(/### .*Migration 72: /);
     const entrada = i < 0 ? '' : doc.slice(i);
     const publicos = [sql, sonda, entrada].join('\n').toLowerCase();

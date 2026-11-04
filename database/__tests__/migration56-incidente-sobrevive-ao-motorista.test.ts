@@ -6,37 +6,23 @@
 //   - a coluna aceitando NULL (sem isso o SET NULL falha);
 //   - o gatilho pulando a conferência da rota quando o motorista é NULL (sem
 //     isso o DELETE do usuário falha com 42501) E recusando NULL no INSERT.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024130000_incidente_sobrevive_ao_motorista.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024130000_sonda_migration56.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const executavel = sql
-  .split('\n')
-  .map((l) => l.replace(/--.*$/, ''))
-  .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { executavel } = m;
 const normaliza = (s: string) => s.replace(/\s+/g, ' ').trim();
 const exec = normaliza(executavel);
 
 describe('Migration 56: o incidente sobrevive ao motorista', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('a coluna aceita NULL e a FK passa a ON DELETE SET NULL (nunca CASCADE)', () => {
     expect(exec).toMatch(
@@ -45,7 +31,9 @@ describe('Migration 56: o incidente sobrevive ao motorista', () => {
     expect(exec).toMatch(
       /ADD CONSTRAINT incidentes_motorista_id_fkey FOREIGN KEY \(motorista_id\) REFERENCES public\.usuarios\(id\) ON DELETE SET NULL;/,
     );
-    expect(exec).not.toMatch(/motorista_id\) REFERENCES public\.usuarios\(id\) ON DELETE CASCADE/);
+    expect(exec).not.toMatch(
+      /motorista_id\) REFERENCES public\.usuarios\(id\) ON DELETE CASCADE/,
+    );
   });
 
   it('roda numa transação com lock_timeout (usuarios/incidentes são lidas o tempo todo)', () => {
@@ -81,7 +69,7 @@ describe('Migration 56: o incidente sobrevive ao motorista', () => {
   });
 
   it('tem sonda transacional que termina em RAISE e exercita a exclusão do motorista', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024130000_sonda_migration56.sql');
     expect(sonda).not.toBe('');
     expect(sonda).toMatch(/DELETE FROM auth\.users WHERE id = v_m;/);
     expect(sonda).toMatch(/RAISE EXCEPTION 'SONDA M56 \(desfeita\):%', r;/);
@@ -89,7 +77,7 @@ describe('Migration 56: o incidente sobrevive ao motorista', () => {
   });
 
   it('está documentada no MIGRATIONS.md', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toContain(ARQUIVO);
     expect(doc).toMatch(/Migration 56/);
   });
