@@ -51,18 +51,36 @@ export function useRestaurarConclusaoEmVoo<
   const aoRestaurarRef = useRef(aoRestaurar);
   aoRestaurarRef.current = aoRestaurar;
 
+  // Uma conferência por montagem. A recriação da Activity remonta a tela, e é
+  // só ela que deixa marcador para restaurar; depois disso, o marcador que
+  // aparece é de uma câmera aberta AGORA por outra tela (a Início fica montada
+  // por trás das abas). Conferir a cada recarga das paradas abria um segundo
+  // modal da mesma parada, que reaparecia depois de a conclusão terminar.
+  const conferidoRef = useRef(false);
+
+  // A conferência é única, então mudar rota/paradas no meio da leitura não
+  // pode cancelá-la (depois da recriação o retrato guardado entra e logo a
+  // resposta da rede o substitui). Só a desmontagem cancela.
+  const desmontadoRef = useRef(false);
+  useEffect(() => {
+    desmontadoRef.current = false;
+    return () => {
+      desmontadoRef.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     // O bug é da recriação de Activity do Android. No web e no iOS não há o
     // que restaurar, e `getPendingResultAsync` não existe.
     if (Platform.OS !== 'android') return;
     // Sem rota/paradas carregadas ainda não dá para julgar o marcador.
     if (!rota || paradas.length === 0) return;
-
-    let cancelado = false;
+    if (conferidoRef.current) return;
+    conferidoRef.current = true;
 
     const restaurar = async () => {
       const marcador = await lerConclusaoEmVoo();
-      if (cancelado || !marcador) return;
+      if (desmontadoRef.current || !marcador) return;
       if (marcadorJaRestaurado === chaveDo(marcador)) return;
 
       const parada = paradaParaReabrir(marcador, rota, paradas);
@@ -75,7 +93,7 @@ export function useRestaurarConclusaoEmVoo<
         return;
       }
 
-      if (cancelado) return;
+      if (desmontadoRef.current) return;
 
       // Marca ANTES de abrir: se a outra tela estiver montada e ler o mesmo
       // marcador, encontra a trava fechada.
@@ -84,9 +102,5 @@ export function useRestaurarConclusaoEmVoo<
     };
 
     restaurar();
-
-    return () => {
-      cancelado = true;
-    };
   }, [rota, paradas]);
 }

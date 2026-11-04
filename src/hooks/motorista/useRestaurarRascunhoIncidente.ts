@@ -43,16 +43,27 @@ export function useRestaurarRascunhoIncidente<P extends { id: string }>(
   const aoRestaurarRef = useRef(aoRestaurar);
   aoRestaurarRef.current = aoRestaurar;
 
+  // Uma conferência por montagem, como em `useRestaurarConclusaoEmVoo`: depois
+  // dela, um rascunho que aparece é de um wizard aberto AGORA por outra tela.
+  const conferidoRef = useRef(false);
+  const desmontadoRef = useRef(false);
+  useEffect(() => {
+    desmontadoRef.current = false;
+    return () => {
+      desmontadoRef.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     // O bug é da recriação de Activity do Android.
     if (Platform.OS !== 'android') return;
     if (!rota || paradas.length === 0) return;
-
-    let cancelado = false;
+    if (conferidoRef.current) return;
+    conferidoRef.current = true;
 
     const restaurar = async () => {
       const rascunho = await lerRascunhoIncidente();
-      if (cancelado || !rascunho) return;
+      if (desmontadoRef.current || !rascunho) return;
       if (rascunhoJaReaberto === chaveDo(rascunho)) return;
 
       const parada = paradas.find((p) => p.id === rascunho.paradaId);
@@ -64,7 +75,7 @@ export function useRestaurarRascunhoIncidente<P extends { id: string }>(
         return;
       }
 
-      if (cancelado) return;
+      if (desmontadoRef.current) return;
 
       // Marca ANTES de abrir, para a outra tela achar a trava fechada.
       rascunhoJaReaberto = chaveDo(rascunho);
@@ -72,9 +83,5 @@ export function useRestaurarRascunhoIncidente<P extends { id: string }>(
     };
 
     restaurar();
-
-    return () => {
-      cancelado = true;
-    };
   }, [rota, paradas]);
 }

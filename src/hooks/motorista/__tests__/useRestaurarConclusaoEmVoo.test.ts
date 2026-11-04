@@ -98,6 +98,72 @@ describe('useRestaurarConclusaoEmVoo', () => {
     });
   });
 
+  it('não reabre quando as paradas mudam com a câmera de outra tela aberta', async () => {
+    // A Início fica montada por trás das abas. Quando a aba Paradas abre a
+    // câmera, o marcador passa a existir; se a rota recarregar antes de a
+    // câmera responder, a Início reabria a mesma parada num segundo modal,
+    // que reaparecia depois de a conclusão terminar.
+    await comPlataforma('android', async () => {
+      const aoRestaurar = jest.fn();
+      const tela = renderHook(
+        ({ paradas }) => useRestaurarConclusaoEmVoo(ROTA, paradas, aoRestaurar),
+        { initialProps: { paradas: PARADAS } },
+      );
+      await waitFor(() => expect(mockLerConclusaoEmVoo).toHaveBeenCalled());
+
+      mockLerConclusaoEmVoo.mockResolvedValue(MARCADOR);
+      tela.rerender({ paradas: [{ id: 'parada-1', status: 'em_andamento' }] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(aoRestaurar).not.toHaveBeenCalled();
+    });
+  });
+
+  it('confere o marcador quando a rota chega depois da montagem', async () => {
+    // Na recriação da Activity a tela remonta antes de a rota carregar: a
+    // primeira conferência tem de esperar rota e paradas.
+    await comPlataforma('android', async () => {
+      mockLerConclusaoEmVoo.mockResolvedValue(MARCADOR);
+      const aoRestaurar = jest.fn();
+      const tela = renderHook(
+        ({ rota }: { rota: typeof ROTA | null }) =>
+          useRestaurarConclusaoEmVoo(rota, PARADAS, aoRestaurar),
+        { initialProps: { rota: null as typeof ROTA | null } },
+      );
+
+      tela.rerender({ rota: ROTA });
+
+      await waitFor(() => {
+        expect(aoRestaurar).toHaveBeenCalledWith(PARADAS[0]);
+      });
+    });
+  });
+
+  it('reabre mesmo se as paradas mudarem no meio da conferência', async () => {
+    // Depois da recriação entra primeiro o retrato guardado e logo a resposta
+    // da rede: a única conferência não pode se perder nessa troca.
+    await comPlataforma('android', async () => {
+      let entregarMarcador: (m: typeof MARCADOR) => void = () => {};
+      mockLerConclusaoEmVoo.mockReturnValue(
+        new Promise((resolve) => {
+          entregarMarcador = resolve;
+        }),
+      );
+      const aoRestaurar = jest.fn();
+      const tela = renderHook(
+        ({ paradas }) => useRestaurarConclusaoEmVoo(ROTA, paradas, aoRestaurar),
+        { initialProps: { paradas: PARADAS } },
+      );
+
+      tela.rerender({ paradas: [{ id: 'parada-1', status: 'pendente' }] });
+      entregarMarcador(MARCADOR);
+
+      await waitFor(() => {
+        expect(aoRestaurar).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
   it('apaga marcador que perdeu o sentido e não reabre nada', async () => {
     await comPlataforma('android', async () => {
       mockLerConclusaoEmVoo.mockResolvedValue(MARCADOR);
