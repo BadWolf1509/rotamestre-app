@@ -117,6 +117,7 @@ interface CadeiaUpdate {
   neq: jest.Mock;
   select: jest.Mock;
 }
+// Fica local (não usa criarCadeia): o select final é injetado pelo teste.
 const criarCadeiaUpdate = (select: jest.Mock): CadeiaUpdate => {
   const cadeia: CadeiaUpdate = {
     eq: jest.fn(() => cadeia),

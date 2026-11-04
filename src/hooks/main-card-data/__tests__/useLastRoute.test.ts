@@ -22,21 +22,9 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
-import { useLastRoute } from '../useLastRoute';
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
 
-// Helper to setup supabase chain
-const setupSupabaseChain = (finalResult: any) => {
-  const chain: any = {
-    select: jest.fn(() => chain),
-    eq: jest.fn(() => chain),
-    gte: jest.fn(() => chain),
-    order: jest.fn(() => chain),
-    limit: jest.fn(() => chain),
-    maybeSingle: jest.fn(() => Promise.resolve(finalResult)),
-    then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
-  };
-  return chain;
-};
+import { useLastRoute } from '../useLastRoute';
 
 describe('useLastRoute', () => {
   beforeEach(() => {
@@ -71,7 +59,7 @@ describe('useLastRoute', () => {
 
     it('should set lastRoute to null if no completed route found', async () => {
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: null, error: null })
+        criarCadeia({ data: null, error: null }),
       );
 
       const { result } = renderHook(() => useLastRoute('motorista-123'));
@@ -85,7 +73,7 @@ describe('useLastRoute', () => {
 
     it('should set lastRoute to null on rotas error', async () => {
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: null, error: { message: 'Error' } })
+        criarCadeia({ data: null, error: { message: 'Error' } }),
       );
 
       const { result } = renderHook(() => useLastRoute('motorista-123'));
@@ -117,17 +105,12 @@ describe('useLastRoute', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupSupabaseChain({ data: mockRota, error: null });
+          return criarCadeia({ data: mockRota, error: null });
         }
         if (table === 'paradas') {
-          const chain: any = {
-            select: jest.fn(() => chain),
-            eq: jest.fn(() => chain),
-            then: (resolve: any) => Promise.resolve({ data: mockParadas, error: null }).then(resolve),
-          };
-          return chain;
+          return criarCadeia({ data: mockParadas, error: null });
         }
-        return setupSupabaseChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useLastRoute('motorista-123'));
@@ -165,17 +148,12 @@ describe('useLastRoute', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupSupabaseChain({ data: mockRota, error: null });
+          return criarCadeia({ data: mockRota, error: null });
         }
         if (table === 'paradas') {
-          const chain: any = {
-            select: jest.fn(() => chain),
-            eq: jest.fn(() => chain),
-            then: (resolve: any) => Promise.resolve({ data: mockParadas, error: null }).then(resolve),
-          };
-          return chain;
+          return criarCadeia({ data: mockParadas, error: null });
         }
-        return setupSupabaseChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useLastRoute('motorista-123'));
@@ -205,17 +183,12 @@ describe('useLastRoute', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupSupabaseChain({ data: mockRota, error: null });
+          return criarCadeia({ data: mockRota, error: null });
         }
         if (table === 'paradas') {
-          const chain: any = {
-            select: jest.fn(() => chain),
-            eq: jest.fn(() => chain),
-            then: (resolve: any) => Promise.resolve({ data: mockParadas, error: null }).then(resolve),
-          };
-          return chain;
+          return criarCadeia({ data: mockParadas, error: null });
         }
-        return setupSupabaseChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useLastRoute('motorista-123'));
@@ -242,17 +215,12 @@ describe('useLastRoute', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupSupabaseChain({ data: mockRota, error: null });
+          return criarCadeia({ data: mockRota, error: null });
         }
         if (table === 'paradas') {
-          const chain: any = {
-            select: jest.fn(() => chain),
-            eq: jest.fn(() => chain),
-            then: (resolve: any) => Promise.resolve({ data: null, error: { message: 'Error' } }).then(resolve),
-          };
-          return chain;
+          return criarCadeia({ data: null, error: { message: 'Error' } });
         }
-        return setupSupabaseChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useLastRoute('motorista-123'));

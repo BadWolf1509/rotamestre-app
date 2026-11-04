@@ -48,6 +48,7 @@ const sb = supabase as jest.Mocked<typeof supabase>;
 
 // Respostas, em ordem, do UPDATE de `primeira_senha` (update → eq → select).
 let mockMarcacao: jest.Mock;
+// Fica local (não usa criarCadeia): o select final responde em sequência, uma resposta por envio.
 function prepararMarcacao(respostas: { data: unknown; error: unknown }[]) {
   mockMarcacao = jest.fn();
   for (const resposta of respostas)

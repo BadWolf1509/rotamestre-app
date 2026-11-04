@@ -5,6 +5,7 @@
 
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
 import type { Theme } from '@/utils/styles';
 
 import { useIncidentesGestor, Incidente } from '../useIncidentesGestor';
@@ -550,13 +551,7 @@ const _mockIncidente3: Incidente = {
 // (rotas!inner) e as sem rota (`.is('rota_id', null)`). Nestes mocks a 1ª
 // devolve os dados do teste; a 2ª, aberta pelo `.is`, volta vazia.
 function mockConsultaSemRotaVazia() {
-  const consulta: Record<string, unknown> = {
-    then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
-  };
-  for (const m of ['in', 'eq', 'order', 'select']) {
-    consulta[m] = () => consulta;
-  }
-  return consulta;
+  return criarCadeia({ data: [], error: null });
 }
 
 const mockIncidentesFromDB = [

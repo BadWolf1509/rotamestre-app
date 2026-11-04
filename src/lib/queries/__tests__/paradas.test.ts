@@ -14,6 +14,7 @@ const mockUltimoInsert: Record<string, unknown> = {};
 const mockUltimoUpdate: Record<string, unknown> = {};
 
 // Create a chainable mock that captures the table name
+// Fica local (não usa criarCadeia): o resultado é lido por tabela na hora e o insert/update é capturado.
 const createChainableMock = (tableName: string) => {
   const chain: any = {
     select: jest.fn(() => chain),
