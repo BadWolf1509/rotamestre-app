@@ -8,7 +8,11 @@
  * - src/hooks/route-status/ (data loading, actions, realtime)
  */
 
-export { RouteStatusProvider, useRouteStatus } from './route-status/RouteStatusProvider';
+export {
+  RouteStatusProvider,
+  useRouteStatus,
+  useRouteStatusSeHouver,
+} from './route-status/RouteStatusProvider';
 export type {
   RouteStatus,
   RouteData,

@@ -1,3 +1,4 @@
+import { renderHook } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
@@ -115,18 +116,19 @@ function setup(
   } = {},
 ) {
   const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- useRouteActions is not a real hook (no useState/useEffect)
-  const actions = useRouteActions({
-    route: 'route' in overrides ? overrides.route! : makeRoute(),
-    paradas: overrides.paradas ?? [],
-    userData:
-      'userData' in overrides
-        ? overrides.userData!
-        : { id: 'user-1', nome: 'Joao' },
-    loadActiveRoute,
-    portaParadas: porta,
-  });
-  return { ...actions, loadActiveRoute };
+  const { result } = renderHook(() =>
+    useRouteActions({
+      route: 'route' in overrides ? overrides.route! : makeRoute(),
+      paradas: overrides.paradas ?? [],
+      userData:
+        'userData' in overrides
+          ? overrides.userData!
+          : { id: 'user-1', nome: 'Joao' },
+      loadActiveRoute,
+      portaParadas: porta,
+    }),
+  );
+  return { ...result.current, loadActiveRoute };
 }
 
 beforeEach(() => {

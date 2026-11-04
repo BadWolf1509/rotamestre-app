@@ -5,6 +5,7 @@
  */
 
 import type { ParadaData } from '@/context/RouteStatusContext';
+import type { PreferenciasDeNavegacao } from '@/lib/motorista/preferenciasNavegacaoPadrao';
 import type { Coordinate } from '@/lib/osrm';
 
 /**
@@ -19,15 +20,7 @@ export interface UserLocation {
 /**
  * Navigation preferences loaded from storage
  */
-export interface NavigationPreferences {
-  soundAlerts: boolean;
-  vibrationAlerts: boolean;
-  showSpeedometer: boolean;
-  preventScreenSleep?: boolean;
-  navegarCom?: 'mapa' | 'externo';
-  preferredNavApp?: 'waze' | 'google_maps' | 'apple_maps' | 'default';
-  proximityRadius?: number;
-}
+export type NavigationPreferences = PreferenciasDeNavegacao;
 
 /**
  * Props for NavigationMode component

@@ -16,13 +16,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Slider from '@/components/Slider';
 import { useAlert } from '@/hooks/useAlert';
-import LocationTrackingService, {
+import {
+  PREFERENCIAS_PADRAO,
   type ModoNavegar,
-} from '@/services/locationTracking';
+  type PreferenciasDeNavegacao,
+} from '@/lib/motorista/preferenciasNavegacaoPadrao';
+import LocationTrackingService from '@/services/locationTracking';
 import { coresDoSwitch } from '@/utils/coresDoSwitch';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-type NavAppPreference = 'waze' | 'google_maps' | 'apple_maps' | 'default';
+type NavAppPreference = PreferenciasDeNavegacao['preferredNavApp'];
 
 interface NavigationSettingsProps {
   /** Se true, renderiza como modal. Se false/omitido no modo inline, será ignorado. */
@@ -35,28 +38,19 @@ interface NavigationSettingsProps {
   onSettingsChange?: (settings: NavigationSettingsState) => void;
 }
 
-export interface NavigationSettingsState {
-  navegarCom: ModoNavegar;
-  soundAlerts: boolean;
-  vibrationAlerts: boolean;
-  proximityRadius: number;
-  showSpeedometer: boolean;
-  preventScreenSleep: boolean;
-  preferredNavApp: NavAppPreference;
-}
+export type NavigationSettingsState = Pick<
+  PreferenciasDeNavegacao,
+  | 'navegarCom'
+  | 'soundAlerts'
+  | 'vibrationAlerts'
+  | 'proximityRadius'
+  | 'showSpeedometer'
+  | 'preventScreenSleep'
+  | 'preferredNavApp'
+>;
 
 type SettingKey = keyof NavigationSettingsState;
 type SettingValue<K extends SettingKey> = NavigationSettingsState[K];
-
-const DEFAULT_SETTINGS: NavigationSettingsState = {
-  navegarCom: 'mapa',
-  soundAlerts: true,
-  vibrationAlerts: true,
-  proximityRadius: 50,
-  showSpeedometer: true,
-  preventScreenSleep: true,
-  preferredNavApp: 'default',
-};
 
 const OPCOES_NAVEGAR_COM: {
   value: ModoNavegar;
@@ -100,18 +94,15 @@ export function NavigationSettings({
   const isWeb = Platform.OS === 'web';
 
   const [settings, setSettings] =
-    useState<NavigationSettingsState>(DEFAULT_SETTINGS);
+    useState<NavigationSettingsState>(PREFERENCIAS_PADRAO);
 
   useEffect(() => {
     loadSettings();
   }, []);
 
   const loadSettings = async () => {
-    const prefs = await LocationTrackingService.getNavigationPreferences();
-    // O serviço já devolve tudo preenchido — a tabela local ficaria sendo
-    // uma segunda fonte de verdade, que foi exatamente o defeito corrigido.
-    const newSettings = { ...DEFAULT_SETTINGS, ...prefs };
-    setSettings(newSettings);
+    // O serviço já devolve tudo preenchido.
+    setSettings(await LocationTrackingService.getNavigationPreferences());
   };
 
   const triggerHapticFeedback = async () => {
@@ -161,10 +152,10 @@ export function NavigationSettings({
 
     if (confirmed) {
       await triggerHapticFeedback();
-      setSettings(DEFAULT_SETTINGS);
+      setSettings(PREFERENCIAS_PADRAO);
       // Limpa em vez de gravar os padrões, que ficariam congelados no storage.
       await LocationTrackingService.restaurarPreferenciasPadrao();
-      onSettingsChange?.(DEFAULT_SETTINGS);
+      onSettingsChange?.(PREFERENCIAS_PADRAO);
       showSuccess('Sucesso', 'Configurações restauradas');
     }
   };

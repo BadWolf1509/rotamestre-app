@@ -50,12 +50,12 @@ export default function MotoristaLayout() {
   if (isDesktop) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <DrawerMenuProvider>
-          <RouteStatusProvider>
+        <RouteStatusProvider>
+          <DrawerMenuProvider>
             <TransmissaoDePosicao />
             <Slot />
-          </RouteStatusProvider>
-        </DrawerMenuProvider>
+          </DrawerMenuProvider>
+        </RouteStatusProvider>
       </GestureHandlerRootView>
     );
   }
@@ -63,13 +63,13 @@ export default function MotoristaLayout() {
   // Mobile: Stack com Tabs + telas secundárias
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <DrawerMenuProvider>
-        <RouteStatusProvider>
+      <RouteStatusProvider>
+        <DrawerMenuProvider>
           {/* Uma transmissão de posição para todas as abas */}
           <TransmissaoDePosicao />
           <MobileNavigation />
-        </RouteStatusProvider>
-      </DrawerMenuProvider>
+        </DrawerMenuProvider>
+      </RouteStatusProvider>
     </GestureHandlerRootView>
   );
 }

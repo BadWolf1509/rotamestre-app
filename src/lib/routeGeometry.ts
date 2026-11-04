@@ -5,6 +5,8 @@
  * detecting off-route conditions, and geometric operations.
  */
 
+import { distanciaMetrosEntre, RAIO_DA_TERRA_METROS } from './geo/distancia';
+
 export interface Coordinate {
   latitude: number;
   longitude: number;
@@ -24,9 +26,6 @@ interface OffRouteResult {
   nearestPoint: Coordinate | null;
 }
 
-// Earth radius in meters
-const EARTH_RADIUS = 6371000;
-
 /**
  * Convert degrees to radians
  */
@@ -42,27 +41,10 @@ function toDegrees(radians: number): number {
 }
 
 /**
- * Calculate distance between two coordinates using Haversine formula
- * Returns distance in meters
+ * Distância em metros entre duas coordenadas (Haversine).
+ * Alias da fonte única `@/lib/geo/distancia`.
  */
-export function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const phi1 = toRadians(lat1);
-  const phi2 = toRadians(lat2);
-  const deltaPhi = toRadians(lat2 - lat1);
-  const deltaLambda = toRadians(lon2 - lon1);
-
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return EARTH_RADIUS * c;
-}
+export const calculateDistance = distanciaMetrosEntre;
 
 /**
  * Calculate cross-track distance from a point to a great-circle path
@@ -76,23 +58,22 @@ export function calculateDistance(
 function crossTrackDistance(
   point: Coordinate,
   lineStart: Coordinate,
-  lineEnd: Coordinate
+  lineEnd: Coordinate,
 ): number {
-  const d13 = calculateDistance(
-    lineStart.latitude,
-    lineStart.longitude,
-    point.latitude,
-    point.longitude
-  ) / EARTH_RADIUS;
+  const d13 =
+    calculateDistance(
+      lineStart.latitude,
+      lineStart.longitude,
+      point.latitude,
+      point.longitude,
+    ) / RAIO_DA_TERRA_METROS;
 
-  const theta13 = toRadians(
-    bearing(lineStart, point)
-  );
-  const theta12 = toRadians(
-    bearing(lineStart, lineEnd)
-  );
+  const theta13 = toRadians(bearing(lineStart, point));
+  const theta12 = toRadians(bearing(lineStart, lineEnd));
 
-  const dxt = Math.asin(Math.sin(d13) * Math.sin(theta13 - theta12)) * EARTH_RADIUS;
+  const dxt =
+    Math.asin(Math.sin(d13) * Math.sin(theta13 - theta12)) *
+    RAIO_DA_TERRA_METROS;
 
   return Math.abs(dxt);
 }
@@ -108,17 +89,19 @@ function crossTrackDistance(
 function alongTrackDistance(
   point: Coordinate,
   lineStart: Coordinate,
-  lineEnd: Coordinate
+  lineEnd: Coordinate,
 ): number {
-  const d13 = calculateDistance(
-    lineStart.latitude,
-    lineStart.longitude,
-    point.latitude,
-    point.longitude
-  ) / EARTH_RADIUS;
+  const d13 =
+    calculateDistance(
+      lineStart.latitude,
+      lineStart.longitude,
+      point.latitude,
+      point.longitude,
+    ) / RAIO_DA_TERRA_METROS;
 
-  const dxt = crossTrackDistance(point, lineStart, lineEnd) / EARTH_RADIUS;
-  const dat = Math.acos(Math.cos(d13) / Math.cos(dxt)) * EARTH_RADIUS;
+  const dxt =
+    crossTrackDistance(point, lineStart, lineEnd) / RAIO_DA_TERRA_METROS;
+  const dat = Math.acos(Math.cos(d13) / Math.cos(dxt)) * RAIO_DA_TERRA_METROS;
 
   return dat;
 }
@@ -147,23 +130,23 @@ function bearing(from: Coordinate, to: Coordinate): number {
 function destinationPoint(
   start: Coordinate,
   bearingDeg: number,
-  distance: number
+  distance: number,
 ): Coordinate {
-  const delta = distance / EARTH_RADIUS;
+  const delta = distance / RAIO_DA_TERRA_METROS;
   const theta = toRadians(bearingDeg);
   const phi1 = toRadians(start.latitude);
   const lambda1 = toRadians(start.longitude);
 
   const phi2 = Math.asin(
     Math.sin(phi1) * Math.cos(delta) +
-    Math.cos(phi1) * Math.sin(delta) * Math.cos(theta)
+      Math.cos(phi1) * Math.sin(delta) * Math.cos(theta),
   );
 
   const lambda2 =
     lambda1 +
     Math.atan2(
       Math.sin(theta) * Math.sin(delta) * Math.cos(phi1),
-      Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2)
+      Math.cos(delta) - Math.sin(phi1) * Math.sin(phi2),
     );
 
   return {
@@ -184,13 +167,13 @@ function destinationPoint(
 export function pointToSegmentDistance(
   point: Coordinate,
   lineStart: Coordinate,
-  lineEnd: Coordinate
+  lineEnd: Coordinate,
 ): { distance: number; nearestPoint: Coordinate } {
   const segmentLength = calculateDistance(
     lineStart.latitude,
     lineStart.longitude,
     lineEnd.latitude,
-    lineEnd.longitude
+    lineEnd.longitude,
   );
 
   // If segment is too short, just return distance to start
@@ -200,7 +183,7 @@ export function pointToSegmentDistance(
         point.latitude,
         point.longitude,
         lineStart.latitude,
-        lineStart.longitude
+        lineStart.longitude,
       ),
       nearestPoint: lineStart,
     };
@@ -216,7 +199,7 @@ export function pointToSegmentDistance(
         point.latitude,
         point.longitude,
         lineStart.latitude,
-        lineStart.longitude
+        lineStart.longitude,
       ),
       nearestPoint: lineStart,
     };
@@ -229,7 +212,7 @@ export function pointToSegmentDistance(
         point.latitude,
         point.longitude,
         lineEnd.latitude,
-        lineEnd.longitude
+        lineEnd.longitude,
       ),
       nearestPoint: lineEnd,
     };
@@ -256,7 +239,7 @@ export function pointToSegmentDistance(
  */
 export function pointToPolylineDistance(
   point: Coordinate,
-  polyline: Coordinate[]
+  polyline: Coordinate[],
 ): PointToPolylineResult {
   if (polyline.length === 0) {
     return {
@@ -272,7 +255,7 @@ export function pointToPolylineDistance(
         point.latitude,
         point.longitude,
         polyline[0].latitude,
-        polyline[0].longitude
+        polyline[0].longitude,
       ),
       nearestPoint: polyline[0],
       segmentIndex: 0,
@@ -314,7 +297,7 @@ export function getOffRouteStatus(
   point: Coordinate,
   polyline: Coordinate[],
   warningThreshold: number = 100,
-  criticalThreshold: number = 200
+  criticalThreshold: number = 200,
 ): OffRouteResult {
   if (polyline.length === 0) {
     return {

@@ -6,6 +6,7 @@
  */
 
 import { formatDistance, formatDuration } from './formatting';
+import { distanciaMetrosEntre } from '../geo/distancia';
 
 import type {
   Coordinate,
@@ -20,30 +21,10 @@ import type {
 // ============================================================================
 
 /**
- * Calcula distancia em linha reta usando formula de Haversine
+ * Alias da fonte única (`@/lib/geo/distancia`); o nome fica porque `@/lib/osrm`
+ * o reexporta para quem já importa daqui.
  */
-export function calculateHaversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const EARTH_RADIUS = 6371000; // metros
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) *
-      Math.cos(phi2) *
-      Math.sin(deltaLambda / 2) *
-      Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return EARTH_RADIUS * c;
-}
+export const calculateHaversineDistance = distanciaMetrosEntre;
 
 /**
  * Estima distancia de rota baseado em Haversine (linha reta x 1.3)

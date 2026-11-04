@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react';
 import { Alert, Linking, Platform, ActionSheetIOS } from 'react-native';
 
-import { useRouteStatus } from '@/context/RouteStatusContext';
+import { useRouteStatusSeHouver } from '@/context/RouteStatusContext';
 import { useUser } from '@/hooks/useUser';
 import { logger } from '@/lib/logger';
 import { telefoneInternacional } from '@/lib/phone';
@@ -20,7 +20,10 @@ interface UseDrawerContactOptions {
 }
 
 export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
-  const { route: rotaAtiva, currentStop } = useRouteStatus();
+  // O menu também monta no layout do gestor, que não tem o provider da rota.
+  const status = useRouteStatusSeHouver();
+  const rotaAtiva = status?.route ?? null;
+  const currentStop = status?.currentStop ?? null;
   const { userData: profile } = useUser();
 
   const [showContactModal, setShowContactModal] = useState(false);
