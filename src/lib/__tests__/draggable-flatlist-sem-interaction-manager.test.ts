@@ -12,6 +12,10 @@
  *    `simultaneousHandlers` que a lib passa e disputa o toque de outro jeito com
  *    o pan legado (Gesture.Pan). A lib foi escrita para a API antiga: o patch a
  *    mantém no `LegacyFlatList`.
+ * 3. Pelo mesmo motivo, o `NestableScrollContainer` (a página rolável da Nova
+ *    Entrega) usa o `LegacyScrollView`: com o `ScrollView` novo, o Pan da lista
+ *    tomava o toque e a página não rolava com o dedo sobre os cards (moto g15,
+ *    1.15.0 3053, 04/11/2026). A lista própria, no `LegacyFlatList`, rolava.
  *
  * O web não quebraria em (1) (o react-native-web ainda exporta o
  * InteractionManager), e o Jest mocka a lib: sem esta guarda, nada acusaria.
@@ -62,6 +66,29 @@ describe('patch do react-native-draggable-flatlist', () => {
     expect(importados).not.toContain('FlatList');
     expect(codigo).not.toMatch(/_reactNativeGestureHandler\.FlatList\b/);
   });
+
+  const CONTAINERS = [
+    'src/components/NestableScrollContainer.tsx',
+    'lib/module/components/NestableScrollContainer.js',
+    'lib/commonjs/components/NestableScrollContainer.js',
+  ];
+
+  it.each(CONTAINERS)(
+    '%s usa o LegacyScrollView do Gesture Handler',
+    (arquivo) => {
+      const codigo = ler(arquivo);
+      expect(codigo).toMatch(/LegacyScrollView/);
+      const importados = [
+        ...codigo.matchAll(
+          /import \{([^}]*)\} from "react-native-gesture-handler"/g,
+        ),
+      ].flatMap((m) =>
+        m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0]),
+      );
+      expect(importados).not.toContain('ScrollView');
+      expect(codigo).not.toMatch(/_reactNativeGestureHandler\.ScrollView\b/);
+    },
+  );
 
   it('o Gesture Handler instalado ainda exporta LegacyFlatList', () => {
     // Lido do fonte, não pelo require: o jestSetup do RNGH mocka os componentes.
