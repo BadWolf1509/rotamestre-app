@@ -37,6 +37,8 @@ const ENCADEAVEIS = [
   'order',
   'limit',
   'range',
+  // `.returns<T>()` devolve `this` na lib real: só informa o tipo.
+  'returns',
 ] as const;
 
 type Encadeavel = (typeof ENCADEAVEIS)[number];

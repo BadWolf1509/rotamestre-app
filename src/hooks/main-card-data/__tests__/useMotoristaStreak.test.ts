@@ -22,19 +22,9 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
-import { useMotoristaStreak } from '../useMotoristaStreak';
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
 
-// Helper to setup supabase chain
-const setupSupabaseChain = (finalResult: any) => {
-  const chain: any = {
-    select: jest.fn(() => chain),
-    eq: jest.fn(() => chain),
-    gte: jest.fn(() => chain),
-    order: jest.fn(() => chain),
-    then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
-  };
-  return chain;
-};
+import { useMotoristaStreak } from '../useMotoristaStreak';
 
 describe('useMotoristaStreak', () => {
   beforeEach(() => {
@@ -75,9 +65,7 @@ describe('useMotoristaStreak', () => {
     });
 
     it('should set streak to 0 if no completed routes', async () => {
-      mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: [], error: null })
-      );
+      mockFrom.mockImplementation(() => criarCadeia({ data: [], error: null }));
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
 
@@ -90,12 +78,10 @@ describe('useMotoristaStreak', () => {
 
     it('should calculate streak of 1 day', async () => {
       // Route completed today (June 15)
-      const mockRotas = [
-        { concluida_em: '2024-06-15T10:00:00Z' },
-      ];
+      const mockRotas = [{ concluida_em: '2024-06-15T10:00:00Z' }];
 
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: mockRotas, error: null })
+        criarCadeia({ data: mockRotas, error: null }),
       );
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
@@ -118,7 +104,7 @@ describe('useMotoristaStreak', () => {
       ];
 
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: mockRotas, error: null })
+        criarCadeia({ data: mockRotas, error: null }),
       );
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
@@ -141,7 +127,7 @@ describe('useMotoristaStreak', () => {
       ];
 
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: mockRotas, error: null })
+        criarCadeia({ data: mockRotas, error: null }),
       );
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
@@ -165,7 +151,7 @@ describe('useMotoristaStreak', () => {
       ];
 
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: mockRotas, error: null })
+        criarCadeia({ data: mockRotas, error: null }),
       );
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
@@ -187,7 +173,7 @@ describe('useMotoristaStreak', () => {
       ];
 
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: mockRotas, error: null })
+        criarCadeia({ data: mockRotas, error: null }),
       );
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
@@ -201,7 +187,7 @@ describe('useMotoristaStreak', () => {
 
     it('should handle database error', async () => {
       mockFrom.mockImplementation(() =>
-        setupSupabaseChain({ data: null, error: { message: 'Error' } })
+        criarCadeia({ data: null, error: { message: 'Error' } }),
       );
 
       const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
