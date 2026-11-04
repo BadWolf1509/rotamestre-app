@@ -1,6 +1,7 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, within } from '@testing-library/react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { DesktopModal } from '../DesktopModal';
 
@@ -706,6 +707,22 @@ describe('DesktopModal', () => {
 
       expect(getByText('Desktop Primary')).toBeTruthy();
       expect(getByText('Desktop Secondary')).toBeTruthy();
+    });
+  });
+  describe('Gestos dentro do Modal nativo', () => {
+    // No Android o Modal abre numa janela nativa à parte, que o
+    // GestureHandlerRootView da raiz do app (app/_layout.tsx) não alcança: sem
+    // um root view próprio, o Pan do draggable-flatlist nunca recebe os toques
+    // e o arrasto do Reordenar trava (medido no moto g15, SDK 58, 04/11/2026).
+    it('envolve o conteúdo num GestureHandlerRootView', () => {
+      const { UNSAFE_getByType } = render(
+        <DesktopModal visible={true} onClose={jest.fn()} title="Reordenar">
+          <Text>Lista arrastável</Text>
+        </DesktopModal>,
+      );
+
+      const raiz = UNSAFE_getByType(GestureHandlerRootView);
+      expect(within(raiz).getByText('Lista arrastável')).toBeTruthy();
     });
   });
 });
