@@ -18,6 +18,22 @@ test.describe('Gestor Route Creation E2E Tests', () => {
 
   test.beforeEach(async ({ page }) => {
     gestorPage = new GestorPage(page);
+
+    // A Nova Rota restaura o rascunho que o servidor guarda por gestor e loja
+    // (`rascunhos_rota`). A conta do E2E é a mesma de testes manuais: em
+    // 04/11/2026 um rascunho de 2 paradas deixado por um deles fez a lista
+    // abrir cheia e derrubou "sem paradas adicionadas" em PR sem relação. O
+    // teste responde "sem rascunho" e engole as gravações, para não depender
+    // do que a conta tiver nem apagar o rascunho de quem a usa.
+    await page.route('**/rest/v1/rascunhos_rota*', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: '[]',
+          })
+        : route.fulfill({ status: 204, body: '' }),
+    );
   });
 
   test.describe('Nova Entrega Page Access', () => {
