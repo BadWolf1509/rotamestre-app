@@ -92,7 +92,7 @@ function createPopupContent(
     const title = isPartida ? '🚀 Ponto de Partida' : '🏁 Ponto de Chegada';
     const subtitle = isPartida ? 'Início da rota' : 'Fim da rota';
     return `
-      <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif;">
+      <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif; color: ${CORES_SOBRE_O_MAPA.texto};">
         <strong style="font-size: 14px;">${title}</strong>
         <p style="margin: 4px 0; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${subtitle}</p>
         ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ''}
@@ -104,7 +104,7 @@ function createPopupContent(
   const tipoLabel = parada.tipo === 'entrega' ? '📦 Entrega' : '📤 Retirada';
 
   return `
-    <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
+    <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif; color: ${CORES_SOBRE_O_MAPA.texto};">
       <strong style="font-size: 14px;">Parada ${escapeHtml(String(parada.ordem))}</strong>
       <span style="margin-left: 8px; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${tipoLabel}</span>
       <p style="margin: 4px 0; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${STATUS_LABEL[parada.status] || escapeHtml(parada.status)}</p>
@@ -147,7 +147,7 @@ export function createGrupoPopupContent(
   ] as string[];
 
   return `
-    <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
+    <div style="padding: 8px; max-width: 280px; font-family: system-ui, -apple-system, sans-serif; color: ${CORES_SOBRE_O_MAPA.texto};">
       <strong style="font-size: 14px;">${escapeHtml(titulo)}</strong>
       <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(membros[0].endereco)}</p>
       ${linhas}

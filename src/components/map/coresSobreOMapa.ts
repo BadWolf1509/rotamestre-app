@@ -26,8 +26,10 @@ export const CORES_SOBRE_O_MAPA = {
   // Modo navegação: contorno do checkpoint e pino de parada não-próxima.
   contorno: claro.gray200,
   apagada: claro.gray400,
-  // Texto secundário do popup do mapa web: o popup do MapLibre tem fundo
-  // sempre branco, e o `textSecondary` do escuro (#d1d5db) some nele.
+  // Texto do popup do mapa web: o popup do MapLibre tem fundo sempre branco.
+  // Sem cor própria, o texto herda a da página, que no escuro é clara e some;
+  // o `textSecondary` do escuro (#d1d5db) também.
+  texto: claro.text,
   textoSecundario: claro.textSecondary,
 } as const;
 
