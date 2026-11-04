@@ -1,7 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
-import { NestableScrollContainer } from 'react-native-draggable-flatlist';
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -384,7 +389,7 @@ export default function NovaEntrega() {
   if (isTablet) {
     return (
       <ErrorBoundary>
-        <NestableScrollContainer
+        <ScrollView
           style={styles.scrollView}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -433,15 +438,12 @@ export default function NovaEntrega() {
                       </Text>
                     </TouchableOpacity>
                   )}
-                  <ParadasListAndActions
-                    {...listProps}
-                    dentroDeRolagemAninhavel
-                  />
+                  <ParadasListAndActions {...listProps} />
                 </MobileCard>
               </View>
             </View>
           </View>
-        </NestableScrollContainer>
+        </ScrollView>
         {overlays}
       </ErrorBoundary>
     );
@@ -449,7 +451,7 @@ export default function NovaEntrega() {
 
   return (
     <ErrorBoundary>
-      <NestableScrollContainer
+      <ScrollView
         style={styles.scrollView}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
@@ -492,14 +494,10 @@ export default function NovaEntrega() {
                 <Text style={styles.clearCardButtonText}>Limpar rascunho</Text>
               </TouchableOpacity>
             )}
-            <ParadasListAndActions
-              {...listProps}
-              hideGenerateButton
-              dentroDeRolagemAninhavel
-            />
+            <ParadasListAndActions {...listProps} hideGenerateButton />
           </MobileCard>
         </View>
-      </NestableScrollContainer>
+      </ScrollView>
 
       {paradas.length > 0 && (
         <View
