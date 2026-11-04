@@ -1,12 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Modal, View, Text, TouchableOpacity, Pressable, ViewStyle, DimensionValue, Platform, ActivityIndicator } from 'react-native';
+import {
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  Pressable,
+  ViewStyle,
+  DimensionValue,
+  Platform,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow, withOpacity } from '@/utils/color';
-import { StyleSheet, defaultTheme, useUnistyles, type Theme } from '@/utils/styles';
+import {
+  StyleSheet,
+  defaultTheme,
+  useUnistyles,
+  type Theme,
+} from '@/utils/styles';
 
 import { Toast, type ToastProps } from '../Toast';
 
@@ -216,9 +231,10 @@ export function DesktopModal({
   // The dialog uses position:fixed so its own maxHeight % works (relative to viewport).
   // But the inner div's % is relative to the dialog (content-sized) — circular reference.
   // Using vh units makes the constraint absolute.
-  const containerMaxHeight = typeof maxHeight === 'string' && maxHeight.endsWith('%')
-    ? maxHeight.replace('%', 'vh')
-    : maxHeight;
+  const containerMaxHeight =
+    typeof maxHeight === 'string' && maxHeight.endsWith('%')
+      ? maxHeight.replace('%', 'vh')
+      : maxHeight;
 
   // ============================================
   // BUTTON RENDERING (Declarative API)
@@ -243,8 +259,12 @@ export function DesktopModal({
       outline: 'none',
       // Desktop compact vs Mobile
       height: isDesktop ? theme.desktop.button.height : 44,
-      paddingLeft: isDesktop ? theme.desktop.button.paddingHorizontal : theme.spacing.lg,
-      paddingRight: isDesktop ? theme.desktop.button.paddingHorizontal : theme.spacing.lg,
+      paddingLeft: isDesktop
+        ? theme.desktop.button.paddingHorizontal
+        : theme.spacing.lg,
+      paddingRight: isDesktop
+        ? theme.desktop.button.paddingHorizontal
+        : theme.spacing.lg,
       fontSize: isDesktop ? theme.desktop.button.fontSize : theme.typography.sm,
       minWidth: isDesktop ? 80 : 100,
       opacity: isDisabled ? 0.6 : 1,
@@ -299,7 +319,9 @@ export function DesktopModal({
               height: 14,
               borderRadius: '50%',
               border: `2px solid ${isPrimary ? withOpacity(theme.colors.white, 0.3) : withOpacity(theme.colors.black, 0.2)}`,
-              borderTopColor: isPrimary ? theme.colors.white : theme.colors.gray600,
+              borderTopColor: isPrimary
+                ? theme.colors.white
+                : theme.colors.gray600,
               animation: 'spin 0.8s linear infinite',
             }}
           />
@@ -312,7 +334,10 @@ export function DesktopModal({
   /**
    * Renderiza um botão para React Native com estilos padronizados
    */
-  const renderNativeButton = (config: ModalButtonConfig, isPrimary: boolean) => {
+  const renderNativeButton = (
+    config: ModalButtonConfig,
+    isPrimary: boolean,
+  ) => {
     const isDisabled = config.disabled || config.loading;
     // Usar cor customizada ou cor padrão primary
     const buttonColor = config.color || theme.colors.primary;
@@ -324,7 +349,9 @@ export function DesktopModal({
         disabled={isDisabled}
         style={[
           styles.footerButton,
-          isPrimary ? [styles.primaryButton, { backgroundColor: buttonColor }] : styles.secondaryButton,
+          isPrimary
+            ? [styles.primaryButton, { backgroundColor: buttonColor }]
+            : styles.secondaryButton,
           isDisabled && styles.buttonDisabled,
         ]}
         activeOpacity={0.7}
@@ -355,15 +382,17 @@ export function DesktopModal({
     if (hasDeclarativeButtons) {
       const buttons = [];
       if (secondaryButton) {
-        buttons.push(forWeb
-          ? renderWebButton(secondaryButton, false)
-          : renderNativeButton(secondaryButton, false)
+        buttons.push(
+          forWeb
+            ? renderWebButton(secondaryButton, false)
+            : renderNativeButton(secondaryButton, false),
         );
       }
       if (primaryButton) {
-        buttons.push(forWeb
-          ? renderWebButton(primaryButton, true)
-          : renderNativeButton(primaryButton, true)
+        buttons.push(
+          forWeb
+            ? renderWebButton(primaryButton, true)
+            : renderNativeButton(primaryButton, true),
         );
       }
       return buttons;
@@ -391,18 +420,22 @@ export function DesktopModal({
           backgroundColor: 'transparent',
           overflow: 'visible',
           // Bottom sheet for mobile
-          ...(isDesktop ? {} : {
-            bottom: 0,
-            top: 'auto',
-            marginBottom: 0,
-          }),
+          ...(isDesktop
+            ? {}
+            : {
+                bottom: 0,
+                top: 'auto',
+                marginBottom: 0,
+              }),
         }}
       >
         {/* Styled content container */}
         <div
           style={{
             backgroundColor: theme.colors.white,
-            borderRadius: isDesktop ? theme.borderRadius.lg : `${theme.borderRadius.lg}px ${theme.borderRadius.lg}px 0 0`,
+            borderRadius: isDesktop
+              ? theme.borderRadius.lg
+              : `${theme.borderRadius.lg}px ${theme.borderRadius.lg}px 0 0`,
             boxShadow: [
               boxShadow(0, 20, 25, -5, theme.colors.black, 0.1),
               boxShadow(0, 10, 10, -5, theme.colors.black, 0.04),
@@ -424,10 +457,18 @@ export function DesktopModal({
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                paddingLeft: isDesktop ? theme.desktop.section.padding : theme.spacing.lg,
-                paddingRight: isDesktop ? theme.desktop.section.padding : theme.spacing.lg,
-                paddingTop: isDesktop ? theme.desktop.section.gap : theme.spacing.md,
-                paddingBottom: isDesktop ? theme.desktop.section.gap : theme.spacing.md,
+                paddingLeft: isDesktop
+                  ? theme.desktop.section.padding
+                  : theme.spacing.lg,
+                paddingRight: isDesktop
+                  ? theme.desktop.section.padding
+                  : theme.spacing.lg,
+                paddingTop: isDesktop
+                  ? theme.desktop.section.gap
+                  : theme.spacing.md,
+                paddingBottom: isDesktop
+                  ? theme.desktop.section.gap
+                  : theme.spacing.md,
                 borderBottom: `1px solid ${theme.colors.gray200}`,
               }}
             >
@@ -435,7 +476,9 @@ export function DesktopModal({
                 id="dialog-title"
                 style={{
                   margin: 0,
-                  fontSize: isDesktop ? theme.typography.fontSize.base : theme.typography.fontSize.lg,
+                  fontSize: isDesktop
+                    ? theme.typography.fontSize.base
+                    : theme.typography.fontSize.lg,
                   fontWeight: 600,
                   color: theme.colors.gray900,
                   fontFamily: theme.typography.fontSansSemiBold,
@@ -449,7 +492,9 @@ export function DesktopModal({
                 aria-label="Fechar modal"
                 style={{
                   padding: isDesktop ? theme.spacing['1'] : theme.spacing.sm,
-                  marginRight: isDesktop ? -theme.spacing['1'] : -theme.spacing.sm,
+                  marginRight: isDesktop
+                    ? -theme.spacing['1']
+                    : -theme.spacing.sm,
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
@@ -466,7 +511,11 @@ export function DesktopModal({
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <Ionicons name="close" size={isDesktop ? 20 : 24} color={theme.colors.gray500} />
+                <Ionicons
+                  name="close"
+                  size={isDesktop ? 20 : 24}
+                  color={theme.colors.gray500}
+                />
               </button>
             </div>
           )}
@@ -475,7 +524,9 @@ export function DesktopModal({
           <div
             className="modal-scroll"
             style={{
-              padding: isDesktop ? theme.desktop.section.padding : theme.spacing.lg,
+              padding: isDesktop
+                ? theme.desktop.section.padding
+                : theme.spacing.lg,
               flex: 1,
               minHeight: 0,
               pointerEvents: 'auto',
@@ -493,8 +544,12 @@ export function DesktopModal({
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
-                gap: isDesktop ? theme.desktop.modal.footerGap : theme.spacing.md,
-                padding: isDesktop ? theme.desktop.modal.footerPadding : theme.spacing.lg,
+                gap: isDesktop
+                  ? theme.desktop.modal.footerGap
+                  : theme.spacing.md,
+                padding: isDesktop
+                  ? theme.desktop.modal.footerPadding
+                  : theme.spacing.lg,
                 backgroundColor: theme.colors.gray50,
                 borderTop: 'none',
                 flexShrink: 0,
@@ -534,7 +589,10 @@ export function DesktopModal({
           style={[
             styles.modalContainer,
             isDesktop ? styles.desktopModal : styles.mobileModal,
-            isDesktop && { maxWidth: effectiveMaxWidth, maxHeight: maxHeight as DimensionValue },
+            isDesktop && {
+              maxWidth: effectiveMaxWidth,
+              maxHeight: maxHeight as DimensionValue,
+            },
             // No mobile, eleva o modal para ficar acima da navigation bar do Android
             // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
             !isDesktop && { bottom: Math.max(insets.bottom, 34) },
@@ -562,9 +620,7 @@ export function DesktopModal({
 
           {/* Footer */}
           {shouldRenderFooter && (
-            <View style={styles.footer}>
-              {renderFooterContent(false)}
-            </View>
+            <View style={styles.footer}>{renderFooterContent(false)}</View>
           )}
         </Pressable>
 
