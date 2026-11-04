@@ -10,7 +10,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Conteúdo do Modal</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Conteúdo do Modal')).toBeTruthy();
@@ -20,7 +20,7 @@ describe('Modal Component', () => {
       const { queryByText } = render(
         <Modal visible={false} onClose={jest.fn()}>
           <Text>Conteúdo do Modal</Text>
-        </Modal>
+        </Modal>,
       );
 
       // O Modal do React Native ainda renderiza mas não mostra visualmente
@@ -34,7 +34,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} title="Meu Modal">
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Meu Modal')).toBeTruthy();
@@ -44,7 +44,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Conteúdo')).toBeTruthy();
@@ -54,7 +54,7 @@ describe('Modal Component', () => {
       const { UNSAFE_getByType } = render(
         <Modal visible={true} onClose={jest.fn()} title="Modal">
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       const icon = UNSAFE_getByType(require('@expo/vector-icons').Ionicons);
@@ -70,7 +70,7 @@ describe('Modal Component', () => {
           showCloseButton={false}
         >
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       const icon = UNSAFE_queryByType(require('@expo/vector-icons').Ionicons);
@@ -83,7 +83,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} size="small">
           <Text>Modal Pequeno</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Pequeno')).toBeTruthy();
@@ -93,7 +93,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Modal Médio</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Médio')).toBeTruthy();
@@ -103,7 +103,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} size="large">
           <Text>Modal Grande</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Grande')).toBeTruthy();
@@ -113,7 +113,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} size="full">
           <Text>Modal Full Screen</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Full Screen')).toBeTruthy();
@@ -123,7 +123,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} size={'invalid' as any}>
           <Text>Modal Tamanho Inválido</Text>
-        </Modal>
+        </Modal>,
       );
 
       // Deve renderizar mesmo com size inválido (fallback para medium)
@@ -137,7 +137,7 @@ describe('Modal Component', () => {
       const { UNSAFE_getByType } = render(
         <Modal visible={true} onClose={mockClose} title="Modal">
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       const icon = UNSAFE_getByType(require('@expo/vector-icons').Ionicons);
@@ -151,7 +151,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={mockClose}>
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       // Verifica que o modal renderiza com overlay
@@ -164,7 +164,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} animationType="fade">
           <Text>Modal Fade</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Fade')).toBeTruthy();
@@ -174,7 +174,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} animationType="slide">
           <Text>Modal Slide</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Slide')).toBeTruthy();
@@ -184,7 +184,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} animationType="none">
           <Text>Modal Sem Animação</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Sem Animação')).toBeTruthy();
@@ -196,7 +196,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Modal Transparente</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Transparente')).toBeTruthy();
@@ -206,7 +206,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} transparent={false}>
           <Text>Modal Opaco</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Opaco')).toBeTruthy();
@@ -219,7 +219,7 @@ describe('Modal Component', () => {
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Primeiro filho</Text>
           <Text>Segundo filho</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Primeiro filho')).toBeTruthy();
@@ -230,7 +230,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} title="Formulário">
           <Text>Preencha os dados:</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Preencha os dados:')).toBeTruthy();
@@ -243,7 +243,7 @@ describe('Modal Component', () => {
       const { getByText } = render(
         <Modal visible={true} onClose={jest.fn()} style={customStyle}>
           <Text>Modal Customizado</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Customizado')).toBeTruthy();
@@ -256,7 +256,7 @@ describe('Modal Component', () => {
       const { UNSAFE_getAllByType } = render(
         <Modal visible={true} onClose={mockClose}>
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       // O TouchableOpacity do overlay é o primeiro
@@ -276,7 +276,7 @@ describe('Modal Component', () => {
       const { UNSAFE_getByType } = render(
         <Modal visible={true} onClose={mockClose}>
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       const RNModal = require('react-native').Modal;
@@ -291,7 +291,7 @@ describe('Modal Component', () => {
       const { UNSAFE_getByType } = render(
         <Modal visible={true} onClose={jest.fn()} animationType="none">
           <Text>Conteúdo</Text>
-        </Modal>
+        </Modal>,
       );
 
       const RNModal = require('react-native').Modal;
@@ -307,7 +307,7 @@ describe('Modal Component', () => {
       const { UNSAFE_getByType } = render(
         <Modal visible={true} onClose={jest.fn()} showCloseButton={true}>
           <Text>Conteúdo sem título</Text>
-        </Modal>
+        </Modal>,
       );
 
       // Verifica se renderiza o botão de fechar
@@ -331,7 +331,7 @@ describe('Modal Component', () => {
           style={{ padding: 10 }}
         >
           <Text>Conteúdo completo</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Modal Completo')).toBeTruthy();
@@ -349,7 +349,7 @@ describe('Modal Component', () => {
       const { rerender, getByText } = render(
         <Modal visible={true} onClose={jest.fn()}>
           <Text>Conteúdo visível</Text>
-        </Modal>
+        </Modal>,
       );
 
       expect(getByText('Conteúdo visível')).toBeTruthy();
@@ -357,7 +357,7 @@ describe('Modal Component', () => {
       rerender(
         <Modal visible={false} onClose={jest.fn()}>
           <Text>Conteúdo visível</Text>
-        </Modal>
+        </Modal>,
       );
 
       // Modal fica hidden mas ainda renderiza

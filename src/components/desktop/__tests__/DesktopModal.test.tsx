@@ -26,7 +26,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Modal Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Modal Content')).toBeTruthy();
@@ -36,7 +36,7 @@ describe('DesktopModal', () => {
       const { queryByText } = render(
         <DesktopModal visible={false} onClose={jest.fn()}>
           <Text>Modal Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(queryByText('Modal Content')).toBeNull();
@@ -49,7 +49,7 @@ describe('DesktopModal', () => {
             <Text>Line 1</Text>
             <Text>Line 2</Text>
           </View>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Line 1')).toBeTruthy();
@@ -62,7 +62,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} title="Test Modal">
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Test Modal')).toBeTruthy();
@@ -72,7 +72,7 @@ describe('DesktopModal', () => {
       const { queryByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       // Verifica que não há título renderizado
@@ -83,7 +83,7 @@ describe('DesktopModal', () => {
       const { getByLabelText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} title="Modal">
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByLabelText('Fechar modal')).toBeTruthy();
@@ -96,7 +96,7 @@ describe('DesktopModal', () => {
       const { getByLabelText } = render(
         <DesktopModal visible={true} onClose={onClose} title="Modal">
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const closeButton = getByLabelText('Fechar modal');
@@ -110,7 +110,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={onClose}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -119,9 +119,13 @@ describe('DesktopModal', () => {
     it('deve renderizar com prop closeOnOverlayPress=false', () => {
       const onClose = jest.fn();
       const { getByText } = render(
-        <DesktopModal visible={true} onClose={onClose} closeOnOverlayPress={false}>
+        <DesktopModal
+          visible={true}
+          onClose={onClose}
+          closeOnOverlayPress={false}
+        >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -132,9 +136,13 @@ describe('DesktopModal', () => {
 
       // Renderizar o modal
       render(
-        <DesktopModal visible={true} onClose={onClose} closeOnOverlayPress={true}>
+        <DesktopModal
+          visible={true}
+          onClose={onClose}
+          closeOnOverlayPress={true}
+        >
           <Text>Content Inside Modal</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       // Importar Pressable do React Native
@@ -159,7 +167,7 @@ describe('DesktopModal', () => {
       const { UNSAFE_getByType } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const Modal = require('react-native').Modal;
@@ -174,7 +182,7 @@ describe('DesktopModal', () => {
       const { UNSAFE_getByType } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const Modal = require('react-native').Modal;
@@ -189,7 +197,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -201,7 +209,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -215,7 +223,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} maxWidth={800}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -227,7 +235,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} maxHeight="90%">
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -237,9 +245,13 @@ describe('DesktopModal', () => {
       const customStyle = { backgroundColor: 'red' };
 
       const { getByText } = render(
-        <DesktopModal visible={true} onClose={jest.fn()} contentStyle={customStyle}>
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          contentStyle={customStyle}
+        >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -253,7 +265,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -267,7 +279,7 @@ describe('DesktopModal', () => {
       const { UNSAFE_getByType } = render(
         <DesktopModal visible={true} onClose={onClose}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const Modal = require('react-native').Modal;
@@ -280,7 +292,7 @@ describe('DesktopModal', () => {
       const { getByLabelText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} title="Modal">
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const closeButton = getByLabelText('Fechar modal');
@@ -291,7 +303,7 @@ describe('DesktopModal', () => {
       const { getByLabelText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} title="Modal">
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const closeButton = getByLabelText('Fechar modal');
@@ -306,7 +318,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()} width={700}>
           <Text>Content with width</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content with width')).toBeTruthy();
@@ -316,9 +328,14 @@ describe('DesktopModal', () => {
       mockUseResponsive.mockReturnValue({ isDesktop: true });
 
       const { getByText } = render(
-        <DesktopModal visible={true} onClose={jest.fn()} width={500} maxWidth={800}>
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          width={500}
+          maxWidth={800}
+        >
           <Text>Width takes precedence</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Width takes precedence')).toBeTruthy();
@@ -330,7 +347,7 @@ describe('DesktopModal', () => {
       const { getByText, queryByLabelText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content without title</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content without title')).toBeTruthy();
@@ -343,9 +360,13 @@ describe('DesktopModal', () => {
       mockUseResponsive.mockReturnValue({ isDesktop: true });
 
       const { getByText } = render(
-        <DesktopModal visible={true} onClose={jest.fn()} closeOnOverlayPress={true}>
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          closeOnOverlayPress={true}
+        >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -355,9 +376,13 @@ describe('DesktopModal', () => {
       mockUseResponsive.mockReturnValue({ isDesktop: true });
 
       const { getByText } = render(
-        <DesktopModal visible={true} onClose={jest.fn()} closeOnOverlayPress={false}>
+        <DesktopModal
+          visible={true}
+          onClose={jest.fn()}
+          closeOnOverlayPress={false}
+        >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -371,7 +396,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Mobile Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Mobile Content')).toBeTruthy();
@@ -383,7 +408,7 @@ describe('DesktopModal', () => {
       const { getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Desktop Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Desktop Content')).toBeTruthy();
@@ -395,7 +420,7 @@ describe('DesktopModal', () => {
       const { UNSAFE_getByType } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const Modal = require('react-native').Modal;
@@ -408,7 +433,7 @@ describe('DesktopModal', () => {
       const { UNSAFE_getByType } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const Modal = require('react-native').Modal;
@@ -427,7 +452,7 @@ describe('DesktopModal', () => {
           footer={<Text>Footer Content</Text>}
         >
           <Text>Body Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Footer Content')).toBeTruthy();
@@ -438,7 +463,7 @@ describe('DesktopModal', () => {
       const { queryByText, getByText } = render(
         <DesktopModal visible={true} onClose={jest.fn()}>
           <Text>Body Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Body Content')).toBeTruthy();
@@ -458,7 +483,7 @@ describe('DesktopModal', () => {
           }
         >
           <Text>Body</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Cancel Button')).toBeTruthy();
@@ -475,7 +500,7 @@ describe('DesktopModal', () => {
           footer={<Text>Mobile Footer</Text>}
         >
           <Text>Mobile Body</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Mobile Footer')).toBeTruthy();
@@ -491,7 +516,7 @@ describe('DesktopModal', () => {
           footer={<Text>Desktop Footer</Text>}
         >
           <Text>Desktop Body</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Desktop Footer')).toBeTruthy();
@@ -508,7 +533,7 @@ describe('DesktopModal', () => {
           primaryButton={{ text: 'Salvar', onPress }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Salvar')).toBeTruthy();
@@ -523,7 +548,7 @@ describe('DesktopModal', () => {
           secondaryButton={{ text: 'Cancelar', onPress }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Cancelar')).toBeTruthy();
@@ -538,7 +563,7 @@ describe('DesktopModal', () => {
           secondaryButton={{ text: 'Voltar', onPress: jest.fn() }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Confirmar')).toBeTruthy();
@@ -554,7 +579,7 @@ describe('DesktopModal', () => {
           primaryButton={{ text: 'Salvar', onPress }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       fireEvent.press(getByText('Salvar'));
@@ -570,7 +595,7 @@ describe('DesktopModal', () => {
           secondaryButton={{ text: 'Cancelar', onPress }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       fireEvent.press(getByText('Cancelar'));
@@ -586,7 +611,7 @@ describe('DesktopModal', () => {
           primaryButton={{ text: 'Salvar', onPress, disabled: true }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       const TouchableOpacity = require('react-native').TouchableOpacity;
@@ -605,7 +630,7 @@ describe('DesktopModal', () => {
           primaryButton={{ text: 'Salvar', onPress, loading: true }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       // Verifica que o botão existe
@@ -626,7 +651,7 @@ describe('DesktopModal', () => {
           footer={<Text>Footer Ignorado</Text>}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Declarativo')).toBeTruthy();
@@ -641,7 +666,7 @@ describe('DesktopModal', () => {
           footer={<Text>Footer Custom</Text>}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Footer Custom')).toBeTruthy();
@@ -658,7 +683,7 @@ describe('DesktopModal', () => {
           secondaryButton={{ text: 'Mobile Secondary', onPress: jest.fn() }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Mobile Primary')).toBeTruthy();
@@ -676,7 +701,7 @@ describe('DesktopModal', () => {
           secondaryButton={{ text: 'Desktop Secondary', onPress: jest.fn() }}
         >
           <Text>Content</Text>
-        </DesktopModal>
+        </DesktopModal>,
       );
 
       expect(getByText('Desktop Primary')).toBeTruthy();
