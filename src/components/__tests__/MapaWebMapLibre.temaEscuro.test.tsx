@@ -170,6 +170,17 @@ function pinturaDa(id: string): Record<string, unknown> {
   return chamada[0].paint ?? {};
 }
 
+/**
+ * O texto sem cor própria (título, endereço, "Destinatário:") herda a cor da
+ * página, que no escuro é clara e some no fundo branco do popup. A raiz do
+ * popup fixa a cor do texto, e os filhos a herdam.
+ */
+function expectRaizComTextoEscuro(html: string) {
+  const raiz = html.trim().match(/^<div style="([^"]*)"/);
+  expect(raiz?.[1]).toContain(`color: ${CORES_SOBRE_O_MAPA.texto};`);
+  expect(html).not.toContain(darkTheme.colors.text);
+}
+
 function ultimoHtmlDoPopup(): string {
   const chamadas = mockHtmlDoPopup.mock.calls;
   if (chamadas.length === 0) throw new Error('nenhum popup aberto');
@@ -227,6 +238,7 @@ describe('MapaWebMapLibre no tema escuro', () => {
     });
 
     const html = ultimoHtmlDoPopup();
+    expectRaizComTextoEscuro(html);
     expect(html).toContain(CORES_SOBRE_O_MAPA.textoSecundario);
     expect(html).toContain(`color: ${CORES_SOBRE_O_MAPA.marca};">Ver ações`);
     expect(html).not.toContain(darkTheme.colors.textSecondary);
@@ -248,6 +260,7 @@ describe('MapaWebMapLibre no tema escuro', () => {
     });
 
     const html = ultimoHtmlDoPopup();
+    expectRaizComTextoEscuro(html);
     expect(html).toContain('Paradas 1 e 2');
     expect(html).toContain(CORES_SOBRE_O_MAPA.textoSecundario);
     expect(html).toContain(`color: ${CORES_SOBRE_O_MAPA.marca};">Ver ações`);
@@ -259,6 +272,7 @@ describe('MapaWebMapLibre no tema escuro', () => {
     await renderizarCarregado({ selectedParadaId: 'partida' });
 
     const html = ultimoHtmlDoPopup();
+    expectRaizComTextoEscuro(html);
     expect(html).toContain('Ponto de Partida');
     expect(html).toContain(CORES_SOBRE_O_MAPA.textoSecundario);
     expect(html).not.toContain(darkTheme.colors.textSecondary);
