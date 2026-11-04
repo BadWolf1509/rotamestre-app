@@ -64,8 +64,6 @@ jest.mock('../queryClient', () => ({
     type: error?.code === '42501' ? 'permission' : 'unknown',
     message: error?.message || 'Erro desconhecido',
   }),
-  buildCacheKey: (...parts: (string | number | undefined)[]) =>
-    parts.filter(Boolean).join(':'),
 }));
 
 // Import after mocks

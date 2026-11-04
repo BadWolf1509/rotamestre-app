@@ -6,40 +6,22 @@
 // perca o `search_path` vazio, a conferência do formato uuid antes do cast ou
 // as condições de `paradas_select`, que as policies de INSERT/DELETE sejam
 // recriadas junto e que as duas cópias divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261025160000_fotos_entrega_pela_propria_rota.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261025160000_sonda_migration65.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261025160000_sonda_migration65.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 /** Trecho de `inicio` até o primeiro `fim` depois dele ('' se não houver). */
 const trecho = (texto: string, inicio: string, fim: string) => {
@@ -61,11 +43,7 @@ const policySelect = trecho(
 );
 
 describe('Migration 65: fotos de entrega pelo gestor da loja e pelo motorista da rota', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -184,13 +162,13 @@ describe('Migration 65: fotos de entrega pelo gestor da loja e pelo motorista da
   });
 
   it('MIGRATIONS.md registra a Migration 65 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 65: /);
     expect(doc).toContain(ARQUIVO);
   });
 
   it('texto neutro nos arquivos públicos', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     const entrada = doc.slice(doc.search(/### .*Migration 65: /));
     const publicos = [sql, sonda, entrada].join('\n').toLowerCase();
     for (const termo of [

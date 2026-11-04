@@ -3,25 +3,16 @@
 // prova com a sonda transacional (`database/sondas/`), rodada no SQL Editor.
 // Esta guarda impede que a migration perca, numa edição, uma das peças que
 // fecham as falhas, e que as duas cópias (database/ e supabase/) divirjam.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  carregarMigration,
+  itExisteNasDuasPastas,
+  lerSonda,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261023000000_endurece_usuarios_storage_incidentes.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261023000000_sonda_migration38.sql',
-);
 
-// Normaliza CRLF: num checkout do Windows com autocrlf os arquivos vêm com \r\n
-// e as regex de fim de bloco (\nEND\n$$;) erravam sem o SQL ter mudado.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: tira comentários de linha (o bloco ROLLBACK é comentado).
 const executavel = sql
   .split('\n')
@@ -29,11 +20,7 @@ const executavel = sql
   .join('\n');
 
 describe('Migration 38: endurecimento', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('tem bloco de rollback', () => {
     expect(sql).toMatch(/^-- ROLLBACK:/m);
@@ -152,7 +139,7 @@ describe('Migration 38: endurecimento', () => {
   });
 
   describe('sonda transacional', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261023000000_sonda_migration38.sql');
 
     it('termina SEMPRE em RAISE EXCEPTION (desfaz tudo)', () => {
       expect(sonda).toMatch(/SET LOCAL ROLE authenticated/);

@@ -3,7 +3,10 @@ import { AppState } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
-import { useTimelineData } from '../useTimelineData';
+import {
+  DEBOUNCE_REVALIDACAO_TIMELINE_MS,
+  useTimelineData,
+} from '../useTimelineData';
 
 jest.mock('@/lib/cache', () => ({
   getCache: jest.fn(async () => null),
@@ -278,7 +281,11 @@ describe('useTimelineData — revalidação', () => {
     return (estado: string) => ouvintes.forEach((cb) => cb(estado));
   }
 
-  afterEach(() => jest.restoreAllMocks());
+  // Quem liga o relógio falso desliga aqui: nada vaza para o teste seguinte.
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
 
   it('recarrega na volta a SUBSCRIBED, não no primeiro', async () => {
     const { result } = renderHook(() =>
@@ -318,6 +325,7 @@ describe('useTimelineData — revalidação', () => {
   // Revisão, M2: na volta ao app a reconexão e o primeiro plano costumam
   // disparar juntos, e cada um recarregava (refresh ignora a deduplicação).
   it('reconexão e volta ao primeiro plano juntas: uma recarga só', async () => {
+    jest.useFakeTimers();
     const disparar = espiarAppState();
     const { result } = renderHook(() =>
       useTimelineData('123', { realtime: true }),
@@ -336,13 +344,23 @@ describe('useTimelineData — revalidação', () => {
       status('SUBSCRIBED');
     });
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 800));
+      jest.advanceTimersByTime(DEBOUNCE_REVALIDACAO_TIMELINE_MS - 1);
     });
+    expect(cargasDaPagina1()).toBe(antes);
 
+    await act(async () => {
+      jest.advanceTimersByTime(2);
+    });
+    expect(cargasDaPagina1()).toBe(antes + 1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_REVALIDACAO_TIMELINE_MS * 2);
+    });
     expect(cargasDaPagina1()).toBe(antes + 1);
   });
 
   it('reconexão com o app em segundo plano não recarrega ali', async () => {
+    jest.useFakeTimers();
     espiarAppState();
     const { result } = renderHook(() =>
       useTimelineData('123', { realtime: true }),
@@ -362,7 +380,9 @@ describe('useTimelineData — revalidação', () => {
       await act(async () => {
         status('TIMED_OUT');
         status('SUBSCRIBED');
-        await new Promise((r) => setTimeout(r, 800));
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(DEBOUNCE_REVALIDACAO_TIMELINE_MS + 1);
       });
       expect(cargasDaPagina1()).toBe(antes);
     } finally {

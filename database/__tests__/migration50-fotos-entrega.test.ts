@@ -5,42 +5,23 @@
 // o DELETE só pelo dono, volte a abrir o ramo por loja sem conferir o cadastro,
 // mexa nos ramos de perfil e incidente, crie UPDATE no bucket, ou deixe as duas
 // cópias (database/ e supabase/) divergirem.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024121500_fotos_entrega_comprovante_preservado.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024121500_sonda_migration50.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 // O bloco ROLLBACK, sem o prefixo de comentário.
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const { rollback } = m;
 
 function corpoDaFuncao(assinatura: string): string {
   const inicio = executavel.indexOf(
@@ -65,11 +46,7 @@ const RAMO_LOJA =
   /\(storage\.foldername\(name\)\)\[1\] IN \(\s*SELECT f\.unidade_id::text\s+FROM public\.minhas_unidades_com_acesso\(\) AS f\(unidade_id\)\s*\)/;
 
 describe('Migration 50: fotos-entrega — comprovante vinculado e cadastro ativo', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -119,7 +96,9 @@ describe('Migration 50: fotos-entrega — comprovante vinculado e cadastro ativo
         ),
       );
     }
-    expect(corpo).toMatch(/NOT EXISTS \(\s*SELECT 1\s+FROM public\.incidentes i/);
+    expect(corpo).toMatch(
+      /NOT EXISTS \(\s*SELECT 1\s+FROM public\.incidentes i/,
+    );
     // o caminho registrado pela fila offline (`subirFotoDaFilaOffline`)
     expect(corpo).toMatch(
       /NOT EXISTS \(\s*SELECT 1\s+FROM public\.logs l\s+WHERE l\.evento = 'foto_comprovante_sem_vinculo'\s+AND l\.detalhes->>'foto_path' = p_nome\s*\)/,
@@ -167,7 +146,9 @@ describe('Migration 50: fotos-entrega — comprovante vinculado e cadastro ativo
     expect(p).toMatch(/FOR SELECT TO authenticated/);
     expect(p).toMatch(RAMO_LOJA);
     expect(p).not.toMatch(/get_my_unidade_ids/);
-    expect(p).toMatch(/owner = \(SELECT auth\.uid\(\)\)\s+OR owner_id = \(SELECT auth\.uid\(\)\)::text/);
+    expect(p).toMatch(
+      /owner = \(SELECT auth\.uid\(\)\)\s+OR owner_id = \(SELECT auth\.uid\(\)\)::text/,
+    );
     expect(p).toMatch(
       /\(storage\.foldername\(name\)\)\[1\] = 'perfis'\s+AND EXISTS \(\s*SELECT 1\s+FROM public\.usuarios u/,
     );
@@ -224,16 +205,20 @@ describe('Migration 50: fotos-entrega — comprovante vinculado e cadastro ativo
     // os helpers saem depois das policies que os usam
     const posPolicies = rollback.lastIndexOf('CREATE POLICY');
     expect(
-      rollback.indexOf('DROP FUNCTION IF EXISTS public.pode_apagar_foto_entrega(text);'),
+      rollback.indexOf(
+        'DROP FUNCTION IF EXISTS public.pode_apagar_foto_entrega(text);',
+      ),
     ).toBeGreaterThan(posPolicies);
     expect(
-      rollback.indexOf('DROP FUNCTION IF EXISTS public.minhas_unidades_com_acesso();'),
+      rollback.indexOf(
+        'DROP FUNCTION IF EXISTS public.minhas_unidades_com_acesso();',
+      ),
     ).toBeGreaterThan(posPolicies);
     expect(rollback).toMatch(/BEGIN;[\s\S]*COMMIT;/);
   });
 
   it('sonda existe, cobre os casos e termina em RAISE EXCEPTION', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024121500_sonda_migration50.sql');
     expect(sonda).not.toBe('');
     expect(sonda).toMatch(/storage\.allow_delete_query/);
     expect(sonda).toMatch(/SET LOCAL ROLE authenticated/);
@@ -255,7 +240,7 @@ describe('Migration 50: fotos-entrega — comprovante vinculado e cadastro ativo
   });
 
   it('MIGRATIONS.md registra a Migration 50 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/Migration 50/);
     expect(doc).toContain(ARQUIVO);
   });

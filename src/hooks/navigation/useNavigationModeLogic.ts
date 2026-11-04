@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
+import { PREFERENCIAS_PADRAO } from '@/lib/motorista/preferenciasNavegacaoPadrao';
 import {
   calculateHaversineDistance,
   decodePolyline,
@@ -27,17 +28,6 @@ import type {
 
 // Average urban speed for ETA estimation (km/h)
 const AVERAGE_URBAN_SPEED_KMH = 30;
-
-// Default navigation preferences
-const DEFAULT_PREFERENCES: NavigationPreferences = {
-  soundAlerts: true,
-  vibrationAlerts: true,
-  showSpeedometer: true,
-  preventScreenSleep: true,
-  navegarCom: 'mapa',
-  preferredNavApp: 'default',
-  proximityRadius: 50,
-};
 
 interface UseNavigationModeLogicOptions {
   currentStop: ParadaData;
@@ -74,7 +64,7 @@ export function useNavigationModeLogic({
   const [showSettings, setShowSettings] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [preferences, setPreferences] =
-    useState<NavigationPreferences>(DEFAULT_PREFERENCES);
+    useState<NavigationPreferences>(PREFERENCIAS_PADRAO);
 
   // Route path from OSRM
   const [routePath, setRoutePath] = useState<Coordinate[]>([]);
@@ -157,14 +147,8 @@ export function useNavigationModeLogic({
    */
   const loadPreferences = useCallback(async () => {
     try {
-      const prefs = await LocationTrackingService.getNavigationPreferences();
-      // O serviço devolve tudo preenchido; a tabela local existia como
-      // segunda fonte de verdade e é o defeito que foi corrigido na fonte.
-      const newPrefs: NavigationPreferences = {
-        ...DEFAULT_PREFERENCES,
-        ...prefs,
-      };
-      setPreferences(newPrefs);
+      // O serviço já devolve tudo preenchido.
+      setPreferences(await LocationTrackingService.getNavigationPreferences());
     } catch {
       // Use defaults on failure
     }

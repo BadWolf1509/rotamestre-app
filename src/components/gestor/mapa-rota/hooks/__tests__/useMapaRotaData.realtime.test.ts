@@ -11,7 +11,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { logger } from '@/lib/logger';
 
-import { useMapaRotaData } from '../useMapaRotaData';
+import { DEBOUNCE_RECARGA_MS, useMapaRotaData } from '../useMapaRotaData';
 
 type Ouvinte = {
   tipo: string;
@@ -94,6 +94,11 @@ const ouvinte = (tabela: string, evento: string) =>
   );
 
 describe('useMapaRotaData: tela viva', () => {
+  // Quem liga o relógio falso desliga aqui: nada vaza para o teste seguinte.
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockOuvintes.length = 0;
@@ -107,7 +112,9 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('assina paradas e rotas filtradas pela rota, e NÃO assina DELETE sem filtro', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(ouvinte('paradas', '*')?.filtro.filter).toBe('rota_id=eq.rota-1');
@@ -149,7 +156,10 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('uma rajada de eventos vira uma recarga só', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
+    jest.useFakeTimers();
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockParadasOrder.mockClear();
 
@@ -157,13 +167,26 @@ describe('useMapaRotaData: tela viva', () => {
       for (let i = 0; i < 5; i += 1) ouvinte('paradas', '*')!.cb({});
     });
 
-    await waitFor(() => expect(mockParadasOrder).toHaveBeenCalledTimes(1));
-    await new Promise((r) => setTimeout(r, 600));
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_RECARGA_MS - 1);
+    });
+    expect(mockParadasOrder).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(2);
+    });
+    expect(mockParadasOrder).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_RECARGA_MS * 2);
+    });
     expect(mockParadasOrder).toHaveBeenCalledTimes(1);
   });
 
   it('mudança na rota (ex.: cancelada) também recarrega', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockSingle.mockResolvedValue({
       data: { ...rotaRow, status: 'cancelada' },
@@ -178,7 +201,9 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('ao (re)conectar o canal revalida: cobre o intervalo sem eventos', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockParadasOrder.mockClear();
 
@@ -199,6 +224,7 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('desmontar remove o canal e cancela a recarga pendente', async () => {
+    jest.useFakeTimers();
     const { result, unmount } = renderHook(() =>
       useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
     );
@@ -211,7 +237,9 @@ describe('useMapaRotaData: tela viva', () => {
     unmount();
 
     expect(mockRemoveChannel).toHaveBeenCalledWith(mockCanal);
-    await new Promise((r) => setTimeout(r, 600));
+    await act(async () => {
+      jest.advanceTimersByTime(DEBOUNCE_RECARGA_MS + 1);
+    });
     expect(mockParadasOrder).not.toHaveBeenCalled();
   });
 
@@ -277,7 +305,9 @@ describe('useMapaRotaData: tela viva', () => {
   });
 
   it('resposta velha que chega depois da nova é descartada', async () => {
-    const { result } = renderHook(() => useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }));
+    const { result } = renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     let liberaVelha!: (v: unknown) => void;
@@ -319,7 +349,6 @@ describe('useMapaRotaData: tela viva', () => {
       );
       return (v: unknown) => liberar(v);
     }
-    const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
     it('a recarga do SUBSCRIBED vence a 1ª carga: loading desliga e os dados aparecem', async () => {
       mockSubscribedNaHora = true;
@@ -329,18 +358,24 @@ describe('useMapaRotaData: tela viva', () => {
         error: null,
       });
 
+      jest.useFakeTimers();
       const { result } = renderHook(() =>
         useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
       );
       expect(result.current.loading).toBe(true);
 
-      // O debounce (300 ms) vence e a recarga termina antes da 1ª carga.
+      // O debounce vence e a recarga termina antes da 1ª carga.
+      // Antes do prazo só a 1ª carga (ainda pendente) leu as paradas.
       await act(async () => {
-        await esperar(500);
+        jest.advanceTimersByTime(DEBOUNCE_RECARGA_MS - 1);
       });
+      expect(mockParadasOrder).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        jest.advanceTimersByTime(2);
+      });
+      expect(mockParadasOrder).toHaveBeenCalledTimes(2);
       await act(async () => {
         liberar({ data: [parada('p1', 1, 'pendente')], error: null });
-        await esperar(0);
       });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -356,16 +391,26 @@ describe('useMapaRotaData: tela viva', () => {
         error: new Error('rede'),
       });
 
+      jest.useFakeTimers();
       const { result } = renderHook(() =>
-        useMapaRotaData({ rotaId: 'rota-1', onError, showToast: mockShowToast }),
+        useMapaRotaData({
+          rotaId: 'rota-1',
+          onError,
+          showToast: mockShowToast,
+        }),
       );
 
+      // Antes do prazo só a 1ª carga (ainda pendente) leu as paradas.
       await act(async () => {
-        await esperar(500);
+        jest.advanceTimersByTime(DEBOUNCE_RECARGA_MS - 1);
       });
+      expect(mockParadasOrder).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        jest.advanceTimersByTime(2);
+      });
+      expect(mockParadasOrder).toHaveBeenCalledTimes(2);
       await act(async () => {
         liberar({ data: [parada('p1', 1, 'pendente')], error: null });
-        await esperar(0);
       });
 
       await waitFor(() => expect(result.current.loading).toBe(false));

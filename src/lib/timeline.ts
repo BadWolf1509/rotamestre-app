@@ -37,6 +37,14 @@ export const TIMELINE_LOG_EVENTS = [
 export type TimelineLogEvent = (typeof TIMELINE_LOG_EVENTS)[number];
 
 /**
+ * Eventos da lista acima, para consulta O(1). Evento daqui nunca cai nos ramos
+ * de substring de `mapLogToTimelineEvent` (ex.: `rota_finalizada` contém
+ * "finaliz" e virava "Rota Concluída" em vez do resumo); a substring fica só
+ * para logs legados fora da lista.
+ */
+const EVENTOS_CONHECIDOS: ReadonlySet<string> = new Set(TIMELINE_LOG_EVENTS);
+
+/**
  * Labels for incident categories
  */
 export const INCIDENTE_LABELS: Record<string, string> = {
@@ -249,6 +257,7 @@ export function mapLogToTimelineEvent(log: {
 }): TimelineEventMapped | null {
   const evento = log.evento.toLowerCase();
   const detalhes = typeof log.detalhes === 'object' ? log.detalhes : null;
+  const legado = !EVENTOS_CONHECIDOS.has(evento);
 
   // ROUTE CREATED
   if (evento === 'rota_criada') {
@@ -271,8 +280,7 @@ export function mapLogToTimelineEvent(log: {
 
   // ROUTE STARTED
   if (
-    evento.includes('iniciou') ||
-    evento.includes('start') ||
+    (legado && (evento.includes('iniciou') || evento.includes('start'))) ||
     evento === 'motorista_iniciou_rota'
   ) {
     return {
@@ -290,8 +298,7 @@ export function mapLogToTimelineEvent(log: {
 
   // ROUTE COMPLETED
   if (
-    evento.includes('concluiu') ||
-    evento.includes('finaliz') ||
+    (legado && (evento.includes('concluiu') || evento.includes('finaliz'))) ||
     evento === 'motorista_concluiu_rota'
   ) {
     return {
@@ -309,8 +316,7 @@ export function mapLogToTimelineEvent(log: {
 
   // ROUTE CANCELLED
   if (
-    evento.includes('cancelou') ||
-    evento.includes('cancel') ||
+    (legado && (evento.includes('cancelou') || evento.includes('cancel'))) ||
     evento === 'rota_cancelada'
   ) {
     return {

@@ -5,41 +5,21 @@
 // o gestor de uma loja só, abra um ramo para o motorista, tire a cláusula WHEN
 // (que deixa as RPCs que só mexem em `ordem` de fora), exponha a função de
 // gatilho ou deixe as duas cópias divergirem.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024210000_parada_muda_de_rota_pelo_gestor.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024210000_sonda_migration58.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const sonda = ler(caminhoSonda);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
-const executavel = semComentarios(sql);
-const rollback = (() => {
-  const i = sql.indexOf('-- ROLLBACK:');
-  if (i < 0) return '';
-  return sql
-    .slice(i)
-    .split('\n')
-    .map((l) => l.replace(/^-- ?/, ''))
-    .join('\n');
-})();
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
+const sonda = lerSonda('20261024210000_sonda_migration58.sql');
+const { executavel } = m;
+const { rollback } = m;
 
 const FUNCAO = 'paradas_troca_de_rota_pelo_gestor';
 const GATILHO = 'trg_paradas_troca_de_rota_pelo_gestor';
@@ -80,11 +60,7 @@ const gestorAtivoDaRota = (lado: 'OLD' | 'NEW') =>
   );
 
 describe('Migration 58: parada só muda de rota pelo gestor das duas lojas', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('roda numa transação só', () => {
     expect(executavel).toMatch(/^\s*BEGIN;/m);
@@ -210,7 +186,7 @@ describe('Migration 58: parada só muda de rota pelo gestor das duas lojas', () 
   });
 
   it('MIGRATIONS.md registra a Migration 58 com o arquivo', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### .*Migration 58: /);
     expect(doc).toContain(ARQUIVO);
   });

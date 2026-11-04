@@ -4,6 +4,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { renderHook } from '@testing-library/react-native';
 
 import type { ParadaData, RouteData } from '@/context/route-status/types';
 import { getErrorMessage } from '@/lib/errorMapping';
@@ -92,15 +93,16 @@ const paradas: ParadaData[] = [
 
 function setup(porta: PortaParadas, ps: ParadaData[] = paradas) {
   const loadActiveRoute = jest.fn().mockResolvedValue(undefined);
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- não usa estado do React
-  const actions = useRouteActions({
-    route,
-    paradas: ps,
-    userData: { id: 'user-1', nome: 'Joao' },
-    loadActiveRoute,
-    portaParadas: porta,
-  });
-  return { ...actions, loadActiveRoute };
+  const { result } = renderHook(() =>
+    useRouteActions({
+      route,
+      paradas: ps,
+      userData: { id: 'user-1', nome: 'Joao' },
+      loadActiveRoute,
+      portaParadas: porta,
+    }),
+  );
+  return { ...result.current, loadActiveRoute };
 }
 
 function ficarOffline() {

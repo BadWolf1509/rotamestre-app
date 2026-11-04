@@ -8,6 +8,27 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Varredura de refatorações de 03/11/2026 (#714–#718)
+
+Relatório em `docs/superpowers/2026-11-03-varredura-refatoracoes.md`, cinco planos em `docs/superpowers/plans/2026-11-03-varredura-*.md`, executados em cinco sessões paralelas, uma por domínio, sem tocar os mesmos arquivos. Antes dos merges, as cinco branches foram juntadas num worktree local e passaram juntas (tsc, lint do repositório inteiro, Jest 636 suítes / 8638 testes, `scan:nao-declarado`). Ordem: lib → gestor → mapas → testes → motorista.
+
+- **#717 lib:** conversão OSRM numa função só (`osrmParaResultadoGoogle`, sai o `google.web.ts`), `criarSerie` (`src/lib/serie.ts`), `lerJsonParaExibir`, `soDigitos`/`telefoneComDDD` em `src/lib/documentos.ts`; saem `type-guards.ts`, a Routes API, o offline legado e 17 consultas sem uso.
+- **#718 gestor:** `rotuloDoStatus`/`coresPorStatusDaRota` em `statusConfig` como fonte única, `src/lib/gestor/motoristaNaLoja.ts`, auditoria do mapa-rota; "Não executada" em vermelho e rótulos em caixa de frase. Conflitou com a lib em `src/types/rota.ts` (a lib apagou o `type-guards.ts` que um comentário citava).
+- **#715 mapas:** `CORES_SOBRE_O_MAPA` mudou para `src/components/map/coresSobreOMapa.ts` e cobre os dois modos de navegação e o mapa web do gestor; `MapaAdapterProps` numa interface só; `export default` removido, com guarda.
+- **#716 testes/infra (parte 1):** um mock só do Supabase, scripts órfãos e SQL que não era migration fora de `database/migrations`, helper e guarda de paridade das pastas de migration, fake timers. knip: 216 `Unused exports`.
+- **#714 motorista:** `preferenciasNavegacaoPadrao.ts`, `src/lib/geo/distancia.ts`, `useRouteStatus` lança fora do provider (`useRouteStatusSeHouver` para o menu lateral), o "Contatar gestor" cita rota e endereço, a aba Paradas usa a parada do contexto. Combinado com o #715, o mesmo teste (`NavigationMode.web.test.tsx`) ficava com a ordem de import quebrada — só aparecia com as duas branches juntas.
+- Validações fora do CI e sobras: pendência 32.
+
+## Release 1.14.12 (03/11/2026)
+
+Na interna e na alpha (3050). A 1.14.11 (3049) foi validada no moto g15 e não subiu à alpha: com Wi-Fi sem internet a rota guardada só aparecia aos 26,5 s (1.14.10: ≈ 11 s). Causa: com o #707 o perfil sai do aparelho sem ir à rede, e a busca da rota passou a ser a primeira a esbarrar no DNS, com o retry do postgrest-js; antes, a falha do perfil ligava o "sem rede" observado e a rota pegava o atalho.
+
+- **#711:** sem dado em memória, o retrato guardado entra antes da busca e ela segue por trás (resposta vence, inclusive "sem rota"; falha mantém o retrato com a faixa "Sem conexão"). A revisão independente pegou que o retrato passava a contar como carga confirmada e podia desligar o rastreamento de rota já iniciada: o hook expõe `confirmadoPeloBanco` e o provider o exige. Alternativa descartada: só desligar o retry da carga inicial (voltaria aos ~10 s).
+- **Medido no aparelho (Play):** sem internet 7,0–7,7 s; com rede 6,9 s; 120 posições sem duplicata em 15 min com três `force-stop` e reconexão.
+- **Posições ainda podem duplicar** (2 em 30 min na 1.14.11): o banco grava o lote e o processo morre antes do `remover` da fila. Proposta a decidir: `id` derivado do fix + `ON CONFLICT DO NOTHING` (pendência 23).
+- O SDK 58 (#710) passou a versionCode 3051.
+- Notas: "Abre na hora com Wi-Fi sem internet, mostrando a rota já salva no aparelho / Posições do motorista enviadas sem duplicar / Ajustes de estabilidade nas telas".
+
 ## Release 1.14.11 (03/11/2026)
 
 **Dependabot e audit (02–03/11):** o audit de produção ficou vermelho na `main` com advisories novos. O `node-forge` subiu para 1.4.2 pelo lockfile, e os que só o Expo SDK 58 corrige entraram na allowlist com revisão em 24/11 (#704, pendência 31). Mesclados #698–#703; o #698 não foi rebaseado pelo Dependabot ("don't have any knowledge about this pull request") e foi atualizado pelo GitHub. O #701 (`maplibre-gl`) passou antes pelo e2e autenticado disparado à parte.

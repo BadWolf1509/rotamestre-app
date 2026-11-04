@@ -162,4 +162,11 @@ describe('paradaModalSchema (modais de adicionar e editar parada da rota)', () =
       paradaModalSchema.safeParse({ ...valida, latitude: undefined }).success,
     ).toBe(true);
   });
+
+  it('telefone com +55 continua recusado (regra 10/11 inalterada)', () => {
+    expect(
+      paradaModalSchema.safeParse({ ...valida, telefone: '+55 83 98765-4321' })
+        .success,
+    ).toBe(false);
+  });
 });

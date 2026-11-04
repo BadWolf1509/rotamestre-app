@@ -32,6 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { coresPorStatusDaRota } from '@/constants/statusConfig';
 import {
   DataTable,
   type DataTableAction,
@@ -75,13 +76,7 @@ export default function GestaoRotas() {
 
   // Status color map (precisa do theme)
   const statusColorMap = useMemo(
-    () => ({
-      pendente: theme.colors.warning,
-      em_andamento: theme.colors.info,
-      concluida: theme.colors.success,
-      cancelada: theme.colors.error,
-      nao_executada: theme.colors.warning,
-    }),
+    () => coresPorStatusDaRota((chave) => theme.colors[chave]),
     [theme.colors],
   );
 

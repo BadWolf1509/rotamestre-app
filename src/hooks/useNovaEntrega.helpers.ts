@@ -7,6 +7,7 @@ import type {
   Parada,
   RouteDraftValidation,
 } from '@/components/gestor/nova-entrega/types';
+import { distanciaMetrosEntre } from '@/lib/geo/distancia';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
 import { gerarUuid } from '@/lib/uuid';
@@ -307,16 +308,12 @@ export function distanceInMeters(
     return Number.POSITIVE_INFINITY;
   }
 
-  const toRad = (value: number) => (value * Math.PI) / 180;
-  const earthRadius = 6371000;
-  const dLat = toRad(coords.latitude - parada.latitude);
-  const dLon = toRad(coords.longitude - parada.longitude);
-  const lat1 = toRad(parada.latitude);
-  const lat2 = toRad(coords.latitude);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
-  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return distanciaMetrosEntre(
+    parada.latitude,
+    parada.longitude,
+    coords.latitude,
+    coords.longitude,
+  );
 }
 
 export function avaliarSanidadeGeografica(

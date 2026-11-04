@@ -9,6 +9,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { SKIP_REASON_LABELS } from '@/constants/skipReasons';
+import { rotuloDoStatus } from '@/constants/statusConfig';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
@@ -106,10 +107,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                   ]}
                 >
                   <Text style={styles.statusTagText}>
-                    {parada.status === 'concluida' && 'Concluída'}
-                    {parada.status === 'pendente' && 'Pendente'}
-                    {parada.status === 'em_andamento' && 'Em andamento'}
-                    {parada.status === 'pulada' && 'Pulada'}
+                    {rotuloDoStatus(parada.status)}
                   </Text>
                 </View>
               </View>

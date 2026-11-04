@@ -55,7 +55,7 @@ Build with these unless there's a specific reason not to:
 - `Button` (`src/components/Button.tsx`) — primary action component; check the file for current variants.
 - `Card` (`src/components/Card.tsx`) — container with shadow + radius.
 - `Input` (`src/components/Input.tsx`) — text field with label + error slot; integrates with `react-hook-form`.
-- `AddressAutocomplete` — wraps Photon API for address input.
+- `AddressAutocomplete` — autocomplete de endereço via `geocodingService` (`src/lib/geocoding.ts`): Google Places por Edge Function, com ViaCEP para CEP e Photon como apoio (geocodificação reversa e coordenadas de CEP).
 - `CameraUpload` — camera or gallery photo, auto-compressed to <500KB, uploads to Supabase Storage bucket `fotos-entrega`.
 - `DataTable` — responsive table (cards on mobile, table on desktop).
 - `ResponsiveContainer` — max-width wrapper for desktop layouts.
@@ -68,4 +68,4 @@ Build with these unless there's a specific reason not to:
 
 ## Visual QA
 
-The `app/design-system.tsx` screen (dev-only) renders every base component for live visual review. Open via deep link or navigate directly while running the dev server.
+The `app/design-system.tsx` screen is a published route (no dev-only gate) that renders every base component for live visual review. Open it at `/design-system` (web) or via deep link.

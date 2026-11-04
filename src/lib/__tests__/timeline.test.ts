@@ -434,21 +434,43 @@ describe('timeline', () => {
       expect(result?.description).toBe('Motorista acionou botão de emergência');
     });
 
-    it('should map rota_finalizada — note: caught by "finaliz" substring as Route Completed', () => {
-      // rota_finalizada contains "finaliz", so the "Route completed" branch catches it
-      // before reaching the dedicated rota_finalizada handler
-      const result = mapLogToTimelineEvent({
-        id,
-        evento: 'rota_finalizada',
-        timestamp: ts,
-        detalhes: { paradas_concluidas: 8, paradas_puladas: 2 },
+    const map = (evento: string, detalhes: Record<string, any> | null) =>
+      mapLogToTimelineEvent({ id, evento, timestamp: ts, detalhes });
+
+    it('rota_finalizada mostra o resumo, não "Rota Concluída"', () => {
+      expect(
+        map('rota_finalizada', { paradas_concluidas: 8, paradas_puladas: 2 }),
+      ).toMatchObject({
+        title: 'Resumo Confirmado',
+        description: '8 concluída(s), 2 pulada(s)',
+        icon: 'document-text',
+        colorKey: 'blue',
       });
-      expect(result).toMatchObject({
-        type: 'status_change',
-        title: 'Rota Concluída',
-        icon: 'checkmark-circle',
-        colorKey: 'success',
+    });
+    it('ROTA_FINALIZADA sem detalhes: resumo com zeros', () => {
+      expect(map('ROTA_FINALIZADA', null)).toMatchObject({
+        title: 'Resumo Confirmado',
+        description: '0 concluída(s), 0 pulada(s)',
       });
+    });
+    it.each(
+      TIMELINE_LOG_EVENTS.filter(
+        (e) =>
+          ![
+            'motorista_iniciou_rota',
+            'motorista_concluiu_rota',
+            'rota_cancelada',
+          ].includes(e),
+      ),
+    )('%s não é capturado pelos ramos de substring de status', (evento) => {
+      expect([
+        'Rota Iniciada',
+        'Rota Concluída',
+        'Rota Cancelada',
+      ]).not.toContain(map(evento, {})?.title);
+    });
+    it('evento legado fora da lista ainda passa pelas substrings', () => {
+      expect(map('motorista_finalizou', null)?.title).toBe('Rota Concluída');
     });
 
     it('should map parada_adicionada', () => {

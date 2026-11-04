@@ -47,9 +47,13 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import {
+  alternarMotoristaNaLoja,
+  editarDadosMotorista,
+  mensagemErroMotorista,
+} from '@/lib/gestor/motoristaNaLoja';
 import { buscarPerformanceMotorista } from '@/lib/gestor/performanceMotorista';
 import { logger } from '@/lib/logger';
-import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
 import { maskPhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
@@ -175,31 +179,34 @@ export default function MotoristaPerfil() {
   // Toggle active status
   const handleToggleStatus = useCallback(async () => {
     if (!motorista) return;
+    // Loja ativa ainda carregando: sem ela a RPC não tem escopo. Avisa em vez
+    // de deixar o "Confirmar" sem resposta (o modal fica, dá para tentar de novo).
+    if (!unidadeAtiva) {
+      showToast('Loja ativa ainda não carregou. Tente de novo.', 'error');
+      return;
+    }
 
     try {
       const newStatus = !motorista.ativo;
       // Mesma porta da lista: quem atende outra loja sai só desta (o vínculo).
-      const { data, error } = await supabase.rpc(
-        'alternar_motorista_na_unidade',
-        {
-          p_motorista_id: motorista.id,
-          p_unidade_id: unidadeAtiva,
-          p_ativo: newStatus,
-        },
-      );
-
-      if (error) throw error;
+      const escopo = await alternarMotoristaNaLoja({
+        motoristaId: motorista.id,
+        motoristaNome: motorista.nome,
+        unidadeId: unidadeAtiva,
+        ativo: newStatus,
+        gestorId: userData?.id,
+      });
 
       setMotorista({ ...motorista, ativo: newStatus });
       showToast(
-        data === 'vinculo'
+        escopo === 'vinculo'
           ? `Motorista ${newStatus ? 'ativado' : 'desativado'} só nesta loja`
           : `Motorista ${newStatus ? 'ativado' : 'desativado'} com sucesso`,
         'success',
       );
       setShowToggleModal(false);
       // Desativado só aqui, a RLS deixa de mostrá-lo: volta para a lista.
-      if (data === 'vinculo' && !newStatus) router.back();
+      if (escopo === 'vinculo' && !newStatus) router.back();
     } catch (error) {
       // Rota aberta (Migration 54): troca a confirmação pela lista de rotas.
       if (mostrarSeBloqueado(error, motorista.nome)) {
@@ -208,11 +215,18 @@ export default function MotoristaPerfil() {
       }
       logger.error('Erro ao alterar status:', error);
       showToast(
-        mensagemRegraDoBanco(error) ?? 'Não foi possível alterar o status',
+        mensagemErroMotorista(error, 'Não foi possível alterar o status'),
         'error',
       );
     }
-  }, [motorista, mostrarSeBloqueado, router, showToast, unidadeAtiva]);
+  }, [
+    motorista,
+    mostrarSeBloqueado,
+    router,
+    showToast,
+    unidadeAtiva,
+    userData?.id,
+  ]);
 
   // Open edit modal (valores e erros do zero a cada abertura)
   const handleEdit = useCallback(() => {
@@ -226,39 +240,36 @@ export default function MotoristaPerfil() {
     if (!motorista) return;
 
     await submeterEdicao(async (valores) => {
-      const nome = valores.nome.trim();
-      const telefone = valores.telefone?.trim() || null;
       try {
         setSalvando(true);
 
-        const { error } = await supabase
-          .from('usuarios')
-          .update({
-            nome,
-            telefone,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', motorista.id);
-
-        if (error) throw error;
+        const gravado = await editarDadosMotorista({
+          motoristaId: motorista.id,
+          nome: valores.nome,
+          telefone: valores.telefone,
+          gestorId: userData?.id,
+        });
 
         // Update local state
         setMotorista({
           ...motorista,
-          nome,
-          telefone: telefone ?? undefined,
+          nome: gravado.nome,
+          telefone: gravado.telefone ?? undefined,
         });
 
         showToast('Motorista atualizado com sucesso', 'success');
         setShowEditModal(false);
       } catch (error) {
         logger.error('Erro ao salvar:', error);
-        showToast('Não foi possível salvar as alterações', 'error');
+        showToast(
+          mensagemErroMotorista(error, 'Não foi possível salvar as alterações'),
+          'error',
+        );
       } finally {
         setSalvando(false);
       }
     })();
-  }, [motorista, showToast, submeterEdicao]);
+  }, [motorista, showToast, submeterEdicao, userData?.id]);
 
   // Handle view all routes
   const handleVerTodasRotas = useCallback(() => {

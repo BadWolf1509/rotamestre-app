@@ -6,32 +6,21 @@
 // policies ou nas funções SECURITY DEFINER que ele chama), volte a recusar o
 // SOS pela rota, mexa no acesso do gestor, ou deixe as duas cópias
 // (database/ e supabase/) divergirem.
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import {
+  CAMINHO_DOC,
+  carregarMigration,
+  itExisteNasDuasPastas,
+  ler,
+  lerSonda,
+  semComentarios,
+} from './_helpers/migration';
 
 const ARQUIVO = '20261024111000_rotas_paradas_pelo_vinculo_ativo.sql';
-const raiz = join(__dirname, '..', '..');
-const caminhoDb = join(raiz, 'database', 'migrations', ARQUIVO);
-const caminhoSupa = join(raiz, 'supabase', 'migrations', ARQUIVO);
-const caminhoSonda = join(
-  raiz,
-  'database',
-  'sondas',
-  '20261024111000_sonda_migration49.sql',
-);
-const caminhoDoc = join(raiz, 'database', 'MIGRATIONS.md');
 
-// CRLF fora: com `core.autocrlf=true` (Windows) o checkout troca as quebras.
-const ler = (p: string) =>
-  existsSync(p) ? readFileSync(p, 'utf8').replace(/\r\n/g, '\n') : '';
-const sql = ler(caminhoDb);
-const semComentarios = (texto: string) =>
-  texto
-    .split('\n')
-    .map((l) => l.replace(/--.*$/, ''))
-    .join('\n');
+const m = carregarMigration(ARQUIVO);
+const { sql } = m;
 // Só o que roda: o bloco ROLLBACK e o roteiro de conferência são comentados.
-const executavel = semComentarios(sql);
+const { executavel } = m;
 
 const HELPER = '\\(SELECT public\\.usuario_atual_ativo\\(\\)\\)';
 
@@ -93,15 +82,13 @@ function confereVinculoEPessoaAtivos(expr: string, alias: string) {
 }
 
 describe('Migration 49: rotas e paradas do motorista pelo vínculo ativo', () => {
-  it('existe nas duas pastas, com conteúdo idêntico', () => {
-    expect(existsSync(caminhoDb)).toBe(true);
-    expect(existsSync(caminhoSupa)).toBe(true);
-    expect(ler(caminhoSupa)).toBe(sql);
-  });
+  itExisteNasDuasPastas(m);
 
   it('helper usuario_atual_ativo: STABLE, DEFINER, search_path vazio, só do próprio auth.uid()', () => {
     const corpo = corpoDaFuncao('usuario_atual_ativo()');
-    expect(corpo).toMatch(/RETURNS boolean\s+LANGUAGE sql\s+STABLE\s+SECURITY DEFINER\s+SET search_path = ''/);
+    expect(corpo).toMatch(
+      /RETURNS boolean\s+LANGUAGE sql\s+STABLE\s+SECURITY DEFINER\s+SET search_path = ''/,
+    );
     expect(corpo).toMatch(
       /COALESCE\(\s*\(SELECT u\.ativo FROM public\.usuarios u WHERE u\.id = auth\.uid\(\)\),\s*false\s*\)/,
     );
@@ -113,7 +100,9 @@ describe('Migration 49: rotas e paradas do motorista pelo vínculo ativo', () =>
     );
     // existe antes da primeira policy que o chama
     expect(
-      executavel.indexOf('CREATE OR REPLACE FUNCTION public.usuario_atual_ativo()'),
+      executavel.indexOf(
+        'CREATE OR REPLACE FUNCTION public.usuario_atual_ativo()',
+      ),
     ).toBeLessThan(executavel.indexOf('ALTER POLICY'));
   });
 
@@ -300,17 +289,23 @@ describe('Migration 49: rotas e paradas do motorista pelo vínculo ativo', () =>
         new RegExp(`-- CREATE OR REPLACE FUNCTION public\\.${f}\\(`),
       );
     }
-    expect(rollback).toMatch(/--\s+RETURN jsonb_build_object\('success', true, 'updated', v_count\);/);
+    expect(rollback).toMatch(
+      /--\s+RETURN jsonb_build_object\('success', true, 'updated', v_count\);/,
+    );
     expect(rollback).toMatch(/Sem permissão para registrar SOS nesta rota/);
     // o helper sai depois de tudo que o usa
-    const drop = rollback.indexOf('DROP FUNCTION IF EXISTS public.usuario_atual_ativo();');
+    const drop = rollback.indexOf(
+      'DROP FUNCTION IF EXISTS public.usuario_atual_ativo();',
+    );
     expect(drop).toBeGreaterThan(0);
     expect(drop).toBeGreaterThan(rollback.lastIndexOf('ALTER POLICY'));
-    expect(drop).toBeGreaterThan(rollback.lastIndexOf('CREATE OR REPLACE FUNCTION'));
+    expect(drop).toBeGreaterThan(
+      rollback.lastIndexOf('CREATE OR REPLACE FUNCTION'),
+    );
   });
 
   it('a sonda existe, testa como authenticated, não apaga nada e termina desfeita', () => {
-    const sonda = ler(caminhoSonda);
+    const sonda = lerSonda('20261024111000_sonda_migration49.sql');
     expect(sonda).not.toBe('');
     const sondaExec = semComentarios(sonda);
     expect(sondaExec).toMatch(/SET LOCAL ROLE authenticated/);
@@ -357,7 +352,7 @@ describe('Migration 49: rotas e paradas do motorista pelo vínculo ativo', () =>
   });
 
   it('está documentada no MIGRATIONS.md', () => {
-    const doc = ler(caminhoDoc);
+    const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### (⏳|✅) Migration 49:/);
     expect(doc).toContain(ARQUIVO);
     expect(doc).toMatch(/usuario_atual_ativo/);

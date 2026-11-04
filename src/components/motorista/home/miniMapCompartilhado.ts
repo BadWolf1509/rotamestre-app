@@ -1,32 +1,10 @@
 /**
  * O que o mini-mapa nativo (`MiniMap.tsx`) e o web (`MiniMap.web.tsx`)
- * compartilham: as cores do que fica sobre o mapa e o texto do chip.
+ * compartilham: o teto de fonte e o texto do chip. A paleta do que fica sobre
+ * o mapa mora em `@/components/map/coresSobreOMapa`.
  */
 
 import { formatarDecimal } from '@/lib/formatNumber';
-import { defaultTheme } from '@/utils/styles.base';
-
-const claro = defaultTheme.colors;
-
-/**
- * Cores fixas para o que fica SOBRE o mapa (pinos, chip, botões).
- *
- * O estilo do mapa é sempre claro, mas `colors.white`/`colors.black` do tema
- * se invertem no escuro (`white` vira cinza-escuro): a borda dos pinos sumia e o
- * número saía escuro. Por isso nada aqui vem do tema ativo: é a paleta clara,
- * a mesma em que o mapa é desenhado. Use só sobre o mapa (mini-mapa e o
- * marcador do motorista no mapa do gestor, `MotoristaMarker`).
- */
-export const CORES_SOBRE_O_MAPA = {
-  branco: claro.white,
-  sombra: claro.black,
-  marca: claro.primary,
-  proxima: claro.warning,
-  pendente: claro.gray500,
-  concluida: claro.success,
-  usuario: claro.info,
-  erro: claro.error,
-} as const;
 
 /** Mesmo teto de ampliação da fonte do sistema usado no MainCard/ParadaCard. */
 export const MAX_FONTE_SOBRE_O_MAPA = 1.3;

@@ -9,8 +9,15 @@
  *   oferece "Carregar mais" (antes cortava em 100 sem aviso). A exportação
  *   mostra o progresso da busca de todas as páginas.
  */
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+} from '@testing-library/react-native';
 import React from 'react';
+
+import { useUnistyles } from '@/utils/styles';
 
 import GestaoRotas from '../gestao-rotas';
 
@@ -35,39 +42,43 @@ const mockExportarXLSX = jest.fn();
 const mockLoadRotas = jest.fn();
 const mockCarregarMais = jest.fn();
 let mockEstadoHook: Record<string, unknown> = {};
+let mockOpcoesDoHook: { statusColorMap?: Record<string, string> } = {};
 
 jest.mock('@/hooks/useGestaoRotas', () => ({
   FILTRO_STATUS_OPTIONS: ['todas', 'pendente'],
-  useGestaoRotas: () => ({
-    rotasFiltradas: [],
-    loading: false,
-    erroCarga: null,
-    dadosDe: null,
-    filtroStatus: 'todas',
-    searchQuery: '',
-    showConfirmModal: false,
-    confirmacaoExclusao: { titulo: '', mensagem: '' },
-    userData: { id: 'g1' },
-    setFiltroStatus: jest.fn(),
-    setSearchQuery: jest.fn(),
-    verDetalhes: jest.fn(),
-    excluirRota: jest.fn(),
-    handleConfirmDelete: jest.fn(),
-    handleCancelDelete: jest.fn(),
-    exportarParaCSV: mockExportarCSV,
-    exportarParaXLSX: mockExportarXLSX,
-    loadRotas: mockLoadRotas,
-    carregarMais: mockCarregarMais,
-    total: 0,
-    temMais: false,
-    carregandoMais: false,
-    contagens: null,
-    exportacao: null,
-    getStatusLabel: (s: string) => s,
-    getStatusColor: () => 'x',
-    handleSort: jest.fn(),
-    ...mockEstadoHook,
-  }),
+  useGestaoRotas: (opcoes: { statusColorMap?: Record<string, string> }) => {
+    mockOpcoesDoHook = opcoes;
+    return {
+      rotasFiltradas: [],
+      loading: false,
+      erroCarga: null,
+      dadosDe: null,
+      filtroStatus: 'todas',
+      searchQuery: '',
+      showConfirmModal: false,
+      confirmacaoExclusao: { titulo: '', mensagem: '' },
+      userData: { id: 'g1' },
+      setFiltroStatus: jest.fn(),
+      setSearchQuery: jest.fn(),
+      verDetalhes: jest.fn(),
+      excluirRota: jest.fn(),
+      handleConfirmDelete: jest.fn(),
+      handleCancelDelete: jest.fn(),
+      exportarParaCSV: mockExportarCSV,
+      exportarParaXLSX: mockExportarXLSX,
+      loadRotas: mockLoadRotas,
+      carregarMais: mockCarregarMais,
+      total: 0,
+      temMais: false,
+      carregandoMais: false,
+      contagens: null,
+      exportacao: null,
+      getStatusLabel: (s: string) => s,
+      getStatusColor: () => 'x',
+      handleSort: jest.fn(),
+      ...mockEstadoHook,
+    };
+  },
 }));
 jest.mock('@/hooks/useResponsive', () => ({
   useResponsive: () => ({ isDesktop: false, isMobile: true, isTablet: false }),
@@ -87,6 +98,19 @@ beforeEach(() => {
 });
 
 describe('GestaoRotas (mobile/tablet)', () => {
+  it('cores de status vêm da fonte única: nao_executada em error, como o desktop', () => {
+    const { result } = renderHook(() => useUnistyles());
+    const { colors } = result.current.theme;
+    render(<GestaoRotas />);
+
+    const cores = mockOpcoesDoHook.statusColorMap;
+    expect(cores?.nao_executada).toBe(colors.error);
+    expect(cores?.cancelada).toBe(colors.error);
+    expect(cores?.pendente).toBe(colors.warning);
+    expect(cores?.em_andamento).toBe(colors.info);
+    expect(cores?.concluida).toBe(colors.success);
+  });
+
   it('Exportar abre as opções na tela (não Alert) e Excel exporta XLSX', () => {
     render(<GestaoRotas />);
 

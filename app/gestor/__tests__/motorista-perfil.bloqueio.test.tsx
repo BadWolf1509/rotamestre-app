@@ -25,8 +25,9 @@ jest.mock('@/hooks/useResponsive', () => ({
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({ userData: { id: 'gestor-1', nome: 'Gestor' } }),
 }));
+let mockUnidadeAtiva: string | null = 'loja-ativa';
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: 'loja-ativa' }),
+  useUnidadeAtiva: () => ({ unidadeAtiva: mockUnidadeAtiva }),
 }));
 jest.mock('@/hooks/useDesktopHeaderMenu', () => ({
   useDesktopHeaderMenu: () => ({
@@ -50,6 +51,11 @@ const MOTORISTA = {
 };
 
 const mockRpc = jest.fn();
+const mockLog = jest.fn();
+jest.mock('@/lib/queries', () => ({
+  ...jest.requireActual('@/lib/queries'),
+  logUserAction: (...a: unknown[]) => mockLog(...a),
+}));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (tabela: string) => {
@@ -94,6 +100,19 @@ async function desativarPelaTela() {
 describe('MotoristaPerfil: desativar com rota aberta', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUnidadeAtiva = 'loja-ativa';
+  });
+
+  it('loja ativa ainda não carregou: avisa com toast e não chama a RPC', async () => {
+    mockUnidadeAtiva = null;
+
+    await desativarPelaTela();
+
+    expect(
+      await screen.findByText('Loja ativa ainda não carregou. Tente de novo.'),
+    ).toBeTruthy();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockLog).not.toHaveBeenCalled();
   });
 
   it('recusa e lista as três rotas; o motorista continua ativo', async () => {
@@ -126,5 +145,30 @@ describe('MotoristaPerfil: desativar com rota aberta', () => {
       expect(screen.getByText('Motorista desativado com sucesso')).toBeTruthy(),
     );
     expect(screen.queryByTestId(/^rota-aberta-/)).toBeNull();
+  });
+
+  it('desativar grava motorista_desativado', async () => {
+    mockRpc.mockResolvedValue({ data: 'pessoa', error: null });
+
+    await desativarPelaTela();
+
+    await waitFor(() =>
+      expect(mockLog).toHaveBeenCalledWith(
+        'gestor-1',
+        'motorista_desativado',
+        expect.objectContaining({ motorista_id: 'motorista-1' }),
+      ),
+    );
+  });
+
+  it('escopo vinculo desativando volta para a lista', async () => {
+    mockRpc.mockResolvedValue({ data: 'vinculo', error: null });
+
+    await desativarPelaTela();
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(
+      await screen.findByText('Motorista desativado só nesta loja'),
+    ).toBeTruthy();
   });
 });

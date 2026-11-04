@@ -4,12 +4,11 @@
  */
 
 import { nomeDoMotorista } from '@/lib/incidentes/nomeDoMotorista';
-import { logger } from '@/lib/logger';
 
+import { logAction } from './logs';
 import {
   supabase,
   safeQuery,
-  withRetry,
   classifyError,
   type QueryResult,
 } from './queryClient';
@@ -83,15 +82,6 @@ export interface IncidenteInsert {
   rota_id?: string | null;
   parada_id?: string | null;
   status?: IncidenteStatus;
-}
-
-/**
- * Incidente update data
- */
-export interface IncidenteUpdate {
-  status?: IncidenteStatus;
-  observacoes_gestao?: string | null;
-  resolvido_em?: string | null;
 }
 
 /**
@@ -198,52 +188,6 @@ export async function fetchIncidentesForGestor(
 }
 
 /**
- * Fetch single incidente by ID
- */
-export async function fetchIncidenteById(
-  incidenteId: string,
-): Promise<QueryResult<IncidenteDB>> {
-  return safeQuery(async () => {
-    const { data, error } = await supabase
-      .from('incidentes')
-      .select('*')
-      .eq('id', incidenteId)
-      .single();
-
-    if (error) throw error;
-    return data as IncidenteDB;
-  });
-}
-
-/**
- * Fetch incidentes by motorista
- */
-export async function fetchIncidentesByMotorista(
-  motoristaId: string,
-  options?: { status?: IncidenteStatus; limit?: number },
-): Promise<QueryResult<IncidenteDB[]>> {
-  return safeQuery(async () => {
-    let query = supabase
-      .from('incidentes')
-      .select('*')
-      .eq('motorista_id', motoristaId)
-      .order('created_at', { ascending: false });
-
-    if (options?.status) {
-      query = query.eq('status', options.status);
-    }
-    if (options?.limit) {
-      query = query.limit(options.limit);
-    }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
-    return (data || []) as IncidenteDB[];
-  });
-}
-
-/**
  * Create a new incidente
  *
  * Sem `withRetry`: INSERT sem chave de idempotência, e a resposta perdida
@@ -276,135 +220,6 @@ export async function createIncidente(
 }
 
 /**
- * Update incidente status
- */
-export async function updateIncidenteStatus(
-  incidenteId: string,
-  status: IncidenteStatus,
-  observacoes?: string | null,
-): Promise<QueryResult<IncidenteDB>> {
-  return withRetry(async () => {
-    const updateData: IncidenteUpdate = {
-      status,
-      observacoes_gestao: observacoes,
-    };
-
-    if (status === 'resolvido') {
-      updateData.resolvido_em = new Date().toISOString();
-    }
-
-    const { data, error } = await supabase
-      .from('incidentes')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', incidenteId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as IncidenteDB;
-  }).then(
-    (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) }),
-  );
-}
-
-/**
- * Update incidente fields
- */
-export async function updateIncidente(
-  incidenteId: string,
-  data: IncidenteUpdate,
-): Promise<QueryResult<IncidenteDB>> {
-  return withRetry(async () => {
-    const { data: incidente, error } = await supabase
-      .from('incidentes')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', incidenteId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return incidente as IncidenteDB;
-  }).then(
-    (data) => ({ success: true as const, data }),
-    (error) => ({ success: false as const, error: classifyError(error) }),
-  );
-}
-
-/**
- * Get incidentes statistics for a unit
- */
-export async function fetchIncidentesStats(motoristasIds: string[]): Promise<
-  QueryResult<{
-    total: number;
-    abertos: number;
-    emAnalise: number;
-    resolvidos: number;
-    fechados: number;
-    porCategoria: Record<string, number>;
-  }>
-> {
-  if (motoristasIds.length === 0) {
-    return {
-      success: true,
-      data: {
-        total: 0,
-        abertos: 0,
-        emAnalise: 0,
-        resolvidos: 0,
-        fechados: 0,
-        porCategoria: {},
-      },
-    };
-  }
-
-  return safeQuery(async () => {
-    const { data, error } = await supabase
-      .from('incidentes')
-      .select('id, status, categoria')
-      .in('motorista_id', motoristasIds);
-
-    if (error) throw error;
-
-    const stats = {
-      total: data?.length || 0,
-      abertos: 0,
-      emAnalise: 0,
-      resolvidos: 0,
-      fechados: 0,
-      porCategoria: {} as Record<string, number>,
-    };
-
-    for (const inc of data || []) {
-      switch (inc.status) {
-        case 'aberto':
-          stats.abertos++;
-          break;
-        case 'em_analise':
-          stats.emAnalise++;
-          break;
-        case 'resolvido':
-          stats.resolvidos++;
-          break;
-        case 'fechado':
-          stats.fechados++;
-          break;
-      }
-      stats.porCategoria[inc.categoria] =
-        (stats.porCategoria[inc.categoria] || 0) + 1;
-    }
-
-    return stats;
-  });
-}
-
-/**
  * Log incidente action
  */
 export async function logIncidenteAction(
@@ -413,16 +228,9 @@ export async function logIncidenteAction(
   evento: string,
   detalhes?: Record<string, unknown>,
 ): Promise<void> {
-  try {
-    await supabase.from('logs').insert({
-      usuario_id: usuarioId,
-      evento,
-      detalhes: {
-        ...detalhes,
-        incidente_id: incidenteId,
-      },
-    });
-  } catch (error) {
-    logger.warn('Failed to log incidente action:', error);
-  }
+  return logAction({
+    usuario_id: usuarioId,
+    evento,
+    detalhes: { ...detalhes, incidente_id: incidenteId },
+  });
 }

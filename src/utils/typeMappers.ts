@@ -1,6 +1,10 @@
 /**
  * Type mapping utilities for converting between structurally similar
- * but nominally different types (ParadaData <-> Parada).
+ * but nominally different types (ParadaData -> Parada).
+ *
+ * Só existe o sentido ParadaData -> Parada. O inverso perdia todo campo que o
+ * card não carrega (`foto_url`, `updated_at`...): quem tem uma `Parada` e
+ * precisa do ParadaData busca pelo id no contexto.
  *
  * These exist because ParadaData (RouteStatusContext) and Parada
  * (ParadaCard.types) have slightly different shapes. A full unification
@@ -32,26 +36,5 @@ export function toParada(data: ParadaData): Parada {
     observacao_pulo: data.observacao_pulo,
     concluidaEm: data.concluida_em,
     is_checkpoint: data.is_checkpoint,
-  };
-}
-
-/**
- * Converts a Parada (from ParadaCard) back to ParadaData (for RouteStatusContext).
- */
-export function toParadaData(parada: Parada): ParadaData {
-  return {
-    id: parada.id,
-    endereco: parada.endereco,
-    latitude: parada.latitude,
-    longitude: parada.longitude,
-    ordem: parada.ordem,
-    status: parada.status,
-    tipo: parada.tipo,
-    destinatario: parada.destinatario,
-    telefone: parada.telefone,
-    observacoes: parada.observacoes,
-    observacao_pulo: parada.observacao_pulo,
-    concluida_em: parada.concluidaEm,
-    is_checkpoint: parada.is_checkpoint,
   };
 }

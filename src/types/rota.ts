@@ -10,16 +10,22 @@ export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
  * `nao_executada` faltava aqui desde sempre, embora o banco já tenha 17 linhas
  * assim — é o estado que `expire_old_pending_routes` grava ao encerrar rota que
  * não foi cumprida. Passou despercebido porque os componentes que exibem status
- * tipam o parâmetro como `string` (ver `getStatusBadgeVariant` e
- * `formatStatusLabel` em `RouteInfoHeader.tsx`), então o typecheck nunca teve
- * chance de reclamar.
- *
- * Ao adicionar valor aqui, atualize também `validStatusRota` em
- * `src/lib/type-guards.ts` — a lista é manual e não deriva deste tipo.
+ * tipam o parâmetro como `string` (ver `rotuloDoStatus` em
+ * `src/constants/statusConfig.ts`), então o typecheck nunca teve chance de
+ * reclamar.
  */
 export type StatusRota =
   'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
-export type StatusCheckpoint = 'pendente' | 'concluida' | 'pulada';
+
+/** Lista única dos status de parada (CHECK de `paradas.status`). */
+export const STATUS_PARADA = [
+  'pendente',
+  'em_andamento',
+  'concluida',
+  'pulada',
+] as const;
+export type StatusParada = (typeof STATUS_PARADA)[number];
+export type StatusCheckpoint = StatusParada;
 
 /**
  * Como a ordem das paradas da rota foi definida.

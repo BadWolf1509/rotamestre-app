@@ -1,8 +1,10 @@
 /**
  * RouteStatusProvider - Orchestrates route status hooks
  *
- * Simplified from original 739-line monolith into a ~100-line orchestrator.
- * Business logic lives in extracted hooks and pure calculation functions.
+ * Orquestrador: junta a carga da rota, a fila de ações offline, o realtime e o
+ * rastreamento. A regra de negócio mora nos hooks de `src/hooks/route-status`
+ * e nas funções puras de `./calculations`; o valor do contexto é memoizado e
+ * as ações vêm com identidade estável.
  */
 
 import React, {
@@ -42,9 +44,9 @@ import {
 
 import type { RouteStatusContextData } from './types';
 
-const RouteStatusContext = createContext<RouteStatusContextData>(
-  {} as RouteStatusContextData,
-);
+// `null` = fora do provider. Um default `{}` fazia `useRouteStatus()` devolver
+// campos undefined em silêncio, em vez de acusar a montagem errada.
+const RouteStatusContext = createContext<RouteStatusContextData | null>(null);
 
 export function RouteStatusProvider({ children }: { children: ReactNode }) {
   const { userData, loading: userLoading } = useUser();
@@ -231,7 +233,7 @@ export function RouteStatusProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useRouteStatus() {
+export function useRouteStatus(): RouteStatusContextData {
   const context = useContext(RouteStatusContext);
 
   if (!context) {
@@ -239,4 +241,12 @@ export function useRouteStatus() {
   }
 
   return context;
+}
+
+/**
+ * Leitura opcional, para quem monta nos dois layouts (o menu lateral aparece
+ * no do gestor, que não tem o provider): devolve `null` em vez de lançar.
+ */
+export function useRouteStatusSeHouver(): RouteStatusContextData | null {
+  return useContext(RouteStatusContext);
 }

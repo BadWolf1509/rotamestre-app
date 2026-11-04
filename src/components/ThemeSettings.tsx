@@ -508,5 +508,3 @@ const styles = (theme: Theme, compact: boolean) =>
       fontFamily: theme.typography.fontSansMedium,
     },
   });
-
-export default ThemeSettings;

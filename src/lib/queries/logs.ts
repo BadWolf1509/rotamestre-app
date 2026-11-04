@@ -47,9 +47,10 @@ export async function logAction(entry: LogEntry): Promise<void> {
     // PostgREST recusar com 400, e como a falha só virava `logger.warn`, todo o
     // rastro que passa por aqui morria em silêncio (a auditoria de gestão de
     // motoristas parou em dez/2025 por isso). O vínculo com a parada vai em
-    // `detalhes`, que é o padrão já usado em useAddStopForm, useEditStopForm e
-    // routeUtils. Os eventos de parada/rota continuam cobertos pelos triggers
-    // `log_parada_status` e `log_rota_status`, no banco.
+    // `detalhes`, que é o padrão já usado em useAddStopForm e useEditStopForm
+    // (routeUtils passa por logRotaAction). Os eventos de parada/rota
+    // continuam cobertos pelos triggers `log_parada_status` e
+    // `log_rota_status`, no banco.
     const { error } = await supabase.from('logs').insert({
       usuario_id: entry.usuario_id,
       evento: entry.evento,

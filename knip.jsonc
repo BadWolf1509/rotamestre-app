@@ -55,8 +55,7 @@
 
   // Binários que não vêm do npm.
   "ignoreBinaries": [
-    "gradlew.bat", // nasce do `expo prebuild`; não há android/ versionado
-    "start" // builtin do Windows (exec em tools/scripts/db/show-rls-fix.js)
+    "gradlew.bat" // nasce do `expo prebuild`; não há android/ versionado
   ],
 
   "jest": { "config": "jest.config.js" },

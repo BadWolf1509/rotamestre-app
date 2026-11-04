@@ -59,6 +59,8 @@ jest.mock('@/services/locationTracking', () => ({
     startTracking: jest.fn().mockResolvedValue(true),
     stopTracking: jest.fn().mockResolvedValue(undefined),
     getNavigationPreferences: jest.fn().mockResolvedValue({
+      ...jest.requireActual('@/lib/motorista/preferenciasNavegacaoPadrao')
+        .PREFERENCIAS_PADRAO,
       navegarCom: 'mapa',
       preferredNavApp: 'waze',
       proximityRadius: 50,

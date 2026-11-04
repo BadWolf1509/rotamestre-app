@@ -16,10 +16,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
-import { Text, Toast } from '@/design-system';
+import { Text } from '@/design-system';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useMotoristas } from '@/hooks/useMotoristas';
-import { useToast } from '@/hooks/useToast';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { withOpacity } from '@/utils/color';
 import { getGreeting } from '@/utils/motivationalMessages';
@@ -65,7 +64,6 @@ export function DashboardMobile({
 }: DashboardMobileProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
-  const { toast: toastState, hideToast } = useToast();
 
   const { motoristas } = useMotoristas();
   const { url: avatarUrl } = useSignedUrl(userData?.foto_url);
@@ -499,9 +497,6 @@ export function DashboardMobile({
         accessible={true}
         accessibilityLabel="Lista de rotas do dia"
       />
-
-      {/* Toast de Feedback */}
-      <Toast {...toastState} onDismiss={hideToast} />
 
       {/* Floating Filter Button */}
       <RouteFilters

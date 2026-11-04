@@ -344,5 +344,3 @@ export function useAlert(): UseAlertReturn {
     AlertDialog,
   };
 }
-
-export default useAlert;

@@ -9,7 +9,10 @@
  */
 
 import { logger } from '@/lib/logger';
-import { getOptimizedDirections as osrmGetDirections } from '@/lib/osrm';
+import {
+  getOptimizedDirections as osrmGetDirections,
+  type DirectionsResult,
+} from '@/lib/osrm';
 
 import {
   handleDirectionsError,
@@ -24,16 +27,43 @@ import { GoogleDirectionsResult } from '../types/google-directions';
 
 // Re-export polyline utilities for backwards compatibility
 export { decodePolyline, encodePolyline, mergePolylines } from '@/lib/polyline';
-// Re-export shared utilities for backwards compatibility
-export {
-  RoutesAPIResponse,
-  adaptRoutesAPIResponse,
-  mapRoutesAPIError,
-  parseDuration,
-} from './google-shared';
 
 // PlaceSuggestion is now exported from google-shared.ts
 export type { PlaceSuggestion } from './google-shared';
+
+/**
+ * Converte o resultado do OSRM para o formato Google. É o único lugar que faz
+ * essa conversão: uma cópia por método deixou a variante web derrubar
+ * `is_estimated` e `sem_rota_entre_paradas`, e a tela não avisava da rota
+ * estimada. `sem_rota_entre_paradas` só entra quando o OSRM o marcou.
+ */
+function osrmParaResultadoGoogle(
+  osrm: DirectionsResult,
+  ordemOtimizada: number[],
+): GoogleDirectionsResult {
+  return {
+    polyline: osrm.polyline,
+    distancia_total_metros: osrm.distancia_total_metros,
+    duracao_total_segundos: osrm.duracao_total_segundos,
+    is_estimated: osrm.is_estimated === true,
+    ...(osrm.sem_rota_entre_paradas ? { sem_rota_entre_paradas: true } : {}),
+    ordem_otimizada: ordemOtimizada,
+    legs: osrm.legs.map((leg) => ({
+      distancia_metros: leg.distancia_metros,
+      duracao_segundos: leg.duracao_segundos,
+      endereco_inicio: leg.endereco_inicio,
+      endereco_fim: leg.endereco_fim,
+      coordenadas_inicio: {
+        latitude: leg.coordenadas_inicio.latitude,
+        longitude: leg.coordenadas_inicio.longitude,
+      },
+      coordenadas_fim: {
+        latitude: leg.coordenadas_fim.latitude,
+        longitude: leg.coordenadas_fim.longitude,
+      },
+    })),
+  };
+}
 
 export const googleMapsService = {
   // Calcular rota entre pontos
@@ -81,33 +111,10 @@ export const googleMapsService = {
         );
       }
 
-      // Converter formato OSRM para formato Google (compatibilidade)
-      const googleResult: GoogleDirectionsResult = {
-        polyline: osrmResult.polyline,
-        distancia_total_metros: osrmResult.distancia_total_metros,
-        duracao_total_segundos: osrmResult.duracao_total_segundos,
-        is_estimated: osrmResult.is_estimated === true,
-        ...(osrmResult.sem_rota_entre_paradas
-          ? { sem_rota_entre_paradas: true }
-          : {}),
-        ordem_otimizada: osrmResult.ordem_otimizada,
-        legs: osrmResult.legs.map((leg) => ({
-          distancia_metros: leg.distancia_metros,
-          duracao_segundos: leg.duracao_segundos,
-          endereco_inicio: leg.endereco_inicio,
-          endereco_fim: leg.endereco_fim,
-          coordenadas_inicio: {
-            latitude: leg.coordenadas_inicio.latitude,
-            longitude: leg.coordenadas_inicio.longitude,
-          },
-          coordenadas_fim: {
-            latitude: leg.coordenadas_fim.latitude,
-            longitude: leg.coordenadas_fim.longitude,
-          },
-        })),
-      };
-
-      return success(googleResult);
+      // Formato OSRM -> formato Google (compatibilidade)
+      return success(
+        osrmParaResultadoGoogle(osrmResult, osrmResult.ordem_otimizada),
+      );
     } catch (err) {
       const error = handleDirectionsError(err);
       logger.error('[OSRM] ' + formatErrorForLog(error));
@@ -158,30 +165,8 @@ export const googleMapsService = {
         );
       }
 
-      // Converter formato OSRM para formato Google
-      const googleResult: GoogleDirectionsResult = {
-        polyline: osrmResult.polyline,
-        distancia_total_metros: osrmResult.distancia_total_metros,
-        duracao_total_segundos: osrmResult.duracao_total_segundos,
-        is_estimated: osrmResult.is_estimated === true,
-        ordem_otimizada: [], // Vazio porque não otimizou
-        legs: osrmResult.legs.map((leg) => ({
-          distancia_metros: leg.distancia_metros,
-          duracao_segundos: leg.duracao_segundos,
-          endereco_inicio: leg.endereco_inicio,
-          endereco_fim: leg.endereco_fim,
-          coordenadas_inicio: {
-            latitude: leg.coordenadas_inicio.latitude,
-            longitude: leg.coordenadas_inicio.longitude,
-          },
-          coordenadas_fim: {
-            latitude: leg.coordenadas_fim.latitude,
-            longitude: leg.coordenadas_fim.longitude,
-          },
-        })),
-      };
-
-      return success(googleResult);
+      // Não otimizou: a ordem é a fornecida, então ordem_otimizada vai vazia
+      return success(osrmParaResultadoGoogle(osrmResult, []));
     } catch (err) {
       const error = handleDirectionsError(err);
       logger.error('[OSRM Sequential] ' + formatErrorForLog(error));

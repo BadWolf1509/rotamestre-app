@@ -7,7 +7,6 @@ import {
   isPostgrestAbortShape,
   withRetry,
   safeQuery,
-  buildCacheKey,
 } from '../queryClient';
 
 // Mock logger
@@ -395,33 +394,6 @@ describe('queryClient', () => {
       if (!result.success) {
         expect(result.error.type).toBe('network');
       }
-    });
-  });
-
-  describe('buildCacheKey', () => {
-    it('should build key from namespace and parts', () => {
-      const key = buildCacheKey('rotas', 'abc123', 'list');
-      expect(key).toBe('rotas:abc123:list');
-    });
-
-    it('should handle numeric parts', () => {
-      const key = buildCacheKey('paradas', 'rota123', 50);
-      expect(key).toBe('paradas:rota123:50');
-    });
-
-    it('should filter out undefined parts', () => {
-      const key = buildCacheKey('users', undefined, 'abc', undefined, 'def');
-      expect(key).toBe('users:abc:def');
-    });
-
-    it('should return only namespace if no parts', () => {
-      const key = buildCacheKey('namespace');
-      expect(key).toBe('namespace');
-    });
-
-    it('should handle all undefined parts', () => {
-      const key = buildCacheKey('namespace', undefined, undefined);
-      expect(key).toBe('namespace');
     });
   });
 });

@@ -1,6 +1,6 @@
 import type { ParadaData } from '@/context/RouteStatusContext';
 
-import { toParada, toParadaData } from '../typeMappers';
+import { toParada } from '../typeMappers';
 
 describe('typeMappers: texto do pulo (Migration 73)', () => {
   const base: ParadaData = {
@@ -19,11 +19,5 @@ describe('typeMappers: texto do pulo (Migration 73)', () => {
     const parada = toParada(base);
     expect(parada.observacao_pulo).toBe('Ficou para amanhã');
     expect(parada.observacoes).toBe('Portão azul');
-  });
-
-  it('toParadaData devolve observacao_pulo', () => {
-    expect(toParadaData(toParada(base)).observacao_pulo).toBe(
-      'Ficou para amanhã',
-    );
   });
 });

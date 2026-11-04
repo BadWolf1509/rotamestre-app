@@ -1,10 +1,15 @@
 import React from 'react';
-import { Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
+import {
+  Text as RNText,
+  TextProps as RNTextProps,
+  TextStyle,
+} from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 type TextVariant = 'body' | 'title' | 'subtitle' | 'label' | 'caption';
-type TextTone = 'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse';
+type TextTone =
+  'default' | 'muted' | 'primary' | 'success' | 'warning' | 'error' | 'inverse';
 
 interface TextProps extends RNTextProps {
   variant?: TextVariant;
@@ -31,7 +36,12 @@ const getToneColor = (theme: Theme, tone: TextTone): string => {
   }
 };
 
-export function Text({ variant = 'body', tone = 'default', style, ...props }: TextProps) {
+export function Text({
+  variant = 'body',
+  tone = 'default',
+  style,
+  ...props
+}: TextProps) {
   const { theme } = useUnistyles();
 
   return (
@@ -75,5 +85,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     lineHeight: theme.typography.fontSize.xs * 1.4,
   },
 }));
-
-export default Text;

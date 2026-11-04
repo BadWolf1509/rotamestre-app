@@ -42,7 +42,11 @@ export const DialogButtons = memo(function DialogButtons({
       {/* Cancel button (only for confirm/destructive variants) */}
       {variant !== 'alert' && (
         <TouchableOpacity
-          style={[styles.button, styles.cancelButton, loading && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            styles.cancelButton,
+            loading && styles.buttonDisabled,
+          ]}
           onPress={onCancel}
           disabled={loading}
           accessibilityLabel={cancelText}
@@ -68,7 +72,13 @@ export const DialogButtons = memo(function DialogButtons({
         accessibilityRole="button"
         testID="confirm-reset"
       >
-        {loading && <ActivityIndicator size="small" color={theme.colors.white} style={styles.loader} />}
+        {loading && (
+          <ActivityIndicator
+            size="small"
+            color={theme.colors.white}
+            style={styles.loader}
+          />
+        )}
         <Text style={styles.confirmButtonText}>{confirmText}</Text>
       </TouchableOpacity>
     </View>
@@ -118,5 +128,3 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginRight: theme.spacing.sm,
   },
 }));
-
-export default DialogButtons;
