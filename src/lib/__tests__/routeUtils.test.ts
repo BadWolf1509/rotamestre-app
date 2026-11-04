@@ -41,6 +41,18 @@ jest.mock('@/lib/google', () => ({
   },
 }));
 
+// Fica local (não usa criarCadeia): só o `.select` final resolve, então o
+// teste quebra se a remoção deixar de pedir as linhas apagadas (`.select('id')`).
+// DELETE de parada: `.delete().eq('id').eq('status', 'pendente').select('id')`.
+function cadeiaDelete(resultado: { data: unknown; error: unknown }) {
+  const cadeia = {
+    delete: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    select: jest.fn().mockResolvedValue(resultado),
+  };
+  return cadeia;
+}
+
 describe('routeUtils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -461,7 +473,7 @@ describe('routeUtils', () => {
     it('marca a rota otimizada como alterada quando a remoção acontece (G12)', async () => {
       mockMarcarOtimizacao.mockResolvedValue(true);
       mockFrom.mockReturnValueOnce(
-        criarCadeia({ data: [{ id: mockParadaId }], error: null }),
+        cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
       );
       mockRpc.mockResolvedValue({ data: { success: true }, error: null });
       mockGetDirectionsSequential.mockResolvedValue(null);
@@ -478,7 +490,7 @@ describe('routeUtils', () => {
     });
 
     it('não marca nada quando o DELETE não apagou a parada (G12)', async () => {
-      mockFrom.mockReturnValueOnce(criarCadeia({ data: [], error: null }));
+      mockFrom.mockReturnValueOnce(cadeiaDelete({ data: [], error: null }));
 
       const result = await removerParadaERecalcular(
         mockParadaId,
@@ -493,7 +505,7 @@ describe('routeUtils', () => {
 
     it('deve confirmar remoção com ressalva se reordenação falhar', async () => {
       // Mock para delete (sucesso)
-      const deleteChain = criarCadeia({
+      const deleteChain = cadeiaDelete({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -519,7 +531,7 @@ describe('routeUtils', () => {
 
     it('deve confirmar remoção com ressalva se recálculo falhar', async () => {
       // Mock para delete (sucesso)
-      const deleteChain = criarCadeia({
+      const deleteChain = cadeiaDelete({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -544,7 +556,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se delete falhar', async () => {
-      const chain = criarCadeia({
+      const chain = cadeiaDelete({
         data: null,
         error: { message: 'Delete failed' },
       });
@@ -563,7 +575,7 @@ describe('routeUtils', () => {
 
     it('deve deletar, reordenar e recalcular com sucesso', async () => {
       // Mock para delete
-      const deleteChain = criarCadeia({
+      const deleteChain = cadeiaDelete({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -601,7 +613,7 @@ describe('routeUtils', () => {
     });
 
     it('deve registrar log quando usuarioId é fornecido', async () => {
-      const deleteChain = criarCadeia({
+      const deleteChain = cadeiaDelete({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -645,7 +657,7 @@ describe('routeUtils', () => {
         .mockResolvedValue({ data: null, error: { message: 'recusado' } });
       mockFrom
         .mockReturnValueOnce(
-          criarCadeia({ data: [{ id: mockParadaId }], error: null }),
+          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
         )
         .mockReturnValueOnce({
           update: jest.fn().mockReturnThis(),
@@ -677,7 +689,7 @@ describe('routeUtils', () => {
     });
 
     it('só apaga parada que ainda não foi finalizada (condiciona o DELETE ao status)', async () => {
-      const deleteChain = criarCadeia({
+      const deleteChain = cadeiaDelete({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -702,7 +714,7 @@ describe('routeUtils', () => {
     });
 
     it('zero linhas apagadas (o motorista concluiu a parada): erro explicado, sem reordenar', async () => {
-      mockFrom.mockReturnValue(criarCadeia({ data: [], error: null }));
+      mockFrom.mockReturnValue(cadeiaDelete({ data: [], error: null }));
 
       const result = await removerParadaERecalcular(
         mockParadaId,
@@ -720,7 +732,7 @@ describe('routeUtils', () => {
 
     it('o banco recusa a parada finalizada (PARADA_FINALIZADA): mostra o motivo em português', async () => {
       mockFrom.mockReturnValue(
-        criarCadeia({
+        cadeiaDelete({
           data: null,
           error: {
             code: 'P0001',
