@@ -81,6 +81,51 @@ describe('useRestaurarRascunhoIncidente', () => {
     });
   });
 
+  it('não reabre quando as paradas mudam com a câmera de outra tela aberta', async () => {
+    // Mesmo caso da conclusão: o wizard grava o rascunho antes de abrir a
+    // câmera, e a Início, montada por trás das abas, reabria um segundo
+    // wizard se a rota recarregasse nesse intervalo.
+    await comPlataforma('android', async () => {
+      const aoRestaurar = jest.fn();
+      const tela = renderHook(
+        ({ paradas }) =>
+          useRestaurarRascunhoIncidente(ROTA, paradas, aoRestaurar),
+        { initialProps: { paradas: PARADAS } },
+      );
+      await waitFor(() => expect(mockLerRascunho).toHaveBeenCalled());
+
+      mockLerRascunho.mockResolvedValue(RASCUNHO);
+      tela.rerender({ paradas: [...PARADAS] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(aoRestaurar).not.toHaveBeenCalled();
+    });
+  });
+
+  it('reabre mesmo se as paradas mudarem no meio da conferência', async () => {
+    await comPlataforma('android', async () => {
+      let entregarRascunho: (r: typeof RASCUNHO) => void = () => {};
+      mockLerRascunho.mockReturnValue(
+        new Promise((resolve) => {
+          entregarRascunho = resolve;
+        }),
+      );
+      const aoRestaurar = jest.fn();
+      const tela = renderHook(
+        ({ paradas }) =>
+          useRestaurarRascunhoIncidente(ROTA, paradas, aoRestaurar),
+        { initialProps: { paradas: PARADAS } },
+      );
+
+      tela.rerender({ paradas: [...PARADAS] });
+      entregarRascunho(RASCUNHO);
+
+      await waitFor(() => {
+        expect(aoRestaurar).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
   it('apaga rascunho de outra rota e não reabre', async () => {
     await comPlataforma('android', async () => {
       mockLerRascunho.mockResolvedValue({ ...RASCUNHO, rotaId: 'outra' });
