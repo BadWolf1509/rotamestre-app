@@ -39,6 +39,8 @@ const ENCADEAVEIS = [
   'range',
   // `.returns<T>()` devolve `this` na lib real: só informa o tipo.
   'returns',
+  // `.retry(false)` desliga o retry do supabase-js e também encadeia.
+  'retry',
 ] as const;
 
 type Encadeavel = (typeof ENCADEAVEIS)[number];

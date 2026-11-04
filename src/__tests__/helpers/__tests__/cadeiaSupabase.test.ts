@@ -44,6 +44,7 @@ describe('criarCadeia', () => {
       'limit',
       'range',
       'returns',
+      'retry',
     ] as const;
     for (const metodo of encadeaveis) {
       expect((cadeia[metodo] as jest.Mock)()).toBe(cadeia);
