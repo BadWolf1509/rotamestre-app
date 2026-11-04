@@ -19,12 +19,12 @@ jest.mock('react-native-draggable-flatlist', () => {
   const React = require('react');
   const { View } = require('react-native');
 
-  return {
-    __esModule: true,
-    default: ({ data, renderItem }: any) =>
+  const lista =
+    (testID: string) =>
+    ({ data, renderItem }: any) =>
       React.createElement(
         View,
-        null,
+        { testID },
         data.map((item: any, index: number) =>
           React.createElement(
             View,
@@ -37,7 +37,12 @@ jest.mock('react-native-draggable-flatlist', () => {
             }),
           ),
         ),
-      ),
+      );
+
+  return {
+    __esModule: true,
+    default: lista('lista-propria'),
+    NestableDraggableFlatList: lista('lista-aninhavel'),
     ScaleDecorator: ({ children }: any) => children,
   };
 });
@@ -152,6 +157,28 @@ describe('ParadasListAndActions', () => {
 
     expect(getByText('Nenhuma parada adicionada')).toBeTruthy();
     expect(queryByText('Revisar e Criar Rota')).toBeNull();
+  });
+
+  it('dentro da rolagem aninhável da página, usa a lista aninhável', () => {
+    // A lista própria tem um Pan que ativa em qualquer deslize de 8 px e toma o
+    // toque do ScrollView da página: com 15 paradas, a Nova Entrega não rolava
+    // com o dedo sobre os cards (moto g15, SDK 58, 04/11/2026). A aninhável
+    // deixa a página rolar e só arrasta pela alça.
+    const { getByTestId, queryByTestId } = render(
+      <ParadasListAndActions {...baseProps} dentroDeRolagemAninhavel />,
+    );
+
+    expect(getByTestId('lista-aninhavel')).toBeTruthy();
+    expect(queryByTestId('lista-propria')).toBeNull();
+  });
+
+  it('fora da rolagem aninhável (desktop), mantém a lista própria', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ParadasListAndActions {...baseProps} />,
+    );
+
+    expect(getByTestId('lista-propria')).toBeTruthy();
+    expect(queryByTestId('lista-aninhavel')).toBeNull();
   });
 
   it('renderiza lista de paradas e botao de otimizar', () => {

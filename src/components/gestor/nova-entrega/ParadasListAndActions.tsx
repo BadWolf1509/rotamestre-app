@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { memo } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import DraggableFlatList, {
+  NestableDraggableFlatList,
   ScaleDecorator,
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
@@ -47,6 +48,13 @@ export interface ParadasListAndActionsProps {
   canGenerateRoute: boolean;
   validationErrors: string[];
   hideGenerateButton?: boolean;
+  /**
+   * A tela envolve a lista num `NestableScrollContainer` (celular e tablet).
+   * A lista própria tem um Pan que ativa em qualquer deslize de 8 px e toma o
+   * toque do ScrollView da página, que deixava de rolar com o dedo sobre os
+   * cards; a aninhável deixa a página rolar e só arrasta pela alça.
+   */
+  dentroDeRolagemAninhavel?: boolean;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onRemove: (index: number) => void;
@@ -77,6 +85,7 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   canGenerateRoute,
   validationErrors,
   hideGenerateButton = false,
+  dentroDeRolagemAninhavel = false,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -222,14 +231,24 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
             )}
           </View>
 
-          <DraggableFlatList
-            data={paradas}
-            keyExtractor={(parada) => parada.id}
-            renderItem={renderStop}
-            onDragEnd={({ data }) => onReorder(data)}
-            scrollEnabled={false}
-            activationDistance={8}
-          />
+          {dentroDeRolagemAninhavel ? (
+            <NestableDraggableFlatList
+              data={paradas}
+              keyExtractor={(parada) => parada.id}
+              renderItem={renderStop}
+              onDragEnd={({ data }) => onReorder(data)}
+              activationDistance={8}
+            />
+          ) : (
+            <DraggableFlatList
+              data={paradas}
+              keyExtractor={(parada) => parada.id}
+              renderItem={renderStop}
+              onDragEnd={({ data }) => onReorder(data)}
+              scrollEnabled={false}
+              activationDistance={8}
+            />
+          )}
 
           <TouchableOpacity
             style={[
