@@ -18,6 +18,7 @@ Relatório em `docs/superpowers/2026-11-03-varredura-refatoracoes.md`, cinco pla
 - **#716 testes/infra (parte 1):** um mock só do Supabase, scripts órfãos e SQL que não era migration fora de `database/migrations`, helper e guarda de paridade das pastas de migration, fake timers. knip: 216 `Unused exports`.
 - **#714 motorista:** `preferenciasNavegacaoPadrao.ts`, `src/lib/geo/distancia.ts`, `useRouteStatus` lança fora do provider (`useRouteStatusSeHouver` para o menu lateral), o "Contatar gestor" cita rota e endereço, a aba Paradas usa a parada do contexto. Combinado com o #715, o mesmo teste (`NavigationMode.web.test.tsx`) ficava com a ordem de import quebrada — só aparecia com as duas branches juntas.
 - Validações fora do CI e sobras: pendência 32.
+- **Validações do #717 (03/11, à noite):** (1) **dev web** com `EXPO_PUBLIC_OSRM_URL` numa porta fechada: a Nova Rota mostrou o banner "Estimativa aproximada — recálculo necessário" e o toast do serviço viário indisponível — antes do #717 o `google.web.ts` descartava `is_estimated` e o banner sairia verde. (2) **moto g15, 1.14.13 (3051) da Play**, sem internet (DNS privado inválido, Wi-Fi ligado): parada concluída com foto e outra pulada ficaram como "Aguardando envio", nada chegou ao banco; com a rede de volta, tudo subiu em ~7 s e na ordem — foto no Storage, depois a conclusão (com o `foto_url` e o horário offline), depois o pulo —, e as 19 posições do período offline sem duplicata. O pulo não grava linha em `logs`, como já não gravava antes.
 
 ## Release 1.14.12 (03/11/2026)
 
