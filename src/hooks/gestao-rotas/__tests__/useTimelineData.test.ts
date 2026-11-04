@@ -59,6 +59,7 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Fica local (não usa criarCadeia): limit e range resolvem resultados diferentes.
 const chain = (resolveData: any[]) => {
   const m: any = {};
   m.select = jest.fn(() => m);

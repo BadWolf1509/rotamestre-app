@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
+
 import { authService } from '../auth';
 import { FalhaAoCarregarPerfil } from '../auth/falhaPerfil';
 import { logger } from '../logger';
@@ -94,16 +96,10 @@ describe('AuthService - Unit Tests', () => {
         error: null,
       });
 
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: mockUsuario,
-          error: null,
-        }),
-      };
+      const mockQueryBuilder = criarCadeia({
+        data: mockUsuario,
+        error: null,
+      });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const result = await authService.signIn(
@@ -147,19 +143,10 @@ describe('AuthService - Unit Tests', () => {
         error: null,
       });
 
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        // Sem linha é data:null + error:null (`.maybeSingle()`). Antes este
-        // teste usava um `error` aqui e exigia `usuario: null` — era o defeito:
-        // falha de rede virava "sem perfil" e o login mandava ao onboarding.
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: null,
-          error: null,
-        }),
-      };
+      // Sem linha é data:null + error:null (`.maybeSingle()`). Antes este
+      // teste usava um `error` aqui e exigia `usuario: null` — era o defeito:
+      // falha de rede virava "sem perfil" e o login mandava ao onboarding.
+      const mockQueryBuilder = criarCadeia({ data: null, error: null });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const result = await authService.signIn(
@@ -673,16 +660,10 @@ describe('AuthService - Unit Tests', () => {
         papel: 'gestor' as const,
       };
 
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: mockUsuario,
-          error: null,
-        }),
-      };
+      const mockQueryBuilder = criarCadeia({
+        data: mockUsuario,
+        error: null,
+      });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const usuario = await authService.getUsuario('user-123');
@@ -692,18 +673,9 @@ describe('AuthService - Unit Tests', () => {
     });
 
     it('deve retornar null quando usuário não existe', async () => {
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        // "Não existe" com `.maybeSingle()` é data:null + error:null. O
-        // `error` que estava aqui exigia que falha virasse "não existe".
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: null,
-          error: null,
-        }),
-      };
+      // "Não existe" com `.maybeSingle()` é data:null + error:null. O
+      // `error` que estava aqui exigia que falha virasse "não existe".
+      const mockQueryBuilder = criarCadeia({ data: null, error: null });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       idDaSessao = 'user-999';
@@ -902,16 +874,10 @@ describe('AuthService - Unit Tests', () => {
         papel: 'gestor' as const,
       };
 
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: mockUsuario,
-          error: null,
-        }),
-      };
+      const mockQueryBuilder = criarCadeia({
+        data: mockUsuario,
+        error: null,
+      });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       const tipo = await authService.verificarTipoUsuario('user-123');
@@ -927,16 +893,10 @@ describe('AuthService - Unit Tests', () => {
         papel: 'motorista' as const,
       };
 
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: mockUsuario,
-          error: null,
-        }),
-      };
+      const mockQueryBuilder = criarCadeia({
+        data: mockUsuario,
+        error: null,
+      });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       idDaSessao = 'user-456';
@@ -946,18 +906,9 @@ describe('AuthService - Unit Tests', () => {
     });
 
     it('deve retornar null quando usuário não existe', async () => {
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        // "Não existe" com `.maybeSingle()` é data:null + error:null. O
-        // `error` que estava aqui exigia que falha virasse "não existe".
-        retry: jest.fn().mockReturnThis(),
-        maybeSingle: jest.fn().mockResolvedValue({
-          data: null,
-          error: null,
-        }),
-      };
+      // "Não existe" com `.maybeSingle()` é data:null + error:null. O
+      // `error` que estava aqui exigia que falha virasse "não existe".
+      const mockQueryBuilder = criarCadeia({ data: null, error: null });
       mockSupabase.from.mockReturnValue(mockQueryBuilder as any);
 
       idDaSessao = 'user-999';

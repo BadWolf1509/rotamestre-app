@@ -33,15 +33,16 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+import {
+  criarCadeia,
+  type ResultadoFalso,
+} from '@/__tests__/helpers/cadeiaSupabase';
+
 import { useMotoristaSelection } from '../useMotoristaSelection';
 
-// Helper to setup supabase chain
-const setupSupabaseChain = (finalResult: any) => {
-  const chain: any = {
-    select: jest.fn(() => chain),
-    eq: jest.fn(() => chain),
-    then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
-  };
+// O `select` do from() devolve a cadeia: o hook começa por ele.
+const setupSupabaseChain = (finalResult: ResultadoFalso<unknown>) => {
+  const chain = criarCadeia(finalResult);
   mockSelect.mockImplementation(() => chain);
   return chain;
 };
@@ -257,6 +258,7 @@ describe('useMotoristaSelection', () => {
         resolvePromise = resolve;
       });
 
+      // Fica local: resolve por uma promessa controlada pelo teste.
       const chain: any = {
         select: jest.fn(() => chain),
         eq: jest.fn(() => chain),

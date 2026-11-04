@@ -9,6 +9,7 @@ const mockSupabaseData: Record<string, unknown> = {};
 const mockSupabaseError: Record<string, unknown> = {};
 
 // Create a chainable mock that captures the table name
+// Fica local (não usa criarCadeia): o resultado é lido por tabela na hora da consulta.
 const createChainableMock = (tableName: string) => {
   const chain: any = {
     select: jest.fn(() => chain),

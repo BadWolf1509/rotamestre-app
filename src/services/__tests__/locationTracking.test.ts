@@ -5,6 +5,7 @@
  */
 
 // Supabase chainable mock helper
+// Fica local (não usa criarCadeia): insert e upsert resolvem resultado próprio, diferente do single.
 function createChain(singleResult = { data: null, error: null }) {
   const chain: any = {};
   chain.select = jest.fn().mockReturnValue(chain);

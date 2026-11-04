@@ -22,30 +22,9 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
+
 import { useMotoristaStats } from '../useMotoristaStats';
-
-// Helper to setup supabase chain for rotas
-const setupRotasChain = (finalResult: any) => {
-  const chain: any = {
-    select: jest.fn(() => chain),
-    eq: jest.fn(() => chain),
-    gte: jest.fn(() => chain),
-    lt: jest.fn(() => chain),
-    then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
-  };
-  return chain;
-};
-
-// Helper to setup supabase chain for paradas
-const setupParadasChain = (finalResult: any) => {
-  const chain: any = {
-    select: jest.fn(() => chain),
-    in: jest.fn(() => chain),
-    eq: jest.fn(() => chain),
-    then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
-  };
-  return chain;
-};
 
 describe('useMotoristaStats', () => {
   beforeEach(() => {
@@ -88,9 +67,9 @@ describe('useMotoristaStats', () => {
     it('should set zero stats if no routes yesterday', async () => {
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupRotasChain({ data: [], error: null });
+          return criarCadeia({ data: [], error: null });
         }
-        return setupParadasChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -120,12 +99,12 @@ describe('useMotoristaStats', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupRotasChain({ data: mockRotas, error: null });
+          return criarCadeia({ data: mockRotas, error: null });
         }
         if (table === 'paradas') {
-          return setupParadasChain({ data: mockParadas, error: null });
+          return criarCadeia({ data: mockParadas, error: null });
         }
-        return setupRotasChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -144,7 +123,7 @@ describe('useMotoristaStats', () => {
 
     it('should handle rotas error', async () => {
       mockFrom.mockImplementation(() =>
-        setupRotasChain({ data: null, error: { message: 'Error' } })
+        criarCadeia({ data: null, error: { message: 'Error' } }),
       );
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -162,12 +141,12 @@ describe('useMotoristaStats', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupRotasChain({ data: mockRotas, error: null });
+          return criarCadeia({ data: mockRotas, error: null });
         }
         if (table === 'paradas') {
-          return setupParadasChain({ data: null, error: { message: 'Error' } });
+          return criarCadeia({ data: null, error: { message: 'Error' } });
         }
-        return setupRotasChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -195,9 +174,9 @@ describe('useMotoristaStats', () => {
     it('should set zero stats if no routes today', async () => {
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupRotasChain({ data: [], error: null });
+          return criarCadeia({ data: [], error: null });
         }
-        return setupParadasChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -226,12 +205,12 @@ describe('useMotoristaStats', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupRotasChain({ data: mockRotas, error: null });
+          return criarCadeia({ data: mockRotas, error: null });
         }
         if (table === 'paradas') {
-          return setupParadasChain({ data: mockParadas, error: null });
+          return criarCadeia({ data: mockParadas, error: null });
         }
-        return setupRotasChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -250,7 +229,7 @@ describe('useMotoristaStats', () => {
 
     it('should handle rotas error', async () => {
       mockFrom.mockImplementation(() =>
-        setupRotasChain({ data: null, error: { message: 'Error' } })
+        criarCadeia({ data: null, error: { message: 'Error' } }),
       );
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));
@@ -271,12 +250,12 @@ describe('useMotoristaStats', () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === 'rotas') {
-          return setupRotasChain({ data: mockRotas, error: null });
+          return criarCadeia({ data: mockRotas, error: null });
         }
         if (table === 'paradas') {
-          return setupParadasChain({ data: [], error: null });
+          return criarCadeia({ data: [], error: null });
         }
-        return setupRotasChain({ data: [], error: null });
+        return criarCadeia({ data: [], error: null });
       });
 
       const { result } = renderHook(() => useMotoristaStats('motorista-123'));

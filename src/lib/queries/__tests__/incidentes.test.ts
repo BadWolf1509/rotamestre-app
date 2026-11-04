@@ -5,24 +5,6 @@
 // Mock supabase
 const mockFrom = jest.fn();
 
-// Setup chainable mock
-const setupChain = (finalResult: any) => {
-  const chain: any = {
-    select: jest.fn(() => chain),
-    insert: jest.fn(() => chain),
-    update: jest.fn(() => chain),
-    eq: jest.fn(() => chain),
-    in: jest.fn(() => chain),
-    order: jest.fn(() => chain),
-    limit: jest.fn(() => chain),
-    // `.returns<T>()` devolve `this` na lib real: so informa o tipo.
-    returns: jest.fn(() => chain),
-    single: jest.fn(() => Promise.resolve(finalResult)),
-    then: (resolve: any) => Promise.resolve(finalResult).then(resolve),
-  };
-  return chain;
-};
-
 jest.mock('../queryClient', () => {
   const originalModule = jest.requireActual('../queryClient');
   return {
@@ -58,6 +40,7 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
 import { logger } from '@/lib/logger';
 
 import {
@@ -102,7 +85,7 @@ describe('incidentes queries', () => {
       ];
 
       mockFrom.mockImplementation(() =>
-        setupChain({ data: mockData, error: null }),
+        criarCadeia({ data: mockData, error: null }),
       );
 
       const result = await fetchIncidentesForGestor({
@@ -118,7 +101,7 @@ describe('incidentes queries', () => {
     });
 
     it('should apply status filter', async () => {
-      const chain = setupChain({ data: [], error: null });
+      const chain = criarCadeia({ data: [], error: null });
       mockFrom.mockImplementation(() => chain);
 
       await fetchIncidentesForGestor({
@@ -131,7 +114,7 @@ describe('incidentes queries', () => {
     });
 
     it('should apply categoria filter', async () => {
-      const chain = setupChain({ data: [], error: null });
+      const chain = criarCadeia({ data: [], error: null });
       mockFrom.mockImplementation(() => chain);
 
       await fetchIncidentesForGestor({
@@ -162,7 +145,7 @@ describe('incidentes queries', () => {
       ];
 
       mockFrom.mockImplementation(() =>
-        setupChain({ data: mockData, error: null }),
+        criarCadeia({ data: mockData, error: null }),
       );
 
       const result = await fetchIncidentesForGestor({
@@ -178,7 +161,7 @@ describe('incidentes queries', () => {
 
     it('motorista excluído (motorista_id NULL): nome "Motorista removido"', async () => {
       mockFrom.mockImplementation(() =>
-        setupChain({
+        criarCadeia({
           data: [
             {
               id: 'inc-1',
@@ -210,7 +193,7 @@ describe('incidentes queries', () => {
 
     it('should handle database error', async () => {
       mockFrom.mockImplementation(() =>
-        setupChain({ data: null, error: { message: 'Database error' } }),
+        criarCadeia({ data: null, error: { message: 'Database error' } }),
       );
 
       // safeQuery will catch the error
@@ -236,7 +219,7 @@ describe('incidentes queries', () => {
       };
 
       mockFrom.mockImplementation(() =>
-        setupChain({ data: mockIncidente, error: null }),
+        criarCadeia({ data: mockIncidente, error: null }),
       );
 
       const result = await createIncidente({
@@ -257,7 +240,7 @@ describe('incidentes queries', () => {
       };
 
       mockFrom.mockImplementation(() =>
-        setupChain({ data: mockIncidente, error: null }),
+        criarCadeia({ data: mockIncidente, error: null }),
       );
 
       const result = await createIncidente({
@@ -273,7 +256,7 @@ describe('incidentes queries', () => {
 
     it('should handle creation error', async () => {
       mockFrom.mockImplementation(() => {
-        const chain = setupChain({
+        const chain = criarCadeia({
           data: null,
           error: { message: 'Insert failed' },
         });
@@ -297,7 +280,7 @@ describe('incidentes queries', () => {
   describe('logIncidenteAction', () => {
     it('should log incidente action', async () => {
       mockFrom.mockImplementation(() =>
-        setupChain({ data: null, error: null }),
+        criarCadeia({ data: null, error: null }),
       );
 
       await logIncidenteAction('user-123', 'inc-1', 'incidente_criado');
@@ -307,7 +290,7 @@ describe('incidentes queries', () => {
 
     it('should include detalhes in log', async () => {
       mockFrom.mockImplementation(() =>
-        setupChain({ data: null, error: null }),
+        criarCadeia({ data: null, error: null }),
       );
 
       await logIncidenteAction('user-123', 'inc-1', 'status_alterado', {
@@ -336,7 +319,7 @@ describe('incidentes queries', () => {
     });
 
     it('manda incidente_id dentro de detalhes, sem rota_id e sem coluna própria', async () => {
-      const chain = setupChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockImplementation(() => chain);
 
       await logIncidenteAction('user-123', 'inc-1', 'status_alterado', {
@@ -353,7 +336,7 @@ describe('incidentes queries', () => {
 
     it('avisa por logger.warn quando o banco recusa o insert (resolve com error)', async () => {
       mockFrom.mockImplementation(() =>
-        setupChain({ data: null, error: { message: 'recusado' } }),
+        criarCadeia({ data: null, error: { message: 'recusado' } }),
       );
 
       await logIncidenteAction('user-123', 'inc-1', 'test_event');

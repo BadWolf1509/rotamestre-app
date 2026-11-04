@@ -3,6 +3,7 @@
  * Funções de manipulação de rotas
  */
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
 import { logger } from '@/lib/logger';
 
 import {
@@ -40,26 +41,8 @@ jest.mock('@/lib/google', () => ({
   },
 }));
 
-// Helper para criar chain de métodos do Supabase
-function createSupabaseChain(finalResult: { data?: unknown; error?: unknown }) {
-  const chain = {
-    select: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue(finalResult),
-  };
-  // Para chamadas que não usam single()
-  chain.eq.mockImplementation(() => ({
-    ...chain,
-    then: (resolve: (value: typeof finalResult) => void) =>
-      Promise.resolve(finalResult).then(resolve),
-  }));
-  return chain;
-}
-
+// Fica local (não usa criarCadeia): só o `.select` final resolve, então o
+// teste quebra se a remoção deixar de pedir as linhas apagadas (`.select('id')`).
 // DELETE de parada: `.delete().eq('id').eq('status', 'pendente').select('id')`.
 function cadeiaDelete(resultado: { data: unknown; error: unknown }) {
   const cadeia = {
@@ -138,7 +121,7 @@ describe('routeUtils', () => {
     });
 
     it('deve atualizar com valores zerados se não há waypoints válidos', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       const paradasSemCoordenadas = [
@@ -161,7 +144,7 @@ describe('routeUtils', () => {
     });
 
     it('deve filtrar paradas com is_checkpoint === false', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       const paradasMistas = [
@@ -202,7 +185,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se Google Directions falhar', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
       mockGetDirectionsSequential.mockResolvedValue(null);
 
@@ -222,7 +205,7 @@ describe('routeUtils', () => {
     });
 
     it('deve atualizar rota com sucesso quando Google Directions retorna dados', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       mockGetDirectionsSequential.mockResolvedValue({
@@ -246,7 +229,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se update do Supabase falhar', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       // Sobrescrever para simular erro
       chain.eq.mockImplementation(() => ({
         then: (
@@ -323,7 +306,7 @@ describe('routeUtils', () => {
       });
 
       // Mock do supabase.from para o fallback
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       const paradas = [
