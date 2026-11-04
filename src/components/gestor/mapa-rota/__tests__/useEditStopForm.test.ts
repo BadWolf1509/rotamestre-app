@@ -49,6 +49,7 @@ const parada: Parada = {
   destinatario: 'Ana',
 };
 
+// Fica local (não usa criarCadeia): um mock por eq, para conferir o filtro de cada posição.
 /** `.update(...).eq('id', ...).eq('status', 'pendente').select('id')` */
 function cadeiaUpdate(resultado: { data: unknown; error: unknown }) {
   const select = jest.fn().mockResolvedValue(resultado);

@@ -3,6 +3,7 @@
  * Funções de manipulação de rotas
  */
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
 import { logger } from '@/lib/logger';
 
 import {
@@ -39,36 +40,6 @@ jest.mock('@/lib/google', () => ({
       mockGetDirectionsSequential(...args),
   },
 }));
-
-// Helper para criar chain de métodos do Supabase
-function createSupabaseChain(finalResult: { data?: unknown; error?: unknown }) {
-  const chain = {
-    select: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue(finalResult),
-  };
-  // Para chamadas que não usam single()
-  chain.eq.mockImplementation(() => ({
-    ...chain,
-    then: (resolve: (value: typeof finalResult) => void) =>
-      Promise.resolve(finalResult).then(resolve),
-  }));
-  return chain;
-}
-
-// DELETE de parada: `.delete().eq('id').eq('status', 'pendente').select('id')`.
-function cadeiaDelete(resultado: { data: unknown; error: unknown }) {
-  const cadeia = {
-    delete: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    select: jest.fn().mockResolvedValue(resultado),
-  };
-  return cadeia;
-}
 
 describe('routeUtils', () => {
   beforeEach(() => {
@@ -138,7 +109,7 @@ describe('routeUtils', () => {
     });
 
     it('deve atualizar com valores zerados se não há waypoints válidos', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       const paradasSemCoordenadas = [
@@ -161,7 +132,7 @@ describe('routeUtils', () => {
     });
 
     it('deve filtrar paradas com is_checkpoint === false', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       const paradasMistas = [
@@ -202,7 +173,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se Google Directions falhar', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
       mockGetDirectionsSequential.mockResolvedValue(null);
 
@@ -222,7 +193,7 @@ describe('routeUtils', () => {
     });
 
     it('deve atualizar rota com sucesso quando Google Directions retorna dados', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       mockGetDirectionsSequential.mockResolvedValue({
@@ -246,7 +217,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se update do Supabase falhar', async () => {
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       // Sobrescrever para simular erro
       chain.eq.mockImplementation(() => ({
         then: (
@@ -323,7 +294,7 @@ describe('routeUtils', () => {
       });
 
       // Mock do supabase.from para o fallback
-      const chain = createSupabaseChain({ data: null, error: null });
+      const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
 
       const paradas = [
@@ -490,7 +461,7 @@ describe('routeUtils', () => {
     it('marca a rota otimizada como alterada quando a remoção acontece (G12)', async () => {
       mockMarcarOtimizacao.mockResolvedValue(true);
       mockFrom.mockReturnValueOnce(
-        cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+        criarCadeia({ data: [{ id: mockParadaId }], error: null }),
       );
       mockRpc.mockResolvedValue({ data: { success: true }, error: null });
       mockGetDirectionsSequential.mockResolvedValue(null);
@@ -507,7 +478,7 @@ describe('routeUtils', () => {
     });
 
     it('não marca nada quando o DELETE não apagou a parada (G12)', async () => {
-      mockFrom.mockReturnValueOnce(cadeiaDelete({ data: [], error: null }));
+      mockFrom.mockReturnValueOnce(criarCadeia({ data: [], error: null }));
 
       const result = await removerParadaERecalcular(
         mockParadaId,
@@ -522,7 +493,7 @@ describe('routeUtils', () => {
 
     it('deve confirmar remoção com ressalva se reordenação falhar', async () => {
       // Mock para delete (sucesso)
-      const deleteChain = cadeiaDelete({
+      const deleteChain = criarCadeia({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -548,7 +519,7 @@ describe('routeUtils', () => {
 
     it('deve confirmar remoção com ressalva se recálculo falhar', async () => {
       // Mock para delete (sucesso)
-      const deleteChain = cadeiaDelete({
+      const deleteChain = criarCadeia({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -573,7 +544,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se delete falhar', async () => {
-      const chain = cadeiaDelete({
+      const chain = criarCadeia({
         data: null,
         error: { message: 'Delete failed' },
       });
@@ -592,7 +563,7 @@ describe('routeUtils', () => {
 
     it('deve deletar, reordenar e recalcular com sucesso', async () => {
       // Mock para delete
-      const deleteChain = cadeiaDelete({
+      const deleteChain = criarCadeia({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -630,7 +601,7 @@ describe('routeUtils', () => {
     });
 
     it('deve registrar log quando usuarioId é fornecido', async () => {
-      const deleteChain = cadeiaDelete({
+      const deleteChain = criarCadeia({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -674,7 +645,7 @@ describe('routeUtils', () => {
         .mockResolvedValue({ data: null, error: { message: 'recusado' } });
       mockFrom
         .mockReturnValueOnce(
-          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+          criarCadeia({ data: [{ id: mockParadaId }], error: null }),
         )
         .mockReturnValueOnce({
           update: jest.fn().mockReturnThis(),
@@ -706,7 +677,7 @@ describe('routeUtils', () => {
     });
 
     it('só apaga parada que ainda não foi finalizada (condiciona o DELETE ao status)', async () => {
-      const deleteChain = cadeiaDelete({
+      const deleteChain = criarCadeia({
         data: [{ id: mockParadaId }],
         error: null,
       });
@@ -731,7 +702,7 @@ describe('routeUtils', () => {
     });
 
     it('zero linhas apagadas (o motorista concluiu a parada): erro explicado, sem reordenar', async () => {
-      mockFrom.mockReturnValue(cadeiaDelete({ data: [], error: null }));
+      mockFrom.mockReturnValue(criarCadeia({ data: [], error: null }));
 
       const result = await removerParadaERecalcular(
         mockParadaId,
@@ -749,7 +720,7 @@ describe('routeUtils', () => {
 
     it('o banco recusa a parada finalizada (PARADA_FINALIZADA): mostra o motivo em português', async () => {
       mockFrom.mockReturnValue(
-        cadeiaDelete({
+        criarCadeia({
           data: null,
           error: {
             code: 'P0001',

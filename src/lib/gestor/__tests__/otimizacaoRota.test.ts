@@ -22,6 +22,7 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+// Fica local (não usa criarCadeia): um mock por eq, para conferir o filtro de cada posição.
 /** `.update(v).eq('id', id).eq('otimizacao_estado', 'otimizada').select('id')` */
 function cadeiaUpdate(resultado: { data: unknown; error: unknown }) {
   const select = jest.fn().mockResolvedValue(resultado);
