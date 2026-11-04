@@ -58,7 +58,7 @@ index f7b0e82..31da083 100644
  import { NestableScrollContainerProvider, useSafeNestableScrollContainerContext } from "../context/nestableScrollContainerContext";
  import { useStableCallback } from "../hooks/useStableCallback";
 diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-index 7c88afc..adbd5d6 100644
+index 7c88afc..8e7a453 100644
 --- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 @@ -10,10 +10,11 @@ import {
@@ -86,6 +86,51 @@ index 7c88afc..adbd5d6 100644
        reset();
      });
    }
+@@ -271,8 +274,14 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+   );
+ 
+   const gestureDisabled = useSharedValue(false);
++  const touchStartX = useSharedValue(0);
++  const touchStartY = useSharedValue(0);
++  // Patch do app: sem isto o Pan ativa em qualquer deslize de
++  // activationDistance, arrastando ou não, e toma o toque da rolagem.
++  const limiteSemArrasto = activationDistanceProp || 10;
+ 
+   const panGesture = Gesture.Pan()
++    .manualActivation(true)
+     .onBegin((evt) => {
+       gestureDisabled.value = disabled.value;
+       if (gestureDisabled.value) return;
+@@ -314,9 +323,28 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+         }
+       );
+     })
+-    .onTouchesDown(() => {
++    .onTouchesDown((evt) => {
++      const toque = evt.allTouches[0];
++      if (toque) {
++        touchStartX.value = toque.absoluteX;
++        touchStartY.value = toque.absoluteY;
++      }
+       runOnJS(onContainerTouchStart)();
+     })
++    .onTouchesMove((evt, stateManager) => {
++      // Arrasto iniciado pelo drag() (toque longo na alça): o Pan assume.
++      if (activeIndexAnim.value >= 0) {
++        stateManager.activate();
++        return;
++      }
++      // O dedo andou sem arrasto: é rolagem, devolve o toque.
++      const toque = evt.allTouches[0];
++      if (!toque) return;
++      const andou = horizontalAnim.value
++        ? Math.abs(toque.absoluteX - touchStartX.value)
++        : Math.abs(toque.absoluteY - touchStartY.value);
++      if (andou > limiteSemArrasto) stateManager.fail();
++    })
+     .onTouchesUp(() => {
+       // Turning this into a worklet causes timing issues. We want it to run
+       // just after the finger lifts.
 diff --git a/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx b/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx
 index 61054a7..e48feeb 100644
 --- a/node_modules/react-native-draggable-flatlist/src/components/NestableScrollContainer.tsx

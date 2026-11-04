@@ -16,6 +16,15 @@
  *    Entrega) usa o `LegacyScrollView`: com o `ScrollView` novo, o Pan da lista
  *    tomava o toque e a página não rolava com o dedo sobre os cards (moto g15,
  *    1.15.0 3053, 04/11/2026). A lista própria, no `LegacyFlatList`, rolava.
+ * 4. Com o root view do Gesture Handler valendo nas telas do gestor (SDK 58),
+ *    o Pan da lib passou a ativar em qualquer deslize de `activationDistance`,
+ *    arrastando ou não, e a tomar o toque da rolagem: nem a página da Nova
+ *    Entrega nem a lista do modal Reordenar rolavam com o dedo sobre os cards
+ *    (moto g15, 3053). O patch liga a ativação manual: o Pan só ativa depois do
+ *    `drag()` (toque longo na alça) e falha quando o dedo anda sem arrasto,
+ *    devolvendo o toque à rolagem. Só o `src/` importa aqui: é o que o Metro
+ *    empacota (campo `react-native`), e as entradas compiladas trazem o worklet
+ *    já serializado pelo Reanimated.
  *
  * O web não quebraria em (1) (o react-native-web ainda exporta o
  * InteractionManager), e o Jest mocka a lib: sem esta guarda, nada acusaria.
@@ -89,6 +98,13 @@ describe('patch do react-native-draggable-flatlist', () => {
       expect(codigo).not.toMatch(/_reactNativeGestureHandler\.ScrollView\b/);
     },
   );
+
+  it('src/components/DraggableFlatList.tsx só ativa o Pan depois do drag()', () => {
+    const codigo = ler('src/components/DraggableFlatList.tsx');
+    expect(codigo).toMatch(/\.manualActivation\(true\)/);
+    expect(codigo).toMatch(/stateManager\.activate\(\)/);
+    expect(codigo).toMatch(/stateManager\.fail\(\)/);
+  });
 
   it('o Gesture Handler instalado ainda exporta LegacyFlatList', () => {
     // Lido do fonte, não pelo require: o jestSetup do RNGH mocka os componentes.
