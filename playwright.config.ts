@@ -45,6 +45,13 @@ export default defineConfig({
     // Base URL to use in actions like `await page.goto('/')`
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082',
 
+    // O app registra `sw.js`, que responde a todo GET (inclusive os do
+    // Supabase), e o que o Service Worker atende NÃO passa pelo `page.route`:
+    // o mock de GET era ignorado em silêncio, só o POST chegava a ele. Assim o
+    // mock do rascunho da Nova Rota nunca valeu, e o teste só passava com a
+    // conta de teste sem rascunho (04/11/2026). Nenhum e2e exercita o SW.
+    serviceWorkers: 'block',
+
     // Trace e vídeo só fora do CI. O trace grava o texto digitado nos `fill`
     // (a senha das contas E2E) e os cabeçalhos de rede com o token, e o
     // repositório é público: artefato de CI é baixável por qualquer conta
