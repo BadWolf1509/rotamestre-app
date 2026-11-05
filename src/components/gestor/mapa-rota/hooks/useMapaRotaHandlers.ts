@@ -34,32 +34,6 @@ import { supabase } from '@/lib/supabase';
 import type { Parada, Rota } from '../types';
 
 /**
- * Confere se um UPDATE realmente afetou algum registro, quando algum era
- * esperado.
- *
- * RLS pode barrar um UPDATE devolvendo 204 com ZERO linhas e `error: null`
- * (o `Prefer: return=minimal` default não distingue "0 linhas" de "N linhas"
- * sem `.select()` encadeado) — checar só `error` não basta. Por isso todo
- * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui —
- * ou, no UPDATE condicionado ao status da ROTA, por `assertRotaAtualizada`.
- * Cancelar e reativar não passam por aqui: vão pelas RPCs de `acoesRota`.
- *
- * A checagem é "afetou ZERO quando devia afetar alguma" (`esperado > 0`),
- * não "afetou MENOS que o esperado".
- */
-function assertUpdateAfetouLinhas(
-  data: { id: string }[] | null,
-  error: unknown,
-  esperado: number,
-  mensagem: string,
-): void {
-  if (error) throw error;
-  if (esperado > 0 && (data?.length ?? 0) === 0) {
-    throw new Error(mensagem);
-  }
-}
-
-/**
  * Aviso de rota que mudou de situação enquanto a tela estava aberta. Vem de
  * dois lugares: do resultado `situacao_mudou` das RPCs de cancelar e reativar
  * (o banco distingue isso de falta de permissão, que tem aviso próprio), e do
@@ -80,7 +54,10 @@ class RotaMudouDeSituacao extends Error {
   }
 }
 
-/** Como `assertUpdateAfetouLinhas`, para o UPDATE condicional da ROTA. */
+/**
+ * Confere se o UPDATE condicional da ROTA afetou alguma linha: RLS pode barrar
+ * com 204, ZERO linhas e `error: null`, e checar só `error` não basta.
+ */
 function assertRotaAtualizada(
   data: { id: string }[] | null,
   error: unknown,
