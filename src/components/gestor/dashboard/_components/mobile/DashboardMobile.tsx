@@ -30,6 +30,8 @@ import { StatsCard } from '../shared/StatsCard';
 import type { DashboardData, RotaResumo } from '../../_hooks/useDashboardData';
 
 interface DashboardMobileProps extends DashboardData {
+  /** Nome da loja ATIVA (seletor), não a do perfil. */
+  unidadeNome?: string | null;
   filters: RouteFiltersType;
   onFiltersChange: (filters: RouteFiltersType) => void;
 }
@@ -58,6 +60,7 @@ export function DashboardMobile({
   erroCarga,
   dadosDe,
   onRefresh,
+  unidadeNome,
   userData,
   filters,
   onFiltersChange,
@@ -175,7 +178,7 @@ export function DashboardMobile({
                   color={theme.colors.gray600}
                 />
                 <Text style={styles.headerSubtitle}>
-                  {userData?.unidades?.nome}
+                  {unidadeNome}
                 </Text>
               </View>
             </View>
@@ -414,6 +417,7 @@ export function DashboardMobile({
     ),
     [
       userData,
+      unidadeNome,
       avatarUrl,
       avatarInitial,
       firstName,

@@ -8,6 +8,8 @@ import { act, render } from '@testing-library/react-native';
 import GestorInicio from '../inicio';
 
 let mockLoja = 'loja-a';
+let mockNomeLoja = 'Loja A';
+let mockSubtitulo: string | null | undefined;
 let mockFiltros: {
   motoristaId?: string | null;
   status?: string | null;
@@ -16,7 +18,10 @@ let mockMudarFiltros: (f: unknown) => void = () => {};
 const mockUseDashboardData = jest.fn();
 
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: mockLoja }),
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockLoja,
+    unidadeAtivaData: { id: mockLoja, nome: mockNomeLoja },
+  }),
 }));
 jest.mock('@/hooks/useResponsive', () => ({
   useResponsive: () => ({ isDesktop: true }),
@@ -33,7 +38,9 @@ jest.mock(
     DashboardDesktop: (props: {
       filters: typeof mockFiltros;
       onFiltersChange: (f: unknown) => void;
+      unidadeNome?: string | null;
     }) => {
+      mockSubtitulo = props.unidadeNome;
       mockFiltros = props.filters;
       mockMudarFiltros = props.onFiltersChange;
       return null;
@@ -47,11 +54,24 @@ jest.mock(
 
 beforeEach(() => {
   mockLoja = 'loja-a';
+  mockNomeLoja = 'Loja A';
+  mockSubtitulo = undefined;
   mockFiltros = {};
   mockUseDashboardData.mockClear();
 });
 
 describe('GestorInicio — troca de loja', () => {
+  it('B-GES-5: o cabeçalho mostra o nome da loja ATIVA, não o da loja do perfil', () => {
+    const { rerender } = render(<GestorInicio />);
+    expect(mockSubtitulo).toBe('Loja A');
+
+    mockLoja = 'loja-b';
+    mockNomeLoja = 'Loja B';
+    rerender(<GestorInicio />);
+
+    expect(mockSubtitulo).toBe('Loja B');
+  });
+
   it('zera o filtro de motorista (e só ele) quando a loja muda', () => {
     const { rerender } = render(<GestorInicio />);
 

@@ -149,7 +149,11 @@ export function useIncidentesGestor(
   { showToast }: UseIncidentesGestorOptions,
 ): UseIncidentesGestorReturn {
   const { userData } = useUser();
-  const { unidadeAtiva, loading: unidadeLoading } = useUnidadeAtiva();
+  const {
+    unidadeAtiva,
+    unidadeAtivaData,
+    loading: unidadeLoading,
+  } = useUnidadeAtiva();
 
   // Labels (memoized based on theme)
   const categoriaLabels = useMemo(() => createCategoriaLabels(theme), [theme]);
@@ -182,7 +186,8 @@ export function useIncidentesGestor(
   const cargaEmVooRef = useRef(false);
   const maisEmVooRef = useRef(false);
 
-  const unidadeNome = userData?.unidades?.nome || '';
+  // Nome da loja ATIVA (seletor), não o da loja do perfil.
+  const unidadeNome = unidadeAtivaData?.nome || '';
   const filtros = useMemo<FiltrosIncidentes | null>(
     () =>
       unidadeAtiva

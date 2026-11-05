@@ -157,6 +157,8 @@ describe('DashboardMobile', () => {
       unidade_id: 'unidade-1',
       unidades: { nome: 'WJX Locações' },
     },
+    // B-GES-5: o nome vem da loja ATIVA (prop), não de userData.unidades
+    unidadeNome: 'WJX Locações',
     filters: {},
     onFiltersChange: jest.fn(),
   };
