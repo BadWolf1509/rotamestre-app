@@ -35,7 +35,8 @@ module.exports = function(api) {
           autoProcessImports: ['@/utils/styles'],
         },
       ],
-      'react-native-reanimated/plugin',
+    // react-native-reanimated/plugin saiu: o babel-preset-expo 58 aplica o plugin
+    // do worklets sozinho (guarda: scripts/lib/__tests__/babel-worklets.test.ts).
     ],
     env: {
       test: { plugins: [importDinamicoParaRequire] },
