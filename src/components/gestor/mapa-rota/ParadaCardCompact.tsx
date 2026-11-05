@@ -10,6 +10,7 @@ import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
+import { telefoneInternacional } from '@/lib/phone';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -53,11 +54,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     }, [parada.telefone]);
 
     const handleWhatsAppPress = useCallback(() => {
-      if (parada.telefone) {
-        const phoneNumber = parada.telefone.replace(/\D/g, '');
-        const formattedPhone = phoneNumber.startsWith('55')
-          ? phoneNumber
-          : `55${phoneNumber}`;
+      const formattedPhone = telefoneInternacional(parada.telefone);
+      if (formattedPhone) {
         Linking.openURL(`https://wa.me/${formattedPhone}`);
       }
     }, [parada.telefone]);

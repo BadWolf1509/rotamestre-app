@@ -217,6 +217,22 @@ describe('ParadaCardCompact', () => {
 
       expect(Linking.openURL).toHaveBeenCalledWith('tel:11999998888');
     });
+
+    it('B-GES-4: WhatsApp com DDD 55 (RS) recebe o código do país', () => {
+      const { getByText } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={{ ...defaultProps.parada, telefone: '(55) 99999-8888' }}
+        />,
+      );
+      fireEvent.press(getByText(/Rua das Flores/));
+
+      fireEvent.press(getByText('WhatsApp'));
+
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        'https://wa.me/5555999998888',
+      );
+    });
   });
 
   describe('Ações de edição', () => {

@@ -13,6 +13,7 @@ import { rotuloDoStatus } from '@/constants/statusConfig';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
+import { telefoneInternacional } from '@/lib/phone';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -54,12 +55,10 @@ export const ParadaCard = React.memo<ParadaCardProps>(
     }, [parada.telefone]);
 
     const handleWhatsAppPress = useCallback(() => {
-      if (parada.telefone) {
-        const phoneNumber = parada.telefone.replace(/\D/g, '');
-        // Adiciona código do país se não tiver
-        const formattedPhone = phoneNumber.startsWith('55')
-          ? phoneNumber
-          : `55${phoneNumber}`;
+      // `telefoneInternacional` só trata `55` como país com 12/13 dígitos: o
+      // DDD 55 (RS) não é confundido com o código do país.
+      const formattedPhone = telefoneInternacional(parada.telefone);
+      if (formattedPhone) {
         Linking.openURL(`https://wa.me/${formattedPhone}`);
       }
     }, [parada.telefone]);
@@ -140,6 +139,7 @@ export const ParadaCard = React.memo<ParadaCardProps>(
                     </TouchableOpacity>
                     {Platform.OS !== 'web' && (
                       <TouchableOpacity
+                        testID="parada-whatsapp"
                         onPress={handleWhatsAppPress}
                         activeOpacity={0.7}
                         style={{ marginLeft: 8 }}
