@@ -57,7 +57,9 @@ export function primeiraViolacaoNova<P extends ParadaComVinculo>(
   antes: P[],
   depois: P[],
 ): ViolacaoDeVinculo<P> | null {
-  const jaExistiam = new Set(violacoesDeVinculo(antes).map((v) => v.entrega.id));
+  const jaExistiam = new Set(
+    violacoesDeVinculo(antes).map((v) => v.entrega.id),
+  );
   return (
     violacoesDeVinculo(depois).find((v) => !jaExistiam.has(v.entrega.id)) ??
     null

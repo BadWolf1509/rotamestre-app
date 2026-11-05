@@ -105,6 +105,12 @@ describe('useMotoristasGestor Hook', () => {
 
     mockListar.mockResolvedValue({ data: [], error: null });
     mockAlternar.mockResolvedValue({ data: 'pessoa', error: null });
+    // O mock global do supabase não traz `functions` (criar-motorista)
+    (supabase as unknown as { functions: { invoke: jest.Mock } }).functions = {
+      invoke: jest
+        .fn()
+        .mockResolvedValue({ data: { success: true }, error: null }),
+    };
     // O mock global do supabase não traz `rpc`
     (supabase as unknown as { rpc: jest.Mock }).rpc = jest.fn(
       (fn: string, args: Record<string, unknown>) =>
@@ -461,7 +467,7 @@ describe('useMotoristasGestor Hook', () => {
         'E-mail é obrigatório',
       );
       expect(erroDe(result.current.formCriar, 'senha')).toBeDefined();
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(supabase.functions.invoke).not.toHaveBeenCalled();
       expect(mockShowToast).not.toHaveBeenCalled();
     });
 
@@ -481,74 +487,14 @@ describe('useMotoristasGestor Hook', () => {
       expect(erroDe(result.current.formCriar, 'senha')).toBe(
         'Senha deve ter no mínimo 8 caracteres',
       );
-      expect(global.fetch).not.toHaveBeenCalled();
-      expect(supabase.auth.getSession).not.toHaveBeenCalled();
+      expect(supabase.functions.invoke).not.toHaveBeenCalled();
       expect(mockShowToast).not.toHaveBeenCalled();
     });
 
-    it('deve exibir erro quando sessao nao existe', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: { session: null },
-        error: null,
-      });
-
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.formCriar.setValue('nome', 'Nome');
-        result.current.formCriar.setValue('email', 'email@teste.com');
-        result.current.formCriar.setValue('senha', 'Abcdef1!');
-      });
-
-      await act(async () => {
-        await result.current.adicionarMotorista();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        'Sua sessão expirou. Por favor, faça login novamente.',
-        'error',
-      );
-    });
-
-    it('deve exibir erro quando getSession falha', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: { session: null },
-        error: { message: 'Session error' },
-      });
-
-      const { result } = renderHook(() => useMotoristasGestor());
-
-      act(() => {
-        result.current.formCriar.setValue('nome', 'Nome');
-        result.current.formCriar.setValue('email', 'email@teste.com');
-        result.current.formCriar.setValue('senha', 'Abcdef1!');
-      });
-
-      await act(async () => {
-        await result.current.adicionarMotorista();
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining('Erro ao obter sessão'),
-        'error',
-      );
-    });
-
     it('deve chamar Edge Function com dados corretos', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: {
-            access_token: 'test-token',
-            user: { email: 'gestor@test.com' },
-          },
-        },
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { success: true },
         error: null,
-      });
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue(JSON.stringify({ success: true })),
       });
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -564,37 +510,25 @@ describe('useMotoristasGestor Hook', () => {
         await result.current.adicionarMotorista();
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/functions/v1/criar-motorista'),
-        expect.objectContaining({
+      expect(supabase.functions.invoke).toHaveBeenCalledWith(
+        'criar-motorista',
+        {
           method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer test-token',
-          }),
-          body: JSON.stringify({
+          body: {
             nome: 'Novo Motorista',
             email: 'motorista@teste.com',
             senha: 'Abcdef1!',
             telefone: '(11) 99999-9999',
             unidade_id: 'unidade-123',
-          }),
-        }),
+          },
+        },
       );
     });
 
     it('deve exibir toast de sucesso e fechar modal ao criar motorista', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: { access_token: 'token', user: { email: 'g@test.com' } },
-        },
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { success: true },
         error: null,
-      });
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue(JSON.stringify({ success: true })),
       });
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -618,14 +552,7 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve exibir erro quando fetch falha', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: { access_token: 'token', user: { email: 'g@test.com' } },
-        },
-        error: null,
-      });
-
-      (global.fetch as jest.Mock).mockRejectedValue(
+      (supabase.functions.invoke as jest.Mock).mockRejectedValue(
         new TypeError('Failed to fetch'),
       );
 
@@ -648,19 +575,14 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve exibir erro quando resposta nao e ok', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: { access_token: 'token', user: { email: 'g@test.com' } },
-        },
-        error: null,
-      });
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: false,
-        status: 400,
-        text: jest
-          .fn()
-          .mockResolvedValue(JSON.stringify({ error: 'Email ja existe' })),
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
+        error: Object.assign(new Error('non-2xx'), {
+          name: 'FunctionsHttpError',
+          context: new Response(JSON.stringify({ error: 'Email ja existe' }), {
+            status: 400,
+          }),
+        }),
       });
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -679,10 +601,10 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve gerenciar estado de salvando durante adicao', async () => {
-      let resolveSession: any;
-      (supabase.auth.getSession as jest.Mock).mockReturnValue(
+      let resolverChamada: (v: unknown) => void = () => {};
+      (supabase.functions.invoke as jest.Mock).mockReturnValue(
         new Promise((resolve) => {
-          resolveSession = resolve;
+          resolverChamada = resolve;
         }),
       );
 
@@ -694,7 +616,6 @@ describe('useMotoristasGestor Hook', () => {
         result.current.formCriar.setValue('senha', 'Abcdef1!');
       });
 
-      // Iniciar adicao
       let addPromise: Promise<void>;
       act(() => {
         addPromise = result.current.adicionarMotorista();
@@ -703,9 +624,8 @@ describe('useMotoristasGestor Hook', () => {
       // Verificar que esta salvando (o handleSubmit valida antes, assíncrono)
       await waitFor(() => expect(result.current.salvando).toBe(true));
 
-      // Resolver session (sem sessao para terminar o fluxo)
       await act(async () => {
-        resolveSession({ data: { session: null }, error: null });
+        resolverChamada({ data: { success: true }, error: null });
         await addPromise;
       });
 
@@ -1178,17 +1098,9 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve tratar response vazia do Edge Function', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: { access_token: 'token', user: { email: 'g@test.com' } },
-        },
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
         error: null,
-      });
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue(''),
       });
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -1210,17 +1122,9 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve tratar response JSON invalida do Edge Function', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: { access_token: 'token', user: { email: 'g@test.com' } },
-        },
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: 'invalid json {',
         error: null,
-      });
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue('invalid json {'),
       });
 
       const { result } = renderHook(() => useMotoristasGestor());
@@ -1242,17 +1146,9 @@ describe('useMotoristasGestor Hook', () => {
     });
 
     it('deve recarregar motoristas apos adicionar com sucesso', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: {
-          session: { access_token: 'token', user: { email: 'g@test.com' } },
-        },
+      (supabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { success: true },
         error: null,
-      });
-
-      (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue(JSON.stringify({ success: true })),
       });
 
       const insertBuilder = {

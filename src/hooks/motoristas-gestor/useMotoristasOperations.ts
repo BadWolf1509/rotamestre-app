@@ -9,7 +9,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { isNetworkError } from '@/lib/errorMapping';
+import {
+  chamarCriarMotorista,
+  MSG_FALHA_CRIAR,
+} from '@/lib/gestor/criarMotorista';
 import {
   alternarMotoristaNaLoja,
   editarDadosMotorista,
@@ -25,24 +28,6 @@ import {
 } from './useBloqueioDesativacao';
 
 import type { MotoristaDetalhado } from '../useMotoristasGestor';
-
-const MSG_SEM_CONEXAO = 'Sem conexão. Tente de novo.';
-const MSG_FALHA_CRIAR = 'Não foi possível criar o motorista. Tente de novo.';
-
-/**
- * Falha ao criar motorista sem texto da Edge Function: rede (fetch do web,
- * "Network request failed" do nativo, FunctionsFetchError do supabase-js)
- * vira "Sem conexão"; o resto, a mensagem genérica. Nunca o texto técnico.
- */
-function mensagemFalhaCriacao(error: unknown): string {
-  // Hoje a criação usa fetch cru (não supabase.functions.invoke), então este
-  // ramo não dispara; cobre a migração futura para invoke, cuja falha de
-  // rede tem mensagem que o isNetworkError não reconhece.
-  if (error instanceof Error && error.name === 'FunctionsFetchError') {
-    return MSG_SEM_CONEXAO;
-  }
-  return isNetworkError(error) ? MSG_SEM_CONEXAO : MSG_FALHA_CRIAR;
-}
 
 /**
  * Dados já validados pelo formulário (`motoristaSchema`, em
@@ -189,97 +174,29 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
       setSalvando(true);
       try {
-        logger.info('[Motoristas] Iniciando criação de motorista...');
-
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          logger.error('[Motoristas] Erro ao obter sessão', sessionError);
-          showToast(
-            `Erro ao obter sessão: ${sessionError.message}. Faça logout e login novamente.`,
-            'error',
-          );
-          return;
-        }
-
-        if (!session) {
-          logger.error('[Motoristas] Sessão não encontrada');
-          showToast(
-            'Sua sessão expirou. Por favor, faça login novamente.',
-            'error',
-          );
-          return;
-        }
-
-        logger.debug('[Motoristas] Sessão obtida', {
-          email: session.user.email,
+        // Pelo cliente do Supabase: prazo de 15 s, token renovado e versão do
+        // app nos logs (o `fetch` cru ficava fora de tudo isso).
+        const resultado = await chamarCriarMotorista({
+          nome: nome.trim(),
+          email: email.trim(),
+          senha: senha.trim(),
+          telefone: telefone?.trim() || null,
+          unidade_id: unidadeAtiva,
         });
 
-        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-        const functionUrl = `${supabaseUrl}/functions/v1/criar-motorista`;
-
-        logger.debug('[Motoristas] Chamando Edge Function', { functionUrl });
-
-        let response;
-        try {
-          response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              nome: nome.trim(),
-              email: email.trim(),
-              senha: senha.trim(),
-              telefone: telefone?.trim() || null,
-              unidade_id: unidadeAtiva,
-            }),
-          });
-        } catch (fetchError: unknown) {
-          logger.error('[Motoristas] Erro de rede', fetchError);
-          showToast(mensagemFalhaCriacao(fetchError), 'error');
+        if (!resultado.ok) {
+          showToast(resultado.mensagem, 'error');
           return;
         }
-
-        logger.debug('[Motoristas] Response status', {
-          status: response.status,
-        });
-
-        let result;
-        try {
-          const responseText = await response.text();
-          logger.debug('[Motoristas] Response text', { responseText });
-          result = responseText ? JSON.parse(responseText) : {};
-        } catch (parseError: unknown) {
-          logger.error('[Motoristas] Erro ao parsear resposta', parseError);
-          showToast(MSG_FALHA_CRIAR, 'error');
-          return;
-        }
-
-        if (!response.ok) {
-          logger.error('[Motoristas] Resposta com erro', result);
-          // O texto da função (409 de e-mail/telefone etc.) já é para o
-          // gestor; sem ele, a genérica.
-          showToast(result.error || MSG_FALHA_CRIAR, 'error');
-          return;
-        }
-
-        logger.info('[Motoristas] Motorista criado', result);
 
         // Create log using centralized logging
         if (userData) {
-          logger.debug('[Motoristas] Criando log...');
           logUserAction(userData.id, 'motorista_criado', {
             motorista_nome: nome.trim(),
             motorista_email: email.trim(),
           });
         }
 
-        logger.info('[Motoristas] Processo concluído com sucesso!');
         showToast('Motorista adicionado com sucesso!', 'success');
         onSuccess();
         loadMotoristas();
@@ -288,7 +205,7 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           '[Motoristas] Erro inesperado ao adicionar motorista',
           error,
         );
-        showToast(mensagemFalhaCriacao(error), 'error');
+        showToast(MSG_FALHA_CRIAR, 'error');
       } finally {
         setSalvando(false);
       }
