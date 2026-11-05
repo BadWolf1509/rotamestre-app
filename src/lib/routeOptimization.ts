@@ -7,28 +7,31 @@
  * - cycleDetection.ts: DFS cycle detection in dependencies
  * - validation.ts: Route and dependency validation
  * - optimizer.ts: Main optimization algorithm
- * - utils.ts: Display and filtering utilities
  */
 
+export type {
+  ParadaParaOtimizar,
+  ResultadoOtimizacao,
+  ValidacaoRotaResult,
+} from './route-optimization/types';
 export {
-  // Types
-  type ParadaParaOtimizar,
-  type ResultadoOtimizacao,
-  type ValidacaoRotaResult,
-  // Constants
   MAX_ROUTE_STOPS,
   MAX_WAYPOINTS,
   WAYPOINTS_RECOMENDADO,
-  // Cache
+} from './route-optimization/types';
+
+// Cache (estatisticasCache e precarregarCache só servem de sonda aos testes)
+export {
   limparCacheOtimizacao,
   estatisticasCache,
   precarregarCache,
-  // Validation
+} from './route-optimization/cache';
+
+// Validation
+export {
   validarVinculos,
   validarRotaParaOtimizacao,
-  // Optimizer
-  otimizarRotaComDependencias,
-  // Utils
-  formatarDescricaoVinculo,
-  encontrarRetiradasDisponiveis,
-} from './route-optimization';
+} from './route-optimization/validation';
+
+// Optimizer
+export { otimizarRotaComDependencias } from './route-optimization/optimizer';
