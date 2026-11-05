@@ -9,34 +9,27 @@
  *
  * Estática porque o defeito é "quantos lugares montam", não o que o hook faz.
  */
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { extname, join, relative } from 'path';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-const RAIZ = join(__dirname, '..', '..', '..');
+import {
+  RAIZ_REPOSITORIO as RAIZ,
+  exigirVolume,
+  lerFontes,
+} from '@/__tests__/helpers/fontes';
 const NOME = 'useDriver' + 'LocationBroadcast(';
-
-function listar(dir: string): string[] {
-  return readdirSync(dir).flatMap((nome) => {
-    const caminho = join(dir, nome);
-    if (statSync(caminho).isDirectory()) {
-      return nome === '__tests__' || nome === 'node_modules'
-        ? []
-        : listar(caminho);
-    }
-    return ['.ts', '.tsx'].includes(extname(caminho)) ? [caminho] : [];
-  });
-}
 
 describe('transmissão de posição em primeiro plano', () => {
   it('é chamada num lugar só, fora das telas', () => {
-    const chamadores = ['app', 'src']
-      .flatMap((d) => listar(join(RAIZ, d)))
-      .filter((arquivo) => {
-        const fonte = readFileSync(arquivo, 'utf8');
-        // A definição do hook não conta como chamada
-        return fonte.includes(NOME) && !/export function useDriver/.test(fonte);
-      })
-      .map((arquivo) => relative(RAIZ, arquivo).replace(/\\/g, '/'));
+    const fontes = lerFontes({ pastas: ['app', 'src'] });
+    exigirVolume(fontes, 300);
+    const chamadores = fontes
+      // A definição do hook não conta como chamada
+      .filter(
+        ({ fonte }) =>
+          fonte.includes(NOME) && !/export function useDriver/.test(fonte),
+      )
+      .map(({ arquivo }) => arquivo);
 
     expect(chamadores).toEqual([
       'src/components/motorista/TransmissaoDePosicao.tsx',
