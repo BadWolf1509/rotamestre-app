@@ -96,7 +96,8 @@ export async function otimizarRotaComDependencias(
 
   if (!ignorarCache) {
     const resultadoCache = await obterDoCache(hashRota);
-    if (resultadoCache) {
+    // Estimativa em linha reta nunca vale como cache (entradas antigas incluídas).
+    if (resultadoCache && !resultadoCache.isEstimated) {
       logger.debug('[RouteOptimization] Resultado obtido do cache');
       return resultadoCache;
     }
@@ -180,9 +181,14 @@ export async function otimizarRotaComDependencias(
     ...(resultado.sem_rota_entre_paradas ? { semRotaEntreParadas: true } : {}),
   };
 
-  salvarNoCache(hashRota, resultadoFinal).then(() => {
-    logger.debug('[RouteOptimization] Resultado salvo no cache');
-  });
+  // Estimativa (OSRM fora) e "sem rota entre paradas" não são guardadas: o
+  // cache vale 24 h e prenderia o gestor num resultado que a criação da rota
+  // recusa, mesmo com o serviço de volta.
+  if (!resultadoFinal.isEstimated && !resultadoFinal.semRotaEntreParadas) {
+    salvarNoCache(hashRota, resultadoFinal).then(() => {
+      logger.debug('[RouteOptimization] Resultado salvo no cache');
+    });
+  }
 
   return resultadoFinal;
 }

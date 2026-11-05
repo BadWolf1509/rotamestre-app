@@ -167,6 +167,49 @@ describe('otimizarRotaComDependencias', () => {
       expect(result).not.toBe(cachedResult);
     });
 
+    it('B-GES-2: resultado estimado (OSRM fora) não vai para o cache', async () => {
+      const paradas = [makeParada({ id: '1' })];
+      mockGetDirections.mockResolvedValue({
+        ...mockDirectionsResponse([0]),
+        is_estimated: true,
+      });
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(result?.isEstimated).toBe(true);
+      expect(salvarNoCache).not.toHaveBeenCalled();
+    });
+
+    it('B-GES-2: resultado sem rota entre paradas também não é guardado', async () => {
+      const paradas = [makeParada({ id: '1' })];
+      mockGetDirections.mockResolvedValue({
+        ...mockDirectionsResponse([0]),
+        sem_rota_entre_paradas: true,
+      });
+
+      await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(salvarNoCache).not.toHaveBeenCalled();
+    });
+
+    it('B-GES-2: entrada estimada que já estava no cache é ignorada', async () => {
+      (obterDoCache as jest.Mock).mockResolvedValue({
+        paradasOrdenadas: [],
+        distanciaTotalMetros: 999,
+        duracaoTotalSegundos: 99,
+        polyline: '',
+        ordemIndices: [],
+        isEstimated: true,
+      });
+      const paradas = [makeParada({ id: '1' })];
+      mockGetDirections.mockResolvedValue(mockDirectionsResponse([0]));
+
+      const result = await otimizarRotaComDependencias(mockOrigem, paradas);
+
+      expect(mockGetDirections).toHaveBeenCalled();
+      expect(result?.isEstimated).toBe(false);
+    });
+
     it('saves result to cache after successful optimization', async () => {
       const paradas = [makeParada({ id: '1' })];
       mockGetDirections.mockResolvedValue(mockDirectionsResponse([0]));
