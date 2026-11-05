@@ -3,21 +3,13 @@
  * Carrega lista de motoristas da unidade ativa
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 import type { MotoristaResumo } from '@/components/gestor/nova-entrega/types';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
+import { buscarMotoristasAtivosDaLoja } from '@/lib/gestor/motoristasDaLoja';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
-
-type UsuarioComLogin = Omit<MotoristaResumo, 'nuncaEntrou'> & {
-  ultimo_login: string | null;
-};
-
-type VinculacaoComLogin = {
-  usuario_id: string;
-  usuarios: UsuarioComLogin | null;
-};
 
 export interface UseMotoristaSelectionReturn {
   motoristas: MotoristaResumo[];
@@ -35,8 +27,14 @@ export function useMotoristaSelection(
   const [motoristas, setMotoristas] = useState<MotoristaResumo[]>([]);
   const [motoristaSelecionado, setMotoristaSelecionado] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  // Contador de requisição: só a carga MAIS RECENTE escreve no estado (troca de
+  // loja com carga lenta não deixa a resposta da anterior vencer).
+  const requisicaoRef = useRef(0);
 
   const loadMotoristas = useCallback(async () => {
+    const minha = ++requisicaoRef.current;
+    const vigente = () => minha === requisicaoRef.current;
+
     if (!unidadeAtiva) {
       setMotoristas([]);
       setIsLoading(false);
@@ -46,33 +44,15 @@ export function useMotoristaSelection(
     try {
       setIsLoading(true);
       setMotoristas([]);
-      const { data: vinculacoesData, error: vinculacoesError } = (await supabase
-        .from('usuario_unidades')
-        .select(
-          `
-          usuario_id,
-          usuarios (id, nome, email, ativo, ultimo_login)
-        `,
-        )
-        .eq('unidade_id', unidadeAtiva)
-        .eq('papel', 'motorista')
-        .eq('ativo', true)) as {
-        data: VinculacaoComLogin[] | null;
-        error: Error | null;
-      };
+      const ativos = await buscarMotoristasAtivosDaLoja(unidadeAtiva);
+      if (!vigente()) return;
 
-      if (vinculacoesError) throw vinculacoesError;
-
-      const motoristasData = vinculacoesData
-        ?.map((v) => v.usuarios)
-        .filter((u): u is UsuarioComLogin => u !== null && u.ativo)
-        .map(({ ultimo_login, ...u }) => ({
+      const activeDrivers: MotoristaResumo[] = ativos.map(
+        ({ ultimo_login, telefone: _telefone, ...u }) => ({
           ...u,
           nuncaEntrou: ultimo_login === null,
-        }))
-        .sort((a, b) => a.nome.localeCompare(b.nome));
-
-      const activeDrivers = motoristasData || [];
+        }),
+      );
       if (activeDrivers.length === 0) {
         setMotoristas([]);
         return;
@@ -90,6 +70,7 @@ export function useMotoristaSelection(
           .in('status', ['pendente', 'em_andamento']);
 
         if (routesError) throw routesError;
+        if (!vigente()) return;
 
         const routeRows = (activeRoutes || []) as Array<{
           id: string;
@@ -108,6 +89,7 @@ export function useMotoristaSelection(
           if (stopsError) throw stopsError;
           pendingStops = (stopsData || []) as Array<{ rota_id: string }>;
         }
+        if (!vigente()) return;
 
         setMotoristas(
           activeDrivers.map((driver) => {
@@ -132,19 +114,22 @@ export function useMotoristaSelection(
           }),
         );
       } catch (workloadError) {
+        if (!vigente()) return;
         logger.warn(
           '[useMotoristaSelection] Resumo de carga indisponível',
           workloadError,
         );
       }
     } catch (error) {
+      if (!vigente()) return;
       logger.error(
         '[useMotoristaSelection] Erro ao carregar motoristas',
         error,
       );
       onError?.('Não foi possível carregar os motoristas');
     } finally {
-      setIsLoading(false);
+      // Só a carga mais recente encerra o carregamento.
+      if (vigente()) setIsLoading(false);
     }
   }, [onError, unidadeAtiva]);
 

@@ -12,7 +12,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -27,26 +27,18 @@ import { DesktopModal } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
+import {
+  buscarMotoristasAtivosDaLoja,
+  type MotoristaDaLoja,
+} from '@/lib/gestor/motoristasDaLoja';
 import { logger } from '@/lib/logger';
 import {
   confirmarMotoristaNuncaEntrou,
   ROTULO_NUNCA_ENTROU,
 } from '@/lib/motorista/confirmarMotoristaNuncaEntrou';
-import { supabase } from '@/lib/supabase';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-type MotoristaResumo = {
-  id: string;
-  nome: string;
-  email: string;
-  ativo: boolean;
-  ultimo_login: string | null;
-};
-
-type VinculacaoMotorista = {
-  usuario_id: string;
-  usuarios: MotoristaResumo | null;
-};
+type MotoristaResumo = MotoristaDaLoja;
 
 type ErroMotoristas = { mensagem: string; podeTentarDeNovo: boolean };
 
@@ -109,8 +101,15 @@ export function ChangeDriverModal({
     null,
   );
 
+  // Contador de requisição: só a carga mais recente escreve no estado (a
+  // resposta lenta de uma rota/loja anterior não sobrescreve a lista atual).
+  const requisicaoRef = useRef(0);
+
   // Carregar motoristas da unidade
   const loadMotoristas = useCallback(async () => {
+    const minha = ++requisicaoRef.current;
+    const vigente = () => minha === requisicaoRef.current;
+
     if (!unidadeId) {
       logger.warn(
         '[ChangeDriverModal] Rota sem loja: não há como listar motoristas',
@@ -125,34 +124,16 @@ export function ChangeDriverModal({
       setIsLoadingMotoristas(true);
       setErroMotoristas(null);
 
-      const { data: vinculacoesData, error: vinculacoesError } = await supabase
-        .from('usuario_unidades')
-        .select(
-          `
-          usuario_id,
-          usuarios (id, nome, email, ativo, ultimo_login)
-        `,
-        )
-        .eq('unidade_id', unidadeId)
-        .eq('papel', 'motorista')
-        .eq('ativo', true)
-        .returns<VinculacaoMotorista[]>();
-
-      if (vinculacoesError) throw vinculacoesError;
-
-      // Extrair usuários ativos e filtrar o motorista atual
-      const motoristasData = vinculacoesData
-        ?.map((v) => v.usuarios)
-        .filter((u): u is MotoristaResumo => u !== null && u.ativo)
-        .sort((a, b) => a.nome.localeCompare(b.nome));
-
-      setMotoristas(motoristasData || []);
+      const ativos = await buscarMotoristasAtivosDaLoja(unidadeId);
+      if (!vigente()) return;
+      setMotoristas(ativos);
     } catch (error) {
+      if (!vigente()) return;
       logger.error('Erro ao carregar motoristas:', error);
       setMotoristas([]);
       setErroMotoristas(ERRO_AO_CARREGAR);
     } finally {
-      setIsLoadingMotoristas(false);
+      if (vigente()) setIsLoadingMotoristas(false);
     }
   }, [unidadeId]);
 

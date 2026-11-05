@@ -155,6 +155,55 @@ describe('ChangeDriverModal', () => {
     jest.restoreAllMocks();
   });
 
+  describe('Resposta velha (B-GES-8)', () => {
+    it('a lista lenta de uma loja anterior não sobrescreve a da loja atual', async () => {
+      let resolverA: (v: unknown) => void = () => {};
+      const respostaA = new Promise((resolve) => {
+        resolverA = resolve;
+      });
+      const linha = (id: string, nome: string) => ({
+        usuario_id: id,
+        usuarios: {
+          id,
+          nome,
+          email: `${id}@x.com`,
+          ativo: true,
+          ultimo_login: '2026-10-01T10:00:00Z',
+        },
+      });
+      mockFrom.mockImplementation(() => {
+        const cadeia: Record<string, unknown> = {};
+        let loja = '';
+        cadeia.select = () => cadeia;
+        cadeia.eq = (coluna: string, valor: string) => {
+          if (coluna === 'unidade_id') loja = valor;
+          return cadeia;
+        };
+        cadeia.returns = () =>
+          loja === 'loja-a'
+            ? respostaA
+            : Promise.resolve({
+                data: [linha('b1', 'Motorista da B')],
+                error: null,
+              });
+        return cadeia;
+      });
+
+      const { rerender, queryByText, findByText } = render(
+        <ChangeDriverModal {...defaultProps} unidadeId="loja-a" />,
+      );
+      rerender(<ChangeDriverModal {...defaultProps} unidadeId="loja-b" />);
+      await findByText('Motorista da B');
+
+      await act(async () => {
+        resolverA({ data: [linha('a1', 'Motorista da A')], error: null });
+      });
+
+      expect(queryByText('Motorista da A')).toBeNull();
+      expect(queryByText('Motorista da B')).toBeTruthy();
+    });
+  });
+
   describe('Renderização', () => {
     it('deve renderizar o modal quando visible=true', async () => {
       const { getByTestId, getByText } = render(
