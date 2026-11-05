@@ -10,6 +10,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { supabase } from '@/lib/supabase';
 
+import { useNavegacaoDeSaida } from '../auth/useNavegacaoDeSaida';
 import { useRequireAuth } from '../useRequireAuth';
 
 const mockReplace = jest.fn();
@@ -115,10 +116,18 @@ describe('portão protegido com a rede caída (hooks reais)', () => {
     memoria.set('@rotamestre:ultimo_usuario', 'm1');
     guardarPerfilConhecido();
 
-    renderHook(() => useRequireAuth({ role: 'motorista' }));
+    // O portão só responde "não autorizado"; quem leva ao login é a dona
+    // da navegação de saída, montada no layout raiz (R-NUC-1).
+    const { result } = renderHook(() => {
+      useNavegacaoDeSaida();
+      return useRequireAuth({ role: 'motorista' });
+    });
 
+    await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(result.current.isAuthorized).toBe(false);
     await waitFor(() =>
       expect(mockReplace).toHaveBeenCalledWith('/auth/login'),
     );
+    expect(mockReplace).toHaveBeenCalledTimes(1);
   });
 });

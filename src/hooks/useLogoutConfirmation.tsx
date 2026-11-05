@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 
 import { Dialog } from '@/design-system';
@@ -6,7 +5,6 @@ import { authService } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 
 export function useLogoutConfirmation() {
-  const router = useRouter();
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -15,12 +13,12 @@ export function useLogoutConfirmation() {
       setLoading(true);
       await authService.signOut();
     } catch (error) {
-      // Ignora erros - o objetivo é redirecionar para login de qualquer forma
+      // O supabase-js remove a sessão local mesmo quando a chamada ao
+      // servidor falha; o SIGNED_OUT resultante leva ao login, pelo layout
+      // raiz (useNavegacaoDeSaida, R-NUC-1) — daqui não se navega.
       logger.warn('[Logout] Erro ao encerrar sessão:', error);
     } finally {
       setLoading(false);
-      // Sempre redireciona para login, independente de erros
-      router.replace('/auth/login');
     }
   };
 

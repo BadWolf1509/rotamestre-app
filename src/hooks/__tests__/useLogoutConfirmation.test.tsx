@@ -99,7 +99,9 @@ describe('useLogoutConfirmation', () => {
     expect(capturedProps.visible).toBe(true);
   });
 
-  it('should call authService.signOut and navigate to login via onConfirm', async () => {
+  // R-NUC-1: navegar ao login é do layout raiz (useNavegacaoDeSaida), que
+  // reage à sessão que sai. Aqui, só o signOut.
+  it('onConfirm chama o signOut e não navega por conta própria', async () => {
     (authService.signOut as jest.Mock).mockResolvedValueOnce(undefined);
 
     render(<TestComponent />);
@@ -112,7 +114,7 @@ describe('useLogoutConfirmation', () => {
     });
 
     expect(authService.signOut).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/auth/login');
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('should hide modal after successful logout via onConfirm', async () => {
@@ -203,7 +205,9 @@ describe('useLogoutConfirmation', () => {
     expect(capturedProps.loading).toBe(false);
   });
 
-  it('should still navigate to login even if signOut fails', async () => {
+  // O signOut do supabase-js remove a sessão mesmo quando a chamada ao
+  // servidor falha; o SIGNED_OUT resultante é o que leva ao login.
+  it('signOut que falha: não navega por conta própria', async () => {
     const error = new Error('Sign out failed');
     (authService.signOut as jest.Mock).mockRejectedValueOnce(error);
 
@@ -214,8 +218,7 @@ describe('useLogoutConfirmation', () => {
       await onConfirm();
     });
 
-    // O hook sempre navega para login (no finally), mesmo se signOut falhar
-    expect(mockReplace).toHaveBeenCalledWith('/auth/login');
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('should handle multiple show/hide cycles', () => {

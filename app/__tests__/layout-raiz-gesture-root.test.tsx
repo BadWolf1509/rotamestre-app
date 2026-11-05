@@ -42,6 +42,10 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(() => Promise.resolve()),
 }));
 jest.mock('react-native-toast-message', () => () => null);
+// A navegação de saída tem teste próprio (useNavegacaoDeSaida.test.ts).
+jest.mock('@/hooks/auth/useNavegacaoDeSaida', () => ({
+  useNavegacaoDeSaida: jest.fn(),
+}));
 jest.mock('@/hooks/useManterPushTokenAtualizado', () => ({
   useManterPushTokenAtualizado: jest.fn(),
 }));
