@@ -187,6 +187,31 @@ describe('portão de onboarding em app/index', () => {
   // R-NUC-1: a conta saiu e a pilha remontou na index. A dona da navegação
   // de saída (layout raiz) leva ao login depois de os modais fecharem; a
   // index navegando junto era um dos replace concorrentes da pendência 33.
+  // Revisão do R-NUC-1: a leitura da sessão pode passar dos 400 ms da dona
+  // (prazo de até 10 s). A dona navega, a index é substituída (desmonta) e,
+  // quando a leitura volta, a index desmontada não pode navegar de novo — era
+  // o 2º replace('/auth/login') da H2 da pendência 33.
+  it('leitura lenta da sessão: a index desmontada não navega', async () => {
+    let responder: (v: unknown) => void = () => undefined;
+    mockAuth.lerSessao.mockReturnValue(
+      new Promise((r) => {
+        responder = r;
+      }) as never,
+    );
+
+    const { unmount } = render(<Index />);
+    await waitFor(() => expect(mockAuth.lerSessao).toHaveBeenCalled());
+    // A dona já navegou e a saída terminou: a index foi substituída.
+    mockSaidaEmCurso = false;
+    unmount();
+
+    await act(async () => {
+      responder({ session: null, offline: false });
+      await Promise.resolve();
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it('sem sessão com uma saída em curso: não navega (a dona navega)', async () => {
     mockSaidaEmCurso = true;
     mockAuth.lerSessao.mockResolvedValue({
