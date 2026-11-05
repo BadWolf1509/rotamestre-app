@@ -5,14 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
+import { View, Text, TouchableOpacity, LayoutAnimation } from 'react-native';
 
 import { RouteTimeline } from '@/components/RouteTimeline';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
@@ -25,14 +18,6 @@ import {
   type TimelinePreviewEvent,
 } from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// Habilitar LayoutAnimation no Android
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface TimelinePreview {
   loading: boolean;

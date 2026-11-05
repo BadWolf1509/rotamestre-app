@@ -18,26 +18,11 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  LayoutAnimation,
-  Platform,
-  Text,
-  TouchableOpacity,
-  UIManager,
-  View,
-} from 'react-native';
+import { LayoutAnimation, Text, TouchableOpacity, View } from 'react-native';
 
 import { useDistanceToStop } from '@/hooks/useDistanceToStop';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// Habilitar LayoutAnimation no Android
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface Parada {
   id: string;
