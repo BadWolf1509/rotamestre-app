@@ -2,13 +2,13 @@ import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useLocationTracking } from '@/components/map/hooks/useLocationTracking';
 import { useMarkerGestures } from '@/components/map/hooks/useMarkerGestures';
 import { useMobileMapCamera } from '@/components/map/hooks/useMobileMapCamera';
 import { useNavigationActions } from '@/components/map/hooks/useNavigationActions';
 import { useParadaFiltering } from '@/components/map/hooks/useParadaFiltering';
 import { useRouteShape } from '@/components/map/hooks/useRouteShape';
-import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { BalaoSobreposto } from '@/components/map/mobile/BalaoSobreposto';
 import { FloatingActionButtons } from '@/components/map/mobile/FloatingActionButtons';
 import { CheckpointCallout } from '@/components/map/mobile/markers/CheckpointCallout';
