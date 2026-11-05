@@ -5,6 +5,8 @@
  * Todas as mensagens são genéricas e seguras.
  */
 
+import { PADRAO_MENSAGEM_DE_REDE } from './falhaDeRede';
+
 // ============================================================================
 // TIPOS
 // ============================================================================
@@ -505,10 +507,9 @@ const ERROR_PATTERNS: Array<{
     },
   },
 
-  // Erros de rede
+  // Erros de rede (padrão único: src/lib/falhaDeRede.ts, R-NUC-2)
   {
-    pattern:
-      /network|connection|offline|fetch.*failed|failed to fetch|\bload failed|sem conexão|econnrefused/i,
+    pattern: PADRAO_MENSAGEM_DE_REDE,
     result: {
       title: 'Sem conexão',
       message: 'Verifique sua conexão com a internet e tente novamente.',

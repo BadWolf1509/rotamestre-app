@@ -3,6 +3,7 @@
  * Provides retry logic, error handling, and common query helpers
  */
 
+import { ehMensagemDeFalhaDeRede } from '@/lib/falhaDeRede';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -147,11 +148,11 @@ export function classifyError(error: unknown): QueryError {
       details?: string;
     };
 
-    // Network errors. Sem diferenciar maiúsculas: no RN o postgrest-js monta
-    // "TypeError: Network request failed", que o `includes('network')` em
-    // minúsculas deixava passar como erro genérico, com o texto cru na tela
-    // (no web é "Failed to fetch" e já casava).
-    if (/network|fetch/i.test(pgError.message ?? '')) {
+    // Network errors, pelo padrão único (src/lib/falhaDeRede.ts, R-NUC-2).
+    // O `/network|fetch/i` que morava aqui casava qualquer texto com "fetch"
+    // (um erro de programação virava "Erro de conexão", e era retentado) e
+    // não conhecia o "Load failed" do Safari.
+    if (ehMensagemDeFalhaDeRede(pgError.message)) {
       return {
         type: 'network',
         message: 'Erro de conexão. Verifique sua internet.',

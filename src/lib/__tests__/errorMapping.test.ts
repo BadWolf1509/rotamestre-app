@@ -631,6 +631,17 @@ describe('errorMapping', () => {
       expect(isNetworkError(new Error('Request timed out'))).toBe(true);
     });
 
+    // R-NUC-2: mesmo padrão de falhaDeRede.ts — a Edge Function sem resposta
+    // (FunctionsFetchError) caía no erro genérico.
+    it('Edge Function sem resposta é rede', () => {
+      expect(
+        isNetworkError({
+          name: 'FunctionsFetchError',
+          message: 'Failed to send a request to the Edge Function',
+        }),
+      ).toBe(true);
+    });
+
     it('should return false for non-network errors', () => {
       expect(isNetworkError(new Error('Invalid login credentials'))).toBe(
         false,

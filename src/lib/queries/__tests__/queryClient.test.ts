@@ -57,6 +57,23 @@ describe('queryClient', () => {
       expect(result.message).toBe('Erro de conexão. Verifique sua internet.');
     });
 
+    // R-NUC-2: o `/network|fetch/i` daqui casava qualquer texto com "fetch",
+    // e um erro de programação virava "Erro de conexão" (e era retentado).
+    it('erro de programação que cita "fetch" não é rede', () => {
+      const result = classifyError({
+        message: "Cannot read properties of undefined (reading 'fetch')",
+        code: '',
+      });
+
+      expect(result.type).not.toBe('network');
+    });
+
+    it('Safari ("Load failed") é rede', () => {
+      expect(classifyError({ message: 'TypeError: Load failed' }).type).toBe(
+        'network',
+      );
+    });
+
     // PGRST116 é "zero linhas" (not_found), não um código de auth — usar essa
     // fixture aqui esconderia a checagem de prefixo por trás da checagem de
     // mensagem (a msg 'JWT expired' já classifica sozinha). PGRST301 é um
