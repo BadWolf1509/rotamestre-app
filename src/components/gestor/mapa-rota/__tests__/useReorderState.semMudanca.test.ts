@@ -54,3 +54,25 @@ describe('useReorderState: fim do arrasto sem mudar a ordem', () => {
     expect(onReorder).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('useReorderState: falha ao gravar o arrasto (B-GES-6)', () => {
+  it('onReorder rejeitando devolve a lista à ordem do estado e não solta a rejeição', async () => {
+    const onReorder = jest.fn().mockRejectedValue(new Error('rede'));
+    const { result } = renderHook(() =>
+      useReorderState({
+        paradas: [A, B, C],
+        onReorder,
+        rotaStatus: 'pendente',
+      }),
+    );
+    expect(result.current.resetToken).toBe(0);
+
+    await act(async () => {
+      await expect(
+        result.current.handleDragEnd([B, A, C]),
+      ).resolves.toBeUndefined();
+    });
+
+    expect(result.current.resetToken).toBe(1);
+  });
+});

@@ -7,6 +7,7 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
 
+import { useSoltarNaLista } from '@/hooks/gestao-rotas/useSoltarNaLista';
 import type {
   ImportParadasFn,
   LocalizarLoteFn,
@@ -51,7 +52,7 @@ export interface ParadasListAndActionsProps {
   onMoveDown: (index: number) => void;
   onRemove: (index: number) => void;
   onEdit: (index: number) => void;
-  onReorder: (data: Parada[]) => void;
+  onReorder: (data: Parada[]) => boolean | void;
   onLocalizarLote: LocalizarLoteFn;
   onImport: ImportParadasFn;
   onOptimize: () => void;
@@ -92,6 +93,12 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   const { theme } = useUnistyles();
   const router = useRouter();
   const styles = createStyles(theme, isDesktop);
+  // Mesma guarda do modal Reordenar: ordem igual não conta, e arrasto recusado
+  // remonta a lista nativa (que guardaria a ordem arrastada).
+  const { onDragEnd, resetToken } = useSoltarNaLista({
+    ordemAtual: paradas,
+    aplicar: onReorder,
+  });
 
   const renderStop = ({
     item,
@@ -223,10 +230,11 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
           </View>
 
           <DraggableFlatList
+            key={`paradas-${resetToken}`}
             data={paradas}
             keyExtractor={(parada) => parada.id}
             renderItem={renderStop}
-            onDragEnd={({ data }) => onReorder(data)}
+            onDragEnd={({ data }) => onDragEnd(data)}
             scrollEnabled={false}
             activationDistance={8}
           />

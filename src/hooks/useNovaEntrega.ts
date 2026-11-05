@@ -116,7 +116,7 @@ export interface UseNovaEntregaReturn {
   removeParada: (index: number) => void;
   moveParadaUp: (index: number) => void;
   moveParadaDown: (index: number) => void;
-  reorderParadas: (data: Parada[]) => void;
+  reorderParadas: (data: Parada[]) => boolean | void;
   otimizarRota: () => Promise<void>;
   gerarRota: () => Promise<boolean>;
   limparFormulario: () => void;

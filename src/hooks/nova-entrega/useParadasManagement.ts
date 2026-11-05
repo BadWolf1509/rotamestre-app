@@ -491,21 +491,31 @@ export function useParadasManagement({
   );
 
   const applyOrder = useCallback(
-    (candidate: Parada[]) => {
+    /** true = a ordem mudou; false = recusada ou igual à que já estava. */
+    (candidate: Parada[]): boolean => {
+      // Soltar no mesmo lugar (toque longo sem mover) não é reordenação: não
+      // regrava as paradas, não marca "ordem manual" nem zera a distância.
+      const mesmaOrdem =
+        candidate.length === paradas.length &&
+        candidate.every((p, i) => p.id === paradas[i]?.id);
+      if (mesmaOrdem) return false;
+
       const reordered = reindex(candidate);
       const dependencyErrors = validarOrdemDependencias(reordered);
       if (dependencyErrors.length > 0) {
         showToast(dependencyErrors[0], 'error', 5000);
-        return;
+        return false;
       }
 
       setParadas(reordered);
       if (rotaOtimizada) onOrdemManualChange(true);
       onDistanciaManualRealReset();
+      return true;
     },
     [
       onDistanciaManualRealReset,
       onOrdemManualChange,
+      paradas,
       rotaOtimizada,
       setParadas,
       showToast,

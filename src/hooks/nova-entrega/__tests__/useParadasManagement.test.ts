@@ -242,6 +242,59 @@ describe('useParadasManagement', () => {
     );
   });
 
+  it('B-GES-3: soltar na mesma ordem não marca ordem manual nem regrava as paradas', () => {
+    const optimized: RotaOtimizadaState = {
+      distancia_total_metros: 1000,
+      duracao_total_segundos: 300,
+      legs: [],
+    };
+    const { result } = renderHook(() =>
+      useSubject([createStop(0), createStop(1)], optimized),
+    );
+    const antes = result.current.paradas;
+
+    let aceita: boolean | void = undefined;
+    act(() => {
+      aceita = result.current.reorderParadas([...antes]);
+    });
+
+    expect(result.current.paradas).toBe(antes);
+    expect(callbacks.onOrdemManualChange).not.toHaveBeenCalled();
+    expect(callbacks.onDistanciaManualRealReset).not.toHaveBeenCalled();
+    expect(aceita).toBe(false);
+  });
+
+  it('B-GES-3: arrasto recusado por vínculo devolve false (a lista nativa precisa voltar)', () => {
+    const pickup = createStop(0, { tipo: 'retirada' });
+    const delivery = createStop(1, { vinculo_parada_id: pickup.id });
+    const { result } = renderHook(() => useSubject([pickup, delivery]));
+
+    let aceita: boolean | void = undefined;
+    act(() => {
+      aceita = result.current.reorderParadas([delivery, pickup]);
+    });
+
+    expect(aceita).toBe(false);
+    expect(result.current.paradas[0].id).toBe(pickup.id);
+  });
+
+  it('B-GES-3: arrasto válido devolve true', () => {
+    const { result } = renderHook(() =>
+      useSubject([createStop(0), createStop(1)]),
+    );
+
+    let aceita: boolean | void = undefined;
+    act(() => {
+      aceita = result.current.reorderParadas([
+        result.current.paradas[1],
+        result.current.paradas[0],
+      ]);
+    });
+
+    expect(aceita).toBe(true);
+    expect(result.current.paradas[0].id).toBe('stop-1');
+  });
+
   it('marks a reordered optimized route as manual', () => {
     const optimized: RotaOtimizadaState = {
       distancia_total_metros: 1000,
