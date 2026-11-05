@@ -7,7 +7,6 @@ import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
-import { criarSerie } from '@/lib/serie';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { maisRecente } from '@/lib/motorista/posicaoMaisRecente';
 import {
@@ -16,6 +15,7 @@ import {
   type NavigationState,
   type PreferenciasDeNavegacao,
 } from '@/lib/motorista/preferenciasNavegacaoPadrao';
+import { criarSerie } from '@/lib/serie';
 import { supabase } from '@/lib/supabase';
 import {
   checkLocationPermissions,
