@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, Text, ViewStyle } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MobileCardProps {
@@ -48,7 +49,7 @@ function MobileCardComponent({
 
   if (onPress) {
     return (
-      <TouchableOpacity
+      <Touchable
         style={cardStyle}
         onPress={onPress}
         activeOpacity={0.7}
@@ -58,7 +59,7 @@ function MobileCardComponent({
         accessibilityHint={subtitle}
       >
         {content}
-      </TouchableOpacity>
+      </Touchable>
     );
   }
 
