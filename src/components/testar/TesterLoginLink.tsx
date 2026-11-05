@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
-import {  } from 'react-native';
+import { TouchableOpacity } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { Text } from '@/design-system';
 import { isRecruitmentEnabled } from '@/lib/testerLinks';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -17,14 +16,14 @@ export function TesterLoginLink() {
   if (!isRecruitmentEnabled()) return null;
 
   return (
-    <Touchable
+    <TouchableOpacity
       style={styles.link}
       onPress={() => router.push('/testar')}
       accessibilityRole="link"
       accessibilityLabel="Seja um testador do app"
     >
       <Text style={styles.linkText}>📱 Seja um testador do app</Text>
-    </Touchable>
+    </TouchableOpacity>
   );
 }
 

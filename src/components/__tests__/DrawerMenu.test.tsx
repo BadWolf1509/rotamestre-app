@@ -512,7 +512,7 @@ describe('DrawerMenu Component', () => {
         expect(getByText('João Silva')).toBeTruthy();
       });
 
-      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
+      const TouchableOpacity = require('react-native').TouchableOpacity;
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
 
       // O drawer interno tem activeOpacity=1 e onPress com stopPropagation
@@ -546,7 +546,7 @@ describe('DrawerMenu Component', () => {
         expect(getByText('João Silva')).toBeTruthy();
       });
 
-      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
+      const TouchableOpacity = require('react-native').TouchableOpacity;
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
 
       // O primeiro TouchableOpacity é o overlay

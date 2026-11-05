@@ -1,16 +1,17 @@
 import React from 'react';
 import {
   Text,
+  TouchableOpacity,
   type TextStyle,
+  type TouchableOpacityProps,
   type ViewStyle,
 } from 'react-native';
 
-import { Touchable, type TouchableProps } from '@/components/Touchable';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 type FilterChipSize = 'regular' | 'compact';
 
-interface FilterChipProps extends TouchableProps {
+interface FilterChipProps extends TouchableOpacityProps {
   label: string;
   selected?: boolean;
   size?: FilterChipSize;
@@ -29,7 +30,7 @@ function FilterChipComponent({
   const isCompact = size === 'compact';
 
   return (
-    <Touchable
+    <TouchableOpacity
       {...props}
       style={[
         styles.base,
@@ -53,7 +54,7 @@ function FilterChipComponent({
       >
         {label}
       </Text>
-    </Touchable>
+    </TouchableOpacity>
   );
 }
 

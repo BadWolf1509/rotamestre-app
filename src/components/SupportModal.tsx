@@ -5,12 +5,12 @@ import {
   View,
   Text,
   Modal,
+  TouchableOpacity,
   Linking,
   Platform,
   Pressable,
 } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -426,7 +426,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
 
           {/* Contact Options */}
           <View style={styles.content}>
-            <Touchable style={styles.contactOption} onPress={handleWhatsApp}>
+            <TouchableOpacity style={styles.contactOption} onPress={handleWhatsApp}>
               <View style={[styles.contactIcon, { backgroundColor: theme.colors.success }]}>
                 <Ionicons name="logo-whatsapp" size={24} color={theme.colors.white} />
               </View>
@@ -435,9 +435,9 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 <Text style={styles.contactValue}>(83) 98715-6206</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
-            </Touchable>
+            </TouchableOpacity>
 
-            <Touchable style={styles.contactOption} onPress={handleCall}>
+            <TouchableOpacity style={styles.contactOption} onPress={handleCall}>
               <View style={[styles.contactIcon, { backgroundColor: theme.colors.primary }]}>
                 <Ionicons name="call" size={24} color={theme.colors.white} />
               </View>
@@ -446,9 +446,9 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 <Text style={styles.contactValue}>(83) 98715-6206</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
-            </Touchable>
+            </TouchableOpacity>
 
-            <Touchable style={styles.contactOption} onPress={handleEmail}>
+            <TouchableOpacity style={styles.contactOption} onPress={handleEmail}>
               <View style={[styles.contactIcon, { backgroundColor: theme.colors.error }]}>
                 <Ionicons name="mail" size={24} color={theme.colors.white} />
               </View>
@@ -457,14 +457,14 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                 <Text style={styles.contactValue}>contato@rotamestre.tec.br</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={theme.colors.gray400} />
-            </Touchable>
+            </TouchableOpacity>
           </View>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Touchable style={styles.closeButton} onPress={onClose}>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>Fechar</Text>
-            </Touchable>
+            </TouchableOpacity>
           </View>
         </Pressable>
       </Pressable>

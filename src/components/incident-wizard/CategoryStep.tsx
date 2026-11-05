@@ -4,9 +4,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { INCIDENT_CATEGORIES, getIncidentColor } from './types';
@@ -35,7 +34,7 @@ function CategoryStepComponent({
 
       <View style={[styles.categoriesContainer, isDesktop && styles.categoriesContainerDesktop]}>
         {INCIDENT_CATEGORIES.map((category) => (
-          <Touchable
+          <TouchableOpacity
             key={category.value}
             style={[
               styles.categoryCard,
@@ -61,7 +60,7 @@ function CategoryStepComponent({
             {selectedCategory === category.value && (
               <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} />
             )}
-          </Touchable>
+          </TouchableOpacity>
         ))}
       </View>
     </View>

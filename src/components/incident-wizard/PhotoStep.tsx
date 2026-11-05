@@ -7,11 +7,11 @@ import React, { memo } from 'react';
 import {
   View,
   Text,
+  TouchableOpacity,
   Image,
   ActivityIndicator,
 } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface PhotoStepProps {
@@ -71,7 +71,7 @@ function PhotoStepComponent({
             <View style={styles.photoErrorContainer}>
               <Ionicons name="image-outline" size={48} color={theme.colors.gray400} />
               <Text style={styles.photoErrorText}>Não foi possível carregar a foto</Text>
-              <Touchable
+              <TouchableOpacity
                 style={styles.photoRetryButton}
                 onPress={onPhotoRetry}
                 accessibilityRole="button"
@@ -79,7 +79,7 @@ function PhotoStepComponent({
               >
                 <Ionicons name="refresh" size={16} color={theme.colors.primary} />
                 <Text style={styles.photoRetryText}>Tentar novamente</Text>
-              </Touchable>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -98,18 +98,18 @@ function PhotoStepComponent({
             />
           )}
 
-          <Touchable
+          <TouchableOpacity
             style={styles.removePhotoButton}
             onPress={onRemovePhoto}
             accessibilityRole="button"
             accessibilityLabel="Remover foto"
           >
             <Ionicons name="close-circle" size={28} color={theme.colors.white} />
-          </Touchable>
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={[styles.photoOptions, isDesktop && styles.photoOptionsDesktop]}>
-          <Touchable
+          <TouchableOpacity
             style={styles.photoOption}
             onPress={onTakePhoto}
             accessibilityRole="button"
@@ -117,9 +117,9 @@ function PhotoStepComponent({
           >
             <Ionicons name="camera" size={32} color={theme.colors.primary} />
             <Text style={styles.photoOptionText}>Tirar Foto</Text>
-          </Touchable>
+          </TouchableOpacity>
 
-          <Touchable
+          <TouchableOpacity
             style={styles.photoOption}
             onPress={onPickImage}
             accessibilityRole="button"
@@ -127,18 +127,18 @@ function PhotoStepComponent({
           >
             <Ionicons name="images" size={32} color={theme.colors.primary} />
             <Text style={styles.photoOptionText}>Escolher da Galeria</Text>
-          </Touchable>
+          </TouchableOpacity>
         </View>
       )}
 
-      <Touchable
+      <TouchableOpacity
         style={styles.skipButton}
         onPress={onSkip}
         accessibilityRole="button"
         accessibilityLabel="Pular este passo"
       >
         <Text style={styles.skipButtonText}>Pular este passo</Text>
-      </Touchable>
+      </TouchableOpacity>
     </View>
   );
 }

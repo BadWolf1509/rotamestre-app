@@ -4,9 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import type { MenuItem } from './types';
@@ -35,7 +34,7 @@ export function DrawerMenuItems({
           const hasAction = item.action;
 
           return (
-            <Touchable
+            <TouchableOpacity
               key={index}
               style={[
                 styles.menuItem,
@@ -60,7 +59,7 @@ export function DrawerMenuItems({
               >
                 {item.label}
               </Text>
-            </Touchable>
+            </TouchableOpacity>
           );
         })}
     </View>

@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, View, ViewStyle } from 'react-native';
+import { Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface DesktopCardProps {
@@ -40,7 +39,7 @@ export function DesktopCard({
     style,
   ];
 
-  const CardWrapper = onPress ? Touchable : View;
+  const CardWrapper = onPress ? TouchableOpacity : View;
 
   return (
     <CardWrapper style={cardStyles} onPress={onPress} activeOpacity={0.95}>

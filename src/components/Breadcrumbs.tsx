@@ -21,11 +21,11 @@ import React from 'react';
 import {
   View,
   Text,
+  TouchableOpacity,
   ViewStyle,
   Platform,
 } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface BreadcrumbItem {
@@ -63,14 +63,14 @@ export function Breadcrumbs({
         return (
           <View key={index} style={styles.item}>
             {isClickable ? (
-              <Touchable
+              <TouchableOpacity
                 onPress={item.onPress}
                 activeOpacity={0.7}
                 accessibilityLabel={item.label}
                 accessibilityRole="link"
               >
                 <Text style={styles.link}>{item.label}</Text>
-              </Touchable>
+              </TouchableOpacity>
             ) : (
               <Text
                 style={[styles.text, isLast && styles.activeText]}

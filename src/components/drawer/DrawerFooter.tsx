@@ -4,9 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { getVersionString } from '@/lib/appVersion';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -21,20 +20,20 @@ export function DrawerFooter({ isMotorista, onNavigateProfile, onLogout }: Drawe
     <View style={styles.footer}>
       {/* Meu Perfil apenas para gestor (motorista já tem no menu) */}
       {!isMotorista && (
-        <Touchable
+        <TouchableOpacity
           style={styles.footerItem}
           onPress={onNavigateProfile}
           activeOpacity={0.7}
         >
           <Text style={styles.footerIcon}>👤</Text>
           <Text style={styles.footerLabel}>Meu Perfil</Text>
-        </Touchable>
+        </TouchableOpacity>
       )}
 
-      <Touchable style={styles.footerItem} onPress={onLogout} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.footerItem} onPress={onLogout} activeOpacity={0.7}>
         <Text style={styles.footerIcon}>🚪</Text>
         <Text style={styles.footerLabel}>Sair</Text>
-      </Touchable>
+      </TouchableOpacity>
 
       <View style={styles.versionContainer}>
         <Text style={styles.versionText}>{getVersionString()}</Text>

@@ -4,9 +4,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -37,7 +36,7 @@ function TimelineFiltersComponent({
           const count = filterCounts[option.key];
 
           return (
-            <Touchable
+            <TouchableOpacity
               key={option.key}
               style={[
                 styles.filterChip,
@@ -73,7 +72,7 @@ function TimelineFiltersComponent({
                   </Text>
                 </View>
               )}
-            </Touchable>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>

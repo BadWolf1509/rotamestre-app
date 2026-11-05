@@ -107,7 +107,7 @@ describe('PerfilDesktopLayout', () => {
         />
       );
 
-      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
+      const { TouchableOpacity } = require('react-native');
       const avatarButton = UNSAFE_getAllByType(TouchableOpacity)[0]; // Primeiro TouchableOpacity é o avatar
 
       fireEvent.press(avatarButton);
@@ -123,7 +123,7 @@ describe('PerfilDesktopLayout', () => {
         />
       );
 
-      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
+      const { TouchableOpacity } = require('react-native');
       const avatarButton = UNSAFE_getAllByType(TouchableOpacity)[0];
 
       expect(avatarButton.props.disabled).toBe(true);

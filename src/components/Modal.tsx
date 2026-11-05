@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 import {
   View,
   Text,
+  TouchableOpacity,
   ViewStyle,
   Animated,
   Dimensions,
@@ -28,7 +29,6 @@ import {
 } from 'react-native';
 
 import { JanelaModalNativa } from '@/components/JanelaModalNativa';
-import { Touchable } from '@/components/Touchable';
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -356,7 +356,7 @@ export function Modal({
           },
         ]}
       >
-        <Touchable
+        <TouchableOpacity
           style={styles.overlayTouchable}
           activeOpacity={1}
           onPress={onClose}
@@ -394,7 +394,7 @@ export function Modal({
                 <View style={{ flex: 1 }} />
               )}
               {showCloseButton && (
-                <Touchable
+                <TouchableOpacity
                   style={styles.closeButton}
                   onPress={onClose}
                   activeOpacity={0.7}
@@ -407,7 +407,7 @@ export function Modal({
                     size={24}
                     color={theme.colors.gray500}
                   />
-                </Touchable>
+                </TouchableOpacity>
               )}
             </View>
           )}

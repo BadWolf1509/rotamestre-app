@@ -12,9 +12,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, Platform } from 'react-native';
+import { View, Text, Animated, TouchableOpacity, Platform } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const STORAGE_KEY = '@rotamestre/onboarding_swipe_seen';
@@ -171,13 +170,13 @@ export function SwipeOnboarding({ onDismiss }: SwipeOnboardingProps) {
         </View>
 
         {/* Dismiss button */}
-        <Touchable
+        <TouchableOpacity
           style={styles.button}
           onPress={handleDismiss}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>Entendi!</Text>
-        </Touchable>
+        </TouchableOpacity>
       </View>
     </Animated.View>
   );

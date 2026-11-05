@@ -6,6 +6,7 @@ import {
   Text,
   ScrollView,
   ActivityIndicator,
+  TouchableOpacity,
   ScrollViewProps,
   Platform,
   type ViewInstance,
@@ -13,7 +14,6 @@ import {
 
 import { NotificationBell } from '@/components/NotificationBell';
 import { SeletorUnidade } from '@/components/SeletorUnidade';
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export interface BreadcrumbItem {
@@ -155,14 +155,14 @@ export function DesktopPageLayout({
               {breadcrumbs.map((item, index) => (
                 <React.Fragment key={index}>
                   {item.route ? (
-                    <Touchable
+                    <TouchableOpacity
                       onPress={() => router.push(item.route as Href)}
                       style={styles.breadcrumbButton}
                       accessibilityLabel={item.label}
                       accessibilityRole="link"
                     >
                       <Text style={styles.breadcrumbLink}>{item.label}</Text>
-                    </Touchable>
+                    </TouchableOpacity>
                   ) : (
                     <Text style={styles.breadcrumbText}>{item.label}</Text>
                   )}
@@ -182,7 +182,7 @@ export function DesktopPageLayout({
           {/* Title Section */}
           <View style={styles.titleSection}>
             {showBackButton && (
-              <Touchable
+              <TouchableOpacity
                 onPress={handleBack}
                 style={styles.backButton}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -194,7 +194,7 @@ export function DesktopPageLayout({
                   size={24}
                   color={theme.colors.gray600}
                 />
-              </Touchable>
+              </TouchableOpacity>
             )}
             <View style={styles.titleContainer}>
               <Text style={styles.title}>{title}</Text>
@@ -215,7 +215,7 @@ export function DesktopPageLayout({
             )}
             {userMenuTrigger && userMenuItems?.length ? (
               <View style={styles.headerExtra} ref={userMenuRef}>
-                <Touchable
+                <TouchableOpacity
                   onPress={() => setUserMenuVisible((prev) => !prev)}
                   activeOpacity={0.8}
                   accessibilityLabel="Menu de usuário"
@@ -225,11 +225,11 @@ export function DesktopPageLayout({
                   {typeof userMenuTrigger === 'function'
                     ? userMenuTrigger(userMenuVisible)
                     : userMenuTrigger}
-                </Touchable>
+                </TouchableOpacity>
                 {userMenuVisible && (
                   <View style={styles.userMenu}>
                     {userMenuItems.map((item, index) => (
-                      <Touchable
+                      <TouchableOpacity
                         key={`${item.label}-${index}`}
                         style={styles.userMenuItem}
                         onPress={() => {
@@ -258,7 +258,7 @@ export function DesktopPageLayout({
                         >
                           {item.label}
                         </Text>
-                      </Touchable>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 )}
@@ -267,7 +267,7 @@ export function DesktopPageLayout({
             {actions && actions.length > 0 && (
               <View style={styles.actions}>
                 {actions.map((action, index) => (
-                  <Touchable
+                  <TouchableOpacity
                     key={index}
                     style={[
                       styles.button,
@@ -300,7 +300,7 @@ export function DesktopPageLayout({
                     >
                       {action.label}
                     </Text>
-                  </Touchable>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
