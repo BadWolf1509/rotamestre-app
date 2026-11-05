@@ -5,6 +5,7 @@
 
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { FilterChip } from '../FilterChip';
 
@@ -96,8 +97,8 @@ describe('FilterChip', () => {
       );
 
       const chip = getByRole('button');
-      // Style can be flattened or as array
-      expect(chip.props.style).toEqual(
+      // O Touchable entrega array de estilos: achata para comparar.
+      expect(StyleSheet.flatten(chip.props.style)).toEqual(
         expect.objectContaining(customStyle)
       );
     });

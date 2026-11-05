@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Linking, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Touchable } from '@/components/Touchable';
 import { Text } from '@/design-system';
 import { logger } from '@/lib/logger';
 import { getTesterLinks, isRecruitmentEnabled } from '@/lib/testerLinks';
@@ -84,7 +85,7 @@ export function TesterRecruitmentScreen() {
       ]}
     >
       <View style={styles.topbar}>
-        <TouchableOpacity
+        <Touchable
           onPress={() =>
             router.canGoBack() ? router.back() : router.replace('/auth/login')
           }
@@ -94,7 +95,7 @@ export function TesterRecruitmentScreen() {
         >
           <Ionicons name="arrow-back" size={22} color={theme.colors.primary} />
           <Text style={styles.backText}>Voltar</Text>
-        </TouchableOpacity>
+        </Touchable>
         <Text style={styles.brand}>Rota Mestre</Text>
       </View>
 
@@ -115,13 +116,13 @@ export function TesterRecruitmentScreen() {
               a caminho — por enquanto, você pode usar o Rota Mestre pelo
               navegador.
             </Text>
-            <TouchableOpacity
+            <Touchable
               style={styles.secondaryCta}
               onPress={() => router.replace('/auth/login')}
               accessibilityRole="button"
             >
               <Text style={styles.secondaryCtaText}>Ir para o login</Text>
-            </TouchableOpacity>
+            </Touchable>
           </View>
         ) : (
           <View>
@@ -151,7 +152,7 @@ export function TesterRecruitmentScreen() {
                 <View style={styles.stepBody}>
                   <Text style={styles.stepTitle}>{step.title}</Text>
                   <Text style={styles.stepDescription}>{step.description}</Text>
-                  <TouchableOpacity
+                  <Touchable
                     style={[
                       styles.stepCta,
                       !step.url && styles.stepCtaDisabled,
@@ -162,7 +163,7 @@ export function TesterRecruitmentScreen() {
                     accessibilityLabel={step.cta}
                   >
                     <Text style={styles.stepCtaText}>{step.cta}</Text>
-                  </TouchableOpacity>
+                  </Touchable>
                 </View>
               </View>
             ))}

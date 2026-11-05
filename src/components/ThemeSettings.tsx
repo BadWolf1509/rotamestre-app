@@ -10,8 +10,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Switch, TouchableOpacity, View } from 'react-native';
+import { Switch, View } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { Text } from '@/design-system';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
@@ -332,7 +333,7 @@ export function ThemeSettings({
 
       {/* Reset Button */}
       {hasChanges && (
-        <TouchableOpacity
+        <Touchable
           style={styles(theme, compact).resetButton}
           onPress={handleResetToDefaults}
         >
@@ -344,7 +345,7 @@ export function ThemeSettings({
           <Text style={styles(theme, compact).resetButtonText}>
             Restaurar padrões
           </Text>
-        </TouchableOpacity>
+        </Touchable>
       )}
 
       {AlertDialog}

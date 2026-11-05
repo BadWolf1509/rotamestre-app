@@ -4,10 +4,10 @@ import {
   View,
   Text,
   Image,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { getInitials } from '@/lib/initials';
 import { withOpacity } from '@/utils/color';
@@ -116,7 +116,7 @@ export function AvatarEditable({
   const isDisabled = disabled || uploading;
 
   return (
-    <TouchableOpacity
+    <Touchable
       onPress={onPress}
       disabled={isDisabled || !onPress}
       activeOpacity={0.8}
@@ -193,7 +193,7 @@ export function AvatarEditable({
           <Ionicons name="camera" size={iconSize} color={theme.colors.white} />
         </View>
       )}
-    </TouchableOpacity>
+    </Touchable>
   );
 }
 

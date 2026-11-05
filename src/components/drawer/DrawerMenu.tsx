@@ -13,9 +13,10 @@
 
 import { useRouter, usePathname, type Href } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
-import { TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Touchable } from '@/components/Touchable';
 import { Dialog } from '@/design-system';
 import { useUser } from '@/hooks/useUser';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -178,14 +179,14 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
       transparent
       onRequestClose={onClose}
     >
-      <TouchableOpacity
+      <Touchable
         style={styles.overlay}
         activeOpacity={1}
         onPress={onClose}
         accessibilityLabel="Fechar menu"
         accessibilityRole="button"
       >
-        <TouchableOpacity
+        <Touchable
           activeOpacity={1}
           style={styles.drawer}
           onPress={(e) => e.stopPropagation()}
@@ -208,8 +209,8 @@ export function DrawerMenu({ visible, onClose }: DrawerMenuProps) {
               />
             </ScrollView>
           </SafeAreaView>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </Touchable>
+      </Touchable>
 
       {/* Logout Dialog */}
       <Dialog

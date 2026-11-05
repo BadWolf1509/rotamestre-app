@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Image,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
@@ -13,6 +12,7 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel';
+import { Touchable } from '@/components/Touchable';
 import { useResponsive } from '@/hooks/useResponsive';
 import { getConfirmationUrl } from '@/lib/auth/confirmationLink';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -89,7 +89,7 @@ export function ConfirmLinkScreen({
       <Text style={isDesktop ? styles.subtitleDesktop : styles.message}>
         {valido.mensagem}
       </Text>
-      <TouchableOpacity
+      <Touchable
         style={isDesktop ? styles.buttonDesktop : styles.button}
         onPress={handleContinue}
         disabled={redirecting}
@@ -102,7 +102,7 @@ export function ConfirmLinkScreen({
         ) : (
           <Text style={styles.buttonText}>{valido.labelBotao}</Text>
         )}
-      </TouchableOpacity>
+      </Touchable>
     </View>
   );
 
@@ -124,7 +124,7 @@ export function ConfirmLinkScreen({
       </Text>
       {invalido.acoes.map((acao, indice) =>
         indice === 0 ? (
-          <TouchableOpacity
+          <Touchable
             key={acao.label}
             style={isDesktop ? styles.buttonDesktop : styles.button}
             onPress={() => router.replace(acao.destino)}
@@ -132,9 +132,9 @@ export function ConfirmLinkScreen({
             accessibilityRole="button"
           >
             <Text style={styles.buttonText}>{acao.label}</Text>
-          </TouchableOpacity>
+          </Touchable>
         ) : (
-          <TouchableOpacity
+          <Touchable
             key={acao.label}
             style={styles.backButton}
             onPress={() => router.replace(acao.destino)}
@@ -142,7 +142,7 @@ export function ConfirmLinkScreen({
             accessibilityRole="link"
           >
             <Text style={styles.backButtonText}>{acao.label}</Text>
-          </TouchableOpacity>
+          </Touchable>
         ),
       )}
     </View>

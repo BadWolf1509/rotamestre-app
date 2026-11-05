@@ -7,10 +7,10 @@ import {
   ScrollView,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface FormField {
@@ -80,13 +80,13 @@ export function FormDesktopLayout({
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <Touchable
             style={styles.backButton}
             onPress={() => backPath ? router.push(backPath as Href) : router.back()}
           >
             <Ionicons name="arrow-back" size={24} color={theme.colors.gray600} />
             <Text style={styles.backButtonText}>Voltar</Text>
-          </TouchableOpacity>
+          </Touchable>
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>{title}</Text>
             {subtitle && (
@@ -122,7 +122,7 @@ export function FormDesktopLayout({
                       autoCapitalize={field.autoCapitalize}
                     />
                     {field.showPasswordToggle && (
-                      <TouchableOpacity
+                      <Touchable
                         style={styles.passwordToggle}
                         onPress={field.onTogglePassword}
                       >
@@ -131,7 +131,7 @@ export function FormDesktopLayout({
                           size={22}
                           color={theme.colors.gray500}
                         />
-                      </TouchableOpacity>
+                      </Touchable>
                     )}
                   </View>
                   {field.helperText && !field.error && (
@@ -152,16 +152,16 @@ export function FormDesktopLayout({
               {/* Action Buttons */}
               <View style={styles.buttonContainer}>
                 {secondaryButtonText && (
-                  <TouchableOpacity
+                  <Touchable
                     style={styles.secondaryButton}
                     onPress={onSecondaryPress}
                   >
                     <Text style={styles.secondaryButtonText}>
                       {secondaryButtonText}
                     </Text>
-                  </TouchableOpacity>
+                  </Touchable>
                 )}
-                <TouchableOpacity
+                <Touchable
                   style={[
                     styles.primaryButton,
                     primaryButtonDisabled && styles.primaryButtonDisabled,
@@ -172,7 +172,7 @@ export function FormDesktopLayout({
                   <Text style={styles.primaryButtonText}>
                     {primaryButtonText}
                   </Text>
-                </TouchableOpacity>
+                </Touchable>
               </View>
             </View>
           </View>

@@ -261,7 +261,7 @@ describe('Modal Component', () => {
       );
 
       // O TouchableOpacity do overlay é o primeiro
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
 
       if (touchables.length > 0) {

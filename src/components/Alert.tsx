@@ -25,8 +25,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, ViewStyle } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -104,7 +105,7 @@ export function Alert({
         )}
         <Text style={styles.message}>{message}</Text>
         {actionLabel && onAction && (
-          <TouchableOpacity
+          <Touchable
             accessibilityLabel={actionLabel}
             accessibilityRole="button"
             onPress={onAction}
@@ -113,19 +114,19 @@ export function Alert({
             <Text style={[styles.actionText, { color: accentColor }]}>
               {actionLabel}
             </Text>
-          </TouchableOpacity>
+          </Touchable>
         )}
       </View>
 
       {onClose && (
-        <TouchableOpacity
+        <Touchable
           accessibilityLabel="Fechar alerta"
           accessibilityRole="button"
           onPress={onClose}
           style={styles.closeBtn}
         >
           <Ionicons name="close" size={18} color={theme.colors.gray500} />
-        </TouchableOpacity>
+        </Touchable>
       )}
     </View>
   );

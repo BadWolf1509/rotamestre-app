@@ -4,11 +4,11 @@ import {
   Linking,
   Platform,
   ScrollView,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Touchable } from '@/components/Touchable';
 import { Text } from '@/design-system';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -34,7 +34,7 @@ export function LegalPage({ title, updatedAt, children }: LegalPageProps) {
       ]}
     >
       <View style={styles(theme).topbar}>
-        <TouchableOpacity
+        <Touchable
           onPress={() =>
             router.canGoBack() ? router.back() : router.replace('/auth/login')
           }
@@ -44,7 +44,7 @@ export function LegalPage({ title, updatedAt, children }: LegalPageProps) {
         >
           <Ionicons name="arrow-back" size={22} color={theme.colors.primary} />
           <Text style={styles(theme).backText}>Voltar</Text>
-        </TouchableOpacity>
+        </Touchable>
         <Text style={styles(theme).brand}>Rota Mestre</Text>
       </View>
 
@@ -59,12 +59,12 @@ export function LegalPage({ title, updatedAt, children }: LegalPageProps) {
           <Text style={styles(theme).paragraph}>
             Dúvidas sobre privacidade e dados pessoais podem ser enviadas para:
           </Text>
-          <TouchableOpacity
+          <Touchable
             onPress={() => Linking.openURL('mailto:contato@rotamestre.tec.br')}
             accessibilityRole="link"
           >
             <Text style={styles(theme).link}>contato@rotamestre.tec.br</Text>
-          </TouchableOpacity>
+          </Touchable>
         </View>
       </View>
     </ScrollView>

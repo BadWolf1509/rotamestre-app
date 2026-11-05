@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { Touchable as TouchableOpacity } from '@/components/Touchable';
 
 import { DesktopCard, DesktopCardGrid } from '../DesktopCard';
 

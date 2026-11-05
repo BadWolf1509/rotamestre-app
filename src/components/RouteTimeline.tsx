@@ -25,11 +25,11 @@ import {
   View,
   Text,
   Platform,
-  TouchableOpacity,
   Animated,
   LayoutAnimation,
 } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { useTimelineData } from '@/hooks/gestao-rotas';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
 import {
@@ -369,7 +369,7 @@ export function RouteTimeline({
 
       // Load more button
       return (
-        <TouchableOpacity
+        <Touchable
           style={styles.loadMoreButton}
           onPress={handleLoadMore}
           disabled={loadingMore}
@@ -391,7 +391,7 @@ export function RouteTimeline({
               <Text style={styles.loadMoreText}>Carregar mais eventos</Text>
             </>
           )}
-        </TouchableOpacity>
+        </Touchable>
       );
     },
     [

@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, Modal } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import { CONTACT_REASONS, type ContactReason } from './constants';
@@ -27,37 +28,37 @@ export function DrawerContactModal({
 }: DrawerContactModalProps) {
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.contactModalOverlay} activeOpacity={1} onPress={onClose}>
+      <Touchable style={styles.contactModalOverlay} activeOpacity={1} onPress={onClose}>
         <View style={styles.contactModalContainer}>
-          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+          <Touchable activeOpacity={1} onPress={(e) => e.stopPropagation()}>
             <View style={styles.contactModalContent}>
               <Text style={styles.contactModalTitle}>📞 Contatar {gestorData?.nome}</Text>
               <Text style={styles.contactModalSubtitle}>Qual o motivo do contato?</Text>
 
               <View style={styles.contactModalOptions}>
                 {CONTACT_REASONS.map((reason) => (
-                  <TouchableOpacity
+                  <Touchable
                     key={reason.id}
                     style={styles.contactModalOption}
                     onPress={() => onSelectReason(reason)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.contactModalOptionText}>{reason.label}</Text>
-                  </TouchableOpacity>
+                  </Touchable>
                 ))}
               </View>
 
-              <TouchableOpacity
+              <Touchable
                 style={styles.contactModalCancel}
                 onPress={onClose}
                 activeOpacity={0.7}
               >
                 <Text style={styles.contactModalCancelText}>Cancelar</Text>
-              </TouchableOpacity>
+              </Touchable>
             </View>
-          </TouchableOpacity>
+          </Touchable>
         </View>
-      </TouchableOpacity>
+      </Touchable>
     </Modal>
   );
 }
