@@ -76,16 +76,26 @@ describe('ParadasListAndActions', () => {
       cor: 'error' as const,
       icone: 'warning' as const,
     },
-    motoristas: [
-      { id: 'm1', nome: 'Joao', email: 'joao@teste.com', ativo: true },
-    ],
-    motoristaSelecionado: '',
-    rotaOtimizada: null,
-    ordemManual: false,
-    distanciaManualReal: null,
-    enderecoUnidade: { latitude: -7.1, longitude: -34.9, endereco: 'Rua Base' },
-    isOptimizing: false,
-    isCalculandoReal: false,
+    motorista: {
+      lista: [{ id: 'm1', nome: 'Joao', email: 'joao@teste.com', ativo: true }],
+      selecionado: '',
+      carregando: false,
+      selecionar: jest.fn(),
+    },
+    percurso: {
+      rotaOtimizada: null,
+      ordemManual: false,
+      distanciaManualReal: null,
+      enderecoUnidade: {
+        latitude: -7.1,
+        longitude: -34.9,
+        endereco: 'Rua Base',
+      },
+      otimizando: false,
+      calculandoReal: false,
+      carregandoEndereco: false,
+      otimizar: jest.fn(),
+    },
     isLoading: false,
     isDesktop: false,
     dataRota: '2026-07-24',
@@ -105,8 +115,6 @@ describe('ParadasListAndActions', () => {
       erros: [],
       linhasAdicionadas: [],
     }),
-    onOptimize: jest.fn(),
-    onSelectMotorista: jest.fn(),
     onChangeDataRota: jest.fn(),
     onGenerateRoute: jest.fn(),
   };
@@ -124,7 +132,10 @@ describe('ParadasListAndActions', () => {
     (router.push as jest.Mock).mockClear();
 
     const { getByLabelText } = render(
-      <ParadasListAndActions {...baseProps} enderecoUnidade={null} />,
+      <ParadasListAndActions
+        {...baseProps}
+        percurso={{ ...baseProps.percurso, enderecoUnidade: null }}
+      />,
     );
 
     fireEvent.press(getByLabelText('Cadastrar sede da unidade'));
@@ -165,7 +176,10 @@ describe('ParadasListAndActions', () => {
 
   it('desabilita botao de otimizar durante processamento', () => {
     const { getByLabelText, UNSAFE_getAllByType } = render(
-      <ParadasListAndActions {...baseProps} isOptimizing={true} />,
+      <ParadasListAndActions
+        {...baseProps}
+        percurso={{ ...baseProps.percurso, otimizando: true }}
+      />,
     );
 
     const optimize = getByLabelText('Otimizar rota para o melhor percurso');
@@ -177,13 +191,16 @@ describe('ParadasListAndActions', () => {
     const { getByText } = render(
       <ParadasListAndActions
         {...baseProps}
-        rotaOtimizada={{
-          distancia_total_metros: 8500,
-          duracao_total_segundos: 900,
-          legs: [],
-          polyline: 'xyz',
+        percurso={{
+          ...baseProps.percurso,
+          rotaOtimizada: {
+            distancia_total_metros: 8500,
+            duracao_total_segundos: 900,
+            legs: [],
+            polyline: 'xyz',
+          },
+          ordemManual: false,
         }}
-        ordemManual={false}
       />,
     );
 
@@ -195,14 +212,17 @@ describe('ParadasListAndActions', () => {
     const { getByText } = render(
       <ParadasListAndActions
         {...baseProps}
-        rotaOtimizada={{
-          distancia_total_metros: 10000,
-          duracao_total_segundos: 1200,
-          legs: [],
-          polyline: 'abc',
+        percurso={{
+          ...baseProps.percurso,
+          rotaOtimizada: {
+            distancia_total_metros: 10000,
+            duracao_total_segundos: 1200,
+            legs: [],
+            polyline: 'abc',
+          },
+          ordemManual: true,
         }}
-        ordemManual={true}
-        motoristaSelecionado="m1"
+        motorista={{ ...baseProps.motorista, selecionado: 'm1' }}
         onGenerateRoute={onGenerateRoute}
       />,
     );
@@ -216,7 +236,7 @@ describe('ParadasListAndActions', () => {
     const { getByText, getByLabelText } = render(
       <ParadasListAndActions
         {...baseProps}
-        motoristaSelecionado="m1"
+        motorista={{ ...baseProps.motorista, selecionado: 'm1' }}
         isLoading={true}
       />,
     );

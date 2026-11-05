@@ -12,6 +12,10 @@ import type {
   ImportParadasFn,
   LocalizarLoteFn,
 } from '@/hooks/nova-entrega/useParadasManagement';
+import type {
+  MotoristaDaNovaEntrega,
+  PercursoDaNovaEntrega,
+} from '@/hooks/useNovaEntrega';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -23,25 +27,15 @@ import { RotaOtimizadaBanner } from './RotaOtimizadaBanner';
 import { RouteDateSelector } from './RouteDateSelector';
 
 import type {
-  DistanciaManualReal,
-  EnderecoUnidade,
-  MotoristaResumo,
   Parada,
   ParadasStatus,
-  RotaOtimizadaState,
 } from './types';
 
 export interface ParadasListAndActionsProps {
   paradas: Parada[];
   paradasStatus: ParadasStatus;
-  motoristas: MotoristaResumo[];
-  motoristaSelecionado: string;
-  rotaOtimizada: RotaOtimizadaState | null;
-  ordemManual: boolean;
-  distanciaManualReal: DistanciaManualReal | null;
-  enderecoUnidade: EnderecoUnidade | null;
-  isOptimizing: boolean;
-  isCalculandoReal: boolean;
+  motorista: MotoristaDaNovaEntrega;
+  percurso: PercursoDaNovaEntrega;
   isLoading: boolean;
   isDesktop: boolean;
   dataRota: string;
@@ -55,8 +49,6 @@ export interface ParadasListAndActionsProps {
   onReorder: (data: Parada[]) => boolean | void;
   onLocalizarLote: LocalizarLoteFn;
   onImport: ImportParadasFn;
-  onOptimize: () => void;
-  onSelectMotorista: (id: string) => void;
   onChangeDataRota: (value: string) => void;
   onGenerateRoute: () => void;
 }
@@ -64,14 +56,8 @@ export interface ParadasListAndActionsProps {
 export const ParadasListAndActions = memo(function ParadasListAndActions({
   paradas,
   paradasStatus,
-  motoristas,
-  motoristaSelecionado,
-  rotaOtimizada,
-  ordemManual,
-  distanciaManualReal,
-  enderecoUnidade,
-  isOptimizing,
-  isCalculandoReal,
+  motorista,
+  percurso,
   isLoading,
   isDesktop,
   dataRota,
@@ -85,12 +71,24 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   onReorder,
   onLocalizarLote,
   onImport,
-  onOptimize,
-  onSelectMotorista,
   onChangeDataRota,
   onGenerateRoute,
 }: ParadasListAndActionsProps) {
   const { theme } = useUnistyles();
+  const {
+    rotaOtimizada,
+    ordemManual,
+    distanciaManualReal,
+    enderecoUnidade,
+    otimizando: isOptimizing,
+    calculandoReal: isCalculandoReal,
+    otimizar: onOptimize,
+  } = percurso;
+  const {
+    lista: motoristas,
+    selecionado: motoristaSelecionado,
+    selecionar: onSelectMotorista,
+  } = motorista;
   const router = useRouter();
   const styles = createStyles(theme, isDesktop);
   // Mesma guarda do modal Reordenar: ordem igual não conta, e arrasto recusado

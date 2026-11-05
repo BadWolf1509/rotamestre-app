@@ -207,7 +207,7 @@ describe('useNovaEntrega', () => {
     const { result } = renderHook(() => useNovaEntrega());
 
     await act(async () => {
-      await result.current.otimizarRota();
+      await result.current.percurso.otimizar();
     });
 
     const hasToast = mockShowToast.mock.calls.some((call) =>
@@ -225,7 +225,7 @@ describe('useNovaEntrega', () => {
     await waitFor(() => expect(result.current.paradas.length).toBe(1));
 
     await act(async () => {
-      await result.current.otimizarRota();
+      await result.current.percurso.otimizar();
     });
 
     const hasToast = mockShowToast.mock.calls.some((call) =>
@@ -244,7 +244,7 @@ describe('useNovaEntrega', () => {
 
     const { result } = renderHook(() => useNovaEntrega());
 
-    await waitFor(() => expect(result.current.enderecoUnidade).not.toBeNull());
+    await waitFor(() => expect(result.current.percurso.enderecoUnidade).not.toBeNull());
 
     await act(async () => {
       await result.current.onAddParada(
@@ -254,7 +254,7 @@ describe('useNovaEntrega', () => {
     await waitFor(() => expect(result.current.paradas.length).toBe(1));
 
     await act(async () => {
-      await result.current.otimizarRota();
+      await result.current.percurso.otimizar();
     });
 
     const hasErro = mockShowToast.mock.calls.some((call) =>
@@ -274,7 +274,7 @@ describe('useNovaEntrega', () => {
 
     const { result } = renderHook(() => useNovaEntrega());
 
-    await waitFor(() => expect(result.current.enderecoUnidade).not.toBeNull());
+    await waitFor(() => expect(result.current.percurso.enderecoUnidade).not.toBeNull());
 
     await act(async () => {
       await result.current.onAddParada(
@@ -303,11 +303,11 @@ describe('useNovaEntrega', () => {
     });
 
     await act(async () => {
-      await result.current.otimizarRota();
+      await result.current.percurso.otimizar();
     });
 
-    await waitFor(() => expect(result.current.rotaOtimizada).not.toBeNull());
-    expect(result.current.rotaOtimizada?.distancia_total_metros).toBe(9000);
+    await waitFor(() => expect(result.current.percurso.rotaOtimizada).not.toBeNull());
+    expect(result.current.percurso.rotaOtimizada?.distancia_total_metros).toBe(9000);
     expect(mockOtimizarRotaComDependencias).toHaveBeenCalled();
 
     const hasAviso = mockShowToast.mock.calls.some((call) =>

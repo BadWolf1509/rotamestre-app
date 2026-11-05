@@ -73,27 +73,44 @@ function localToday(): string {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 }
 
+/** Seleção de motorista da rota. */
+export interface MotoristaDaNovaEntrega {
+  lista: MotoristaResumo[];
+  selecionado: string;
+  carregando: boolean;
+  selecionar: (id: string) => void;
+}
+
+/** Salvamento do rascunho no servidor. */
+export interface RascunhoDaNovaEntrega {
+  hidratando: boolean;
+  salvando: boolean;
+  salvoEm: string | null;
+  erro: string | null;
+}
+
+/** Percurso: otimização, distância e sede da loja. */
+export interface PercursoDaNovaEntrega {
+  rotaOtimizada: RotaOtimizadaState | null;
+  ordemManual: boolean;
+  distanciaManualReal: DistanciaManualReal | null;
+  calculandoReal: boolean;
+  otimizando: boolean;
+  enderecoUnidade: EnderecoUnidade | null;
+  carregandoEndereco: boolean;
+  otimizar: () => Promise<void>;
+}
+
 export interface UseNovaEntregaReturn {
   form: ReturnType<typeof useForm<ParadaFormDataWithCoords>>;
   paradas: Parada[];
-  motoristas: MotoristaResumo[];
-  motoristaSelecionado: string;
+  motorista: MotoristaDaNovaEntrega;
+  rascunho: RascunhoDaNovaEntrega;
+  percurso: PercursoDaNovaEntrega;
   vinculoSelecionado: string;
   dataRota: string;
   setDataRota: (date: string) => void;
   isLoading: boolean;
-  isLoadingMotoristas: boolean;
-  isLoadingEndereco: boolean;
-  isOptimizing: boolean;
-  isDraftHydrating: boolean;
-  isDraftSaving: boolean;
-  draftLastSavedAt: string | null;
-  draftSaveError: string | null;
-  rotaOtimizada: RotaOtimizadaState | null;
-  ordemManual: boolean;
-  distanciaManualReal: DistanciaManualReal | null;
-  isCalculandoReal: boolean;
-  enderecoUnidade: EnderecoUnidade | null;
   retiradasDisponiveis: Parada[];
   paradasStatus: ParadasStatus;
   routeValidation: RouteDraftValidation;
@@ -102,7 +119,6 @@ export interface UseNovaEntregaReturn {
   toastState: ReturnType<typeof useToast>['toast'];
   showToast: ReturnType<typeof useToast>['showToast'];
   hideToast: () => void;
-  setMotoristaSelecionado: (id: string) => void;
   setVinculoSelecionado: (id: string) => void;
   onAddParada: (
     data: ParadaFormData,
@@ -117,7 +133,6 @@ export interface UseNovaEntregaReturn {
   moveParadaUp: (index: number) => void;
   moveParadaDown: (index: number) => void;
   reorderParadas: (data: Parada[]) => boolean | void;
-  otimizarRota: () => Promise<void>;
   gerarRota: () => Promise<boolean>;
   limparFormulario: () => void;
   findDuplicate: (data: ParadaFormData) => Parada | null;
@@ -453,24 +468,32 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
   return {
     form,
     paradas,
-    motoristas,
-    motoristaSelecionado,
+    motorista: {
+      lista: motoristas,
+      selecionado: motoristaSelecionado,
+      carregando: isLoadingMotoristas,
+      selecionar: setMotoristaSelecionado,
+    },
+    rascunho: {
+      hidratando: isDraftHydrating,
+      salvando: isDraftSaving,
+      salvoEm: draftLastSavedAt,
+      erro: draftSaveError,
+    },
+    percurso: {
+      rotaOtimizada,
+      ordemManual,
+      distanciaManualReal,
+      calculandoReal: isCalculandoReal,
+      otimizando: isOptimizing,
+      enderecoUnidade,
+      carregandoEndereco: isLoadingEndereco,
+      otimizar: otimizarRota,
+    },
     vinculoSelecionado,
     dataRota,
     setDataRota,
     isLoading,
-    isLoadingMotoristas,
-    isLoadingEndereco,
-    isOptimizing,
-    isDraftHydrating,
-    isDraftSaving,
-    draftLastSavedAt,
-    draftSaveError,
-    rotaOtimizada,
-    ordemManual,
-    distanciaManualReal,
-    isCalculandoReal,
-    enderecoUnidade,
     retiradasDisponiveis: paradasManagement.retiradasDisponiveis,
     paradasStatus: paradasManagement.paradasStatus,
     routeValidation,
@@ -479,7 +502,6 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     toastState,
     showToast,
     hideToast,
-    setMotoristaSelecionado,
     setVinculoSelecionado,
     onAddParada,
     localizarLote: paradasManagement.localizarLote,
@@ -490,7 +512,6 @@ export function useNovaEntrega(): UseNovaEntregaReturn {
     moveParadaUp: paradasManagement.moveParadaUp,
     moveParadaDown: paradasManagement.moveParadaDown,
     reorderParadas: paradasManagement.reorderParadas,
-    otimizarRota,
     gerarRota,
     limparFormulario,
     findDuplicate,
