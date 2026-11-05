@@ -8,9 +8,9 @@ import {
   type TextStyle,
 } from 'react-native';
 
+import { EmptyState } from '@/components/EmptyState';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
-import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ModaisDaParada } from '@/components/motorista/ModaisDaParada';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
 import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
@@ -331,12 +331,12 @@ export default function CheckpointsMotorista() {
         testID="motorista-checkpoints-sem-conexao"
         style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
       >
-        <MobileEmptyState
-          icon="📡"
+        <EmptyState
+          emoji="📡"
           title="Sem conexão"
-          subtitle="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
+          description="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
           actionLabel="Tentar novamente"
-          onAction={refreshRoute}
+          onActionPress={refreshRoute}
           fullScreen
         />
       </View>
@@ -350,10 +350,10 @@ export default function CheckpointsMotorista() {
         testID="motorista-checkpoints-empty"
         style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
       >
-        <MobileEmptyState
-          icon="📋"
+        <EmptyState
+          emoji="📋"
           title="Nenhuma rota ativa no momento"
-          subtitle="Aguarde o gestor atribuir uma nova rota"
+          description="Aguarde o gestor atribuir uma nova rota"
           fullScreen
         />
       </View>

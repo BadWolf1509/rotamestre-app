@@ -182,8 +182,6 @@ module.exports = [
             { name: '@/components/mobile', message: "Importe via '@/design-system'." },
             { name: '@/components/mobile/MobileHeader', message: "Importe via '@/design-system'." },
             { name: '@/components/mobile/MobileCard', message: "Importe via '@/design-system'." },
-            { name: '@/components/mobile/MobileButton', message: "Importe via '@/design-system'." },
-            { name: '@/components/mobile/MobileEmptyState', message: "Importe via '@/design-system'." },
             { name: '@/components/mobile/MobileLoading', message: "Importe via '@/design-system'." },
             { name: '@/components/gestor/ResponsiveGrid', message: "Importe via '@/design-system'." },
             { name: '@/components/AddressAutocomplete', message: "Importe via '@/design-system'." },

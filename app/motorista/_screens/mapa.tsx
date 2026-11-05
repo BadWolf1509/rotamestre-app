@@ -1,9 +1,9 @@
 import { useCallback, useState, useMemo } from 'react';
 import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
 
+import { EmptyState } from '@/components/EmptyState';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapaAdapter } from '@/components/MapaAdapter';
-import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
 import { ModaisDaParada } from '@/components/motorista/ModaisDaParada';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
 import type { MotivoSkip } from '@/constants/skipReasons';
@@ -184,12 +184,12 @@ function MapaMotoristaContent() {
         testID="motorista-mapa-sem-conexao"
         style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
       >
-        <MobileEmptyState
-          icon="📡"
+        <EmptyState
+          emoji="📡"
           title="Sem conexão"
-          subtitle="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
+          description="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
           actionLabel="Tentar novamente"
-          onAction={refreshRoute}
+          onActionPress={refreshRoute}
           fullScreen
         />
       </View>
@@ -202,10 +202,10 @@ function MapaMotoristaContent() {
         testID="motorista-mapa-empty"
         style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
       >
-        <MobileEmptyState
-          icon="🗺️"
+        <EmptyState
+          emoji="🗺️"
           title="Nenhuma rota para visualizar"
-          subtitle="Quando houver uma rota ativa, você poderá visualizar todas as paradas no mapa"
+          description="Quando houver uma rota ativa, você poderá visualizar todas as paradas no mapa"
           fullScreen
         />
       </View>
