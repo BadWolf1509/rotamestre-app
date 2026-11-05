@@ -4,20 +4,15 @@ import { View, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MapaAdapter } from '@/components/MapaAdapter';
 import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
+import { ModaisDaParada } from '@/components/motorista/ModaisDaParada';
 import { ParadaBottomSheet } from '@/components/motorista/ParadaBottomSheet';
-import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
-import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import type { MotivoSkip } from '@/constants/skipReasons';
 import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus, type ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
-import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
-import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
+import { useAcoesDaParada } from '@/hooks/motorista/useAcoesDaParada';
 import { useAlert } from '@/hooks/useAlert';
-import {
-  agruparPorLocal,
-  paradasDaVisita,
-} from '@/lib/motorista/visitaNoLocal';
+import { agruparPorLocal } from '@/lib/motorista/visitaNoLocal';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 function MapaMotoristaContent() {
@@ -82,20 +77,17 @@ function MapaMotoristaContent() {
     );
   }, [selectedParadaId, paradas]);
 
-  // Entrega e retirada no mesmo local: cada serviço tem o seu comprovante, e
-  // o fluxo do próximo abre quando o anterior conclui (como na Início).
-  const sequencia = useConclusaoEmSequencia({
+  // Conclusão em sequência (entrega + retirada no mesmo local) e pulo da
+  // visita: a mesma regra da Início e de Paradas.
+  const { sequencia, pularVisita, aoConcluirComSucesso } = useAcoesDaParada({
     paradas,
+    skipStop,
+    refreshRoute,
+    showSuccess,
+    showError,
     abrirConclusao: setParadaParaConcluir,
+    paradaEmConclusao: paradaParaConcluir,
   });
-
-  // O StopCompletionFlow chama onSuccess e onClose no mesmo tique; esperar o
-  // refresh deixa o modal fechar antes de o próximo abrir zerado.
-  const handleConclusaoSucesso = async () => {
-    const concluidaId = paradaParaConcluir?.id;
-    await refreshRoute();
-    if (concluidaId) sequencia.aoConcluir(concluidaId);
-  };
 
   const storedRouteInfo = useMemo(
     () =>
@@ -139,13 +131,6 @@ function MapaMotoristaContent() {
   // Pular pela aba Mapa: o mesmo motivo estruturado e a mesma ação
   // (`skipStop`, com a fila offline) da Início e da aba Paradas. Antes o
   // sheet só tinha "Concluir", e pular exigia trocar de aba.
-  const pularVisita = usePuloDaVisita({
-    paradas,
-    skipStop,
-    showSuccess,
-    showError,
-  });
-
   const handleSkip = useCallback(
     (parada: { id: string }) => {
       if (route?.status !== 'em_andamento') {
@@ -360,26 +345,20 @@ function MapaMotoristaContent() {
         onSkip={handleSkip}
       />
 
-      {paradaParaPular && (
-        <SkipReasonModal
-          visible
-          parada={paradaParaPular}
-          outrosServicosNoLocal={paradasDaVisita(
-            paradas,
-            paradaParaPular,
-          ).slice(1)}
-          onConfirm={handleConfirmSkip}
-          onCancel={() => setParadaParaPular(null)}
-        />
-      )}
-
-      <StopCompletionFlow
-        parada={paradaParaConcluir}
-        visible={paradaParaConcluir !== null}
-        onClose={() => setParadaParaConcluir(null)}
-        onSuccess={handleConclusaoSucesso}
-        allowSkipPhoto={true}
+      <ModaisDaParada
+        paradas={paradas}
         contexto={sequencia.contexto}
+        conclusao={{
+          parada: paradaParaConcluir,
+          visible: paradaParaConcluir !== null,
+          onClose: () => setParadaParaConcluir(null),
+          onSuccess: aoConcluirComSucesso,
+        }}
+        pulo={{
+          parada: paradaParaPular,
+          onConfirm: handleConfirmSkip,
+          onCancel: () => setParadaParaPular(null),
+        }}
       />
       {AlertDialog}
     </View>
