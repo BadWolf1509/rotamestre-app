@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
@@ -18,9 +18,7 @@ export function UserMenuTrigger({
 }: UserMenuTriggerProps) {
   const { url: signedImageUrl } = useSignedUrl(imageUrl);
   const { theme } = useUnistyles();
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
+  const styles = StyleSheet.create({
         container: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -59,9 +57,7 @@ export function UserMenuTrigger({
         chevron: {
           marginLeft: -4,
         },
-      }),
-    [theme],
-  );
+      });
 
   const displayName = name?.trim().split(/\s+/)[0] || 'Usuário';
   const initial = displayName.charAt(0).toUpperCase() || '?';
