@@ -24,7 +24,6 @@ import {
   type Theme,
 } from '@/utils/styles';
 
-import { Toast, type ToastProps } from '../Toast';
 
 // No Android o Modal abre numa janela nativa à parte, que o GestureHandlerRootView
 // da raiz (app/_layout.tsx) não alcança: sem um próprio, gesto do Gesture
@@ -133,8 +132,6 @@ interface DesktopModalProps {
   closeOnOverlayPress?: boolean;
   /** Estilo adicional para o container de conteúdo */
   contentStyle?: ViewStyle;
-  /** Props do Toast para renderizar DENTRO do modal (acima de tudo) */
-  toast?: ToastProps;
 }
 
 export function DesktopModal({
@@ -150,7 +147,6 @@ export function DesktopModal({
   maxHeight = '80%',
   closeOnOverlayPress = true,
   contentStyle,
-  toast,
 }: DesktopModalProps) {
   const { isDesktop } = useResponsive();
   const { theme } = useUnistyles();
@@ -566,8 +562,6 @@ export function DesktopModal({
           )}
         </div>
 
-        {/* Toast inside dialog */}
-        {toast && <Toast {...toast} disablePortal />}
       </dialog>
     );
 
@@ -635,8 +629,6 @@ export function DesktopModal({
             )}
           </Pressable>
 
-          {/* Toast renderizado no overlay (fora do container) para aparecer acima de tudo */}
-          {toast && <Toast {...toast} disablePortal={false} />}
         </Pressable>
       </GestureHandlerRootView>
     </Modal>

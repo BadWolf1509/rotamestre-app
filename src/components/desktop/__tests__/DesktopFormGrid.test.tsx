@@ -7,7 +7,7 @@ import { render } from '@testing-library/react-native';
 import React from 'react';
 import { Text } from 'react-native';
 
-import { DesktopFormGrid, DesktopFormField } from '../DesktopFormGrid';
+import { DesktopFormGrid } from '../DesktopFormGrid';
 
 // Mock useResponsive
 const mockIsDesktop = jest.fn(() => false);
@@ -183,60 +183,6 @@ describe('DesktopFormGrid', () => {
       );
 
       expect(getByTestId('grid')).toBeTruthy();
-    });
-  });
-});
-
-describe('DesktopFormField', () => {
-  beforeEach(() => {
-    mockIsDesktop.mockReturnValue(false);
-  });
-
-  describe('Renderização Mobile', () => {
-    it('deve renderizar children', () => {
-      const { getByText } = render(
-        <DesktopFormField>
-          <Text>Campo de input</Text>
-        </DesktopFormField>
-      );
-
-      expect(getByText('Campo de input')).toBeTruthy();
-    });
-
-    it('deve aplicar testID quando fornecido', () => {
-      const { getByTestId } = render(
-        <DesktopFormField testID="field">
-          <Text>Campo</Text>
-        </DesktopFormField>
-      );
-
-      expect(getByTestId('field')).toBeTruthy();
-    });
-  });
-
-  describe('Renderização Desktop', () => {
-    beforeEach(() => {
-      mockIsDesktop.mockReturnValue(true);
-    });
-
-    it('deve renderizar children em desktop', () => {
-      const { getByText } = render(
-        <DesktopFormField>
-          <Text>Campo desktop</Text>
-        </DesktopFormField>
-      );
-
-      expect(getByText('Campo desktop')).toBeTruthy();
-    });
-
-    it('deve lidar com fullWidth prop', () => {
-      const { getByText } = render(
-        <DesktopFormField fullWidth={true}>
-          <Text>Campo full width</Text>
-        </DesktopFormField>
-      );
-
-      expect(getByText('Campo full width')).toBeTruthy();
     });
   });
 });

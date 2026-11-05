@@ -39,7 +39,6 @@ import { Avatar } from '@/components/Avatar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Text } from '@/components/Text';
 import { formatarDecimal } from '@/lib/formatNumber';
-import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -178,106 +177,6 @@ export function UserCell({
 }
 
 // ============================================
-// DATE CELL
-// ============================================
-
-interface DateCellProps {
-  /** Date value (ISO string, Date object, or timestamp) */
-  date: string | Date | number | null | undefined;
-  /** Format style */
-  format?: 'date' | 'time' | 'datetime' | 'relative';
-  /** Fallback text when date is null/undefined */
-  fallback?: string;
-}
-
-export function DateCell({
-  date,
-  format = 'date',
-  fallback = '--',
-}: DateCellProps) {
-  if (!date) {
-    return <Text style={styles.dateFallback}>{fallback}</Text>;
-  }
-
-  const dateObj =
-    typeof date === 'string' || typeof date === 'number'
-      ? new Date(date)
-      : date;
-
-  if (Number.isNaN(dateObj.getTime())) {
-    return <Text style={styles.dateFallback}>{fallback}</Text>;
-  }
-
-  let formattedDate: string;
-
-  if (format === 'relative') {
-    const now = new Date();
-    const diffMs = now.getTime() - dateObj.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) {
-      formattedDate = 'Agora';
-    } else if (diffMins < 60) {
-      formattedDate = `${diffMins} min atrás`;
-    } else if (diffHours < 24) {
-      formattedDate = `${diffHours}h atrás`;
-    } else if (diffDays < 7) {
-      formattedDate = `${diffDays}d atrás`;
-    } else {
-      formattedDate = dateObj.toLocaleDateString('pt-BR');
-    }
-  } else {
-    const options: Intl.DateTimeFormatOptions = {
-      ...(format === 'date' || format === 'datetime'
-        ? { dateStyle: 'short' }
-        : {}),
-      ...(format === 'time' || format === 'datetime'
-        ? { timeStyle: 'short' }
-        : {}),
-    } as Intl.DateTimeFormatOptions;
-    formattedDate = new Intl.DateTimeFormat('pt-BR', options).format(dateObj);
-  }
-
-  return <Text style={styles.dateText}>{formattedDate}</Text>;
-}
-
-// ============================================
-// CURRENCY CELL
-// ============================================
-
-interface CurrencyCellProps {
-  /** Value in cents or as decimal */
-  value: number | null | undefined;
-  /** Currency code */
-  currency?: string;
-  /** Whether value is in cents */
-  cents?: boolean;
-  /** Fallback text */
-  fallback?: string;
-}
-
-export function CurrencyCell({
-  value,
-  currency = 'BRL',
-  cents = false,
-  fallback = '--',
-}: CurrencyCellProps) {
-  if (value == null) {
-    return <Text style={styles.currencyFallback}>{fallback}</Text>;
-  }
-
-  const displayValue = cents ? value / 100 : value;
-  const formatted = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency,
-  }).format(displayValue);
-
-  return <Text style={styles.currencyText}>{formatted}</Text>;
-}
-
-// ============================================
 // DISTANCE CELL
 // ============================================
 
@@ -312,68 +211,6 @@ export function DistanceCell({
         {formatarDecimal(km)}
         {showUnit && ' km'}
       </Text>
-    </View>
-  );
-}
-
-// ============================================
-// DURATION CELL
-// ============================================
-
-interface DurationCellProps {
-  /** Duration in minutes */
-  minutes: number | null | undefined;
-  /** Fallback text */
-  fallback?: string;
-}
-
-export function DurationCell({ minutes, fallback = '--' }: DurationCellProps) {
-  const { theme } = useUnistyles();
-
-  if (minutes == null) {
-    return <Text style={styles.durationFallback}>{fallback}</Text>;
-  }
-
-  let displayText: string;
-  if (minutes < 60) {
-    displayText = `${minutes} min`;
-  } else {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    displayText = mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
-  }
-
-  return (
-    <View style={styles.durationContainer}>
-      <Ionicons name="time-outline" size={14} color={theme.colors.gray500} />
-      <Text style={styles.durationText}>{displayText}</Text>
-    </View>
-  );
-}
-
-// ============================================
-// ICON CELL
-// ============================================
-
-interface IconCellProps {
-  /** Ionicons icon name */
-  icon: IconName;
-  /** Text to display after icon */
-  text?: string;
-  /** Icon color */
-  color?: string;
-  /** Icon size */
-  size?: number;
-}
-
-export function IconCell({ icon, text, color, size = 16 }: IconCellProps) {
-  const { theme } = useUnistyles();
-  const iconColor = color || theme.colors.gray600;
-
-  return (
-    <View style={styles.iconContainer}>
-      <Ionicons name={icon} size={size} color={iconColor} />
-      {text && <Text style={styles.iconText}>{text}</Text>}
     </View>
   );
 }

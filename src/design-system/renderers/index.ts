@@ -5,11 +5,7 @@
  */
 
 export {
-  CurrencyCell,
-  DateCell,
   DistanceCell,
-  DurationCell,
-  IconCell,
   ProgressCell,
   StatusCell,
   UserCell,
