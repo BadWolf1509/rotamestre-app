@@ -2,8 +2,6 @@
 // Setup para Jest
 // Note: @/utils/color is mocked via moduleNameMapper in jest.config.js
 
-import '@testing-library/jest-native/extend-expect';
-
 // fetch sem mock no teste falha com mensagem clara, em vez de devolver undefined
 // e quebrar longe da causa ("Cannot read properties of undefined").
 global.fetch = jest.fn(() => Promise.reject(new Error('fetch sem mock neste teste')));

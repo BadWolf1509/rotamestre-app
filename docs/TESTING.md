@@ -89,13 +89,12 @@ Use `listarFontes` / `lerFontes` / `exigirVolume` de `src/__tests__/helpers/font
 
 ## Stack de Testes
 
-| Ferramenta                    | Versão | Propósito                             |
-| ----------------------------- | ------ | ------------------------------------- |
-| Jest                          | 30.x   | Test runner e framework de testes     |
-| jest-expo                     | 58.x   | Preset para projetos Expo             |
-| @testing-library/react-native | 13.x   | Utilitários para testar componentes   |
-| @testing-library/jest-native  | 5.x    | Matchers adicionais para React Native |
-| jest-junit                    | 17.x   | Reporter XML para CI/CD               |
+| Ferramenta                    | Versão | Propósito                           |
+| ----------------------------- | ------ | ----------------------------------- |
+| Jest                          | 30.x   | Test runner e framework de testes   |
+| jest-expo                     | 58.x   | Preset para projetos Expo           |
+| @testing-library/react-native | 13.x   | Utilitários para testar componentes |
+| jest-junit                    | 17.x   | Reporter XML para CI/CD             |
 
 ## Estrutura de Arquivos
 
