@@ -11,6 +11,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// Raiz do repositório pelo lugar do arquivo, não pelo cwd de quem roda o Jest.
+const RAIZ = path.resolve(__dirname, '..');
+
 /**
  * Avisos aceitos por enquanto (medidos em 05/11/2026: 352 avisos em 39 arquivos
  * de 652). Cada entrada vale só para os arquivos listados, então um arquivo
@@ -130,7 +133,7 @@ function instalarVigiaDoConsole(consoleDosTestes) {
   afterEach(() => {
     const { testPath, currentTestName } = expect.getState();
     const arquivoRel = path
-      .relative(process.cwd(), testPath || '')
+      .relative(RAIZ, testPath || '')
       .split(path.sep)
       .join('/');
     const novos = [];
@@ -157,14 +160,14 @@ function instalarVigiaDoConsole(consoleDosTestes) {
     if (novos.length === 0) return;
 
     if (medir) {
-      const alvo = path.join(process.cwd(), 'coverage', 'console-avisos.jsonl');
+      const alvo = path.join(RAIZ, 'coverage', 'console-avisos.jsonl');
       fs.mkdirSync(path.dirname(alvo), { recursive: true });
       for (const n of novos) {
         fs.appendFileSync(
           alvo,
           JSON.stringify({
             arquivo: path
-              .relative(process.cwd(), testPath || '')
+              .relative(RAIZ, testPath || '')
               .replace(/\\/g, '/'),
             teste: currentTestName,
             nivel: n.nivel,
