@@ -58,7 +58,7 @@ describe('send-push-notification: tokens de push_tokens', () => {
   });
 
   it('o log de push guarda só o token mascarado', () => {
-    const i = fonte.indexOf("from('push_notification_logs').insert(");
+    const i = fonte.search(/from\('push_notification_logs'\)\s*\.insert\(/);
     expect(i).toBeGreaterThan(-1);
     const trecho = fonte.slice(i, i + 300);
     expect(trecho).toMatch(

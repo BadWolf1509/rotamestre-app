@@ -80,7 +80,7 @@ describe('criar-motorista: entrada e permissão', () => {
   });
 
   it('responde 503 quando não consegue conferir a permissão', () => {
-    expect(fonte).toMatch(/resposta(503,/);
+    expect(fonte).toMatch(/resposta\(503,/);
   });
 
   it('lê o corpo dentro de try', () => {
