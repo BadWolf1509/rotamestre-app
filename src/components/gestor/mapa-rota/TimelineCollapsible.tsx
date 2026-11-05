@@ -9,8 +9,8 @@ import { View, Text, TouchableOpacity, LayoutAnimation } from 'react-native';
 
 import { RouteTimeline } from '@/components/RouteTimeline';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
-import { logger } from '@/lib/logger';
 import { buscarResumoDaLinhaDoTempo } from '@/lib/gestor/resumoLinhaDoTempo';
+import { logger } from '@/lib/logger';
 import { formatRelativeTime, type TimelinePreviewEvent } from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
