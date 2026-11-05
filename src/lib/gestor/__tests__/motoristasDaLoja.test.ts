@@ -49,6 +49,22 @@ describe('buscarMotoristasAtivosDaLoja', () => {
     expect(lista.map((m) => m.nome)).toEqual(['Ana', 'Bruno']);
   });
 
+  it('atribuição (padrão): exige cadastro ativo; filtro de rotas: só o vínculo', async () => {
+    const linhas = [
+      { usuario_id: 'a', usuarios: u('a', 'Ana') },
+      { usuario_id: 'i', usuarios: u('i', 'Inativo', false) },
+    ];
+    mockFrom.mockReturnValue(criarCadeia({ data: linhas, error: null }));
+
+    const paraAtribuir = await buscarMotoristasAtivosDaLoja('loja-1');
+    const paraFiltrar = await buscarMotoristasAtivosDaLoja('loja-1', {
+      incluirCadastroInativo: true,
+    });
+
+    expect(paraAtribuir.map((m) => m.nome)).toEqual(['Ana']);
+    expect(paraFiltrar.map((m) => m.nome)).toEqual(['Ana', 'Inativo']);
+  });
+
   it('lança o erro do Supabase', async () => {
     mockFrom.mockReturnValue(
       criarCadeia({ data: null, error: new Error('rede') }),

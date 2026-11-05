@@ -23,12 +23,23 @@ type Vinculacao = {
   usuarios: MotoristaDaLoja | null;
 };
 
+export interface OpcoesMotoristasDaLoja {
+  /**
+   * Para FILTRAR rotas (Início, Gestão): quem teve a conta desativada ainda tem
+   * rotas antigas, então basta o vínculo ativo. Para ATRIBUIR motorista a uma
+   * rota (padrão), exige também o cadastro ativo.
+   */
+  incluirCadastroInativo?: boolean;
+}
+
 /**
- * Lança o erro do Supabase; devolve só usuários ativos, em ordem alfabética.
- * Usuário escondido pela RLS (embed `null`) fica de fora.
+ * Lança o erro do Supabase; devolve em ordem alfabética. Por padrão só
+ * usuários com cadastro ativo (atribuição). Usuário escondido pela RLS (embed
+ * `null`) fica de fora.
  */
 export async function buscarMotoristasAtivosDaLoja(
   unidadeId: string,
+  { incluirCadastroInativo = false }: OpcoesMotoristasDaLoja = {},
 ): Promise<MotoristaDaLoja[]> {
   const { data, error } = await supabase
     .from('usuario_unidades')
@@ -47,6 +58,9 @@ export async function buscarMotoristasAtivosDaLoja(
 
   return (data ?? [])
     .map((vinculo) => vinculo.usuarios)
-    .filter((u): u is MotoristaDaLoja => u !== null && u.ativo)
+    .filter(
+      (u): u is MotoristaDaLoja =>
+        u !== null && (incluirCadastroInativo || u.ativo),
+    )
     .sort((a, b) => a.nome.localeCompare(b.nome));
 }
