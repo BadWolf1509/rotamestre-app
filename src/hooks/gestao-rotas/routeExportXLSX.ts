@@ -8,25 +8,19 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { ROTA_STATUS_LABELS, type FiltroStatus } from '@/lib/statusLabels';
-import { supabase } from '@/lib/supabase';
-import {
-  showError,
-  showInfo,
-  showSuccess,
-  showWarning,
-} from '@/utils/errorHandling';
+import { showError, showSuccess, showWarning } from '@/utils/errorHandling';
 
 import {
   FalhaCargaBibliotecaError,
   MENSAGEM_FALHA_CARGA,
   carregarBiblioteca,
 } from './carregarBiblioteca';
+import { compartilharArquivo, registrarExportacao } from './exportacao';
 
 import type { RotaHistorico } from './types';
 
@@ -80,7 +74,7 @@ export async function exportRotasToXLSX({
     }
 
     if (userId) {
-      logExportAction(userId, rotas.length, filtroStatus);
+      registrarExportacao(userId, rotas.length, filtroStatus, 'xlsx');
     }
 
     if (Platform.OS === 'web') {
@@ -167,43 +161,9 @@ async function shareXLSXMobile(
     encoding: FileSystem.EncodingType.Base64,
   });
 
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(fileUri, {
-      mimeType: XLSX_MIME_TYPE,
-      dialogTitle: 'Exportar Relatório de Rotas (Excel)',
-      UTI: 'org.openxmlformats.spreadsheetml.sheet',
-    });
-  } else {
-    showInfo('Arquivo Salvo', `O arquivo foi salvo em: ${fileUri}`);
-  }
-}
-
-/**
- * Log the XLSX export action to the audit table.
- */
-function logExportAction(
-  userId: string,
-  totalRotas: number,
-  filtroStatus: FiltroStatus,
-): void {
-  supabase
-    .from('logs')
-    .insert({
-      usuario_id: userId,
-      evento: 'exportacao_rotas',
-      detalhes: {
-        total_rotas: totalRotas,
-        filtro_status: filtroStatus,
-        formato: 'xlsx',
-        plataforma: Platform.OS,
-      },
-    })
-    .then(({ error }) => {
-      if (error)
-        logger.warn(
-          'Falha ao registrar log de exportação XLSX:',
-          error.message,
-        );
-    });
+  await compartilharArquivo(fileUri, {
+    mimeType: XLSX_MIME_TYPE,
+    dialogTitle: 'Exportar Relatório de Rotas (Excel)',
+    UTI: 'org.openxmlformats.spreadsheetml.sheet',
+  });
 }

@@ -27,7 +27,7 @@ import {
   type BloqueioDesativacao,
 } from './useBloqueioDesativacao';
 
-import type { MotoristaDetalhado } from '../useMotoristasGestor';
+import type { MotoristaDetalhado } from './types';
 
 /**
  * Dados já validados pelo formulário (`motoristaSchema`, em
