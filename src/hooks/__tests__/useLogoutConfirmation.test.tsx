@@ -6,7 +6,6 @@ import { authService } from '@/lib/auth';
 
 import { useLogoutConfirmation } from '../useLogoutConfirmation';
 
-
 // Mock dependencies
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
@@ -20,12 +19,18 @@ jest.mock('@/lib/auth', () => ({
 
 // Variable to capture Dialog props
 let capturedProps: any = null;
+// Último estado de cada Dialog, pelo título (o hook tem dois: confirmar e erro)
+let mockDialogsPorTitulo: Record<string, any> = {};
 
 // Mock Dialog
 jest.mock('@/components/Dialog', () => {
   return {
     Dialog: jest.fn((props) => {
-      capturedProps = props;
+      if (props.title === 'Erro ao sair') {
+        mockDialogsPorTitulo[props.title] = props;
+      } else {
+        capturedProps = props;
+      }
       return null;
     }),
   };
@@ -50,6 +55,7 @@ describe('useLogoutConfirmation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     capturedProps = null;
+    mockDialogsPorTitulo = {};
     (useRouter as jest.Mock).mockReturnValue({
       replace: mockReplace,
     });
@@ -205,8 +211,7 @@ describe('useLogoutConfirmation', () => {
     expect(capturedProps.loading).toBe(false);
   });
 
-  // O signOut do supabase-js remove a sessão mesmo quando a chamada ao
-  // servidor falha; o SIGNED_OUT resultante é o que leva ao login.
+  // Navegar ao login é só do SIGNED_OUT (layout raiz); daqui nunca.
   it('signOut que falha: não navega por conta própria', async () => {
     const error = new Error('Sign out failed');
     (authService.signOut as jest.Mock).mockRejectedValueOnce(error);
@@ -219,6 +224,44 @@ describe('useLogoutConfirmation', () => {
     });
 
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  // Token vencido + sem rede: o signOut do supabase-js devolve o erro antes de
+  // limpar a sessão, então não chega SIGNED_OUT e nada navega. Sem aviso, o
+  // toque em Sair não responderia. Mesmo aviso do menu lateral (useDrawerLogout).
+  it('signOut que falha: mostra o aviso de erro ao sair', async () => {
+    (authService.signOut as jest.Mock).mockRejectedValueOnce(
+      new Error('Sign out failed'),
+    );
+
+    render(<TestComponent />);
+    expect(mockDialogsPorTitulo['Erro ao sair']?.visible).toBe(false);
+
+    await act(async () => {
+      await capturedProps.onConfirm();
+    });
+
+    const aviso = mockDialogsPorTitulo['Erro ao sair'];
+    expect(aviso.visible).toBe(true);
+    expect(aviso.message).toBe(
+      'Não foi possível encerrar sua sessão. Tente novamente.',
+    );
+
+    act(() => {
+      aviso.onConfirm();
+    });
+    expect(mockDialogsPorTitulo['Erro ao sair'].visible).toBe(false);
+  });
+
+  it('signOut que dá certo: nenhum aviso de erro', async () => {
+    (authService.signOut as jest.Mock).mockResolvedValueOnce(undefined);
+
+    render(<TestComponent />);
+    await act(async () => {
+      await capturedProps.onConfirm();
+    });
+
+    expect(mockDialogsPorTitulo['Erro ao sair'].visible).toBe(false);
   });
 
   it('should handle multiple show/hide cycles', () => {
