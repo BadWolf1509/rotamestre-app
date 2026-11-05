@@ -12,35 +12,23 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { exigirUsuario } from '../_shared/autenticacao.ts';
+import {
+  criarValidadorDeUsuario,
+  exigirUsuario,
+} from '../_shared/autenticacao.ts';
 import { chavePublica } from '../_shared/chaves.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
+import { CORS_PADRAO, jsonResponse, preflight } from '../_shared/http.ts';
 
 // place_id da Google tem dezenas a poucas centenas de caracteres.
 const TAMANHO_MAXIMO_PLACE_ID = 512;
 const TAMANHO_MAXIMO_SESSION_TOKEN = 128;
 
 /** O Authorization recebido corresponde a um usuário do Auth? */
-async function usuarioValido(authorization: string): Promise<boolean> {
-  const cliente = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    chavePublica(),
-    {
-      global: { headers: { Authorization: authorization } },
-      auth: { autoRefreshToken: false, persistSession: false },
-    },
-  );
-  const {
-    data: { user },
-    error,
-  } = await cliente.auth.getUser();
-  return !error && !!user;
-}
+const usuarioValido = criarValidadorDeUsuario(
+  createClient,
+  Deno.env.get('SUPABASE_URL') ?? '',
+  chavePublica,
+);
 
 interface PlaceDetailsRequest {
   placeId: string;
@@ -48,12 +36,12 @@ interface PlaceDetailsRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  const respostaPreflight = preflight(req);
+  if (respostaPreflight) {
+    return respostaPreflight;
   }
 
-  const naoAutorizado = await exigirUsuario(req, usuarioValido, corsHeaders);
+  const naoAutorizado = await exigirUsuario(req, usuarioValido, CORS_PADRAO);
   if (naoAutorizado) {
     return naoAutorizado;
   }
@@ -63,10 +51,7 @@ serve(async (req) => {
     const { placeId, sessionToken } = body;
 
     if (!placeId) {
-      return new Response(JSON.stringify({ error: 'placeId é obrigatório' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(400, { error: 'placeId é obrigatório' });
     }
 
     if (
@@ -76,19 +61,13 @@ serve(async (req) => {
         (typeof sessionToken !== 'string' ||
           sessionToken.length > TAMANHO_MAXIMO_SESSION_TOKEN))
     ) {
-      return new Response(JSON.stringify({ error: 'Entrada inválida' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(400, { error: 'Entrada inválida' });
     }
 
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!apiKey) {
       console.error('[Place Details] GOOGLE_MAPS_API_KEY ausente');
-      return new Response(JSON.stringify({ error: 'Serviço indisponível' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(500, { error: 'Serviço indisponível' });
     }
 
     // Places API (New): GET /v1/places/{placeId} com FieldMask no header
@@ -121,17 +100,10 @@ serve(async (req) => {
         response.status,
         data.error?.message,
       );
-      return new Response(
-        // A mensagem da Google fica no log acima; para fora, só o genérico.
-        JSON.stringify({
-          error: 'Erro ao obter detalhes do lugar',
-          status: 'REQUEST_DENIED',
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return jsonResponse(400, {
+        error: 'Erro ao obter detalhes do lugar',
+        status: 'REQUEST_DENIED',
+      });
     }
 
     const location = data.location;
@@ -146,16 +118,10 @@ serve(async (req) => {
         '[Place Details] Coordenadas não encontradas para o lugar:',
         placeId,
       );
-      return new Response(
-        JSON.stringify({
-          error: 'Coordenadas não encontradas para este lugar',
-          status: 'NO_COORDINATES',
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return jsonResponse(400, {
+        error: 'Coordenadas não encontradas para este lugar',
+        status: 'NO_COORDINATES',
+      });
     }
 
     // Extrair componentes do endereço (New API: longText no lugar de long_name)
@@ -185,18 +151,12 @@ serve(async (req) => {
       formatted_address: data.formattedAddress || '',
     };
 
-    return new Response(JSON.stringify(placeDetails), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse(200, placeDetails);
   } catch (error) {
     console.error('[Place Details] Exception:', error);
-    return new Response(
-      JSON.stringify({ error: 'Erro interno', status: 'INTERNAL_ERROR' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    );
+    return jsonResponse(500, {
+      error: 'Erro interno',
+      status: 'INTERNAL_ERROR',
+    });
   }
 });

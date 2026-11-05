@@ -26,23 +26,15 @@ import {
 } from './telefoneDuplicado.ts';
 import { exigirUsuario } from '../_shared/autenticacao.ts';
 import { chavePublica, chaveSecreta } from '../_shared/chaves.ts';
+import { CORS_PADRAO, jsonResponse, preflight } from '../_shared/http.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
-
-const resposta = (status: number, corpo: unknown) =>
-  new Response(JSON.stringify(corpo), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+const resposta = jsonResponse;
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  const respostaPreflight = preflight(req);
+  if (respostaPreflight) {
+    return respostaPreflight;
   }
 
   try {
@@ -63,7 +55,7 @@ serve(async (req) => {
         user = error ? null : (data.user ?? null);
         return user !== null;
       },
-      corsHeaders,
+      CORS_PADRAO,
     );
     if (recusa401 || !user) {
       return recusa401 ?? resposta(401, { error: 'Não autorizado' });

@@ -2,7 +2,7 @@
 // injetada, então aqui ela é uma função simples. O que importa provar: sem
 // `Authorization: Bearer`, ou com JWT que o Auth não reconhece, ninguém passa —
 // e a validação nem é chamada quando falta o cabeçalho.
-import { exigirUsuario } from '../autenticacao';
+import { criarValidadorDeUsuario, exigirUsuario } from '../autenticacao';
 
 beforeEach(() => {
   jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -73,5 +73,54 @@ describe('exigirUsuario', () => {
       cors,
     );
     expect(resp).toBeNull();
+  });
+});
+
+describe('criarValidadorDeUsuario', () => {
+  const clienteCom = (resposta: {
+    data: { user: unknown };
+    error: unknown;
+  }) => {
+    const getUser = jest.fn().mockResolvedValue(resposta);
+    const createClient = jest.fn(() => ({ auth: { getUser } }));
+    return { createClient, getUser };
+  };
+
+  it('cria o cliente com a chave publicável e o Authorization recebido', async () => {
+    const { createClient } = clienteCom({
+      data: { user: { id: 'u' } },
+      error: null,
+    });
+    const validar = criarValidadorDeUsuario(
+      createClient,
+      'https://p',
+      () => 'sb_publishable_x',
+    );
+    await expect(validar('Bearer t')).resolves.toBe(true);
+    expect(createClient).toHaveBeenCalledWith(
+      'https://p',
+      'sb_publishable_x',
+      expect.objectContaining({
+        global: { headers: { Authorization: 'Bearer t' } },
+      }),
+    );
+  });
+
+  it('recusa quando o getUser devolve erro ou nenhum usuário', async () => {
+    const semUsuario = clienteCom({ data: { user: null }, error: null });
+    const comErro = clienteCom({
+      data: { user: { id: 'u' } },
+      error: { message: 'x' },
+    });
+    await expect(
+      criarValidadorDeUsuario(
+        semUsuario.createClient,
+        'u',
+        () => 'k',
+      )('Bearer t'),
+    ).resolves.toBe(false);
+    await expect(
+      criarValidadorDeUsuario(comErro.createClient, 'u', () => 'k')('Bearer t'),
+    ).resolves.toBe(false);
   });
 });

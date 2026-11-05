@@ -25,8 +25,17 @@ describe.each(funcoes)('%s: autenticação e entrada', (nome) => {
   });
 
   it('valida o usuário com auth.getUser usando o Authorization recebido', () => {
-    expect(fonte).toMatch(/auth\.getUser\(\)/);
-    expect(fonte).toMatch(/headers:\s*\{\s*Authorization/);
+    // A validação mora em _shared/autenticacao.ts (criarValidadorDeUsuario),
+    // testada em autenticacao.test.ts; a função só a monta com a chave publicável.
+    expect(fonte).toMatch(
+      /criarValidadorDeUsuario\(\s*createClient,[\s\S]*?chavePublica,?\s*\)/,
+    );
+    const compartilhado = readFileSync(
+      join(__dirname, '..', 'autenticacao.ts'),
+      'utf8',
+    );
+    expect(compartilhado).toMatch(/auth\.getUser\(\)/);
+    expect(compartilhado).toMatch(/headers:\s*\{\s*Authorization/);
   });
 
   it('exige o usuário antes de ler o corpo e antes de chamar a Google', () => {
