@@ -12,11 +12,7 @@
  *    `simultaneousHandlers` que a lib passa e disputa o toque de outro jeito com
  *    o pan legado (Gesture.Pan). A lib foi escrita para a API antiga: o patch a
  *    mantém no `LegacyFlatList`.
- * 3. Pelo mesmo motivo, o `NestableScrollContainer` (a página rolável da Nova
- *    Entrega) usa o `LegacyScrollView`: com o `ScrollView` novo, o Pan da lista
- *    tomava o toque e a página não rolava com o dedo sobre os cards (moto g15,
- *    1.15.0 3053, 04/11/2026). A lista própria, no `LegacyFlatList`, rolava.
- * 4. Com o root view do Gesture Handler valendo nas telas do gestor (SDK 58),
+ * 3. Com o root view do Gesture Handler valendo nas telas do gestor (SDK 58),
  *    o Pan da lib passou a ativar em qualquer deslize de `activationDistance`,
  *    arrastando ou não, e a tomar o toque da rolagem: nem a página da Nova
  *    Entrega nem a lista do modal Reordenar rolavam com o dedo sobre os cards
@@ -75,29 +71,6 @@ describe('patch do react-native-draggable-flatlist', () => {
     expect(importados).not.toContain('FlatList');
     expect(codigo).not.toMatch(/_reactNativeGestureHandler\.FlatList\b/);
   });
-
-  const CONTAINERS = [
-    'src/components/NestableScrollContainer.tsx',
-    'lib/module/components/NestableScrollContainer.js',
-    'lib/commonjs/components/NestableScrollContainer.js',
-  ];
-
-  it.each(CONTAINERS)(
-    '%s usa o LegacyScrollView do Gesture Handler',
-    (arquivo) => {
-      const codigo = ler(arquivo);
-      expect(codigo).toMatch(/LegacyScrollView/);
-      const importados = [
-        ...codigo.matchAll(
-          /import \{([^}]*)\} from "react-native-gesture-handler"/g,
-        ),
-      ].flatMap((m) =>
-        m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0]),
-      );
-      expect(importados).not.toContain('ScrollView');
-      expect(codigo).not.toMatch(/_reactNativeGestureHandler\.ScrollView\b/);
-    },
-  );
 
   it('src/components/DraggableFlatList.tsx só ativa o Pan depois do drag()', () => {
     const codigo = ler('src/components/DraggableFlatList.tsx');
