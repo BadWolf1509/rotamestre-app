@@ -512,7 +512,7 @@ export default function SOSScreen() {
         {/* Localização Atual */}
         <View style={styles.locationSection}>
           <Text style={styles.sectionTitle}>Sua localização</Text>
-          {loadingLocation ? (
+          {loadingLocation && !location ? (
             <View style={styles.locationLoading}>
               <ActivityIndicator size="small" color={theme.colors.gray500} />
               <Text style={styles.locationLoadingText}>

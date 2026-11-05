@@ -14,7 +14,7 @@
  * demorar ou falhar nos primeiros segundos, que é exatamente quando alguém
  * abre a tela de SOS.
  */
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -443,6 +443,22 @@ describe('tela de SOS', () => {
       );
 
       expect(mockWatchPositionAsync).not.toHaveBeenCalled();
+    });
+
+    // B-MOT-3: o one-shot nunca resolve (GPS frio sem timeout), mas o watcher
+    // entrega o fix. A tela tem de mostrar as coordenadas, não o spinner.
+    it('mostra as coordenadas do watcher mesmo com o one-shot pendente', async () => {
+      mockGetCurrentPositionAsync.mockReturnValue(new Promise(() => {}));
+      const { findByText, queryByText } = render(<SOSScreen />);
+
+      await waitFor(() => expect(mockWatchPositionAsync).toHaveBeenCalled());
+      const entregar = mockWatchPositionAsync.mock.calls[0][1] as (
+        l: typeof COORDS,
+      ) => void;
+      act(() => entregar(COORDS));
+
+      expect(await findByText(/-23\.550500/)).toBeTruthy();
+      expect(queryByText('Obtendo localização...')).toBeNull();
     });
   });
 });
