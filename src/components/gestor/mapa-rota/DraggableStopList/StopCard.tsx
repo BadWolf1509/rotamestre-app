@@ -170,13 +170,23 @@ export const StopCard = memo(function StopCard({
 
       {/* Drag handle (mobile apenas) */}
       {!isFixed && !isWeb && (
-        <View style={styles.dragHandle} onTouchStart={onDrag}>
+        // Toque longo, como na Nova Entrega: no primeiro toque, a rolagem
+        // automática da lib disparava antes de o dedo se mexer e a parada podia
+        // ficar presa como ativa quando a rolagem nativa ganhava o gesto.
+        <TouchableOpacity
+          style={styles.dragHandle}
+          onLongPress={onDrag}
+          delayLongPress={180}
+          accessibilityLabel={`Arrastar parada ${displayIndex}`}
+          accessibilityHint="Mantenha pressionado e arraste para mudar a posição"
+          accessibilityRole="button"
+        >
           <Ionicons
             name="reorder-three"
             size={24}
             color={isActive ? theme.colors.primary : theme.colors.gray400}
           />
-        </View>
+        </TouchableOpacity>
       )}
 
       {/* Badge de ordem */}
