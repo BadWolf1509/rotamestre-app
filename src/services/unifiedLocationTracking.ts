@@ -32,12 +32,6 @@ const TRACKING_CONTEXT_KEY = CHAVE_CONTEXTO_RASTREAMENTO;
 
 // Configurações de tracking
 const CONFIG = {
-  // Foreground (app aberto)
-  foreground: {
-    accuracy: Location.Accuracy.High,
-    timeInterval: 10000, // 10 segundos
-    distanceInterval: 20, // 20 metros
-  },
   // Background (app minimizado/fechado)
   background: {
     accuracy: Location.Accuracy.Balanced, // Economia de bateria

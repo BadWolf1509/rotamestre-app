@@ -65,7 +65,7 @@ import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const OPCOES_INICIO: OpcoesDoWatcher = {
-  accuracy: Location.Accuracy.BestForNavigation,
+  accuracy: Location.Accuracy.Balanced,
   timeInterval: 10000,
   distanceInterval: 50,
 };
@@ -238,7 +238,7 @@ function MotoristaInicioContent() {
   });
 
   useLocationWatcher({
-    enabled: temPermissaoDeLocalizacao,
+    enabled: temPermissaoDeLocalizacao && !emNavegacao,
     options: OPCOES_INICIO,
     onLocation: (novaPosicao) =>
       setLocation({
