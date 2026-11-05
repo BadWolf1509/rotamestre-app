@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
@@ -12,9 +11,9 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { JanelaModalNativa } from '@/components/JanelaModalNativa';
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow, withOpacity } from '@/utils/color';
 import {
@@ -23,12 +22,6 @@ import {
   useUnistyles,
   type Theme,
 } from '@/utils/styles';
-
-
-// No Android o Modal abre numa janela nativa à parte, que o GestureHandlerRootView
-// da raiz (app/_layout.tsx) não alcança: sem um próprio, gesto do Gesture
-// Handler dentro do modal não recebe toque (o arrasto do Reordenar travava).
-const RAIZ_DE_GESTOS_DO_MODAL = { flex: 1 } as const;
 
 /**
  * Configuração de botão para o footer do modal
@@ -561,7 +554,6 @@ export function DesktopModal({
             </div>
           )}
         </div>
-
       </dialog>
     );
 
@@ -575,63 +567,56 @@ export function DesktopModal({
   if (!visible) return null;
 
   return (
-    <Modal
+    <JanelaModalNativa
       visible={visible}
       transparent
       animationType={isDesktop ? 'fade' : 'slide'}
       onRequestClose={onClose}
     >
-      <GestureHandlerRootView style={RAIZ_DE_GESTOS_DO_MODAL}>
+      <Pressable
+        style={styles.overlay}
+        onPress={closeOnOverlayPress ? onClose : undefined}
+      >
         <Pressable
-          style={styles.overlay}
-          onPress={closeOnOverlayPress ? onClose : undefined}
+          style={[
+            styles.modalContainer,
+            isDesktop ? styles.desktopModal : styles.mobileModal,
+            isDesktop && {
+              maxWidth: effectiveMaxWidth,
+              maxHeight: maxHeight as DimensionValue,
+            },
+            // No mobile, eleva o modal para ficar acima da navigation bar do Android
+            // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
+            !isDesktop && { bottom: Math.max(insets.bottom, 34) },
+            contentStyle,
+          ]}
+          onPress={(e) => e?.stopPropagation?.()}
         >
-          <Pressable
-            style={[
-              styles.modalContainer,
-              isDesktop ? styles.desktopModal : styles.mobileModal,
-              isDesktop && {
-                maxWidth: effectiveMaxWidth,
-                maxHeight: maxHeight as DimensionValue,
-              },
-              // No mobile, eleva o modal para ficar acima da navigation bar do Android
-              // Usa Math.max para garantir mínimo de 34px (Android 15 pode retornar insets.bottom = 0)
-              !isDesktop && { bottom: Math.max(insets.bottom, 34) },
-              contentStyle,
-            ]}
-            onPress={(e) => e?.stopPropagation?.()}
-          >
-            {/* Header */}
-            {title && (
-              <View style={styles.header}>
-                <Text style={styles.title}>{title}</Text>
-                <TouchableOpacity
-                  onPress={onClose}
-                  style={styles.closeButton}
-                  accessibilityLabel="Fechar modal"
-                  accessibilityRole="button"
-                >
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={theme.colors.gray500}
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
+          {/* Header */}
+          {title && (
+            <View style={styles.header}>
+              <Text style={styles.title}>{title}</Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeButton}
+                accessibilityLabel="Fechar modal"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={24} color={theme.colors.gray500} />
+              </TouchableOpacity>
+            </View>
+          )}
 
-            {/* Content */}
-            <View style={styles.content}>{children}</View>
+          {/* Content */}
+          <View style={styles.content}>{children}</View>
 
-            {/* Footer */}
-            {shouldRenderFooter && (
-              <View style={styles.footer}>{renderFooterContent(false)}</View>
-            )}
-          </Pressable>
-
+          {/* Footer */}
+          {shouldRenderFooter && (
+            <View style={styles.footer}>{renderFooterContent(false)}</View>
+          )}
         </Pressable>
-      </GestureHandlerRootView>
-    </Modal>
+      </Pressable>
+    </JanelaModalNativa>
   );
 }
 

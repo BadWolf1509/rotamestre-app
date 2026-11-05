@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Modal as RNModal,
   View,
   Text,
   TouchableOpacity,
@@ -28,16 +27,11 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { JanelaModalNativa } from '@/components/JanelaModalNativa';
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// No Android o Modal abre numa janela nativa à parte, que o GestureHandlerRootView
-// da raiz (app/_layout.tsx) não alcança: sem um próprio, gesto do Gesture
-// Handler dentro do modal não recebe toque (o arrasto do Reordenar travava).
-const RAIZ_DE_GESTOS_DO_MODAL = { flex: 1 } as const;
 
 type ModalSize = 'small' | 'medium' | 'large' | 'full';
 
@@ -346,85 +340,83 @@ export function Modal({
   // MOBILE: React Native Modal
   // ============================================
   return (
-    <RNModal
+    <JanelaModalNativa
       visible={visible}
       transparent={transparent}
       animationType={animationType === 'none' ? 'none' : undefined}
       onRequestClose={onClose}
       accessibilityViewIsModal={true}
     >
-      <GestureHandlerRootView style={RAIZ_DE_GESTOS_DO_MODAL}>
-        {/* Overlay */}
+      {/* Overlay */}
+      <Animated.View
+        style={[
+          styles.overlay,
+          {
+            opacity: fadeAnim,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.overlayTouchable}
+          activeOpacity={1}
+          onPress={onClose}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Fechar modal"
+          accessibilityHint="Toque fora do modal para fechar"
+        />
+      </Animated.View>
+
+      {/* Modal Content */}
+      <View style={styles.container}>
         <Animated.View
           style={[
-            styles.overlay,
+            styles.modal,
             {
-              opacity: fadeAnim,
+              width: getModalWidth(),
+              transform: [
+                { translateY: animationType === 'slide' ? slideAnim : 0 },
+              ],
+              opacity: animationType === 'fade' ? fadeAnim : 1,
             },
+            size === 'full' && styles.fullModal,
+            style,
           ]}
         >
-          <TouchableOpacity
-            style={styles.overlayTouchable}
-            activeOpacity={1}
-            onPress={onClose}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Fechar modal"
-            accessibilityHint="Toque fora do modal para fechar"
-          />
+          {/* Header */}
+          {(title || showCloseButton) && (
+            <View style={styles.header}>
+              {title ? (
+                <Text style={styles.title} accessibilityRole="header">
+                  {title}
+                </Text>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
+              {showCloseButton && (
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={onClose}
+                  activeOpacity={0.7}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar modal"
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.gray500}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Content */}
+          <View style={styles.content}>{children}</View>
         </Animated.View>
-
-        {/* Modal Content */}
-        <View style={styles.container}>
-          <Animated.View
-            style={[
-              styles.modal,
-              {
-                width: getModalWidth(),
-                transform: [
-                  { translateY: animationType === 'slide' ? slideAnim : 0 },
-                ],
-                opacity: animationType === 'fade' ? fadeAnim : 1,
-              },
-              size === 'full' && styles.fullModal,
-              style,
-            ]}
-          >
-            {/* Header */}
-            {(title || showCloseButton) && (
-              <View style={styles.header}>
-                {title ? (
-                  <Text style={styles.title} accessibilityRole="header">
-                    {title}
-                  </Text>
-                ) : (
-                  <View style={{ flex: 1 }} />
-                )}
-                {showCloseButton && (
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel="Fechar modal"
-                  >
-                    <Ionicons
-                      name="close"
-                      size={24}
-                      color={theme.colors.gray500}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Content */}
-            <View style={styles.content}>{children}</View>
-          </Animated.View>
-        </View>
-      </GestureHandlerRootView>
-    </RNModal>
+      </View>
+    </JanelaModalNativa>
   );
 }
 
