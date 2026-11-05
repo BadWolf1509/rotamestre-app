@@ -1,389 +1,142 @@
+/**
+ * useProfile: o perfil vem do `useUser` (busca compartilhada, guarda de conta
+ * e de resposta velha); aqui ficam só a foto e os diálogos (R-NUC-3).
+ *
+ * B-NUC-2: abrir o Perfil regravava `ultimo_login`, e o "Último acesso" da
+ * tela mostrava a última vez que a pessoa abriu o Perfil. O login já grava
+ * (`src/lib/auth.ts`).
+ * B-NUC-3: a consulta própria, sem guarda, deixava a resposta da conta
+ * anterior sobrescrever a atual.
+ */
 import { User } from '@supabase/supabase-js';
-import { renderHook, waitFor, act } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 
 import { supabase } from '@/lib/supabase';
 
 import { useProfile } from '../useProfile';
 
-// Mock do supabase
 jest.mock('@/lib/supabase');
 
+let mockUserData: Record<string, unknown> | null = null;
+let mockUserLoading = false;
+jest.mock('../useUser', () => ({
+  useUser: () => ({ userData: mockUserData, loading: mockUserLoading }),
+}));
+
+// Captura o setter que o useProfile entrega ao fluxo da foto
+type SetProfile = (p: unknown) => void;
+let mockSetProfile: SetProfile = () => undefined;
+jest.mock('../profile/useProfilePhoto', () => ({
+  useProfilePhoto: (args: { setProfile: SetProfile }) => {
+    mockSetProfile = args.setProfile;
+    return {
+      uploadingPhoto: false,
+      updateProfilePhoto: jest.fn(),
+      showPhotoOptions: jest.fn(),
+    };
+  },
+}));
+
+const usuario = (id: string, email = `${id}@rotamestre.com`) =>
+  ({ id, email, app_metadata: {}, user_metadata: {} }) as unknown as User;
+
+const perfilDe = (id: string) => ({
+  id,
+  nome: `Pessoa ${id}`,
+  email: `${id}@rotamestre.com`,
+  papel: 'gestor',
+  unidade_id: 'unidade-1',
+  telefone: null,
+  ativo: true,
+  is_gestor_principal: true,
+  primeira_senha: false,
+  foto_url: null,
+  ultimo_login: '2026-11-01T10:00:00Z',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+});
+
+const mockFrom = supabase.from as jest.Mock;
+
 describe('useProfile', () => {
-  const mockUser: User = {
-    id: 'user-123',
-    email: 'gestor@rotamestre.com',
-    aud: 'authenticated',
-    role: 'authenticated',
-    created_at: '2025-01-01T00:00:00Z',
-    app_metadata: {},
-    user_metadata: {},
-  } as User;
-
-  const mockProfile = {
-    id: 'user-123',
-    nome: 'Gestor Teste',
-    email: 'gestor@rotamestre.com',
-    papel: 'gestor' as const,
-    unidade_id: 'unidade-1',
-    telefone: '(11) 98765-4321',
-    ativo: true,
-    is_gestor_principal: true,
-    primeira_senha: false,
-    foto_url: null,
-    ultimo_login: '2025-01-01T10:00:00Z',
-  };
-
-  const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUserData = null;
+    mockUserLoading = false;
   });
 
-  describe('Estado Inicial', () => {
-    it('deve iniciar com loading=true quando há usuário', async () => {
-      // Setup mock before rendering
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: jest.fn().mockReturnThis(),
-      });
+  it('devolve o perfil do useUser, com os campos que a tela usa', () => {
+    mockUserData = perfilDe('u1');
+    const { result } = renderHook(() => useProfile(usuario('u1')));
 
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      // Initial state can be either true or false depending on React version
-      // Just check that we start with no profile initially
-      expect(result.current.profile).toBeNull();
-
-      // Wait for loading to complete
-      await waitFor(() => {
-        expect(result.current.loading).toBeDefined();
-      });
-    });
-
-    it('deve definir loading=false quando não há usuário', async () => {
-      const { result } = renderHook(() => useProfile(null));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.profile).toBeNull();
-    });
-  });
-
-  describe('Carregar Perfil', () => {
-    it('deve carregar perfil do usuário com sucesso', async () => {
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: jest.fn().mockReturnThis(),
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.profile).toEqual(mockProfile);
-      expect(result.current.error).toBeNull();
-      expect(result.current.isGestorPrincipal).toBe(true);
-    });
-
-    it('deve atualizar ultimo_login ao carregar perfil', async () => {
-      const mockUpdate = jest.fn().mockReturnThis();
-
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: mockUpdate,
-      });
-
-      renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(mockUpdate).toHaveBeenCalledWith({
-          ultimo_login: expect.any(String),
-        });
-      });
-    });
-
-    it('deve definir erro quando falhar ao carregar perfil', async () => {
-      const errorMessage = 'Erro ao buscar perfil';
-
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: { message: errorMessage },
-        }),
-        update: jest.fn().mockReturnThis(),
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(result.current.error).toBe(errorMessage);
-      expect(result.current.profile).toBeNull();
-    });
-  });
-
-  describe('updateProfile', () => {
-    it('deve atualizar perfil com sucesso', async () => {
-      const mockUpdateFn = jest.fn().mockReturnThis();
-
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: mockUpdateFn,
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      const updateData = { nome: 'Novo Nome', telefone: '(11) 99999-9999' };
-
-      await act(async () => {
-        await result.current.updateProfile(updateData);
-      });
-
-      expect(mockUpdateFn).toHaveBeenCalledWith(updateData);
-    });
-
-    it('deve lançar erro quando usuário não autenticado', async () => {
-      const { result } = renderHook(() => useProfile(null));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      await expect(
-        result.current.updateProfile({ nome: 'Novo Nome' })
-      ).rejects.toThrow('Usuário não autenticado');
-    });
-
-    it('deve recarregar perfil após atualização bem-sucedida', async () => {
-      let selectCallCount = 0;
-
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn(() => {
-          selectCallCount++;
-          return {
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
-              data: mockProfile,
-              error: null,
-            }),
-          };
-        }),
-        eq: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      const initialCallCount = selectCallCount;
-
-      await act(async () => {
-        await result.current.updateProfile({ nome: 'Novo Nome' });
-      });
-
-      // Deve ter chamado select novamente para recarregar
-      expect(selectCallCount).toBeGreaterThan(initialCallCount);
-    });
-
-    it('deve lançar erro quando update falha', async () => {
-      const updateError = new Error('Falha ao atualizar no banco');
-
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
-            data: null,
-            error: updateError,
-          }),
-        }),
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      await expect(
-        result.current.updateProfile({ nome: 'Novo Nome' })
-      ).rejects.toThrow('Falha ao atualizar no banco');
-    });
-  });
-
-  describe('changePassword', () => {
-    it('deve trocar senha com sucesso', async () => {
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: jest.fn().mockReturnThis(),
-      });
-
-      (mockSupabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
-        error: null,
-      });
-
-      (mockSupabase.auth.updateUser as jest.Mock).mockResolvedValue({
-        error: null,
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.changePassword('senhaAtual123', 'novaSenha123');
-      });
-
-      expect(mockSupabase.auth.signInWithPassword).toHaveBeenCalledWith({
-        email: mockUser.email,
-        password: 'senhaAtual123',
-      });
-
-      expect(mockSupabase.auth.updateUser).toHaveBeenCalledWith({
-        password: 'novaSenha123',
-      });
-    });
-
-    it('deve lançar erro quando senha atual incorreta', async () => {
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: mockProfile,
-          error: null,
-        }),
-        update: jest.fn().mockReturnThis(),
-      });
-
-      (mockSupabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
-        error: { message: 'Invalid credentials' },
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      await expect(
-        result.current.changePassword('senhaErrada', 'novaSenha123')
-      ).rejects.toThrow('Senha atual incorreta');
-    });
-
-    it('deve marcar primeira_senha como false após trocar senha', async () => {
-      const mockUpdateFn = jest.fn().mockReturnThis();
-
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: { ...mockProfile, primeira_senha: true },
-          error: null,
-        }),
-        update: mockUpdateFn,
-      });
-
-      (mockSupabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({
-        error: null,
-      });
-
-      (mockSupabase.auth.updateUser as jest.Mock).mockResolvedValue({
-        error: null,
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.changePassword('senhaAtual', 'novaSenha');
-      });
-
-      expect(mockUpdateFn).toHaveBeenCalledWith({
+    expect(result.current.profile).toEqual(
+      expect.objectContaining({
+        id: 'u1',
+        nome: 'Pessoa u1',
+        papel: 'gestor',
         primeira_senha: false,
-      });
+        foto_url: null,
+        ultimo_login: '2026-11-01T10:00:00Z',
+      }),
+    );
+  });
+
+  it('não consulta nem grava em usuarios (sem regravar ultimo_login)', () => {
+    mockUserData = perfilDe('u1');
+    renderHook(() => useProfile(usuario('u1')));
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('perfil de outra conta (troca sem fechar o app) não aparece', () => {
+    mockUserData = perfilDe('conta-anterior');
+    const { result } = renderHook(() => useProfile(usuario('u1')));
+    expect(result.current.profile).toBeNull();
+  });
+
+  it('sem usuário, sem perfil', () => {
+    mockUserData = perfilDe('u1');
+    const { result } = renderHook(() => useProfile(null));
+    expect(result.current.profile).toBeNull();
+  });
+
+  it('campos opcionais ausentes viram os valores neutros do tipo', () => {
+    mockUserData = {
+      id: 'u1',
+      nome: 'Sem extras',
+      email: 'u1@rotamestre.com',
+      papel: 'motorista',
+    };
+    const { result } = renderHook(() => useProfile(usuario('u1')));
+    expect(result.current.profile).toEqual({
+      id: 'u1',
+      nome: 'Sem extras',
+      email: 'u1@rotamestre.com',
+      papel: 'motorista',
+      unidade_id: null,
+      telefone: null,
+      ativo: true,
+      is_gestor_principal: false,
+      primeira_senha: false,
+      foto_url: null,
+      ultimo_login: null,
     });
   });
 
-  describe('refreshProfile', () => {
-    it('deve recarregar perfil quando chamado', async () => {
-      let selectCallCount = 0;
+  it('a foto trocada aparece na hora, antes de o useUser recarregar', () => {
+    mockUserData = perfilDe('u1');
+    const { result, rerender } = renderHook(() => useProfile(usuario('u1')));
+    const { profile } = result.current;
+    expect(profile).not.toBeNull();
 
-      (mockSupabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn(() => {
-          selectCallCount++;
-          return {
-            eq: jest.fn().mockReturnThis(),
-            single: jest.fn().mockResolvedValue({
-              data: mockProfile,
-              error: null,
-            }),
-          };
-        }),
-        eq: jest.fn().mockReturnThis(),
-        update: jest.fn().mockReturnThis(),
-      });
-
-      const { result } = renderHook(() => useProfile(mockUser));
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      const initialCallCount = selectCallCount;
-
-      await act(async () => {
-        await result.current.refreshProfile();
-      });
-
-      expect(selectCallCount).toBeGreaterThan(initialCallCount);
+    // useProfilePhoto: setProfile({ ...profile, foto_url }) e emitProfileUpdate
+    act(() => {
+      mockSetProfile({ ...profile, foto_url: 'perfis/u1.jpg' });
     });
+    expect(result.current.profile?.foto_url).toBe('perfis/u1.jpg');
+
+    // O useUser recarrega (emitProfileUpdate) com a foto nova: ela vale.
+    mockUserData = { ...perfilDe('u1'), foto_url: 'perfis/u1-v2.jpg' };
+    rerender({});
+    expect(result.current.profile?.foto_url).toBe('perfis/u1-v2.jpg');
   });
 });
