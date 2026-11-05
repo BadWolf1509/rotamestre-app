@@ -17,7 +17,6 @@
     "web": "expo start --web",
     "audit:prod": "node scripts/audit-producao.js",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
-    "build:android:release": "npm run bump:android && cd android && gradlew.bat assembleRelease",
     "build:tokens": "node tools/scripts/build-tokens.cjs",
     "prebuild:web": "tsc --noEmit",
     "build:web": "node tools/scripts/copy-maplibre-worker.cjs && node tools/scripts/copy-assets.js && expo export --platform web && node tools/scripts/copy-public.js && node tools/scripts/inject-meta-tags.js",

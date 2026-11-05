@@ -33,7 +33,6 @@ Use `listarFontes` / `lerFontes` / `exigirVolume` de `src/__tests__/helpers/font
 ### Dívidas de ferramenta conhecidas
 
 - `npm run scan:morto`: o número de "Unused exports" muda a cada onda; rode o comando em vez de copiar um valor para a documentação.
-- `build:android:release` (script do `package.json`) não funciona: não há `android/` versionado (nasce do `expo prebuild`), só roda no Windows e o `bump:android` incrementa o `androidVersionCode` antes de falhar. Os builds reais são EAS ou o workflow `eas-build-android.yml`. A remoção do script fica para a edição do `package.json`.
 
 ### Caveats conhecidos
 

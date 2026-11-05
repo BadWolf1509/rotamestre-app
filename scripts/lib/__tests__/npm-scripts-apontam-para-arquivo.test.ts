@@ -51,7 +51,7 @@ export function diretoriosCd(comando: string): string[] {
  * (docs/TESTING.md, "Dívidas de ferramenta"). A lista só pode encolher: entrada
  * cujo script já não existe é ignorada.
  */
-const QUEBRADOS_CONHECIDOS = new Set(['build:android:release']);
+const QUEBRADOS_CONHECIDOS = new Set<string>();
 
 describe('npm run aponta para arquivo que existe', () => {
   it('acha todos os node <arquivo> de uma cadeia com &&', () => {
