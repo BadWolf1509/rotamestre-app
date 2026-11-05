@@ -369,6 +369,38 @@ describe('LocationTrackingService', () => {
       );
     });
 
+    // R-MOT-6: dois toques rápidos em chaves diferentes liam o mesmo `current`
+    // e a segunda gravação apagava a primeira.
+    it('duas chamadas concorrentes não perdem uma à outra', async () => {
+      let guardado: string | null = null;
+      (AsyncStorage.getItem as jest.Mock).mockImplementation(async () => {
+        const lido = guardado;
+        await Promise.resolve();
+        await Promise.resolve();
+        return lido;
+      });
+      (AsyncStorage.setItem as jest.Mock).mockImplementation(
+        async (_chave: string, valor: string) => {
+          await Promise.resolve();
+          guardado = valor;
+        },
+      );
+
+      await Promise.all([
+        locationTrackingService.updateNavigationPreferences({
+          soundAlerts: false,
+        }),
+        locationTrackingService.updateNavigationPreferences({
+          vibrationAlerts: false,
+        }),
+      ]);
+
+      expect(JSON.parse(guardado ?? '{}')).toEqual({
+        soundAlerts: false,
+        vibrationAlerts: false,
+      });
+    });
+
     it('deve criar preferências se não existirem', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
       const newPrefs = { navegarCom: 'externo' as const };

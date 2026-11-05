@@ -360,6 +360,32 @@ describe('NavigationSettings', () => {
       expect(mockMontagensSlider.total).toBe(montagensIniciais);
     });
 
+    // R-MOT-6: arrastar o slider não pode gravar a cada tick (haptic + leitura e
+    // escrita no AsyncStorage); grava uma vez, ao soltar.
+    it('o slider de raio só grava ao soltar, não a cada tick do arrasto', async () => {
+      const LocationTrackingService =
+        require('@/services/locationTracking').default;
+      const { findByTestId } = render(<NavigationSettings {...defaultProps} />);
+      const slider = await findByTestId('slider');
+      LocationTrackingService.updateNavigationPreferences.mockClear();
+
+      fireEvent(slider, 'valueChange', 70);
+      fireEvent(slider, 'valueChange', 80);
+      expect(
+        LocationTrackingService.updateNavigationPreferences,
+      ).not.toHaveBeenCalled();
+
+      fireEvent(slider, 'slidingComplete', 80);
+      await waitFor(() =>
+        expect(
+          LocationTrackingService.updateNavigationPreferences,
+        ).toHaveBeenCalledTimes(1),
+      );
+      expect(
+        LocationTrackingService.updateNavigationPreferences,
+      ).toHaveBeenCalledWith({ proximityRadius: 80 });
+    });
+
     it('deve ter switch para Alertas Sonoros', () => {
       const { getByText } = render(<NavigationSettings {...defaultProps} />);
       expect(getByText('Alertas Sonoros')).toBeTruthy();

@@ -7,6 +7,7 @@ import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
+import { criarSerie } from '@/lib/serie';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { maisRecente } from '@/lib/motorista/posicaoMaisRecente';
 import {
@@ -56,6 +57,12 @@ function destinoValido(
 
 export { PREFERENCIAS_PADRAO };
 export type { ModoNavegar, NavigationState, PreferenciasDeNavegacao };
+
+/**
+ * Gravações de preferências em série: ler-modificar-gravar concorrente fazia a
+ * segunda chamada apagar a primeira (R-MOT-6).
+ */
+const emSerieDePreferencias = criarSerie();
 
 class LocationTrackingService {
   private static instance: LocationTrackingService;
@@ -321,7 +328,11 @@ class LocationTrackingService {
   }
 
   // Update navigation preferences
-  async updateNavigationPreferences(prefs: Partial<NavigationState>) {
+  updateNavigationPreferences(prefs: Partial<NavigationState>) {
+    return emSerieDePreferencias(() => this.gravarPreferencias(prefs));
+  }
+
+  private async gravarPreferencias(prefs: Partial<NavigationState>) {
     try {
       const current = await this.lerPreferenciasCruas();
       const updated = { ...current, ...prefs };
