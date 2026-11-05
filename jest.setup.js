@@ -77,8 +77,10 @@ global.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
-
 };
+
+// Aviso inesperado de console.error/warn falha o teste (jest.mocks/consoleAvisos.js).
+require('./jest.mocks/consoleAvisos').instalarVigiaDoConsole(global.console);
 
 // Mock NativeEventEmitter (requerido pelo Unistyles)
 jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter');
