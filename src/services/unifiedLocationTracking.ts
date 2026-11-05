@@ -436,26 +436,6 @@ export async function getTrackingContext(): Promise<TrackingContext | null> {
   }
 }
 
-/**
- * Atualiza o contexto de rastreamento
- * Útil para atualizar informações sem reiniciar o tracking
- */
-export async function updateTrackingContext(
-  updates: Partial<TrackingContext>,
-): Promise<void> {
-  try {
-    const current = await getTrackingContext();
-    if (current) {
-      await AsyncStorage.setItem(
-        TRACKING_CONTEXT_KEY,
-        JSON.stringify({ ...current, ...updates }),
-      );
-    }
-  } catch (err) {
-    logger.error('[LocationTracking] Erro ao atualizar contexto', err);
-  }
-}
-
 export type ResultadoGarantia =
   /** A task já estava registrada; nada foi iniciado. */
   | 'ativo'
