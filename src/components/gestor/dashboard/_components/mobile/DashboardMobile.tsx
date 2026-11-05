@@ -416,7 +416,6 @@ export function DashboardMobile({
       </>
     ),
     [
-      userData,
       unidadeNome,
       avatarUrl,
       avatarInitial,
