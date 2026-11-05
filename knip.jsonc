@@ -26,7 +26,13 @@
     // Chamados por `npm run`, nunca por import.
     "tools/scripts/**/*.{js,cjs,mjs}",
     "scripts/**/*.{js,mjs}",
-    "*.config.{js,cjs,ts}"
+    "*.config.{js,cjs,ts}",
+
+    // Ambiente do Jest referenciado só por docblock (@jest-environment
+    // ./jest.ambiente-jsdom.js) em 4 testes: sem esta entry saem 4 "Unresolved
+    // imports" e jest-environment-jsdom vira dependência "morta" — agir pelo
+    // aviso removeria o pacote e quebraria 4 suítes.
+    "jest.ambiente-jsdom.js"
   ],
 
   "project": ["*.{ts,tsx}", "src/**/*.{ts,tsx}", "app/**/*.{ts,tsx}"],
@@ -52,6 +58,10 @@
     // passaria a exercitar uma cópia diferente da que roda em produção.
     "@supabase/postgrest-js"
   ],
+
+  // O docblock @jest-environment ./jest.ambiente-jsdom.js é resolvido pelo Jest a
+  // partir da raiz; o knip o lê relativo ao teste e não acha. Só este caminho.
+  "ignoreUnresolved": ["^\\./jest\\.ambiente-jsdom\\.js$"],
 
   // Binários que não vêm do npm.
   "ignoreBinaries": [
