@@ -22,6 +22,8 @@ interface MobileButtonProps extends TouchableOpacityProps {
 }
 
 /**
+ * @deprecated Sem uso em produção (R-UI-2); só a vitrine `app/design-system.tsx`
+ * ainda o monta (sai na Fase 2). Use `Button` de `@/components/Button`.
  * Botão padronizado para telas mobile
  * Segue o padrão de design estabelecido para o RotaMestre
  */

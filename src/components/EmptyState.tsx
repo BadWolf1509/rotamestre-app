@@ -29,6 +29,11 @@ interface EmptyStateProps {
   /** Ação em curso: o botão mostra carregando e fica desabilitado. */
   actionLoading?: boolean;
   style?: ViewStyle;
+  /** Sem `flex: 1`: cabe dentro de lista/seção em vez de ocupar a tela. */
+  compact?: boolean;
+  /** Tela inteira com o fundo `gray50` (estado vazio de página). */
+  fullScreen?: boolean;
+  testID?: string;
 }
 
 export function EmptyState({
@@ -41,11 +46,22 @@ export function EmptyState({
   onActionPress,
   actionLoading = false,
   style,
+  compact = false,
+  fullScreen = false,
+  testID,
 }: EmptyStateProps) {
   const { theme } = useUnistyles();
 
   return (
-    <View style={[styles.container, style]}>
+    <View
+      testID={testID}
+      style={[
+        styles.container,
+        compact && styles.containerCompact,
+        fullScreen && styles.containerFullScreen,
+        style,
+      ]}
+    >
       {Illustration ? (
         <View style={styles.illustrationContainer}>
           <Illustration width={160} height={140} />
@@ -87,6 +103,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.xl,
+  },
+
+  containerCompact: {
+    flex: undefined,
+    padding: theme.spacing['3xl'],
+  },
+
+  containerFullScreen: {
+    backgroundColor: theme.colors.gray50,
   },
 
   icon: {

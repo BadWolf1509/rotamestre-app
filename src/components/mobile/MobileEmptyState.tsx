@@ -1,9 +1,7 @@
 import React from 'react';
-import { View, Text, ViewStyle } from 'react-native';
+import type { ViewStyle } from 'react-native';
 
-import { StyleSheet, type Theme } from '@/utils/styles';
-
-import { MobileButton } from './MobileButton';
+import { EmptyState } from '@/components/EmptyState';
 
 interface MobileEmptyStateProps {
   icon?: string;
@@ -16,8 +14,11 @@ interface MobileEmptyStateProps {
 }
 
 /**
- * Componente padronizado para estados vazios em telas mobile
- * Segue o padrão de design estabelecido para o RotaMestre
+ * @deprecated Adaptador temporário (R-UI-2): delega ao `EmptyState` do design
+ * system, traduzindo `icon`→`emoji`, `subtitle`→`description` e
+ * `onAction`→`onActionPress`. Sem `fullScreen` o estado é `compact` (não ocupa
+ * a tela), como o componente antigo. Os chamadores em `app/` migram para o
+ * `EmptyState` na Fase 2; depois disso este arquivo some.
  */
 export function MobileEmptyState({
   icon = '📋',
@@ -29,58 +30,15 @@ export function MobileEmptyState({
   fullScreen = false,
 }: MobileEmptyStateProps) {
   return (
-    <View style={[
-      fullScreen ? styles.containerFullScreen : styles.container,
-      style,
-    ]}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.title}>{title}</Text>
-      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-
-      {actionLabel && onAction && (
-        <View style={styles.actionContainer}>
-          <MobileButton
-            title={actionLabel}
-            variant="primary"
-            size="medium"
-            onPress={onAction}
-          />
-        </View>
-      )}
-    </View>
+    <EmptyState
+      emoji={icon}
+      title={title}
+      description={subtitle}
+      actionLabel={actionLabel}
+      onActionPress={onAction}
+      fullScreen={fullScreen}
+      compact={!fullScreen}
+      style={style}
+    />
   );
 }
-
-const styles = StyleSheet.create((theme: Theme) => ({
-  container: {
-    padding: theme.spacing['3xl'],
-    alignItems: 'center',
-  },
-  containerFullScreen: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing['3xl'],
-    backgroundColor: theme.colors.gray50,
-  },
-  icon: {
-    fontSize: theme.typography.fontSize['4xl'] + 28,
-    marginBottom: theme.spacing['2xl'],
-  },
-  title: {
-    fontSize: theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.md,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: theme.typography.sm,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  actionContainer: {
-    marginTop: theme.spacing.xl,
-  },
-}));
