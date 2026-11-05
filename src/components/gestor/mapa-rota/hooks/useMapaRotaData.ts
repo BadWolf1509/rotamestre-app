@@ -135,11 +135,7 @@ export function useMapaRotaData({
             )
             .eq('id', id)
             .single(),
-          supabase
-            .from('paradas')
-            .select('*')
-            .eq('rota_id', id)
-            .order('ordem'),
+          supabase.from('paradas').select('*').eq('rota_id', id).order('ordem'),
         ]);
 
         if (rotaError) throw rotaError;

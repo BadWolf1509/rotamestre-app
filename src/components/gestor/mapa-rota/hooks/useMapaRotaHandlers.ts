@@ -573,7 +573,10 @@ export function useMapaRotaHandlers({
         if (!reorderResult.success) {
           // `reorderResult.error` já é texto fixo (o cru fica no logger).
           avisado = true;
-          showToast(reorderResult.error || 'Erro ao reordenar paradas', 'error');
+          showToast(
+            reorderResult.error || 'Erro ao reordenar paradas',
+            'error',
+          );
           throw new Error(reorderResult.error || 'Erro ao reordenar paradas');
         }
 
@@ -608,7 +611,8 @@ export function useMapaRotaHandlers({
         // estado da tela, que pode estar velho, e rota sem registro (NULL)
         // permanece sem registro. Nunca lança; devolve se a coluna mudou de
         // fato, e é isso que o log afirma.
-        const otimizacaoMarcadaComoDesfeita = await marcarOtimizacaoAlterada(id);
+        const otimizacaoMarcadaComoDesfeita =
+          await marcarOtimizacaoAlterada(id);
 
         // 4. Log action
         if (userData?.id) {

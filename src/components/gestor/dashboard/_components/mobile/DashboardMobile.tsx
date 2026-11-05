@@ -177,9 +177,7 @@ export function DashboardMobile({
                   size={12}
                   color={theme.colors.gray600}
                 />
-                <Text style={styles.headerSubtitle}>
-                  {unidadeNome}
-                </Text>
+                <Text style={styles.headerSubtitle}>{unidadeNome}</Text>
               </View>
             </View>
           </View>

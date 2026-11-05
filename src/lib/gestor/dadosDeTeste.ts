@@ -5,7 +5,6 @@
  * `getTodayISO` (a armadilha de fuso: nada de `new Date().toISOString()`).
  */
 
-
 import type {
   KPIs,
   RotaResumo,
