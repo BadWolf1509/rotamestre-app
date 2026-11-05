@@ -4,6 +4,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 
 import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { haSaidaEmCurso } from '@/hooks/auth/useNavegacaoDeSaida';
 import { authService } from '@/lib/auth';
 import { marcarAberturaPeloPerfilConhecido } from '@/lib/auth/aberturaPeloPerfilConhecido';
 import { ContaDesativada } from '@/lib/auth/contaAtiva';
@@ -185,8 +186,12 @@ function IndexContent() {
 
         rotearPeloPerfil(usuario);
       } else {
-        // Não autenticado: redireciona para login
         hasRedirected.current = true;
+        // A conta acabou de sair e a pilha remontou aqui: quem leva ao login
+        // é a dona da navegação de saída (layout raiz), depois de os modais
+        // fecharem. Navegar junto era um replace concorrente (R-NUC-1).
+        if (haSaidaEmCurso()) return;
+        // Não autenticado: redireciona para login
         logger.debug('👤 Usuário não autenticado → /auth/login');
         router.replace('/auth/login');
       }

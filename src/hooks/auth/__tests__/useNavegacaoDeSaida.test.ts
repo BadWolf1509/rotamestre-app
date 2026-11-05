@@ -7,6 +7,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import {
+  haSaidaEmCurso,
   PRAZO_FECHAR_MODAIS_MS,
   useNavegacaoDeSaida,
 } from '../useNavegacaoDeSaida';
@@ -48,6 +49,9 @@ describe('useNavegacaoDeSaida', () => {
   });
 
   afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.useRealTimers();
   });
 
@@ -138,6 +142,59 @@ describe('useNavegacaoDeSaida', () => {
     mockUser = null;
     mockUsuarioOfflineId = 'motorista-1';
     renderHook(() => useNavegacaoDeSaida());
+    esperarModais();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  // A troca de geração (useGeracaoDaConta) remonta a pilha raiz, que nasce
+  // na rota index. A espera não pode morrer ali: era a index quem navegava,
+  // sem esperar os modais.
+  it('a pilha remonta na index durante a espera: navega mesmo assim, uma vez', () => {
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    rerender({});
+    mockSegments = [];
+    rerender({});
+    esperarModais();
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/auth/login');
+  });
+
+  it('a pilha remonta na index ANTES de a sessão sair: a dona navega (teve sessão)', () => {
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockSegments = [];
+    rerender({});
+    mockUser = null;
+    rerender({});
+    esperarModais();
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('abertura do app na index sem sessão é da index (nunca houve sessão)', () => {
+    mockUser = null;
+    mockSegments = [];
+    renderHook(() => useNavegacaoDeSaida());
+    esperarModais();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(haSaidaEmCurso()).toBe(false);
+  });
+
+  it('haSaidaEmCurso: verdadeiro durante a espera, falso depois', () => {
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    expect(haSaidaEmCurso()).toBe(false);
+    mockUser = null;
+    rerender({});
+    expect(haSaidaEmCurso()).toBe(true);
+    esperarModais();
+    expect(haSaidaEmCurso()).toBe(false);
+  });
+
+  it('se outra parte já levou ao login durante a espera, não navega de novo', () => {
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    rerender({});
+    mockSegments = ['auth', 'login'];
+    rerender({});
     esperarModais();
     expect(mockReplace).not.toHaveBeenCalled();
   });
