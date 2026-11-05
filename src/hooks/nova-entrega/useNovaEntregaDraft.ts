@@ -165,6 +165,23 @@ export function useNovaEntregaDraft({
 
   const serializedPayload = useMemo(() => JSON.stringify(payload), [payload]);
 
+  // Escritas no servidor em FILA: um upsert só começa quando o anterior
+  // terminou. Sem isso, dois salvamentos próximos podiam chegar fora de ordem
+  // (o mais velho por último), e um upsert em voo podia ultrapassar o delete
+  // de `clearDraft`, ressuscitando o rascunho de uma rota já criada.
+  const filaRef = useRef<Promise<void>>(Promise.resolve());
+  const enfileirar = useCallback((operacao: () => Promise<void>) => {
+    const vez = filaRef.current.then(operacao, operacao);
+    filaRef.current = vez.catch(() => undefined);
+    return vez;
+  }, []);
+  // `clearDraft` sobe a época: salvamento agendado antes dela não grava mais.
+  const epocaRef = useRef(0);
+  // Payload do rascunho que acabou de ser restaurado: o pai o aplica e isso
+  // mudaria o `serializedPayload` — regravá-lo renovaria `expira_em` sem
+  // edição nenhuma (os 7 dias valeriam da última abertura, não da edição).
+  const restauradoRef = useRef<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     readyRef.current = false;
@@ -172,10 +189,16 @@ export function useNovaEntregaDraft({
     setLastSavedAt(null);
     setSaveError(null);
 
+    restauradoRef.current = null;
+    const restaurar = (restaurado: NovaEntregaDraftPayload | null) => {
+      restauradoRef.current = restaurado ? JSON.stringify(restaurado) : null;
+      onRestore(restaurado);
+    };
+
     async function restoreDraft() {
       if (!userId || !unidadeId) {
         if (!cancelled) {
-          onRestore(null);
+          restaurar(null);
           readyRef.current = true;
           setIsHydrating(false);
         }
@@ -203,10 +226,10 @@ export function useNovaEntregaDraft({
             .eq('usuario_id', userId)
             .eq('unidade_id', unidadeId);
           if (sessionDraft) {
-            onRestore(sessionDraft.payload);
+            restaurar(sessionDraft.payload);
             setLastSavedAt(sessionDraft.updatedAt);
           } else {
-            onRestore(null);
+            restaurar(null);
           }
         } else {
           const serverPayload = row ? parseDraftPayload(row.payload) : null;
@@ -215,7 +238,7 @@ export function useNovaEntregaDraft({
             (!row ||
               new Date(sessionDraft.updatedAt).getTime() >
                 new Date(row.atualizado_em).getTime());
-          onRestore(
+          restaurar(
             useSession
               ? sessionDraft.payload
               : (serverPayload ?? sessionDraft?.payload ?? null),
@@ -232,7 +255,7 @@ export function useNovaEntregaDraft({
           error,
         );
         if (!cancelled) {
-          onRestore(sessionDraft?.payload ?? null);
+          restaurar(sessionDraft?.payload ?? null);
           setLastSavedAt(sessionDraft?.updatedAt ?? null);
           setSaveError(
             'Rascunho restaurado apenas neste navegador; servidor indisponível.',
@@ -264,64 +287,89 @@ export function useNovaEntregaDraft({
   useEffect(() => {
     if (!readyRef.current || !userId || !unidadeId) return;
 
-    const timer = setTimeout(async () => {
-      setIsSaving(true);
-      try {
-        if (payload.paradas.length === 0) {
-          const { error } = await supabase
-            .from('rascunhos_rota')
-            .delete()
-            .eq('usuario_id', userId)
-            .eq('unidade_id', unidadeId);
-          if (error) throw error;
-          setLastSavedAt(null);
-          setSaveError(null);
-          return;
-        }
+    // O que acabou de ser restaurado já está no servidor: nada a gravar até
+    // uma edição de verdade (payload diferente do restaurado).
+    if (restauradoRef.current !== null) {
+      if (restauradoRef.current === serializedPayload) return;
+      restauradoRef.current = null;
+    }
 
-        const expiresAt = new Date(
-          Date.now() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000,
-        ).toISOString();
-        const updatedAt = new Date().toISOString();
-        const { error } = await supabase.from('rascunhos_rota').upsert(
-          {
-            usuario_id: userId,
-            unidade_id: unidadeId,
-            payload: JSON.parse(serializedPayload),
-            atualizado_em: updatedAt,
-            expira_em: expiresAt,
-          },
-          { onConflict: 'usuario_id,unidade_id' },
-        );
-        if (error) throw error;
-        setLastSavedAt(updatedAt);
-        setSaveError(null);
-      } catch (error) {
-        logger.error(
-          '[NovaEntregaDraft] Não foi possível salvar o rascunho',
-          error,
-        );
-        setSaveError('Não foi possível sincronizar o rascunho com o servidor.');
-      } finally {
-        setIsSaving(false);
-      }
+    const epoca = epocaRef.current;
+    const timer = setTimeout(() => {
+      void enfileirar(async () => {
+        // Rascunho limpo (rota criada) enquanto esperava a vez: não grava.
+        if (epoca !== epocaRef.current) return;
+        setIsSaving(true);
+        try {
+          if (payload.paradas.length === 0) {
+            const { error } = await supabase
+              .from('rascunhos_rota')
+              .delete()
+              .eq('usuario_id', userId)
+              .eq('unidade_id', unidadeId);
+            if (error) throw error;
+            setLastSavedAt(null);
+            setSaveError(null);
+            return;
+          }
+
+          const expiresAt = new Date(
+            Date.now() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000,
+          ).toISOString();
+          const updatedAt = new Date().toISOString();
+          const { error } = await supabase.from('rascunhos_rota').upsert(
+            {
+              usuario_id: userId,
+              unidade_id: unidadeId,
+              payload: JSON.parse(serializedPayload),
+              atualizado_em: updatedAt,
+              expira_em: expiresAt,
+            },
+            { onConflict: 'usuario_id,unidade_id' },
+          );
+          if (error) throw error;
+          setLastSavedAt(updatedAt);
+          setSaveError(null);
+        } catch (error) {
+          logger.error(
+            '[NovaEntregaDraft] Não foi possível salvar o rascunho',
+            error,
+          );
+          setSaveError(
+            'Não foi possível sincronizar o rascunho com o servidor.',
+          );
+        } finally {
+          setIsSaving(false);
+        }
+      });
     }, SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [payload.paradas.length, serializedPayload, unidadeId, userId]);
+  }, [
+    enfileirar,
+    payload.paradas.length,
+    serializedPayload,
+    unidadeId,
+    userId,
+  ]);
 
   const clearDraft = useCallback(async () => {
     if (!userId || !unidadeId) return;
     clearSessionDraft(userId, unidadeId);
-    const { error } = await supabase
-      .from('rascunhos_rota')
-      .delete()
-      .eq('usuario_id', userId)
-      .eq('unidade_id', unidadeId);
-    if (error) throw error;
-    setLastSavedAt(null);
-    setSaveError(null);
-  }, [unidadeId, userId]);
+    // Invalida qualquer salvamento agendado ou na fila, e o delete entra DEPOIS
+    // do que já estiver em voo.
+    epocaRef.current += 1;
+    await enfileirar(async () => {
+      const { error } = await supabase
+        .from('rascunhos_rota')
+        .delete()
+        .eq('usuario_id', userId)
+        .eq('unidade_id', unidadeId);
+      if (error) throw error;
+      setLastSavedAt(null);
+      setSaveError(null);
+    });
+  }, [enfileirar, unidadeId, userId]);
 
   return {
     isHydrating,
