@@ -14,7 +14,6 @@ import { useForm } from 'react-hook-form';
 
 import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { logger } from '@/lib/logger';
-import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
 import { logParadaAction } from '@/lib/queries/logs';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
@@ -27,7 +26,8 @@ import {
   type ParadaModalFormData,
 } from '@/lib/schemas/parada';
 import { supabase } from '@/lib/supabase';
-import type { Coordenadas } from '@/types/endereco';
+
+import { useCamposEnderecoParada } from './useCamposEnderecoParada';
 
 import type { Parada } from './types';
 
@@ -191,24 +191,10 @@ export function useAddStopForm({
   const hasValidCoordinates =
     coordenadaValida(latitude) && coordenadaValida(longitude);
 
-  // Handle address selection from autocomplete
-  // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
-  const handleAddressSelect = useCallback(
-    (address: string, _placeId: string, coordinates?: Coordenadas) => {
-      setValue('endereco', address);
-      setValue('latitude', coordinates?.latitude);
-      setValue('longitude', coordinates?.longitude);
-      setError(null);
-      // Erro cruzado: a mensagem mora em `endereco` ("não achei as coordenadas"),
-      // mas a causa era lat/long, que acabaram de chegar. `setValue` não
-      // revalida e a revalidação assíncrona perde a corrida: o erro ficaria
-      // preso ao lado do selo "Validado". Limpar explicitamente é o caminho
-      // determinístico (ver FormularioParada).
-      if (coordinates) {
-        clearErrors('endereco');
-      }
-    },
-    [setValue, clearErrors],
+  // Seleção do autocomplete e máscara do telefone: iguais às do editar.
+  const { handleAddressSelect, handlePhoneChange } = useCamposEnderecoParada(
+    { setValue, clearErrors, isSubmitted },
+    () => setError(null),
   );
 
   // Handle address text change
@@ -219,14 +205,6 @@ export function useAddStopForm({
       // Clear coordinates when manually typing
       setValue('latitude', undefined);
       setValue('longitude', undefined);
-    },
-    [setValue, isSubmitted],
-  );
-
-  // Handle phone formatting
-  const handlePhoneChange = useCallback(
-    (text: string) => {
-      setValue('telefone', maskPhone(text), { shouldValidate: isSubmitted });
     },
     [setValue, isSubmitted],
   );
