@@ -78,27 +78,6 @@ export function DesktopCard({
   );
 }
 
-// Grid Layout Component for Cards
-interface DesktopCardGridProps {
-  columns?: number;
-  gap?: number;
-  children: React.ReactNode;
-}
-
-export function DesktopCardGrid({
-  columns = 3,
-  gap = 24,
-  children,
-}: DesktopCardGridProps) {
-  return (
-    <View style={[styles.grid, { gap }]}>
-      {React.Children.map(children, (child) => (
-        <View style={[styles.gridItem, { flex: 1 / columns }]}>{child}</View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create((theme: Theme) => ({
   // Card Styles
   card: {
@@ -160,14 +139,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   contentNoPadding: {
     padding: 0,
-  },
-
-  // Grid Styles
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  gridItem: {
-    minWidth: 250,
   },
 }));

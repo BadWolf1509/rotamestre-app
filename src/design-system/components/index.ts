@@ -11,7 +11,11 @@ export { Badge } from '@/components/Badge';
 export { Button } from '@/components/Button';
 export { Card } from '@/components/Card';
 export { Dialog } from '@/components/Dialog';
-export type { DialogProps, DialogType, DialogVariant } from '@/components/Dialog';
+export type {
+  DialogProps,
+  DialogType,
+  DialogVariant,
+} from '@/components/Dialog';
 export { DataTable } from '@/components/DataTable';
 export type { DataTableAction, DataTableColumn } from '@/components/DataTable';
 export { EmptyState } from '@/components/EmptyState';
@@ -20,7 +24,6 @@ export { Icon } from '@/components/Icon';
 export { Input } from '@/components/Input';
 export { Modal } from '@/components/Modal';
 export { Progress } from '@/components/Progress';
-export { Skeleton, SkeletonCard, SkeletonList } from '@/components/SkeletonLoader';
 export { StatusBadge } from '@/components/StatusBadge';
 export { StepIndicator } from '@/components/StepIndicator';
 export type { Step } from '@/components/StepIndicator';
@@ -31,20 +34,21 @@ export type { ToastType } from '@/components/Toast';
 
 export {
   DesktopCard,
-  DesktopCardGrid,
-  DesktopLayout,
   DesktopModal,
   DesktopPageLayout,
   SplitView,
 } from '@/components/desktop';
-export type { ActionButton, BreadcrumbItem, ModalButtonConfig, UserMenuItem } from '@/components/desktop';
-
-export { GridItem, MetricCard, ResponsiveGrid } from '@/components/gestor/ResponsiveGrid';
+export type {
+  ActionButton,
+  BreadcrumbItem,
+  ModalButtonConfig,
+  UserMenuItem,
+} from '@/components/desktop';
 
 export {
-  MobileButton,
-  MobileCard,
-  MobileEmptyState,
-  MobileHeader,
-  MobileLoading,
-} from '@/components/mobile';
+  GridItem,
+  MetricCard,
+  ResponsiveGrid,
+} from '@/components/gestor/ResponsiveGrid';
+
+export { MobileCard, MobileHeader, MobileLoading } from '@/components/mobile';

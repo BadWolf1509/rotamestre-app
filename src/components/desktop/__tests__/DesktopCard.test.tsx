@@ -3,7 +3,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { DesktopCard, DesktopCardGrid } from '../DesktopCard';
+import { DesktopCard } from '../DesktopCard';
 
 describe('DesktopCard', () => {
   describe('Empilhamento do cabeçalho', () => {
@@ -228,85 +228,5 @@ describe('DesktopCard', () => {
       const views = UNSAFE_getAllByType(View);
       expect(views.length).toBeGreaterThan(0);
     });
-  });
-});
-
-describe('DesktopCardGrid', () => {
-  it('deve renderizar children em grid', () => {
-    const { getByText } = render(
-      <DesktopCardGrid>
-        <Text>Card 1</Text>
-        <Text>Card 2</Text>
-        <Text>Card 3</Text>
-      </DesktopCardGrid>,
-    );
-
-    expect(getByText('Card 1')).toBeTruthy();
-    expect(getByText('Card 2')).toBeTruthy();
-    expect(getByText('Card 3')).toBeTruthy();
-  });
-
-  it('deve usar 3 colunas por padrão', () => {
-    const { UNSAFE_getAllByType } = render(
-      <DesktopCardGrid>
-        <Text>Card 1</Text>
-        <Text>Card 2</Text>
-      </DesktopCardGrid>,
-    );
-
-    const views = UNSAFE_getAllByType(View);
-    expect(views.length).toBeGreaterThan(0);
-  });
-
-  it('deve aplicar número de colunas customizado', () => {
-    const { UNSAFE_getAllByType } = render(
-      <DesktopCardGrid columns={2}>
-        <Text>Card 1</Text>
-        <Text>Card 2</Text>
-      </DesktopCardGrid>,
-    );
-
-    const views = UNSAFE_getAllByType(View);
-    expect(views.length).toBeGreaterThan(0);
-  });
-
-  it('deve aplicar gap customizado', () => {
-    const { UNSAFE_getAllByType } = render(
-      <DesktopCardGrid gap={16}>
-        <Text>Card 1</Text>
-        <Text>Card 2</Text>
-      </DesktopCardGrid>,
-    );
-
-    const views = UNSAFE_getAllByType(View);
-    expect(views.length).toBeGreaterThan(0);
-  });
-
-  it('deve renderizar um único child', () => {
-    const { getByText } = render(
-      <DesktopCardGrid>
-        <Text>Only Card</Text>
-      </DesktopCardGrid>,
-    );
-
-    expect(getByText('Only Card')).toBeTruthy();
-  });
-
-  it('deve renderizar múltiplos cards complexos', () => {
-    const { getByText } = render(
-      <DesktopCardGrid columns={2} gap={20}>
-        <DesktopCard title="Card 1">
-          <Text>Content 1</Text>
-        </DesktopCard>
-        <DesktopCard title="Card 2">
-          <Text>Content 2</Text>
-        </DesktopCard>
-      </DesktopCardGrid>,
-    );
-
-    expect(getByText('Card 1')).toBeTruthy();
-    expect(getByText('Card 2')).toBeTruthy();
-    expect(getByText('Content 1')).toBeTruthy();
-    expect(getByText('Content 2')).toBeTruthy();
   });
 });
