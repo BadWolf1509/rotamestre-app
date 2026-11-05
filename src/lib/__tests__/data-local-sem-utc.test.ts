@@ -45,7 +45,7 @@ describe('coluna date-only nunca passa por new Date()', () => {
   const fontes = listarFontes({ pastas: DIRETORIOS });
 
   it('acha os arquivos de fonte (senão a varredura passaria vazia)', () => {
-    exigirVolume(fontes, 100);
+    expect(() => exigirVolume(fontes, 100)).not.toThrow();
   });
 
   it('nenhum arquivo formata `data`/`rota_data` com new Date', () => {
