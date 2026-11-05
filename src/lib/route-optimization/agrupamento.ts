@@ -22,7 +22,7 @@
  * com dependência primeiro, depois as paradas avulsas na ordem de entrada.
  */
 
-import { calculateHaversineDistance } from '../osrm/fallback';
+import { distanciaMetros } from '@/lib/geo/distancia';
 
 import type { ParadaParaOtimizar } from './types';
 
@@ -32,15 +32,6 @@ import type { ParadaParaOtimizar } from './types';
  * porta em rua comum, que o otimizador ainda deve poder separar.
  */
 export const RAIO_MESMO_LOCAL_METROS = 30;
-
-function distanciaMetros(a: ParadaParaOtimizar, b: ParadaParaOtimizar): number {
-  return calculateHaversineDistance(
-    a.latitude,
-    a.longitude,
-    b.latitude,
-    b.longitude,
-  );
-}
 
 /**
  * Locais por ponto-âncora: a parada entra no primeiro local cuja PRIMEIRA
