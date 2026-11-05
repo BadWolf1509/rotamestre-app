@@ -393,7 +393,6 @@ describe('routeUtils', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('RPC exception');
     });
-
   });
 
   describe('removerParadaERecalcular', () => {
@@ -593,6 +592,13 @@ describe('routeUtils', () => {
         .mockReturnValueOnce(
           cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
         )
+        // releitura das paradas que sobraram
+        .mockReturnValueOnce(
+          criarCadeia({
+            data: [{ id: 'p1', ordem: 1, latitude: -23.56, longitude: -46.64 }],
+            error: null,
+          }),
+        )
         .mockReturnValueOnce({
           update: jest.fn().mockReturnThis(),
           eq: jest.fn().mockResolvedValue({ data: null, error: null }),
@@ -620,6 +626,83 @@ describe('routeUtils', () => {
         expect.objectContaining({ evento: 'parada_removida' }),
       );
       expect(result.success).toBe(true);
+    });
+
+    it('R-GES-2: renumera pelas paradas que o BANCO tem, não pelo retrato velho da tela', async () => {
+      mockFrom
+        .mockReturnValueOnce(
+          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+        )
+        .mockReturnValueOnce(
+          criarCadeia({
+            data: [
+              // partida (checkpoint) fora; outro gestor acrescentou 'novo'
+              {
+                id: 'base',
+                ordem: 0,
+                latitude: 0,
+                longitude: 0,
+                is_checkpoint: false,
+              },
+              {
+                id: 'p1',
+                ordem: 1,
+                latitude: -23.56,
+                longitude: -46.64,
+                is_checkpoint: true,
+              },
+              {
+                id: 'novo',
+                ordem: 2,
+                latitude: -23.57,
+                longitude: -46.65,
+                is_checkpoint: true,
+              },
+            ],
+            error: null,
+          }),
+        )
+        .mockReturnValue(criarCadeia({ data: null, error: null }));
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes, // a tela só conhece p1
+        mockEnderecoUnidade,
+      );
+
+      expect(mockRpc).toHaveBeenCalledWith('reordenar_paradas', {
+        p_parada_ids: ['p1', 'novo'],
+        p_novas_ordens: [1, 2],
+      });
+    });
+
+    it('R-GES-2: releitura falhando cai no retrato da tela', async () => {
+      mockFrom
+        .mockReturnValueOnce(
+          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+        )
+        .mockReturnValueOnce(
+          criarCadeia({ data: null, error: { message: 'rede' } }),
+        )
+        .mockReturnValue(criarCadeia({ data: null, error: null }));
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+      jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(mockRpc).toHaveBeenCalledWith('reordenar_paradas', {
+        p_parada_ids: ['p1'],
+        p_novas_ordens: [1],
+      });
     });
 
     it('só apaga parada que ainda não foi finalizada (condiciona o DELETE ao status)', async () => {
