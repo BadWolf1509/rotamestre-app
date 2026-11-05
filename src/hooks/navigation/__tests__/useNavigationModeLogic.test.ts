@@ -416,6 +416,8 @@ describe('useNavigationModeLogic', () => {
         expect(getRoute).toHaveBeenLastCalledWith(
           { latitude: -23.5495, longitude: -46.63 },
           { latitude: -23.59, longitude: -46.63 },
+          undefined,
+          { steps: false },
         );
         await waitFor(() => expect(result.current.eta).toBe('10 min'));
         // ~4,5 km até a nova parada, não os ~55 m da anterior.
@@ -425,6 +427,73 @@ describe('useNavigationModeLogic', () => {
         calculateHaversineDistance.mockReset();
         calculateHaversineDistance.mockReturnValue(500);
       }
+    });
+
+    // B-MOT-4 / R-MOT-4: o fallback do OSRM devolve polyline vazia; sem gravar
+    // a posição anterior, a guarda de 50 m nunca valia e cada fix reconsultava.
+    it('sem polyline (OSRM fora do ar), dois fixes a menos de 50 m consultam uma vez', async () => {
+      const { getRoute, calculateHaversineDistance } =
+        jest.requireMock('@/lib/osrm');
+      calculateHaversineDistance.mockImplementation(
+        (la1: number, lo1: number, la2: number, lo2: number) =>
+          Math.hypot(la1 - la2, lo1 - lo2) * 111000,
+      );
+      getRoute.mockClear();
+      getRoute.mockResolvedValue({ polyline: '', is_estimated: true });
+
+      try {
+        const { result } = renderHook(() =>
+          useNavigationModeLogic({
+            currentStop: mockCurrentStop,
+            paradas: mockParadas,
+            rotaId: 'rota-123',
+          }),
+        );
+
+        act(() => {
+          result.current.updateLocationFromCoords(
+            { latitude: -23.5495, longitude: -46.63 },
+            0,
+          );
+        });
+        await waitFor(() => expect(getRoute).toHaveBeenCalledTimes(1));
+
+        // ~11 m adiante.
+        act(() => {
+          result.current.updateLocationFromCoords(
+            { latitude: -23.5496, longitude: -46.63 },
+            0,
+          );
+        });
+        await act(async () => {});
+
+        expect(getRoute).toHaveBeenCalledTimes(1);
+      } finally {
+        calculateHaversineDistance.mockReset();
+        calculateHaversineDistance.mockReturnValue(500);
+        getRoute.mockReset();
+        getRoute.mockResolvedValue({ polyline: 'mock_polyline' });
+      }
+    });
+
+    it('pede a rota sem os passos (nada na navegação os consome)', async () => {
+      const { getRoute } = jest.requireMock('@/lib/osrm');
+      getRoute.mockClear();
+      const { result } = renderHook(() =>
+        useNavigationModeLogic({
+          currentStop: mockCurrentStop,
+          paradas: mockParadas,
+          rotaId: 'rota-123',
+        }),
+      );
+      act(() => {
+        result.current.updateLocationFromCoords(
+          { latitude: -23.5495, longitude: -46.63 },
+          0,
+        );
+      });
+      await waitFor(() => expect(getRoute).toHaveBeenCalled());
+      expect(getRoute.mock.calls[0][3]).toEqual({ steps: false });
     });
 
     it('sem rota, estima pela velocidade média urbana', () => {
