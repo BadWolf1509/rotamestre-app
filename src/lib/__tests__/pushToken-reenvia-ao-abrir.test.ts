@@ -191,16 +191,18 @@ describe('reenvio do registro ao abrir', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('PGRST202 cai no UPDATE de fallback com a conta da sessão', async () => {
+  // R-DB-1: sem a reserva da coluna; a próxima abertura tenta de novo.
+  it('PGRST202 não cai em UPDATE da coluna antiga', async () => {
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
     mockRpc.mockResolvedValue({
       data: null,
       error: { message: 'sem função', code: 'PGRST202' },
     });
 
-    await expect(atualizarRegistroDePush({ forcar: true })).resolves.toBe(true);
-
-    expect(mockUpdate).toHaveBeenCalledWith({ push_token: TOKEN });
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'A');
+    await expect(atualizarRegistroDePush({ forcar: true })).resolves.toBe(
+      false,
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 

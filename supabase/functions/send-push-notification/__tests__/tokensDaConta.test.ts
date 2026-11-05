@@ -1,6 +1,7 @@
-// Leitura dos tokens da conta e limpeza do token morto, com o fallback para a
-// coluna antiga enquanto a Migration 45 não estiver aplicada: a função pode
-// ser publicada ANTES da migration sem janela de push calado.
+// Leitura dos tokens da conta e limpeza do token morto, só em push_tokens.
+// R-DB-1: a reserva para a coluna antiga (usuarios.push_token, enquanto a
+// Migration 45 não estivesse aplicada) saiu — a migration está aplicada, o
+// banco é único e a CHECK usuarios_push_token_vazio mantém a coluna NULL.
 //
 // O cliente é um dublê mínimo da cadeia do supabase-js (from/select/eq/
 // delete/update), que só grava o que foi pedido e devolve a resposta
@@ -8,7 +9,6 @@
 import {
   apagarTokenMorto,
   lerTokensDaConta,
-  tabelaInexistente,
   tokenNoFormatoExpo,
 } from '../tokensDaConta';
 
@@ -58,19 +58,6 @@ function clienteFalso(respostas: Record<string, Resposta>) {
 const T1 = 'ExponentPushToken[aaaaaaaaaaaa]';
 const T2 = 'ExpoPushToken[bbbbbbbbbbbb]';
 
-describe('tabelaInexistente', () => {
-  it('reconhece a tabela ausente no Postgres (42P01) e no PostgREST (PGRST205)', () => {
-    expect(tabelaInexistente({ code: '42P01', message: 'x' })).toBe(true);
-    expect(tabelaInexistente({ code: 'PGRST205', message: 'x' })).toBe(true);
-  });
-
-  it('qualquer outro erro não é tabela ausente', () => {
-    expect(tabelaInexistente({ code: '42501', message: 'x' })).toBe(false);
-    expect(tabelaInexistente({ message: 'offline' })).toBe(false);
-    expect(tabelaInexistente(null)).toBe(false);
-  });
-});
-
 describe('tokenNoFormatoExpo', () => {
   it('aceita os dois prefixos que o Expo emite', () => {
     expect(tokenNoFormatoExpo(T1)).toBe(true);
@@ -103,43 +90,24 @@ describe('lerTokensDaConta', () => {
     ]);
   });
 
-  it('migration ainda não aplicada (PGRST205): cai na coluna antiga, um envio', async () => {
-    const { cliente, chamadas } = clienteFalso({
-      push_tokens: {
-        error: {
-          code: 'PGRST205',
-          message:
-            "Could not find the table 'public.push_tokens' in the schema cache",
-        },
-      },
-      usuarios: { data: [{ push_token: T1 }], error: null },
-    });
+  it.each(['PGRST205', '42P01'])(
+    'tabela ausente (%s) é erro: não cai na coluna antiga',
+    async (code) => {
+      const { cliente, chamadas } = clienteFalso({
+        push_tokens: { error: { code, message: 'tabela ausente' } },
+        usuarios: { data: [{ push_token: T1 }], error: null },
+      });
 
-    const r = await lerTokensDaConta(cliente, 'u1');
+      const r = await lerTokensDaConta(cliente, 'u1');
 
-    expect(r).toEqual({ tokens: [T1], origem: 'coluna', erro: null });
-    expect(chamadas[1]).toEqual({
-      tabela: 'usuarios',
-      op: 'select:push_token',
-      payload: undefined,
-      eq: [['id', 'u1']],
-    });
-  });
-
-  it('fallback com a coluna vazia: nenhum token', async () => {
-    const { cliente } = clienteFalso({
-      push_tokens: {
-        error: { code: '42P01', message: 'relation does not exist' },
-      },
-      usuarios: { data: [{ push_token: null }], error: null },
-    });
-
-    await expect(lerTokensDaConta(cliente, 'u1')).resolves.toEqual({
-      tokens: [],
-      origem: 'coluna',
-      erro: null,
-    });
-  });
+      expect(r).toEqual({
+        tokens: [],
+        origem: 'push_tokens',
+        erro: 'tabela ausente',
+      });
+      expect(chamadas).toHaveLength(1);
+    },
+  );
 
   it('outro erro de push_tokens NÃO cai na coluna', async () => {
     const { cliente, chamadas } = clienteFalso({
@@ -168,24 +136,6 @@ describe('apagarTokenMorto', () => {
         eq: [
           ['token', T1],
           ['usuario_id', 'u1'],
-        ],
-      },
-    ]);
-  });
-
-  it('da coluna (fallback): zera só se ainda for o mesmo token', async () => {
-    const { cliente, chamadas } = clienteFalso({});
-
-    await apagarTokenMorto(cliente, 'u1', T1, 'coluna');
-
-    expect(chamadas).toEqual([
-      {
-        tabela: 'usuarios',
-        op: 'update',
-        payload: { push_token: null },
-        eq: [
-          ['id', 'u1'],
-          ['push_token', T1],
         ],
       },
     ]);
