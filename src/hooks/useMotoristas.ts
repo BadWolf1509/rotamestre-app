@@ -6,8 +6,8 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 
 import { getCache, setCache, CACHE_TTL, CACHE_KEYS } from '@/lib/cache';
+import { buscarMotoristasAtivosDaLoja } from '@/lib/gestor/motoristasDaLoja';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
 
 import { useUnidadeAtiva } from './useUnidadeAtiva';
 
@@ -48,32 +48,15 @@ export function useMotoristas(): UseMotoristaResult {
   const fetchMotoristas = useCallback(async (): Promise<Motorista[]> => {
     if (!unidadeAtiva) return [];
 
-    // Buscar motoristas vinculados à unidade via usuario_unidades
-    const { data: vinculacoes, error: vinculacoesError } = await supabase
-      .from('usuario_unidades')
-      .select(
-        `
-        usuario_id,
-        usuarios!inner(id, nome, email, telefone, ativo)
-      `,
-      )
-      .eq('unidade_id', unidadeAtiva)
-      .eq('papel', 'motorista')
-      .eq('ativo', true);
-
-    if (vinculacoesError) throw vinculacoesError;
-
-    // Extrair dados dos motoristas
-    const motoristasData = (vinculacoes || []).map((v: any) => ({
-      id: v.usuarios.id,
-      nome: v.usuarios.nome,
-      email: v.usuarios.email,
-      telefone: v.usuarios.telefone,
-      ativo: v.usuarios.ativo,
+    // Consulta única dos motoristas ativos da loja (já em ordem alfabética).
+    const motoristasDaLoja = await buscarMotoristasAtivosDaLoja(unidadeAtiva);
+    return motoristasDaLoja.map((m) => ({
+      id: m.id,
+      nome: m.nome,
+      email: m.email,
+      telefone: m.telefone ?? undefined,
+      ativo: m.ativo,
     }));
-
-    // Ordenar por nome
-    return motoristasData.sort((a, b) => a.nome.localeCompare(b.nome));
   }, [unidadeAtiva]);
 
   const loadMotoristas = useCallback(

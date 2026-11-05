@@ -69,7 +69,9 @@ describe('useMotoristas', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+              eq: jest.fn().mockReturnValue({
+                returns: jest.fn().mockResolvedValue({ data: [], error: null }),
+              }),
             }),
           }),
         }),
@@ -91,7 +93,9 @@ describe('useMotoristas', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+              eq: jest.fn().mockReturnValue({
+                returns: jest.fn().mockResolvedValue({ data: [], error: null }),
+              }),
             }),
           }),
         }),
@@ -110,7 +114,13 @@ describe('useMotoristas', () => {
       const apiData = [
         {
           usuario_id: 'u1',
-          usuarios: { id: 'driver-1', nome: 'Carlos', email: 'c@test.com', telefone: '123', ativo: true },
+          usuarios: {
+            id: 'driver-1',
+            nome: 'Carlos',
+            email: 'c@test.com',
+            telefone: '123',
+            ativo: true,
+          },
         },
       ];
 
@@ -118,7 +128,11 @@ describe('useMotoristas', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({ data: apiData, error: null }),
+              eq: jest.fn().mockReturnValue({
+                returns: jest
+                  .fn()
+                  .mockResolvedValue({ data: apiData, error: null }),
+              }),
             }),
           }),
         }),
@@ -141,7 +155,9 @@ describe('useMotoristas', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockRejectedValue(new Error('API Error')),
+              eq: jest.fn().mockReturnValue({
+                returns: jest.fn().mockRejectedValue(new Error('API Error')),
+              }),
             }),
           }),
         }),
@@ -165,15 +181,25 @@ describe('useMotoristas', () => {
       mockUseUnidadeAtiva.mockReturnValue({ unidadeAtiva: 'unidade-1' });
 
       const apiData = [
-        { usuario_id: 'u1', usuarios: { id: 'driver-1', nome: 'João' } },
-        { usuario_id: 'u2', usuarios: { id: 'driver-2', nome: 'Maria' } },
+        {
+          usuario_id: 'u1',
+          usuarios: { id: 'driver-1', nome: 'João', ativo: true },
+        },
+        {
+          usuario_id: 'u2',
+          usuarios: { id: 'driver-2', nome: 'Maria', ativo: true },
+        },
       ];
 
       mockSupabase.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({ data: apiData, error: null }),
+              eq: jest.fn().mockReturnValue({
+                returns: jest
+                  .fn()
+                  .mockResolvedValue({ data: apiData, error: null }),
+              }),
             }),
           }),
         }),
@@ -196,7 +222,9 @@ describe('useMotoristas', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+              eq: jest.fn().mockReturnValue({
+                returns: jest.fn().mockResolvedValue({ data: [], error: null }),
+              }),
             }),
           }),
         }),
