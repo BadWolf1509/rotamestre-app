@@ -10,17 +10,14 @@ import { View, Text, TouchableOpacity, LayoutAnimation } from 'react-native';
 import { RouteTimeline } from '@/components/RouteTimeline';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
 import { logger } from '@/lib/logger';
-import { supabase } from '@/lib/supabase';
-import {
-  formatRelativeTime,
-  isTimelineLogEvent,
-  mapLogToTimelinePreview,
-  type TimelinePreviewEvent,
-} from '@/lib/utils';
+import { buscarResumoDaLinhaDoTempo } from '@/lib/gestor/resumoLinhaDoTempo';
+import { formatRelativeTime, type TimelinePreviewEvent } from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface TimelinePreview {
   loading: boolean;
+  /** A busca falhou: "indisponível", e não "nenhum evento". */
+  erro: boolean;
   eventCount: number;
   lastEvent: {
     title: string;
@@ -52,6 +49,7 @@ export function TimelineCollapsible({
   const [expanded, setExpanded] = useState(initialExpanded);
   const [preview, setPreview] = useState<TimelinePreview>({
     loading: true,
+    erro: false,
     eventCount: 0,
     lastEvent: null,
   });
@@ -74,92 +72,29 @@ export function TimelineCollapsible({
 
     async function fetchPreview() {
       try {
-        // Buscar em paralelo: logs, paradas concluídas, incidentes
-        const [logsRes, paradasRes, incidentesRes] = await Promise.all([
-          supabase
-            .from('logs')
-            .select('id, evento, timestamp')
-            .eq('rota_id', rotaId)
-            .order('timestamp', { ascending: false }),
-          supabase
-            .from('paradas')
-            .select('id, ordem, status, concluida_em, is_checkpoint')
-            .eq('rota_id', rotaId)
-            .not('concluida_em', 'is', null),
-          supabase
-            .from('incidentes')
-            .select('id, categoria, created_at')
-            .eq('rota_id', rotaId),
-        ]);
+        const resumo = await buscarResumoDaLinhaDoTempo(rotaId);
 
         // Verificar se foi cancelado
         if (cancelled) return;
 
-        // Calcular total de eventos (usando função centralizada)
-        const logsCount =
-          logsRes.data?.filter((log: any) => isTimelineLogEvent(log.evento))
-            .length || 0;
-
-        // Excluir checkpoints (is_checkpoint === false) da contagem
-        const paradasCount =
-          paradasRes.data?.filter(
-            (parada: any) => parada.is_checkpoint !== false,
-          ).length || 0;
-
-        const incidentesCount = incidentesRes.data?.length || 0;
-        const totalCount = logsCount + paradasCount + incidentesCount;
-
-        // Encontrar último evento
-        let lastEvent: TimelinePreview['lastEvent'] = null;
-        const allEvents: TimelinePreviewEvent[] = [];
-
-        // Processar logs usando função centralizada (apenas os 5 mais recentes)
-        logsRes.data?.slice(0, 5).forEach((log: any) => {
-          const mapped = mapLogToTimelinePreview(log);
-          if (mapped) {
-            allEvents.push(mapped);
-          }
-        });
-
-        // Processar paradas (excluir checkpoints)
-        paradasRes.data
-          ?.filter((parada: any) => parada.is_checkpoint !== false)
-          .forEach((parada: any) => {
-            if (parada.concluida_em) {
-              allEvents.push({
-                timestamp: parada.concluida_em,
-                title: `Parada #${parada.ordem} ${parada.status === 'concluida' ? 'concluída' : 'pulada'}`,
-                type: 'parada',
-              });
-            }
-          });
-
-        // Processar incidentes
-        incidentesRes.data?.forEach((inc: any) => {
-          allEvents.push({
-            timestamp: inc.created_at,
-            title: 'Incidente registrado',
-            type: 'incidente',
-          });
-        });
-
-        // Ordenar e pegar o mais recente
-        if (allEvents.length > 0) {
-          allEvents.sort(
-            (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-          );
-          lastEvent = allEvents[0];
-        }
-
         // Salvar eventos para cálculo posterior de unseen
-        allEventsRef.current = allEvents;
+        allEventsRef.current = resumo.eventos;
 
-        setPreview({ loading: false, eventCount: totalCount, lastEvent });
+        setPreview({
+          loading: false,
+          erro: false,
+          eventCount: resumo.eventCount,
+          lastEvent: resumo.lastEvent,
+        });
       } catch (error) {
         logger.error('[TimelineCollapsible] Erro ao buscar preview:', error);
         if (!cancelled) {
-          setPreview({ loading: false, eventCount: 0, lastEvent: null });
+          setPreview({
+            loading: false,
+            erro: true,
+            eventCount: 0,
+            lastEvent: null,
+          });
         }
       }
     }
@@ -313,10 +248,14 @@ export function TimelineCollapsible({
         </View>
       )}
 
-      {/* Estado vazio */}
+      {/* Estado vazio (ou falha da busca: não é o mesmo que "sem eventos") */}
       {!expanded && !hasEvents && !preview.loading && (
         <View style={styles.emptyPreview}>
-          <Text style={styles.emptyText}>Nenhum evento registrado</Text>
+          <Text style={styles.emptyText}>
+            {preview.erro
+              ? 'Resumo indisponível no momento'
+              : 'Nenhum evento registrado'}
+          </Text>
         </View>
       )}
     </View>
