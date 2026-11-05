@@ -58,7 +58,7 @@ index f7b0e82..31da083 100644
  import { NestableScrollContainerProvider, useSafeNestableScrollContainerContext } from "../context/nestableScrollContainerContext";
  import { useStableCallback } from "../hooks/useStableCallback";
 diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
-index 7c88afc..8e7a453 100644
+index 7c88afc..2754a30 100644
 --- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 +++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
 @@ -10,10 +10,11 @@ import {
@@ -75,7 +75,17 @@ index 7c88afc..8e7a453 100644
    Gesture,
    GestureDetector,
  } from "react-native-gesture-handler";
-@@ -119,7 +120,9 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -84,6 +85,9 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+     disabled,
+   } = useAnimatedValues();
+ 
++  // Patch do app: o Pan só ativa se o drag() aconteceu neste toque.
++  const arrastoNesteToque = useSharedValue(false);
++
+   const reset = useStableCallback(() => {
+     activeIndexAnim.value = -1;
+     spacerIndexAnim.value = -1;
+@@ -119,7 +123,9 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
    if (dataHasChanged) {
      // When data changes make sure `activeKey` is nulled out in the same render pass
      activeKey = null;
@@ -86,7 +96,25 @@ index 7c88afc..8e7a453 100644
        reset();
      });
    }
-@@ -271,8 +274,14 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -155,6 +161,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+ 
+     const { onDragBegin } = propsRef.current;
+     if (index !== undefined) {
++      arrastoNesteToque.value = true;
+       spacerIndexAnim.value = index;
+       activeIndexAnim.value = index;
+       setActiveKey(activeKey);
+@@ -230,6 +237,9 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+ 
+       onDragEnd?.({ from, to, data: newData });
+ 
++      // Patch do app: sem dado novo o reset() não rodava, e o activeIndexAnim
++      // ficava com o índice velho (célula fantasma no próximo toque).
++      if (from === to) reset();
+       setActiveKey(null);
+     }
+   );
+@@ -271,8 +281,14 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
    );
  
    const gestureDisabled = useSharedValue(false);
@@ -101,12 +129,13 @@ index 7c88afc..8e7a453 100644
      .onBegin((evt) => {
        gestureDisabled.value = disabled.value;
        if (gestureDisabled.value) return;
-@@ -314,9 +323,28 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+@@ -314,9 +330,29 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
          }
        );
      })
 -    .onTouchesDown(() => {
 +    .onTouchesDown((evt) => {
++      arrastoNesteToque.value = false;
 +      const toque = evt.allTouches[0];
 +      if (toque) {
 +        touchStartX.value = toque.absoluteX;
@@ -116,7 +145,7 @@ index 7c88afc..8e7a453 100644
      })
 +    .onTouchesMove((evt, stateManager) => {
 +      // Arrasto iniciado pelo drag() (toque longo na alça): o Pan assume.
-+      if (activeIndexAnim.value >= 0) {
++      if (arrastoNesteToque.value && activeIndexAnim.value >= 0) {
 +        stateManager.activate();
 +        return;
 +      }

@@ -106,6 +106,20 @@ describe('patch do react-native-draggable-flatlist', () => {
     expect(codigo).toMatch(/stateManager\.fail\(\)/);
   });
 
+  it('src/components/DraggableFlatList.tsx zera o arrasto que não mudou a ordem', () => {
+    // Toque longo sem mexer (ou soltar no mesmo lugar): sem reset(), o
+    // activeIndexAnim ficava com o índice velho, e o próximo toque qualquer
+    // ativava o Pan e tomava a rolagem (célula fantasma).
+    const codigo = ler('src/components/DraggableFlatList.tsx');
+    expect(codigo).toMatch(/if \(from === to\) reset\(\);/);
+    // O Pan só ativa se o drag() aconteceu neste toque.
+    expect(codigo).toMatch(/arrastoNesteToque\.value = false/);
+    expect(codigo).toMatch(/arrastoNesteToque\.value = true/);
+    expect(codigo).toMatch(
+      /arrastoNesteToque\.value && activeIndexAnim\.value >= 0/,
+    );
+  });
+
   it('o Gesture Handler instalado ainda exporta LegacyFlatList', () => {
     // Lido do fonte, não pelo require: o jestSetup do RNGH mocka os componentes.
     const indice = readFileSync(
