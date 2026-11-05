@@ -16,7 +16,6 @@ describe('babel.config.js e o plugin de worklets', () => {
   });
 
   it("um 'worklet' ainda é compilado com o config do projeto", () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const babel = require('@babel/core');
     const resultado = babel.transformSync(
       "export function f(x) { 'worklet'; return x + 1; }",
