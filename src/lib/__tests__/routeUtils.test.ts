@@ -204,6 +204,33 @@ describe('routeUtils', () => {
       });
     });
 
+    it('B-GES-1: rota estimada em linha reta (OSRM fora) não é gravada como real', async () => {
+      const chain = criarCadeia({ data: null, error: null });
+      mockFrom.mockReturnValue(chain);
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 13000,
+        duracao_total_segundos: 1500,
+        polyline: '',
+        is_estimated: true,
+      });
+
+      const result = await recalcularRota(
+        mockRotaId,
+        mockParadas,
+        validEnderecoUnidade,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Não foi possível calcular a rota');
+      // só a invalidação (null) pode ter sido gravada: nunca a distância inventada
+      expect(chain.update).toHaveBeenCalledTimes(1);
+      expect(chain.update).toHaveBeenCalledWith({
+        distancia_total: null,
+        tempo_total: null,
+        polyline: null,
+      });
+    });
+
     it('deve atualizar rota com sucesso quando Google Directions retorna dados', async () => {
       const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);

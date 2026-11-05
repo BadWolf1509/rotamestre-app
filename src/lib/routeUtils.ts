@@ -164,7 +164,11 @@ export async function recalcularRota(
       waypoints,
     );
 
-    if (!resultado) {
+    // OSRM fora do ar devolve uma estimativa em linha reta (sem polyline).
+    // Gravá-la faria a rota exibir distância e tempo inventados como se fossem
+    // reais; os dados derivados já foram invalidados acima, então a rota fica
+    // "sem cálculo" e o chamador avisa que o valor pode estar desatualizado.
+    if (!resultado || resultado.is_estimated) {
       return {
         success: false,
         error: 'Não foi possível calcular a rota. Verifique os endereços.',
