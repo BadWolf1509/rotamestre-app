@@ -111,6 +111,18 @@ describe('useMapaRotaData: tela viva', () => {
     });
   });
 
+  it('R-GES-7: rota e paradas saem juntas, sem esperar uma pela outra', async () => {
+    // A consulta da rota fica pendurada: se a das paradas só sair depois dela
+    // (em sequência), este teste não a vê chamada.
+    mockSingle.mockReturnValue(new Promise(() => {}));
+
+    renderHook(() =>
+      useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),
+    );
+
+    await waitFor(() => expect(mockParadasOrder).toHaveBeenCalled());
+  });
+
   it('assina paradas e rotas filtradas pela rota, e NÃO assina DELETE sem filtro', async () => {
     const { result } = renderHook(() =>
       useMapaRotaData({ rotaId: 'rota-1', showToast: mockShowToast }),

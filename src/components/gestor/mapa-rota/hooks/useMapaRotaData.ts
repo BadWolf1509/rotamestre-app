@@ -121,22 +121,28 @@ export function useMapaRotaData({
       try {
         if (!silenciosa) setLoading(true);
 
-        const { data: rotaData, error: rotaError } = await supabase
-          .from('rotas')
-          .select(
-            'id, data, status, distancia_total, tempo_total, polyline, created_at, updated_at, motorista_id, unidade_id, otimizacao_estado, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)',
-          )
-          .eq('id', id)
-          .single();
+        // As duas consultas são independentes: em paralelo, uma ida e volta de
+        // rede a menos por carga (e por recarga do realtime). A conferência de
+        // sequência mais abaixo continua descartando carga velha.
+        const [
+          { data: rotaData, error: rotaError },
+          { data: paradasData, error: paradasError },
+        ] = await Promise.all([
+          supabase
+            .from('rotas')
+            .select(
+              'id, data, status, distancia_total, tempo_total, polyline, created_at, updated_at, motorista_id, unidade_id, otimizacao_estado, usuarios!rotas_motorista_id_fkey(nome), unidades(nome)',
+            )
+            .eq('id', id)
+            .single(),
+          supabase
+            .from('paradas')
+            .select('*')
+            .eq('rota_id', id)
+            .order('ordem'),
+        ]);
 
         if (rotaError) throw rotaError;
-
-        const { data: paradasData, error: paradasError } = await supabase
-          .from('paradas')
-          .select('*')
-          .eq('rota_id', id)
-          .order('ordem');
-
         if (paradasError) throw paradasError;
 
         const motorista = Array.isArray(rotaData.usuarios)
