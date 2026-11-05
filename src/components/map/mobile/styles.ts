@@ -5,6 +5,7 @@
  * are applied once and memoized by the runtime.
  */
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
@@ -40,8 +41,8 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: theme.colors.surface,
-    shadowColor: theme.colors.black,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
+    shadowColor: CORES_SOBRE_O_MAPA.sombra,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -64,12 +65,12 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     height: 36,
     borderRadius: theme.borderRadius.sm,
     borderBottomLeftRadius: theme.spacing['0.5'],
-    backgroundColor: theme.colors.primary,
+    backgroundColor: CORES_SOBRE_O_MAPA.marca,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: theme.spacing['0.5'],
-    borderColor: theme.colors.white,
-    shadowColor: theme.colors.black,
+    borderColor: CORES_SOBRE_O_MAPA.branco,
+    shadowColor: CORES_SOBRE_O_MAPA.sombra,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -137,13 +138,13 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.textSecondary,
   },
   markerText: {
-    color: theme.colors.surface,
+    color: CORES_SOBRE_O_MAPA.branco,
     fontSize: theme.typography.fontSize.base,
     fontWeight: 'bold',
   },
   markerSelected: {
     borderWidth: theme.spacing['1'],
-    borderColor: theme.colors.primary,
+    borderColor: CORES_SOBRE_O_MAPA.marca,
     transform: [{ scale: 1.1 }],
   },
   calloutContainer: {

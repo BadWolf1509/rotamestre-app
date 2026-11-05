@@ -8,6 +8,7 @@ import { useMobileMapCamera } from '@/components/map/hooks/useMobileMapCamera';
 import { useNavigationActions } from '@/components/map/hooks/useNavigationActions';
 import { useParadaFiltering } from '@/components/map/hooks/useParadaFiltering';
 import { useRouteShape } from '@/components/map/hooks/useRouteShape';
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { BalaoSobreposto } from '@/components/map/mobile/BalaoSobreposto';
 import { FloatingActionButtons } from '@/components/map/mobile/FloatingActionButtons';
 import { CheckpointCallout } from '@/components/map/mobile/markers/CheckpointCallout';
@@ -181,7 +182,7 @@ export function MapaMobile({
             <MapLibreGL.Layer
               id="rota-line"
               type="line"
-              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
+              paint={{ 'line-color': CORES_SOBRE_O_MAPA.marca, 'line-width': 4 }}
             />
           </MapLibreGL.GeoJSONSource>
         )}
