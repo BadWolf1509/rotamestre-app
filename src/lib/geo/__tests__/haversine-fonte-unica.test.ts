@@ -8,37 +8,21 @@
  * Limite: só enxerga a constante literal. Uma cópia com o raio vindo de outro
  * lugar passa batido — protege contra a forma como as quatro cópias nasceram.
  */
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { extname, join, relative, sep } from 'path';
+import { readFileSync } from 'fs';
+import { join, relative, sep } from 'path';
+
+import { exigirVolume, listarFontes } from '@/__tests__/helpers/fontes';
 
 const RAIZ = join(__dirname, '..', '..', '..', '..');
 const DIRETORIOS = ['src', 'app'];
-const EXTENSOES = new Set(['.ts', '.tsx']);
 const FONTE_UNICA = 'src/lib/geo/distancia.ts';
 const PADRAO = /\b6_?371_?000\b/;
 
-function listarFontes(dir: string): string[] {
-  const encontrados: string[] = [];
-
-  for (const nome of readdirSync(dir)) {
-    if (nome === 'node_modules' || nome === '__tests__') continue;
-
-    const caminho = join(dir, nome);
-    if (statSync(caminho).isDirectory()) {
-      encontrados.push(...listarFontes(caminho));
-    } else if (EXTENSOES.has(extname(nome)) && !nome.includes('.test.')) {
-      encontrados.push(caminho);
-    }
-  }
-
-  return encontrados;
-}
-
 describe('Haversine numa fonte só', () => {
-  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+  const fontes = listarFontes({ pastas: DIRETORIOS });
 
   it('acha os arquivos de fonte (senão a varredura passaria vazia)', () => {
-    expect(fontes.length).toBeGreaterThan(100);
+    expect(() => exigirVolume(fontes, 100)).not.toThrow();
   });
 
   it('o raio da Terra em metros só aparece na fonte única', () => {
