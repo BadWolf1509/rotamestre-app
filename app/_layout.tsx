@@ -20,6 +20,7 @@ import Toast from 'react-native-toast-message';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
+import { useGeracaoDaConta } from '@/hooks/useGeracaoDaConta';
 import { useManterPushTokenAtualizado } from '@/hooks/useManterPushTokenAtualizado';
 import { useResponsive } from '@/hooks/useResponsive';
 import { UnidadeAtivaProvider } from '@/hooks/useUnidadeAtiva';
@@ -123,6 +124,10 @@ function detectE2EEnvironment(): boolean {
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
+  // Chave da pilha: quando a conta sai ou é trocada, nada do que ela abriu
+  // continua montado sob a próxima (ver useGeracaoDaConta).
+  const { userData } = useUser();
+  const geracaoDaConta = useGeracaoDaConta(userData?.id ?? null);
 
   // Reenvia o registro do aparelho (push) ao abrir e ao voltar ao app.
   useManterPushTokenAtualizado();
@@ -288,6 +293,7 @@ export default function RootLayout() {
             <NotificationModalProvider>
               <ConditionalLayout>
                 <Stack
+                  key={geracaoDaConta}
                   screenOptions={{
                     headerStyle: {
                       backgroundColor: theme.colors.primary,
