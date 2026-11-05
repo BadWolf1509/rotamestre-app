@@ -14,10 +14,13 @@ describe('criar-motorista: guarda do vínculo', () => {
   });
 
   it('só apaga a conta que ela mesma acabou de criar', () => {
-    const chamadas = fonte.match(/deleteUser\([^)]*\)/g) ?? [];
+    // O deleteUser mora em compensacao.ts (que confere o erro); o index só o
+    // chama pelo id da conta recém-criada.
+    expect(fonte).not.toMatch(/deleteUser\(/);
+    const chamadas = fonte.match(/desfazerContaCriada\([^)]*\)/g) ?? [];
     expect(chamadas.length).toBeGreaterThan(0);
     for (const c of chamadas) {
-      expect(c).toBe('deleteUser(authData.user.id)');
+      expect(c).toBe('desfazerContaCriada(supabaseAdmin, authData.user.id)');
     }
   });
 
@@ -35,7 +38,7 @@ describe('criar-motorista: guarda do vínculo', () => {
     // A função é a única porta de escrita em usuario_unidades: papel e
     // unidade_id antigos em `usuarios` não bastam (gestor removido da loja).
     expect(fonte).toMatch(
-      /from\('usuario_unidades'\)\s*\.select\([^)]*\)\s*\.eq\('usuario_id', user\.id\)\s*\.eq\('unidade_id', unidadeId\)\s*\.eq\('papel', 'gestor'\)\s*\.eq\('ativo', true\)/,
+      /from\('usuario_unidades'\)\s*\.select\([^)]*\)\s*\.eq\('usuario_id', gestorId\)\s*\.eq\('unidade_id', unidadeId\)\s*\.eq\('papel', 'gestor'\)\s*\.eq\('ativo', true\)/,
     );
     expect(fonte).not.toMatch(/unidade_id: gestorData\.unidade_id/);
   });
@@ -43,7 +46,10 @@ describe('criar-motorista: guarda do vínculo', () => {
   it('desfaz a conta criada quando o vínculo falha', () => {
     // Sem vínculo o motorista some da lista (que vem de usuario_unidades) e
     // o gestor não tem como criá-lo: a tela diria "adicionado" em vão.
-    const chamadas = fonte.match(/deleteUser\(authData\.user\.id\)/g) ?? [];
+    const chamadas =
+      fonte.match(
+        /desfazerContaCriada\(supabaseAdmin, authData\.user\.id\)/g,
+      ) ?? [];
     expect(chamadas).toHaveLength(2);
     expect(fonte).not.toMatch(/Não falhar - o registro principal foi criado/);
   });
@@ -74,7 +80,7 @@ describe('criar-motorista: entrada e permissão', () => {
   });
 
   it('responde 503 quando não consegue conferir a permissão', () => {
-    expect(fonte).toMatch(/status: 503/);
+    expect(fonte).toMatch(/resposta(503,/);
   });
 
   it('lê o corpo dentro de try', () => {

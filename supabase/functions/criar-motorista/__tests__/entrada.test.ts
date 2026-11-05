@@ -41,7 +41,11 @@ describe('validarCorpo', () => {
         unidadeId: null,
       },
     });
-    const comNulls = validarCorpo({ ...base, telefone: null, unidade_id: null });
+    const comNulls = validarCorpo({
+      ...base,
+      telefone: null,
+      unidade_id: null,
+    });
     expect(comNulls).toMatchObject({
       ok: true,
       dados: { telefone: null, unidadeId: null },
@@ -61,7 +65,12 @@ describe('validarCorpo', () => {
 
   it('devolve nome, email e senha sem trim', () => {
     expect(
-      validarCorpo({ ...base, nome: ' Ana ', email: ' A@x.com ', senha: ' s ' }),
+      validarCorpo({
+        ...base,
+        nome: ' Ana ',
+        email: ' A@x.com ',
+        senha: ' s ',
+      }),
     ).toMatchObject({
       ok: true,
       dados: { nome: ' Ana ', email: ' A@x.com ', senha: ' s ' },
@@ -137,7 +146,11 @@ describe('decidirPermissao', () => {
 
   it('falha na consulta do vínculo é indisponível, não proibido', () => {
     expect(
-      decidirPermissao({ ...ok, erroVinculo: { code: '57014' }, vinculo: null }),
+      decidirPermissao({
+        ...ok,
+        erroVinculo: { code: '57014' },
+        vinculo: null,
+      }),
     ).toBe('indisponivel');
   });
 
@@ -149,7 +162,11 @@ describe('decidirPermissao', () => {
 
   it('sem perfil (PGRST116) é proibido', () => {
     expect(
-      decidirPermissao({ ...ok, erroGestor: { code: 'PGRST116' }, gestor: null }),
+      decidirPermissao({
+        ...ok,
+        erroGestor: { code: 'PGRST116' },
+        gestor: null,
+      }),
     ).toBe('proibido');
   });
 
