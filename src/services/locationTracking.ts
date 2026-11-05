@@ -5,7 +5,6 @@ import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
 import { isNetworkError } from '@/lib/errorMapping';
-import { distanciaMetrosEntre } from '@/lib/geo/distancia';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
@@ -27,8 +26,7 @@ import { defaultTheme } from '@/utils/styles';
 const LOCATION_TASK = 'background-location-tracking';
 
 // Configuration constants
-const GEOFENCE_RADIUS = 50; // meters to consider "arrived" at stop
-const MIN_ACCURACY = 50; // minimum accuracy in meters to consider position valid
+const GEOFENCE_RADIUS = 50; // raio padrão (m); a tela da web o usa como chegada
 
 interface LocationUpdate {
   latitude: number;
@@ -62,9 +60,6 @@ export type { ModoNavegar, NavigationState, PreferenciasDeNavegacao };
 class LocationTrackingService {
   private static instance: LocationTrackingService;
   private navigationState: NavigationState | null = null;
-  /** Parada cuja chegada já foi anunciada — evita repetir a cada leitura de GPS. */
-  private chegadaAnunciadaPara: string | null = null;
-  private lastNotificationTime: number = 0;
 
   private constructor() {}
 
@@ -153,12 +148,6 @@ class LocationTrackingService {
           : undefined,
       };
 
-      // Save state to AsyncStorage for background task
-      await AsyncStorage.setItem(
-        'navigationState',
-        JSON.stringify(this.navigationState),
-      );
-
       // Sem alvo não há o que medir: não sobe serviço em primeiro plano.
       if (!stopData) return true;
 
@@ -213,8 +202,6 @@ class LocationTrackingService {
       }
 
       this.navigationState = null;
-      this.chegadaAnunciadaPara = null;
-      await AsyncStorage.removeItem('navigationState');
 
       return true;
     } catch (error) {
@@ -231,91 +218,14 @@ class LocationTrackingService {
     return await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
   }
 
-  // Process location update
+  /**
+   * Grava a posição recebida pela task deste modo. Não há aviso de chegada no
+   * nativo: ele não exibia nada (o corpo era vazio), e o modo navegação já
+   * avisa por vibração e pulso. Concluir a parada é só do `StopCompletionFlow`.
+   */
   async processLocationUpdate(location: LocationUpdate) {
     if (!this.navigationState?.currentStopLocation) return;
-
-    const distance = distanciaMetrosEntre(
-      location.latitude,
-      location.longitude,
-      this.navigationState.currentStopLocation.latitude,
-      this.navigationState.currentStopLocation.longitude,
-    );
-
-    // Update driver position in database
     await this.updateDriverPosition(location);
-
-    // Check if arrived at stop
-    if (
-      distance <= this.navigationState.proximityRadius &&
-      location.accuracy <= MIN_ACCURACY
-    ) {
-      await this.handleArrival(distance);
-    } else {
-      // Saiu do raio: uma nova chegada volta a ser anunciada.
-      this.chegadaAnunciadaPara = null;
-
-      // Send proximity notifications
-      await this.handleProximityNotifications(distance);
-    }
-  }
-
-  /**
-   * Chegada à parada: AVISA, e nada mais.
-   *
-   * Até 02/10/2026 isto agendava, 5 s depois, um `autoAdvanceToNextStop` que
-   * gravava `status: 'concluida'` SEM foto, avançava para a próxima parada e,
-   * na última, concluía a ROTA. Ficou inofensivo por meses só porque o UPDATE
-   * falhava (mandava a coluna inexistente `auto_concluida`); o #480 consertou
-   * o UPDATE e o #495 tornou o modo navegação alcançável, e os dois saíram
-   * juntos na 1.12.6. Resultado medido: 28 entregas de um motorista sem
-   * comprovante entre 08/09 e 01/10, concluídas por geofence — nos dias que a
-   * retenção de logs alcança, a correlação com o `PATCH ...&select=id` deste
-   * caminho foi 7 de 7.
-   *
-   * Concluir exige comprovante, e o comprovante exige o motorista: quem
-   * conclui é o `StopCompletionFlow`, pela tela. O avanço para a próxima
-   * parada continua acontecendo — mas DEPOIS dessa conclusão, quando a tela
-   * troca a parada atual e reinicia o rastreamento para a nova.
-   *
-   * `navegarCom` (antes `autoAdvance`, "Avanço Automático") é a preferência
-   * que leva o botão Navegar para o modo navegação interno ou para o app
-   * externo.
-   */
-  private async handleArrival(distance: number) {
-    const paradaAtual = this.navigationState?.currentStopId ?? null;
-    if (!paradaAtual || this.chegadaAnunciadaPara === paradaAtual) return;
-    this.chegadaAnunciadaPara = paradaAtual;
-
-    await this.sendNotification(
-      '📍 Você chegou!',
-      `Você está a ${Math.round(distance)}m do destino`,
-      true,
-    );
-  }
-
-  // Send proximity notifications
-  private async handleProximityNotifications(distance: number) {
-    const now = Date.now();
-
-    // Only send notifications every 30 seconds
-    if (now - this.lastNotificationTime < 30000) return;
-
-    if (distance < 100) {
-      await this.sendNotification(
-        '📍 Muito próximo!',
-        `Você está a ${Math.round(distance)}m do destino`,
-        false,
-      );
-      this.lastNotificationTime = now;
-    } else if (distance < 500) {
-      await this.sendNotification(
-        '🚗 Aproximando...',
-        `${Math.round(distance)}m até o destino`,
-        false,
-      );
-      this.lastNotificationTime = now;
-    }
   }
 
   // Update driver position in database
@@ -350,15 +260,6 @@ class LocationTrackingService {
     } catch (error) {
       logarFalha('[LocationTracking] Error updating driver position', error);
     }
-  }
-
-  // Send notification (placeholder - would use expo-notifications)
-  private async sendNotification(
-    _title: string,
-    _body: string,
-    _priority: boolean,
-  ) {
-    // In a real implementation, would use expo-notifications
   }
 
   /**
@@ -432,10 +333,6 @@ class LocationTrackingService {
       // Update current state if tracking
       if (this.navigationState) {
         this.navigationState = { ...this.navigationState, ...prefs };
-        await AsyncStorage.setItem(
-          'navigationState',
-          JSON.stringify(this.navigationState),
-        );
       }
     } catch (error) {
       logger.error('[LocationTracking] Error updating preferences', error);
@@ -459,10 +356,6 @@ class LocationTrackingService {
           ...this.navigationState,
           ...PREFERENCIAS_PADRAO,
         };
-        await AsyncStorage.setItem(
-          'navigationState',
-          JSON.stringify(this.navigationState),
-        );
       }
     } catch (error) {
       logger.error('[LocationTracking] Error restoring preferences', error);
