@@ -8,6 +8,16 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Expo SDK 58 no aparelho (04–05/11/2026)
+
+Builds 3052 a 3055 da 1.15.0 pela faixa interna (Actions `eas-build-android.yml`, hash e certificado conferidos a cada um), depois um dev client do SDK 58 com o Metro do worktree. Estado e o que falta: pendência 31; achado aberto: pendência 33.
+
+- **3052:** partida a frio, atualização pela Play com o login mantido, mapa nativo, balão e Waze, rastreamento com a tela acesa, conclusão com foto e o #723 (modal duplicado) validados. Rastreamento com a tela apagada e o aparelho parado: o Android desliga o GPS do app no apagar — o histórico do próprio aparelho mostra a 1.14.13 igual, então não é regressão provada. Um `install -r` pela adb, para o teste de R8, fez a Play bloquear o app até reinstalar pela loja.
+- **Arrasto, três defeitos em sequência:** (1) no modal Reordenar o arrasto travava, porque o `Modal` nativo é outra janela e o root view único da raiz não chega lá → root view nos dois modais do app; (2) com o arrasto funcionando, o Pan ativava em qualquer deslize de 8 px e tomava a rolagem do modal e da Nova Entrega → ativação manual no patch; (3) a lista aninhável (`NestableDraggableFlatList`), tentada para a Nova Entrega, jogava a página para o topo no início do arrasto → revertida. Os "erros de posição" com a lista rolada eram a rolagem automática da borda: a sonda no Metro mostrou que a lib acompanha a rolagem.
+- **Varredura no dev client (05/11), com quatro agentes de leitura** (gestos e modais, Unistyles, Reanimated/APIs do RN 0.88, diff da migração) e conferência no aparelho: alça do Reordenar no toque longo; arrasto sem mudança de ordem deixava parada fantasma no patch e gravava a mesma ordem fechando o modal; flag experimental do LayoutAnimation morta no Fabric; trecho do `NestableScrollContainer` sem uso no patch; roteiro corrigido (deslizar do motorista, toque na notificação, cadência do GPS). Sem achado: modais crus sem gesto dentro, nenhuma API removida em uso.
+- **Troca de conta:** depois de sair do gestor e entrar como motorista, a Minha Unidade do gestor seguia montada (42501 ao contar membros) e a barra de abas travou. A chave da pilha raiz por conta (54eede95) acabou com o 42501, mas não com a trava: a árvore de acessibilidade mostra o login por cima da Início (pendência 33).
+- **Lições de ferramenta:** o `preview_start` lê o `.claude/launch.json` do checkout principal, não o do worktree — o Metro do worktree sobe pelo shell, com o `.env` do principal carregado no processo; `runOnJS` de `console.log` dentro de worklet falha no Reanimated 4 (use uma função do componente); `uiautomator dump` mostra o que está de fato por cima.
+
 ## Varredura de refatorações de 03/11/2026 (#714–#718)
 
 Relatório em `docs/superpowers/2026-11-03-varredura-refatoracoes.md`, cinco planos em `docs/superpowers/plans/2026-11-03-varredura-*.md`, executados em cinco sessões paralelas, uma por domínio, sem tocar os mesmos arquivos. Antes dos merges, as cinco branches foram juntadas num worktree local e passaram juntas (tsc, lint do repositório inteiro, Jest 636 suítes / 8638 testes, `scan:nao-declarado`). Ordem: lib → gestor → mapas → testes → motorista.
