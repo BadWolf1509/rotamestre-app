@@ -258,13 +258,7 @@ export async function reordenarParadas(
     return { success: true };
   } catch (error) {
     logger.error('[reordenarParadas] Erro', error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Erro desconhecido ao reordenar paradas.',
-    };
+    return { success: false, error: 'Erro ao reordenar paradas.' };
   }
 }
 

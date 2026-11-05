@@ -391,7 +391,8 @@ describe('routeUtils', () => {
       const result = await reordenarParadas(paradas);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('RPC exception');
+      // B-DB-1: texto da exceção só no logger, nunca no toast.
+      expect(result.error).toBe('Erro ao reordenar paradas.');
     });
   });
 
