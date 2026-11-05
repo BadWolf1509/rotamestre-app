@@ -37,7 +37,7 @@ Fonte: https://expo.dev/changelog/sdk-58, mais conferência no `node_modules` in
 | expo-notifications 58        | Notificação em primeiro plano aparece por padrão, e o módulo instala um handler padrão ao carregar                                                                                                                           | O app já define `setNotificationHandler` (`src/lib/notifications.ts`), então o comportamento não muda. No Jest, isso quebrava 160 suítes (ver §2).                                                                                                                                                                                                                             |
 | expo-file-system 58          | `File.write()` virou assíncrono e `md5` foi depreciado                                                                                                                                                                       | O app usa só `expo-file-system/legacy`, que continua existindo.                                                                                                                                                                                                                                                                                                                |
 | expo-updates 58              | Opção `maxUpdatesToKeep`                                                                                                                                                                                                     | Nada a fazer.                                                                                                                                                                                                                                                                                                                                                                  |
-| expo-location / task-manager | `expo-location/next` em preview; no iOS, geofence sem o background mode                                                                                                                                                      | Nada muda na API que o app usa.                                                                                                                                                                                                                                                                                                                                                |
+| expo-location / task-manager | `expo-location/next` em preview; no iOS, geofence sem o background mode                                                                                                                                                      | **Corrigido (04/11):** no Android a 58 passa a respeitar `accuracy`, `timeInterval` e `distanceInterval`, que a 57 descartava (cast de Double; vale o Balanced, 3 s e 100 m). A navegação vai a GPS de alta precisão, 5 s e 10 m, e a rota cai de 100 m para 50 m: mais posições e mais bateria. Medir na rua antes de recalibrar.                                             |
 | expo-image-picker            | Sem breaking change no changelog                                                                                                                                                                                             | Validar no aparelho.                                                                                                                                                                                                                                                                                                                                                           |
 | Android R8                   | Ligado por padrão no release                                                                                                                                                                                                 | Já estava ligado por `expo-build-properties`. O `expo-modules-core` 58 mantém o meta-data `org.unimodules.core.AppLoader#react-native-headless` e a classe `RNHeadlessAppLoader`, então a regra `-keep` do HeadlessAppLoader **continua necessária**. As opções `enableMinifyInReleaseBuilds`, `enableShrinkResourcesInReleaseBuilds` e `extraProguardRules` seguem no schema. |
 | expo-modules-core            | Passa a vir com `.so` pré-compilados (`buildExpoModulesCoreFromSource` para compilar da fonte)                                                                                                                               | Muda o build nativo. É novidade a observar no primeiro build pelo Actions/EAS.                                                                                                                                                                                                                                                                                                 |
@@ -124,8 +124,11 @@ e as notas da 11.4 e da 11.5 não falam do RN 0.88.
 - `onSwipeableOpen` mantém o contrato antigo (`'left'` = abriram as ações da
   esquerda). O componente novo informa o sentido do arrasto, que é o inverso,
   e o mapeamento foi feito.
-- Hoje o único uso é a vitrine `app/design-system.tsx`. Apagar o componente foi
-  considerado e descartado por estar fora do escopo do upgrade.
+- **Corrigido (04/11):** o componente também é usado no card principal da Início
+  (`MainCardActive`) e nos cards da aba Paradas (`ParadaCard`), não só na
+  vitrine. O deslizar para os dois lados, a abertura do fluxo de conclusão e a
+  rolagem vertical sobre os cards foram conferidos no dev client do moto g15
+  (04/11/2026). Os testes mockam o `SwipeableRow`, então só o aparelho prova.
 
 ### Infra de testes (`db49a51c`)
 
@@ -259,11 +262,16 @@ Antes de começar: `adb logcat -c`, e depois filtrar por
 3. **Rota do motorista**: Início com o mini-mapa enquadrando as paradas (é o
    `requestIdleCallback` novo), iniciar a rota, abas Mapa e Paradas, balão do
    marcador (toque no `<Marker>`) e abertura no Waze/Google Maps.
+   3b. **Deslizar do motorista** (`ReanimatedSwipeable` do GH 3): na Início e na
+   aba Paradas, deslizar o card para a direita (Concluir abre o comprovante) e
+   para a esquerda (Pular), e rolar a lista na vertical sobre os cards sem abrir
+   o deslizar.
 4. **Mapa nativo** (maplibre): tiles do OpenFreeMap, pinos e "3+4", e
    alternância de tema com o mapa aberto.
 5. **Rastreamento em segundo plano com a tela apagada**: entrar na navegação,
    conferir "Rastreando", apagar a tela por mais de 5 min e voltar. Confira as
-   posições gravadas e a geofence avisando a chegada. Depois faça
+   posições gravadas (a geofence não mostra nada: `handleArrival` só chama um
+   `sendNotification` vazio). Depois faça
    `adb install -r` do mesmo APK por cima, com o rastreamento ativo, e procure
    `ClassNotFound`/`Cannot initialize app loader` (R8).
 6. **Câmera/foto**: concluir uma parada pelo `StopCompletionFlow` com foto e
@@ -285,6 +293,9 @@ Antes de começar: `adb logcat -c`, e depois filtrar por
      root view único.
 8. **Notificação**: push FCM com o app em primeiro plano, em segundo plano e
    fechado. Confira se a exibição em primeiro plano segue o handler do app.
+   **Toque na notificação** (com o app em segundo plano e fechado): tem de abrir a
+   rota certa. O expo-notifications 58 mudou a precedência do `dataString` do FCM
+   no Android, e `notificationHandlers.ts` lê `data.tipo` e `data.rota_id`.
 9. **Tema escuro**: Configurações → Aparência, alternando claro/escuro em telas
    já montadas e montadas depois, e uma partida a frio com o tema persistido.
 10. **Atualização pela Play mantendo o login**: instalar o build da faixa
