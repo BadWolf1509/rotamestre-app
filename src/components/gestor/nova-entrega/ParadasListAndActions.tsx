@@ -26,10 +26,7 @@ import { ParadaCard } from './ParadaCard';
 import { RotaOtimizadaBanner } from './RotaOtimizadaBanner';
 import { RouteDateSelector } from './RouteDateSelector';
 
-import type {
-  Parada,
-  ParadasStatus,
-} from './types';
+import type { Parada, ParadasStatus } from './types';
 
 export interface ParadasListAndActionsProps {
   paradas: Parada[];

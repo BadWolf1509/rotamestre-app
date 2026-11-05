@@ -131,7 +131,6 @@ export function Toast({
     } else if (estavaVisivel && !jaDispensouRef.current) {
       handleDismiss();
     }
-
   }, [duration, handleDismiss, type, translateY, visible, fadeAnim]);
 
   if (!visible) return null;

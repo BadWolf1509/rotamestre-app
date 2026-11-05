@@ -99,7 +99,8 @@ export function EmptyState({
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
-  container: {    alignItems: 'center',
+  container: {
+    alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.xl,
   },

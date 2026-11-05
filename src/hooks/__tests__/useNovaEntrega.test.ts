@@ -244,7 +244,9 @@ describe('useNovaEntrega', () => {
 
     const { result } = renderHook(() => useNovaEntrega());
 
-    await waitFor(() => expect(result.current.percurso.enderecoUnidade).not.toBeNull());
+    await waitFor(() =>
+      expect(result.current.percurso.enderecoUnidade).not.toBeNull(),
+    );
 
     await act(async () => {
       await result.current.onAddParada(
@@ -274,7 +276,9 @@ describe('useNovaEntrega', () => {
 
     const { result } = renderHook(() => useNovaEntrega());
 
-    await waitFor(() => expect(result.current.percurso.enderecoUnidade).not.toBeNull());
+    await waitFor(() =>
+      expect(result.current.percurso.enderecoUnidade).not.toBeNull(),
+    );
 
     await act(async () => {
       await result.current.onAddParada(
@@ -306,8 +310,12 @@ describe('useNovaEntrega', () => {
       await result.current.percurso.otimizar();
     });
 
-    await waitFor(() => expect(result.current.percurso.rotaOtimizada).not.toBeNull());
-    expect(result.current.percurso.rotaOtimizada?.distancia_total_metros).toBe(9000);
+    await waitFor(() =>
+      expect(result.current.percurso.rotaOtimizada).not.toBeNull(),
+    );
+    expect(result.current.percurso.rotaOtimizada?.distancia_total_metros).toBe(
+      9000,
+    );
     expect(mockOtimizarRotaComDependencias).toHaveBeenCalled();
 
     const hasAviso = mockShowToast.mock.calls.some((call) =>
