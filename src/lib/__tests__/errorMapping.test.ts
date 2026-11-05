@@ -633,6 +633,15 @@ describe('errorMapping', () => {
 
     // R-NUC-2: mesmo padrão de falhaDeRede.ts — a Edge Function sem resposta
     // (FunctionsFetchError) caía no erro genérico.
+    // Pela classe (ehFalhaDeRede), não só pela mensagem: o refresh do
+    // auth-js sem rede pode vir com texto que o padrão não conhece.
+    it('AuthRetryableFetchError é rede, qualquer que seja o texto', () => {
+      const { AuthRetryableFetchError } = jest.requireActual(
+        '@supabase/supabase-js',
+      );
+      expect(isNetworkError(new AuthRetryableFetchError('{}', 0))).toBe(true);
+    });
+
     it('Edge Function sem resposta é rede', () => {
       expect(
         isNetworkError({
