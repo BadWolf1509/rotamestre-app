@@ -371,15 +371,15 @@ export function Modal({
       <View style={styles.container}>
         <Animated.View
           style={[
-            styles.modal,
+            size === 'full' ? styles.fullModal : styles.modal,
             {
-              width: getModalWidth(),
+              // Modal cheio: width/height 100% vêm do fullModal; o inline não pode sobrescrever.
+              ...(size === 'full' ? {} : { width: getModalWidth() }),
               transform: [
                 { translateY: animationType === 'slide' ? slideAnim : 0 },
               ],
               opacity: animationType === 'fade' ? fadeAnim : 1,
             },
-            size === 'full' && styles.fullModal,
             style,
           ]}
         >
@@ -420,62 +420,69 @@ export function Modal({
   );
 }
 
-const styles = StyleSheet.create((theme: Theme) => ({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    zIndex: 30,
-  },
-  overlayTouchable: {
-    flex: 1,
-  },
-
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 31,
-  },
-
-  modal: {
+const styles = StyleSheet.create((theme: Theme) => {
+  const modal = {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
-    maxHeight: '80%',
+    maxHeight: '80%' as const,
     ...theme.shadows.lg,
-  },
-  fullModal: {
-    width: '100%',
-    height: '100%',
-    maxHeight: '100%',
-    borderRadius: 0,
-  },
+  };
 
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.components.modal.headerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
+  return {
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      zIndex: 30,
+    },
+    overlayTouchable: {
+      flex: 1,
+    },
 
-  title: {
-    fontFamily: theme.typography.fontSansBold,
-    fontSize: theme.typography.fontSize.base,
-    lineHeight: theme.typography.fontSize.base * 1.5,
-    color: theme.colors.gray900,
-    flex: 1,
-  },
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 31,
+    },
 
-  closeButton: {
-    padding: theme.spacing.xs,
-    marginLeft: theme.spacing.sm,
-  },
+    modal,
+    // Variante completa do `modal` (não um 2º estilo por cima): o Animated.View
+    // achata o array e 2 estilos do Unistyles geram o aviso a cada render.
+    fullModal: {
+      ...modal,
+      width: '100%',
+      height: '100%',
+      maxHeight: '100%',
+      borderRadius: 0,
+    },
 
-  content: {
-    padding: theme.components.modal.bodyPadding,
-  },
-}));
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: theme.components.modal.headerPadding,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray200,
+    },
+
+    title: {
+      fontFamily: theme.typography.fontSansBold,
+      fontSize: theme.typography.fontSize.base,
+      lineHeight: theme.typography.fontSize.base * 1.5,
+      color: theme.colors.gray900,
+      flex: 1,
+    },
+
+    closeButton: {
+      padding: theme.spacing.xs,
+      marginLeft: theme.spacing.sm,
+    },
+
+    content: {
+      padding: theme.components.modal.bodyPadding,
+    },
+  };
+});
 
 /**
  * ============================================
