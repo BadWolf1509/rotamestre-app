@@ -10,13 +10,13 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  TouchableOpacity,
   Image,
   Alert,
   Platform,
 } from 'react-native';
 
 import { Progress } from '@/components/Progress';
-import { Touchable } from '@/components/Touchable';
 import { useAlert } from '@/hooks/useAlert';
 import { logger } from '@/lib/logger';
 import {
@@ -399,7 +399,7 @@ export default function CameraUpload({
           <Image source={{ uri: selectedImage }} style={styles.previewImage} />
 
           <View style={styles.buttonsRow}>
-            <Touchable
+            <TouchableOpacity
               style={[styles.button, styles.buttonSecondary]}
               onPress={() => setSelectedImage(null)}
               disabled={uploading}
@@ -408,9 +408,9 @@ export default function CameraUpload({
               accessibilityState={{ disabled: uploading }}
             >
               <Text style={styles.buttonTextSecondary}>❌ Remover</Text>
-            </Touchable>
+            </TouchableOpacity>
 
-            <Touchable
+            <TouchableOpacity
               style={[
                 styles.button,
                 styles.buttonPrimary,
@@ -434,12 +434,12 @@ export default function CameraUpload({
               ) : (
                 <Text style={styles.buttonText}>📤 Enviar Foto</Text>
               )}
-            </Touchable>
+            </TouchableOpacity>
           </View>
         </View>
       ) : (
         // Botão para adicionar foto
-        <Touchable
+        <TouchableOpacity
           style={styles.addButton}
           onPress={showOptions}
           disabled={uploading}
@@ -450,7 +450,7 @@ export default function CameraUpload({
           <Text style={styles.addButtonText}>
             📸 Adicionar Foto do Comprovante
           </Text>
-        </Touchable>
+        </TouchableOpacity>
       )}
       {AlertDialog}
     </View>

@@ -4,9 +4,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useMemo } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { useUnistyles } from '@/utils/styles';
 
 import { PaginationMobile } from './DataTablePagination';
@@ -93,7 +92,7 @@ function DataTableMobileViewInner<T>({
                     : undefined;
 
                   return (
-                    <Touchable
+                    <TouchableOpacity
                       key={idx}
                       style={[
                         styles.cardActionButton,
@@ -126,7 +125,7 @@ function DataTableMobileViewInner<T>({
                       >
                         {label}
                       </Text>
-                    </Touchable>
+                    </TouchableOpacity>
                   );
                 })}
               </View>

@@ -3,9 +3,7 @@
  */
 
 import { memo } from 'react';
-import { View, Text } from 'react-native';
-
-import { Touchable } from '@/components/Touchable';
+import { View, Text, TouchableOpacity } from 'react-native';
 
 import { dataTableStyles as styles } from './styles';
 
@@ -29,7 +27,7 @@ export const PaginationMobile = memo(function PaginationMobile({
 
   return (
     <View style={styles.pagination}>
-      <Touchable
+      <TouchableOpacity
         style={[
           styles.pageButton,
           currentPage === 1 && styles.pageButtonDisabled,
@@ -41,13 +39,13 @@ export const PaginationMobile = memo(function PaginationMobile({
         accessibilityState={{ disabled: currentPage === 1 }}
       >
         <Text style={styles.pageButtonText}>← Anterior</Text>
-      </Touchable>
+      </TouchableOpacity>
 
       <Text style={styles.pageInfo}>
         Página {currentPage} de {totalPages}
       </Text>
 
-      <Touchable
+      <TouchableOpacity
         style={[
           styles.pageButton,
           currentPage === totalPages && styles.pageButtonDisabled,
@@ -59,7 +57,7 @@ export const PaginationMobile = memo(function PaginationMobile({
         accessibilityState={{ disabled: currentPage === totalPages }}
       >
         <Text style={styles.pageButtonText}>Próxima →</Text>
-      </Touchable>
+      </TouchableOpacity>
     </View>
   );
 });
@@ -92,7 +90,7 @@ export const PaginationDesktop = memo(function PaginationDesktop({
       </Text>
 
       <View style={styles.paginationControls}>
-        <Touchable
+        <TouchableOpacity
           style={[
             styles.pageButton,
             currentPage === 1 && styles.pageButtonDisabled,
@@ -104,13 +102,13 @@ export const PaginationDesktop = memo(function PaginationDesktop({
           accessibilityState={{ disabled: currentPage === 1 }}
         >
           <Text style={styles.pageButtonText}>← Anterior</Text>
-        </Touchable>
+        </TouchableOpacity>
 
         <Text style={styles.pageInfo}>
           Página {currentPage} de {totalPages}
         </Text>
 
-        <Touchable
+        <TouchableOpacity
           style={[
             styles.pageButton,
             currentPage === totalPages && styles.pageButtonDisabled,
@@ -122,7 +120,7 @@ export const PaginationDesktop = memo(function PaginationDesktop({
           accessibilityState={{ disabled: currentPage === totalPages }}
         >
           <Text style={styles.pageButtonText}>Próxima →</Text>
-        </Touchable>
+        </TouchableOpacity>
       </View>
     </View>
   );

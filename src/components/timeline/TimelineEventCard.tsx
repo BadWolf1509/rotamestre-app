@@ -4,9 +4,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import { View, Text, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, Animated } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { formatRelativeTime, calculateDurationBetween } from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -70,7 +69,7 @@ function TimelineEventCardComponent({
         </View>
 
         {/* Content */}
-        <Touchable
+        <TouchableOpacity
           style={[
             styles.contentContainer,
             event.isCritical && styles.contentContainerCritical,
@@ -118,7 +117,7 @@ function TimelineEventCardComponent({
           </Text>
 
           {hasLongDescription && (
-            <Touchable
+            <TouchableOpacity
               onPress={onToggleExpand}
               style={styles.expandButton}
             >
@@ -130,9 +129,9 @@ function TimelineEventCardComponent({
                 size={12}
                 color={theme.colors.info}
               />
-            </Touchable>
+            </TouchableOpacity>
           )}
-        </Touchable>
+        </TouchableOpacity>
       </EventContainer>
 
       {/* Duration between events */}

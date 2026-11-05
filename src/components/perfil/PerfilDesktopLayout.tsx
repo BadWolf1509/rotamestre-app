@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { ThemeSettings } from '@/components/ThemeSettings';
-import { Touchable } from '@/components/Touchable';
 import { Text } from '@/design-system';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -90,7 +89,7 @@ export function PerfilDesktopLayout({
           <View style={styles(theme).divider} />
 
           <View style={styles(theme).quickActions}>
-            <Touchable
+            <TouchableOpacity
               style={styles(theme).quickAction}
               onPress={() => router.push('/perfil/editar')}
             >
@@ -105,9 +104,9 @@ export function PerfilDesktopLayout({
                 size={16}
                 color={theme.colors.gray400}
               />
-            </Touchable>
+            </TouchableOpacity>
 
-            <Touchable
+            <TouchableOpacity
               style={styles(theme).quickAction}
               onPress={() => router.push('/perfil/trocar-senha')}
             >
@@ -122,10 +121,10 @@ export function PerfilDesktopLayout({
                 size={16}
                 color={theme.colors.gray400}
               />
-            </Touchable>
+            </TouchableOpacity>
 
             {onLogout && (
-              <Touchable
+              <TouchableOpacity
                 style={[styles(theme).quickAction, styles(theme).logoutAction]}
                 onPress={onLogout}
               >
@@ -147,11 +146,11 @@ export function PerfilDesktopLayout({
                   size={16}
                   color={theme.colors.gray400}
                 />
-              </Touchable>
+              </TouchableOpacity>
             )}
 
             {onDeleteAccount && (
-              <Touchable
+              <TouchableOpacity
                 style={[styles(theme).quickAction, styles(theme).deleteAction]}
                 onPress={onDeleteAccount}
               >
@@ -173,7 +172,7 @@ export function PerfilDesktopLayout({
                   size={16}
                   color={theme.colors.gray400}
                 />
-              </Touchable>
+              </TouchableOpacity>
             )}
           </View>
         </View>

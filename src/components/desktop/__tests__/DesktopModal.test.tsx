@@ -615,7 +615,7 @@ describe('DesktopModal', () => {
         </DesktopModal>,
       );
 
-      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
+      const TouchableOpacity = require('react-native').TouchableOpacity;
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       // O último TouchableOpacity é o botão primário
       const primaryBtn = touchables[touchables.length - 1];
@@ -637,7 +637,7 @@ describe('DesktopModal', () => {
       // Verifica que o botão existe
       expect(getByText('Salvar')).toBeTruthy();
 
-      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
+      const TouchableOpacity = require('react-native').TouchableOpacity;
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const primaryBtn = touchables[touchables.length - 1];
       expect(primaryBtn.props.disabled).toBe(true);

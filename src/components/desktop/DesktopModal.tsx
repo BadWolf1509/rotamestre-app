@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import {
   View,
   Text,
+  TouchableOpacity,
   Pressable,
   ViewStyle,
   DimensionValue,
@@ -13,7 +14,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { JanelaModalNativa } from '@/components/JanelaModalNativa';
-import { Touchable } from '@/components/Touchable';
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow, withOpacity } from '@/utils/color';
 import {
@@ -338,7 +338,7 @@ export function DesktopModal({
     const buttonColor = config.color || theme.colors.primary;
 
     return (
-      <Touchable
+      <TouchableOpacity
         key={isPrimary ? 'primary' : 'secondary'}
         onPress={isDisabled ? undefined : config.onPress}
         disabled={isDisabled}
@@ -366,7 +366,7 @@ export function DesktopModal({
         >
           {config.text}
         </Text>
-      </Touchable>
+      </TouchableOpacity>
     );
   };
 
@@ -596,14 +596,14 @@ export function DesktopModal({
           {title && (
             <View style={styles.header}>
               <Text style={styles.title}>{title}</Text>
-              <Touchable
+              <TouchableOpacity
                 onPress={onClose}
                 style={styles.closeButton}
                 accessibilityLabel="Fechar modal"
                 accessibilityRole="button"
               >
                 <Ionicons name="close" size={24} color={theme.colors.gray500} />
-              </Touchable>
+              </TouchableOpacity>
             </View>
           )}
 
