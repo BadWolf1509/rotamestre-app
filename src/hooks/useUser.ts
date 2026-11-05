@@ -30,7 +30,7 @@ import { onProfileUpdate } from '../lib/profileEvents';
 import { SELECT_UNIDADE_APP } from '../lib/queries/colunasUnidade';
 import { redeCaidaObservada } from '../lib/redeObservada';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Usuario } from '../types/usuario';
+import { Usuario, type UnidadeComSede } from '../types/usuario';
 
 /**
  * Por que o perfil não está disponível, quando `userData` é null sem ser
@@ -234,7 +234,9 @@ export function useUser() {
           ativa: true,
           sede_latitude: -23.5505,
           sede_longitude: -46.6333,
-        } as any,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } satisfies UnidadeComSede,
         usuario_unidades: [
           {
             id: 'vinculo-mock-1',
@@ -249,6 +251,8 @@ export function useUser() {
               nome: 'Unidade Teste',
               cidade: 'São Paulo',
               ativa: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             },
           },
         ],
