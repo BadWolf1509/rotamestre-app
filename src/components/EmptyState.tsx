@@ -57,6 +57,7 @@ export function EmptyState({
       testID={testID}
       style={[
         styles.container,
+        !compact && styles.containerPreenche,
         compact && styles.containerCompact,
         fullScreen && styles.containerFullScreen,
         style,
@@ -98,15 +99,18 @@ export function EmptyState({
 }
 
 const styles = StyleSheet.create((theme: Theme) => ({
-  container: {
-    flex: 1,
-    alignItems: 'center',
+  container: {    alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.xl,
   },
 
+  // Só no modo padrão: desfazer um `flex: 1` com `flex: undefined` não
+  // funciona no web (o Unistyles pula undefined), então ele não entra no compact.
+  containerPreenche: {
+    flex: 1,
+  },
+
   containerCompact: {
-    flex: undefined,
     padding: theme.spacing['3xl'],
   },
 

@@ -104,6 +104,8 @@ export function Toast({
     wasVisibleRef.current = visible;
 
     if (visible) {
+      // Novo show na mesma instância (useToast): rearma o ramo "pai escondeu".
+      if (!estavaVisivel) jaDispensouRef.current = false;
       // Slide in + fade in
       Animated.parallel([
         Animated.timing(fadeAnim, {

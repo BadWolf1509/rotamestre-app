@@ -223,6 +223,10 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     fontWeight: '500',
     color: theme.colors.textSecondary,
   },
+  // Chip de informação sobre o mapa: fundo E texto (`infoBadgeText`) vêm do tema e
+  // se invertem juntos, então segue legível no escuro, como o balão. Mantido no
+  // tema de propósito (B-UI-1/R-UI-3): trocar só o fundo deixaria o texto claro
+  // sobre fundo claro; CORES_SOBRE_O_MAPA não tem cor de texto escuro.
   infoBadge: {
     position: 'absolute',
     top: theme.spacing['2.5'],

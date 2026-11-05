@@ -58,7 +58,9 @@ describe('EmptyState', () => {
         <EmptyState title="Vazio" compact testID="vazio" />
       );
       const estilo = estiloRaiz(getByTestId('vazio'));
-      expect(estilo.flex).toBeUndefined();
+      // Chave AUSENTE, não `flex: undefined`: o Unistyles web pula valor
+      // undefined ao gerar o CSS, e o flex:1 do container continuaria valendo.
+      expect(estilo).not.toHaveProperty('flex');
       expect(estilo.alignItems).toBe('center');
     });
 
