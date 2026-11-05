@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 
-import { Touchable } from '@/components/Touchable';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 interface MobileHeaderProps {
@@ -21,13 +20,13 @@ export function MobileHeader({ title, subtitle, rightContent, showBack, onBack }
     <View style={styles.header}>
       <View style={styles.headerContent}>
         {showBack && onBack && (
-          <Touchable
+          <TouchableOpacity
             onPress={onBack}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.backIcon}>←</Text>
-          </Touchable>
+          </TouchableOpacity>
         )}
         <View style={styles.textContainer}>
           <Text style={styles.headerTitle}>{title}</Text>

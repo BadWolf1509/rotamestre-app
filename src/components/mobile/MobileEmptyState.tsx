@@ -1,9 +1,7 @@
 import React from 'react';
-
-import { EmptyState } from '@/components/EmptyState';
-
 import type { ViewStyle } from 'react-native';
 
+import { EmptyState } from '@/components/EmptyState';
 
 interface MobileEmptyStateProps {
   icon?: string;
