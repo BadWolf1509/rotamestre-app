@@ -326,25 +326,21 @@ describe('routeUtils', () => {
       });
     });
 
-    it('deve usar fallback se RPC não existe (erro 42883)', async () => {
+    it('R-DB-1: RPC inexistente (42883) é erro simples, sem reserva não atômica', async () => {
       mockRpc.mockResolvedValue({
         data: null,
         error: { code: '42883', message: 'function does not exist' },
       });
 
-      // Mock do supabase.from para o fallback
-      const chain = criarCadeia({ data: null, error: null });
-      mockFrom.mockReturnValue(chain);
-
-      const paradas = [
+      const result = await reordenarParadas([
         { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-      ];
+      ]);
 
-      const result = await reordenarParadas(paradas);
-
-      // Fallback deve ser chamado
-      expect(mockFrom).toHaveBeenCalledWith('paradas');
-      expect(result.success).toBe(true);
+      expect(result).toEqual({
+        success: false,
+        error: 'Erro ao reordenar paradas.',
+      });
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it('deve retornar erro se RPC retorna erro genérico', async () => {
@@ -364,6 +360,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se RPC retorna data.success = false', async () => {
+      const erro = jest.spyOn(logger, 'error').mockImplementation(() => {});
       mockRpc.mockResolvedValue({
         data: { success: false, error: 'Custom RPC error' },
         error: null,
@@ -376,7 +373,12 @@ describe('routeUtils', () => {
       const result = await reordenarParadas(paradas);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Custom RPC error');
+      // B-DB-1: o SQLERRM cru não vai para o toast; só para o logger.
+      expect(result.error).toBe('Erro ao reordenar paradas.');
+      expect(erro).toHaveBeenCalledWith(
+        '[reordenarParadas] RPC returned error',
+        { error: 'Custom RPC error' },
+      );
     });
 
     it('deve capturar exceções', async () => {
@@ -392,101 +394,6 @@ describe('routeUtils', () => {
       expect(result.error).toBe('RPC exception');
     });
 
-    it('deve usar fallback com sucesso quando RPC não existe', async () => {
-      // RPC retorna erro "does not exist"
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: {
-          code: null,
-          message: 'function reordenar_paradas does not exist',
-        },
-      });
-
-      // Mock para fallback (step 1 e step 2)
-      let updateCount = 0;
-      mockFrom.mockImplementation(() => ({
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation(() => {
-          updateCount++;
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const paradas = [
-        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-        { id: 'p2', ordem: 2, latitude: -23.56, longitude: -46.64 },
-      ];
-
-      const result = await reordenarParadas(paradas);
-
-      expect(result.success).toBe(true);
-      // Fallback faz 2 etapas: temp values (2 updates) + final values (2 updates) = 4 updates
-      expect(updateCount).toBe(4);
-    });
-
-    it('deve retornar erro no fallback se step 1 falhar', async () => {
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: '42883', message: 'function does not exist' },
-      });
-
-      let updateCount = 0;
-      mockFrom.mockImplementation(() => ({
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation(() => {
-          updateCount++;
-          // Falhar na primeira atualização
-          if (updateCount === 1) {
-            return Promise.resolve({
-              data: null,
-              error: { message: 'Step 1 error' },
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const paradas = [
-        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-      ];
-
-      const result = await reordenarParadas(paradas);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('valores temporários');
-    });
-
-    it('deve retornar erro no fallback se step 2 falhar', async () => {
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: '42883', message: 'function does not exist' },
-      });
-
-      let updateCount = 0;
-      mockFrom.mockImplementation(() => ({
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation(() => {
-          updateCount++;
-          // Falhar na segunda atualização (step 2)
-          if (updateCount === 2) {
-            return Promise.resolve({
-              data: null,
-              error: { message: 'Step 2 error' },
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const paradas = [
-        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-      ];
-
-      const result = await reordenarParadas(paradas);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('ordem correta');
-    });
   });
 
   describe('removerParadaERecalcular', () => {

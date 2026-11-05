@@ -237,23 +237,18 @@ export async function reordenarParadas(
     });
 
     if (error) {
+      // A RPC existe em produção (banco único): não há reserva não atômica.
       logger.error('[reordenarParadas] RPC error', error);
-      // Fallback para método sequencial se RPC não existir
-      if (error.code === '42883' || error.message?.includes('does not exist')) {
-        logger.debug('[reordenarParadas] RPC not found, using fallback');
-        return reordenarParadasFallback(paradas);
-      }
       return { success: false, error: 'Erro ao reordenar paradas.' };
     }
 
     if (data && !data.success) {
+      // `data.error` é o SQLERRM cru do Postgres (violação de UNIQUE, nome de
+      // gatilho, lock_timeout): vai só para o log, nunca para o toast.
       logger.error('[reordenarParadas] RPC returned error', {
         error: data.error,
       });
-      return {
-        success: false,
-        error: data.error || 'Erro ao reordenar paradas.',
-      };
+      return { success: false, error: 'Erro ao reordenar paradas.' };
     }
 
     logger.debug(
@@ -271,54 +266,6 @@ export async function reordenarParadas(
           : 'Erro desconhecido ao reordenar paradas.',
     };
   }
-}
-
-/**
- * Fallback: Reordena paradas sequencialmente (usado se RPC não existir)
- * Abordagem de duas etapas para evitar conflitos de unique constraint
- */
-async function reordenarParadasFallback(
-  paradas: ParadaBasica[],
-): Promise<{ success: boolean; error?: string }> {
-  logger.debug(
-    '[reordenarParadasFallback] Using sequential fallback for',
-    paradas.length,
-    'paradas',
-  );
-
-  // STEP 1: Move all paradas to temporary high values (1000+)
-  for (let i = 0; i < paradas.length; i++) {
-    const tempOrdem = 1000 + i;
-    const { error } = await supabase
-      .from('paradas')
-      .update({ ordem: tempOrdem })
-      .eq('id', paradas[i].id);
-
-    if (error) {
-      logger.error('[reordenarParadasFallback] Error in step 1', error);
-      return {
-        success: false,
-        error: 'Erro ao mover paradas para valores temporários.',
-      };
-    }
-  }
-
-  // STEP 2: Assign the correct target values (1, 2, 3, ...)
-  for (let i = 0; i < paradas.length; i++) {
-    const targetOrdem = i + 1;
-    const { error } = await supabase
-      .from('paradas')
-      .update({ ordem: targetOrdem })
-      .eq('id', paradas[i].id);
-
-    if (error) {
-      logger.error('[reordenarParadasFallback] Error in step 2', error);
-      return { success: false, error: 'Erro ao atribuir ordem correta.' };
-    }
-  }
-
-  logger.debug('[reordenarParadasFallback] Completed');
-  return { success: true };
 }
 
 /**
