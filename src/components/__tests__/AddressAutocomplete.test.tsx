@@ -223,7 +223,7 @@ describe('AddressAutocomplete', () => {
     const suggestions = getAllByTestId('suggestion-item');
     expect(suggestions.length).toBeGreaterThan(0);
 
-    const { TouchableOpacity } = require('react-native');
+    const { Touchable: TouchableOpacity } = require('@/components/Touchable');
     const touchables = UNSAFE_getAllByType(TouchableOpacity);
     const suggestion = touchables.find(
       (node: any) => node.props.testID === 'suggestion-item',
@@ -321,7 +321,7 @@ describe('AddressAutocomplete', () => {
         expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
       });
 
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const suggestion = touchables.find(
         (node: any) => node.props.testID === 'suggestion-item',
@@ -388,7 +388,7 @@ describe('AddressAutocomplete', () => {
         expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
       });
 
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const suggestion = touchables.find(
         (node: any) => node.props.testID === 'suggestion-item',
@@ -455,7 +455,7 @@ describe('AddressAutocomplete', () => {
         expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
       });
 
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const suggestion = touchables.find(
         (node: any) => node.props.testID === 'suggestion-item',
@@ -528,7 +528,7 @@ describe('AddressAutocomplete', () => {
         expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
       });
 
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const suggestion = touchables.find(
         (node: any) => node.props.testID === 'suggestion-item',
@@ -597,7 +597,7 @@ describe('AddressAutocomplete', () => {
         expect(getAllByTestId('suggestion-item').length).toBeGreaterThan(0);
       });
 
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const suggestion = touchables.find(
         (node: any) => node.props.testID === 'suggestion-item',
@@ -640,7 +640,7 @@ describe('AddressAutocomplete', () => {
       expect(input.props.value).toBe('Rua Teste 123');
 
       // Encontrar e pressionar o botão limpar
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const clearButton = touchables.find(
         (node: any) => node.props.accessibilityLabel === 'Limpar endereço',
@@ -713,7 +713,7 @@ describe('AddressAutocomplete', () => {
 
       const { UNSAFE_getAllByType } = render(<TestWrapperWithValue />);
 
-      const { TouchableOpacity } = require('react-native');
+      const { Touchable: TouchableOpacity } = require('@/components/Touchable');
       const touchables = UNSAFE_getAllByType(TouchableOpacity);
       const clearButton = touchables.find(
         (node: any) => node.props.accessibilityLabel === 'Limpar endereço',
@@ -754,7 +754,7 @@ describe('AddressAutocomplete', () => {
       });
 
       await waitFor(() => {
-        const { TouchableOpacity } = require('react-native');
+        const { Touchable: TouchableOpacity } = require('@/components/Touchable');
         const touchables = UNSAFE_getAllByType(TouchableOpacity);
         const suggestion = touchables.find(
           (node: any) => node.props.testID === 'suggestion-item',

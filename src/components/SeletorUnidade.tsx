@@ -12,11 +12,11 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { UsuarioUnidade } from '@/types/usuario';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -63,7 +63,7 @@ export function SeletorUnidadeTrigger({
   }
 
   return (
-    <TouchableOpacity
+    <Touchable
       style={styles.trigger}
       onPress={temMultiplasUnidades ? onPress : undefined}
       activeOpacity={temMultiplasUnidades ? 0.7 : 1}
@@ -86,7 +86,7 @@ export function SeletorUnidadeTrigger({
           style={styles.triggerChevron}
         />
       )}
-    </TouchableOpacity>
+    </Touchable>
   );
 }
 
@@ -106,7 +106,7 @@ function UnidadeItem({
   const unidade = vinculacao.unidades;
 
   return (
-    <TouchableOpacity
+    <Touchable
       style={[styles.unidadeItem, isSelected && styles.unidadeItemSelected]}
       onPress={onSelect}
       activeOpacity={0.7}
@@ -149,7 +149,7 @@ function UnidadeItem({
           color={theme.colors.primary}
         />
       )}
-    </TouchableOpacity>
+    </Touchable>
   );
 }
 

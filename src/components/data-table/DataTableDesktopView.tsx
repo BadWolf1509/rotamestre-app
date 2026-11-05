@@ -7,11 +7,11 @@ import { memo } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   DimensionValue,
 } from "react-native";
 
+import { Touchable } from '@/components/Touchable';
 import { useUnistyles } from "@/utils/styles";
 
 import { PaginationDesktop } from "./DataTablePagination";
@@ -79,7 +79,7 @@ function DataTableDesktopViewInner<T>({
                   : "";
 
                 return (
-                  <TouchableOpacity
+                  <Touchable
                     key={column.key}
                     style={[
                       styles.tableHeaderCell,
@@ -104,7 +104,7 @@ function DataTableDesktopViewInner<T>({
                         {sortDirection === "asc" ? " ↑" : " ↓"}
                       </Text>
                     )}
-                  </TouchableOpacity>
+                  </Touchable>
                 );
               })}
               {actions && actions.length > 0 && (
@@ -190,7 +190,7 @@ function DataTableDesktopViewInner<T>({
                         : undefined;
 
                       return (
-                        <TouchableOpacity
+                        <Touchable
                           key={idx}
                           style={[
                             styles.tableActionButton,
@@ -225,7 +225,7 @@ function DataTableDesktopViewInner<T>({
                           >
                             {label}
                           </Text>
-                        </TouchableOpacity>
+                        </Touchable>
                       );
                     })}
                   </View>

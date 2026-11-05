@@ -3,8 +3,9 @@
  * Handles cancel and confirm buttons with loading state
  */
 import { memo } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { DialogVariant } from './Dialog.types';
@@ -41,7 +42,7 @@ export const DialogButtons = memo(function DialogButtons({
     <View style={styles.container}>
       {/* Cancel button (only for confirm/destructive variants) */}
       {variant !== 'alert' && (
-        <TouchableOpacity
+        <Touchable
           style={[
             styles.button,
             styles.cancelButton,
@@ -54,11 +55,11 @@ export const DialogButtons = memo(function DialogButtons({
           testID="cancel-reset"
         >
           <Text style={styles.cancelButtonText}>{cancelText}</Text>
-        </TouchableOpacity>
+        </Touchable>
       )}
 
       {/* Confirm button */}
-      <TouchableOpacity
+      <Touchable
         style={[
           styles.button,
           styles.confirmButton,
@@ -80,7 +81,7 @@ export const DialogButtons = memo(function DialogButtons({
           />
         )}
         <Text style={styles.confirmButtonText}>{confirmText}</Text>
-      </TouchableOpacity>
+      </Touchable>
     </View>
   );
 });

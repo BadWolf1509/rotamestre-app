@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import {
   View,
   TextInput,
-  TouchableOpacity,
   Text,
   ActivityIndicator,
   FlatList,
@@ -11,6 +10,7 @@ import {
   type TextInputInstance,
 } from 'react-native';
 
+import { Touchable } from '@/components/Touchable';
 import { useResponsive } from '@/hooks/useResponsive';
 import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
 import { logger } from '@/lib/logger';
@@ -471,7 +471,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
       const fullLabel = `${sourceLabel}: ${displayMainText}, ${item.structured_formatting.secondary_text}${item.cep ? ', CEP: ' + item.cep : ''}`;
 
       return (
-        <TouchableOpacity
+        <Touchable
           testID="suggestion-item"
           nativeID={getOptionId(index)}
           style={[
@@ -528,7 +528,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
               {item.cep ? ` • CEP: ${item.cep}` : ''}
             </Text>
           </View>
-        </TouchableOpacity>
+        </Touchable>
       );
     },
     [
@@ -678,7 +678,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             : {})}
         />
         {value && value.length > 0 && (
-          <TouchableOpacity
+          <Touchable
             style={[
               styles.clearButton,
               useCompact && styles.clearButtonCompact,
@@ -697,7 +697,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
             >
               ×
             </Text>
-          </TouchableOpacity>
+          </Touchable>
         )}
       </View>
 
