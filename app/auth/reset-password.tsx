@@ -13,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type TextInputInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UnistylesRuntime } from 'react-native-unistyles';
@@ -45,7 +46,7 @@ function ResetPasswordContent() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const confirmPasswordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInputInstance>(null);
   const {
     control,
     handleSubmit,
@@ -288,7 +289,7 @@ function ResetPasswordContent() {
                             autoComplete="new-password"
                             accessibilityLabel="Confirmar senha"
                             returnKeyType="done"
-                            onSubmitEditing={handleSubmit(onSubmit)}
+                            onSubmitEditing={() => handleSubmit(onSubmit)()}
                             testID="auth-reset-password-confirm"
                           />
                         )}
@@ -323,7 +324,7 @@ function ResetPasswordContent() {
 
                   <TouchableOpacity
                     style={styles.buttonDesktop}
-                    onPress={handleSubmit(onSubmit)}
+                    onPress={() => handleSubmit(onSubmit)()}
                     disabled={loading}
                     accessibilityLabel="Redefinir senha"
                     accessibilityRole="button"
@@ -446,7 +447,7 @@ function ResetPasswordContent() {
                     autoComplete="new-password"
                     accessibilityLabel="Confirmar senha"
                     returnKeyType="done"
-                    onSubmitEditing={handleSubmit(onSubmit)}
+                    onSubmitEditing={() => handleSubmit(onSubmit)()}
                     testID="auth-reset-password-confirm"
                   />
                 )}
@@ -474,7 +475,7 @@ function ResetPasswordContent() {
 
             <TouchableOpacity
               style={styles.button}
-              onPress={handleSubmit(onSubmit)}
+              onPress={() => handleSubmit(onSubmit)()}
               disabled={loading}
               accessibilityLabel="Redefinir senha"
               accessibilityRole="button"

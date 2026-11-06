@@ -81,6 +81,11 @@ module.exports = ({ config }) => {
     web: {
       favicon: "./assets/favicon.png",
       bundler: "metro",
+      // SPA, como até o SDK 57. Explícito porque o SDK 58 anuncia a troca do
+      // padrão de web.output para "server"; a Vercel e o
+      // tools/scripts/serve-dist.cjs servem index.html com fallback, e não há
+      // servidor de API Routes.
+      output: "single",
       name: "Rota Mestre - Gestão Inteligente de Entregas",
       shortName: "Rota Mestre",
       description: "Sistema de gestão e rastreamento de rotas de entrega em tempo real. Otimize logística, acompanhe motoristas e melhore eficiência operacional.",
@@ -95,7 +100,10 @@ module.exports = ({ config }) => {
       typedRoutes: true,
     },
     plugins: [
-      "expo-router",
+      // asyncRoutes.web passou a ser true por padrão no SDK 58 (cada rota vira
+      // um chunk carregado sob demanda). Mantido desligado para o upgrade não
+      // mudar junto o carregamento do web; avaliar à parte, com e2e e Vercel.
+      ["expo-router", { asyncRoutes: { web: false } }],
       "expo-asset",
       "expo-font",
       "expo-splash-screen",

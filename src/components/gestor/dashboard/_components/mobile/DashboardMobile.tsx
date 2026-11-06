@@ -436,7 +436,7 @@ export function DashboardMobile({
   // Com erro de carga, "nenhuma rota" seria mentira: o aviso no topo diz.
   const ListEmptyComponent = useMemo(
     () =>
-      erroCarga ? null : (
+      erroCarga ? undefined : (
         <View style={styles.emptyStateContainer}>
           <EmptyState
             icon="map-outline"

@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, TouchableOpacity, LayoutAnimation } from 'react-native';
 
 import { RouteTimeline } from '@/components/RouteTimeline';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
@@ -18,11 +18,6 @@ import {
   type TimelinePreviewEvent,
 } from '@/lib/utils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// Habilitar LayoutAnimation no Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface TimelinePreview {
   loading: boolean;
@@ -70,7 +65,6 @@ export function TimelineCollapsible({
     loading: lastSeenLoading,
   } = useTimelineLastSeen(rotaId, rotaCreatedAt);
 
-
   // Ref para armazenar eventos para cálculo de unseen
   const allEventsRef = useRef<TimelinePreviewEvent[]>([]);
 
@@ -102,14 +96,15 @@ export function TimelineCollapsible({
         if (cancelled) return;
 
         // Calcular total de eventos (usando função centralizada)
-        const logsCount = logsRes.data?.filter((log: any) =>
-          isTimelineLogEvent(log.evento)
-        ).length || 0;
+        const logsCount =
+          logsRes.data?.filter((log: any) => isTimelineLogEvent(log.evento))
+            .length || 0;
 
         // Excluir checkpoints (is_checkpoint === false) da contagem
-        const paradasCount = paradasRes.data?.filter(
-          (parada: any) => parada.is_checkpoint !== false
-        ).length || 0;
+        const paradasCount =
+          paradasRes.data?.filter(
+            (parada: any) => parada.is_checkpoint !== false,
+          ).length || 0;
 
         const incidentesCount = incidentesRes.data?.length || 0;
         const totalCount = logsCount + paradasCount + incidentesCount;
@@ -141,12 +136,19 @@ export function TimelineCollapsible({
 
         // Processar incidentes
         incidentesRes.data?.forEach((inc: any) => {
-          allEvents.push({ timestamp: inc.created_at, title: 'Incidente registrado', type: 'incidente' });
+          allEvents.push({
+            timestamp: inc.created_at,
+            title: 'Incidente registrado',
+            type: 'incidente',
+          });
         });
 
         // Ordenar e pegar o mais recente
         if (allEvents.length > 0) {
-          allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          allEvents.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+          );
           lastEvent = allEvents[0];
         }
 
@@ -172,7 +174,8 @@ export function TimelineCollapsible({
 
   // Calcular eventos não vistos separadamente (após preview e lastSeen carregarem)
   useEffect(() => {
-    if (lastSeenLoading || preview.loading || allEventsRef.current.length === 0) return;
+    if (lastSeenLoading || preview.loading || allEventsRef.current.length === 0)
+      return;
 
     const unseenEvents = countNewEvents(allEventsRef.current);
     setUnseenCount(unseenEvents);
@@ -208,13 +211,20 @@ export function TimelineCollapsible({
   const hasEvents = preview.eventCount > 0;
 
   // Cor do dot baseada no tipo de evento
-  const getEventColor = (type: NonNullable<TimelinePreview['lastEvent']>['type']) => {
+  const getEventColor = (
+    type: NonNullable<TimelinePreview['lastEvent']>['type'],
+  ) => {
     switch (type) {
-      case 'inicio': return theme.colors.info;
-      case 'conclusao': return theme.colors.success;
-      case 'parada': return theme.colors.success;
-      case 'incidente': return theme.colors.error;
-      default: return theme.colors.gray500;
+      case 'inicio':
+        return theme.colors.info;
+      case 'conclusao':
+        return theme.colors.success;
+      case 'parada':
+        return theme.colors.success;
+      case 'incidente':
+        return theme.colors.error;
+      default:
+        return theme.colors.gray500;
     }
   };
 
@@ -228,10 +238,17 @@ export function TimelineCollapsible({
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         accessibilityLabel={`Timeline. ${preview.eventCount} evento${preview.eventCount !== 1 ? 's' : ''}${unseenCount > 0 ? `. ${unseenCount} novo${unseenCount !== 1 ? 's' : ''}` : ''}`}
-        accessibilityHint={expanded ? 'Toque para recolher' : 'Toque para expandir'}
+        accessibilityHint={
+          expanded ? 'Toque para recolher' : 'Toque para expandir'
+        }
       >
         <View style={styles.headerLeft}>
-          <View style={[styles.iconWrapper, { backgroundColor: theme.colors.infoBg }]}>
+          <View
+            style={[
+              styles.iconWrapper,
+              { backgroundColor: theme.colors.infoBg },
+            ]}
+          >
             <Ionicons name="time-outline" size={16} color={theme.colors.info} />
           </View>
           <Text style={styles.title}>Timeline</Text>
@@ -280,7 +297,12 @@ export function TimelineCollapsible({
       {!expanded && hasEvents && preview.lastEvent && (
         <View style={styles.preview}>
           <View style={styles.previewItem}>
-            <View style={[styles.previewDot, { backgroundColor: getEventColor(preview.lastEvent.type) }]} />
+            <View
+              style={[
+                styles.previewDot,
+                { backgroundColor: getEventColor(preview.lastEvent.type) },
+              ]}
+            />
             <Text style={styles.previewItemText} numberOfLines={1}>
               {preview.lastEvent.title}
             </Text>

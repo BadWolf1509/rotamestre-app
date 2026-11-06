@@ -3,12 +3,21 @@ import React, { useRef } from 'react';
 import {
   View,
   Text,
-  Animated,
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+// O `Swipeable` legado (Animated) saiu no Gesture Handler 3 (Expo SDK 58);
+// o substituto é o ReanimatedSwipeable, cujo `progress` é um SharedValue.
+import ReanimatedSwipeable, {
+  SwipeDirection,
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  type SharedValue,
+} from 'react-native-reanimated';
 
 import type { IconName } from '@/types/icons';
 import { mediumHaptic } from '@/utils/haptics';
@@ -29,8 +38,66 @@ interface SwipeableRowProps {
   children: React.ReactNode;
   leftActions?: SwipeAction[];
   rightActions?: SwipeAction[];
+  /** 'left' = abriram as ações da esquerda; 'right' = as da direita. */
   onSwipeableOpen?: (direction: 'left' | 'right') => void;
   enabled?: boolean;
+}
+
+interface AcaoDeslizeProps {
+  action: SwipeAction;
+  progress: SharedValue<number>;
+  /** Deslocamento de partida da ação: -100 entra pela esquerda, 100 pela direita. */
+  deslocamentoInicial: number;
+  aoTocar: () => void;
+}
+
+// Componente de módulo (não declarado no render do SwipeableRow), porque o
+// useAnimatedStyle precisa de um componente próprio por ação.
+function AcaoDeslize({
+  action,
+  progress,
+  deslocamentoInicial,
+  aoTocar,
+}: AcaoDeslizeProps) {
+  const { theme } = useUnistyles();
+  const estiloAnimado = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          progress.value,
+          [0, 1],
+          [deslocamentoInicial, 0],
+        ),
+      },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.actionButton,
+        { backgroundColor: action.color },
+        estiloAnimado,
+      ]}
+    >
+      <TouchableOpacity
+        style={styles.actionContent}
+        onPress={aoTocar}
+        disabled={action.loading}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={action.label}
+        accessibilityState={{ disabled: action.loading }}
+      >
+        {action.loading ? (
+          <ActivityIndicator color={theme.colors.white} size="small" />
+        ) : (
+          <Ionicons name={action.icon} size={24} color={theme.colors.white} />
+        )}
+        <Text style={styles.actionText}>{action.label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 }
 
 export function SwipeableRow({
@@ -40,143 +107,65 @@ export function SwipeableRow({
   onSwipeableOpen,
   enabled = true,
 }: SwipeableRowProps) {
-  const { theme } = useUnistyles();
-  const swipeableRef = useRef<Swipeable>(null);
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
-  const renderLeftActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    _dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    if (leftActions.length === 0) return null;
-
-    return (
-      <View style={styles.actionsContainer}>
-        {leftActions.map((action, index) => {
-          const trans = progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-100, 0],
-          });
-
-          return (
-            <Animated.View
-              key={index}
-              style={[
-                styles.actionButton,
-                {
-                  transform: [{ translateX: trans }],
-                  backgroundColor: action.color,
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.actionContent}
-                onPress={async () => {
-                  await mediumHaptic();
-                  swipeableRef.current?.close();
-                  action.onPress();
-                }}
-                disabled={action.loading}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel={action.label}
-                accessibilityState={{ disabled: action.loading }}
-              >
-                {action.loading ? (
-                  <ActivityIndicator color={theme.colors.white} size="small" />
-                ) : (
-                  <Ionicons
-                    name={action.icon}
-                    size={24}
-                    color={theme.colors.white}
-                  />
-                )}
-                <Text style={styles.actionText}>{action.label}</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-      </View>
-    );
+  const tocarAcao = async (action: SwipeAction) => {
+    await mediumHaptic();
+    swipeableRef.current?.close();
+    action.onPress();
   };
 
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    _dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    if (rightActions.length === 0) return null;
-
-    return (
-      <View style={styles.actionsContainer}>
-        {rightActions.map((action, index) => {
-          const trans = progress.interpolate({
-            inputRange: [0, 1],
-            outputRange: [100, 0],
-          });
-
-          return (
-            <Animated.View
-              key={index}
-              style={[
-                styles.actionButton,
-                {
-                  transform: [{ translateX: trans }],
-                  backgroundColor: action.color,
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.actionContent}
-                onPress={async () => {
-                  await mediumHaptic();
-                  swipeableRef.current?.close();
-                  action.onPress();
-                }}
-                disabled={action.loading}
-                accessible
-                accessibilityRole="button"
-                accessibilityLabel={action.label}
-                accessibilityState={{ disabled: action.loading }}
-              >
-                {action.loading ? (
-                  <ActivityIndicator color={theme.colors.white} size="small" />
-                ) : (
-                  <Ionicons
-                    name={action.icon}
-                    size={24}
-                    color={theme.colors.white}
-                  />
-                )}
-                <Text style={styles.actionText}>{action.label}</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-      </View>
-    );
-  };
+  const renderActions = (
+    actions: SwipeAction[],
+    progress: SharedValue<number>,
+    deslocamentoInicial: number,
+  ) => (
+    <View style={styles.actionsContainer}>
+      {actions.map((action, index) => (
+        <AcaoDeslize
+          key={index}
+          action={action}
+          progress={progress}
+          deslocamentoInicial={deslocamentoInicial}
+          aoTocar={() => tocarAcao(action)}
+        />
+      ))}
+    </View>
+  );
 
   if (!enabled) {
     return <>{children}</>;
   }
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeableRef}
       friction={2}
       leftThreshold={SWIPE_THRESHOLD}
       rightThreshold={SWIPE_THRESHOLD}
-      renderLeftActions={leftActions.length > 0 ? renderLeftActions : undefined}
-      renderRightActions={rightActions.length > 0 ? renderRightActions : undefined}
+      renderLeftActions={
+        leftActions.length > 0
+          ? (progress) => renderActions(leftActions, progress, -100)
+          : undefined
+      }
+      renderRightActions={
+        rightActions.length > 0
+          ? (progress) => renderActions(rightActions, progress, 100)
+          : undefined
+      }
       onSwipeableOpen={(direction) => {
-        if (onSwipeableOpen) {
-          onSwipeableOpen(direction);
-        }
+        // O ReanimatedSwipeable informa o sentido do arrasto (RIGHT = arrastou
+        // para a direita, abrindo as ações da ESQUERDA); o Swipeable legado
+        // informava o lado aberto. Mantém o contrato antigo desta prop.
+        onSwipeableOpen?.(
+          direction === SwipeDirection.RIGHT ? 'left' : 'right',
+        );
       }}
       overshootLeft={false}
       overshootRight={false}
     >
       {children}
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 }
 

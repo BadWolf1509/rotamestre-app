@@ -184,6 +184,14 @@ export function useReorderState({
     async (data: Parada[]) => {
       if (!canReorder) return;
 
+      // Soltar sem mudar a ordem (toque longo sem mexer, ou devolver ao
+      // lugar) não é uma reordenação: gravaria a mesma ordem e fecharia o
+      // modal como se o gestor tivesse salvo.
+      const mesmaOrdem =
+        data.length === currentWebList.length &&
+        data.every((p, i) => p.id === currentWebList[i]?.id);
+      if (mesmaOrdem) return;
+
       if (recusaPorVinculo(currentWebList, data)) {
         setResetToken((t) => t + 1);
         return;

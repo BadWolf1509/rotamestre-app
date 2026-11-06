@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, Slot, useRouter } from 'expo-router';
-import { Pressable } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Pressable, View } from 'react-native';
 
 import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { AuthLoadingScreen } from '@/components/AuthLoadingScreen';
@@ -49,20 +48,20 @@ export default function MotoristaLayout() {
 
   if (isDesktop) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
         <RouteStatusProvider>
           <DrawerMenuProvider>
             <TransmissaoDePosicao />
             <Slot />
           </DrawerMenuProvider>
         </RouteStatusProvider>
-      </GestureHandlerRootView>
+      </View>
     );
   }
 
   // Mobile: Stack com Tabs + telas secundárias
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <RouteStatusProvider>
         <DrawerMenuProvider>
           {/* Uma transmissão de posição para todas as abas */}
@@ -70,7 +69,7 @@ export default function MotoristaLayout() {
           <MobileNavigation />
         </DrawerMenuProvider>
       </RouteStatusProvider>
-    </GestureHandlerRootView>
+    </View>
   );
 }
 

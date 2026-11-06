@@ -13,12 +13,14 @@ import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { Platform, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
+import { useGeracaoDaConta } from '@/hooks/useGeracaoDaConta';
 import { useManterPushTokenAtualizado } from '@/hooks/useManterPushTokenAtualizado';
 import { useResponsive } from '@/hooks/useResponsive';
 import { UnidadeAtivaProvider } from '@/hooks/useUnidadeAtiva';
@@ -38,6 +40,12 @@ import { configureLogBox } from '@/utils/configureLogBox';
 import { migrateNavigationPreferences } from '@/utils/navigationPreferencesMigration';
 // NOTA: Unistyles é configurado automaticamente em @/utils/styles (linha 312)
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+// Objeto simples, não do StyleSheet do Unistyles: no web o Unistyles entrega o
+// estilo como classe, e o View de dentro do GestureHandlerRootView (de
+// node_modules, fora do plugin) a ignorava — a raiz ficava com altura 0 e a
+// tela de login saía cortada (visto no dist servido).
+const ESTILO_RAIZ_DE_GESTOS = { flex: 1 } as const;
 
 // Configurar LogBox para ignorar warnings de desenvolvimento conhecidos
 configureLogBox();
@@ -116,6 +124,10 @@ function detectE2EEnvironment(): boolean {
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
+  // Chave da pilha: quando a conta sai ou é trocada, nada do que ela abriu
+  // continua montado sob a próxima (ver useGeracaoDaConta).
+  const { userData } = useUser();
+  const geracaoDaConta = useGeracaoDaConta(userData?.id ?? null);
 
   // Reenvia o registro do aparelho (push) ao abrir e ao voltar ao app.
   useManterPushTokenAtualizado();
@@ -269,74 +281,80 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      {/* Loja ativa: um estado só para o app inteiro (a troca vale em todas
+    // Um único root view do Gesture Handler para o app inteiro: no RNGH 3 todo
+    // detector exige um acima (em __DEV__ lança erro, no release o gesto não é
+    // reconhecido), e a Nova Entrega e a vitrine não tinham nenhum.
+    <GestureHandlerRootView style={ESTILO_RAIZ_DE_GESTOS}>
+      <SafeAreaProvider>
+        {/* Loja ativa: um estado só para o app inteiro (a troca vale em todas
           as telas). Acima do layout, cuja Sidebar e telas leem a loja. */}
-      <UnidadeAtivaProvider>
-        <NotificationDataProvider>
-          <NotificationModalProvider>
-            <ConditionalLayout>
-              <Stack
-                screenOptions={{
-                  headerStyle: {
-                    backgroundColor: theme.colors.primary,
-                  },
-                  headerTintColor: theme.colors.white,
-                  headerTitleStyle: {
-                    fontFamily: theme.typography.fontDisplay,
-                    fontSize: theme.typography.lg,
-                  },
-                  headerShown: false,
+        <UnidadeAtivaProvider>
+          <NotificationDataProvider>
+            <NotificationModalProvider>
+              <ConditionalLayout>
+                <Stack
+                  key={geracaoDaConta}
+                  screenOptions={{
+                    headerStyle: {
+                      backgroundColor: theme.colors.primary,
+                    },
+                    headerTintColor: theme.colors.white,
+                    headerTitleStyle: {
+                      fontFamily: theme.typography.fontDisplay,
+                      fontSize: theme.typography.lg,
+                    },
+                    headerShown: false,
+                  }}
+                >
+                  <Stack.Screen
+                    name="index"
+                    options={{
+                      title: 'Rota Mestre - Início',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="auth"
+                    options={{
+                      title: 'Rota Mestre - Autenticação',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="gestor"
+                    options={{
+                      title: 'Rota Mestre - Painel do Gestor',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="motorista"
+                    options={{
+                      title: 'Rota Mestre - Motorista',
+                    }}
+                  />
+                  <Stack.Screen
+                    name="onboarding"
+                    options={{
+                      title: 'Rota Mestre - Configuração Inicial',
+                    }}
+                  />
+                </Stack>
+              </ConditionalLayout>
+              <Toast
+                config={{
+                  success: ({ text1, text2 }) =>
+                    renderToast(theme.colors.success, text1, text2),
+                  error: ({ text1, text2 }) =>
+                    renderToast(theme.colors.error, text1, text2),
+                  info: ({ text1, text2 }) =>
+                    renderToast(theme.colors.primary, text1, text2),
+                  warning: ({ text1, text2 }) =>
+                    renderToast(theme.colors.secondary, text1, text2),
                 }}
-              >
-                <Stack.Screen
-                  name="index"
-                  options={{
-                    title: 'Rota Mestre - Início',
-                  }}
-                />
-                <Stack.Screen
-                  name="auth"
-                  options={{
-                    title: 'Rota Mestre - Autenticação',
-                  }}
-                />
-                <Stack.Screen
-                  name="gestor"
-                  options={{
-                    title: 'Rota Mestre - Painel do Gestor',
-                  }}
-                />
-                <Stack.Screen
-                  name="motorista"
-                  options={{
-                    title: 'Rota Mestre - Motorista',
-                  }}
-                />
-                <Stack.Screen
-                  name="onboarding"
-                  options={{
-                    title: 'Rota Mestre - Configuração Inicial',
-                  }}
-                />
-              </Stack>
-            </ConditionalLayout>
-            <Toast
-              config={{
-                success: ({ text1, text2 }) =>
-                  renderToast(theme.colors.success, text1, text2),
-                error: ({ text1, text2 }) =>
-                  renderToast(theme.colors.error, text1, text2),
-                info: ({ text1, text2 }) =>
-                  renderToast(theme.colors.primary, text1, text2),
-                warning: ({ text1, text2 }) =>
-                  renderToast(theme.colors.secondary, text1, text2),
-              }}
-            />
-          </NotificationModalProvider>
-        </NotificationDataProvider>
-      </UnidadeAtivaProvider>
-    </SafeAreaProvider>
+              />
+            </NotificationModalProvider>
+          </NotificationDataProvider>
+        </UnidadeAtivaProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

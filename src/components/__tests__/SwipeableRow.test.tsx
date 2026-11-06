@@ -8,23 +8,20 @@ jest.mock('@/utils/haptics', () => ({
 
 import { SwipeableRow } from '../SwipeableRow';
 
-// Mock react-native-gesture-handler
-jest.mock('react-native-gesture-handler', () => {
+// Mock do ReanimatedSwipeable (Gesture Handler 3): progress é SharedValue.
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = require('react');
   const { View } = require('react-native');
 
-  return {
-    Swipeable: React.forwardRef(({ children, renderLeftActions, renderRightActions, _onSwipeableOpen }: any, ref: any) => {
-      // Simular animação progress
-      const mockProgress = {
-        interpolate: jest.fn(() => ({ _value: 0 })),
-      };
+  const ReanimatedSwipeable = React.forwardRef(
+    ({ children, renderLeftActions, renderRightActions }: any, ref: any) => {
+      const mockProgress = { value: 0 };
 
-      // Criar ref com close
       React.useImperativeHandle(ref, () => ({
         close: jest.fn(),
         openLeft: jest.fn(),
         openRight: jest.fn(),
+        reset: jest.fn(),
       }));
 
       return (
@@ -34,7 +31,13 @@ jest.mock('react-native-gesture-handler', () => {
           {renderRightActions && renderRightActions(mockProgress, mockProgress)}
         </View>
       );
-    }),
+    },
+  );
+
+  return {
+    __esModule: true,
+    default: ReanimatedSwipeable,
+    SwipeDirection: { LEFT: 'left', RIGHT: 'right' },
   };
 });
 
@@ -50,7 +53,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow>
           <Text>Row Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Row Content')).toBeTruthy();
@@ -60,7 +63,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -72,7 +75,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow enabled={false}>
           <Text>Disabled Row</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Disabled Row')).toBeTruthy();
@@ -82,7 +85,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -103,7 +106,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Complete')).toBeTruthy();
@@ -111,14 +114,24 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar múltiplas leftActions', () => {
       const leftActions = [
-        { icon: 'checkmark', label: 'Done', color: '#4CAF50', onPress: mockAction },
-        { icon: 'star', label: 'Favorite', color: '#FFC107', onPress: mockAction },
+        {
+          icon: 'checkmark',
+          label: 'Done',
+          color: '#4CAF50',
+          onPress: mockAction,
+        },
+        {
+          icon: 'star',
+          label: 'Favorite',
+          color: '#FFC107',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Done')).toBeTruthy();
@@ -127,30 +140,42 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar ícone nas leftActions', () => {
       const leftActions = [
-        { icon: 'checkmark', label: 'Done', color: '#4CAF50', onPress: mockAction },
+        {
+          icon: 'checkmark',
+          label: 'Done',
+          color: '#4CAF50',
+          onPress: mockAction,
+        },
       ];
 
       const { UNSAFE_getAllByType } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const icons = UNSAFE_getAllByType(Ionicons);
-      const checkmarkIcon = icons.find((icon: any) => icon.props.name === 'checkmark');
+      const checkmarkIcon = icons.find(
+        (icon: any) => icon.props.name === 'checkmark',
+      );
       expect(checkmarkIcon).toBeTruthy();
     });
 
     it('deve chamar onPress quando leftAction é clicado', async () => {
       const leftActions = [
-        { icon: 'checkmark', label: 'Done', color: '#4CAF50', onPress: mockAction },
+        {
+          icon: 'checkmark',
+          label: 'Done',
+          color: '#4CAF50',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       fireEvent.press(getByText('Done'));
@@ -163,7 +188,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow leftActions={[]}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -184,7 +209,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Delete')).toBeTruthy();
@@ -192,14 +217,24 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar múltiplas rightActions', () => {
       const rightActions = [
-        { icon: 'trash', label: 'Delete', color: '#F44336', onPress: mockAction },
-        { icon: 'archive', label: 'Archive', color: '#2196F3', onPress: mockAction },
+        {
+          icon: 'trash',
+          label: 'Delete',
+          color: '#F44336',
+          onPress: mockAction,
+        },
+        {
+          icon: 'archive',
+          label: 'Archive',
+          color: '#2196F3',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Delete')).toBeTruthy();
@@ -208,13 +243,18 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar ícone nas rightActions', () => {
       const rightActions = [
-        { icon: 'trash', label: 'Delete', color: '#F44336', onPress: mockAction },
+        {
+          icon: 'trash',
+          label: 'Delete',
+          color: '#F44336',
+          onPress: mockAction,
+        },
       ];
 
       const { UNSAFE_getAllByType } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
@@ -225,13 +265,18 @@ describe('SwipeableRow', () => {
 
     it('deve chamar onPress quando rightAction é clicado', async () => {
       const rightActions = [
-        { icon: 'trash', label: 'Delete', color: '#F44336', onPress: mockAction },
+        {
+          icon: 'trash',
+          label: 'Delete',
+          color: '#F44336',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       fireEvent.press(getByText('Delete'));
@@ -244,7 +289,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow rightActions={[]}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Content')).toBeTruthy();
@@ -254,16 +299,26 @@ describe('SwipeableRow', () => {
   describe('Left e Right Actions Juntos', () => {
     it('deve renderizar leftActions e rightActions simultaneamente', () => {
       const leftActions = [
-        { icon: 'checkmark', label: 'Complete', color: '#4CAF50', onPress: mockAction },
+        {
+          icon: 'checkmark',
+          label: 'Complete',
+          color: '#4CAF50',
+          onPress: mockAction,
+        },
       ];
       const rightActions = [
-        { icon: 'trash', label: 'Delete', color: '#F44336', onPress: mockAction },
+        {
+          icon: 'trash',
+          label: 'Delete',
+          color: '#F44336',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions} rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Complete')).toBeTruthy();
@@ -280,7 +335,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Star')).toBeTruthy();
@@ -288,13 +343,18 @@ describe('SwipeableRow', () => {
 
     it('deve usar cor customizada para rightAction', () => {
       const rightActions = [
-        { icon: 'alert', label: 'Alert', color: '#FF5722', onPress: mockAction },
+        {
+          icon: 'alert',
+          label: 'Alert',
+          color: '#FF5722',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Alert')).toBeTruthy();
@@ -302,13 +362,18 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar labels corretos', () => {
       const leftActions = [
-        { icon: 'checkmark', label: 'Marcar', color: '#4CAF50', onPress: mockAction },
+        {
+          icon: 'checkmark',
+          label: 'Marcar',
+          color: '#4CAF50',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Marcar')).toBeTruthy();
@@ -322,7 +387,7 @@ describe('SwipeableRow', () => {
       const { UNSAFE_getAllByType } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Content</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
@@ -335,7 +400,12 @@ describe('SwipeableRow', () => {
   describe('Casos de Uso Comuns', () => {
     it('deve renderizar swipe para deletar (slide to delete)', () => {
       const rightActions = [
-        { icon: 'trash', label: 'Deletar', color: '#F44336', onPress: mockAction },
+        {
+          icon: 'trash',
+          label: 'Deletar',
+          color: '#F44336',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
@@ -343,7 +413,7 @@ describe('SwipeableRow', () => {
           <View>
             <Text>Item to Delete</Text>
           </View>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Item to Delete')).toBeTruthy();
@@ -352,13 +422,18 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar swipe para arquivar', () => {
       const rightActions = [
-        { icon: 'archive', label: 'Arquivar', color: '#607D8B', onPress: mockAction },
+        {
+          icon: 'archive',
+          label: 'Arquivar',
+          color: '#607D8B',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Email Item</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Arquivar')).toBeTruthy();
@@ -366,15 +441,30 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar swipe com múltiplas opções', () => {
       const rightActions = [
-        { icon: 'star', label: 'Favoritar', color: '#FFC107', onPress: mockAction },
-        { icon: 'archive', label: 'Arquivar', color: '#607D8B', onPress: mockAction },
-        { icon: 'trash', label: 'Deletar', color: '#F44336', onPress: mockAction },
+        {
+          icon: 'star',
+          label: 'Favoritar',
+          color: '#FFC107',
+          onPress: mockAction,
+        },
+        {
+          icon: 'archive',
+          label: 'Arquivar',
+          color: '#607D8B',
+          onPress: mockAction,
+        },
+        {
+          icon: 'trash',
+          label: 'Deletar',
+          color: '#F44336',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow rightActions={rightActions}>
           <Text>Multi-option Item</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Favoritar')).toBeTruthy();
@@ -384,13 +474,18 @@ describe('SwipeableRow', () => {
 
     it('deve renderizar swipe para marcar como completo', () => {
       const leftActions = [
-        { icon: 'checkmark-circle', label: 'Concluir', color: '#4CAF50', onPress: mockAction },
+        {
+          icon: 'checkmark-circle',
+          label: 'Concluir',
+          color: '#4CAF50',
+          onPress: mockAction,
+        },
       ];
 
       const { getByText } = render(
         <SwipeableRow leftActions={leftActions}>
           <Text>Task Item</Text>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Concluir')).toBeTruthy();
@@ -405,7 +500,7 @@ describe('SwipeableRow', () => {
             <Text>Line 1</Text>
             <Text>Line 2</Text>
           </View>
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Line 1')).toBeTruthy();
@@ -422,7 +517,7 @@ describe('SwipeableRow', () => {
       const { getByText } = render(
         <SwipeableRow>
           <CustomComponent />
-        </SwipeableRow>
+        </SwipeableRow>,
       );
 
       expect(getByText('Custom')).toBeTruthy();

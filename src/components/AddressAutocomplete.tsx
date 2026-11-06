@@ -8,6 +8,7 @@ import {
   FlatList,
   Platform,
   Keyboard,
+  type TextInputInstance,
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
@@ -46,7 +47,7 @@ interface AddressAutocompleteProps {
   /** Whether the field is required (adds aria-required for screen readers) */
   required?: boolean;
   /** Ref do formulário para foco automático no primeiro erro. */
-  inputRef?: React.Ref<TextInput>;
+  inputRef?: React.Ref<TextInputInstance>;
 }
 
 /**
@@ -86,15 +87,16 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
     (index: number) => `${comboboxId}-option-${index}`,
     [comboboxId],
   );
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const setInputRef = useCallback(
-    (node: TextInput | null) => {
+    (node: TextInputInstance | null) => {
       inputRef.current = node;
       if (typeof externalInputRef === 'function') {
         externalInputRef(node);
       } else if (externalInputRef) {
-        (externalInputRef as React.MutableRefObject<TextInput | null>).current =
-          node;
+        (
+          externalInputRef as React.MutableRefObject<TextInputInstance | null>
+        ).current = node;
       }
     },
     [externalInputRef],

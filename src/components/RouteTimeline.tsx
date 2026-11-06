@@ -28,7 +28,6 @@ import {
   TouchableOpacity,
   Animated,
   LayoutAnimation,
-  UIManager,
 } from 'react-native';
 
 import { useTimelineData } from '@/hooks/gestao-rotas';
@@ -60,14 +59,6 @@ type ListItemType =
       nextEvent?: TimelineEvent;
     }
   | { type: 'loadMore' };
-
-// Habilitar LayoutAnimation no Android
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface RouteTimelineProps {
   rotaId: string;

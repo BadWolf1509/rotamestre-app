@@ -26,7 +26,9 @@ export function useAoVoltarParaPrimeiroPlano(
 
   useEffect(() => {
     if (!ativo) return;
-    let anterior: AppStateStatus | null = AppState.currentState ?? null;
+    // `currentState` é `string` desde o RN 0.88 (era AppStateStatus); só se
+    // compara com 'active', então a faixa larga basta.
+    let anterior: string | null = AppState.currentState ?? null;
     const assinatura = AppState.addEventListener(
       'change',
       (estado: AppStateStatus) => {

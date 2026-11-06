@@ -60,7 +60,15 @@ export default function TabLayout() {
     nameOutline: IconName,
     color: ColorValue,
     focused: boolean,
-  ) => <Ionicons name={focused ? name : nameOutline} size={24} color={color} />;
+  ) => (
+    // ColorValue (RN 0.88) inclui number e null, que o Ionicons não aceita;
+    // a barra de abas sempre entrega string.
+    <Ionicons
+      name={focused ? name : nameOutline}
+      size={24}
+      color={typeof color === 'string' ? color : undefined}
+    />
+  );
 
   // Rótulo próprio: o Label padrão só repassa `allowFontScaling`. Com altura
   // fixa e sem teto de escala, o rótulo ficava cortado atrás da barra de

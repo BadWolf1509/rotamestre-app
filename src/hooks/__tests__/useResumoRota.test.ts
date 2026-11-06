@@ -3,7 +3,7 @@
  *
  * Mocks: useUser, supabase, Alert, logger
  */
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 // Mock supabase query builder
@@ -25,9 +25,13 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+const mockUsuario = { carregando: false };
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({
-    userData: { id: 'motorista-1', papel: 'motorista' },
+    userData: mockUsuario.carregando
+      ? null
+      : { id: 'motorista-1', papel: 'motorista' },
+    loading: mockUsuario.carregando,
   }),
 }));
 
@@ -305,6 +309,20 @@ describe('useResumoRota', () => {
   });
 
   describe('no user data', () => {
+    it('perfil ainda carregando: continua carregando, sem consultar', async () => {
+      // Encerrar o loading antes do perfil chegar mostrava "sem rota" por um
+      // instante (o mesmo falso vazio do Histórico, pego pelo e2e).
+      mockUsuario.carregando = true;
+      try {
+        const { result } = renderHook(() => useResumoRota());
+        await act(async () => {});
+        expect(result.current.loading).toBe(true);
+        expect(mockFrom).not.toHaveBeenCalled();
+      } finally {
+        mockUsuario.carregando = false;
+      }
+    });
+
     it('does not fetch when userData.id is missing', async () => {
       // Override the useUser mock for this test
       jest.resetModules();

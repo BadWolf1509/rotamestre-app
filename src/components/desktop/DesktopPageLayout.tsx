@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   ScrollViewProps,
   Platform,
+  type ViewInstance,
 } from 'react-native';
 
 import { NotificationBell } from '@/components/NotificationBell';
@@ -74,7 +75,7 @@ export function DesktopPageLayout({
   const { theme } = useUnistyles();
   const router = useRouter();
   const [userMenuVisible, setUserMenuVisible] = React.useState(false);
-  const userMenuRef = React.useRef<View>(null);
+  const userMenuRef = React.useRef<ViewInstance>(null);
 
   // Detect clicks outside the dropdown to close it
   React.useEffect(() => {

@@ -25,6 +25,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  type ViewInstance,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -132,7 +133,7 @@ export default function GestaoRotas() {
       onTentarNovamente={loadRotas}
     />
   ) : null;
-  const exportMenuRef = useRef<View>(null);
+  const exportMenuRef = useRef<ViewInstance>(null);
 
   // Desktop header menu
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({

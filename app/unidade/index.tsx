@@ -283,7 +283,7 @@ export default function UnidadeScreen() {
     }
   }
 
-  const handleSave = handleSubmit(salvarFicha);
+  const handleSave = () => handleSubmit(salvarFicha)();
 
   // Selecionar uma sugestão de sede também preenche os campos de cadastro.
   // Sem isso dava para mudar a sede de cidade e deixar CEP e UF da cidade

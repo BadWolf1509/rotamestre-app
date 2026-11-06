@@ -33,10 +33,11 @@ const defaultSettings: NotificationSettings = {
   reminderTime: '08:00',
 };
 
-// Configurar comportamento das notificações
+// Configurar comportamento das notificações em primeiro plano. Sem
+// `shouldShowAlert`: depreciado, o expo-notifications 58 avisa a cada
+// notificação que o traz; banner e lista são as chaves que valem.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,

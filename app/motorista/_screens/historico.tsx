@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  ScrollView,
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -24,28 +25,37 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function HistoricoMotorista() {
   const { theme } = useUnistyles();
-  const { rotas, loading, refreshing, onRefresh, AlertDialog } = useHistoricoData();
+  const { rotas, loading, refreshing, onRefresh, AlertDialog } =
+    useHistoricoData();
   const metricas = useHistoricoMetrics(rotas);
-  const { filtroStatus, setFiltroStatus, filtroPeriodo, setFiltroPeriodo, rotasFiltradas } =
-    useHistoricoFilters(rotas);
+  const {
+    filtroStatus,
+    setFiltroStatus,
+    filtroPeriodo,
+    setFiltroPeriodo,
+    rotasFiltradas,
+  } = useHistoricoFilters(rotas);
   const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
 
   const toggleExpand = useCallback((rotaId: string) => {
-    setExpandedRotaId(prev => prev === rotaId ? null : rotaId);
+    setExpandedRotaId((prev) => (prev === rotaId ? null : rotaId));
   }, []);
 
-  const renderRota = useCallback(({ item }: { item: RotaHistorico }) => (
-    <RotaHistoricoCard
-      item={item}
-      isExpanded={expandedRotaId === item.id}
-      onToggle={() => toggleExpand(item.id)}
-    />
-  ), [expandedRotaId, toggleExpand]);
+  const renderRota = useCallback(
+    ({ item }: { item: RotaHistorico }) => (
+      <RotaHistoricoCard
+        item={item}
+        isExpanded={expandedRotaId === item.id}
+        onToggle={() => toggleExpand(item.id)}
+      />
+    ),
+    [expandedRotaId, toggleExpand],
+  );
 
   const renderFilterButton = (
     label: string,
     isActive: boolean,
-    onPress: () => void
+    onPress: () => void,
   ) => (
     <TouchableOpacity
       style={[styles.filterButton, isActive && styles.filterButtonActive]}
@@ -55,7 +65,10 @@ export default function HistoricoMotorista() {
       accessibilityState={{ selected: isActive }}
     >
       <Text
-        style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}
+        style={[
+          styles.filterButtonText,
+          isActive && styles.filterButtonTextActive,
+        ]}
       >
         {label}
       </Text>
@@ -79,88 +92,133 @@ export default function HistoricoMotorista() {
 
   return (
     <ErrorBoundary>
-    <View style={styles.container}>
-      {/* Header Compacto */}
-      <View style={styles.headerCompact}>
-        <Text style={styles.headerTitle}>
-          {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'}
-        </Text>
-
-        <View style={styles.statsInline}>
-          <Text style={styles.statsInlineText}>
-            {metricas.rotasMes} este mês ·{' '}
-            <Text style={{ color: theme.colors.success }}>{metricas.rotasConcluidas}✓</Text> ·{' '}
-            <Text style={{ color: theme.colors.purple600 }}>{metricas.taxaSucesso}%</Text> ·{' '}
-            {formatarTempo(metricas.tempoMedioMinutos)} média
+      <View style={styles.container}>
+        {/* Header Compacto */}
+        <View style={styles.headerCompact}>
+          <Text style={styles.headerTitle}>
+            {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'}
           </Text>
-        </View>
 
-        <Text style={styles.statsSecondaryText}>
-          📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas · 🚗 {formatarDecimal(metricas.distanciaTotal)} km
-        </Text>
-      </View>
-
-      {/* Filtros */}
-      <View style={styles.filtersContainer}>
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Período:</Text>
-          <View style={styles.filterButtons}>
-            {renderFilterButton('Todos', filtroPeriodo === 'todos', () => setFiltroPeriodo('todos'))}
-            {renderFilterButton('Hoje', filtroPeriodo === 'hoje', () => setFiltroPeriodo('hoje'))}
-            {renderFilterButton('Semana', filtroPeriodo === 'semana', () => setFiltroPeriodo('semana'))}
-            {renderFilterButton('Mês', filtroPeriodo === 'mes', () => setFiltroPeriodo('mes'))}
-          </View>
-        </View>
-
-        <View style={styles.filterGroup}>
-          <Text style={styles.filterGroupLabel}>Status:</Text>
-          <View style={styles.filterButtons}>
-            {renderFilterButton('Todos', filtroStatus === 'todos', () => setFiltroStatus('todos'))}
-            {renderFilterButton('Concluída', filtroStatus === 'concluida', () => setFiltroStatus('concluida'))}
-            {renderFilterButton('Pendente', filtroStatus === 'pendente', () => setFiltroStatus('pendente'))}
-            {renderFilterButton('Cancelada', filtroStatus === 'cancelada', () => setFiltroStatus('cancelada'))}
-            {renderFilterButton('Expirada', filtroStatus === 'nao_executada', () => setFiltroStatus('nao_executada'))}
-          </View>
-        </View>
-
-        {(filtroStatus !== 'todos' || filtroPeriodo !== 'todos') && (
-          <Text style={styles.filterResultCount}>
-            Mostrando {rotasFiltradas.length} de {rotas.length} rotas
-          </Text>
-        )}
-      </View>
-
-      {/* Lista de Rotas */}
-      <FlatList
-        testID="motorista-historico-list"
-        data={rotasFiltradas}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRota}
-        contentContainerStyle={styles.listContainer}
-        initialNumToRender={5}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS === 'android'}
-        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary]}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer} testID="motorista-historico-empty">
-            <Text style={styles.emptyTitle}>📋</Text>
-            <Text style={styles.emptyText}>Nenhuma rota registrada</Text>
-            <Text style={styles.emptySubtext}>
-              Suas rotas aparecerão aqui após serem criadas
+          <View style={styles.statsInline}>
+            <Text style={styles.statsInlineText}>
+              {metricas.rotasMes} este mês ·{' '}
+              <Text style={{ color: theme.colors.success }}>
+                {metricas.rotasConcluidas}✓
+              </Text>{' '}
+              ·{' '}
+              <Text style={{ color: theme.colors.purple600 }}>
+                {metricas.taxaSucesso}%
+              </Text>{' '}
+              · {formatarTempo(metricas.tempoMedioMinutos)} média
             </Text>
           </View>
-        }
-      />
-      {AlertDialog}
-    </View>
+
+          <Text style={styles.statsSecondaryText}>
+            📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas ·
+            🚗 {formatarDecimal(metricas.distanciaTotal)} km
+          </Text>
+        </View>
+
+        {/* Filtros */}
+        <View style={styles.filtersContainer}>
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupLabel}>Período:</Text>
+            <View style={styles.filterButtons}>
+              {renderFilterButton('Todos', filtroPeriodo === 'todos', () =>
+                setFiltroPeriodo('todos'),
+              )}
+              {renderFilterButton('Hoje', filtroPeriodo === 'hoje', () =>
+                setFiltroPeriodo('hoje'),
+              )}
+              {renderFilterButton('Semana', filtroPeriodo === 'semana', () =>
+                setFiltroPeriodo('semana'),
+              )}
+              {renderFilterButton('Mês', filtroPeriodo === 'mes', () =>
+                setFiltroPeriodo('mes'),
+              )}
+            </View>
+          </View>
+
+          <View style={styles.filterGroup}>
+            <Text style={styles.filterGroupLabel}>Status:</Text>
+            <View style={styles.filterButtons}>
+              {renderFilterButton('Todos', filtroStatus === 'todos', () =>
+                setFiltroStatus('todos'),
+              )}
+              {renderFilterButton(
+                'Concluída',
+                filtroStatus === 'concluida',
+                () => setFiltroStatus('concluida'),
+              )}
+              {renderFilterButton('Pendente', filtroStatus === 'pendente', () =>
+                setFiltroStatus('pendente'),
+              )}
+              {renderFilterButton(
+                'Cancelada',
+                filtroStatus === 'cancelada',
+                () => setFiltroStatus('cancelada'),
+              )}
+              {renderFilterButton(
+                'Expirada',
+                filtroStatus === 'nao_executada',
+                () => setFiltroStatus('nao_executada'),
+              )}
+            </View>
+          </View>
+
+          {(filtroStatus !== 'todos' || filtroPeriodo !== 'todos') && (
+            <Text style={styles.filterResultCount}>
+              Mostrando {rotasFiltradas.length} de {rotas.length} rotas
+            </Text>
+          )}
+        </View>
+
+        {/* Lista de Rotas, ou o vazio no lugar dela. Não como ListEmptyComponent:
+          ali o vazio ficava DENTRO da lista, e as duas âncoras (lista e vazio)
+          apareciam juntas — o e2e as trata como exclusivas. */}
+        {rotasFiltradas.length === 0 ? (
+          <ScrollView
+            testID="motorista-historico-empty"
+            contentContainerStyle={styles.listContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary]}
+              />
+            }
+          >
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>📋</Text>
+              <Text style={styles.emptyText}>Nenhuma rota registrada</Text>
+              <Text style={styles.emptySubtext}>
+                Suas rotas aparecerão aqui após serem criadas
+              </Text>
+            </View>
+          </ScrollView>
+        ) : (
+          <FlatList
+            testID="motorista-historico-list"
+            data={rotasFiltradas}
+            keyExtractor={(item) => item.id}
+            renderItem={renderRota}
+            contentContainerStyle={styles.listContainer}
+            initialNumToRender={5}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
+            ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary]}
+              />
+            }
+          />
+        )}
+        {AlertDialog}
+      </View>
     </ErrorBoundary>
   );
 }

@@ -23,6 +23,8 @@ import {
   TouchableOpacity,
   Platform,
   ScrollView,
+  type ScrollViewInstance,
+  type ViewInstance,
 } from 'react-native';
 
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
@@ -96,8 +98,8 @@ export function AddStopModal({
   });
 
   // Refs for scrolling
-  const scrollViewRef = useRef<ScrollView>(null);
-  const errorRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+  const errorRef = useRef<ViewInstance>(null);
   const errorYPosition = useRef<number>(0);
 
   // Scroll to error/warning when it appears

@@ -182,7 +182,7 @@ function ForgotPasswordContent() {
 
               <TouchableOpacity
                 style={styles.buttonDesktop}
-                onPress={handleSubmit(onSubmit)}
+                onPress={() => handleSubmit(onSubmit)()}
                 disabled={loading}
                 accessibilityLabel="Enviar link de recuperação"
                 accessibilityRole="button"
@@ -258,7 +258,7 @@ function ForgotPasswordContent() {
 
           <TouchableOpacity
             style={styles.button}
-            onPress={handleSubmit(onSubmit)}
+            onPress={() => handleSubmit(onSubmit)()}
             disabled={loading}
             accessibilityLabel="Enviar link de recuperação"
             accessibilityRole="button"

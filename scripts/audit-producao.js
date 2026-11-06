@@ -28,69 +28,13 @@ const fs = require('fs');
  * Revisar nas datas indicadas — se já houver correção, remover a entrada e subir.
  */
 const ACEITOS = {
-  'GHSA-qr28-fpjm-wq7f': {
-    pacote: 'decode-uri-component',
-    motivo:
-      'Negação de serviço por substituição quadrática de sequências ' +
-      'percent-encoded. Corrigido só na 0.5.1; a 0.2.2 chega via expo-router 57 ' +
-      '-> query-string 7.1.3, e só o expo-router 58 (Expo SDK 58, migração ' +
-      'própria com build nativo) sai dele (reconferido em 02/11/2026). Forçar ' +
-      'a 0.5.1 por overrides quebraria o roteador: da 0.3 em diante o pacote é ' +
-      'só ESM, e o query-string 7 o carrega com require. O roteador usa o ' +
-      'query-string para ler e montar a URL da própria navegação; o pior caso ' +
-      'é o navegador de quem abre um link malformado travar, sem efeito no ' +
-      'servidor nem em dado de outro usuário.',
-    revisarEm: '2026-11-24',
-  },
-  'GHSA-vcc3-ghjq-m6fr': {
-    pacote: 'decode-uri-component',
-    motivo:
-      'Negação de serviço por decodificação exponencial de entrada malformada ' +
-      '(moderado). Mesma cadeia e mesmo motivo do GHSA-qr28-fpjm-wq7f: só sai ' +
-      'com o expo-router 58 (reconferido em 02/11/2026).',
-    revisarEm: '2026-11-24',
-  },
-  // Os três abaixo são moderados/baixos e só entram na conta porque o
-  // @expo/cli é high (pelo zod). O @expo/cli roda no build e no servidor de
-  // desenvolvimento sobre os arquivos do próprio projeto: não entra no bundle
-  // do app nem recebe entrada de usuário. Saem com o Expo SDK 58.
-  'GHSA-3g3m-2fjr-6pw4': {
-    pacote: 'glob',
-    motivo:
-      'AbortSignal não interrompe a varredura depois do timeout (moderado). ' +
-      'Corrigido no glob 14.0.2; o @expo/cli 57 pede ^13 (reconferido em ' +
-      '02/11/2026). O @expo/cli não passa AbortSignal ao glob.',
-    revisarEm: '2026-11-24',
-  },
-  'GHSA-g3hv-75wg-m249': {
-    pacote: 'minimatch',
-    motivo:
-      'Negação de serviço por amplificação de padrão (moderado). Corrigido no ' +
-      'minimatch 11.0.1; chega pelo glob 13 e pelo @expo/fingerprint, que pedem ' +
-      'a linha 10 (reconferido em 02/11/2026). Os padrões são os do próprio ' +
-      'projeto, nunca de usuário.',
-    revisarEm: '2026-11-24',
-  },
-  'GHSA-gcqx-w48m-w2h4': {
-    pacote: 'deepmerge',
-    motivo:
-      'mergeObject() permite poluir o protótipo do objeto devolvido (baixo). ' +
-      'Sem versão corrigida (a 4.3.1 é a última; reconferido em 02/11/2026). ' +
-      'Chega via @expo/config, que mescla a configuração do próprio projeto.',
-    revisarEm: '2026-11-24',
-  },
-  'GHSA-mrhx-c7xc-m3w5': {
-    pacote: 'zod',
-    motivo:
-      'Consumo de memória ao validar coleção restrita muito grande. Corrigido ' +
-      'só no zod 4.6.6; a linha 3 não tem correção. O zod do app já é o 4.6.7. ' +
-      'O 3.25.76 vulnerável chega só via expo -> @expo/cli (até a 58.1.9, a ' +
-      'mais nova, ainda pede ^3.25.76; reconferido em 24/10/2026), que valida a configuração do próprio ' +
-      'projeto no build e no servidor de desenvolvimento: não entra no bundle ' +
-      'do app nem recebe entrada de usuário. Forçar o zod 4 por overrides ' +
-      'arriscaria quebrar o build (APIs da 3 e da 4 diferem).',
-    revisarEm: '2026-11-24',
-  },
+  // Vazia desde o Expo SDK 58 (03/11/2026): o expo-router 58 deixou o
+  // decode-uri-component 0.2.2 (GHSA-qr28-fpjm-wq7f, GHSA-vcc3-ghjq-m6fr), o
+  // @expo/cli 58 deixou o zod 3 (GHSA-mrhx-c7xc-m3w5) e o deepmerge via
+  // @expo/config (GHSA-gcqx-w48m-w2h4). O glob 13 e o minimatch 10
+  // (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249) seguem na árvore, mas são
+  // moderados e só contavam porque o @expo/cli era high pelo zod — agora não
+  // há high/critical que os puxe, e entrada que nada exige não fica aqui.
 };
 
 const GRAVES = new Set(['high', 'critical']);

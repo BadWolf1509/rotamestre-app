@@ -1,4 +1,9 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  waitFor,
+  waitForElementToBeRemoved,
+} from '@testing-library/react-native';
 import React from 'react';
 
 import { authService } from '@/lib/auth';
@@ -977,10 +982,12 @@ describe('Reset Password Screen - Integration Tests', () => {
         VALID_PASSWORD,
       );
 
-      await waitFor(
-        () => {
-          expect(queryByText('As senhas não coincidem')).toBeNull();
-        },
+      // waitForElementToBeRemoved, e não waitFor + toBeNull: com Jest 30 e
+      // React 19.3 cada tentativa falha de `expect(instancia).toBeNull()`
+      // formata a fiber inteira na mensagem (~18 s), e o waitFor estoura o prazo
+      // com só duas verificações — medido no upgrade para o Expo SDK 58.
+      await waitForElementToBeRemoved(
+        () => queryByText('As senhas não coincidem'),
         { timeout: 6000 },
       );
     });

@@ -7,7 +7,6 @@ import {
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
@@ -555,11 +554,9 @@ export default function CheckpointsMotorista() {
     );
   }
 
-  // Na web, GestureHandlerRootView pode bloquear scroll - usar View simples
-  const Container = Platform.OS === 'web' ? View : GestureHandlerRootView;
-
+  // O GestureHandlerRootView do app fica no layout raiz (app/_layout.tsx).
   return (
-    <Container style={styles.container as ViewStyle}>
+    <View style={styles.container as ViewStyle}>
       <ErrorBoundary>
         {content}
 
@@ -611,7 +608,7 @@ export default function CheckpointsMotorista() {
 
         {AlertDialog}
       </ErrorBoundary>
-    </Container>
+    </View>
   );
 }
 

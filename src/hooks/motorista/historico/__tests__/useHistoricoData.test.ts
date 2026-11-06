@@ -19,8 +19,12 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 const mockUserData = { id: 'user-1', papel: 'motorista' };
+const mockUsuario = { carregando: false };
 jest.mock('@/hooks/useUser', () => ({
-  useUser: () => ({ userData: mockUserData }),
+  useUser: () => ({
+    userData: mockUsuario.carregando ? null : mockUserData,
+    loading: mockUsuario.carregando,
+  }),
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -56,7 +60,8 @@ function consulta(todas: Linha[], erro: unknown) {
     },
     returns: () => api,
     then: (resolve: (r: unknown) => unknown) => {
-      if (erro) return Promise.resolve({ data: null, error: erro }).then(resolve);
+      if (erro)
+        return Promise.resolve({ data: null, error: erro }).then(resolve);
       const f = todas.filter((l) => filtros.every((fn) => fn(l)));
       const [a, b] = faixa ?? [0, MAX_ROWS - 1];
       return Promise.resolve({
@@ -101,12 +106,42 @@ function cenario(n: number) {
   for (let i = 0; i < n; i++) {
     const id = `r${String(i).padStart(4, '0')}`;
     rotas.push(rota(id));
-    paradas.push({ id: `${id}-0`, rota_id: id, status: 'concluida', is_checkpoint: false });
-    paradas.push({ id: `${id}-1`, rota_id: id, status: 'concluida', is_checkpoint: null });
-    paradas.push({ id: `${id}-2`, rota_id: id, status: 'concluida', is_checkpoint: true });
-    paradas.push({ id: `${id}-3`, rota_id: id, status: 'concluida', is_checkpoint: null });
-    paradas.push({ id: `${id}-4`, rota_id: id, status: 'pendente', is_checkpoint: true });
-    paradas.push({ id: `${id}-5`, rota_id: id, status: 'pendente', is_checkpoint: false });
+    paradas.push({
+      id: `${id}-0`,
+      rota_id: id,
+      status: 'concluida',
+      is_checkpoint: false,
+    });
+    paradas.push({
+      id: `${id}-1`,
+      rota_id: id,
+      status: 'concluida',
+      is_checkpoint: null,
+    });
+    paradas.push({
+      id: `${id}-2`,
+      rota_id: id,
+      status: 'concluida',
+      is_checkpoint: true,
+    });
+    paradas.push({
+      id: `${id}-3`,
+      rota_id: id,
+      status: 'concluida',
+      is_checkpoint: null,
+    });
+    paradas.push({
+      id: `${id}-4`,
+      rota_id: id,
+      status: 'pendente',
+      is_checkpoint: true,
+    });
+    paradas.push({
+      id: `${id}-5`,
+      rota_id: id,
+      status: 'pendente',
+      is_checkpoint: false,
+    });
   }
   return { rotas, paradas };
 }
@@ -115,6 +150,7 @@ describe('useHistoricoData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUserData.id = 'user-1';
+    mockUsuario.carregando = false;
   });
 
   it('começa carregando', () => {
@@ -133,9 +169,9 @@ describe('useHistoricoData', () => {
     expect(result.current.rotas).toHaveLength(393);
     // Partida e chegada (is_checkpoint = false) não contam.
     expect(result.current.rotas.every((r) => r.paradas_count === 4)).toBe(true);
-    expect(
-      result.current.rotas.every((r) => r.paradas_concluidas === 3),
-    ).toBe(true);
+    expect(result.current.rotas.every((r) => r.paradas_concluidas === 3)).toBe(
+      true,
+    );
     expect(mockShowError).not.toHaveBeenCalled();
   });
 
@@ -186,6 +222,17 @@ describe('useHistoricoData', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockShowError).toHaveBeenCalled();
     expect(result.current.rotas).toEqual([]);
+  });
+
+  it('perfil ainda carregando: continua carregando, sem mostrar o vazio', async () => {
+    // Sem isto a aba mostrava "Nenhuma rota registrada" (e a lista vazia) até
+    // o perfil chegar, e só então o esqueleto — o e2e pegou o falso vazio.
+    mockUsuario.carregando = true;
+    montar([], []);
+    const { result } = renderHook(() => useHistoricoData());
+    await act(async () => {});
+    expect(result.current.loading).toBe(true);
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('sem usuário: vazio, sem consulta', async () => {

@@ -712,3 +712,44 @@ jest.mock('@/hooks/useAlert', () => ({
   useAlert: () => global.mockUseAlert,
   default: () => global.mockUseAlert,
 }));
+
+// expo-notifications 58 instala um handler padrão ao carregar o módulo
+// (notificação em primeiro plano passa a aparecer por padrão), e o
+// setNotificationHandler do app remove a inscrição anterior. O mock genérico do
+// jest-expo devolve uma Promise no addListener, sem `remove` — sem isto, todo
+// teste que importa src/lib/notifications.ts quebra no carregamento.
+jest.mock('expo-notifications/build/NotificationsHandlerModule', () => ({
+  __esModule: true,
+  default: {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeListeners: jest.fn(),
+    handleNotificationAsync: jest.fn(async () => {}),
+  },
+}));
+
+// O react-native-worklets real exige o módulo nativo. Desde o SDK 58 o
+// SwipeableRow (exportado pelo design system) usa o ReanimatedSwipeable, então
+// o reanimated entra em quase toda árvore de teste. O mock oficial do worklets
+// só é carregado quando algum módulo o requer.
+jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
+// No Jest o Reanimated roda o JSReanimated (a implementação web), mas a
+// resolução nativa do jest-expo escolhe initializers.native.ts, que desde o
+// reanimated 4.7 chama setCSSEventHandler — e o JSReanimated o recusa com erro
+// já no import. Usa o inicializador da implementação JS, o par coerente.
+// Vale para as duas árvores: lib/ (entrada do pacote) e src/ (que o mock
+// oficial, abaixo, importa).
+jest.mock('react-native-reanimated/lib/module/initializers', () =>
+  jest.requireActual('react-native-reanimated/lib/module/initializers.js'),
+);
+jest.mock('react-native-reanimated/src/initializers', () =>
+  jest.requireActual('react-native-reanimated/src/initializers.ts'),
+);
+// E, para quem não declara o próprio mock (o jest.mock do arquivo de teste tem
+// precedência), o mock oficial do reanimated: o runtime de UI do reanimated
+// real não roda sobre o mock do worklets (mappers sem função de agendamento).
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+
+// Setup oficial do Gesture Handler para Jest: troca o módulo nativo e os
+// detectores por mocks. Necessário desde que o ReanimatedSwipeable entrou no
+// design system (antes, só telas com mock próprio carregavam o RNGH).
+require('react-native-gesture-handler/jestSetup');
