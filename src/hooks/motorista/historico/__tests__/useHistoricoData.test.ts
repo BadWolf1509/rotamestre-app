@@ -255,6 +255,39 @@ describe('useHistoricoData', () => {
     expect(result.current.refreshing).toBe(false);
   });
 
+  it('resposta velha chegando por último não sobrescreve a mais nova (M-2)', async () => {
+    // A 1ª carga (montagem) fica pendente; o refresh responde antes dela.
+    let soltarVelha: (v: unknown) => void = () => {};
+    const velha = new Promise((resolve) => {
+      soltarVelha = resolve;
+    });
+    const consultaVelha = {
+      select: () => consultaVelha,
+      eq: () => consultaVelha,
+      order: () => consultaVelha,
+      range: () => consultaVelha,
+      returns: () => consultaVelha,
+      then: (resolve: (r: unknown) => unknown) => velha.then(resolve),
+    };
+    montar([rota('nova1'), rota('nova2')], []);
+    const normal = mockFrom.getMockImplementation();
+    mockFrom.mockImplementationOnce(() => consultaVelha);
+    mockFrom.mockImplementation(normal as never);
+
+    const { result } = renderHook(() => useHistoricoData());
+    act(() => result.current.onRefresh());
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+
+    await act(async () => {
+      soltarVelha({ data: [rota('velha')], error: null });
+      await Promise.resolve();
+    });
+
+    expect(result.current.rotas.map((r) => r.id)).toEqual(['nova1', 'nova2']);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.refreshing).toBe(false);
+  });
+
   it('entrega o AlertDialog do useAlert', () => {
     montar([], []);
     const { result } = renderHook(() => useHistoricoData());

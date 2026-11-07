@@ -162,4 +162,53 @@ describe('useDesempenhoStats', () => {
     rerender({ id: undefined });
     await waitFor(() => expect(result.current.stats).toBeNull());
   });
+
+  it('resposta velha chegando por último não sobrescreve a do período atual (M-2)', async () => {
+    // 1ª chamada (30d, da montagem) fica pendente; a 2ª (7d) responde antes.
+    let soltarVelha: (v: unknown) => void = () => {};
+    const velha = new Promise((resolve) => {
+      soltarVelha = resolve;
+    });
+    mockRpc.mockReturnValueOnce(velha);
+    mockRpc.mockResolvedValueOnce({
+      data: [linha({ total_rotas: 7 })],
+      error: null,
+    });
+
+    const { result } = renderHook(() => useDesempenhoStats('m1'));
+    act(() => result.current.setPeriodo('7d'));
+    await waitFor(() => expect(result.current.stats?.totalRotas).toBe(7));
+
+    await act(async () => {
+      soltarVelha({ data: [linha({ total_rotas: 30 })], error: null });
+      await Promise.resolve();
+    });
+
+    expect(result.current.stats?.totalRotas).toBe(7);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('erro de uma resposta velha não derruba a tela do período atual (M-2)', async () => {
+    let falharVelha: (e: unknown) => void = () => {};
+    const velha = new Promise((_, reject) => {
+      falharVelha = reject;
+    });
+    mockRpc.mockReturnValueOnce(velha);
+    mockRpc.mockResolvedValueOnce({
+      data: [linha({ total_rotas: 7 })],
+      error: null,
+    });
+
+    const { result } = renderHook(() => useDesempenhoStats('m1'));
+    act(() => result.current.setPeriodo('7d'));
+    await waitFor(() => expect(result.current.stats?.totalRotas).toBe(7));
+
+    await act(async () => {
+      falharVelha(new Error('rede'));
+      await Promise.resolve();
+    });
+
+    expect(result.current.stats?.totalRotas).toBe(7);
+    expect(result.current.error).toBeNull();
+  });
 });
