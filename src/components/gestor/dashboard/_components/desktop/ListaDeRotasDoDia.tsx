@@ -1,6 +1,7 @@
 /**
- * ListaDeRotasDoDia — uma linha por rota na Início desktop: motorista, linha
- * de paradas, "3 de 8", status e distância.
+ * ListaDeRotasDoDia — uma linha por rota na Início desktop: motorista e data,
+ * linha de paradas, "3 de 8", status e distância. A data aparece sempre: é
+ * curta, e com filtro de período a lista mistura dias.
  *
  * A linha inteira é clicável e abre o mapa da rota. "Excluir rota" fica no
  * menu "⋯" (`MenuDeAcoes`), que interrompe a propagação: escolher nele não
@@ -14,7 +15,9 @@ import { MenuDeAcoes } from '@/components/data-table/MenuDeAcoes';
 import type { DataTableAction } from '@/components/data-table/types';
 import { rotuloDoStatus } from '@/constants/statusConfig';
 import { StatusCell } from '@/design-system';
+import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { plural } from '@/lib/plural';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import { LinhaDeParadas } from './LinhaDeParadas';
@@ -30,7 +33,8 @@ interface ListaDeRotasDoDiaProps {
 function rotuloDaLinha(rota: RotaResumo): string {
   return [
     rota.motorista_nome,
-    `${rota.paradas_concluidas} de ${rota.total_paradas} paradas feitas`,
+    formatDateBR(rota.data),
+    `${rota.paradas_concluidas} de ${plural(rota.total_paradas, 'parada feita', 'paradas feitas')}`,
     rotuloDoStatus(rota.status),
     `${formatarDecimal(rota.distancia_total)} km`,
   ].join(', ');
@@ -65,9 +69,14 @@ export function ListaDeRotasDoDia({
           accessibilityHint="Abre o detalhe"
           style={[styles.linha, indice > 0 && styles.linhaComDivisor]}
         >
-          <Text style={styles.nome} numberOfLines={1} ellipsizeMode="tail">
-            {rota.motorista_nome}
-          </Text>
+          <View style={styles.identificacao}>
+            <Text style={styles.nome} numberOfLines={1} ellipsizeMode="tail">
+              {rota.motorista_nome}
+            </Text>
+            <Text style={styles.data} numberOfLines={1}>
+              {formatDateBR(rota.data)}
+            </Text>
+          </View>
           <View style={styles.paradas}>
             <LinhaDeParadas paradas={rota.paradas_status ?? []} />
           </View>
@@ -121,12 +130,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
   // Colunas fixas enxutas (nome 170, contagem 64, status 120, distância 64):
   // a linha de paradas é a que cresce. Status 120 = "Em andamento" a 13 px
   // semibold (89 px) + ícone 13 + gap 4 + padding 8 + borda 2 = 116.
-  nome: {
+  identificacao: {
     width: 170,
     flexShrink: 0,
+  },
+  nome: {
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
+  },
+  data: {
+    fontSize: 13,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray500,
   },
   paradas: {
     flex: 1,

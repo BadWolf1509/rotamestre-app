@@ -77,6 +77,42 @@ describe('ListaDeRotasDoDia', () => {
     );
   });
 
+  it('a data da rota aparece na linha e no rótulo acessível', () => {
+    const { getAllByText, getByTestId } = render(
+      <ListaDeRotasDoDia
+        rotas={[{ ...rotas[0], data: '2026-11-05' }]}
+        onAbrirRota={jest.fn()}
+        onExcluirRota={jest.fn()}
+      />,
+    );
+
+    // Coluna date: dia do calendário local, sem voltar um dia em UTC-3.
+    expect(getAllByText('05/11/2026')).toHaveLength(1);
+    expect(getByTestId('rota-dia-r1').props.accessibilityLabel).toContain(
+      '05/11/2026',
+    );
+  });
+
+  it('o rótulo acessível concorda o plural das paradas feitas', () => {
+    const { getByTestId } = render(
+      <ListaDeRotasDoDia
+        rotas={[
+          { ...rotas[0], id: 'um', total_paradas: 1, paradas_concluidas: 0 },
+          rotas[0],
+        ]}
+        onAbrirRota={jest.fn()}
+        onExcluirRota={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('rota-dia-um').props.accessibilityLabel).toContain(
+      '0 de 1 parada feita',
+    );
+    expect(getByTestId('rota-dia-r1').props.accessibilityLabel).toContain(
+      '3 de 8 paradas feitas',
+    );
+  });
+
   it('tocar na linha abre a rota', () => {
     const onAbrirRota = jest.fn();
     const { getByTestId } = render(
