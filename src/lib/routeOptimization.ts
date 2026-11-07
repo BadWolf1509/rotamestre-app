@@ -16,7 +16,6 @@ export type {
 } from './route-optimization/types';
 export {
   MAX_ROUTE_STOPS,
-  MAX_WAYPOINTS,
   WAYPOINTS_RECOMENDADO,
 } from './route-optimization/types';
 

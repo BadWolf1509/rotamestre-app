@@ -53,15 +53,15 @@ export function useDataTableState<T>({
   // Memoized handlers
   const handleSort = useCallback(
     (columnKey: string) => {
-      setSortColumn((prev) => {
-        const newDirection =
-          prev === columnKey && sortDirection === 'asc' ? 'desc' : 'asc';
-        setSortDirection(newDirection);
-        onSort?.(columnKey, newDirection);
-        return columnKey;
-      });
+      // Calculado fora do updater: updater de setState tem de ser puro (o
+      // StrictMode o executa duas vezes e chamava `onSort` em dobro).
+      const newDirection =
+        sortColumn === columnKey && sortDirection === 'asc' ? 'desc' : 'asc';
+      setSortColumn(columnKey);
+      setSortDirection(newDirection);
+      onSort?.(columnKey, newDirection);
     },
-    [sortDirection, onSort]
+    [sortColumn, sortDirection, onSort],
   );
 
   const handlePreviousPage = useCallback(() => {

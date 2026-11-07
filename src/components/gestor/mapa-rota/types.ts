@@ -13,10 +13,11 @@ export interface Parada {
   status: string;
   latitude: number | null;
   longitude: number | null;
-  destinatario?: string;
-  telefone?: string;
+  // `null` porque é o que o banco devolve para campo vazio.
+  destinatario?: string | null;
+  telefone?: string | null;
   /** Instrução do gestor. */
-  observacoes?: string;
+  observacoes?: string | null;
   motivo_skip?: MotivoSkip;
   /** Texto do motorista ao pular (Migration 73). */
   observacao_pulo?: string | null;

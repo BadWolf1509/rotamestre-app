@@ -86,6 +86,26 @@ function valoresDaParada(parada: Parada | null): ParadaModalFormData {
   };
 }
 
+/**
+ * O banco guarda campo de texto vazio como `null`; o formulário o normaliza
+ * para `''`. Comparar os dois com `!==` dava "mudou" em campo intocado.
+ */
+function mudou(
+  novo: string | null | undefined,
+  antigo: string | null | undefined,
+): boolean {
+  return (novo ?? '') !== (antigo ?? '');
+}
+
+/** Campos citados ao motorista, na ordem em que aparecem na mensagem. */
+const ROTULOS_CAMPOS_EDITADOS = [
+  ['endereco', 'endereço'],
+  ['destinatario', 'destinatário'],
+  ['telefone', 'telefone'],
+  ['observacoes', 'observações'],
+  ['tipo', 'tipo'],
+] as const;
+
 function coordenadaValida(valor: number | undefined): valor is number {
   return typeof valor === 'number' && Number.isFinite(valor);
 }
@@ -336,6 +356,15 @@ export function useEditStopForm({
           }
         }
 
+        // Uma só conta de "o que mudou" para o log e para o aviso ao motorista.
+        const camposAlterados = {
+          endereco: mudou(enderecoNovo, parada.endereco),
+          destinatario: mudou(destinatarioNovo, parada.destinatario),
+          telefone: mudou(telefoneNovo, parada.telefone),
+          observacoes: mudou(observacoesNovas, parada.observacoes),
+          tipo: tipo !== parada.tipo,
+        };
+
         // Log the edit
         if (usuarioId) {
           await logParadaAction(
@@ -344,13 +373,7 @@ export function useEditStopForm({
             rotaId,
             'parada_editada',
             {
-              campos_alterados: {
-                endereco: enderecoNovo !== parada.endereco,
-                destinatario: destinatarioNovo !== parada.destinatario,
-                telefone: telefoneNovo !== parada.telefone,
-                observacoes: observacoesNovas !== parada.observacoes,
-                tipo: tipo !== parada.tipo,
-              },
+              campos_alterados: camposAlterados,
               coordenadas_alteradas: coordinatesChanged,
             },
           );
@@ -358,12 +381,9 @@ export function useEditStopForm({
 
         // Notify motorista about the edit (if assigned)
         if (motoristaId) {
-          const camposEditados: string[] = [];
-          if (enderecoNovo !== parada.endereco) camposEditados.push('endereço');
-          if (destinatarioNovo !== parada.destinatario)
-            camposEditados.push('destinatário');
-          if (telefoneNovo !== parada.telefone) camposEditados.push('telefone');
-          if (tipo !== parada.tipo) camposEditados.push('tipo');
+          const camposEditados = ROTULOS_CAMPOS_EDITADOS.filter(
+            ([campo]) => camposAlterados[campo],
+          ).map(([, rotulo]) => rotulo);
 
           const mensagem =
             camposEditados.length > 0

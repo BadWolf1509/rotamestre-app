@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 
 import { supabase } from '@/lib/supabase';
@@ -389,5 +389,58 @@ describe('RouteTimeline', () => {
     } finally {
       mockSobrescritaTimeline = null;
     }
+  });
+
+  describe('erro ao carregar o histórico (I1)', () => {
+    const base = {
+      loading: false,
+      isStale: false,
+      hasMore: false,
+      loadingMore: false,
+      loadMore: jest.fn(),
+    };
+
+    afterEach(() => {
+      mockSobrescritaTimeline = null;
+    });
+
+    it('sem eventos e com erro: mostra a mensagem e "Tentar de novo" recarrega', () => {
+      const refresh = jest.fn().mockResolvedValue(undefined);
+      mockSobrescritaTimeline = {
+        ...base,
+        events: [],
+        error: new Error('falha'),
+        refresh,
+      };
+      const { getByText, queryByText } = render(<RouteTimeline rotaId="123" />);
+
+      expect(getByText('Não foi possível carregar o histórico.')).toBeTruthy();
+      expect(queryByText('Nenhum evento registrado')).toBeNull();
+      fireEvent.press(getByText('Tentar de novo'));
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('com eventos (cache) e com erro: mantém os eventos, sem esconder', () => {
+      mockSobrescritaTimeline = {
+        ...base,
+        events: [
+          {
+            id: 'e1',
+            type: 'status_change',
+            timestamp: '2023-01-01T10:00:00Z',
+            title: 'Rota Iniciada',
+            description: 'Início',
+            icon: 'flag',
+            colorKey: 'success',
+          },
+        ],
+        error: new Error('falha'),
+        refresh: jest.fn(),
+      };
+      const { getByText, queryByText } = render(<RouteTimeline rotaId="123" />);
+
+      expect(getByText('Rota Iniciada')).toBeTruthy();
+      expect(queryByText('Não foi possível carregar o histórico.')).toBeNull();
+    });
   });
 });

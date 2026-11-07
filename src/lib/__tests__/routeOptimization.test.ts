@@ -20,7 +20,7 @@ jest.mock('../google', () => ({
 }));
 
 import {
-  MAX_WAYPOINTS,
+  MAX_ROUTE_STOPS,
   WAYPOINTS_RECOMENDADO,
   limparCacheOtimizacao,
   estatisticasCache,
@@ -40,8 +40,8 @@ describe('routeOptimization', () => {
   });
 
   describe('Constants', () => {
-    it('should have correct MAX_WAYPOINTS value', () => {
-      expect(MAX_WAYPOINTS).toBe(50);
+    it('should have correct MAX_ROUTE_STOPS value', () => {
+      expect(MAX_ROUTE_STOPS).toBe(50);
     });
 
     it('should have correct WAYPOINTS_RECOMENDADO value', () => {
@@ -251,9 +251,9 @@ describe('routeOptimization', () => {
       expect(result.valido).toBe(true);
     });
 
-    it('should fail when exceeding MAX_WAYPOINTS', () => {
+    it('should fail when exceeding MAX_ROUTE_STOPS', () => {
       const paradas: ParadaParaOtimizar[] = [];
-      for (let i = 0; i < MAX_WAYPOINTS + 1; i++) {
+      for (let i = 0; i < MAX_ROUTE_STOPS + 1; i++) {
         paradas.push(criarParada(String(i), i));
       }
 
@@ -263,7 +263,7 @@ describe('routeOptimization', () => {
       expect(result.erros.some((e) => e.includes('Limite'))).toBe(true);
     });
 
-    it('should warn when approaching MAX_WAYPOINTS', () => {
+    it('should warn when approaching MAX_ROUTE_STOPS', () => {
       const paradas: ParadaParaOtimizar[] = [];
       for (let i = 0; i < WAYPOINTS_RECOMENDADO + 1; i++) {
         paradas.push(criarParada(String(i), i));

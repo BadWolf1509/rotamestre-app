@@ -14,16 +14,10 @@ import { formatarDecimal } from '@/lib/formatNumber';
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import {
-  agruparParadasEmVisitas,
-  expandirOrdemDasVisitas,
-} from '@/lib/route-optimization/agrupamento';
-import {
   otimizarRotaComDependencias,
   ParadaParaOtimizar,
   validarRotaParaOtimizacao,
 } from '@/lib/routeOptimization';
-
-import { ordenarParadasPorRota } from '../useNovaEntrega.helpers';
 
 import type React from 'react';
 
@@ -178,130 +172,67 @@ export function useRouteOptimization({
 
       const temVinculos = paradas.some((p) => p.vinculo_parada_id);
 
-      if (temVinculos) {
-        const resultado = await otimizarRotaComDependencias(
-          pontoUnidade,
-          paradasParaValidar,
-          pontoUnidade,
-        );
+      // Um caminho só, com ou sem vínculo: o otimizador agrupa as paradas do
+      // mesmo ponto em visita (entrega antes da retirada), respeita os vínculos,
+      // mede a rota completa quando uma visita cruza endereços e guarda o
+      // resultado no cache. Alternativas: (a) manter os dois ramos, cada um com
+      // o seu cuidado — foi assim que o ramo sem vínculo ficou sem a medida da
+      // rota completa e sem cache; (b) este caminho único (escolhida) — uma
+      // regra só para o gestor, mesmo resultado para a mesma lista.
+      const resultado = await otimizarRotaComDependencias(
+        pontoUnidade,
+        paradasParaValidar,
+        pontoUnidade,
+      );
 
-        if (!resultado) {
-          showToast('Não foi possível otimizar a rota', 'error');
-          return null;
-        }
-        if (listaMudou()) return null;
-
-        const paradasAtualizadas = resultado.paradasOrdenadas
-          .map((pOtimizada, i) => {
-            const paradaOriginal = paradas.find((p) => p.id === pOtimizada.id);
-            if (!paradaOriginal) {
-              logger.warn(
-                `[useRouteOptimization] Parada otimizada ${pOtimizada.id} não encontrada nas paradas originais`,
-              );
-              return null;
-            }
-            return {
-              ...paradaOriginal,
-              ordem: i + 1,
-            };
-          })
-          .filter((p): p is Parada => p !== null);
-
-        const isEstimated = resultado.isEstimated === true;
-        setRotaOtimizada({
-          distancia_total_metros: resultado.distanciaTotalMetros,
-          duracao_total_segundos: resultado.duracaoTotalSegundos,
-          legs: [],
-          polyline: resultado.polyline,
-          isEstimated,
-          distanciaAntesKm,
-        });
-        setOrdemManual(false);
-
-        if (resultado.semRotaEntreParadas) {
-          showToast(AVISO_SEM_ROTA_ENTRE_PARADAS, 'error', 8000);
-        } else {
-          showToast(
-            isEstimated
-              ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
-              : `Rota otimizada com dependências! ${formatarDecimal(resultado.distanciaTotalMetros / 1000)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
-            isEstimated ? 'info' : 'success',
-            isEstimated ? 6000 : 4000,
-          );
-        }
-
-        return paradasAtualizadas;
-      } else {
-        // Paradas no mesmo ponto (entrega + retirada do mesmo cliente) viram
-        // uma visita: só a primeira vai para o TSP, e a visita sai inteira,
-        // entrega antes da retirada. Sem ponto repetido, cada visita é uma
-        // parada e a chamada é a mesma de antes.
-        const visitas = agruparParadasEmVisitas(paradasParaValidar);
-        const haAgrupamento = visitas.length < paradasParaValidar.length;
-
-        const waypoints = visitas.map(([representante]) => ({
-          latitude: representante.latitude,
-          longitude: representante.longitude,
-        }));
-
-        const resultado = await googleMapsService.getDirections(
-          pontoUnidade,
-          pontoUnidade,
-          waypoints,
-        );
-
-        if (!resultado) {
-          showToast('Não foi possível otimizar a rota', 'error');
-          return null;
-        }
-        if (listaMudou()) return null;
-
-        // Com agrupamento, `ordem_otimizada` indexa visitas, não paradas, e os
-        // `legs` são um por visita — nenhum consumidor lê `rotaOtimizada.legs`
-        // hoje. A distância vale: dentro da visita o trajeto é de dezenas de metros.
-        const ordemOtimizada = haAgrupamento
-          ? expandirOrdemDasVisitas(
-              visitas,
-              paradasParaValidar,
-              resultado.ordem_otimizada,
-            )
-          : resultado.ordem_otimizada || [];
-        const paradasReordenadas = ordenarParadasPorRota(
-          paradas,
-          ordemOtimizada,
-          resultado.legs,
-        );
-
-        const paradasComNovaOrdem = paradasReordenadas.map((p, i) => ({
-          ...p,
-          ordem: i + 1,
-        }));
-
-        const isEstimated = resultado.is_estimated === true;
-        setRotaOtimizada({
-          distancia_total_metros: resultado.distancia_total_metros,
-          duracao_total_segundos: resultado.duracao_total_segundos,
-          legs: resultado.legs,
-          polyline: resultado.polyline,
-          isEstimated,
-          distanciaAntesKm,
-        });
-        setOrdemManual(false);
-
-        if (resultado.sem_rota_entre_paradas) {
-          showToast(AVISO_SEM_ROTA_ENTRE_PARADAS, 'error', 8000);
-        } else {
-          showToast(
-            isEstimated
-              ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
-              : `Rota otimizada! ${formatarDecimal(resultado.distancia_total_metros / 1000)} km - ${Math.round(resultado.duracao_total_segundos / 60)} min`,
-            isEstimated ? 'info' : 'success',
-            isEstimated ? 6000 : 4000,
-          );
-        }
-
-        return paradasComNovaOrdem;
+      if (!resultado) {
+        showToast('Não foi possível otimizar a rota', 'error');
+        return null;
       }
+      if (listaMudou()) return null;
+
+      const paradasAtualizadas = resultado.paradasOrdenadas
+        .map((pOtimizada, i) => {
+          const paradaOriginal = paradas.find((p) => p.id === pOtimizada.id);
+          if (!paradaOriginal) {
+            logger.warn(
+              `[useRouteOptimization] Parada otimizada ${pOtimizada.id} não encontrada nas paradas originais`,
+            );
+            return null;
+          }
+          return {
+            ...paradaOriginal,
+            ordem: i + 1,
+          };
+        })
+        .filter((p): p is Parada => p !== null);
+
+      const isEstimated = resultado.isEstimated === true;
+      // `legs` fica vazio: nenhum consumidor de `rotaOtimizada.legs` existe
+      // (o campo só é exigido pelo tipo).
+      setRotaOtimizada({
+        distancia_total_metros: resultado.distanciaTotalMetros,
+        duracao_total_segundos: resultado.duracaoTotalSegundos,
+        legs: [],
+        polyline: resultado.polyline,
+        isEstimated,
+        distanciaAntesKm,
+      });
+      setOrdemManual(false);
+
+      if (resultado.semRotaEntreParadas) {
+        showToast(AVISO_SEM_ROTA_ENTRE_PARADAS, 'error', 8000);
+      } else {
+        showToast(
+          isEstimated
+            ? 'O serviço viário está indisponível. A ordem exibida é apenas uma estimativa e não pode ser confirmada ainda.'
+            : `${temVinculos ? 'Rota otimizada com dependências!' : 'Rota otimizada!'} ${formatarDecimal(resultado.distanciaTotalMetros / 1000)} km - ${Math.round(resultado.duracaoTotalSegundos / 60)} min`,
+          isEstimated ? 'info' : 'success',
+          isEstimated ? 6000 : 4000,
+        );
+      }
+
+      return paradasAtualizadas;
     } catch (error) {
       logger.error('[useRouteOptimization] Erro ao otimizar rota', error);
       showToast('Não foi possível otimizar a rota', 'error');

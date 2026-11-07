@@ -2,7 +2,7 @@
  * Tests for route validation (vinculos + route limits + coordinates).
  */
 
-import { MAX_WAYPOINTS, WAYPOINTS_RECOMENDADO } from '../types';
+import { MAX_ROUTE_STOPS, WAYPOINTS_RECOMENDADO } from '../types';
 import { validarVinculos, validarRotaParaOtimizacao } from '../validation';
 
 import type { ParadaParaOtimizar } from '../types';
@@ -113,8 +113,8 @@ describe('validarRotaParaOtimizacao', () => {
     expect(result.avisos).toHaveLength(0);
   });
 
-  it('returns error when waypoints exceed MAX_WAYPOINTS', () => {
-    const paradas = Array.from({ length: MAX_WAYPOINTS + 1 }, (_, i) =>
+  it('returns error when waypoints exceed MAX_ROUTE_STOPS', () => {
+    const paradas = Array.from({ length: MAX_ROUTE_STOPS + 1 }, (_, i) =>
       makeParada({ id: `p${i}`, tipo: 'entrega' }),
     );
 
@@ -177,8 +177,8 @@ describe('validarRotaParaOtimizacao', () => {
     expect(result.avisos).toHaveLength(0);
   });
 
-  it('valid route at exactly MAX_WAYPOINTS count', () => {
-    const paradas = Array.from({ length: MAX_WAYPOINTS }, (_, i) =>
+  it('valid route at exactly MAX_ROUTE_STOPS count', () => {
+    const paradas = Array.from({ length: MAX_ROUTE_STOPS }, (_, i) =>
       makeParada({ id: `p${i}`, tipo: 'entrega' }),
     );
 
