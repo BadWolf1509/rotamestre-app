@@ -26,17 +26,10 @@ jest.mock('@/lib/utils', () => ({
   formatRelativeTime: (_timestamp: string) => 'há 5 min',
   getDateGroup: () => 'Hoje',
   calculateDurationBetween: () => '5 min',
-  groupBy: <T, K extends string>(arr: T[], fn: (item: T) => K) => {
-    return arr.reduce(
-      (acc, item) => {
-        const key = fn(item);
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
-        return acc;
-      },
-      {} as Record<K, T[]>,
-    );
-  },
+  // Tudo num grupo só ("Hoje"): o agrupamento de verdade tem teste próprio em
+  // src/lib/__tests__/timeline-agrupar-por-dia.test.ts.
+  agruparEventosPorDia: <T,>(eventos: T[]) =>
+    eventos.length ? [{ date: 'Hoje', events: eventos }] : [],
   mapLogToTimelineEvent: (log: any) => {
     if (log.evento?.includes('iniciou')) {
       return {
