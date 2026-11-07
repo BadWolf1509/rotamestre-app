@@ -37,6 +37,7 @@ describe('MenuDeAcoes', () => {
 
     const botao = screen.getByLabelText('Mais ações');
     expect(botao.props.accessibilityRole).toBe('button');
+    expect(botao.props['aria-haspopup']).toBe('menu');
     expect(botao.props.accessibilityState).toEqual(
       expect.objectContaining({ expanded: false }),
     );
@@ -59,6 +60,19 @@ describe('MenuDeAcoes', () => {
     expect(
       screen.UNSAFE_getByProps({ accessibilityRole: 'menu' }),
     ).toBeTruthy();
+  });
+
+  it('fundo e contêiner da lista ficam fora do Tab; a lista tem nome', () => {
+    // No RNW 0.21 o Pressable emite tabIndex=0 por padrão (ignora
+    // `focusable`), e a trava de foco do Modal focaria o fundo invisível.
+    render(<MenuDeAcoes item={item} acoes={acoes()} testID="menu-1" />);
+
+    fireEvent.press(screen.getByLabelText('Mais ações'));
+
+    expect(screen.getByTestId('menu-1-fora').props.tabIndex).toBe(-1);
+    const lista = screen.UNSAFE_getByProps({ accessibilityRole: 'menu' });
+    expect(lista.props.tabIndex).toBe(-1);
+    expect(lista.props.accessibilityLabel).toBe('Ações da linha');
   });
 
   it('escolher um item chama onPress(item) e fecha o menu', () => {

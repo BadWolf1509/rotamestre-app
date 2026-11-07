@@ -62,15 +62,20 @@ const LARGURA_BOTAO_ACAO = 130;
 const LARGURA_MENU = 48;
 
 /**
- * Número: cresce na proporção da base (`flexGrow: width`, `flexBasis: width`)
- * e nunca encolhe abaixo dela. String ('20%'): largura fixa, como antes.
+ * Número: parte da base (`width`) e cresce na proporção dela (`flexGrow`),
+ * sem encolher. String ('20%'): largura fixa, como antes.
+ *
+ * `width`, e não `flexBasis`: dentro do ScrollView horizontal o conteúdo se
+ * mede pelo max-content, e no Chrome a contribuição de um item flex vem do
+ * conteúdo, não do flex-basis — um nome longo em nowrap alargaria a tabela
+ * inteira (rolagem horizontal, sem reticências).
  */
 function larguraDaColuna(width: number | string | undefined): ViewStyle {
   if (typeof width === 'string') {
     return { width: width as DimensionValue, minWidth: LARGURA_BASE_PADRAO };
   }
   const base = width ?? LARGURA_BASE_PADRAO;
-  return { flexGrow: base, flexShrink: 0, flexBasis: base };
+  return { width: base, flexGrow: base, flexShrink: 0 };
 }
 
 function pararPropagacao(evento?: GestureResponderEvent) {
@@ -191,124 +196,148 @@ function DataTableDesktopViewInner<T>({
                 </Text>
               </View>
             )}
-            {data.map((item, index) => (
-              <Pressable
-                key={keyExtractor(item)}
-                style={[
-                  styles.tableRow,
-                  index % 2 === 0 && styles.tableRowEven,
-                  onRowPress && styles.tableRowClicavel,
-                ]}
-                onPress={onRowPress ? () => onRowPress(item) : undefined}
-                focusable={!!onRowPress}
-                accessible
-                accessibilityLabel={columns
-                  .map(
-                    (col) =>
-                      `${col.label}: ${getColumnDisplayValue(item as DataTableItem, col.key)}`,
-                  )
-                  .join(', ')}
-              >
-                {columns.map((column) => (
-                  <View
-                    key={column.key}
-                    style={[
-                      styles.tableCell,
-                      larguraDaColuna(column.width),
-                      column.align === 'center' && { alignItems: 'center' },
-                      column.align === 'right' && { alignItems: 'flex-end' },
-                    ]}
-                  >
-                    {column.render
-                      ? column.render(item)
-                      : renderTextoDaCelula(
-                          getColumnDisplayValue(
-                            item as DataTableItem,
-                            column.key,
-                          ),
-                        )}
-                  </View>
-                ))}
-
-                {/* Desktop Actions */}
-                {temAcoes && (
-                  <View
-                    style={[
-                      styles.tableCell,
-                      styles.tableCellActions,
-                      estiloColunaAcoes,
-                    ]}
-                  >
-                    {acoesNaLinha.map((action, idx) => {
-                      const label =
-                        typeof action.label === 'function'
-                          ? action.label(item)
-                          : action.label;
-                      const icon = action.icon
-                        ? typeof action.icon === 'function'
-                          ? action.icon(item)
-                          : action.icon
-                        : undefined;
-
-                      return (
-                        <TouchableOpacity
-                          key={idx}
-                          style={[
-                            styles.tableActionButton,
-                            action.type === 'danger' &&
-                              styles.tableActionButtonDanger,
-                            action.type === 'secondary' &&
-                              styles.tableActionButtonSecondary,
-                          ]}
-                          onPress={(evento) => {
-                            pararPropagacao(evento);
-                            action.onPress(item);
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel={label}
-                        >
-                          {icon && (
-                            <Ionicons
-                              name={icon}
-                              size={16}
-                              color={
-                                action.type === 'danger'
-                                  ? theme.colors.error
-                                  : action.type === 'secondary'
-                                    ? theme.colors.gray600
-                                    : theme.colors.primary
-                              }
-                            />
+            {data.map((item, index) => {
+              const chave = keyExtractor(item);
+              const estiloLinha = [
+                styles.tableRow,
+                index % 2 === 0 && styles.tableRowEven,
+              ];
+              const rotuloLinha = columns
+                .map(
+                  (col) =>
+                    `${col.label}: ${getColumnDisplayValue(item as DataTableItem, col.key)}`,
+                )
+                .join(', ');
+              const conteudoLinha = (
+                <>
+                  {columns.map((column) => (
+                    <View
+                      key={column.key}
+                      style={[
+                        styles.tableCell,
+                        larguraDaColuna(column.width),
+                        column.align === 'center' && { alignItems: 'center' },
+                        column.align === 'right' && { alignItems: 'flex-end' },
+                      ]}
+                    >
+                      {column.render
+                        ? column.render(item)
+                        : renderTextoDaCelula(
+                            getColumnDisplayValue(
+                              item as DataTableItem,
+                              column.key,
+                            ),
                           )}
-                          <Text
+                    </View>
+                  ))}
+
+                  {/* Desktop Actions */}
+                  {temAcoes && (
+                    <View
+                      style={[
+                        styles.tableCell,
+                        styles.tableCellActions,
+                        estiloColunaAcoes,
+                      ]}
+                    >
+                      {acoesNaLinha.map((action, idx) => {
+                        const label =
+                          typeof action.label === 'function'
+                            ? action.label(item)
+                            : action.label;
+                        const icon = action.icon
+                          ? typeof action.icon === 'function'
+                            ? action.icon(item)
+                            : action.icon
+                          : undefined;
+
+                        return (
+                          <TouchableOpacity
+                            key={idx}
                             style={[
-                              styles.tableActionText,
+                              styles.tableActionButton,
                               action.type === 'danger' &&
-                                styles.tableActionTextDanger,
+                                styles.tableActionButtonDanger,
                               action.type === 'secondary' &&
-                                styles.tableActionTextSecondary,
+                                styles.tableActionButtonSecondary,
                             ]}
+                            onPress={(evento) => {
+                              pararPropagacao(evento);
+                              action.onPress(item);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={label}
                           >
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                    {acoesNoMenu.length > 0 && (
-                      <MenuDeAcoes
-                        item={item}
-                        acoes={acoesNoMenu}
-                        testID={
-                          testID
-                            ? `${testID}-menu-${keyExtractor(item)}`
-                            : undefined
-                        }
-                      />
-                    )}
-                  </View>
-                )}
-              </Pressable>
-            ))}
+                            {icon && (
+                              <Ionicons
+                                name={icon}
+                                size={16}
+                                color={
+                                  action.type === 'danger'
+                                    ? theme.colors.error
+                                    : action.type === 'secondary'
+                                      ? theme.colors.gray600
+                                      : theme.colors.primary
+                                }
+                              />
+                            )}
+                            <Text
+                              style={[
+                                styles.tableActionText,
+                                action.type === 'danger' &&
+                                  styles.tableActionTextDanger,
+                                action.type === 'secondary' &&
+                                  styles.tableActionTextSecondary,
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                      {acoesNoMenu.length > 0 && (
+                        <MenuDeAcoes
+                          item={item}
+                          acoes={acoesNoMenu}
+                          testID={
+                            testID
+                              ? `${testID}-menu-${keyExtractor(item)}`
+                              : undefined
+                          }
+                        />
+                      )}
+                    </View>
+                  )}
+                </>
+              );
+
+              // Pressable só com onRowPress: no RNW 0.21 todo Pressable vira
+              // parada de Tab (tabIndex 0, `focusable` é ignorado).
+              if (onRowPress) {
+                return (
+                  <Pressable
+                    key={chave}
+                    style={[...estiloLinha, styles.tableRowClicavel]}
+                    onPress={() => onRowPress(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={rotuloLinha}
+                    accessibilityHint="Abre o detalhe"
+                  >
+                    {conteudoLinha}
+                  </Pressable>
+                );
+              }
+              return (
+                <View
+                  key={chave}
+                  style={estiloLinha}
+                  accessible
+                  accessibilityLabel={rotuloLinha}
+                >
+                  {conteudoLinha}
+                </View>
+              );
+            })}
           </View>
         </ScrollView>
 

@@ -310,6 +310,38 @@ describe('DataTable Component', () => {
   });
 
   describe('Linha clicável (onRowPress)', () => {
+    const rotuloDaLinha = /^Nome: João Silva/;
+
+    it('sem onRowPress a linha não é botão nem Pressable (não vira parada de Tab)', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const linha = screen.getByLabelText(rotuloDaLinha);
+      expect(linha.props.accessibilityRole).toBeUndefined();
+      expect(linha.props.onClick).toBeUndefined();
+      expect(linha.props.onResponderRelease).toBeUndefined();
+    });
+
+    it('com onRowPress a linha é botão e diz que abre o detalhe', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={jest.fn()}
+        />,
+      );
+
+      const linha = screen.getByLabelText(rotuloDaLinha);
+      expect(linha.props.accessibilityRole).toBe('button');
+      expect(linha.props.accessibilityHint).toBe('Abre o detalhe');
+    });
+
     it('tocar na linha chama onRowPress(item)', () => {
       const onRowPress = jest.fn();
       render(
@@ -406,7 +438,7 @@ describe('DataTable Component', () => {
       expect(texto.props.accessibilityLabel).toBe(nomeLongo);
     });
 
-    it('a coluna cresce na proporção da largura-base (flexGrow e flexBasis)', () => {
+    it('a coluna cresce na proporção da largura-base (width e flexGrow, sem flexBasis)', () => {
       render(
         <DataTable
           data={sampleData}
@@ -418,18 +450,19 @@ describe('DataTable Component', () => {
         />,
       );
 
-      // Sobe do texto até a célula: o primeiro ancestral com flexBasis.
+      // Sobe do texto até a célula: o primeiro ancestral com flexGrow.
       let no: ReturnType<typeof screen.getByText> | null =
         screen.getByText('João Silva');
-      while (
-        no &&
-        StyleSheet.flatten(no.props.style)?.flexBasis === undefined
-      ) {
+      while (no && StyleSheet.flatten(no.props.style)?.flexGrow === undefined) {
         no = no.parent;
       }
       const estilo = StyleSheet.flatten(no?.props.style);
+      // `width`, não `flexBasis`: dentro do ScrollView horizontal, o
+      // max-content do item flex vem do conteúdo, e um nome longo em nowrap
+      // alargaria a tabela inteira em vez de ganhar reticências.
       expect(estilo.flexGrow).toBe(240);
-      expect(estilo.flexBasis).toBe(240);
+      expect(estilo.width).toBe(240);
+      expect(estilo.flexBasis).toBeUndefined();
     });
 
     it('cabeçalho com 13 px em gray600 semibold e célula com 14 px', () => {

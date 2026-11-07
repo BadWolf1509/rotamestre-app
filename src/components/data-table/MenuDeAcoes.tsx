@@ -93,6 +93,7 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
         accessibilityRole="button"
         accessibilityLabel="Mais ações"
         accessibilityState={{ expanded: aberto }}
+        aria-haspopup="menu"
       >
         <Ionicons
           name="ellipsis-horizontal"
@@ -112,14 +113,18 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
           style={styles.fundo}
           onPress={tocarFora}
           accessible={false}
+          // RNW 0.21: Pressable emite tabIndex 0 e ignora `focusable`; sem
+          // -1, a trava de foco do Modal focaria este fundo invisível.
+          tabIndex={-1}
         />
         {/* Pressable só para absorver o clique entre os itens: sem ele, o
             clique no espaço da lista subiria até a linha clicável. */}
         <Pressable
           onPress={pararPropagacao}
           accessible={false}
-          focusable={false}
+          tabIndex={-1}
           accessibilityRole="menu"
+          accessibilityLabel="Ações da linha"
           style={[
             styles.lista,
             ancora
