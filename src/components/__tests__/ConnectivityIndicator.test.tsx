@@ -1,16 +1,14 @@
 /**
- * Tests for ConnectivityBanner.tsx
- * Banner de conectividade com 2 componentes: ConnectivityBanner, ConnectivityIndicator
+ * Tests for ConnectivityIndicator.tsx (o ícone de conexão da Início do
+ * motorista). O ConnectivityBanner, que dividia o arquivo, saiu em 07/11/2026:
+ * não era montado em nenhuma tela.
  */
 
 import { render } from '@testing-library/react-native';
 import React from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated } from 'react-native';
 
-import {
-  ConnectivityBanner,
-  ConnectivityIndicator,
-} from '../ConnectivityBanner';
+import { ConnectivityIndicator } from '../ConnectivityIndicator';
 
 // Mock hooks
 const mockUseIsOnline = jest.fn();
@@ -69,12 +67,6 @@ jest.mock('@expo/vector-icons', () => ({
 }));
 
 // Mock Animated
-jest.spyOn(Animated, 'spring').mockReturnValue({
-  start: jest.fn(),
-  stop: jest.fn(),
-  reset: jest.fn(),
-} as any);
-
 jest.spyOn(Animated, 'timing').mockReturnValue({
   start: jest.fn(),
   stop: jest.fn(),
@@ -93,7 +85,7 @@ jest.spyOn(Animated, 'sequence').mockReturnValue({
   reset: jest.fn(),
 } as any);
 
-describe('ConnectivityBanner', () => {
+describe('ConnectivityIndicator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseIsOnline.mockReturnValue(true);
@@ -101,83 +93,6 @@ describe('ConnectivityBanner', () => {
       connectionType: 'wifi',
       isWifi: true,
       isCellular: false,
-    });
-  });
-
-  describe('ConnectivityBanner component', () => {
-    it('should not render when online and not showing reconnect', () => {
-      mockUseIsOnline.mockReturnValue(true);
-
-      const { queryByText } = render(<ConnectivityBanner />);
-
-      expect(queryByText('Sem conexão com a internet')).toBeNull();
-    });
-
-    it('should render offline message when offline', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const { getByText } = render(<ConnectivityBanner />);
-
-      expect(getByText('Sem conexão com a internet')).toBeTruthy();
-    });
-
-    it('should show cloud-offline icon when offline', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const { getByTestId } = render(<ConnectivityBanner />);
-
-      expect(getByTestId('icon-cloud-offline')).toBeTruthy();
-    });
-
-    it('should apply top position by default', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const { getByText } = render(<ConnectivityBanner />);
-
-      expect(getByText('Sem conexão com a internet')).toBeTruthy();
-    });
-
-    it('ancora no topo (top 0) por padrão e embaixo (bottom 0) com position="bottom"', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const topo = render(<ConnectivityBanner />);
-      const estiloTopo = StyleSheet.flatten(
-        topo.UNSAFE_getAllByProps({ accessibilityRole: 'alert' })[0].props.style,
-      ) as Record<string, unknown>;
-      expect(estiloTopo.top).toBe(0);
-      expect(estiloTopo.bottom).toBeUndefined();
-      topo.unmount();
-
-      const base = render(<ConnectivityBanner position="bottom" />);
-      const estiloBase = StyleSheet.flatten(
-        base.UNSAFE_getAllByProps({ accessibilityRole: 'alert' })[0].props.style,
-      ) as Record<string, unknown>;
-      expect(estiloBase.bottom).toBe(0);
-      expect(estiloBase.top).toBeUndefined();
-    });
-
-    it('should accept bottom position prop', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const { getByText } = render(<ConnectivityBanner position="bottom" />);
-
-      expect(getByText('Sem conexão com a internet')).toBeTruthy();
-    });
-
-    it('should accept showOnReconnect prop', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const { getByText } = render(<ConnectivityBanner showOnReconnect={false} />);
-
-      expect(getByText('Sem conexão com a internet')).toBeTruthy();
-    });
-
-    it('should accept reconnectDuration prop', () => {
-      mockUseIsOnline.mockReturnValue(false);
-
-      const { getByText } = render(<ConnectivityBanner reconnectDuration={5000} />);
-
-      expect(getByText('Sem conexão com a internet')).toBeTruthy();
     });
   });
 

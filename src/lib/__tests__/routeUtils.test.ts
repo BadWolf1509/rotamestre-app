@@ -381,6 +381,27 @@ describe('routeUtils', () => {
       );
     });
 
+    it('recusa com code vira a mensagem do motivo (Migration 81)', async () => {
+      jest.spyOn(logger, 'error').mockImplementation(() => {});
+      mockRpc.mockResolvedValue({
+        data: {
+          success: false,
+          code: 'PARADAS_DE_OUTRA_ROTA',
+          error: 'texto do servidor',
+        },
+        error: null,
+      });
+
+      const result = await reordenarParadas([
+        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
+      ]);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        'As paradas mudaram desde que a tela abriu. Recarregue a rota.',
+      );
+    });
+
     it('deve capturar exceções', async () => {
       mockRpc.mockRejectedValue(new Error('RPC exception'));
 

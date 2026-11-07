@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View, Text } from 'react-native';
 
-import { ConnectivityIndicator } from '@/components/ConnectivityBanner';
+import { ConnectivityIndicator } from '@/components/ConnectivityIndicator';
 import { RouteStatus } from '@/context/RouteStatusContext';
 import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';

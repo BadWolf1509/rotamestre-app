@@ -12,6 +12,7 @@ import React from 'react';
 import HistoricoMotorista from '../historico';
 
 let mockRotas: unknown[] = [];
+let mockFiltradas: unknown[] | null = null;
 jest.mock('@/hooks/motorista/historico', () => ({
   useHistoricoData: () => ({
     rotas: mockRotas,
@@ -34,7 +35,7 @@ jest.mock('@/hooks/motorista/historico', () => ({
     setFiltroStatus: jest.fn(),
     filtroPeriodo: 'todos',
     setFiltroPeriodo: jest.fn(),
-    rotasFiltradas: rotas,
+    rotasFiltradas: mockFiltradas ?? rotas,
   }),
   formatarTempo: () => '0min',
 }));
@@ -48,11 +49,27 @@ jest.mock('@/components/motorista/historico/RotaHistoricoCard', () => {
 });
 
 describe('Histórico: lista ou vazio, nunca os dois', () => {
+  beforeEach(() => {
+    mockFiltradas = null;
+  });
+
   it('sem rotas: só o vazio', () => {
     mockRotas = [];
     render(<HistoricoMotorista />);
     expect(screen.getByTestId('motorista-historico-empty')).toBeTruthy();
     expect(screen.queryByTestId('motorista-historico-list')).toBeNull();
+    expect(screen.getByText('Nenhuma rota registrada')).toBeTruthy();
+  });
+
+  it('com rotas, mas nenhuma no filtro: o vazio fala do filtro, não de rotas futuras', () => {
+    mockRotas = [{ id: 'r1', data: '2026-11-01', status: 'concluida' }];
+    mockFiltradas = [];
+    render(<HistoricoMotorista />);
+    expect(screen.getByTestId('motorista-historico-empty')).toBeTruthy();
+    expect(screen.getByText('Nenhuma rota com esse filtro')).toBeTruthy();
+    expect(
+      screen.queryByText('Suas rotas aparecerão aqui após serem criadas'),
+    ).toBeNull();
   });
 
   it('com rotas: só a lista', () => {
