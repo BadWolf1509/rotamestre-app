@@ -37,6 +37,11 @@ jest.mock('@/utils/styles', () => {
       gray900: '#111827',
       infoBg: '#dbeafe',
       warningBg: '#fef3c7',
+      warningText: '#b45309',
+      onWarning: '#111827',
+      infoText: '#1d4ed8',
+      successDark: '#047857',
+      errorText: '#b91c1c',
     },
     spacing: { xs: 4, sm: 8, md: 12, lg: 16 },
     typography: {
@@ -130,6 +135,30 @@ describe('ParadaCardCompact', () => {
         getByTestId('parada-status-badge').props.style,
       );
       expect(estilo.alignSelf).toBe('center');
+    });
+
+    it('pendente: texto do selo em warningText e número da ordem em onWarning', () => {
+      const { getByText } = render(<ParadaCardCompact {...defaultProps} />);
+
+      expect(StyleSheet.flatten(getByText('Pendente').props.style).color).toBe(
+        '#b45309',
+      );
+      expect(StyleSheet.flatten(getByText('1').props.style).color).toBe(
+        '#111827',
+      );
+    });
+
+    it('em andamento: texto do selo em infoText', () => {
+      const { getByText } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={{ ...mockParada, status: 'em_andamento' }}
+        />,
+      );
+
+      expect(
+        StyleSheet.flatten(getByText('Em andamento').props.style).color,
+      ).toBe('#1d4ed8');
     });
 
     it('deve truncar endereço longo', () => {

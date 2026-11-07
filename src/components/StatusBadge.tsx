@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View, type TextStyle, type ViewStyle } from 'react-native';
 
+import { OPACIDADE_FUNDO_STATUS_SOFT } from '@/constants/statusConfig';
 import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -12,6 +13,12 @@ type StatusBadgeSize = 'sm' | 'md';
 interface StatusBadgeProps {
   label: string;
   color: string;
+  /**
+   * Cor do texto e do ícone na variante soft. Para status, passe
+   * `corDeTextoDoStatus(colorKey, theme.colors)`: a própria `color` sobre o
+   * fundo do selo não chega a 4,5:1. Sem ela, o texto usa `color`.
+   */
+  textColor?: string;
   variant?: StatusBadgeVariant;
   size?: StatusBadgeSize;
   /** Ícone à esquerda do texto, na cor do texto. */
@@ -24,6 +31,7 @@ interface StatusBadgeProps {
 function StatusBadgeComponent({
   label,
   color,
+  textColor: textColorSoft,
   variant = 'soft',
   size = 'md',
   icon,
@@ -34,8 +42,11 @@ function StatusBadgeComponent({
   const { theme } = useUnistyles();
   const isSmall = size === 'sm';
   const backgroundColor =
-    variant === 'solid' ? color : withOpacity(color, 0.15);
-  const textColor = variant === 'solid' ? theme.colors.white : color;
+    variant === 'solid'
+      ? color
+      : withOpacity(color, OPACIDADE_FUNDO_STATUS_SOFT);
+  const textColor =
+    variant === 'solid' ? theme.colors.white : (textColorSoft ?? color);
 
   return (
     <View

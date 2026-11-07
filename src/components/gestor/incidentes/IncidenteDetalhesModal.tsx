@@ -112,6 +112,7 @@ export function IncidenteDetalhesModal({
           </View>
           <StatusBadge
             color={st.color}
+            textColor={st.textColor}
             label={st.label}
             variant="soft"
             size="sm"

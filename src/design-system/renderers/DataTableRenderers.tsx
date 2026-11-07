@@ -44,6 +44,7 @@ import {
   type RouteStatusType,
   type StatusConfig,
   type StopStatusType,
+  corDeTextoDoStatus,
 } from '@/constants/statusConfig';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -134,12 +135,13 @@ export function StatusCell({ status, label }: StatusCellProps) {
   const { theme } = useUnistyles();
   const config = configDoStatus(status);
   const displayLabel = label || config?.label || status;
-  const color = theme.colors[config?.colorKey ?? 'info'];
+  const colorKey = config?.colorKey ?? 'info';
 
   return (
     <StatusBadge
       label={displayLabel}
-      color={color}
+      color={theme.colors[colorKey]}
+      textColor={corDeTextoDoStatus(colorKey, theme.colors)}
       variant="soft"
       size="sm"
       icon={config?.icon}

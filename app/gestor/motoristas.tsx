@@ -16,6 +16,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MotoristaAvatar } from '@/components/gestor/motoristas/MotoristaAvatar';
 import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { corDeTextoDoStatus } from '@/constants/statusConfig';
 import {
   DataTable,
   type DataTableAction,
@@ -352,6 +353,10 @@ export default function MotoristasGestor() {
       render: (motorista) => (
         <StatusBadge
           color={motorista.ativo ? theme.colors.success : theme.colors.gray600}
+          textColor={corDeTextoDoStatus(
+            motorista.ativo ? 'success' : 'gray600',
+            theme.colors,
+          )}
           label={motorista.ativo ? 'Ativo' : 'Inativo'}
           variant="soft"
         />

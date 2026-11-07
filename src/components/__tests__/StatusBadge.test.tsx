@@ -44,9 +44,13 @@ jest.mock('@/utils/styles', () => ({
 }));
 
 jest.mock('@expo/vector-icons', () => ({
-  Ionicons: ({ name }: { name: string }) => {
+  Ionicons: ({ name, color }: { name: string; color?: string }) => {
     const { Text: RNText } = require('react-native');
-    return <RNText testID={`icon-${name}`}>{name}</RNText>;
+    return (
+      <RNText testID={`icon-${name}`} style={{ color }}>
+        {name}
+      </RNText>
+    );
   },
 }));
 
@@ -114,6 +118,35 @@ describe('StatusBadge', () => {
       // Em variante soft, o texto tem a cor do badge
       expect(textElement.props.style).toEqual(
         expect.arrayContaining([expect.objectContaining({ color: '#10b981' })]),
+      );
+    });
+  });
+
+  describe('Variante soft com textColor', () => {
+    it('texto e ícone usam o textColor; borda e fundo seguem a cor', () => {
+      const { getByText, getByTestId } = render(
+        <StatusBadge
+          label="Pendente"
+          color="#f59e0b"
+          textColor="#b45309"
+          icon="hourglass-outline"
+          testID="selo"
+        />,
+      );
+
+      expect(getByText('Pendente').props.style).toEqual(
+        expect.arrayContaining([expect.objectContaining({ color: '#b45309' })]),
+      );
+      expect(getByTestId('icon-hourglass-outline').props.style).toEqual({
+        color: '#b45309',
+      });
+      expect(getByTestId('selo').props.style).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            backgroundColor: '#f59e0b10',
+            borderColor: '#f59e0b',
+          }),
+        ]),
       );
     });
   });

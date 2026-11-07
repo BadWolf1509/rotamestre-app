@@ -194,6 +194,7 @@ export default function IncidentesScreen() {
           return (
             <StatusBadge
               color={st.color}
+              textColor={st.textColor}
               label={st.label}
               variant="soft"
               size="sm"
@@ -232,19 +233,25 @@ export default function IncidentesScreen() {
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
           <View style={styles.resumoCard}>
-            <Text style={[styles.resumoValue, { color: theme.colors.error }]}>
+            <Text
+              style={[styles.resumoValue, { color: theme.colors.errorText }]}
+            >
               {resumoGeral.abertos}
             </Text>
             <Text style={styles.resumoLabel}>Abertos</Text>
           </View>
           <View style={styles.resumoCard}>
-            <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>
+            <Text
+              style={[styles.resumoValue, { color: theme.colors.warningText }]}
+            >
               {resumoGeral.emAnalise}
             </Text>
             <Text style={styles.resumoLabel}>Em análise</Text>
           </View>
           <View style={styles.resumoCard}>
-            <Text style={[styles.resumoValue, { color: theme.colors.success }]}>
+            <Text
+              style={[styles.resumoValue, { color: theme.colors.successDark }]}
+            >
               {resumoGeral.resolvidos}
             </Text>
             <Text style={styles.resumoLabel}>Resolvidos</Text>
@@ -393,6 +400,7 @@ export default function IncidentesScreen() {
                 </View>
                 <StatusBadge
                   color={st.color}
+                  textColor={st.textColor}
                   label={st.label}
                   variant="soft"
                   size="sm"

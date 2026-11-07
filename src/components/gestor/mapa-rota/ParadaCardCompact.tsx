@@ -9,7 +9,10 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { StatusBadge } from '@/components/StatusBadge';
-import { STOP_STATUS_CONFIG } from '@/constants/statusConfig';
+import {
+  STOP_STATUS_CONFIG,
+  corDeTextoDoStatus,
+} from '@/constants/statusConfig';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
 import { telefoneInternacional } from '@/lib/phone';
@@ -87,7 +90,14 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
         >
           {/* Badge de ordem com cor do status */}
           <View style={[styles.orderBadge, { backgroundColor: statusColor }]}>
-            <Text style={styles.orderText}>{parada.ordem}</Text>
+            <Text
+              style={[
+                styles.orderText,
+                status.colorKey === 'warning' && styles.orderTextSobreWarning,
+              ]}
+            >
+              {parada.ordem}
+            </Text>
           </View>
 
           {/* Conteúdo principal - Endereço completo */}
@@ -111,6 +121,7 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
           <StatusBadge
             label={status.label}
             color={statusColor}
+            textColor={corDeTextoDoStatus(status.colorKey, theme.colors)}
             variant="soft"
             size="sm"
             icon={status.icon}
@@ -367,6 +378,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.white,
     fontSize: theme.typography.fontSize.xs + 1,
     fontWeight: '700',
+  },
+  // Branco sobre warning fica abaixo de 4,5:1
+  orderTextSobreWarning: {
+    color: theme.colors.onWarning,
   },
   mainContent: {
     flex: 1,

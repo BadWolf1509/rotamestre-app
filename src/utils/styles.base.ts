@@ -435,9 +435,12 @@ export const defaultTheme: Theme = {
     warningBg: '#fef3c7',
     error: '#ef4444',
     errorDark: '#dc2626', // Hover/pressed state
+    // Texto de status sobre o fundo claro do selo soft (>= 4,5:1)
+    errorText: '#b91c1c',
     errorBg: '#fee2e2',
     info: '#3b82f6',
     infoBg: '#dbeafe',
+    infoText: '#1d4ed8', // Texto de status (>= 4,5:1 no selo soft)
     white: '#ffffff',
     black: '#000000',
     gray50: '#f9fafb',
@@ -869,10 +872,12 @@ const darkColors = {
   onWarning: '#1a2029',
   error: '#f87171',
   errorDark: '#ef4444', // Hover/pressed state (darker in dark mode)
+  errorText: '#fca5a5',
   errorBg: '#450a0a',
   errorLight: '#7f1d1d',
   info: '#60a5fa',
   infoBg: '#1e3a5f',
+  infoText: '#93c5fd',
   gray50: '#111827',
   gray100: '#1f2937',
   gray200: '#374151',

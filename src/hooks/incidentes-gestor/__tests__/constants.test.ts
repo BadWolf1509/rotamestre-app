@@ -2,7 +2,10 @@
  * incidentes-gestor constants - Tests
  */
 
+import { OPACIDADE_FUNDO_STATUS_SOFT } from '@/constants/statusConfig';
+import { comporSobre, contraste } from '@/test-utils/contraste';
 import type { Theme } from '@/utils/styles';
+import { darkTheme, defaultTheme as lightTheme } from '@/utils/styles.base';
 
 import {
   createCategoriaLabels,
@@ -143,4 +146,26 @@ describe('incidentes-gestor/constants', () => {
       expect(typeof formatted).toBe('string');
     });
   });
+});
+
+describe('createStatusLabels — contraste do texto do selo', () => {
+  it.each([
+    ['claro', lightTheme],
+    ['escuro', darkTheme],
+  ] as const)(
+    'tema %s: textColor de cada status com 4,5:1 sobre o fundo do selo',
+    (_nome, tema) => {
+      const labels = createStatusLabels(tema);
+      Object.values(labels).forEach(({ color, textColor }) => {
+        [tema.colors.surface, tema.colors.card].forEach((base) => {
+          expect(
+            contraste(
+              textColor,
+              comporSobre(color, base, OPACIDADE_FUNDO_STATUS_SOFT),
+            ),
+          ).toBeGreaterThanOrEqual(4.5);
+        });
+      });
+    },
+  );
 });

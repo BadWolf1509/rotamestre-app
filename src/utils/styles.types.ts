@@ -30,9 +30,11 @@ export interface Theme {
     warningBg: string;
     error: string;
     errorDark: string;
+    errorText: string;
     errorBg: string;
     info: string;
     infoBg: string;
+    infoText: string;
     white: string;
     black: string;
     gray50: string;

@@ -11,6 +11,10 @@ const mockTheme = {
     warning: '#f7a02a',
     info: '#3b82f6',
     error: '#ef4444',
+    warningText: '#b45309',
+    infoText: '#1d4ed8',
+    successDark: '#047857',
+    errorText: '#b91c1c',
     white: '#ffffff',
     gray200: '#e5e7eb',
     gray400: '#9ca3af',
@@ -59,14 +63,20 @@ jest.mock('@/components/StatusBadge', () => ({
     label,
     icon,
     variant,
+    textColor,
   }: {
     label: string;
     icon?: string;
     variant?: string;
+    textColor?: string;
   }) => {
     const { Text } = require('react-native');
     return (
-      <Text testID="status-badge" accessibilityLabel={`${icon}|${variant}`}>
+      <Text
+        testID="status-badge"
+        accessibilityLabel={`${icon}|${variant}`}
+        style={{ color: textColor }}
+      >
         {label}
       </Text>
     );
@@ -194,6 +204,17 @@ describe('StatusCell', () => {
     expect(getByTestId('status-badge').props.accessibilityLabel).toBe(
       `${ROUTE_STATUS_CONFIG.nao_executada.icon}|soft`,
     );
+  });
+
+  it.each([
+    ['pendente', mockTheme.colors.warningText],
+    ['em_andamento', mockTheme.colors.infoText],
+    ['concluida', mockTheme.colors.successDark],
+    ['nao_executada', mockTheme.colors.errorText],
+  ])('texto de %s no tom de texto do status', (status, cor) => {
+    const { getByTestId } = render(<StatusCell status={status} />);
+
+    expect(getByTestId('status-badge').props.style).toEqual({ color: cor });
   });
 
   it('deve usar a config de paradas para pulada', () => {

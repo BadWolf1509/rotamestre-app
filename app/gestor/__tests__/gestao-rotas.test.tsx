@@ -16,6 +16,7 @@ import {
   screen,
 } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import { useUnistyles } from '@/utils/styles';
 
@@ -253,6 +254,21 @@ describe('GestaoRotas (desktop)', () => {
     expect(mockVerDetalhes).not.toHaveBeenCalled();
     expect(screen.getByText('Excluir rota?')).toBeTruthy();
     expect(screen.getByText('A rota de Ana será excluída.')).toBeTruthy();
+  });
+
+  it('o texto do selo de status usa o tom de texto do status, não a cor dele', () => {
+    const { result } = renderHook(() => useUnistyles());
+    const { colors } = result.current.theme;
+    mockEstadoHook = {
+      rotasFiltradas: [{ ...rotasFalsas(1)[0], status: 'nao_executada' }],
+      total: 1,
+    };
+    render(<GestaoRotas />);
+
+    const estilo = StyleSheet.flatten(
+      screen.getByText('nao_executada').props.style,
+    );
+    expect(estilo.color).toBe(colors.errorText);
   });
 
   it('o nome longo do motorista fica numa linha, com o nome inteiro no accessibilityLabel', () => {
