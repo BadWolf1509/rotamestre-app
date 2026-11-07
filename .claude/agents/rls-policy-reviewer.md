@@ -15,8 +15,9 @@ RotaMestre is a **multi-tenant SaaS** for franchise units (`unidades`). Users be
 
 Every tenant-scoped table has an `unidade_id uuid` column. Policies scope reads/writes through:
 
-- `get_user_unidade()` — returns the user's primary unidade (legacy single-unidade)
-- `usuario_unidades` join — for users with access to multiple unidades (preferred for new code)
+- `get_my_unidade_ids()` / `minhas_unidades_com_acesso()` — the unidades of `auth.uid()` (multi-unidade helpers)
+- `usuario_unidades` join — membership with `papel` and `ativo` (preferred for new code)
+- The legacy `get_user_unidade(...)` no longer exists (dropped in Migration 82, 07/11/2026); a policy that calls it would fail to apply.
 
 Roles are: `gestor` (manager — CRUD within their unidade), `motorista` (driver — limited to assigned routes), and rare `admin`.
 
@@ -36,7 +37,7 @@ For every `CREATE TABLE` in the migration, verify:
 For each tenant-scoped table, verify ALL of:
 
 - A `SELECT` policy scoped to user's unidade
-- An `INSERT` policy that enforces `unidade_id = get_user_unidade()` (or membership via `usuario_unidades`) in `WITH CHECK`
+- An `INSERT` policy that enforces membership via `usuario_unidades` / `get_my_unidade_ids()` in `WITH CHECK`
 - `UPDATE` and `DELETE` policies that scope by unidade AND check the user's role
 - No `USING (true)` or `WITH CHECK (true)` policies — these grant cross-tenant access
 
@@ -68,7 +69,7 @@ Reference fix: `database/migrations/20251022000000_fix_security_warnings.sql`.
 
 ### 7. Helper functions for RLS
 
-- If the migration redefines `get_user_unidade()` or related auth helpers, treat as **critical change** — every existing policy depends on them.
+- If the migration redefines `get_my_unidade_ids()`, `minhas_unidades_com_acesso()`, `usuario_atual_ativo()` or related auth helpers, treat as **critical change** — every existing policy depends on them.
 
 ## Workflow
 
