@@ -23,7 +23,7 @@ Every new migration should be reviewed against these items before being saved:
 
 - If creating a new table that holds tenant data, it **must** have an `unidade_id uuid NOT NULL REFERENCES unidades(id)` column.
 - Enable RLS: `ALTER TABLE <table> ENABLE ROW LEVEL SECURITY;`
-- Add SELECT/INSERT/UPDATE/DELETE policies scoped via `get_user_unidade()` or `usuario_unidades` (multi-unidade users).
+- Add SELECT/INSERT/UPDATE/DELETE policies scoped via `get_my_unidade_ids()` / `minhas_unidades_com_acesso()` / `usuario_unidades` (multi-unidade users). `get_user_unidade(...)` no longer exists (Migration 82).
 - Consider role-based policies: `gestor` (CRUD their unidade), `motorista` (SELECT routes assigned to them, UPDATE own paradas).
 - Reference: existing patterns in `database/migrations/20251204000001_update_rls_multi_unidade.sql` and `20260208000000_fix_rls_multi_unidade.sql`.
 

@@ -1,0 +1,315 @@
+-- ============================================================================
+-- Migration 82: apagar dez funções sem uso
+-- Date: 2026-11-07
+-- Author: Wellinton Ribeiro
+-- Purpose:
+--   Dez funções SECURITY DEFINER de public ficaram de fases antigas do
+--   esquema (loja única em `usuarios.unidade_id`, primeiros helpers de
+--   `usuario_unidades`, consultas que o app trocou por SELECT com RLS, e o
+--   aviso de push que virou Database Webhook). Nenhuma é chamada: cada uma é
+--   um objeto SECURITY DEFINER a mais a revisar a cada mudança de RLS, e
+--   `get_user_unidade(uuid)` ainda lê a coluna legada `usuarios.unidade_id`,
+--   o que confunde quem procura a regra de loja vigente.
+--
+--   Medido em 06/11/2026 (só SELECT):
+--     - as dez existem, todas SECURITY DEFINER, dono postgres, ACL
+--       `{postgres=X, service_role=X}` (sem EXECUTE para PUBLIC, anon e
+--       authenticated); nove com `search_path=public`,
+--       `notify_push_on_insert()` com search_path vazio;
+--     - nenhum gatilho as usa (`pg_trigger.tgfoid`), nenhuma dependência
+--       normal (`pg_depend`, deptype 'n' — views e defaults entrariam aqui),
+--       nenhuma policy as cita (`pg_policies.qual`/`with_check`), nenhuma
+--       função de public ou storage as cita no corpo; não há pg_cron;
+--     - `get_user_unidade()` SEM argumento não existe: a única sobrecarga é
+--       `get_user_unidade(uuid)`. As policies usam `get_my_unidade_ids()` e
+--       `usuario_unidades`;
+--     - nem o app (`src/`, `app/`, `supabase/functions/`) nem o painel as
+--       chamam.
+--
+--   Alternativas consideradas:
+--     (a) DROP FUNCTION IF EXISTS com a assinatura exata, sem CASCADE
+--         (escolhida): se algo passar a depender de uma delas até a
+--         aplicação, o DROP para com erro e nada muda;
+--     (b) só revogar o EXECUTE de service_role: o objeto continua no
+--         catálogo, com o mesmo custo de revisão;
+--     (c) DROP ... CASCADE: apagaria em silêncio o que tivesse passado a
+--         depender delas.
+--
+--   Efeito no app: nenhum.
+--
+--   `SET LOCAL lock_timeout = '3s'`: DROP FUNCTION pede trava só no
+--   catálogo da função; o valor fica pelo padrão das migrations.
+-- ============================================================================
+
+BEGIN;
+
+SET LOCAL lock_timeout = '3s';
+
+DROP FUNCTION IF EXISTS public.get_user_role(uuid);
+DROP FUNCTION IF EXISTS public.get_user_unidade(uuid);
+DROP FUNCTION IF EXISTS public.get_user_unidades(uuid);
+DROP FUNCTION IF EXISTS public.get_user_papel_in_unidade(uuid, uuid);
+DROP FUNCTION IF EXISTS public.user_belongs_to_unidade(uuid, uuid);
+DROP FUNCTION IF EXISTS public.user_is_gestor_in_any_unidade(uuid);
+DROP FUNCTION IF EXISTS public.obter_paradas_ordenadas(uuid);
+DROP FUNCTION IF EXISTS public.rotas_ativas_motorista(uuid);
+DROP FUNCTION IF EXISTS public.estatisticas_rota(uuid);
+DROP FUNCTION IF EXISTS public.notify_push_on_insert();
+
+COMMIT;
+
+-- ============================================================================
+-- Conferência (só SELECT), depois de aplicar — esperado 0 linhas:
+-- SELECT p.oid::regprocedure FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--  WHERE n.nspname = 'public'
+--    AND p.proname IN ('get_user_role', 'get_user_unidade', 'get_user_unidades',
+--                      'get_user_papel_in_unidade', 'user_belongs_to_unidade',
+--                      'user_is_gestor_in_any_unidade', 'obter_paradas_ordenadas',
+--                      'rotas_ativas_motorista', 'estatisticas_rota', 'notify_push_on_insert');
+-- ============================================================================
+
+-- ROLLBACK:
+-- -- Corpos vivos lidos em 06/11/2026 (pg_get_functiondef), ACL e COMMENT de antes.
+-- BEGIN;
+-- SET LOCAL lock_timeout = '3s';
+--
+-- CREATE OR REPLACE FUNCTION public.get_user_role(user_id uuid)
+-- RETURNS text
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+-- BEGIN
+--   RETURN (SELECT papel FROM public.usuarios WHERE id = user_id);
+-- END;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.get_user_unidade(user_id uuid)
+-- RETURNS uuid
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+-- BEGIN
+--   RETURN (SELECT unidade_id FROM public.usuarios WHERE id = user_id);
+-- END;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.get_user_unidades(p_user_id uuid)
+-- RETURNS uuid[]
+-- LANGUAGE sql
+-- STABLE SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+--   SELECT COALESCE(
+--     ARRAY_AGG(unidade_id),
+--     ARRAY[]::UUID[]
+--   )
+--   FROM public.usuario_unidades
+--   WHERE usuario_id = p_user_id
+--     AND ativo = true;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.get_user_papel_in_unidade(p_user_id uuid, p_unidade_id uuid)
+-- RETURNS character varying
+-- LANGUAGE sql
+-- STABLE SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+--   SELECT papel
+--   FROM public.usuario_unidades
+--   WHERE usuario_id = p_user_id
+--     AND unidade_id = p_unidade_id
+--     AND ativo = true
+--   LIMIT 1;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.user_belongs_to_unidade(p_user_id uuid, p_unidade_id uuid)
+-- RETURNS boolean
+-- LANGUAGE sql
+-- STABLE SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+--   SELECT EXISTS (
+--     SELECT 1
+--     FROM public.usuario_unidades
+--     WHERE usuario_id = p_user_id
+--       AND unidade_id = p_unidade_id
+--       AND ativo = true
+--   );
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.user_is_gestor_in_any_unidade(p_user_id uuid)
+-- RETURNS boolean
+-- LANGUAGE sql
+-- STABLE SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+--   SELECT EXISTS (
+--     SELECT 1
+--     FROM public.usuario_unidades
+--     WHERE usuario_id = p_user_id
+--       AND papel = 'gestor'
+--       AND ativo = true
+--   );
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.obter_paradas_ordenadas(rota_uuid uuid)
+-- RETURNS TABLE(id uuid, tipo character varying, endereco text, ordem integer, ordem_efetiva integer, vinculo_parada_id uuid, status character varying)
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+-- DECLARE
+--   ordem_atual INTEGER := 1;
+--   parada_record RECORD;
+--   vinculada_record RECORD;
+-- BEGIN
+--   FOR parada_record IN
+--     SELECT p.id, p.tipo, p.endereco, p.ordem, p.vinculo_parada_id, p.status
+--     FROM paradas p
+--     WHERE p.rota_id = rota_uuid
+--     AND p.vinculo_parada_id IS NULL
+--     ORDER BY p.ordem
+--   LOOP
+--     id := parada_record.id;
+--     tipo := parada_record.tipo;
+--     endereco := parada_record.endereco;
+--     ordem := parada_record.ordem;
+--     ordem_efetiva := ordem_atual;
+--     vinculo_parada_id := parada_record.vinculo_parada_id;
+--     status := parada_record.status;
+--     RETURN NEXT;
+--
+--     ordem_atual := ordem_atual + 1;
+--
+--     IF parada_record.tipo = 'retirada' THEN
+--       FOR vinculada_record IN
+--         SELECT p.id, p.tipo, p.endereco, p.ordem, p.vinculo_parada_id, p.status
+--         FROM paradas p
+--         WHERE p.vinculo_parada_id = parada_record.id
+--         ORDER BY p.ordem
+--       LOOP
+--         id := vinculada_record.id;
+--         tipo := vinculada_record.tipo;
+--         endereco := vinculada_record.endereco;
+--         ordem := vinculada_record.ordem;
+--         ordem_efetiva := ordem_atual;
+--         vinculo_parada_id := vinculada_record.vinculo_parada_id;
+--         status := vinculada_record.status;
+--         RETURN NEXT;
+--
+--         ordem_atual := ordem_atual + 1;
+--       END LOOP;
+--     END IF;
+--   END LOOP;
+-- END;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.rotas_ativas_motorista(motorista_id uuid)
+-- RETURNS SETOF public.rotas
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+-- BEGIN
+--   RETURN QUERY
+--   SELECT r.*
+--   FROM public.rotas r
+--   WHERE r.motorista_id = rotas_ativas_motorista.motorista_id
+--     AND r.status IN ('pendente', 'em_andamento')
+--   ORDER BY r.created_at DESC;
+-- END;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.estatisticas_rota(rota_id uuid)
+-- RETURNS json
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO 'public'
+-- AS $function$
+-- DECLARE
+--   total_paradas INT;
+--   paradas_concluidas INT;
+--   paradas_pendentes INT;
+--   resultado JSON;
+-- BEGIN
+--   SELECT COUNT(*) INTO total_paradas
+--   FROM public.paradas
+--   WHERE paradas.rota_id = estatisticas_rota.rota_id;
+--
+--   SELECT COUNT(*) INTO paradas_concluidas
+--   FROM public.paradas
+--   WHERE paradas.rota_id = estatisticas_rota.rota_id
+--     AND status = 'concluida';
+--
+--   SELECT COUNT(*) INTO paradas_pendentes
+--   FROM public.paradas
+--   WHERE paradas.rota_id = estatisticas_rota.rota_id
+--     AND status = 'pendente';
+--
+--   resultado := json_build_object(
+--     'total_paradas', total_paradas,
+--     'paradas_concluidas', paradas_concluidas,
+--     'paradas_pendentes', paradas_pendentes,
+--     'progresso_percentual',
+--       CASE
+--         WHEN total_paradas > 0 THEN ROUND((paradas_concluidas::NUMERIC / total_paradas) * 100, 2)
+--         ELSE 0
+--       END
+--   );
+--
+--   RETURN resultado;
+-- END;
+-- $function$;
+--
+-- CREATE OR REPLACE FUNCTION public.notify_push_on_insert()
+-- RETURNS trigger
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER
+-- SET search_path TO ''
+-- AS $function$
+-- DECLARE
+--   tipos_push TEXT[] := ARRAY['nova_rota_atribuida', 'sos_acionado', 'incidente_reportado', 'rota_atrasada'];
+-- BEGIN
+--   IF NOT (NEW.tipo = ANY(tipos_push)) THEN
+--     RETURN NEW;
+--   END IF;
+--
+--   IF NOT EXISTS (
+--     SELECT 1 FROM public.push_tokens WHERE usuario_id = NEW.usuario_id
+--   ) THEN
+--     INSERT INTO public.push_notification_logs (notificacao_id, usuario_id, status, error_message)
+--     VALUES (NEW.id, NEW.usuario_id, 'no_token', 'Usuário não tem push_token registrado');
+--   END IF;
+--
+--   RETURN NEW;
+-- END;
+-- $function$;
+--
+-- REVOKE ALL ON FUNCTION public.get_user_role(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.get_user_unidade(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.get_user_unidades(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.get_user_papel_in_unidade(uuid, uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.user_belongs_to_unidade(uuid, uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.user_is_gestor_in_any_unidade(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.obter_paradas_ordenadas(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.rotas_ativas_motorista(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.estatisticas_rota(uuid) FROM PUBLIC, anon, authenticated;
+-- REVOKE ALL ON FUNCTION public.notify_push_on_insert() FROM PUBLIC, anon, authenticated;
+-- GRANT EXECUTE ON FUNCTION public.get_user_role(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.get_user_unidade(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.get_user_unidades(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.get_user_papel_in_unidade(uuid, uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.user_belongs_to_unidade(uuid, uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.user_is_gestor_in_any_unidade(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.obter_paradas_ordenadas(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.rotas_ativas_motorista(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.estatisticas_rota(uuid) TO service_role;
+-- GRANT EXECUTE ON FUNCTION public.notify_push_on_insert() TO service_role;
+-- COMMENT ON FUNCTION public.get_user_unidades(uuid) IS 'Retorna array de unidade_ids ativas do usuário';
+-- COMMENT ON FUNCTION public.get_user_papel_in_unidade(uuid, uuid) IS 'Retorna o papel do usuário em uma unidade específica';
+-- COMMENT ON FUNCTION public.user_belongs_to_unidade(uuid, uuid) IS 'Verifica se usuário pertence a uma unidade específica';
+-- COMMENT ON FUNCTION public.user_is_gestor_in_any_unidade(uuid) IS 'Verifica se usuário é gestor em alguma unidade';
+-- COMMENT ON FUNCTION public.notify_push_on_insert() IS 'Função auxiliar para logging. O envio real é feito via Database Webhook + Edge Function';
+-- COMMIT;
