@@ -1,7 +1,9 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, renderHook } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import type { StatusParada } from '@/types/rota';
+import { useUnistyles } from '@/utils/styles';
 
 import { LinhaDeParadas } from '../LinhaDeParadas';
 
@@ -25,6 +27,18 @@ describe('LinhaDeParadas', () => {
     expect(getByLabelText('Parada 3, em andamento')).toBeTruthy();
     expect(getByLabelText('Parada 4, pendente')).toBeTruthy();
     expect(getByLabelText('Parada 5, pulada')).toBeTruthy();
+  });
+
+  it('a borda do ponto pendente usa gray500 (3:1 de componente, WCAG 1.4.11)', () => {
+    const { result } = renderHook(() => useUnistyles());
+    const { getByLabelText } = render(
+      <LinhaDeParadas paradas={['pendente']} />,
+    );
+
+    const estilo = StyleSheet.flatten(
+      getByLabelText('Parada 1, pendente').props.style,
+    );
+    expect(estilo.borderColor).toBe(result.current.theme.colors.gray500);
   });
 
   it('acima do máximo mostra os primeiros pontos e "+N"', () => {

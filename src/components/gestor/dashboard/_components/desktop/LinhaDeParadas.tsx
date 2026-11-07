@@ -5,7 +5,8 @@
  * desktop do gestor (docs/superpowers/specs/2026-11-07-design-desktop-gestor-design.md):
  * - concluída: ponto cheio em `success`;
  * - em andamento: ponto com anel em `info`;
- * - pendente: ponto vazado, só a borda em `gray400` (é desenho, não texto);
+ * - pendente: ponto vazado, só a borda em `gray500` (componente gráfico pede
+ *   3:1, WCAG 1.4.11; o `gray400` dava 2,5:1);
  * - pulada: ponto cheio em `warning` — é a atenção.
  *
  * Mostra no máximo `maximo` pontos e, além disso, só os que cabem na largura
@@ -171,7 +172,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   pontoPendente: {
     backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.gray400,
+    borderColor: theme.colors.gray500,
   },
   pontoPulada: {
     backgroundColor: theme.colors.warning,
