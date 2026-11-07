@@ -3479,6 +3479,106 @@ view mostrava); real sem teto 224, 376 e 242; real com o teto de 24 h da view
 
 ---
 
+### ⏳ Migration 81: `inserir_parada` e `reordenar_paradas` só em rota aberta, com `code` na resposta
+
+**Arquivo:** `20261107100000_rpcs_paradas_rota_aberta_e_codigos.sql` · **⏳ não
+aplicada.** Aplicar pelo CLI (`db query --linked`) com a sonda na mesma
+execução antes (esperados FALHOU nos casos 1, 3, 4, 5, 6, 8, 9, 10 e 11; OK nos
+casos 2 e 7), depois a migration, depois a sonda de novo (11/11 OK); registrar
+com a versão do arquivo.
+
+**O que faz.** Reescreve as duas RPCs com a mesma assinatura, SECURITY DEFINER,
+`search_path` vazio e a ACL vigente (EXECUTE para `authenticated` e
+`service_role`, não para `anon`):
+
+- toda recusa devolve `{ success: false, code, error }`, com `error` num texto
+  fixo em pt-BR e `code` em `SEM_PERMISSAO` | `ROTA_ENCERRADA` |
+  `PARADA_NAO_ENCONTRADA` | `PARADAS_DE_OUTRA_ROTA` | `ENTRADA_INVALIDA` |
+  `ORDEM_DUPLICADA` | `ERRO`. O sucesso não muda;
+- depois da guarda de autorização (a de antes), trava a linha da rota com
+  `FOR NO KEY UPDATE` e recusa com `ROTA_ENCERRADA` fora de
+  `pendente`/`em_andamento`, antes de qualquer escrita. Antes, inserir em rota
+  `cancelada` devolvia `success: true` e criava a parada;
+- `reordenar_paradas` confere, antes de qualquer UPDATE: arrays do mesmo
+  tamanho, sem nulos e com ids distintos (`ENTRADA_INVALIDA`); a 1ª parada
+  existe (`PARADA_NAO_ENCONTRADA`); todas são da rota da 1ª
+  (`PARADAS_DE_OUTRA_ROTA`, com as paradas travadas). Antes, id de outra rota
+  era ignorado e `updated` contava o array;
+- no `EXCEPTION WHEN OTHERS`, SQLSTATE e SQLERRM vão só para o log do servidor
+  (`RAISE LOG`): 23505 → `ORDEM_DUPLICADA`; P0001 `PARADA_DE_ROTA_ENCERRADA`
+  ou `ROTA_ENCERRADA` → `ROTA_ENCERRADA`; o resto → `ERRO`. Antes, o texto do
+  Postgres ("duplicate key value violates ...") ia para o toast.
+
+A lógica de ordem fica igual (chegada estacionada em +2000, deslocamento de
++1000, normalização, chegada no fim).
+
+**Alternativas.** Código e texto fixo no jsonb (escolhida: o app publicado
+segue lendo `success`/`error`); RAISE com sentinela, como `finalizar_rota`
+(muda o contrato: o app publicado recebe `error` do PostgREST); só trocar
+`SQLERRM` por texto genérico (o app novo não distingue os casos); gatilho de
+rota aberta em `paradas` (pegaria `criar_rota_com_paradas` e o painel, e a
+recusa voltaria como exceção). Trava `FOR NO KEY UPDATE` (escolhida) e não
+`FOR UPDATE`, que conflita com o `FOR KEY SHARE` dos INSERTs com FK para
+`rotas` — o deadlock registrado em `finalizar_rota` e `cancelar_rota`. Textos
+num CASE em cada RPC (escolhida) e não numa função auxiliar (objeto e ACL a
+mais para 7 frases).
+
+**App.** A versão publicada mostra o `error` no toast (`useAddStopForm` lança
+`rpcResult.error`; `reordenarParadas` devolve `data.error`): as recusas novas
+aparecem com o texto fixo, e inserir ou reordenar em rota encerrada passa a
+ser recusado em vez de aceito. Nenhum caminho de sucesso muda. Mapear `code`
+no cliente é a etapa seguinte, depois do PR #728.
+
+**Ordem de deploy.** Esta migration antes de qualquer versão do app que leia
+`code`. O inverso não quebra: sem `code`, o app cai no `error`.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration81-rpcs-paradas-rota-aberta.test.ts`; sonda
+`database/sondas/20261107100000_sonda_migration81.sql` (11 casos, desfeita
+pelo RAISE): inserir em rota cancelada/concluída/não executada, inserir no meio
+de rota em andamento, reordenar em rota concluída, id de outra rota e
+inexistente, ordem duplicada, sem vínculo (gestor de outra loja e motorista
+inserindo), motorista reordenando a própria rota, entrada inválida, 1º id
+inexistente, forma de toda recusa, catálogo. A corrida com `cancelar_rota` não
+cabe numa sessão só; a trava é conferida pela guarda. Rollback colável (corpos
+vivos de 06/11/2026).
+
+---
+
+### ⏳ Migration 82: apagar dez funções sem uso
+
+**Arquivo:** `20261107101000_apagar_funcoes_mortas.sql` · **⏳ não aplicada.**
+Aplicar pelo CLI (`db query --linked`) com a sonda na mesma execução antes
+(esperado FALHOU no caso 1; OK nos casos 2 e 3), depois a migration, depois a
+sonda de novo (3/3 OK); registrar com a versão do arquivo.
+
+**O que faz.** `DROP FUNCTION IF EXISTS`, com a assinatura exata e sem CASCADE,
+em `get_user_role(uuid)`, `get_user_unidade(uuid)`, `get_user_unidades(uuid)`,
+`get_user_papel_in_unidade(uuid, uuid)`, `user_belongs_to_unidade(uuid, uuid)`,
+`user_is_gestor_in_any_unidade(uuid)`, `obter_paradas_ordenadas(uuid)`,
+`rotas_ativas_motorista(uuid)`, `estatisticas_rota(uuid)` e
+`notify_push_on_insert()`. Medido em 06/11/2026 (só SELECT): todas SECURITY
+DEFINER com EXECUTE só de `service_role`; nenhum gatilho, dependência
+(`pg_depend` 'n'), policy ou função de public/storage as usa; o app e o painel
+não as chamam. `get_user_unidade()` **sem argumento não existe** — a única
+sobrecarga era a de `uuid`; as policies usam `get_my_unidade_ids()` e
+`usuario_unidades`.
+
+**Alternativas.** DROP sem CASCADE (escolhida: se algo passar a depender de
+uma delas, o DROP para e nada muda); só revogar o EXECUTE de `service_role` (o
+objeto fica no catálogo); CASCADE (apagaria dependentes em silêncio).
+
+**App.** Nenhum efeito.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration82-funcoes-mortas.test.ts`; sonda
+`database/sondas/20261107101000_sonda_migration82.sql` (3 casos, desfeita pelo
+RAISE): as dez não existem; helpers vigentes seguem e `get_user_unidade()` sem
+argumento segue ausente; RLS de `rotas`/`paradas` segue resolvendo para gestor
+e motorista. Rollback colável (corpos vivos de 06/11/2026, ACL e COMMENT).
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
