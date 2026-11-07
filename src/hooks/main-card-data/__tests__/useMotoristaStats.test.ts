@@ -102,7 +102,11 @@ describe('useMotoristaStats', () => {
           return criarCadeia({ data: mockRotas, error: null });
         }
         if (table === 'paradas') {
-          return criarCadeia({ data: mockParadas, error: null });
+          return criarCadeia({
+            data: null,
+            count: mockParadas.length,
+            error: null,
+          });
         }
         return criarCadeia({ data: [], error: null });
       });
@@ -208,7 +212,11 @@ describe('useMotoristaStats', () => {
           return criarCadeia({ data: mockRotas, error: null });
         }
         if (table === 'paradas') {
-          return criarCadeia({ data: mockParadas, error: null });
+          return criarCadeia({
+            data: null,
+            count: mockParadas.length,
+            error: null,
+          });
         }
         return criarCadeia({ data: [], error: null });
       });
@@ -240,6 +248,71 @@ describe('useMotoristaStats', () => {
 
       // Stats should remain at default
       expect(result.current.stats.rotasHoje).toBe(0);
+    });
+
+    it('conta as paradas no servidor (count exact, head), sem o corte de 1000 linhas (M-7)', async () => {
+      const cadeiaParadas = criarCadeia({
+        data: null,
+        count: 1500,
+        error: null,
+      });
+      mockFrom.mockImplementation((table: string) =>
+        table === 'rotas'
+          ? criarCadeia({
+              data: [{ id: 'rota-1', distancia_total: 10 }],
+              error: null,
+            })
+          : cadeiaParadas,
+      );
+
+      const { result } = renderHook(() => useMotoristaStats('motorista-123'));
+      await act(async () => {
+        await result.current.loadTodayStats();
+      });
+
+      expect(cadeiaParadas.select).toHaveBeenCalledWith('id', {
+        count: 'exact',
+        head: true,
+      });
+      expect(result.current.stats.paradasHoje).toBe(1500);
+    });
+
+    it('resposta velha de hoje chegando por último não sobrescreve a nova (M-7)', async () => {
+      let soltarVelha: (v: unknown) => void = () => {};
+      const velha = new Promise((resolve) => {
+        soltarVelha = resolve;
+      });
+      const cadeiaVelha = criarCadeia({ data: [], error: null });
+      cadeiaVelha.then = ((aoResolver: (v: unknown) => unknown) =>
+        velha.then(aoResolver)) as typeof cadeiaVelha.then;
+
+      mockFrom.mockReturnValueOnce(cadeiaVelha);
+      mockFrom.mockImplementation((table: string) =>
+        table === 'rotas'
+          ? criarCadeia({
+              data: [{ id: 'rota-1', distancia_total: 10 }],
+              error: null,
+            })
+          : criarCadeia({ data: null, count: 4, error: null }),
+      );
+
+      const { result } = renderHook(() => useMotoristaStats('motorista-123'));
+      let primeira: Promise<void> = Promise.resolve();
+      act(() => {
+        primeira = result.current.loadTodayStats();
+      });
+      await act(async () => {
+        await result.current.loadTodayStats();
+      });
+      expect(result.current.stats.rotasHoje).toBe(1);
+
+      await act(async () => {
+        soltarVelha({ data: [], error: null });
+        await primeira;
+      });
+      // A velha viria com 0 rotas e zeraria o que a nova mostrou.
+      expect(result.current.stats.rotasHoje).toBe(1);
+      expect(result.current.stats.paradasHoje).toBe(4);
     });
 
     it('should handle routes with null distancia_total', async () => {
