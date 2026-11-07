@@ -88,8 +88,12 @@ async function fetchTimelinePage1(
       .eq('rota_id', rotaId),
   ]);
 
-  if (logsRes.error)
+  // Sem os logs a carga é parcial: lançar faz o `useCachedData` manter o dado
+  // anterior (e o "Carregar mais") em vez de gravar a metade como cache válido.
+  if (logsRes.error) {
     logger.error('[useTimelineData] Erro ao buscar logs:', logsRes.error);
+    throw logsRes.error;
+  }
   if (paradasRes.error)
     logger.error('[useTimelineData] Erro ao buscar paradas:', paradasRes.error);
   if (incidentesRes.error)
@@ -175,12 +179,16 @@ export function useTimelineData(
     setLoadingMore(true);
     try {
       const offset = currentPageRef.current * PAGE_SIZE;
-      const { data: logsRes } = await supabase
+      const { data: logsRes, error: logsError } = await supabase
         .from('logs')
         .select('id, evento, timestamp, detalhes')
         .eq('rota_id', rotaId)
         .order('timestamp', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
+
+      // Erro não é página vazia: cai no catch, sem avançar a página nem
+      // zerar `hasMore`, e o "Carregar mais" tenta a mesma página de novo.
+      if (logsError) throw logsError;
 
       const page = logsRes ?? [];
       const mapped: TimelineEventMapped[] = [];
