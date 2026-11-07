@@ -165,6 +165,24 @@ describe('layout raiz: troca de conta', () => {
     expect(mockMontagensDaPilha.total).toBe(1);
   });
 
+  // N-3: o ConditionalLayout trocava a casca do filho (fragmento ↔ View com
+  // Sidebar) e o React remontava a pilha inteira ao entrar em /perfil ou
+  // /unidade no desktop do gestor.
+  it('Sidebar aparecer e sumir (desktop do gestor) não remonta a pilha', () => {
+    entrar('gestor');
+    mockUsuario.userData = { id: 'gestor', papel: 'gestor' };
+    mockTela.isDesktop = true;
+    mockCaminho.atual = '/gestor/inicio';
+    const { rerender } = render(<RootLayout />);
+
+    mockCaminho.atual = '/perfil';
+    rerender(<RootLayout />);
+    mockCaminho.atual = '/gestor/inicio';
+    rerender(<RootLayout />);
+
+    expect(mockMontagensDaPilha.total).toBe(1);
+  });
+
   it('sessão offline do mesmo dono não remonta a pilha', () => {
     entrar('motorista');
     const { rerender } = render(<RootLayout />);

@@ -77,16 +77,15 @@ function ConditionalLayout({ children }: { children: React.ReactNode }) {
     isDesktop &&
     gestorRoutes.some((route) => pathname.startsWith(route));
 
-  if (showSidebar) {
-    return (
-      <View style={styles.desktopLayout}>
-        <Sidebar userData={userData} />
-        <View style={styles.content}>{children}</View>
-      </View>
-    );
-  }
-
-  return <>{children}</>;
+  // Casca sempre igual, Sidebar como irmão condicional (N-3): trocar a casca
+  // (fragmento ↔ View) mudava o tipo do pai da pilha, e o React remontava a
+  // pilha inteira ao entrar e sair de /perfil e /unidade no desktop.
+  return (
+    <View style={showSidebar ? styles.desktopLayout : styles.casca}>
+      {showSidebar ? <Sidebar userData={userData} /> : null}
+      <View style={styles.content}>{children}</View>
+    </View>
+  );
 }
 
 // Check for E2E environment using multiple detection methods
@@ -380,6 +379,9 @@ function renderToast(
 
 // Estilos para o layout desktop com Sidebar
 const styles = StyleSheet.create((theme: Theme) => ({
+  casca: {
+    flex: 1,
+  },
   desktopLayout: {
     flex: 1,
     flexDirection: 'row',
