@@ -7,6 +7,7 @@
 import { useCallback, useState } from 'react';
 
 import { logger } from '@/lib/logger';
+import { formatarDuracao } from '@/lib/motorista/formatarDuracao';
 import { supabase } from '@/lib/supabase';
 
 import type { LastRouteData } from './types';
@@ -60,24 +61,20 @@ export function useLastRoute(motoristaId?: string): UseLastRouteReturn {
       }
 
       // Filter out checkpoints (is_checkpoint: false means it's a checkpoint, not a delivery)
-      const deliveryStops = paradasData?.filter(p => p.is_checkpoint !== false) || [];
+      const deliveryStops =
+        paradasData?.filter((p) => p.is_checkpoint !== false) || [];
       const totalParadas = deliveryStops.length;
-      const paradasConcluidas = deliveryStops.filter(p => p.status === 'concluida').length;
+      const paradasConcluidas = deliveryStops.filter(
+        (p) => p.status === 'concluida',
+      ).length;
 
       // Calculate duration
       let tempoTotal = '--';
       if (rota.iniciada_em && rota.concluida_em) {
-        const inicio = new Date(rota.iniciada_em).getTime();
-        const fim = new Date(rota.concluida_em).getTime();
-        const diffMs = fim - inicio;
-        const diffMins = Math.floor(diffMs / 60000);
-        const hours = Math.floor(diffMins / 60);
-        const mins = diffMins % 60;
-        if (hours > 0) {
-          tempoTotal = `${hours}h ${mins}min`;
-        } else {
-          tempoTotal = `${mins}min`;
-        }
+        tempoTotal = formatarDuracao(
+          new Date(rota.concluida_em).getTime() -
+            new Date(rota.iniciada_em).getTime(),
+        );
       }
 
       setLastRoute({

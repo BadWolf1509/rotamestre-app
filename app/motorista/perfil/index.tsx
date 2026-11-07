@@ -1,5 +1,4 @@
 import { type Href, useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,10 +10,9 @@ import {
 import { AvatarEditable } from '@/components/AvatarEditable';
 import { Dialog } from '@/components/Dialog';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { authService } from '@/lib/auth';
-import { logger } from '@/lib/logger';
-import { Usuario } from '@/types/usuario';
+import { useUser } from '@/hooks/useUser';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SectionItem {
@@ -32,20 +30,16 @@ interface Section {
   onPress?: () => void;
 }
 
-type UsuarioComUnidade = Usuario & {
-  unidades?: {
-    nome?: string;
-  };
-};
-
 export default function PerfilMotorista() {
   const { theme } = useUnistyles();
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [usuario, setUsuario] = useState<UsuarioComUnidade | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Nome, telefone e unidade vêm do `useUser`, que recarrega quando alguém grava
+  // o perfil (`emitProfileUpdate`). Antes a tela lia uma vez em estado local e
+  // só sincronizava a foto: editar e voltar mostrava o nome velho.
+  const { user } = useAuth();
+  const { userData: usuario, loading } = useUser();
 
-  // Hook centralizado para perfil
+  // Hook centralizado para perfil (foto otimista)
   const {
     profile,
     uploadingPhoto,
@@ -56,34 +50,8 @@ export default function PerfilMotorista() {
     closeAlertDialog,
   } = useProfile(user);
 
-  useEffect(() => {
-    loadUsuario();
-  }, []);
-
-  // Sincronizar profile com usuario local
-  useEffect(() => {
-    if (profile?.foto_url && usuario) {
-      setUsuario((prev) =>
-        prev ? { ...prev, foto_url: profile.foto_url } : prev,
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.foto_url]);
-
-  async function loadUsuario() {
-    try {
-      const session = await authService.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        const userData = await authService.getUsuario(session.user.id);
-        setUsuario(userData);
-      }
-    } catch (error) {
-      logger.error('Erro ao carregar usuário:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  // A foto nova (upload em curso) aparece pelo `profile`; fora disso, a do banco.
+  const fotoUrl = profile ? profile.foto_url : usuario?.foto_url;
 
   const sections: Section[] = [
     {
@@ -125,7 +93,7 @@ export default function PerfilMotorista() {
         <View style={styles(theme).header}>
           <AvatarEditable
             name={usuario?.nome || 'Motorista'}
-            imageUrl={usuario?.foto_url}
+            imageUrl={fotoUrl}
             size="xl"
             onPress={showPhotoOptions}
             uploading={uploadingPhoto}

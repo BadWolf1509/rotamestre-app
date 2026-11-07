@@ -199,6 +199,103 @@ describe('useMotoristaStreak', () => {
       expect(result.current.streak).toBe(0);
     });
 
+    // M-7: a sequência não tem mais teto de 30 dias. Banco falso que aplica o
+    // recorte (gte/lt) de verdade, para provar que a consulta pede as janelas.
+    function bancoComRotas(linhas: { concluida_em: string }[]) {
+      mockFrom.mockImplementation(() => {
+        const filtros: ((l: { concluida_em: string }) => boolean)[] = [];
+        const api = {
+          select: () => api,
+          eq: () => api,
+          gte: (_c: string, v: string) => {
+            filtros.push((l) => l.concluida_em >= v);
+            return api;
+          },
+          lt: (_c: string, v: string) => {
+            filtros.push((l) => l.concluida_em < v);
+            return api;
+          },
+          order: () => api,
+          then: (resolve: (r: unknown) => unknown) =>
+            Promise.resolve({
+              data: linhas.filter((l) => filtros.every((f) => f(l))),
+              error: null,
+            }).then(resolve),
+        };
+        return api;
+      });
+    }
+
+    function diasSeguidos(n: number) {
+      return Array.from({ length: n }, (_, i) => ({
+        concluida_em: new Date(
+          Date.parse('2024-06-15T15:00:00Z') - i * 86_400_000,
+        ).toISOString(),
+      }));
+    }
+
+    it('sequência de 45 dias passa dos 30 (M-7)', async () => {
+      bancoComRotas(diasSeguidos(45));
+      const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
+      await act(async () => {
+        await result.current.loadStreak();
+      });
+      expect(result.current.streak).toBe(45);
+    });
+
+    it('sequência de 45 dias com falha no 46º conta exatamente 45 (M-7)', async () => {
+      const dias = diasSeguidos(50).filter((_, i) => i !== 45);
+      bancoComRotas(dias);
+      const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
+      await act(async () => {
+        await result.current.loadStreak();
+      });
+      expect(result.current.streak).toBe(45);
+    });
+
+    it('sequência curta continua em UMA consulta (sem custo novo) (M-7)', async () => {
+      bancoComRotas(diasSeguidos(3));
+      const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
+      await act(async () => {
+        await result.current.loadStreak();
+      });
+      expect(result.current.streak).toBe(3);
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+    });
+
+    it('resposta velha chegando por último não sobrescreve a nova (M-7)', async () => {
+      let soltarVelha: (v: unknown) => void = () => {};
+      const velha = new Promise((resolve) => {
+        soltarVelha = resolve;
+      });
+      const cadeiaVelha = criarCadeia({ data: [], error: null });
+      cadeiaVelha.then = ((aoResolver: (v: unknown) => unknown) =>
+        velha.then(aoResolver)) as typeof cadeiaVelha.then;
+      mockFrom.mockReturnValueOnce(cadeiaVelha);
+      mockFrom.mockImplementation(() =>
+        criarCadeia({
+          data: [{ concluida_em: '2024-06-15T10:00:00Z' }],
+          error: null,
+        }),
+      );
+
+      const { result } = renderHook(() => useMotoristaStreak('motorista-123'));
+      let primeira: Promise<void> = Promise.resolve();
+      act(() => {
+        primeira = result.current.loadStreak();
+      });
+      await act(async () => {
+        await result.current.loadStreak();
+      });
+      expect(result.current.streak).toBe(1);
+
+      await act(async () => {
+        soltarVelha({ data: [], error: null });
+        await primeira;
+      });
+      expect(result.current.streak).toBe(1);
+    });
+
     it('should handle exception', async () => {
       mockFrom.mockImplementation(() => {
         throw new Error('Network error');

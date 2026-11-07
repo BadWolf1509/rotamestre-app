@@ -2,20 +2,13 @@
  * MainCard Utils - Helper functions for MainCard components
  */
 
+import { formatarDuracao } from '@/lib/motorista/formatarDuracao';
+
 /**
  * Formata tempo decorrido entre dois timestamps (ou desde start até agora)
  */
 export function formatElapsedTime(startTime: number, endTime?: number): string {
-  const end = endTime || Date.now();
-  const elapsed = end - startTime;
-
-  const hours = Math.floor(elapsed / (1000 * 60 * 60));
-  const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}min`;
-  }
-  return `${minutes} min`;
+  return formatarDuracao((endTime || Date.now()) - startTime);
 }
 
 /**
@@ -34,14 +27,17 @@ export function formatEstimatedTime(minutes: number | null): string {
  * Calcula taxa de sucesso das paradas
  */
 export function calculateSuccessRate(
-  paradas: Array<{ status: string; is_checkpoint?: boolean }>
+  paradas: Array<{ status: string; is_checkpoint?: boolean }>,
 ): { concluidas: number; puladas: number; taxa: number } {
-  const paradasReais = paradas.filter(p => p.is_checkpoint !== false);
-  const concluidas = paradasReais.filter(p => p.status === 'concluida').length;
-  const puladas = paradasReais.filter(p => p.status === 'pulada').length;
-  const taxa = paradasReais.length > 0
-    ? Math.round((concluidas / paradasReais.length) * 100)
-    : 100;
+  const paradasReais = paradas.filter((p) => p.is_checkpoint !== false);
+  const concluidas = paradasReais.filter(
+    (p) => p.status === 'concluida',
+  ).length;
+  const puladas = paradasReais.filter((p) => p.status === 'pulada').length;
+  const taxa =
+    paradasReais.length > 0
+      ? Math.round((concluidas / paradasReais.length) * 100)
+      : 100;
 
   return { concluidas, puladas, taxa };
 }
@@ -49,6 +45,8 @@ export function calculateSuccessRate(
 /**
  * Filtra apenas paradas reais (sem checkpoints)
  */
-export function filterRealStops<T extends { is_checkpoint?: boolean }>(paradas: T[]): T[] {
-  return paradas.filter(p => p.is_checkpoint !== false);
+export function filterRealStops<T extends { is_checkpoint?: boolean }>(
+  paradas: T[],
+): T[] {
+  return paradas.filter((p) => p.is_checkpoint !== false);
 }

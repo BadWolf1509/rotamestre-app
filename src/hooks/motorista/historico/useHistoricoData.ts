@@ -2,15 +2,15 @@
  * Hook to load historico data from Supabase
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import {
   contarParadasDasRotas,
   TAMANHO_PAGINA,
-} from '@/lib/gestor/contarParadasDasRotas';
-import { logger } from '@/lib/logger';
+} from '@/lib/paradas/contarParadasDasRotas';
 import { supabase } from '@/lib/supabase';
 
 import type { RotaHistorico } from './types';
@@ -30,7 +30,14 @@ export function useHistoricoData(): UseHistoricoDataReturn {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Só a carga mais recente escreve: refresh ou troca de conta com outra em voo
+  // deixava a resposta velha, chegando por último, sobrescrever a atual.
+  const requisicaoRef = useRef(0);
+
   const loadHistorico = useCallback(async () => {
+    const minha = ++requisicaoRef.current;
+    const vigente = () => minha === requisicaoRef.current;
+
     // Perfil ainda chegando: segue no esqueleto. Encerrar o loading aqui
     // mostrava "Nenhuma rota registrada" até o perfil chegar.
     if (carregandoUsuario) return;
@@ -75,6 +82,7 @@ export function useHistoricoData(): UseHistoricoDataReturn {
         if ((data?.length ?? 0) < TAMANHO_PAGINA) break;
       }
 
+      if (!vigente()) return;
       if (rotasData.length === 0) {
         setRotas([]);
         return;
@@ -84,6 +92,7 @@ export function useHistoricoData(): UseHistoricoDataReturn {
       // passava de 1.000 linhas (393 rotas, 2.235 paradas) e zerava cards.
       // Erro aqui sobe para o alerta — contador zerado em silêncio é mentira.
       const contagem = await contarParadasDasRotas(rotasData.map((r) => r.id));
+      if (!vigente()) return;
 
       const rotasComParadas: RotaHistorico[] = rotasData.map((rota) => {
         const c = contagem.get(rota.id);
@@ -97,13 +106,16 @@ export function useHistoricoData(): UseHistoricoDataReturn {
       setRotas(rotasComParadas);
     } catch (error) {
       logger.error('Erro ao carregar histórico', error);
+      if (!vigente()) return;
       showError({
         title: 'Erro',
         message: 'Não foi possível carregar o histórico',
       });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (vigente()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [userData?.id, carregandoUsuario, showError]);
 

@@ -16,11 +16,11 @@ import { Platform } from 'react-native';
 
 import { useLocationWatcher } from '@/hooks/useLocationWatcher';
 import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissaoDeLocalizacao';
+import { usuarioIdDaSessaoLocal } from '@/lib/auth/sessao';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
 import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { pedirPermissao } from '@/lib/permissoes';
-import { supabase } from '@/lib/supabase';
 import { getTrackingContext } from '@/services/unifiedLocationTracking';
 
 interface UseDriverLocationBroadcastOptions {
@@ -84,11 +84,11 @@ export function useDriverLocationBroadcast({
         // Sessão local, não `getUser()`: este caminho roda a cada posição, e
         // o getUser faria um GET /auth/v1/user por envio.
         if (!finalMotoristaId) {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (!session?.user) return;
-          finalMotoristaId = session.user.id;
+          const usuarioId = await usuarioIdDaSessaoLocal({
+            aceitarDonoDoAparelho: true,
+          });
+          if (!usuarioId) return;
+          finalMotoristaId = usuarioId;
         }
 
         // Sem rede, a posição fica guardada no aparelho e sobe em lote com a

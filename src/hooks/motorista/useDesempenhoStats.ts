@@ -3,7 +3,7 @@
  * Os totais vêm de `buscarResumoDesempenho` (RPC da Migration 55).
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { logger } from '@/lib/logger';
 import { buscarResumoDesempenho } from '@/lib/motorista/resumoDesempenho';
@@ -41,7 +41,14 @@ export function useDesempenhoStats(
   const [periodo, setPeriodo] = useState<Periodo>('30d');
   const [error, setError] = useState<string | null>(null);
 
+  // Só a carga mais recente escreve: a troca rápida 7d/30d/todos deixa
+  // respostas em voo, e a mais lenta (a velha) chegava por último.
+  const requisicaoRef = useRef(0);
+
   const loadStats = useCallback(async () => {
+    const minha = ++requisicaoRef.current;
+    const vigente = () => minha === requisicaoRef.current;
+
     if (!userId) {
       setStats(null);
       setLoading(false);
@@ -58,6 +65,7 @@ export function useDesempenhoStats(
       // Brasil — ver `buscarResumoDesempenho`.
       const dias = periodo === '7d' ? 7 : periodo === '30d' ? 30 : null;
       const resumo = await buscarResumoDesempenho(userId, dias);
+      if (!vigente()) return;
 
       const {
         totalRotas,
@@ -86,13 +94,16 @@ export function useDesempenhoStats(
       });
     } catch (err: unknown) {
       logger.error('Erro ao carregar estatisticas:', err);
+      if (!vigente()) return;
       setStats(null);
       setError(
         'Não foi possível carregar suas estatísticas. Puxe para baixo para tentar novamente.',
       );
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (vigente()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [userId, periodo]);
 

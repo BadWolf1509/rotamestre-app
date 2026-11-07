@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 
@@ -9,7 +10,9 @@ import {
   exigirSessaoDe,
   lerSessao,
   PRAZO_LEITURA_SESSAO_MS,
+  usuarioIdDaSessaoLocal,
 } from '../sessao';
+import { CHAVE_ULTIMO_USUARIO } from '../ultimoUsuario';
 
 const getSession = supabase.auth.getSession as jest.Mock;
 const sessaoDe = (id: string) => ({ user: { id } });
@@ -252,6 +255,69 @@ describe('descartarLeituraEmCurso (evento do auth mais novo que a leitura)', () 
     // A consulta velha terminando depois não apaga a vaga de ninguém.
     soltar({ data: { session: null }, error: semRede() });
     await act(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M-3: id do usuário pela sessão local (posições e fila de ações)
+// ---------------------------------------------------------------------------
+
+describe('usuarioIdDaSessaoLocal', () => {
+  const fetchNetInfo = NetInfo.fetch as jest.Mock;
+
+  // O AsyncStorage global do Jest devolve null; aqui guarda o último usuário.
+  function donoDoAparelho(id: string) {
+    (AsyncStorage.getItem as jest.Mock).mockImplementation(async (chave) =>
+      chave === CHAVE_ULTIMO_USUARIO ? id : null,
+    );
+  }
+
+  beforeEach(() => descartarLeituraEmCurso());
+
+  afterEach(() => {
+    (AsyncStorage.getItem as jest.Mock).mockReset();
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+    fetchNetInfo.mockReset();
+    fetchNetInfo.mockResolvedValue({ isConnected: true, type: 'wifi' });
+  });
+
+  it('com sessão: devolve o id', async () => {
+    getSession.mockResolvedValue({
+      data: { session: sessaoDe('u1') },
+      error: null,
+    });
+    await expect(usuarioIdDaSessaoLocal()).resolves.toBe('u1');
+  });
+
+  it('deslogado: null', async () => {
+    getSession.mockResolvedValue({ data: { session: null }, error: null });
+    await expect(usuarioIdDaSessaoLocal()).resolves.toBeNull();
+  });
+
+  it('sessão pendurada sem rede: não trava e devolve null', async () => {
+    fetchNetInfo.mockResolvedValue({ isConnected: false, type: 'none' });
+    getSession.mockReturnValue(new Promise(() => {}));
+    await expect(usuarioIdDaSessaoLocal()).resolves.toBeNull();
+    expect(getSession).not.toHaveBeenCalled();
+  });
+
+  it('offline com o dono do aparelho aceito: devolve o último usuário', async () => {
+    donoDoAparelho('dono-do-aparelho');
+    getSession.mockResolvedValue({ data: { session: null }, error: semRede() });
+    await expect(
+      usuarioIdDaSessaoLocal({ aceitarDonoDoAparelho: true }),
+    ).resolves.toBe('dono-do-aparelho');
+    // Sem a opção, a fila de ações não ganha um dono sem sessão.
+    descartarLeituraEmCurso();
+    await expect(usuarioIdDaSessaoLocal()).resolves.toBeNull();
+  });
+
+  it('deslogado de verdade não herda o dono do aparelho', async () => {
+    donoDoAparelho('dono-do-aparelho');
+    getSession.mockResolvedValue({ data: { session: null }, error: null });
+    await expect(
+      usuarioIdDaSessaoLocal({ aceitarDonoDoAparelho: true }),
+    ).resolves.toBeNull();
   });
 });
 

@@ -14,6 +14,7 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 
 import { FalhaAoCarregarPerfil } from './falhaPerfil';
 import { obterSessaoComTimeout } from './sessaoComTimeout';
+import { lerUltimoUsuario } from './ultimoUsuario';
 import { logger } from '../logger';
 import { aoCairRede } from '../redeObservada';
 import { semRedeConfirmada } from '../semRede';
@@ -129,6 +130,32 @@ export function lerSessao(): Promise<EstadoSessao> {
     if (leituraEmCurso === leitura) leituraEmCurso = null;
   });
   return leitura;
+}
+
+export interface OpcoesUsuarioDaSessao {
+  /**
+   * Sem sessão por falta de rede, devolve o dono do aparelho
+   * (`lerUltimoUsuario`). Para quem só GUARDA algo no aparelho (a posição que
+   * sobe depois, em lote): sem isso, o token vencido ou o modo avião
+   * descartava o ponto em vez de guardá-lo. Quem ENVIA (fila de ações) não usa:
+   * sem sessão de verdade a RLS recusaria.
+   */
+  aceitarDonoDoAparelho?: boolean;
+}
+
+/**
+ * Id de quem está logado, pela sessão local — sem `getUser()` (um GET por
+ * chamada) e sem o `getSession()` cru, que no modo avião com token vencido
+ * ficava preso no refresh do auth-js. Passa por `lerSessao`: leitura
+ * compartilhada, com prazo, e sem rede confirmada nem consulta o auth-js.
+ */
+export async function usuarioIdDaSessaoLocal(
+  opcoes?: OpcoesUsuarioDaSessao,
+): Promise<string | null> {
+  const { session, offline } = await lerSessao();
+  if (session?.user?.id) return session.user.id;
+  if (offline && opcoes?.aceitarDonoDoAparelho) return lerUltimoUsuario();
+  return null;
 }
 
 /**

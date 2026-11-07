@@ -115,13 +115,15 @@ describe('aba Paradas — retomar parada pulada', () => {
     mockUpdateParadaStatus.mockResolvedValue({ success: true, data: {} });
   });
 
-  it('com a rota em andamento, volta a parada a pendente e limpa o horário do pulo', async () => {
+  it('com a rota em andamento, volta a parada a pendente e limpa horário, motivo e texto do pulo', async () => {
     const { getByText } = render(<CheckpointsMotorista />);
     fireEvent.press(getByText('retomar:p3'));
 
     await waitFor(() => expect(mockShowSuccess).toHaveBeenCalled());
     expect(mockUpdateParadaStatus).toHaveBeenCalledWith('p3', 'pendente', {
       concluida_em: null,
+      motivo_skip: null,
+      observacao_pulo: null,
     });
   });
 
