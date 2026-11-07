@@ -10,6 +10,9 @@
  * dev client, 07/11). A dona agora esvazia a pilha raiz e só então troca a
  * tela que sobrou pelo login.
  */
+import fs from 'fs';
+import path from 'path';
+
 import { Stack, Tabs, router, useNavigationContainerRef } from 'expo-router';
 import { act, renderRouter } from 'expo-router/testing-library';
 import React, { useEffect } from 'react';
@@ -95,6 +98,28 @@ const ROTAS = {
   'motorista/resumo': tela('motorista/resumo'),
 };
 
+/**
+ * Âncora declarada no layout real (`unstable_settings.anchor`; no expo-router
+ * 58 o `initialRouteName` é obsoleto e avisa no console). Lida do texto para
+ * não carregar o layout inteiro; falha se a âncora apontar para rota que não
+ * existe na pasta.
+ */
+function ancoraDoLayout(area: 'gestor' | 'motorista'): string {
+  const pasta = path.resolve(__dirname, '../../../../app', area);
+  const fonte = fs.readFileSync(path.join(pasta, '_layout.tsx'), 'utf8');
+  const achou = fonte.match(
+    /export const unstable_settings = \{\s*anchor: '([^']+)'/,
+  );
+  if (!achou)
+    throw new Error(`app/${area}/_layout.tsx sem unstable_settings.anchor`);
+  const rota = achou[1];
+  const existe =
+    fs.existsSync(path.join(pasta, `${rota}.tsx`)) ||
+    fs.existsSync(path.join(pasta, rota, '_layout.tsx'));
+  if (!existe) throw new Error(`âncora '${rota}' não é rota de app/${area}`);
+  return rota;
+}
+
 async function sairDaConta() {
   act(() => {
     mockSessao.user = null;
@@ -162,31 +187,36 @@ describe('navegação de saída sobre o expo-router real (N-1)', () => {
   // C3 (cinto da N-1): a pilha do gestor que nasce sem tela-alvo (remontagem,
   // estado perdido) ia para a 1ª rota em ordem alfabética, `gestor/ajuda` —
   // o que os logs [P33] mostraram. A âncora do layout manda para a Início.
+  // A âncora usada é a do arquivo real (ver `ancoraDoLayout`).
   it.each([
-    [false, 'gestor/ajuda'],
-    [true, 'gestor/inicio'],
-  ])(
-    'pilha do gestor que nasce sem tela-alvo (âncora=%s) começa em %s',
-    async (comAncora, esperada) => {
+    ['gestor', false, '/gestor/ajuda'],
+    ['gestor', true, '/gestor/inicio'],
+    ['motorista', true, '/motorista'],
+  ] as const)(
+    'pilha do %s que nasce sem tela-alvo (âncora do app=%s) começa em %s',
+    async (area, comAncora, esperado) => {
       const r = await renderRouter(
         {
           ...ROTAS,
-          'gestor/_layout': comAncora
-            ? { default: pilha, unstable_settings: ancoraDoGestor }
+          [`${area}/_layout`]: comAncora
+            ? {
+                default: pilha,
+                unstable_settings: { anchor: ancoraDoLayout(area) },
+              }
             : pilha,
         },
         { initialUrl: '/unidade' },
       );
       act(() => {
-        const raiz = container!.getRootState();
-        const pilhaRaiz = raiz.routes[raiz.index].state;
-        container!.dispatch({
+        const raiz = container?.getRootState();
+        const pilhaRaiz = raiz?.routes[raiz.index]?.state;
+        container?.dispatch({
           type: 'NAVIGATE',
-          payload: { name: 'gestor' },
+          payload: { name: area },
           target: pilhaRaiz?.key,
         });
       });
-      expect(r.getPathname()).toBe('/' + esperada);
+      expect(r.getPathname()).toBe(esperado);
     },
   );
 

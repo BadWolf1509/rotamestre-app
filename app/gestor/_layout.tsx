@@ -13,6 +13,15 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
+/**
+ * Tela em que a pilha do gestor nasce quando não há tela-alvo (estado perdido
+ * numa remontagem). Sem âncora era a 1ª rota em ordem alfabética,
+ * `gestor/ajuda` — vista nos logs [P33] de 07/11 (N-1). Efeito colateral
+ * aceito: abrir direto uma tela do gestor por link põe a Início embaixo, e o
+ * "voltar" leva a ela. `initialRouteName` é obsoleto no expo-router 58.
+ */
+export const unstable_settings = { anchor: 'inicio' };
+
 export default function GestorLayout() {
   const {
     isReady,
