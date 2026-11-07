@@ -6,26 +6,26 @@
  *
  * Padrão:
  * - Database: lowercase, sem acentos (concluida, pendente, em_andamento)
- * - Display: Capitalizado, com acentos (Concluída, Pendente, Em Andamento)
+ * - Display: inicial maiúscula só na primeira palavra, com acentos
+ *   (Concluída, Pendente, Em andamento). Os de rota vêm de ROUTE_STATUS_CONFIG.
  */
+
+import { ROUTE_STATUS_CONFIG } from '@/constants/statusConfig';
 
 // ============================================
 // ROTA STATUS LABELS
 // ============================================
 
 export type RotaStatus =
-  | 'pendente'
-  | 'em_andamento'
-  | 'concluida'
-  | 'cancelada'
-  | 'nao_executada';
+  'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | 'nao_executada';
 
+// Grafia única: o mesmo texto do selo de status (ROUTE_STATUS_CONFIG).
 export const ROTA_STATUS_LABELS: Record<RotaStatus, string> = {
-  pendente: 'Pendente',
-  em_andamento: 'Em Andamento',
-  concluida: 'Concluída',
-  cancelada: 'Cancelada',
-  nao_executada: 'Não Executada',
+  pendente: ROUTE_STATUS_CONFIG.pendente.label,
+  em_andamento: ROUTE_STATUS_CONFIG.em_andamento.label,
+  concluida: ROUTE_STATUS_CONFIG.concluida.label,
+  cancelada: ROUTE_STATUS_CONFIG.cancelada.label,
+  nao_executada: ROUTE_STATUS_CONFIG.nao_executada.label,
 };
 
 export function getRotaStatusLabel(status: RotaStatus | string): string {
@@ -55,7 +55,7 @@ export const PARADA_STATUS_LABELS_WITH_ICON: Record<ParadaStatus, string> = {
 
 export function getParadaStatusLabel(
   status: ParadaStatus | string,
-  withIcon = false
+  withIcon = false,
 ): string {
   const labels = withIcon
     ? PARADA_STATUS_LABELS_WITH_ICON
@@ -76,7 +76,7 @@ export const PARADA_IN_ROUTE_LABEL = 'Em Rota';
 export function getParadaContextLabel(
   status: ParadaStatus | string,
   isRouteActive: boolean,
-  withIcon = false
+  withIcon = false,
 ): string {
   // Se a rota está ativa e a parada está pendente, mostra "Em Rota"
   if (isRouteActive && status === 'pendente') {

@@ -76,7 +76,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
       // A conta demo tem rota em andamento junto das concluídas: é isso que
       // torna o filtro falsificável. Sem essa linha antes, filtrar não provaria
       // nada.
-      await expect(tabela.getByText('Em Andamento').first()).toBeVisible();
+      await expect(tabela.getByText('Em andamento').first()).toBeVisible();
 
       // Rotas concluídas são as que podem ter comprovante. O teste anterior
       // clicava no filtro e conferia o tamanho da página — passava igual se o
@@ -86,7 +86,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
         .first()
         .click();
 
-      await expect(tabela.getByText('Em Andamento')).toHaveCount(0, {
+      await expect(tabela.getByText('Em andamento')).toHaveCount(0, {
         timeout: 15000,
       });
       await expect(tabela.getByText('Concluída').first()).toBeVisible();

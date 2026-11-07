@@ -921,7 +921,7 @@ describe('useGestaoRotas', () => {
       // Verificar que o CSV contém apenas rotas pendentes
       const csvContent = blobContent[0] as string;
       expect(csvContent).toContain('Pendente');
-      expect(csvContent).not.toContain('Em Andamento');
+      expect(csvContent).not.toContain('Em andamento');
 
       // Restaurar Platform.OS
       Platform.OS = 'android';
@@ -1008,12 +1008,12 @@ describe('useGestaoRotas', () => {
 
       expect(result.current.getStatusLabel('pendente')).toBe('Pendente');
       expect(result.current.getStatusLabel('em_andamento')).toBe(
-        'Em Andamento',
+        'Em andamento',
       );
       expect(result.current.getStatusLabel('concluida')).toBe('Concluída');
       expect(result.current.getStatusLabel('cancelada')).toBe('Cancelada');
       expect(result.current.getStatusLabel('nao_executada')).toBe(
-        'Não Executada',
+        'Não executada',
       );
     });
 

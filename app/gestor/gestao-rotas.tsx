@@ -232,7 +232,8 @@ export default function GestaoRotas() {
     {
       key: 'status',
       label: 'Status',
-      // 150: "Não executada" com ícone, sem reticências e com folga.
+      // 150: o rótulo mais longo, "Não executada" (ROUTE_STATUS_CONFIG, o
+      // mesmo de getStatusLabel), com ícone, sem reticências e com folga.
       width: 150,
       sortable: true,
       render: (rota) => {

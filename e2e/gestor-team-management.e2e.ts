@@ -176,7 +176,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
       // 'Todas' no body casaria com qualquer outra tela. Os quatro chips
       // precisam estar lá.
       const filtros = page.getByRole('radiogroup');
-      for (const nome of ['Todas', 'Pendente', 'Em Andamento', 'Concluída']) {
+      for (const nome of ['Todas', 'Pendente', 'Em andamento', 'Concluída']) {
         await expect(
           filtros.getByRole('button', { name: nome, exact: true }),
         ).toBeVisible({ timeout: 15000 });
