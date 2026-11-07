@@ -295,6 +295,10 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
+    // Fundo neutro: a cor do status fica só no número
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
   },
   resumoValue: {
     fontSize: theme.typography['3xl'],

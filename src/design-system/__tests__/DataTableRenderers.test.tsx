@@ -55,9 +55,21 @@ jest.mock('@/components/Avatar', () => ({
 
 // Mock StatusBadge
 jest.mock('@/components/StatusBadge', () => ({
-  StatusBadge: ({ label }: { label: string }) => {
+  StatusBadge: ({
+    label,
+    icon,
+    variant,
+  }: {
+    label: string;
+    icon?: string;
+    variant?: string;
+  }) => {
     const { Text } = require('react-native');
-    return <Text testID="status-badge">{label}</Text>;
+    return (
+      <Text testID="status-badge" accessibilityLabel={`${icon}|${variant}`}>
+        {label}
+      </Text>
+    );
   },
 }));
 
@@ -83,6 +95,11 @@ jest.mock('@/components/Text', () => ({
 
 import { render } from '@testing-library/react-native';
 import React from 'react';
+
+import {
+  ROUTE_STATUS_CONFIG,
+  STOP_STATUS_CONFIG,
+} from '@/constants/statusConfig';
 
 import {
   ProgressCell,
@@ -166,6 +183,25 @@ describe('StatusCell', () => {
     const { getByText } = render(<StatusCell status="nao_executada" />);
 
     expect(getByText('Não executada')).toBeTruthy();
+  });
+
+  it('deve resolver rotulo, icone e variante pela config central', () => {
+    const { getByText, getByTestId } = render(
+      <StatusCell status="nao_executada" />,
+    );
+
+    expect(getByText(ROUTE_STATUS_CONFIG.nao_executada.label)).toBeTruthy();
+    expect(getByTestId('status-badge').props.accessibilityLabel).toBe(
+      `${ROUTE_STATUS_CONFIG.nao_executada.icon}|soft`,
+    );
+  });
+
+  it('deve usar a config de paradas para pulada', () => {
+    const { getByTestId } = render(<StatusCell status="pulada" />);
+
+    expect(getByTestId('status-badge').props.accessibilityLabel).toBe(
+      `${STOP_STATUS_CONFIG.pulada.icon}|soft`,
+    );
   });
 
   it('deve renderizar status badge para pulada', () => {

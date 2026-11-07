@@ -32,7 +32,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { coresPorStatusDaRota } from '@/constants/statusConfig';
+import { coresPorStatusDaRota, getStatusIcon } from '@/constants/statusConfig';
 import {
   DataTable,
   type DataTableAction,
@@ -228,8 +228,9 @@ export default function GestaoRotas() {
           <StatusBadge
             label={getStatusLabel(rota.status)}
             color={getStatusColor(rota.status)}
-            variant="solid"
+            variant="soft"
             size="sm"
+            icon={getStatusIcon(rota.status)}
           />
         );
       },

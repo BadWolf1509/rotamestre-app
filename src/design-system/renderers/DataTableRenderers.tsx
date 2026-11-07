@@ -38,6 +38,13 @@ import { View } from 'react-native';
 import { Avatar } from '@/components/Avatar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Text } from '@/components/Text';
+import {
+  ROUTE_STATUS_CONFIG,
+  STOP_STATUS_CONFIG,
+  type RouteStatusType,
+  type StatusConfig,
+  type StopStatusType,
+} from '@/constants/statusConfig';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -111,37 +118,33 @@ interface StatusCellProps {
   label?: string;
 }
 
-const statusLabels: Record<StatusType, string> = {
-  pendente: 'Pendente',
-  em_andamento: 'Em andamento',
-  concluida: 'Concluída',
-  cancelada: 'Cancelada',
-  nao_executada: 'Não executada',
-  pulada: 'Pulada',
-};
-
 /**
- * Maps status types to theme color keys
+ * Rótulo, cor e ícone vêm da config central (ROUTE_STATUS_CONFIG para rota,
+ * STOP_STATUS_CONFIG para parada). Status desconhecido cai no texto cru, em
+ * cor neutra de informação.
  */
-const statusColorKeys: Record<
-  StatusType,
-  'warning' | 'info' | 'success' | 'error'
-> = {
-  pendente: 'warning',
-  em_andamento: 'info',
-  concluida: 'success',
-  cancelada: 'error',
-  nao_executada: 'error',
-  pulada: 'warning',
-};
+function configDoStatus(status: string): StatusConfig | undefined {
+  return (
+    ROUTE_STATUS_CONFIG[status as RouteStatusType] ??
+    STOP_STATUS_CONFIG[status as StopStatusType]
+  );
+}
 
 export function StatusCell({ status, label }: StatusCellProps) {
   const { theme } = useUnistyles();
-  const displayLabel = label || statusLabels[status as StatusType] || status;
-  const colorKey = statusColorKeys[status as StatusType] || 'info';
-  const color = theme.colors[colorKey];
+  const config = configDoStatus(status);
+  const displayLabel = label || config?.label || status;
+  const color = theme.colors[config?.colorKey ?? 'info'];
 
-  return <StatusBadge label={displayLabel} color={color} size="sm" />;
+  return (
+    <StatusBadge
+      label={displayLabel}
+      color={color}
+      variant="soft"
+      size="sm"
+      icon={config?.icon}
+    />
+  );
 }
 
 // ============================================

@@ -5,7 +5,8 @@
  */
 
 // Tipos para períodos pré-definidos
-export type PeriodPreset = 'hoje' | 'ultima_semana' | 'ultimo_mes' | 'este_mes' | 'personalizado';
+export type PeriodPreset =
+  'hoje' | 'ultima_semana' | 'ultimo_mes' | 'este_mes' | 'personalizado';
 
 export interface RouteFiltersState {
   status?: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada' | null;
@@ -29,5 +30,6 @@ export interface RouteFiltersProps {
 export interface StatusOption {
   value: RouteFiltersState['status'];
   label: string;
-  color: string | undefined;
+  /** Sem uso desde que os chips de status ficaram todos iguais. */
+  color?: string;
 }

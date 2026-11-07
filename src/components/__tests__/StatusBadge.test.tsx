@@ -43,15 +43,23 @@ jest.mock('@/utils/styles', () => ({
   type: { Theme: {} },
 }));
 
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: ({ name }: { name: string }) => {
+    const { Text: RNText } = require('react-native');
+    return <RNText testID={`icon-${name}`}>{name}</RNText>;
+  },
+}));
+
 jest.mock('@/utils/color', () => ({
-  withOpacity: (color: string, opacity: number) => `${color}${Math.round(opacity * 100)}`,
+  withOpacity: (color: string, opacity: number) =>
+    `${color}${Math.round(opacity * 100)}`,
 }));
 
 describe('StatusBadge', () => {
   describe('Renderizacao basica', () => {
     it('deve renderizar o label corretamente', () => {
       const { getByText } = render(
-        <StatusBadge label="Pendente" color="#f7a02a" />
+        <StatusBadge label="Pendente" color="#f7a02a" />,
       );
 
       expect(getByText('Pendente')).toBeTruthy();
@@ -59,25 +67,53 @@ describe('StatusBadge', () => {
 
     it('deve usar testID quando fornecido', () => {
       const { getByTestId } = render(
-        <StatusBadge label="Status" color="#284093" testID="status-badge" />
+        <StatusBadge label="Status" color="#284093" testID="status-badge" />,
       );
 
       expect(getByTestId('status-badge')).toBeTruthy();
     });
   });
 
+  describe('Icone e linha unica', () => {
+    it('deve renderizar o icone quando a prop icon e informada', () => {
+      const { getByTestId } = render(
+        <StatusBadge
+          label="Concluída"
+          color="#10b981"
+          icon="checkmark-circle"
+        />,
+      );
+
+      expect(getByTestId('icon-checkmark-circle')).toBeTruthy();
+    });
+
+    it('nao deve renderizar icone sem a prop icon', () => {
+      const { queryByTestId } = render(
+        <StatusBadge label="Concluída" color="#10b981" />,
+      );
+
+      expect(queryByTestId('icon-checkmark-circle')).toBeNull();
+    });
+
+    it('deve manter o texto em uma linha so', () => {
+      const { getByText } = render(
+        <StatusBadge label="Não executada" color="#ef4444" />,
+      );
+
+      expect(getByText('Não executada').props.numberOfLines).toBe(1);
+    });
+  });
+
   describe('Variante soft (padrao)', () => {
     it('deve usar variante soft por padrao', () => {
       const { getByText } = render(
-        <StatusBadge label="Soft" color="#10b981" />
+        <StatusBadge label="Soft" color="#10b981" />,
       );
 
       const textElement = getByText('Soft');
       // Em variante soft, o texto tem a cor do badge
       expect(textElement.props.style).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ color: '#10b981' }),
-        ])
+        expect.arrayContaining([expect.objectContaining({ color: '#10b981' })]),
       );
     });
   });
@@ -85,7 +121,7 @@ describe('StatusBadge', () => {
   describe('Variante solid', () => {
     it('deve aplicar cor solida e texto branco', () => {
       const { getByText } = render(
-        <StatusBadge label="Solid" color="#ef4444" variant="solid" />
+        <StatusBadge label="Solid" color="#ef4444" variant="solid" />,
       );
 
       const textElement = getByText('Solid');
@@ -93,7 +129,7 @@ describe('StatusBadge', () => {
       expect(textElement.props.style).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ color: mockTheme.colors.white }),
-        ])
+        ]),
       );
     });
   });
@@ -101,7 +137,7 @@ describe('StatusBadge', () => {
   describe('Tamanhos', () => {
     it('deve usar tamanho md por padrao', () => {
       const { getByText } = render(
-        <StatusBadge label="Medium" color="#284093" />
+        <StatusBadge label="Medium" color="#284093" />,
       );
 
       expect(getByText('Medium')).toBeTruthy();
@@ -109,7 +145,7 @@ describe('StatusBadge', () => {
 
     it('deve aplicar estilo small quando size="sm"', () => {
       const { getByText } = render(
-        <StatusBadge label="Small" color="#284093" size="sm" />
+        <StatusBadge label="Small" color="#284093" size="sm" />,
       );
 
       expect(getByText('Small')).toBeTruthy();
@@ -125,12 +161,12 @@ describe('StatusBadge', () => {
           color="#284093"
           containerStyle={customStyle}
           testID="custom-badge"
-        />
+        />,
       );
 
       const container = getByTestId('custom-badge');
       expect(container.props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining(customStyle)])
+        expect.arrayContaining([expect.objectContaining(customStyle)]),
       );
     });
 
@@ -141,12 +177,12 @@ describe('StatusBadge', () => {
           label="Styled"
           color="#284093"
           labelStyle={customLabelStyle}
-        />
+        />,
       );
 
       const textElement = getByText('Styled');
       expect(textElement.props.style).toEqual(
-        expect.arrayContaining([expect.objectContaining(customLabelStyle)])
+        expect.arrayContaining([expect.objectContaining(customLabelStyle)]),
       );
     });
   });
@@ -159,14 +195,14 @@ describe('StatusBadge', () => {
           color="#ef4444"
           variant="solid"
           size="sm"
-        />
+        />,
       );
 
       const textElement = getByText('Solid Small');
       expect(textElement.props.style).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ color: mockTheme.colors.white }),
-        ])
+        ]),
       );
     });
 
@@ -177,14 +213,12 @@ describe('StatusBadge', () => {
           color="#10b981"
           variant="soft"
           size="sm"
-        />
+        />,
       );
 
       const textElement = getByText('Soft Small');
       expect(textElement.props.style).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ color: '#10b981' }),
-        ])
+        expect.arrayContaining([expect.objectContaining({ color: '#10b981' })]),
       );
     });
   });
@@ -192,7 +226,7 @@ describe('StatusBadge', () => {
   describe('Cores dinamicas', () => {
     it('deve aplicar cor success', () => {
       const { getByText } = render(
-        <StatusBadge label="Success" color="#10b981" />
+        <StatusBadge label="Success" color="#10b981" />,
       );
 
       expect(getByText('Success')).toBeTruthy();
@@ -200,7 +234,7 @@ describe('StatusBadge', () => {
 
     it('deve aplicar cor warning', () => {
       const { getByText } = render(
-        <StatusBadge label="Warning" color="#f7a02a" />
+        <StatusBadge label="Warning" color="#f7a02a" />,
       );
 
       expect(getByText('Warning')).toBeTruthy();
@@ -208,7 +242,7 @@ describe('StatusBadge', () => {
 
     it('deve aplicar cor error', () => {
       const { getByText } = render(
-        <StatusBadge label="Error" color="#ef4444" />
+        <StatusBadge label="Error" color="#ef4444" />,
       );
 
       expect(getByText('Error')).toBeTruthy();
@@ -216,7 +250,7 @@ describe('StatusBadge', () => {
 
     it('deve aplicar cor info', () => {
       const { getByText } = render(
-        <StatusBadge label="Info" color="#3b82f6" />
+        <StatusBadge label="Info" color="#3b82f6" />,
       );
 
       expect(getByText('Info')).toBeTruthy();

@@ -351,7 +351,7 @@ export default function MotoristasGestor() {
       width: 100,
       render: (motorista) => (
         <StatusBadge
-          color={motorista.ativo ? theme.colors.success : theme.colors.error}
+          color={motorista.ativo ? theme.colors.success : theme.colors.gray600}
           label={motorista.ativo ? 'Ativo' : 'Inativo'}
           variant="soft"
         />

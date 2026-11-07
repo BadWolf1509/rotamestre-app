@@ -39,8 +39,19 @@ jest.mock('@/utils/styles', () => {
       warningBg: '#fef3c7',
     },
     spacing: { xs: 4, sm: 8, md: 12, lg: 16 },
-    typography: { fontSize: { xs: 12, sm: 14, base: 16 } },
+    typography: {
+      fontSize: { xs: 12, sm: 14, base: 16 },
+      fontSansSemiBold: 'System-SemiBold',
+    },
     borderRadius: { sm: 8, md: 10, full: 9999 },
+    components: {
+      badge: {
+        size: {
+          small: { paddingHorizontal: 6, paddingVertical: 2 },
+          medium: { paddingHorizontal: 10, paddingVertical: 4 },
+        },
+      },
+    },
   };
 
   return {
@@ -102,13 +113,14 @@ describe('ParadaCardCompact', () => {
 
   describe('Renderização', () => {
     it('deve renderizar o card compacto com informações básicas', () => {
-      const { getByText, getByTestId } = render(
+      const { getByText, getByTestId, queryByText } = render(
         <ParadaCardCompact {...defaultProps} />,
       );
 
       expect(getByText('1')).toBeTruthy(); // ordem
       expect(getByTestId('icon-cube')).toBeTruthy();
-      expect(getByText('Pend')).toBeTruthy(); // status abreviado
+      expect(getByText('Pendente')).toBeTruthy();
+      expect(queryByText('Pend')).toBeNull();
     });
 
     it('deve truncar endereço longo', () => {
@@ -141,7 +153,7 @@ describe('ParadaCardCompact', () => {
       expect(getByTestId('icon-swap-horizontal')).toBeTruthy();
     });
 
-    it('deve exibir status OK para paradas concluídas', () => {
+    it('deve exibir status Concluída para paradas concluídas', () => {
       const onEdit = jest.fn();
       const onRemove = jest.fn();
       const paradaConcluida = { ...mockParada, status: 'concluida' };
@@ -156,6 +168,9 @@ describe('ParadaCardCompact', () => {
         />,
       );
 
+      expect(getByText('Concluída')).toBeTruthy();
+      expect(queryByText('OK')).toBeNull();
+
       // Expandir
       fireEvent.press(getByText(/Rua das Flores/));
 
@@ -164,13 +179,14 @@ describe('ParadaCardCompact', () => {
       expect(queryByText('Remover')).toBeNull();
     });
 
-    it('deve exibir status "Em rota" para paradas em andamento', () => {
+    it('deve exibir status "Em andamento" para paradas em andamento', () => {
       const paradaEmAndamento = { ...mockParada, status: 'em_andamento' };
-      const { getByText } = render(
+      const { getByText, queryByText } = render(
         <ParadaCardCompact {...defaultProps} parada={paradaEmAndamento} />,
       );
 
-      expect(getByText('Em rota')).toBeTruthy();
+      expect(getByText('Em andamento')).toBeTruthy();
+      expect(queryByText('Em rota')).toBeNull();
     });
   });
 

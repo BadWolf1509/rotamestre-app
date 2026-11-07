@@ -36,7 +36,6 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { styles } from '@/styles/gestor/incidentes.styles';
-import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
 
 export default function IncidentesScreen() {
@@ -232,45 +231,25 @@ export default function IncidentesScreen() {
       >
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.error, 0.15) },
-            ]}
-          >
+          <View style={styles.resumoCard}>
             <Text style={[styles.resumoValue, { color: theme.colors.error }]}>
               {resumoGeral.abertos}
             </Text>
             <Text style={styles.resumoLabel}>Abertos</Text>
           </View>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.warning, 0.15) },
-            ]}
-          >
+          <View style={styles.resumoCard}>
             <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>
               {resumoGeral.emAnalise}
             </Text>
             <Text style={styles.resumoLabel}>Em Análise</Text>
           </View>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.success, 0.15) },
-            ]}
-          >
+          <View style={styles.resumoCard}>
             <Text style={[styles.resumoValue, { color: theme.colors.success }]}>
               {resumoGeral.resolvidos}
             </Text>
             <Text style={styles.resumoLabel}>Resolvidos</Text>
           </View>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.gray400, 0.15) },
-            ]}
-          >
+          <View style={styles.resumoCard}>
             <Text style={[styles.resumoValue, { color: theme.colors.gray600 }]}>
               {resumoGeral.total}
             </Text>
