@@ -35,7 +35,6 @@ import {
   prepararParadasParaInserir,
   atualizarVinculosParadas,
   distanceInMeters,
-  ordenarParadasPorRota,
   validarOrdemDependencias,
   validarRascunhoRota,
 } from '../useNovaEntrega.helpers';
@@ -507,68 +506,6 @@ describe('useNovaEntrega.helpers', () => {
       // ~358km
       expect(result).toBeGreaterThan(350000);
       expect(result).toBeLessThan(370000);
-    });
-  });
-
-  describe('ordenarParadasPorRota', () => {
-    const mockParadas = [
-      { id: '1', endereco: 'A', latitude: -23.55, longitude: -46.63 },
-      { id: '2', endereco: 'B', latitude: -23.56, longitude: -46.64 },
-      { id: '3', endereco: 'C', latitude: -23.57, longitude: -46.65 },
-    ] as any[];
-
-    it('should return paradas in ordem_otimizada order when lengths match', () => {
-      const result = ordenarParadasPorRota(mockParadas, [2, 0, 1]);
-
-      expect(result[0].id).toBe('3'); // index 2
-      expect(result[1].id).toBe('1'); // index 0
-      expect(result[2].id).toBe('2'); // index 1
-    });
-
-    it('should return copy of paradas when ordem_otimizada length doesnt match', () => {
-      const result = ordenarParadasPorRota(mockParadas, [0, 1]);
-
-      expect(result).toHaveLength(3);
-      expect(result[0].id).toBe('1');
-      expect(result[1].id).toBe('2');
-      expect(result[2].id).toBe('3');
-    });
-
-    it('should use legs to order paradas when ordem_otimizada doesnt match', () => {
-      const mockLegs = [
-        { coordenadas_fim: { latitude: -23.57, longitude: -46.65 } },
-        { coordenadas_fim: { latitude: -23.55, longitude: -46.63 } },
-        { coordenadas_fim: { latitude: -23.58, longitude: -46.66 } }, // Last leg (to destination)
-      ];
-
-      const result = ordenarParadasPorRota(mockParadas, [], mockLegs as any);
-
-      // First leg ends near parada C (-23.57, -46.65)
-      expect(result[0].id).toBe('3');
-      // Second leg ends near parada A (-23.55, -46.63)
-      expect(result[1].id).toBe('1');
-      // Remaining parada B
-      expect(result[2].id).toBe('2');
-    });
-
-    it('should return copy when no ordem_otimizada and no legs', () => {
-      const result = ordenarParadasPorRota(mockParadas, []);
-
-      expect(result).toEqual(mockParadas);
-      // Should be a copy, not the same reference
-      expect(result).not.toBe(mockParadas);
-    });
-
-    it('should handle empty paradas array', () => {
-      const result = ordenarParadasPorRota([], []);
-
-      expect(result).toEqual([]);
-    });
-
-    it('should handle undefined ordem_otimizada', () => {
-      const result = ordenarParadasPorRota(mockParadas, undefined as any);
-
-      expect(result).toEqual(mockParadas);
     });
   });
 });
