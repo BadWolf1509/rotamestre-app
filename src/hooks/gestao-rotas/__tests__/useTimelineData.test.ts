@@ -482,3 +482,118 @@ describe('useTimelineData — recarga com "Carregar mais" aberto', () => {
     expect(result.current.hasMore).toBe(false);
   });
 });
+
+// G-3: erro na consulta de `logs` virava "página vazia" — a carga parcial
+// entrava no cache e o "Carregar mais" sumia.
+describe('useTimelineData — falha na consulta de logs (G-3)', () => {
+  const { setCache } = jest.requireMock('@/lib/cache') as {
+    setCache: jest.Mock;
+  };
+  const fullPage = Array.from({ length: 50 }, (_, i) => ({
+    id: `${i}`,
+    evento: 'x',
+    timestamp: `2023-01-02T${String(i % 24).padStart(2, '0')}:00:00Z`,
+  }));
+  const olderPage = [
+    { id: 'old', evento: 'x', timestamp: '2022-12-01T10:00:00Z' },
+  ];
+  const erroDoBanco = { message: 'falha de rede' };
+
+  /** `logsLimit` e `logsRange` decidem o que a consulta de logs devolve. */
+  function bancoComLogs(
+    logsLimit: () => Promise<unknown>,
+    logsRange: () => Promise<unknown>,
+  ) {
+    (supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === 'logs') {
+        const m = chain([]);
+        m.limit = jest.fn(logsLimit);
+        m.range = jest.fn(logsRange);
+        return m;
+      }
+      if (table === 'paradas') {
+        const m = chain([]);
+        m.not = jest.fn(() => Promise.resolve({ data: [], error: null }));
+        return m;
+      }
+      const m = chain([]);
+      m.eq = jest.fn(() => Promise.resolve({ data: [], error: null }));
+      return m;
+    });
+  }
+
+  const ok = (data: unknown[]) => () => Promise.resolve({ data, error: null });
+  const falha = () => Promise.resolve({ data: null, error: erroDoBanco });
+
+  it('carga inicial com logs falhando: não grava carga parcial no cache', async () => {
+    bancoComLogs(falha, ok([]));
+
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: false }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(setCache).not.toHaveBeenCalled();
+    expect(result.current.events).toEqual([]);
+    expect(result.current.error).toBeTruthy();
+  });
+
+  it('recarga com logs falhando: mantém o que estava na tela e o "Carregar mais"', async () => {
+    let logsLimit: () => Promise<unknown> = ok(fullPage);
+    bancoComLogs(() => logsLimit(), ok([]));
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: false }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.hasMore).toBe(true);
+    const antes = result.current.events.map((e) => e.id);
+
+    logsLimit = falha;
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(result.current.events.map((e) => e.id)).toEqual(antes);
+    expect(result.current.hasMore).toBe(true);
+  });
+
+  it('loadMore com erro: não avança a página nem zera hasMore, e tentar de novo busca a mesma página', async () => {
+    const offsets: number[] = [];
+    let respostaRange: () => Promise<unknown> = falha;
+    bancoComLogs(ok(fullPage), () => respostaRange());
+    (supabase.from as jest.Mock).mockImplementation(
+      ((original: (t: string) => unknown) => (table: string) => {
+        const m = original(table) as { range?: jest.Mock };
+        if (table === 'logs' && m.range) {
+          const rangeOriginal = m.range;
+          m.range = jest.fn((de: number, ate: number) => {
+            offsets.push(de);
+            return rangeOriginal(de, ate);
+          });
+        }
+        return m;
+      })((supabase.from as jest.Mock).getMockImplementation()!),
+    );
+
+    const { result } = renderHook(() =>
+      useTimelineData('123', { realtime: false }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const antes = result.current.events.length;
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.hasMore).toBe(true);
+    expect(result.current.events.length).toBe(antes);
+
+    respostaRange = ok(olderPage);
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(offsets).toEqual([50, 50]);
+    expect(result.current.events.some((e) => e.id === 'log-old')).toBe(true);
+    expect(result.current.hasMore).toBe(false);
+  });
+});

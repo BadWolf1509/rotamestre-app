@@ -1215,4 +1215,46 @@ describe('CameraUpload Component', () => {
       });
     });
   });
+
+  // U-4: o marcador é gravado ANTES de abrir a câmera/galeria; se o launch
+  // lançar, o marcador ficava em disco e a Início restaurava uma conclusão
+  // que ninguém iniciou.
+  describe('Falha ao abrir a câmera ou a galeria', () => {
+    beforeEach(() => {
+      Object.defineProperty(Platform, 'OS', {
+        get: () => 'android',
+        configurable: true,
+      });
+    });
+
+    it('launchCameraAsync que lança limpa o marcador e avisa', async () => {
+      mockLaunchCameraAsync.mockRejectedValue(new Error('camera indisponível'));
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      await acionarOpcao(getByText, '📷 Tirar Foto');
+
+      await waitFor(() => expect(mockLimparConclusaoEmVoo).toHaveBeenCalled());
+      expect(mockMarcarConclusaoEmVoo).toHaveBeenCalledTimes(1);
+      expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+        title: 'Erro',
+        message: 'Não foi possível abrir a câmera.',
+      });
+    });
+
+    it('launchImageLibraryAsync que lança limpa o marcador e avisa', async () => {
+      mockLaunchImageLibraryAsync.mockRejectedValue(
+        new Error('galeria indisponível'),
+      );
+      const { getByText } = render(<CameraUpload {...defaultProps} />);
+
+      await acionarOpcao(getByText, '🖼️ Escolher da Galeria');
+
+      await waitFor(() => expect(mockLimparConclusaoEmVoo).toHaveBeenCalled());
+      expect(mockMarcarConclusaoEmVoo).toHaveBeenCalledTimes(1);
+      expect(global.mockUseAlert.showError).toHaveBeenCalledWith({
+        title: 'Erro',
+        message: 'Não foi possível abrir a galeria.',
+      });
+    });
+  });
 });

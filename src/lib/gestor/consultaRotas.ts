@@ -24,8 +24,8 @@
  */
 import type { RotaHistorico } from '@/hooks/gestao-rotas/types';
 import { formatarDecimal } from '@/lib/formatNumber';
-import { contarParadasDasRotas } from '@/lib/gestor/contarParadasDasRotas';
 import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
+import { contarParadasDasRotas } from '@/lib/paradas/contarParadasDasRotas';
 import { escaparIlike, filtroKeysetDesc } from '@/lib/queries/paginacao';
 import type { FiltroStatus, RotaStatus } from '@/lib/statusLabels';
 import { supabase } from '@/lib/supabase';

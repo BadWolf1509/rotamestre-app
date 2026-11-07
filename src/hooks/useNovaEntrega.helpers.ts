@@ -11,7 +11,6 @@ import { distanciaMetrosEntre } from '@/lib/geo/distancia';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
 import { gerarUuid } from '@/lib/uuid';
-import type { GoogleDirectionsLeg } from '@/types/google-directions';
 
 export interface ParadaParaInserir {
   rota_id: string;
@@ -403,47 +402,4 @@ export function validarRascunhoRota({
     avisos,
     sanidadeGeografica,
   };
-}
-
-export function ordenarParadasPorRota(
-  paradas: Parada[],
-  ordemOtimizada: number[],
-  legs?: GoogleDirectionsLeg[],
-): Parada[] {
-  if (ordemOtimizada?.length === paradas.length) {
-    return ordemOtimizada.map((index) => paradas[index]);
-  }
-
-  if (legs?.length) {
-    const utilizados = new Set<number>();
-    const ordenadas: Parada[] = [];
-
-    legs.forEach((leg, index) => {
-      if (index === legs.length - 1) return;
-
-      let melhorIndex = -1;
-      let menorDistancia = Number.POSITIVE_INFINITY;
-      paradas.forEach((parada, paradaIndex) => {
-        if (utilizados.has(paradaIndex)) return;
-        const distancia = distanceInMeters(parada, leg.coordenadas_fim);
-        if (distancia < menorDistancia) {
-          menorDistancia = distancia;
-          melhorIndex = paradaIndex;
-        }
-      });
-
-      if (melhorIndex !== -1) {
-        ordenadas.push(paradas[melhorIndex]);
-        utilizados.add(melhorIndex);
-      }
-    });
-
-    paradas.forEach((parada, index) => {
-      if (!utilizados.has(index)) ordenadas.push(parada);
-    });
-
-    if (ordenadas.length === paradas.length) return ordenadas;
-  }
-
-  return [...paradas];
 }

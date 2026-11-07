@@ -69,17 +69,20 @@ export function useDrawerContact({ onClose }: UseDrawerContactOptions) {
 
       const message = buildContactMessage(reason);
 
-      // Tentar abrir WhatsApp primeiro
-      const whatsappUrl = Platform.select({
-        ios: `whatsapp://send?phone=${telefone}&text=${encodeURIComponent(message)}`,
-        android: `whatsapp://send?phone=${telefone}&text=${encodeURIComponent(message)}`,
-        default: `https://wa.me/${telefone}?text=${encodeURIComponent(message)}`,
-      });
+      // Link https do wa.me aberto direto, sem `canOpenURL`: no Android 11+ ele
+      // responde false para `whatsapp://` sem <queries>, mesmo com o app
+      // instalado. Se abrir falhar, cai nas opções de ligar/e-mail.
+      const whatsappUrl = `https://wa.me/${telefone}?text=${encodeURIComponent(message)}`;
 
-      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
-
-      if (canOpenWhatsApp) {
+      let abriuWhatsApp = false;
+      try {
         await Linking.openURL(whatsappUrl);
+        abriuWhatsApp = true;
+      } catch (error) {
+        logger.warn('[useDrawerContact] Falha ao abrir o WhatsApp:', error);
+      }
+
+      if (abriuWhatsApp) {
         onClose();
       } else {
         // Fallback: Oferece opções de ligação ou email

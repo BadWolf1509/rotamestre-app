@@ -180,6 +180,30 @@ describe('completeStop sem rede', () => {
   });
 });
 
+describe('decisão da fila pela rede (M-3)', () => {
+  it('conectado com isInternetReachable null (abertura): envia direto, não enfileira', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      isConnected: true,
+      isInternetReachable: null,
+    });
+    const banco = criarBancoFake();
+    const { completeStop } = setup(banco.porta);
+
+    await expect(completeStop('p1')).resolves.toBe('enviada');
+    expect(banco.status.p1).toBe('concluida');
+    expect(await lerFilaAcoesParada()).toEqual([]);
+  });
+
+  it('isConnected false (modo avião): enfileira sem tentar o envio', async () => {
+    ficarOffline();
+    const banco = criarBancoFake();
+    const { completeStop } = setup(banco.porta);
+
+    await expect(completeStop('p1')).resolves.toBe('na_fila');
+    expect(banco.status.p1).toBe('em_andamento');
+  });
+});
+
 describe('revisão 1', () => {
   it('online, parada já pulada por outro caminho: concluir avisa, não finge sucesso', async () => {
     const banco = criarBancoFake();

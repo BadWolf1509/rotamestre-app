@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SUPORTE_EMAIL } from '@/constants/suporte';
 import { Text } from '@/design-system';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -60,10 +61,10 @@ export function LegalPage({ title, updatedAt, children }: LegalPageProps) {
             Dúvidas sobre privacidade e dados pessoais podem ser enviadas para:
           </Text>
           <TouchableOpacity
-            onPress={() => Linking.openURL('mailto:contato@rotamestre.tec.br')}
+            onPress={() => Linking.openURL(`mailto:${SUPORTE_EMAIL}`)}
             accessibilityRole="link"
           >
-            <Text style={styles(theme).link}>contato@rotamestre.tec.br</Text>
+            <Text style={styles(theme).link}>{SUPORTE_EMAIL}</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -601,3 +601,90 @@ describe('useEditStopForm: auditoria da parada editada (B7)', () => {
     expect(linha.detalhes.parada_id).toBe('p1');
   });
 });
+
+describe('useEditStopForm: campos null do banco não contam como alterados (G-2)', () => {
+  // O banco devolve null; o formulário normaliza para ''. Comparar os dois
+  // com !== avisava o motorista de campo que não mudou.
+  const paradaComNulos: Parada = {
+    ...parada,
+    destinatario: null,
+    telefone: null,
+    observacoes: null,
+  };
+
+  const insertLogs = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRecalcular.mockResolvedValue({ success: true });
+    mockNotificar.mockResolvedValue({ success: true });
+    mockMarcarOtimizacao.mockResolvedValue(true);
+    insertLogs.mockResolvedValue({ error: null });
+    const cadeia = cadeiaUpdate({ data: [{ id: 'p1' }], error: null });
+    mockFrom.mockImplementation((tabela: string) =>
+      tabela === 'paradas' ? { update: cadeia.update } : { insert: insertLogs },
+    );
+  });
+
+  function montarComNulos() {
+    return montar({ parada: paradaComNulos, allParadas: [paradaComNulos] });
+  }
+
+  it('mudou só o endereço: avisa só o endereço e marca só o endereço no log', async () => {
+    const { result } = montarComNulos();
+
+    act(() => {
+      result.current.handleAddressSelect('Rua B, 2', 'x', {
+        latitude: -7.2,
+        longitude: -34.9,
+      });
+    });
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockNotificar).toHaveBeenCalledWith(
+      expect.objectContaining({ mensagem: 'Alterações: endereço' }),
+    );
+    expect(insertLogs.mock.calls[0][0].detalhes.campos_alterados).toEqual({
+      endereco: true,
+      destinatario: false,
+      telefone: false,
+      observacoes: false,
+      tipo: false,
+    });
+  });
+
+  it('mudou só as observações: o motorista é avisado', async () => {
+    const { result } = montarComNulos();
+
+    act(() => result.current.form.setValue('observacoes', 'portão azul'));
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockNotificar).toHaveBeenCalledWith(
+      expect.objectContaining({ mensagem: 'Alterações: observações' }),
+    );
+    expect(insertLogs.mock.calls[0][0].detalhes.campos_alterados).toMatchObject(
+      { observacoes: true, destinatario: false, telefone: false },
+    );
+  });
+
+  it('salvar sem mexer em nada: mensagem genérica e nenhum campo marcado', async () => {
+    const { result } = montarComNulos();
+
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(mockNotificar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mensagem: 'Uma parada da sua rota foi editada',
+      }),
+    );
+    expect(
+      Object.values(insertLogs.mock.calls[0][0].detalhes.campos_alterados),
+    ).not.toContain(true);
+  });
+});

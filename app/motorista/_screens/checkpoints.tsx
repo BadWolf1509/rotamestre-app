@@ -191,9 +191,14 @@ export default function CheckpointsMotorista() {
 
       setRetomandoParada(parada.id);
       try {
-        // O pulo grava sua hora em `concluida_em`; a parada reaberta não tem.
+        // O pulo grava hora (`concluida_em`), motivo e texto; a parada reaberta
+        // não tem nenhum dos três. Nenhum gatilho do banco limpa o motivo e o
+        // texto (conferido nas migrations): a limpeza é deste mesmo UPDATE.
+        // `observacoes` é a instrução do gestor e não se mexe.
         const result = await updateParadaStatus(parada.id, 'pendente', {
           concluida_em: null,
+          motivo_skip: null,
+          observacao_pulo: null,
         });
         if (!result.success) {
           // O banco recusa mudar parada de rota encerrada (encerrada entre o

@@ -3,8 +3,9 @@
  * Verifica GPS, Internet e Bateria antes do motorista iniciar a rota
  */
 
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import { ActivityIndicator } from 'react-native';
 
 import { PreRouteChecklist } from '../PreRouteChecklist';
 
@@ -15,7 +16,8 @@ const mockHasServicesEnabledAsync = jest.fn();
 
 jest.mock('expo-location', () => ({
   getForegroundPermissionsAsync: () => mockGetForegroundPermissionsAsync(),
-  requestForegroundPermissionsAsync: () => mockRequestForegroundPermissionsAsync(),
+  requestForegroundPermissionsAsync: () =>
+    mockRequestForegroundPermissionsAsync(),
   hasServicesEnabledAsync: () => mockHasServicesEnabledAsync(),
 }));
 
@@ -159,7 +161,7 @@ describe('PreRouteChecklist', () => {
 
       const mockOnStatusChange = jest.fn();
       const { getByText } = render(
-        <PreRouteChecklist onStatusChange={mockOnStatusChange} />
+        <PreRouteChecklist onStatusChange={mockOnStatusChange} />,
       );
 
       await waitFor(() => {
@@ -181,7 +183,9 @@ describe('PreRouteChecklist', () => {
 
     it('deve chamar requestForegroundPermissionsAsync ao clicar em Ativar', async () => {
       mockGetForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' });
-      mockRequestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+      mockRequestForegroundPermissionsAsync.mockResolvedValue({
+        status: 'granted',
+      });
 
       const { getByText } = render(<PreRouteChecklist />);
 
@@ -231,7 +235,7 @@ describe('PreRouteChecklist', () => {
 
       const mockOnStatusChange = jest.fn();
       const { getByText } = render(
-        <PreRouteChecklist onStatusChange={mockOnStatusChange} />
+        <PreRouteChecklist onStatusChange={mockOnStatusChange} />,
       );
 
       await waitFor(() => {
@@ -245,7 +249,7 @@ describe('PreRouteChecklist', () => {
 
       const mockOnStatusChange = jest.fn();
       const { getByText } = render(
-        <PreRouteChecklist onStatusChange={mockOnStatusChange} />
+        <PreRouteChecklist onStatusChange={mockOnStatusChange} />,
       );
 
       await waitFor(() => {
@@ -304,25 +308,32 @@ describe('PreRouteChecklist', () => {
     });
   });
 
-  describe('Versão Compacta', () => {
-    it('deve renderizar versão compacta quando compact=true', async () => {
-      const { getByText } = render(<PreRouteChecklist compact={true} />);
+  describe('Spinner só na primeira carga (M-4)', () => {
+    it('a checagem de 5 em 5 s não liga o spinner de novo', async () => {
+      jest.useFakeTimers();
+      try {
+        const { getByText, UNSAFE_queryAllByType } = render(
+          <PreRouteChecklist />,
+        );
+        await waitFor(() => {
+          expect(getByText('Tudo pronto para iniciar!')).toBeTruthy();
+        });
+        // 1ª carga terminada: nenhum spinner.
+        expect(UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
 
-      await waitFor(() => {
-        expect(getByText('GPS')).toBeTruthy();
-        expect(getByText('Rede')).toBeTruthy();
-        expect(getByText('80%')).toBeTruthy();
-      });
-    });
+        // A 2ª checagem demora (GPS pendurado): antes, o spinner piscava.
+        mockGetForegroundPermissionsAsync.mockReturnValue(
+          new Promise(() => {}),
+        );
+        await act(async () => {
+          jest.advanceTimersByTime(5000);
+        });
 
-    it('não deve mostrar título na versão compacta', async () => {
-      const { queryByText, getByText } = render(<PreRouteChecklist compact={true} />);
-
-      await waitFor(() => {
-        expect(getByText('GPS')).toBeTruthy();
-      });
-
-      expect(queryByText('CHECKLIST PRÉ-ROTA')).toBeNull();
+        expect(mockGetForegroundPermissionsAsync).toHaveBeenCalledTimes(2);
+        expect(UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -363,7 +374,9 @@ describe('PreRouteChecklist', () => {
 
   describe('Tratamento de Erros', () => {
     it('deve tratar erro ao verificar GPS graciosamente', async () => {
-      mockGetForegroundPermissionsAsync.mockRejectedValue(new Error('GPS error'));
+      mockGetForegroundPermissionsAsync.mockRejectedValue(
+        new Error('GPS error'),
+      );
 
       const mockOnStatusChange = jest.fn();
       render(<PreRouteChecklist onStatusChange={mockOnStatusChange} />);

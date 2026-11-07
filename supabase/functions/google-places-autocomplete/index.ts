@@ -51,9 +51,9 @@ serve(async (req) => {
     return respostaPreflight;
   }
 
-  const naoAutorizado = await exigirUsuario(req, usuarioValido, CORS_PADRAO);
-  if (naoAutorizado) {
-    return naoAutorizado;
+  const autenticacao = await exigirUsuario(req, usuarioValido, CORS_PADRAO);
+  if (autenticacao instanceof Response) {
+    return autenticacao;
   }
 
   try {

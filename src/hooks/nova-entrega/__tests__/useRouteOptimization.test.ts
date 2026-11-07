@@ -11,6 +11,8 @@ import type {
 import { googleMapsService } from '@/lib/google';
 import { calculateHaversineDistance } from '@/lib/osrm/fallback';
 import { solveTSP } from '@/lib/osrm/tsp';
+import { limparCacheOtimizacao } from '@/lib/route-optimization/cache';
+import { otimizarRotaComDependencias as otimizadorReal } from '@/lib/route-optimization/optimizer';
 
 jest.mock('@/lib/google', () => ({
   googleMapsService: {
@@ -25,6 +27,7 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
     warn: jest.fn(),
     info: jest.fn(),
+    debug: jest.fn(),
   },
 }));
 
@@ -38,17 +41,6 @@ jest.mock('@/lib/routeOptimization', () => ({
   validarRotaParaOtimizacao: (...args: unknown[]) =>
     mockValidarRotaParaOtimizacao(...args),
   ParadaParaOtimizar: {},
-}));
-
-// Mock helper
-jest.mock('../../useNovaEntrega.helpers', () => ({
-  ordenarParadasPorRota: jest.fn((paradas: Parada[], ordem: number[]) => {
-    // If ordem is provided, reorder based on indices. Otherwise return as-is.
-    if (ordem && ordem.length > 0) {
-      return ordem.map((i) => paradas[i]).filter(Boolean);
-    }
-    return paradas;
-  }),
 }));
 
 import { useRouteOptimization } from '../useRouteOptimization';
@@ -95,10 +87,15 @@ describe('useRouteOptimization', () => {
     showToast: jest.fn(),
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     mockGetDirections.mockReset();
     mockOtimizarRotaComDependencias.mockReset();
+    // Por padrão o otimizador é o de verdade (com o Google/OSRM mockado): as
+    // listas com e sem vínculo passam pelo mesmo caminho. Os testes que querem
+    // um resultado pronto sobrescrevem com mockResolvedValueOnce.
+    mockOtimizarRotaComDependencias.mockImplementation(otimizadorReal);
+    await limparCacheOtimizacao();
     mockValidarRotaParaOtimizacao.mockReset();
     mockValidarRotaParaOtimizacao.mockReturnValue({
       valido: true,
@@ -333,6 +330,35 @@ describe('useRouteOptimization', () => {
       expect(result.current.rotaOtimizada?.distancia_total_metros).toBe(12000);
       expect(defaultOptions.showToast).toHaveBeenCalledWith(
         expect.stringContaining('Rota otimizada com dependências!'),
+        'success',
+        4000,
+      );
+    });
+
+    it('sem vínculo também passa por otimizarRotaComDependencias (caminho único, G-5)', async () => {
+      mockOtimizarRotaComDependencias.mockResolvedValueOnce({
+        paradasOrdenadas: [{ id: 'parada-2' }, { id: 'parada-1' }],
+        distanciaTotalMetros: 8000,
+        duracaoTotalSegundos: 480,
+        polyline: 'sem-vinculo',
+      });
+
+      const { result } = renderHook(() => useRouteOptimization(defaultOptions));
+
+      let ordenadas: Parada[] | null = null;
+      await act(async () => {
+        ordenadas = await result.current.otimizarRota();
+      });
+
+      expect(mockOtimizarRotaComDependencias).toHaveBeenCalledTimes(1);
+      expect(mockGetDirections).not.toHaveBeenCalled();
+      expect(ordenadas!.map((p) => [p.id, p.ordem])).toEqual([
+        ['parada-2', 1],
+        ['parada-1', 2],
+      ]);
+      expect(result.current.rotaOtimizada?.distancia_total_metros).toBe(8000);
+      expect(defaultOptions.showToast).toHaveBeenCalledWith(
+        expect.stringMatching(/^Rota otimizada! /),
         'success',
         4000,
       );
@@ -587,6 +613,44 @@ describe('useRouteOptimization', () => {
       const idsOrdenados = ordenadas!.map((p) => p.id);
       expect(idsOrdenados.indexOf('r1')).toBe(idsOrdenados.indexOf('e1') + 1);
       expect(ordenadas!.map((p) => p.ordem)).toEqual([1, 2, 3]);
+    });
+
+    it('com vínculo e outras paradas no mesmo ponto, o caminho é o mesmo e a retirada vem antes da entrega vinculada', async () => {
+      const paradas = [
+        {
+          ...paradaEm('e1', 'entrega', pontoDistinto(1)),
+          vinculo_parada_id: 'r1',
+        },
+        paradaEm('r1', 'retirada', PONTO),
+        paradaEm('e2', 'entrega', PONTO),
+        paradaEm('a', 'entrega', pontoDistinto(0)),
+      ];
+      mockGetDirections.mockImplementationOnce(getDirectionsComTSPReal);
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 15000,
+        duracao_total_segundos: 900,
+        legs: [],
+        polyline: 'completa',
+        ordem_otimizada: [],
+      });
+
+      const { result } = renderHook(() =>
+        useRouteOptimization({ ...defaultOptions, paradas }),
+      );
+
+      let ordenadas: Parada[] | null = null;
+      await act(async () => {
+        ordenadas = await result.current.otimizarRota();
+      });
+
+      const ids = ordenadas!.map((p) => p.id);
+      expect(ids).toHaveLength(4);
+      expect(new Set(ids).size).toBe(4);
+      // Entrega e2 e retirada r1 compartilham o ponto: juntas, entrega antes.
+      expect(ids.indexOf('r1')).toBe(ids.indexOf('e2') + 1);
+      // A entrega vinculada só depois da retirada.
+      expect(ids.indexOf('e1')).toBeGreaterThan(ids.indexOf('r1'));
+      expect(ordenadas!.map((p) => p.ordem)).toEqual([1, 2, 3, 4]);
     });
 
     it('vale também acima de 10 pontos (caminho do 2-opt)', async () => {

@@ -16,8 +16,8 @@ export interface ParadaMapItem {
   status: string;
   tipo?: string | null;
   is_checkpoint?: boolean;
-  destinatario?: string;
-  telefone?: string;
+  destinatario?: string | null;
+  telefone?: string | null;
 }
 
 export type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';

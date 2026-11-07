@@ -62,7 +62,8 @@ export function ordenarRotas(
       }
       case 'status': {
         comparison =
-          (STATUS_ORDER[a.status] || 99) - (STATUS_ORDER[b.status] || 99);
+          // `??`, não `||`: em_andamento vale 0 e `||` o trataria como vazio.
+          (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
         break;
       }
       default:

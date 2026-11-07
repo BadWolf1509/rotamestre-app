@@ -47,9 +47,10 @@ function IndexContent() {
   );
   const [tentando, setTentando] = useState(false);
   const hasRedirected = useRef(false);
-  // Tela desmontada não decide para onde ir. Quando a conta sai, a pilha
-  // remonta aqui e a dona da navegação de saída (useNavegacaoDeSaida) leva ao
-  // login em 400 ms, substituindo esta tela; a leitura da sessão abaixo pode
+  // Tela desmontada não decide para onde ir. Quando a conta sai com esta tela
+  // na pilha, a dona da navegação de saída (useNavegacaoDeSaida) esvazia a
+  // pilha e leva ao login em 400 ms, desmontando esta tela (desde a N-1 a
+  // pilha não remonta mais na saída); a leitura da sessão abaixo pode
   // passar disso (prazo de até 10 s) e, ao voltar, navegaria de novo — o 2º
   // replace concorrente da pendência 33. Alternativa descartada: manter
   // `haSaidaEmCurso()` ligado o episódio inteiro — deixaria a index muda numa
@@ -204,7 +205,7 @@ function IndexContent() {
         rotearPeloPerfil(usuario);
       } else {
         hasRedirected.current = true;
-        // A conta acabou de sair e a pilha remontou aqui: quem leva ao login
+        // A conta acabou de sair com a index na tela: quem leva ao login
         // é a dona da navegação de saída (layout raiz), depois de os modais
         // fecharem. Navegar junto era um replace concorrente (R-NUC-1).
         if (haSaidaEmCurso()) return;

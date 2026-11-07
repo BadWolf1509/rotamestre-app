@@ -14,11 +14,15 @@ function makeRota(overrides: Partial<RotaHistorico> = {}): RotaHistorico {
 
 describe('calcularTempoTotal', () => {
   it('returns null when iniciada_em is missing', () => {
-    expect(calcularTempoTotal(makeRota({ concluida_em: '2026-01-15T14:00:00Z' }))).toBeNull();
+    expect(
+      calcularTempoTotal(makeRota({ concluida_em: '2026-01-15T14:00:00Z' })),
+    ).toBeNull();
   });
 
   it('returns null when concluida_em is missing', () => {
-    expect(calcularTempoTotal(makeRota({ iniciada_em: '2026-01-15T10:00:00Z' }))).toBeNull();
+    expect(
+      calcularTempoTotal(makeRota({ iniciada_em: '2026-01-15T10:00:00Z' })),
+    ).toBeNull();
   });
 
   it('returns null when both timestamps are missing', () => {
@@ -46,15 +50,15 @@ describe('calcularTempoTotal', () => {
       iniciada_em: '2026-01-15T08:00:00Z',
       concluida_em: '2026-01-15T08:45:00Z',
     });
-    expect(calcularTempoTotal(rota)).toBe('0h 45min');
+    expect(calcularTempoTotal(rota)).toBe('45min');
   });
 
-  it('returns 0h 0min for same start and end time', () => {
+  it('returns 0min for same start and end time', () => {
     const rota = makeRota({
       iniciada_em: '2026-01-15T08:00:00Z',
       concluida_em: '2026-01-15T08:00:00Z',
     });
-    expect(calcularTempoTotal(rota)).toBe('0h 0min');
+    expect(calcularTempoTotal(rota)).toBe('0min');
   });
 
   it('handles multi-day durations', () => {

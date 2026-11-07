@@ -1,14 +1,8 @@
 [
   {
-    "name": "Web Bundle (JS)",
-    "path": "dist/_expo/static/js/web/*.js",
-    "limit": "3.5 MB",
-    "gzip": true
-  },
-  {
-    "name": "Total Web Assets",
+    "name": "Web JS (gzip)",
     "path": "dist/**/*.js",
-    "limit": "3.5 MB",
+    "limit": "2.1 MB",
     "gzip": true
   }
 ]

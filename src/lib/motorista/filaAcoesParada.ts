@@ -34,9 +34,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
-import { lerSessao, type EstadoSessao } from '@/lib/auth/sessao';
+import {
+  descartarLeituraEmCurso,
+  lerSessao,
+  type EstadoSessao,
+} from '@/lib/auth/sessao';
 import { lerJsonParaExibir, lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
+import { semRedeConfirmada } from '@/lib/semRede';
 import { criarSerie } from '@/lib/serie';
 import { supabase } from '@/lib/supabase';
 
@@ -596,10 +601,21 @@ export async function sincronizarFilaAcoesParada(): Promise<ResultadoProcessamen
   const vazio = { enviadas: 0, descartadas: [], restantes: 0 };
   if ((await lerFilaAcoesParada()).length === 0) return vazio;
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const usuarioAtual = session?.user?.id;
+    // Sessão de verdade, sem o dono do aparelho: enviar sem sessão cairia na RLS.
+    let leitura = await lerSessao();
+    // Este envio dispara na VOLTA da rede. Uma leitura anterior que estourou o
+    // prazo com o refresh do auth-js preso deixa o OFFLINE guardado na leitura
+    // compartilhada, e ele seria devolvido agora com a rede boa: a fila ficava
+    // parada até o próximo gatilho (o `TOKEN_REFRESHED` não manda enviar).
+    // Offline sem falta de rede CONFIRMADA é esse OFFLINE velho: descarta e
+    // relê uma vez. Alternativa (também pedir o envio no `TOKEN_REFRESHED`):
+    // cobre o caso, mas dispara a cada renovação horária e só depois do
+    // refresh terminar; a releitura resolve na hora do gatilho certo.
+    if (!leitura.session && leitura.offline && !(await semRedeConfirmada())) {
+      descartarLeituraEmCurso();
+      leitura = await lerSessao();
+    }
+    const usuarioAtual = leitura.session?.user?.id;
     if (!usuarioAtual) return vazio;
     return await processarFilaAcoesParada({ usuarioAtual });
   } catch (error) {

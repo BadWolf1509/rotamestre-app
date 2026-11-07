@@ -29,8 +29,6 @@ interface ChecklistStatus {
 interface PreRouteChecklistProps {
   /** Callback quando o status muda - retorna se pode iniciar a rota */
   onStatusChange?: (canStart: boolean, allOk: boolean) => void;
-  /** Se true, mostra versão compacta (apenas ícones) */
-  compact?: boolean;
 }
 
 /**
@@ -41,10 +39,7 @@ interface PreRouteChecklistProps {
  * - Internet: Warning se instável, mas permite iniciar
  * - Bateria: Warning se < 20%, crítico se < 10%
  */
-export function PreRouteChecklist({
-  onStatusChange,
-  compact = false,
-}: PreRouteChecklistProps) {
+export function PreRouteChecklist({ onStatusChange }: PreRouteChecklistProps) {
   const { theme } = useUnistyles();
   const [status, setStatus] = useState<ChecklistStatus>({
     gps: 'loading',
@@ -149,8 +144,9 @@ export function PreRouteChecklist({
   }, []);
 
   const checkAllStatus = useCallback(async () => {
-    setIsChecking(true);
-
+    // Sem `setIsChecking(true)` aqui: `isChecking` nasce true e só a 1ª carga o
+    // mantém. A re-checagem de 5 em 5 s é silenciosa — ligar o spinner a cada
+    // volta o fazia piscar no cabeçalho o tempo todo.
     try {
       const [gpsStatus, internetResult, batteryResult] = await Promise.all([
         checkGPS(),
@@ -227,66 +223,10 @@ export function PreRouteChecklist({
     }
   }, [checkAllStatus, openSettings]);
 
-  const getStatusIcon = (
-    itemStatus: CheckStatus,
-  ): { icon: IconName; color: string } => {
-    switch (itemStatus) {
-      case 'ok':
-        return { icon: 'checkmark-circle', color: theme.colors.success };
-      case 'warning':
-        return { icon: 'warning', color: theme.colors.warning };
-      case 'error':
-        return { icon: 'close-circle', color: theme.colors.error };
-      default:
-        return { icon: 'ellipsis-horizontal', color: theme.colors.gray400 };
-    }
-  };
-
   const allOk =
     status.gps === 'ok' && status.internet === 'ok' && status.battery === 'ok';
   const hasError = status.gps === 'error' || status.battery === 'error';
-  const _hasWarning =
-    status.internet === 'warning' || status.battery === 'warning';
 
-  // Versão compacta - apenas ícones inline
-  if (compact) {
-    return (
-      <View style={styles.compactContainer}>
-        {isChecking ? (
-          <ActivityIndicator size="small" color={theme.colors.gray400} />
-        ) : (
-          <>
-            <View style={styles.compactItem}>
-              <Ionicons
-                name={getStatusIcon(status.gps).icon}
-                size={16}
-                color={getStatusIcon(status.gps).color}
-              />
-              <Text style={styles.compactLabel}>GPS</Text>
-            </View>
-            <View style={styles.compactItem}>
-              <Ionicons
-                name={getStatusIcon(status.internet).icon}
-                size={16}
-                color={getStatusIcon(status.internet).color}
-              />
-              <Text style={styles.compactLabel}>Rede</Text>
-            </View>
-            <View style={styles.compactItem}>
-              <Ionicons
-                name={getStatusIcon(status.battery).icon}
-                size={16}
-                color={getStatusIcon(status.battery).color}
-              />
-              <Text style={styles.compactLabel}>{status.batteryLevel}%</Text>
-            </View>
-          </>
-        )}
-      </View>
-    );
-  }
-
-  // Versão completa
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -506,27 +446,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   message: {
     fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  // Compact version styles
-  compactContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing['4'],
-    paddingVertical: theme.spacing['2'],
-    paddingHorizontal: theme.spacing['3'],
-    backgroundColor: theme.colors.gray50,
-    borderRadius: theme.borderRadius.sm,
-  },
-  compactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['1'],
-  },
-  compactLabel: {
-    fontSize: theme.typography.xs,
-    color: theme.colors.gray600,
     fontFamily: theme.typography.fontSansMedium,
   },
 }));

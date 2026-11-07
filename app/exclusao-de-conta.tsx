@@ -16,6 +16,7 @@ import {
   LegalParagraph,
   LegalSection,
 } from '@/components/legal/LegalPage';
+import { SUPORTE_EMAIL } from '@/constants/suporte';
 import { Text } from '@/design-system';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/lib/auth';
@@ -69,8 +70,7 @@ function ExclusaoDeContaContent() {
       setResult({
         visible: true,
         title: 'Não foi possível excluir',
-        message:
-          'Tente novamente. Se o problema continuar, solicite a exclusão pelo e-mail contato@rotamestre.tec.br.',
+        message: `Tente novamente. Se o problema continuar, solicite a exclusão pelo e-mail ${SUPORTE_EMAIL}.`,
         type: 'error',
       });
     } finally {
@@ -108,7 +108,8 @@ function ExclusaoDeContaContent() {
 
         <LegalSection title="Antes de excluir">
           <LegalBullet>
-            Gestor único de uma loja: peça ao suporte para adicionar outro gestor antes.
+            Gestor único de uma loja: peça ao suporte para adicionar outro
+            gestor antes.
           </LegalBullet>
           <LegalBullet>
             Motorista com rota em andamento: finalize a rota, ou peça ao gestor
@@ -160,7 +161,7 @@ function ExclusaoDeContaContent() {
             style={styles(theme).emailButton}
             onPress={() =>
               Linking.openURL(
-                'mailto:contato@rotamestre.tec.br?subject=Solicitação%20de%20exclusão%20de%20conta%20Rota%20Mestre',
+                `mailto:${SUPORTE_EMAIL}?subject=Solicitação%20de%20exclusão%20de%20conta%20Rota%20Mestre`,
               )
             }
             accessibilityRole="link"

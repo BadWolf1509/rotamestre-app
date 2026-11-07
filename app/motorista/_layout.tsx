@@ -12,6 +12,13 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnistyles } from '@/utils/styles';
 
+/**
+ * Tela em que a pilha do motorista nasce quando não há tela-alvo: as abas.
+ * Explícita para não depender da ordem das rotas (ver a âncora do gestor,
+ * N-1). `initialRouteName` é obsoleto no expo-router 58.
+ */
+export const unstable_settings = { anchor: '(tabs)' };
+
 export default function MotoristaLayout() {
   const {
     isReady,

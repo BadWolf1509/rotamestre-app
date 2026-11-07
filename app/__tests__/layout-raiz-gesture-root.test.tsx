@@ -50,6 +50,10 @@ jest.mock('@/hooks/useManterPushTokenAtualizado', () => ({
   useManterPushTokenAtualizado: jest.fn(),
 }));
 jest.mock('@/hooks/useUser', () => ({ useUser: () => ({ userData: null }) }));
+// A geração da conta lê a sessão (N-2); a troca de conta tem teste próprio.
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: null, usuarioOfflineId: null, loading: false }),
+}));
 jest.mock('@/hooks/useResponsive', () => ({
   useResponsive: () => ({ isDesktop: false }),
 }));

@@ -20,6 +20,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
+import { erroNaoFatalDoMapa } from '@/lib/maplibre';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import { temCoordenadaValida } from '@/lib/motorista/coordenadaValida';
 import { montarPinosDoMiniMap } from '@/lib/motorista/pinosPorLocal';
@@ -62,23 +63,6 @@ interface MiniMapProps {
   onOpenFullMap?: () => void;
   route?: Rota;
   testID?: string;
-}
-
-/**
- * Erro do maplibre que não impede o mapa: falha de um tile/fonte (o evento
- * traz `sourceId` ou `tile`) ou de sprite, glifo ou imagem do estilo.
- */
-function erroNaoFatalDoMapa(e: unknown): boolean {
-  const evento = (e ?? {}) as {
-    sourceId?: unknown;
-    tile?: unknown;
-    error?: { message?: unknown };
-  };
-  if (evento.sourceId !== undefined || evento.tile !== undefined) return true;
-  const mensagem = evento.error?.message;
-  return (
-    typeof mensagem === 'string' && /sprite|glyph|image|\.pbf/i.test(mensagem)
-  );
 }
 
 export function MiniMap({

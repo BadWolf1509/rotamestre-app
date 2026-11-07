@@ -3,7 +3,7 @@
  */
 
 import { detectarCiclos } from './cycleDetection';
-import { MAX_WAYPOINTS, WAYPOINTS_RECOMENDADO } from './types';
+import { MAX_ROUTE_STOPS, WAYPOINTS_RECOMENDADO } from './types';
 
 import type { ParadaParaOtimizar, ValidacaoRotaResult } from './types';
 
@@ -60,14 +60,14 @@ export function validarRotaParaOtimizacao(
   const erros: string[] = [];
   const avisos: string[] = [];
 
-  if (paradas.length > MAX_WAYPOINTS) {
+  if (paradas.length > MAX_ROUTE_STOPS) {
     erros.push(
-      `Limite de ${MAX_WAYPOINTS} paradas excedido (atual: ${paradas.length}). ` +
-        `O limite operacional configurado para uma rota é ${MAX_WAYPOINTS} paradas.`,
+      `Limite de ${MAX_ROUTE_STOPS} paradas excedido (atual: ${paradas.length}). ` +
+        `O limite operacional configurado para uma rota é ${MAX_ROUTE_STOPS} paradas.`,
     );
   } else if (paradas.length > WAYPOINTS_RECOMENDADO) {
     avisos.push(
-      `Rota com ${paradas.length} paradas está próxima do limite de ${MAX_WAYPOINTS}. ` +
+      `Rota com ${paradas.length} paradas está próxima do limite de ${MAX_ROUTE_STOPS}. ` +
         `Considere dividir em rotas menores para melhor performance.`,
     );
   }

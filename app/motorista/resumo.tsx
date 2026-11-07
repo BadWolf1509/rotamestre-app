@@ -15,6 +15,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useResumoRota } from '@/hooks/useResumoRota';
 import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { formatarDuracao } from '@/lib/motorista/formatarDuracao';
 import type { Checkpoint } from '@/types/rota';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -121,12 +122,10 @@ export default function ResumoMotorista() {
 
   function calcularTempoTotal() {
     if (!rota?.iniciada_em || !rota?.concluida_em) return null;
-    const inicio = new Date(rota.iniciada_em);
-    const fim = new Date(rota.concluida_em);
-    const diffMs = fim.getTime() - inicio.getTime();
-    const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutos = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `${diffHoras}h ${diffMinutos}min`;
+    return formatarDuracao(
+      new Date(rota.concluida_em).getTime() -
+        new Date(rota.iniciada_em).getTime(),
+    );
   }
 
   const renderDesktopHeader = (subtitle?: string) =>

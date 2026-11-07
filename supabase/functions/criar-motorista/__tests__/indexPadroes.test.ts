@@ -14,6 +14,17 @@ describe('criar-motorista: padrões do index.ts', () => {
     );
   });
 
+  it('o gestor vem da guarda (B-10), sem variável de fora da validação nem cast', () => {
+    expect(fonte).toMatch(
+      /criarValidadorDeUsuario\(\s*createClient,[\s\S]*?chavePublica,?\s*\)/,
+    );
+    expect(fonte).toMatch(/if \(autenticacao instanceof Response\)/);
+    expect(fonte).toMatch(/const gestorId = autenticacao\.usuario\.id;/);
+    expect(fonte).not.toMatch(/let user\b/);
+    expect(fonte).not.toMatch(/supabaseClient!/);
+    expect(fonte).not.toMatch(/\(user as /);
+  });
+
   it('todas as respostas passam por resposta(), sem new Response com JSON inline', () => {
     expect(fonte).not.toMatch(/new Response\(\s*JSON\.stringify\(\{/);
   });

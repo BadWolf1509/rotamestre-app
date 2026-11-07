@@ -33,8 +33,7 @@ import {
 import { useTimelineData } from '@/hooks/gestao-rotas';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
 import {
-  getDateGroup,
-  groupBy,
+  agruparEventosPorDia,
   computeNewlyAddedIds,
   type TimelineSemanticColor,
 } from '@/lib/utils';
@@ -109,6 +108,7 @@ export function RouteTimeline({
   const {
     events: rawEvents,
     loading,
+    error: erroDeCarga,
     hasMore,
     loadingMore,
     loadMore,
@@ -282,26 +282,11 @@ export function RouteTimeline({
     });
   }, [events, activeFilter]);
 
-  const groupedEvents = useMemo(() => {
-    const grouped = groupBy(filteredEvents, (event) =>
-      getDateGroup(event.timestamp),
-    );
-    const groups: { date: string; events: TimelineEvent[] }[] = [];
-    const orderedKeys = Object.keys(grouped).sort((a, b) => {
-      if (a === 'Hoje') return -1;
-      if (b === 'Hoje') return 1;
-      if (a === 'Ontem') return -1;
-      if (b === 'Ontem') return 1;
-      return (
-        new Date(b.split('/').reverse().join('-')).getTime() -
-        new Date(a.split('/').reverse().join('-')).getTime()
-      );
-    });
-    orderedKeys.forEach((key) => {
-      groups.push({ date: key, events: grouped[key] });
-    });
-    return groups;
-  }, [filteredEvents]);
+  // Agrupa e ordena pela chave ISO local do dia; o rótulo só vai para a tela.
+  const groupedEvents = useMemo(
+    () => agruparEventosPorDia(filteredEvents),
+    [filteredEvents],
+  );
 
   const filterCounts = useMemo(
     () => ({
@@ -414,6 +399,31 @@ export function RouteTimeline({
   if (loading && events.length === 0)
     return <TimelineSkeleton showFilters={showFilters} />;
 
+  // Sem nenhum dado e com a carga falhando: vazio seria mentira. Com dado
+  // (cache) o erro não esconde a lista.
+  if (events.length === 0 && erroDeCarga) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons
+          name="cloud-offline-outline"
+          size={48}
+          color={theme.colors.gray300}
+        />
+        <Text style={styles.emptyText}>
+          Não foi possível carregar o histórico.
+        </Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => void refresh()}
+          accessibilityRole="button"
+          accessibilityLabel="Tentar de novo"
+        >
+          <Text style={styles.retryText}>Tentar de novo</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (events.length === 0) {
     return (
       <View style={styles.emptyContainer}>
@@ -460,6 +470,19 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginTop: theme.spacing.md,
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray500,
+  },
+  retryButton: {
+    marginTop: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.gray50,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
+  },
+  retryText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray700,
   },
   loadMoreButton: {
     flexDirection: 'row',
