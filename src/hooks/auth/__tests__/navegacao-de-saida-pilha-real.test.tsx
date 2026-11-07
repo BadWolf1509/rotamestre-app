@@ -52,10 +52,13 @@ jest.mock('../../useAuth', () => {
 });
 
 const montadas = new Map<string, number>();
+/** Quantas vezes cada tela montou (para ver se o login foi remontado). */
+const montagens = new Map<string, number>();
 function tela(nome: string) {
   return function Tela() {
     useEffect(() => {
       montadas.set(nome, (montadas.get(nome) ?? 0) + 1);
+      montagens.set(nome, (montagens.get(nome) ?? 0) + 1);
       return () => {
         montadas.set(nome, (montadas.get(nome) ?? 0) - 1);
       };
@@ -86,6 +89,8 @@ const ROTAS = {
   'gestor/inicio': tela('gestor/inicio'),
   'gestor/motoristas': tela('gestor/motoristas'),
   'unidade/index': tela('unidade'),
+  'perfil/index': tela('perfil'),
+  'exclusao-de-conta': tela('exclusao-de-conta'),
   'motorista/_layout': pilha,
   'motorista/(tabs)/_layout': () => (
     <Tabs screenOptions={{ headerShown: false }}>
@@ -120,21 +125,78 @@ function ancoraDoLayout(area: 'gestor' | 'motorista'): string {
   return rota;
 }
 
-async function sairDaConta() {
+function encerrarSessao() {
   act(() => {
     mockSessao.user = null;
     mockSessao.ouvintes.forEach((avisar) => avisar());
   });
+}
+
+function esperarModais() {
   // O renderRouter liga os fake timers do jest.
   act(() => {
     jest.advanceTimersByTime(PRAZO_FECHAR_MODAIS_MS);
   });
 }
 
+async function sairDaConta() {
+  encerrarSessao();
+  esperarModais();
+}
+
 describe('navegação de saída sobre o expo-router real (N-1)', () => {
   beforeEach(() => {
     montadas.clear();
+    montagens.clear();
     mockSessao.user = { id: 'conta-a' };
+  });
+
+  // Rodada 1 da revisão: saídas em que o login é aberto por outra parte (as
+  // exceções, que navegam sozinhas). Antes da N-1 a remontagem da `key` limpava
+  // a pilha nelas; agora a dona tem de limpar o que ficou embaixo do login.
+  it('exclusão de conta: o diálogo de sucesso fica na tela e, no login, nada da conta fica embaixo', async () => {
+    const r = await renderRouter(ROTAS, { initialUrl: '/gestor/inicio' });
+    act(() => router.push('/perfil'));
+    act(() => router.push('/exclusao-de-conta'));
+
+    // A conta é excluída: a sessão acaba, o diálogo de sucesso aparece.
+    encerrarSessao();
+    esperarModais();
+    expect(r.getPathname()).toBe('/exclusao-de-conta');
+
+    // "OK" no diálogo: a própria tela leva ao login (app/exclusao-de-conta.tsx).
+    act(() => router.replace('/auth/login'));
+    esperarModais();
+
+    expect(r.getPathname()).toBe('/auth/login');
+    expect(telasMontadas()).toEqual(['auth/login']);
+    expect(montagens.get('auth/login')).toBe(1);
+  });
+
+  it('conta desativada na resposta tardia: o login com o aviso fica, e nada da conta fica embaixo', async () => {
+    const r = await renderRouter(ROTAS, { initialUrl: '/gestor/inicio' });
+    act(() => router.push('/unidade'));
+
+    // garantirContaAtiva sai da conta e a index navega ao login com o aviso.
+    encerrarSessao();
+    act(() => router.replace('/auth/login?conta=desativada'));
+    esperarModais();
+
+    expect(r.getPathnameWithParams()).toBe('/auth/login?conta=desativada');
+    expect(telasMontadas()).toEqual(['auth/login']);
+    expect(montagens.get('auth/login')).toBe(1);
+  });
+
+  it('login aberto por um botão sem a sessão ter acabado aqui: a dona não mexe', async () => {
+    mockSessao.user = null;
+    const r = await renderRouter(ROTAS, { initialUrl: '/exclusao-de-conta' });
+    act(() => router.push('/auth/login'));
+    esperarModais();
+
+    expect(r.getPathname()).toBe('/auth/login');
+    expect(telasMontadas()).toEqual(
+      expect.arrayContaining(['exclusao-de-conta', 'auth/login']),
+    );
   });
 
   afterEach(() => {

@@ -18,7 +18,14 @@ let mockSegments: string[] = ['gestor'];
 // Container do expo-router: uma rota interna (o layout raiz) com a pilha de
 // `app/_layout.tsx` aninhada. O comportamento real está medido em
 // navegacao-de-saida-pilha-real.test.tsx.
-let mockPilhaRaiz: { key: string; index: number } | undefined;
+let mockPilhaRaiz:
+  | {
+      key: string;
+      index: number;
+      stale?: false;
+      routes?: { key: string; name: string }[];
+    }
+  | undefined;
 let mockProntoParaNavegar = true;
 const mockContainer = {
   isReady: () => mockProntoParaNavegar,
@@ -256,6 +263,75 @@ describe('useNavegacaoDeSaida', () => {
     mockSegments = ['auth', 'login'];
     rerender({});
     esperarModais();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  // Rodada 1 da revisão: as exceções (exclusão de conta, conta desativada)
+  // levam ao login sozinhas; a dona limpa o que ficou embaixo, sem replace.
+  const PILHA_COM_LOGIN_NO_TOPO = {
+    key: 'pilha-raiz',
+    index: 2,
+    stale: false as const,
+    routes: [
+      { key: 'gestor-1', name: 'gestor' },
+      { key: 'perfil-1', name: 'perfil/index' },
+      { key: 'auth-1', name: 'auth' },
+    ],
+  };
+
+  it('a sessão acabou e outra parte abriu o login: limpa embaixo dele, mantendo o próprio login', () => {
+    mockPilhaRaiz = PILHA_COM_LOGIN_NO_TOPO;
+    mockSegments = ['exclusao-de-conta'];
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    rerender({});
+    esperarModais();
+    // Fora das áreas protegidas: a tela segue (o diálogo de sucesso).
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+
+    mockSegments = ['auth', 'login'];
+    rerender({});
+    esperarModais();
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockContainer.dispatch).toHaveBeenCalledTimes(1);
+    expect(mockContainer.dispatch).toHaveBeenCalledWith({
+      type: 'RESET',
+      payload: {
+        ...PILHA_COM_LOGIN_NO_TOPO,
+        index: 0,
+        routes: [{ key: 'auth-1', name: 'auth' }],
+      },
+      target: 'pilha-raiz',
+    });
+
+    // Re-renders no login não limpam de novo (uma vez por episódio).
+    rerender({});
+    esperarModais();
+    expect(mockContainer.dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('login aberto sem a sessão ter acabado neste app (botão "Entrar"): a dona não mexe', () => {
+    mockPilhaRaiz = PILHA_COM_LOGIN_NO_TOPO;
+    mockUser = null;
+    mockSegments = ['exclusao-de-conta'];
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockSegments = ['auth', 'login'];
+    rerender({});
+    esperarModais();
+
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('estado da pilha ainda parcial: não limpa (o RESET exige estado completo)', () => {
+    mockPilhaRaiz = { key: 'pilha-raiz', index: 2 };
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    mockSegments = ['auth', 'login'];
+    rerender({});
+    esperarModais();
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
   });
 

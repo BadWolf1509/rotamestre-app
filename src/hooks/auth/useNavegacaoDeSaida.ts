@@ -66,6 +66,32 @@ function irAoLoginComPilhaLimpa(
 }
 
 /**
+ * Com o login já no topo — aberto por quem navega sozinho de propósito (a
+ * exclusão de conta, a conta desativada da `index`) —, tira tudo o que ficou
+ * embaixo dele, sem tocar no próprio login (Rodada 1 da revisão da N-1).
+ *
+ * Um RESET da pilha raiz só com a tela do topo, endereçado pela chave. O
+ * estado vem completo do container (`stale: false`), como o fork de navegação
+ * do expo-router 58 exige no RESET; a rota do topo mantém a chave, então o
+ * login não remonta e os parâmetros (`?conta=desativada`) ficam. Alternativa
+ * descartada: POP_TO_TOP + `replace` com a URL atual — remontaria o login e
+ * teria de remontar a URL com os parâmetros.
+ */
+function limparDebaixoDoLogin(container: ContainerDeNavegacao): void {
+  const raiz = container.isReady() ? container.getRootState() : undefined;
+  const pilhaRaiz = raiz?.routes[raiz.index]?.state;
+  if (!pilhaRaiz?.key || pilhaRaiz.stale !== false || pilhaRaiz.index === 0) {
+    return;
+  }
+  const topo = pilhaRaiz.routes[pilhaRaiz.index];
+  container.dispatch({
+    type: 'RESET',
+    payload: { ...pilhaRaiz, index: 0, routes: [topo] },
+    target: pilhaRaiz.key,
+  });
+}
+
+/**
  * Espera para a navegação sair com os modais já fechados. A animação de saída
  * do `Modal` do Android (~300 ms) é nativa e não avisa o JS quando termina
  * (`onDismiss` é só do iOS). O `InteractionManager` não serve: foi removido
@@ -104,6 +130,13 @@ export function useNavegacaoDeSaida(): void {
     AREAS_PROTEGIDAS.has(raiz ?? '') ||
     (segments.length === 0 && teveSessaoRef.current);
   const deveIrAoLogin = semSessao && ondeADonaAge;
+  const naTelaDeLogin = raiz === 'auth';
+
+  // Episódio de saída: a sessão acabou NESTE app (houve sessão e saiu) e a
+  // pilha ainda não foi limpa. É o critério para limpar embaixo de um login
+  // aberto por outra parte: login aberto sem a sessão ter acabado aqui (um
+  // botão "Entrar" de página pública) não é saída, e a dona não mexe.
+  const episodioRef = useRef<'nenhum' | 'pendente' | 'limpo'>('nenhum');
 
   // Lidos por ref: o router muda de identidade entre renders em algumas
   // versões, e os segmentos mudam durante a espera.
@@ -124,19 +157,33 @@ export function useNavegacaoDeSaida(): void {
     // segmento NÃO cancela — a pilha pode passar pela `index` na espera.
     if (!semSessao) {
       cancelar();
+      episodioRef.current = 'nenhum';
       return;
     }
-    // Um replace por episódio.
-    if (!deveIrAoLogin || timerRef.current) return;
+    if (teveSessaoRef.current && episodioRef.current === 'nenhum') {
+      episodioRef.current = 'pendente';
+    }
+    // O login já está no topo, aberto por quem navega sozinho na saída (a
+    // exclusão de conta, a conta desativada): falta limpar embaixo dele.
+    const deveLimpar = naTelaDeLogin && episodioRef.current === 'pendente';
+    // Uma ação por episódio.
+    if ((!deveIrAoLogin && !deveLimpar) || timerRef.current) return;
     saidaEmCurso = true;
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       saidaEmCurso = false;
-      // Outra parte (a tela de login aberta por um botão) já levou ao login.
-      if (segmentsRef.current[0] === 'auth') return;
+      const comSaidaPendente = episodioRef.current === 'pendente';
+      episodioRef.current = 'limpo';
+      // Outra parte (a exceção que navega sozinha, ou o login aberto por um
+      // botão) já levou ao login: sem replace; só limpa embaixo se a sessão
+      // acabou neste app.
+      if (segmentsRef.current[0] === 'auth') {
+        if (comSaidaPendente) limparDebaixoDoLogin(container);
+        return;
+      }
       irAoLoginComPilhaLimpa(container, routerRef.current);
     }, PRAZO_FECHAR_MODAIS_MS);
-  }, [semSessao, deveIrAoLogin, container]);
+  }, [semSessao, deveIrAoLogin, naTelaDeLogin, container]);
 
   useEffect(() => cancelar, []);
 }
