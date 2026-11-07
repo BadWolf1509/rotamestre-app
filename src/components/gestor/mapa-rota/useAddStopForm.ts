@@ -12,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
+import { mensagemDaRecusaDaParada } from '@/lib/gestor/mensagemRecusaParada';
 import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { logger } from '@/lib/logger';
 import { photonService } from '@/lib/photon';
@@ -270,9 +271,14 @@ export function useAddStopForm({
         }
 
         if (!rpcResult?.success) {
-          throw new Error(
-            rpcResult?.error || 'Erro desconhecido ao inserir parada',
-          );
+          // A mensagem sai do `code` (Migration 81); o `error` da resposta
+          // fica só no log — num servidor antigo ele era o SQLERRM cru.
+          logger.warn('[inserir_parada] recusada', {
+            code: rpcResult?.code,
+            error: rpcResult?.error,
+          });
+          setError(mensagemDaRecusaDaParada(rpcResult?.code, 'inserir'));
+          return;
         }
 
         const newParadaId = rpcResult.parada_id;

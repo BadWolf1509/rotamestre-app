@@ -155,6 +155,20 @@ describe('EquipeScreen', () => {
     );
   });
 
+  it('busca sem resultado mostra o estado vazio padrão, com orientação', async () => {
+    render(<EquipeScreen />);
+    expect(await screen.findByText('Motorista Um')).toBeTruthy();
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Buscar por nome ou e-mail...'),
+      'zzqq',
+    );
+
+    expect(screen.getByTestId('equipe-vazia')).toBeTruthy();
+    expect(screen.getByText('Nenhum membro encontrado')).toBeTruthy();
+    expect(screen.getByText('Tente outro nome ou e-mail.')).toBeTruthy();
+  });
+
   it('principal de OUTRA loja não ganha as ações de principal nesta', async () => {
     mockUsuario = PRINCIPAL_DE_OUTRA_LOJA;
     render(<EquipeScreen />);

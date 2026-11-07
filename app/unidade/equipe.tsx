@@ -4,6 +4,7 @@ import { View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
+import { EmptyState } from '@/components/EmptyState';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
@@ -273,13 +274,15 @@ export default function EquipeScreen() {
   const renderMembersSection = (useDesktopLayout: boolean) => {
     if (filteredMembros.length === 0) {
       const emptyState = (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>
-            {searchQuery
-              ? 'Nenhum membro encontrado'
-              : 'Nenhum membro na equipe'}
-          </Text>
-        </View>
+        <EmptyState
+          compact
+          icon="people-outline"
+          title={
+            searchQuery ? 'Nenhum membro encontrado' : 'Nenhum membro na equipe'
+          }
+          description={searchQuery ? 'Tente outro nome ou e-mail.' : undefined}
+          testID="equipe-vazia"
+        />
       );
 
       return useDesktopLayout ? (
@@ -548,19 +551,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexWrap: 'wrap',
     gap: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
-  },
-  emptyState: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing['3xl'],
-    borderRadius: theme.borderRadius.lg,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  emptyStateText: {
-    fontSize: theme.typography.fontSize.base,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.textSecondary,
   },
   membroCard: {
     backgroundColor: theme.colors.white,

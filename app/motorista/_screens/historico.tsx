@@ -190,9 +190,16 @@ export default function HistoricoMotorista() {
           >
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyTitle}>📋</Text>
-              <Text style={styles.emptyText}>Nenhuma rota registrada</Text>
+              {/* Com rotas e nenhuma no filtro, o vazio fala do filtro. */}
+              <Text style={styles.emptyText}>
+                {rotas.length > 0
+                  ? 'Nenhuma rota com esse filtro'
+                  : 'Nenhuma rota registrada'}
+              </Text>
               <Text style={styles.emptySubtext}>
-                Suas rotas aparecerão aqui após serem criadas
+                {rotas.length > 0
+                  ? 'Troque o período ou o status para ver as outras rotas'
+                  : 'Suas rotas aparecerão aqui após serem criadas'}
               </Text>
             </View>
           </ScrollView>

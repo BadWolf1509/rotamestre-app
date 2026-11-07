@@ -29,8 +29,18 @@ describe('DataTable Component', () => {
   // Sample data
   const sampleData: SampleItem[] = [
     { id: '1', name: 'João Silva', email: 'joao@example.com', status: 'ativo' },
-    { id: '2', name: 'Maria Santos', email: 'maria@example.com', status: 'ativo' },
-    { id: '3', name: 'Pedro Costa', email: 'pedro@example.com', status: 'inativo' },
+    {
+      id: '2',
+      name: 'Maria Santos',
+      email: 'maria@example.com',
+      status: 'ativo',
+    },
+    {
+      id: '3',
+      name: 'Pedro Costa',
+      email: 'pedro@example.com',
+      status: 'inativo',
+    },
   ];
 
   // Sample columns
@@ -45,8 +55,18 @@ describe('DataTable Component', () => {
   const mockDelete = jest.fn();
 
   const sampleActions: DataTableAction<SampleItem>[] = [
-    { label: 'Editar', icon: 'pencil-outline', onPress: mockEdit, type: 'primary' },
-    { label: 'Excluir', icon: 'trash-outline', onPress: mockDelete, type: 'danger' },
+    {
+      label: 'Editar',
+      icon: 'pencil-outline',
+      onPress: mockEdit,
+      type: 'primary',
+    },
+    {
+      label: 'Excluir',
+      icon: 'trash-outline',
+      onPress: mockDelete,
+      type: 'danger',
+    },
   ];
 
   beforeEach(() => {
@@ -69,7 +89,7 @@ describe('DataTable Component', () => {
           data={sampleData}
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       expect(getByText('João Silva')).toBeTruthy();
@@ -84,7 +104,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           title="Lista de Usuários"
-        />
+        />,
       );
 
       expect(getByText('Lista de Usuários')).toBeTruthy();
@@ -96,7 +116,7 @@ describe('DataTable Component', () => {
           data={sampleData}
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       expect(getByText('Nome')).toBeTruthy();
@@ -112,7 +132,7 @@ describe('DataTable Component', () => {
           data={[]}
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       expect(getByText('Nenhum registro encontrado')).toBeTruthy();
@@ -127,7 +147,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           emptyState={<CustomEmpty />}
-        />
+        />,
       );
 
       expect(getByText('Ops! Nada por aqui')).toBeTruthy();
@@ -143,7 +163,7 @@ describe('DataTable Component', () => {
           keyExtractor={(item) => item.id}
           isLoading={true}
           skeletonRows={3}
-        />
+        />,
       );
 
       expect(root).toBeTruthy();
@@ -157,7 +177,7 @@ describe('DataTable Component', () => {
           keyExtractor={(item) => item.id}
           isLoading={true}
           skeletonRows={7}
-        />
+        />,
       );
 
       expect(root).toBeTruthy();
@@ -180,7 +200,7 @@ describe('DataTable Component', () => {
           isLoading={true}
           skeletonRows={3}
           title="Carregando..."
-        />
+        />,
       );
 
       expect(getByText('Carregando...')).toBeTruthy();
@@ -195,7 +215,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           actions={sampleActions}
-        />
+        />,
       );
 
       const editButtons = getAllByText('Editar');
@@ -212,7 +232,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           actions={sampleActions}
-        />
+        />,
       );
 
       expect(getByText('Ações')).toBeTruthy();
@@ -225,7 +245,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           actions={sampleActions}
-        />
+        />,
       );
 
       const editButtons = getAllByText('Editar');
@@ -241,7 +261,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           actions={sampleActions}
-        />
+        />,
       );
 
       // Ionicons são renderizados como elementos React, não como texto
@@ -267,7 +287,7 @@ describe('DataTable Component', () => {
           keyExtractor={(item) => item.id}
           pagination={true}
           itemsPerPage={10}
-        />
+        />,
       );
 
       expect(getByText(/Página 1 de 3/)).toBeTruthy();
@@ -281,7 +301,7 @@ describe('DataTable Component', () => {
           keyExtractor={(item) => item.id}
           pagination={true}
           itemsPerPage={10}
-        />
+        />,
       );
 
       // Verifica item da primeira página
@@ -302,7 +322,7 @@ describe('DataTable Component', () => {
           keyExtractor={(item) => item.id}
           pagination={true}
           itemsPerPage={10}
-        />
+        />,
       );
 
       // Vai para página 2
@@ -321,7 +341,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           pagination={false}
-        />
+        />,
       );
 
       expect(queryByText(/Página/)).toBeNull();
@@ -338,7 +358,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           onSort={mockOnSort}
-        />
+        />,
       );
 
       // Clica no header "Nome" (sortable)
@@ -354,7 +374,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           onSort={mockOnSort}
-        />
+        />,
       );
 
       const nomeHeader = getAllByText('Nome')[0];
@@ -384,7 +404,7 @@ describe('DataTable Component', () => {
           data={[sampleData[0]]}
           columns={columnsWithRender}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       expect(getByText('ATIVO')).toBeTruthy();
@@ -408,13 +428,35 @@ describe('DataTable Component', () => {
           data={sampleData}
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       // Verifica se os labels são exibidos (característica de cards)
       expect(getAllByText('Nome:').length).toBe(3);
       expect(getAllByText('E-mail:').length).toBe(3);
       expect(getAllByText('Status:').length).toBe(3);
+    });
+
+    it('coluna de rótulo vazio (avatar) não deixa um ":" solto no card', () => {
+      const comAvatar: DataTableColumn<SampleItem>[] = [
+        {
+          key: 'avatar',
+          label: '',
+          render: (item) => <Text>{`av-${item.id}`}</Text>,
+        },
+        ...sampleColumns,
+      ];
+      const { queryAllByText, getByText } = render(
+        <DataTable
+          data={sampleData}
+          columns={comAvatar}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      expect(queryAllByText(':')).toHaveLength(0);
+      // O conteúdo da coluna continua no card, só o rótulo some.
+      expect(getByText('av-1')).toBeTruthy();
     });
 
     it('deve renderizar ações em cards no mobile', () => {
@@ -424,7 +466,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           actions={sampleActions}
-        />
+        />,
       );
 
       expect(getAllByText('Editar').length).toBe(3);
@@ -438,7 +480,7 @@ describe('DataTable Component', () => {
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
           actions={sampleActions}
-        />
+        />,
       );
 
       const deleteButtons = getAllByText('Excluir');
@@ -465,7 +507,7 @@ describe('DataTable Component', () => {
           data={sampleData}
           columns={sampleColumns}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       expect(getAllByText('Nome:').length).toBe(3);
@@ -492,7 +534,7 @@ describe('DataTable Component', () => {
           data={sampleData}
           columns={columnsWithDesktopOnly}
           keyExtractor={(item) => item.id}
-        />
+        />,
       );
 
       expect(getAllByText('Nome:').length).toBe(3);

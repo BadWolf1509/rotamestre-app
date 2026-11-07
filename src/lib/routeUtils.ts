@@ -4,6 +4,7 @@
  */
 
 import { getErrorMessage } from '@/lib/errorMapping';
+import { mensagemDaRecusaDaParada } from '@/lib/gestor/mensagemRecusaParada';
 import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import { STATUS_PARADA_ALTERAVEL } from '@/lib/gestor/paradaEditavel';
 import { googleMapsService } from '@/lib/google';
@@ -243,12 +244,16 @@ export async function reordenarParadas(
     }
 
     if (data && !data.success) {
-      // `data.error` é o SQLERRM cru do Postgres (violação de UNIQUE, nome de
-      // gatilho, lock_timeout): vai só para o log, nunca para o toast.
+      // A mensagem sai do `code` (Migration 81). `data.error` vai só para o
+      // log: num servidor antigo ele era o SQLERRM cru do Postgres.
       logger.error('[reordenarParadas] RPC returned error', {
         error: data.error,
+        code: data.code,
       });
-      return { success: false, error: 'Erro ao reordenar paradas.' };
+      return {
+        success: false,
+        error: mensagemDaRecusaDaParada(data.code, 'reordenar'),
+      };
     }
 
     logger.debug(

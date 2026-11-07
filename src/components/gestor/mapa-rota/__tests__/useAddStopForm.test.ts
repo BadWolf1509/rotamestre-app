@@ -122,6 +122,10 @@ function prepararBanco(opts: { releituraFalha?: boolean } = {}) {
 }
 
 async function inserirNaPosicao2() {
+  return (await inserirNaPosicao2ComResultado()).onSave;
+}
+
+async function inserirNaPosicao2ComResultado() {
   const onSave = jest.fn();
   const { result } = renderHook(() =>
     useAddStopForm({
@@ -143,7 +147,7 @@ async function inserirNaPosicao2() {
   await act(async () => {
     await result.current.handleSave();
   });
-  return onSave;
+  return { onSave, result };
 }
 
 const ordemEsperada = [
@@ -239,6 +243,39 @@ describe('useAddStopForm: rota otimizada vira otimizada_alterada (G12)', () => {
     await inserirNaPosicao2();
 
     expect(mockMarcarOtimizacao).not.toHaveBeenCalled();
+  });
+
+  it('recusa com code ROTA_ENCERRADA mostra o motivo, não o texto genérico (Migration 81)', async () => {
+    prepararBanco();
+    mockRpc.mockResolvedValue({
+      data: {
+        success: false,
+        code: 'ROTA_ENCERRADA',
+        error: 'qualquer texto do servidor',
+      },
+      error: null,
+    });
+
+    const { onSave, result } = await inserirNaPosicao2ComResultado();
+
+    expect(result.current.error).toBe(
+      'Esta rota já foi encerrada e não aceita mudanças. Recarregue a rota.',
+    );
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('recusa sem code (servidor antigo) segue no genérico e nunca mostra o error cru', async () => {
+    prepararBanco();
+    mockRpc.mockResolvedValue({
+      data: { success: false, error: 'rota fechada' },
+      error: null,
+    });
+
+    const { result } = await inserirNaPosicao2ComResultado();
+
+    expect(result.current.error).toBe(
+      'Erro ao adicionar parada. Tente novamente.',
+    );
   });
 });
 

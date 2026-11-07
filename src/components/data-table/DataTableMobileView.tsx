@@ -67,7 +67,10 @@ function DataTableMobileViewInner<T>({
 
               return (
                 <View key={column.key} style={styles.cardRow}>
-                  <Text style={styles.cardLabel}>{column.label}:</Text>
+                  {/* Coluna sem rótulo (o avatar) não ganha um ":" solto. */}
+                  {column.label ? (
+                    <Text style={styles.cardLabel}>{column.label}:</Text>
+                  ) : null}
                   {isReactElement ? (
                     renderedContent
                   ) : (
@@ -96,7 +99,8 @@ function DataTableMobileViewInner<T>({
                       key={idx}
                       style={[
                         styles.cardActionButton,
-                        action.type === 'danger' && styles.cardActionButtonDanger,
+                        action.type === 'danger' &&
+                          styles.cardActionButtonDanger,
                         action.type === 'secondary' &&
                           styles.cardActionButtonSecondary,
                       ]}
@@ -118,7 +122,8 @@ function DataTableMobileViewInner<T>({
                       <Text
                         style={[
                           styles.cardActionText,
-                          action.type === 'danger' && styles.cardActionTextDanger,
+                          action.type === 'danger' &&
+                            styles.cardActionTextDanger,
                           action.type === 'secondary' &&
                             styles.cardActionTextSecondary,
                         ]}
@@ -148,5 +153,5 @@ function DataTableMobileViewInner<T>({
 }
 
 export const DataTableMobileView = memo(
-  DataTableMobileViewInner
+  DataTableMobileViewInner,
 ) as typeof DataTableMobileViewInner;
