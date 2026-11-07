@@ -6,9 +6,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { toLocalISODate } from '@/lib/dateUtils';
-import { contarParadasDasRotas } from '@/lib/gestor/contarParadasDasRotas';
 import { logger } from '@/lib/logger';
 import { buscarResumoDesempenho } from '@/lib/motorista/resumoDesempenho';
+import { contarParadasDasRotas } from '@/lib/paradas/contarParadasDasRotas';
 import { supabase } from '@/lib/supabase';
 
 // Milestones disponíveis

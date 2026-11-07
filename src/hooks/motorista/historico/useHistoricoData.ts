@@ -6,11 +6,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
+import { logger } from '@/lib/logger';
 import {
   contarParadasDasRotas,
   TAMANHO_PAGINA,
-} from '@/lib/gestor/contarParadasDasRotas';
-import { logger } from '@/lib/logger';
+} from '@/lib/paradas/contarParadasDasRotas';
 import { supabase } from '@/lib/supabase';
 
 import type { RotaHistorico } from './types';
