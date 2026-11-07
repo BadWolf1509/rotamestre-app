@@ -10,16 +10,25 @@
 // A chave publishable (`sb_publishable_...`) também chega como Bearer quando o
 // cliente não tem sessão; ela não é um JWT de usuário e o `getUser` a recusa.
 
-export type ValidarAutorizacao = (authorization: string) => Promise<boolean>;
+/** O usuário que a validação reconheceu (só o que as funções usam). */
+export interface UsuarioAutenticado {
+  id: string;
+}
+
+/** Devolve o usuário do Authorization, ou `null` quando não há usuário. */
+export type ValidarAutorizacao = (
+  authorization: string,
+) => Promise<UsuarioAutenticado | null>;
 
 /**
- * @returns `null` quando há usuário válido; uma `Response` 401 pronta quando não.
+ * @returns `{ usuario }` quando há usuário válido; uma `Response` 401 pronta
+ * quando não. Quem chama testa `instanceof Response` e devolve a recusa.
  */
 export async function exigirUsuario(
   req: Request,
   validar: ValidarAutorizacao,
   corsHeaders: Record<string, string>,
-): Promise<Response | null> {
+): Promise<{ usuario: UsuarioAutenticado } | Response> {
   const recusa = () =>
     new Response(JSON.stringify({ error: 'Não autorizado' }), {
       status: 401,
@@ -32,7 +41,8 @@ export async function exigirUsuario(
   }
 
   try {
-    return (await validar(authorization)) ? null : recusa();
+    const usuario = await validar(authorization);
+    return usuario ? { usuario } : recusa();
   } catch (error) {
     // O detalhe fica no log da função; o cliente só recebe 401.
     console.error('[autenticacao] Falha ao validar o usuário:', error);
@@ -70,6 +80,10 @@ export function criarValidadorDeUsuario(
       data: { user },
       error,
     } = await cliente.auth.getUser();
-    return !error && !!user;
+    if (error || typeof user !== 'object' || user === null) return null;
+    if (!('id' in user) || typeof user.id !== 'string' || user.id === '') {
+      return null;
+    }
+    return { id: user.id };
   };
 }
