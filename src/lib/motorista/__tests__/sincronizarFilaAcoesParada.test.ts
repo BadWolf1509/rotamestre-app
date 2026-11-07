@@ -1,3 +1,8 @@
+import {
+  descartarLeituraEmCurso,
+  lerSessao,
+  PRAZO_LEITURA_SESSAO_MS,
+} from '@/lib/auth/sessao';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -53,4 +58,44 @@ it('sem sessão (token vencido offline): a ação espera, não vai ao banco', as
   expect(r.enviadas).toBe(0);
   expect(supabase.from).not.toHaveBeenCalled();
   expect(await lerFilaAcoesParada()).toHaveLength(1);
+});
+
+it('leitura de sessão presa que estourou o prazo: a volta da rede relê e envia (I-1)', async () => {
+  jest.useFakeTimers();
+  try {
+    const getSession = supabase.auth.getSession as jest.Mock;
+    // 1ª leitura: o refresh do auth-js fica preso e o prazo de 10 s estoura,
+    // deixando o OFFLINE guardado em `leituraEmCurso`.
+    getSession.mockReturnValueOnce(new Promise(() => {}));
+    const leitura = lerSessao();
+    await jest.advanceTimersByTimeAsync(PRAZO_LEITURA_SESSAO_MS + 1);
+    await expect(leitura).resolves.toMatchObject({ offline: true });
+
+    // A rede volta (NetInfo conectado) e a sincronização dispara: a sessão já
+    // responde, mas a leitura compartilhada ainda devolveria o OFFLINE velho.
+    getSession.mockResolvedValue({
+      data: { session: { user: { id: 'mot-1' } } },
+      error: null,
+    });
+    await enfileirarAcaoParada(
+      criarAcaoParada({
+        tipo: 'concluir',
+        paradaId: 'p1',
+        rotaId: 'r1',
+        motoristaId: 'mot-1',
+        em: '2026-10-23T12:00:00.000Z',
+      }),
+    );
+    // Sem a porta real montada, o envio para no `from`: basta ele ser chamado.
+    (supabase.from as jest.Mock).mockImplementation(() => {
+      throw new Error('banco indisponível no teste');
+    });
+
+    await sincronizarFilaAcoesParada();
+
+    expect(supabase.from).toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+    descartarLeituraEmCurso();
+  }
 });
