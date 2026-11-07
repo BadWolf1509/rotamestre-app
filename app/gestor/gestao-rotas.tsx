@@ -218,7 +218,7 @@ export default function GestaoRotas() {
     {
       key: 'status',
       label: 'Status',
-      width: 110,
+      width: 140,
       sortable: true,
       render: (rota) => {
         if (!rota.status) {

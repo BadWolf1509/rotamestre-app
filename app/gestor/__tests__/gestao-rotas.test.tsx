@@ -37,6 +37,20 @@ afterEach(() => {
   );
 });
 
+// Captura as colunas que a tela entrega ao DataTable (render real preservado).
+let mockColunasDaTabela: { key: string; width?: number }[] = [];
+jest.mock('@/design-system', () => {
+  const real = jest.requireActual('@/design-system');
+  const ReactLocal = jest.requireActual('react');
+  return {
+    ...real,
+    DataTable: (props: { columns: { key: string; width?: number }[] }) => {
+      mockColunasDaTabela = props.columns;
+      return ReactLocal.createElement(real.DataTable, props);
+    },
+  };
+});
+
 const mockExportarCSV = jest.fn();
 const mockExportarXLSX = jest.fn();
 const mockLoadRotas = jest.fn();
@@ -109,6 +123,14 @@ describe('GestaoRotas (mobile/tablet)', () => {
     expect(cores?.pendente).toBe(colors.warning);
     expect(cores?.em_andamento).toBe(colors.info);
     expect(cores?.concluida).toBe(colors.success);
+  });
+
+  it('a coluna Status é larga o bastante para "Não executada" sem reticências', () => {
+    mockEstadoHook = { rotasFiltradas: rotasFalsas(3), total: 3 };
+    render(<GestaoRotas />);
+
+    const status = mockColunasDaTabela.find((c) => c.key === 'status');
+    expect(status?.width).toBeGreaterThanOrEqual(140);
   });
 
   it('Exportar abre as opções na tela (não Alert) e Excel exporta XLSX', () => {

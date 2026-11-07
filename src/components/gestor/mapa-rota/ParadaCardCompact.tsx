@@ -114,6 +114,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             variant="soft"
             size="sm"
             icon={status.icon}
+            testID="parada-status-badge"
+            containerStyle={styles.statusBadge}
           />
 
           {/* Chevron para expandir */}
@@ -381,6 +383,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     fontWeight: '600',
     color: theme.colors.gray900,
+  },
+  statusBadge: {
+    // O badge tem alignSelf flex-start; aqui ele centraliza na linha do cartão
+    alignSelf: 'center',
   },
   row2: {
     flexDirection: 'row',

@@ -6,7 +6,7 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import * as Linking from 'expo-linking';
 import React from 'react';
-import { Image } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 import { ParadaCardCompact } from '../ParadaCardCompact';
 
@@ -121,6 +121,15 @@ describe('ParadaCardCompact', () => {
       expect(getByTestId('icon-cube')).toBeTruthy();
       expect(getByText('Pendente')).toBeTruthy();
       expect(queryByText('Pend')).toBeNull();
+    });
+
+    it('o badge de status fica centralizado na linha, não no topo', () => {
+      const { getByTestId } = render(<ParadaCardCompact {...defaultProps} />);
+
+      const estilo = StyleSheet.flatten(
+        getByTestId('parada-status-badge').props.style,
+      );
+      expect(estilo.alignSelf).toBe('center');
     });
 
     it('deve truncar endereço longo', () => {
