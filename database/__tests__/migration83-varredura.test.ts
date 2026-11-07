@@ -364,9 +364,20 @@ describe('Migration 83: COMMENT, rollback, sonda e documentação', () => {
     }
   });
 
-  it('MIGRATIONS.md registra a 83 como não aplicada', () => {
+  it('MIGRATIONS.md registra a 83 como aplicada (07/11/2026)', () => {
     const doc = ler(CAMINHO_DOC);
-    expect(doc).toMatch(/### ⏳ Migration 83:/);
+    expect(doc).toMatch(/### ✅ Migration 83:/);
+    expect(doc).not.toMatch(/### ⏳ Migration 83:/);
     expect(doc).toContain(ARQUIVO);
+  });
+
+  it('casos 2 e 3 da sonda contam só lembretes (a rota do cenário nasce com nova_rota_atribuida)', () => {
+    const contagens =
+      sonda.match(/FROM public\.notificacoes WHERE rota_id = v_rota2[^;]*;/g) ??
+      [];
+    expect(contagens).toHaveLength(2);
+    for (const c of contagens) {
+      expect(c).toContain("tipo LIKE 'lembrete_rota_%'");
+    }
   });
 });

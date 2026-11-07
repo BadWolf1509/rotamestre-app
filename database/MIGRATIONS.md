@@ -3587,9 +3587,17 @@ e motorista. Rollback colável (corpos vivos de 06/11/2026, ACL e COMMENT).
 
 ---
 
-### ⏳ Migration 83: varredura de 07/11 — aviso de expiração pelo vínculo, lembrete na janela, conclusão só sem parada aberta, retenção de notificações
+### ✅ Migration 83: varredura de 07/11 — aviso de expiração pelo vínculo, lembrete na janela, conclusão só sem parada aberta, retenção de notificações
 
-**Arquivo:** `20261107120000_varredura_07_11_banco.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261107120000_varredura_07_11_banco.sql` · **✅ aplicada em
+07/11/2026** (~17:00 de Brasília) pelo CLI (`db query --linked`), registrada
+com a versão do arquivo. **Sonda medida:** 3 OK / 8 FALHOU sem a migration,
+11/11 OK com o corpo na mesma execução e 11/11 OK depois de aplicada; nenhum
+resíduo (usuários, lojas, notificações e rotas expiradas da sonda: 0). A
+primeira rodada com o corpo deu FALHOU nos casos 2 e 3 por defeito da
+**sonda**: a rota do cenário nasce com motorista e o gatilho de rota nova cria
+`nova_rota_atribuida`, que a contagem pegava; desde então os casos 2 e 3
+contam só `tipo LIKE 'lembrete_rota_%'`.
 Aplicar como `postgres` pelo CLI (`db query --linked`) com a sonda na mesma
 execução antes (esperados FALHOU nos casos 1, 2, 3, 4, 5, 9, 10 e 11; OK nos
 casos 6, 7 e 8), depois a migration, depois a sonda de novo (11/11 OK);
