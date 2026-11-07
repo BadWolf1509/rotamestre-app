@@ -1,4 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { Linking } from 'react-native';
 
 import { SupportModal } from '../SupportModal';
@@ -81,7 +86,7 @@ describe('SupportModal', () => {
   describe('Props', () => {
     it('deve aceitar visible=false', () => {
       const { toJSON } = render(
-        <SupportModal visible={false} onClose={mockOnClose} />
+        <SupportModal visible={false} onClose={mockOnClose} />,
       );
 
       // Modal com visible=false não renderiza conteúdo visível no React Native
@@ -122,14 +127,8 @@ describe('SupportModal', () => {
       fireEvent.press(screen.getByText('WhatsApp'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('wa.me')
-        );
-      });
-
-      await waitFor(() => {
         expect(mockOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('wa.me')
+          expect.stringContaining('wa.me'),
         );
       });
     });
@@ -140,14 +139,8 @@ describe('SupportModal', () => {
       fireEvent.press(screen.getByText('Telefone'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('tel:')
-        );
-      });
-
-      await waitFor(() => {
         expect(mockOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('tel:')
+          expect.stringContaining('tel:'),
         );
       });
     });
@@ -158,65 +151,69 @@ describe('SupportModal', () => {
       fireEvent.press(screen.getByText('E-mail'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('mailto:')
-        );
-      });
-
-      await waitFor(() => {
         expect(mockOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('mailto:contato@rotamestre.tec.br')
+          expect.stringContaining('mailto:contato@rotamestre.tec.br'),
         );
       });
     });
 
-    it('não deve abrir URL se canOpenURL retornar false', async () => {
-      mockCanOpenURL.mockResolvedValueOnce(false);
+    // No Android 11+ o canOpenURL responde false sem <queries>, mesmo com app
+    // instalado: consultá-lo antes engolia o toque em silêncio.
+    it.each([
+      ['WhatsApp', 'wa.me'],
+      ['E-mail', 'mailto:'],
+      ['Telefone', 'tel:'],
+    ])(
+      'toque em %s abre mesmo quando canOpenURL responde false',
+      async (rotulo, trecho) => {
+        mockCanOpenURL.mockResolvedValue(false);
 
-      render(<SupportModal visible={true} onClose={mockOnClose} />);
+        render(<SupportModal visible={true} onClose={mockOnClose} />);
 
-      fireEvent.press(screen.getByText('WhatsApp'));
+        fireEvent.press(screen.getByText(rotulo));
 
-      await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalled();
-      });
+        await waitFor(() => {
+          expect(mockOpenURL).toHaveBeenCalledWith(
+            expect.stringContaining(trecho),
+          );
+        });
+        expect(mockCanOpenURL).not.toHaveBeenCalled();
+      },
+    );
 
-      expect(mockOpenURL).not.toHaveBeenCalled();
-    });
+    it.each([['WhatsApp'], ['E-mail'], ['Telefone']])(
+      'openURL que rejeita em %s avisa o usuário em vez de falhar em silêncio',
+      async (rotulo) => {
+        mockOpenURL.mockRejectedValueOnce(new Error('sem app'));
 
-    it('não deve abrir email se canOpenURL retornar false', async () => {
-      mockCanOpenURL.mockResolvedValueOnce(false);
+        render(<SupportModal visible={true} onClose={mockOnClose} />);
 
-      render(<SupportModal visible={true} onClose={mockOnClose} />);
+        fireEvent.press(screen.getByText(rotulo));
 
-      fireEvent.press(screen.getByText('E-mail'));
+        expect(await screen.findByText(/Não foi possível abrir/)).toBeTruthy();
+      },
+    );
 
-      await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalled();
-      });
-
-      expect(mockOpenURL).not.toHaveBeenCalled();
-    });
-
-    it('não deve abrir telefone se canOpenURL retornar false', async () => {
-      mockCanOpenURL.mockResolvedValueOnce(false);
+    it('o aviso some ao tentar outro contato com sucesso', async () => {
+      mockOpenURL.mockRejectedValueOnce(new Error('sem app'));
 
       render(<SupportModal visible={true} onClose={mockOnClose} />);
 
       fireEvent.press(screen.getByText('Telefone'));
+      await screen.findByText(/Não foi possível abrir/);
+
+      fireEvent.press(screen.getByText('E-mail'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalled();
+        expect(screen.queryByText(/Não foi possível abrir/)).toBeNull();
       });
-
-      expect(mockOpenURL).not.toHaveBeenCalled();
     });
   });
 
   describe('Modal Props', () => {
     it('deve ter onRequestClose configurado para onClose', () => {
       const { UNSAFE_getByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Modal = require('react-native').Modal;
@@ -227,7 +224,7 @@ describe('SupportModal', () => {
 
     it('deve ter transparent=true', () => {
       const { UNSAFE_getByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Modal = require('react-native').Modal;
@@ -238,7 +235,7 @@ describe('SupportModal', () => {
 
     it('deve ter animationType fade', () => {
       const { UNSAFE_getByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Modal = require('react-native').Modal;
@@ -251,7 +248,7 @@ describe('SupportModal', () => {
   describe('Fechamento via onRequestClose', () => {
     it('deve ter onRequestClose configurado que chama onClose', () => {
       const { UNSAFE_getByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Modal = require('react-native').Modal;
@@ -265,32 +262,36 @@ describe('SupportModal', () => {
   describe('Ícones', () => {
     it('deve renderizar ícone de ajuda no header', () => {
       const { UNSAFE_getAllByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const icons = UNSAFE_getAllByType(Ionicons);
 
       // Procurar o ícone help-circle
-      const helpIcon = icons.find((icon: any) => icon.props.name === 'help-circle');
+      const helpIcon = icons.find(
+        (icon: any) => icon.props.name === 'help-circle',
+      );
       expect(helpIcon).toBeTruthy();
     });
 
     it('deve renderizar ícone do WhatsApp', () => {
       const { UNSAFE_getAllByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const icons = UNSAFE_getAllByType(Ionicons);
 
-      const whatsappIcon = icons.find((icon: any) => icon.props.name === 'logo-whatsapp');
+      const whatsappIcon = icons.find(
+        (icon: any) => icon.props.name === 'logo-whatsapp',
+      );
       expect(whatsappIcon).toBeTruthy();
     });
 
     it('deve renderizar ícone de telefone', () => {
       const { UNSAFE_getAllByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
@@ -302,7 +303,7 @@ describe('SupportModal', () => {
 
     it('deve renderizar ícone de email', () => {
       const { UNSAFE_getAllByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
@@ -314,13 +315,15 @@ describe('SupportModal', () => {
 
     it('deve renderizar ícones de seta (chevron-forward)', () => {
       const { UNSAFE_getAllByType } = render(
-        <SupportModal visible={true} onClose={mockOnClose} />
+        <SupportModal visible={true} onClose={mockOnClose} />,
       );
 
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const icons = UNSAFE_getAllByType(Ionicons);
 
-      const chevronIcons = icons.filter((icon: any) => icon.props.name === 'chevron-forward');
+      const chevronIcons = icons.filter(
+        (icon: any) => icon.props.name === 'chevron-forward',
+      );
       expect(chevronIcons.length).toBe(3); // 3 opções de contato
     });
   });
@@ -332,16 +335,13 @@ describe('SupportModal', () => {
       fireEvent.press(screen.getByText('WhatsApp'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('5583987156206')
-        );
-      });
-
-      await waitFor(() => {
         expect(mockOpenURL).toHaveBeenCalledWith(
-          expect.stringContaining('text=')
+          expect.stringContaining('5583987156206'),
         );
       });
+      expect(mockOpenURL).toHaveBeenCalledWith(
+        expect.stringContaining('text='),
+      );
     });
 
     it('deve usar número correto para telefone', async () => {
@@ -350,7 +350,7 @@ describe('SupportModal', () => {
       fireEvent.press(screen.getByText('Telefone'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalledWith('tel:83987156206');
+        expect(mockOpenURL).toHaveBeenCalledWith('tel:83987156206');
       });
     });
 
@@ -360,7 +360,9 @@ describe('SupportModal', () => {
       fireEvent.press(screen.getByText('E-mail'));
 
       await waitFor(() => {
-        expect(mockCanOpenURL).toHaveBeenCalledWith('mailto:contato@rotamestre.tec.br');
+        expect(mockOpenURL).toHaveBeenCalledWith(
+          'mailto:contato@rotamestre.tec.br',
+        );
       });
     });
   });

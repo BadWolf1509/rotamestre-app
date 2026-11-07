@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   View,
@@ -11,7 +11,16 @@ import {
   Pressable,
 } from 'react-native';
 
+import {
+  SUPORTE_EMAIL,
+  SUPORTE_MENSAGEM,
+  SUPORTE_TELEFONE,
+  SUPORTE_TELEFONE_EXIBICAO,
+  SUPORTE_TELEFONE_LOCAL,
+  avisoContatoIndisponivel,
+} from '@/constants/suporte';
 import { useResponsive } from '@/hooks/useResponsive';
+import { logger } from '@/lib/logger';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 import { defaultTheme } from '@/utils/styles.base';
@@ -57,39 +66,37 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const scrollPositionRef = useRef(0);
 
-  const handleCall = () => {
-    const phoneNumber = '83987156206';
-    const url = `tel:${phoneNumber}`;
+  const [aviso, setAviso] = useState<string | null>(null);
 
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
-      }
-    });
+  // `openURL` direto, sem `canOpenURL`: no Android 11+ ele responde false para
+  // `tel:`/`mailto:`/`https:` sem <queries> no manifest, mesmo com o app
+  // instalado, e o toque virava um não-fazer-nada. Se abrir falhar, avisa.
+  const abrirContato = async (url: string, canal: string) => {
+    setAviso(null);
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      logger.warn('[SupportModal] Falha ao abrir o contato:', error);
+      setAviso(avisoContatoIndisponivel(canal));
+    }
   };
 
-  const handleEmail = () => {
-    const email = 'contato@rotamestre.tec.br';
-    const url = `mailto:${email}`;
+  // Reabrir o modal não mostra o aviso da tentativa anterior.
+  useEffect(() => {
+    if (!visible) setAviso(null);
+  }, [visible]);
 
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
-      }
-    });
-  };
+  const handleCall = () =>
+    abrirContato(`tel:${SUPORTE_TELEFONE_LOCAL}`, 'o discador');
 
-  const handleWhatsApp = () => {
-    const phoneNumber = '5583987156206';
-    const message = 'Olá! Preciso de ajuda com o RotaMestre.';
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+  const handleEmail = () =>
+    abrirContato(`mailto:${SUPORTE_EMAIL}`, 'o aplicativo de e-mail');
 
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
-      }
-    });
-  };
+  const handleWhatsApp = () =>
+    abrirContato(
+      `https://wa.me/${SUPORTE_TELEFONE}?text=${encodeURIComponent(SUPORTE_MENSAGEM)}`,
+      'o WhatsApp',
+    );
 
   // Web: Control dialog open/close state
   useEffect(() => {
@@ -312,7 +319,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                     color: theme.colors.gray900,
                   }}
                 >
-                  (83) 98715-6206
+                  {SUPORTE_TELEFONE_EXIBICAO}
                 </div>
               </div>
               <Ionicons
@@ -387,7 +394,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                     color: theme.colors.gray900,
                   }}
                 >
-                  (83) 98715-6206
+                  {SUPORTE_TELEFONE_EXIBICAO}
                 </div>
               </div>
               <Ionicons
@@ -459,7 +466,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
                     color: theme.colors.gray900,
                   }}
                 >
-                  contato@rotamestre.tec.br
+                  {SUPORTE_EMAIL}
                 </div>
               </div>
               <Ionicons
@@ -469,6 +476,20 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               />
             </button>
           </div>
+
+          {aviso ? (
+            <div
+              role="alert"
+              style={{
+                padding: `0 ${isDesktop ? theme.spacing['3'] : theme.spacing['4']}px ${theme.spacing['3']}px`,
+                fontSize: isDesktop ? 13 : 14,
+                color: theme.colors.error,
+                textAlign: 'center',
+              }}
+            >
+              {aviso}
+            </div>
+          ) : null}
 
           {/* Footer */}
           <div
@@ -561,7 +582,9 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>WhatsApp</Text>
-                <Text style={styles.contactValue}>(83) 98715-6206</Text>
+                <Text style={styles.contactValue}>
+                  {SUPORTE_TELEFONE_EXIBICAO}
+                </Text>
               </View>
               <Ionicons
                 name="chevron-forward"
@@ -581,7 +604,9 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>Telefone</Text>
-                <Text style={styles.contactValue}>(83) 98715-6206</Text>
+                <Text style={styles.contactValue}>
+                  {SUPORTE_TELEFONE_EXIBICAO}
+                </Text>
               </View>
               <Ionicons
                 name="chevron-forward"
@@ -604,9 +629,7 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               </View>
               <View style={styles.contactInfo}>
                 <Text style={styles.contactLabel}>E-mail</Text>
-                <Text style={styles.contactValue}>
-                  contato@rotamestre.tec.br
-                </Text>
+                <Text style={styles.contactValue}>{SUPORTE_EMAIL}</Text>
               </View>
               <Ionicons
                 name="chevron-forward"
@@ -615,6 +638,12 @@ export function SupportModal({ visible, onClose }: SupportModalProps) {
               />
             </TouchableOpacity>
           </View>
+
+          {aviso ? (
+            <Text accessibilityRole="alert" style={styles.aviso}>
+              {aviso}
+            </Text>
+          ) : null}
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -707,6 +736,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     padding: theme.spacing.lg,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+  },
+  aviso: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.error,
+    textAlign: 'center',
   },
   closeButton: {
     backgroundColor: theme.colors.gray100,

@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { SUPORTE_EMAIL, SUPORTE_TELEFONE } from '@/constants/suporte';
 import { useAlert } from '@/hooks/useAlert';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
@@ -102,7 +103,7 @@ const SUPPORT_OPTIONS = [
     id: 'email',
     icon: '📧',
     label: 'Email',
-    description: 'contato@rotamestre.tec.br',
+    description: SUPORTE_EMAIL,
     action: 'email',
   },
   {
@@ -125,8 +126,8 @@ export default function AjudaScreen() {
   }
 
   async function handleSupportAction(action: string) {
-    const supportPhone = '5583987156206';
-    const supportEmail = 'contato@rotamestre.tec.br';
+    const supportPhone = SUPORTE_TELEFONE;
+    const supportEmail = SUPORTE_EMAIL;
 
     switch (action) {
       case 'whatsapp': {
