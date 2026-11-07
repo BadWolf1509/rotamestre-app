@@ -8,6 +8,16 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Bancada da 3057 e merges de 06–07/11/2026 (#710, #728–#731)
+
+**Na `main`:** #710 (SDK 58, 1.15.0 3056), #728 (varredura de 05/11; versionCode 3057), #730 (docs), #729 (Migrations 81 e 82) e #731 (ajustes da bancada). **Play:** interna 3056 em 06/11 e **3057** em 07/11; alpha seguiu na 3051. **Banco:** Migrations 81 (`inserir_parada`/`reordenar_paradas` só em rota aberta, `{success,code,error}`, trava `FOR NO KEY UPDATE`, ids conferidos antes do UPDATE) e 82 (10 funções sem uso apagadas) aplicadas pelo CLI em 07/11; sonda da 81 FALHOU antes nos casos 1, 3–6 e 8–11 (rota encerrada aceita, id de outra rota ignorado, `duplicate key …` no `error`) e 11/11 depois. **Edge Functions** publicadas com o #728: as quatro passaram a responder 401 sem credencial (a `criar-motorista` dava 500).
+
+**Validado no moto g15 (3056/3057):** arrasto nas duas telas; push FCM com toque abrindo Paradas e push v18 aos 3 tokens; Sair → "Esqueci a senha" (`/auth/v1/recover` 200) → login; GPS da Início `BALANCED_POWER_ACCURACY` 10 s/50 m (era `HIGH_ACCURACY`) e desligado na navegação, com o rastreamento de 20 m mantido; concluir pela Início/navegação, Paradas e Mapa abre o mesmo fluxo de foto na parada certa, um modal só; slider do raio grava ao soltar; ícone de conexão da Início vira nuvem cortada sem rede e volta; estados vazios (Histórico, Início do gestor, Gestão de Rotas filtrada, Equipe); mapa do gestor no tema escuro; Reordenar; adicionar/editar parada com foco estável e Places pelas funções novas; Incidentes; Sair sem rede com token válido leva ao login. **Achados que viraram o #731:** ":" solto nos cards de Motoristas (coluna do avatar sem rótulo), vazio da Equipe fora do `EmptyState`, texto do Histórico filtrado falando de "rotas futuras", `ConnectivityBanner` sem nenhuma tela que o montasse. **Não testável aqui:** restauração pós-câmera (o g15 não recria a Activity), OSRM na navegação (build de produção não loga).
+
+**Pendência 33 na 3057:** a R-NUC-1 não resolveu; o sintoma mudou (o login preso sumiu do dump, as abas seguem sem reagir) e apareceu a pista da senha preenchida — ver o `PROJECT_CONTEXT`.
+
+**Lições de bancada:** `uiautomator dump` devolve a hierarquia da Play Store depois de ela ter estado em primeiro plano — use screenshot e `dumpsys activity top`; a API do Supabase corta mensagem de erro em ~1.200 caracteres, então sonda longa precisa de um `RAISE` final resumido (só na cópia de execução); `db query --linked` roda do checkout principal (o worktree não tem `supabase link`).
+
 ## Expo SDK 58 no aparelho (04–05/11/2026)
 
 Builds 3052 a 3055 da 1.15.0 pela faixa interna (Actions `eas-build-android.yml`, hash e certificado conferidos a cada um), depois um dev client do SDK 58 com o Metro do worktree. Estado e o que falta: pendência 31; achado aberto: pendência 33.
