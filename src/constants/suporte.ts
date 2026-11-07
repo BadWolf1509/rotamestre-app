@@ -27,3 +27,11 @@ export const SUPORTE_MENSAGEM = 'Olá! Preciso de ajuda com o RotaMestre.';
 export function avisoContatoIndisponivel(canal: string): string {
   return `Não foi possível abrir ${canal}. Use o outro contato listado aqui.`;
 }
+
+/** Mensagem inicial do WhatsApp aberto pela Ajuda do motorista. */
+export const SUPORTE_MENSAGEM_MOTORISTA =
+  'Olá! Preciso de ajuda com o app RotaMestre.';
+
+/** Mensagem inicial do WhatsApp aberto pela Ajuda do gestor. */
+export const SUPORTE_MENSAGEM_GESTOR =
+  'Olá! Sou gestor e preciso de suporte com o RotaMestre.';

@@ -5,13 +5,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { SUPORTE_EMAIL_GESTOR, SUPORTE_TELEFONE } from '@/constants/suporte';
+import {
+  avisoContatoIndisponivel,
+  SUPORTE_EMAIL_GESTOR,
+  SUPORTE_MENSAGEM_GESTOR,
+  SUPORTE_TELEFONE,
+  SUPORTE_TELEFONE_LOCAL,
+} from '@/constants/suporte';
 import { useAlert } from '@/hooks/useAlert';
+import { logger } from '@/lib/logger';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
 
 interface FAQItem {
@@ -110,54 +116,44 @@ const SUPPORT_OPTIONS = [
 export default function AjudaGestorScreen() {
   const { theme: _theme } = useUnistyles();
   const insets = useSafeAreaInsets();
-  const { showWarning, showError, AlertDialog } = useAlert();
+  const { showWarning, AlertDialog } = useAlert();
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
 
   function toggleFAQ(id: string) {
     setExpandedFAQ((prev) => (prev === id ? null : id));
   }
 
+  // `openURL` direto, sem `canOpenURL`: no Android 11+ ele responde false para
+  // `whatsapp:`/`tel:`/`mailto:` sem <queries> no manifest, mesmo com o app
+  // instalado. Se abrir falhar, avisa (mesma regra do SupportModal).
+  async function abrirContato(url: string, canal: string) {
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      logger.warn('[Ajuda] Falha ao abrir o contato:', error);
+      showWarning('Contato indisponível', avisoContatoIndisponivel(canal));
+    }
+  }
+
   async function handleSupportAction(action: string) {
-    const supportPhone = SUPORTE_TELEFONE;
-    const supportEmail = SUPORTE_EMAIL_GESTOR;
-
     switch (action) {
-      case 'whatsapp': {
-        const whatsappUrl = Platform.select({
-          ios: `whatsapp://send?phone=${supportPhone}&text=${encodeURIComponent('Olá! Sou gestor e preciso de suporte com o RotaMestre.')}`,
-          android: `whatsapp://send?phone=${supportPhone}&text=${encodeURIComponent('Olá! Sou gestor e preciso de suporte com o RotaMestre.')}`,
-          default: `https://wa.me/${supportPhone}?text=${encodeURIComponent('Olá! Sou gestor e preciso de suporte com o RotaMestre.')}`,
-        });
-        try {
-          const canOpen = await Linking.canOpenURL(whatsappUrl);
-          if (canOpen) {
-            await Linking.openURL(whatsappUrl);
-          } else {
-            showWarning(
-              'WhatsApp não instalado',
-              'Tente outro método de contato.',
-            );
-          }
-        } catch {
-          showError({
-            title: 'Erro',
-            message: 'Não foi possível abrir o WhatsApp.',
-          });
-        }
+      case 'whatsapp':
+        await abrirContato(
+          `https://wa.me/${SUPORTE_TELEFONE}?text=${encodeURIComponent(SUPORTE_MENSAGEM_GESTOR)}`,
+          'o WhatsApp',
+        );
         break;
-      }
 
-      case 'email': {
-        const emailUrl = `mailto:${supportEmail}?subject=${encodeURIComponent('Suporte Gestor - RotaMestre')}&body=${encodeURIComponent('Olá,\n\nSou gestor e preciso de ajuda com:\n\n')}`;
-        await Linking.openURL(emailUrl);
+      case 'email':
+        await abrirContato(
+          `mailto:${SUPORTE_EMAIL_GESTOR}?subject=${encodeURIComponent('Suporte Gestor - RotaMestre')}&body=${encodeURIComponent('Olá,\n\nSou gestor e preciso de ajuda com:\n\n')}`,
+          'o aplicativo de e-mail',
+        );
         break;
-      }
 
-      case 'phone': {
-        const phoneUrl = `tel:${supportPhone.replace(/\D/g, '')}`;
-        await Linking.openURL(phoneUrl);
+      case 'phone':
+        await abrirContato(`tel:${SUPORTE_TELEFONE_LOCAL}`, 'o discador');
         break;
-      }
     }
   }
 

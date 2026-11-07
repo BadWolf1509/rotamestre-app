@@ -206,6 +206,55 @@ describe('useDrawerContact', () => {
       });
     });
 
+    it('abre o WhatsApp pelo link https, sem consultar canOpenURL (Android 11+ responde false)', async () => {
+      const pode = jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(false);
+      const abrir = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+      const menu = jest
+        .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+        .mockImplementation((_opcoes, aoEscolher) => aoEscolher(0));
+
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
+      await act(async () => {
+        await result.current.handleContactGestor();
+      });
+
+      expect(abrir).toHaveBeenCalledTimes(1);
+      expect(abrir.mock.calls[0][0]).toMatch(/^https:\/\/wa\.me\//);
+      expect(pode).not.toHaveBeenCalled();
+
+      menu.mockRestore();
+      pode.mockRestore();
+      abrir.mockRestore();
+    });
+
+    it('openURL que rejeita cai nas opções de ligar/e-mail em vez de estourar', async () => {
+      const abrir = jest
+        .spyOn(Linking, 'openURL')
+        .mockRejectedValue(new Error('sem app'));
+      const menu = jest
+        .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+        .mockImplementation((_opcoes, aoEscolher) => aoEscolher(0));
+      (Alert.alert as jest.Mock).mockClear();
+
+      const { result } = renderHook(() =>
+        useDrawerContact({ onClose: mockOnClose }),
+      );
+      await act(async () => {
+        await result.current.handleContactGestor();
+      });
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'WhatsApp não disponível',
+        expect.any(String),
+        expect.any(Array),
+      );
+
+      menu.mockRestore();
+      abrir.mockRestore();
+    });
+
     it('should handle exception during contact', async () => {
       mockMaybeSingle.mockRejectedValueOnce(new Error('Network error'));
 
