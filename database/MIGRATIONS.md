@@ -3479,10 +3479,11 @@ view mostrava); real sem teto 224, 376 e 242; real com o teto de 24 h da view
 
 ---
 
-### ⏳ Migration 81: `inserir_parada` e `reordenar_paradas` só em rota aberta, com `code` na resposta
+### ✅ Migration 81: `inserir_parada` e `reordenar_paradas` só em rota aberta, com `code` na resposta
 
-**Arquivo:** `20261107100000_rpcs_paradas_rota_aberta_e_codigos.sql` · **⏳ não
-aplicada.** Aplicar pelo CLI (`db query --linked`) com a sonda na mesma
+**Arquivo:** `20261107100000_rpcs_paradas_rota_aberta_e_codigos.sql` · **✅ aplicada
+em 07/11/2026** pelo CLI (`db query --linked`), registrada com a versão do
+arquivo; sonda depois de aplicada: 11/11 OK. Aplicar pelo CLI (`db query --linked`) com a sonda na mesma
 execução antes (esperados FALHOU nos casos 1, 3, 4, 5, 6, 8, 9, 10 e 11; OK nos
 casos 2 e 7), depois a migration, depois a sonda de novo (11/11 OK). **Sonda
 medida em 07/11/2026** (pelo CLI, RAISE final resumido): exatamente esses
@@ -3547,9 +3548,11 @@ vivos de 06/11/2026).
 
 ---
 
-### ⏳ Migration 82: apagar dez funções sem uso
+### ✅ Migration 82: apagar dez funções sem uso
 
-**Arquivo:** `20261107101000_apagar_funcoes_mortas.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261107101000_apagar_funcoes_mortas.sql` · **✅ aplicada em
+07/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo;
+sonda depois de aplicada: 3/3 OK.
 Aplicar pelo CLI (`db query --linked`) com a sonda na mesma execução antes
 (esperados FALHOU nos casos 1 e 2; OK no caso 3), depois a migration, depois a
 sonda de novo (3/3 OK); registrar com a versão do arquivo. **Sonda medida em
