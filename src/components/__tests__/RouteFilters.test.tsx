@@ -279,5 +279,26 @@ describe('RouteFilters', () => {
         'Em andamento, hoje, Bia Lima',
       );
     });
+
+    it.each([
+      [{ dataInicio: new Date(2026, 10, 1) }, 'a partir de 01/11/2026'],
+      [{ dataFim: new Date(2026, 10, 5) }, 'até 05/11/2026'],
+    ])(
+      'no meio da frase, o período fica em minúscula (%o)',
+      (datas, trecho) => {
+        const { getByTestId } = render(
+          <RouteFilters
+            {...defaultProps}
+            motoristas={motoristas}
+            variant="desktop"
+            filters={datas}
+          />,
+        );
+
+        expect(getByTestId('route-filters-resumo')).toHaveTextContent(
+          `Todos os status, ${trecho}, todos os motoristas`,
+        );
+      },
+    );
   });
 });

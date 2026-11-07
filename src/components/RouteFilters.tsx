@@ -21,7 +21,7 @@ import {
   type RouteFiltersState,
   type PeriodPreset,
 } from './route-filters';
-import { getPresetDates, getRangeLabel } from './route-filters/utils';
+import { formatDate, getPresetDates } from './route-filters/utils';
 
 import type { Motorista } from './route-filters/types';
 
@@ -41,15 +41,27 @@ function resumoDosFiltros(
   const status = filters.status
     ? ROUTE_STATUS_CONFIG[filters.status].label
     : 'Todos os status';
-  const periodo =
-    filters.dataInicio || filters.dataFim
-      ? getRangeLabel(filters.dataInicio, filters.dataFim)
-      : 'hoje';
-  const motorista = filters.motoristaId
+  return `${status}, ${periodoNaFrase(filters)}, ${motoristaNaFrase(filters, motoristas)}`;
+}
+
+/** Período no meio da frase do resumo: em minúscula, "hoje" sem data. */
+function periodoNaFrase({ dataInicio, dataFim }: RouteFiltersState): string {
+  if (dataInicio && dataFim) {
+    return `${formatDate(dataInicio)} - ${formatDate(dataFim)}`;
+  }
+  if (dataInicio) return `a partir de ${formatDate(dataInicio)}`;
+  if (dataFim) return `até ${formatDate(dataFim)}`;
+  return 'hoje';
+}
+
+function motoristaNaFrase(
+  filters: RouteFiltersState,
+  motoristas: Motorista[],
+): string {
+  return filters.motoristaId
     ? (motoristas.find((m) => m.id === filters.motoristaId)?.nome ??
-      'motorista escolhido')
+        'motorista escolhido')
     : 'todos os motoristas';
-  return `${status}, ${periodo}, ${motorista}`;
 }
 
 export function RouteFilters({
