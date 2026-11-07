@@ -75,7 +75,6 @@ describe('route-filters/index', () => {
       const statusOption: StatusOption = {
         value: 'concluida',
         label: 'Concluída',
-        color: '#00FF00',
       };
       expect(statusOption.label).toBe('Concluída');
 

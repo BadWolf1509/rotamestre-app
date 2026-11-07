@@ -30,6 +30,4 @@ export interface RouteFiltersProps {
 export interface StatusOption {
   value: RouteFiltersState['status'];
   label: string;
-  /** Sem uso desde que os chips de status ficaram todos iguais. */
-  color?: string;
 }

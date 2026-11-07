@@ -220,10 +220,8 @@ describe('FormularioParada — contraste da Retirada selecionada', () => {
     ['escuro', darkTheme],
   ])(
     'token onWarning no tema %s passa de 4,5:1 sobre warning',
-    (nome, tema) => {
+    (_nome, tema) => {
       const valor = contraste(tema.colors.onWarning, tema.colors.warning);
-
-      console.info(`contraste ${nome}: ${valor.toFixed(2)}`);
       expect(valor).toBeGreaterThanOrEqual(4.5);
     },
   );
