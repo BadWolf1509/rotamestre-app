@@ -535,6 +535,7 @@ describe('useTimelineData — falha na consulta de logs (G-3)', () => {
 
     expect(setCache).not.toHaveBeenCalled();
     expect(result.current.events).toEqual([]);
+    expect(result.current.error).toBeTruthy();
   });
 
   it('recarga com logs falhando: mantém o que estava na tela e o "Carregar mais"', async () => {

@@ -31,6 +31,8 @@ export interface UseTimelineDataResult {
   events: TimelineEventMapped[];
   loading: boolean;
   isStale: boolean;
+  /** Falha da última carga (os eventos anteriores, se houver, seguem em `events`). */
+  error: Error | null;
   hasMore: boolean;
   loadingMore: boolean;
   loadMore: () => Promise<void>;
@@ -145,6 +147,7 @@ export function useTimelineData(
     data,
     loading,
     isStale,
+    error,
     update,
     refresh: cachedRefresh,
   } = useCachedData<TimelineCachePayload>(`timeline_${rotaId}`, fetcher, {
@@ -300,6 +303,7 @@ export function useTimelineData(
     events,
     loading,
     isStale,
+    error,
     hasMore,
     loadingMore,
     loadMore,
