@@ -14,9 +14,17 @@ import { useNavegacaoDeSaida } from '../auth/useNavegacaoDeSaida';
 import { useRequireAuth } from '../useRequireAuth';
 
 const mockReplace = jest.fn();
+// Container sem estado: a dona não esvazia a pilha e só faz o replace (o
+// esvaziamento tem teste próprio, navegacao-de-saida-pilha-real.test.tsx).
+const mockContainer = {
+  isReady: () => false,
+  getRootState: () => undefined,
+  dispatch: jest.fn(),
+};
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
   useSegments: () => ['motorista'],
+  useNavigationContainerRef: () => mockContainer,
 }));
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
