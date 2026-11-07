@@ -3587,6 +3587,77 @@ e motorista. Rollback colável (corpos vivos de 06/11/2026, ACL e COMMENT).
 
 ---
 
+### ⏳ Migration 83: varredura de 07/11 — aviso de expiração pelo vínculo, lembrete na janela, conclusão só sem parada aberta, retenção de notificações
+
+**Arquivo:** `20261107120000_varredura_07_11_banco.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` pelo CLI (`db query --linked`) com a sonda na mesma
+execução antes (esperados FALHOU nos casos 1, 2, 3, 4, 5, 9, 10 e 11; OK nos
+casos 6, 7 e 8), depois a migration, depois a sonda de novo (11/11 OK);
+registrar com a versão do arquivo. Depois, deploy da Edge Function
+`expire-routes` (a ordem inversa não quebra: a RPC ausente só vai para o log
+da função).
+
+**O que faz.** Itens B-1, B-2, B-4 e B-5 da varredura de 07/11
+(`docs/superpowers/2026-11-07-varredura-refatoracoes.md`):
+
+- **B-1** `expire_old_pending_routes` (corpo da Migration 25) avisa os
+  gestores pelo `gestores_ativos_da_unidade` (vínculo `gestor` ativo), não
+  mais pela coluna legada `usuarios.unidade_id` + `papel`. Gestor só pelo
+  vínculo passa a ser avisado; quem saiu da loja deixa de ser. Muda só o
+  SELECT do loop.
+- **B-2** `remind_pending_routes(p_urgency)` (mesma assinatura e ACL) delega
+  a `lembrar_rotas_no_horario(p_urgency, p_agora)` com `now()`. A interna
+  (corpo da Migration 26) só avisa na janela de Brasília — normal
+  **15:00–20:00**, final **19:00–22:00**, tiradas do `expire-routes.yml`
+  (16:00, 20:00, expiração 22:00): 1 h antes para disparo manual, e o fim é
+  onde o aviso seguinte assume — e não repete o mesmo tipo de aviso para a
+  mesma rota e o mesmo motorista desde a meia-noite (`NOT EXISTS` em
+  `notificacoes`). Fora da janela devolve (0, 0). A interna não é DEFINER e só
+  o dono a executa; o instante como argumento é para a sonda provar as
+  janelas.
+- **B-4** A função do gatilho da Migration 76 (`rota_status_pelo_gestor`)
+  recusa toda chegada a `concluida` com parada real (`is_checkpoint IS
+DISTINCT FROM false`) `pendente`/`em_andamento`: P0001
+  `ROTA_PARADAS_PENDENTES: ...`, o prefixo da `finalizar_rota` (já mapeado em
+  `src/lib/errorMapping.ts`). Vale para motorista e gestor; sessão sem
+  usuário segue passando. A `finalizar_rota` não muda de comportamento: recusa
+  antes com o mesmo código e conclui a chegada antes do UPDATE da rota.
+- **B-5** `limpar_notificacoes_antigas(p_dias_lidas 90, p_dias_push_logs 30)
+returns jsonb`: apaga notificação lida e log de push além do prazo, em lotes
+  de 5.000 (até 200 por tabela por chamada), mínimos 30/7 dias, EXECUTE só de
+  `service_role`; devolve `{notificacoes_apagadas, push_logs_apagados,
+completa}`. Índice novo `idx_push_notification_logs_created_at`. Chamada
+  pela `expire-routes` ao lado da de posições (erro só no log). Notificação
+  não lida fica.
+
+**Alternativas.** B-1: helper (escolhida) × JOIN próprio (duplica o
+critério). B-2: guarda no SQL (escolhida) × na Edge Function (o SQL seguiria
+aberto) × janela estreita (atraso normal perderia o aviso); função interna com
+`p_agora` (escolhida) × `p_agora` na pública (quem a executa escolheria a
+hora) × só a hora atual (a sonda não provaria as janelas); `NOT EXISTS`
+(escolhida) × índice único parcial (a `criar_notificacao` engole o erro) ×
+tabela de controle. B-4: no gatilho da 76 (escolhida) × gatilho novo (ordem
+de dois BEFORE) × tirar o UPDATE direto do motorista (quebra o app até a
+1.14.2). B-5: RPC na `expire-routes` (escolhida, como a Migration 37) ×
+pg_cron (decisão do usuário, B-6) × DELETE único (seguraria a tabela na 1ª
+execução).
+
+**App.** B-1/B-2: avisos certos e sem repetição. B-4: app até a 1.14.2 que
+conclui com parada real aberta recebe o erro; caminho normal não muda. B-5:
+lida com mais de 90 dias some da lista.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration83-varredura.test.ts`; sonda
+`database/sondas/20261107120000_sonda_migration83.sql` (11 casos, desfeita
+pelo RAISE, resumo `N OK | N FALHOU`): expiração avisa pelo vínculo;
+lembrete fora da janela, na janela e repetido; conclusão direta com parada
+aberta recusada (motorista e gestor); app 1.14.2 com reais concluídas/puladas;
+`finalizar_rota`; sem sessão; limpeza respeita os dias; mínimos; catálogo. O
+caso 1 roda a expiração real dentro da transação (desfeita) — rodar fora das
+22:00–22:15. Rollback colável (corpos anteriores, ACL e COMMENT).
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de

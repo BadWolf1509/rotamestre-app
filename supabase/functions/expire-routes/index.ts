@@ -28,6 +28,13 @@ interface ExpireResult {
   notifications_sent: number;
 }
 
+/** Resposta de `limpar_notificacoes_antigas` (Migration 83). */
+interface RetencaoNotificacoes {
+  notificacoes_apagadas: number;
+  push_logs_apagados: number;
+  completa: boolean;
+}
+
 Deno.serve(async (req) => {
   // Verificar método
   if (req.method !== 'POST') {
@@ -89,12 +96,34 @@ Deno.serve(async (req) => {
       console.log(`Deleted ${localizacoesApagadas} old driver locations`);
     }
 
+    // Retenção de notificações lidas (90 dias) e logs de push (30 dias),
+    // Migration 83. Mesma regra da limpeza acima: falha só vai para o log
+    // (inclusive a RPC ainda não existir, antes de a migration ser aplicada).
+    let retencaoNotificacoes: RetencaoNotificacoes | null = null;
+    const limpezaNotificacoes = await supabase.rpc(
+      'limpar_notificacoes_antigas',
+    );
+    if (limpezaNotificacoes.error) {
+      console.error(
+        'Error calling limpar_notificacoes_antigas:',
+        limpezaNotificacoes.error,
+      );
+    } else {
+      retencaoNotificacoes = limpezaNotificacoes.data as RetencaoNotificacoes;
+      console.log(
+        `Deleted ${retencaoNotificacoes?.notificacoes_apagadas ?? 0} old read notifications and ${retencaoNotificacoes?.push_logs_apagados ?? 0} old push logs`,
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         expired_count: stats.expired_count,
         notifications_sent: stats.notifications_sent,
         localizacoes_apagadas: localizacoesApagadas,
+        notificacoes_apagadas:
+          retencaoNotificacoes?.notificacoes_apagadas ?? null,
+        push_logs_apagados: retencaoNotificacoes?.push_logs_apagados ?? null,
         executed_at: new Date().toISOString(),
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
