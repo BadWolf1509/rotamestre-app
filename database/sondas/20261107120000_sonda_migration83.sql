@@ -194,7 +194,7 @@ BEGIN
         v_det := v_det || ' ' || v_status || ' ' || v_args || ' -> (' || v_found || ', ' || v_sent || ');';
       END IF;
     END LOOP;
-    SELECT count(*) INTO v_n FROM public.notificacoes WHERE rota_id = v_rota2;
+    SELECT count(*) INTO v_n FROM public.notificacoes WHERE rota_id = v_rota2 AND tipo LIKE 'lembrete_rota_%';
     r := r || CASE WHEN v_ok AND v_n = 0
       THEN ' | 2 OK: fora da janela (normal 10:00 e 17:00; final 18:59 e 22:30) não avisa'
       ELSE ' | 2 FALHOU:' || v_det || ' ' || v_n || ' notificação(ões)' END;
@@ -228,7 +228,7 @@ BEGIN
            count(*) FILTER (WHERE tipo = 'lembrete_rota_urgente' AND usuario_id = v_m),
            count(*)
       INTO v_n, v_n2c, v_n3c
-      FROM public.notificacoes WHERE rota_id = v_rota2;
+      FROM public.notificacoes WHERE rota_id = v_rota2 AND tipo LIKE 'lembrete_rota_%';
     r := r || CASE WHEN v_ok AND v_n = 1 AND v_n2c = 1 AND v_n3c = 2
       THEN ' | 3 OK: na janela avisa uma vez por tipo (16:00 e 20:00); 16:30 e 21:59 não repetem'
       ELSE ' | 3 FALHOU:' || v_det || ' pendente=' || v_n || ' urgente=' || v_n2c || ' total=' || v_n3c END;
