@@ -11,6 +11,10 @@
  *   do botão (papel `button`).
  * - Fecha com Esc (o react-native-web chama `onRequestClose` no Escape), com
  *   toque fora e ao escolher um item.
+ * - Sem pisca: a lista só é desenhada quando a medida da abertura ATUAL
+ *   responde (resposta atrasada de uma abertura anterior é descartada), e a
+ *   âncora é zerada ao fechar. Onde não há `measureInWindow`, ela abre no
+ *   canto superior direito.
  * - Todo toque aqui dentro para a propagação: no web o clique sobe pela
  *   árvore React (o Modal é portal, mas o evento segue o React) até a linha
  *   clicável, que dispararia o `onRowPress` junto.
@@ -44,6 +48,9 @@ interface Ancora {
   right: number;
 }
 
+/** Sem `measureInWindow` (não há como medir): canto superior direito. */
+const SEM_MEDIDA = 'sem-medida';
+
 const DISTANCIA_DO_BOTAO = 4;
 
 function pararPropagacao(evento?: GestureResponderEvent) {
@@ -55,14 +62,30 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
   const { width: larguraJanela } = useWindowDimensions();
   const botaoRef = useRef<ViewInstance>(null);
   const [aberto, setAberto] = useState(false);
-  const [ancora, setAncora] = useState<Ancora | null>(null);
+  // null = medida da abertura atual ainda não chegou: a lista não aparece.
+  const [ancora, setAncora] = useState<Ancora | typeof SEM_MEDIDA | null>(null);
+  // Conta as aberturas: a resposta da medida só vale para a abertura que a pediu.
+  const aberturaRef = useRef(0);
 
-  const fechar = useCallback(() => setAberto(false), []);
+  const fechar = useCallback(() => {
+    aberturaRef.current += 1;
+    setAberto(false);
+    setAncora(null);
+  }, []);
 
   const abrir = (evento?: GestureResponderEvent) => {
     pararPropagacao(evento);
+    aberturaRef.current += 1;
+    const abertura = aberturaRef.current;
+    setAncora(null);
     setAberto(true);
-    botaoRef.current?.measureInWindow?.((x, y, largura, altura) => {
+    const medir = botaoRef.current?.measureInWindow;
+    if (!medir) {
+      setAncora(SEM_MEDIDA);
+      return;
+    }
+    medir.call(botaoRef.current, (x, y, largura, altura) => {
+      if (aberturaRef.current !== abertura) return;
       setAncora({
         top: y + altura + DISTANCIA_DO_BOTAO,
         right: Math.max(0, larguraJanela - (x + largura)),
@@ -75,7 +98,7 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
     evento?: GestureResponderEvent,
   ) => {
     pararPropagacao(evento);
-    setAberto(false);
+    fechar();
     acao.onPress(item);
   };
 
@@ -83,6 +106,51 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
     pararPropagacao(evento);
     fechar();
   };
+
+  // Função chamada no JSX, não componente: identidade nova a cada render
+  // remontaria a lista (ver CLAUDE.md).
+  const renderLista = (posicao: Ancora | typeof SEM_MEDIDA) => (
+    // Pressable só para absorver o clique entre os itens: sem ele, o clique
+    // no espaço da lista subiria até a linha clicável.
+    <Pressable
+      onPress={pararPropagacao}
+      accessible={false}
+      tabIndex={-1}
+      accessibilityRole="menu"
+      accessibilityLabel="Ações da linha"
+      style={[
+        styles.lista,
+        posicao === SEM_MEDIDA
+          ? styles.listaSemAncora
+          : { top: posicao.top, right: posicao.right },
+      ]}
+    >
+      {acoes.map((acao, indice) => {
+        const rotulo =
+          typeof acao.label === 'function' ? acao.label(item) : acao.label;
+        const icone = acao.icon
+          ? typeof acao.icon === 'function'
+            ? acao.icon(item)
+            : acao.icon
+          : undefined;
+        const perigo = acao.type === 'danger';
+        const cor = perigo ? theme.colors.error : theme.colors.gray800;
+
+        return (
+          <Pressable
+            key={indice}
+            onPress={(evento) => escolher(acao, evento)}
+            style={styles.item}
+            accessibilityRole="menuitem"
+            accessibilityLabel={rotulo}
+          >
+            {icone && <Ionicons name={icone} size={16} color={cor} />}
+            <Text style={[styles.itemTexto, { color: cor }]}>{rotulo}</Text>
+          </Pressable>
+        );
+      })}
+    </Pressable>
+  );
 
   return (
     <View ref={botaoRef} collapsable={false}>
@@ -117,46 +185,7 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
           // -1, a trava de foco do Modal focaria este fundo invisível.
           tabIndex={-1}
         />
-        {/* Pressable só para absorver o clique entre os itens: sem ele, o
-            clique no espaço da lista subiria até a linha clicável. */}
-        <Pressable
-          onPress={pararPropagacao}
-          accessible={false}
-          tabIndex={-1}
-          accessibilityRole="menu"
-          accessibilityLabel="Ações da linha"
-          style={[
-            styles.lista,
-            ancora
-              ? { top: ancora.top, right: ancora.right }
-              : styles.listaSemAncora,
-          ]}
-        >
-          {acoes.map((acao, indice) => {
-            const rotulo =
-              typeof acao.label === 'function' ? acao.label(item) : acao.label;
-            const icone = acao.icon
-              ? typeof acao.icon === 'function'
-                ? acao.icon(item)
-                : acao.icon
-              : undefined;
-            const perigo = acao.type === 'danger';
-            const cor = perigo ? theme.colors.error : theme.colors.gray800;
-
-            return (
-              <Pressable
-                key={indice}
-                onPress={(evento) => escolher(acao, evento)}
-                style={styles.item}
-                accessibilityRole="menuitem"
-                accessibilityLabel={rotulo}
-              >
-                {icone && <Ionicons name={icone} size={16} color={cor} />}
-                <Text style={[styles.itemTexto, { color: cor }]}>{rotulo}</Text>
-              </Pressable>
-            );
-          })}
-        </Pressable>
+        {ancora ? renderLista(ancora) : null}
       </Modal>
     </View>
   );
@@ -188,7 +217,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.gray200,
     ...theme.shadows.md,
   },
-  // Antes da medida chegar (ou onde não há medida): canto superior direito.
+  // Onde não há medida: canto superior direito.
   listaSemAncora: {
     top: theme.spacing.xl,
     right: theme.spacing.xl,

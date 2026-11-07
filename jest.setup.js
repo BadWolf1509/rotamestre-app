@@ -764,3 +764,13 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 // detectores por mocks. Necessário desde que o ReanimatedSwipeable entrou no
 // design system (antes, só telas com mock próprio carregavam o RNGH).
 require('react-native-gesture-handler/jestSetup');
+
+// O mock de View do preset do RN tem `measureInWindow` que nunca responde. O
+// MenuDeAcoes só desenha a lista quando a medida da abertura responde (sem
+// pisca); aqui ela responde na hora, com tudo em zero. Quem precisa controlar
+// a resposta mocka a View no próprio teste (MenuDeAcoes.ancora.test.tsx).
+jest
+  .requireActual('@react-native/jest-preset/jest/MockNativeMethods')
+  .default.measureInWindow.mockImplementation((responder) =>
+    responder?.(0, 0, 0, 0),
+  );
