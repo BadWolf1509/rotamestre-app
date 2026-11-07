@@ -25,10 +25,38 @@
  * app (nunca houve sessão) a `index` decide sozinha; `auth`/`onboarding`/
  * páginas públicas não exigem sessão.
  */
-import { useRouter, useSegments } from 'expo-router';
+import { useNavigationContainerRef, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '../useAuth';
+
+type ContainerDeNavegacao = ReturnType<typeof useNavigationContainerRef>;
+type Router = ReturnType<typeof useRouter>;
+
+/**
+ * Leva ao login com a pilha raiz limpa (N-1): nada do que a conta abriu fica
+ * montado embaixo. `router.replace` só troca a tela do topo da pilha raiz —
+ * medido no expo-router 58 (`navegacao-de-saida-pilha-real.test.tsx`): o
+ * gestor seguia montado sob o login.
+ *
+ * Primeiro volta a pilha raiz à primeira tela (POP_TO_TOP endereçado à pilha
+ * raiz pela chave: `router.dismissAll()` age na pilha aninhada mais funda que
+ * tenha o que tirar e, com telas empilhadas no gestor E na raiz, deixava as da
+ * raiz), depois troca essa tela pelo login. Com uma tela só, basta o replace.
+ */
+function irAoLoginComPilhaLimpa(
+  container: ContainerDeNavegacao,
+  router: Router,
+): void {
+  // O container do expo-router tem uma rota interna (o layout raiz); a pilha
+  // de `app/_layout.tsx` é o estado aninhado dela.
+  const raiz = container.isReady() ? container.getRootState() : undefined;
+  const pilhaRaiz = raiz?.routes[raiz.index]?.state;
+  if (pilhaRaiz?.key && (pilhaRaiz.index ?? 0) > 0) {
+    container.dispatch({ type: 'POP_TO_TOP', target: pilhaRaiz.key });
+  }
+  router.replace('/auth/login');
+}
 
 /**
  * Espera para a navegação sair com os modais já fechados. A animação de saída
@@ -52,6 +80,8 @@ export function haSaidaEmCurso(): boolean {
 
 export function useNavegacaoDeSaida(): void {
   const router = useRouter();
+  // Ref estável do container (objeto do módulo do expo-router).
+  const container = useNavigationContainerRef();
   const segments = useSegments() as string[];
   const { user, loading, usuarioOfflineId = null } = useAuth();
 
@@ -97,9 +127,9 @@ export function useNavegacaoDeSaida(): void {
       saidaEmCurso = false;
       // Outra parte (a tela de login aberta por um botão) já levou ao login.
       if (segmentsRef.current[0] === 'auth') return;
-      routerRef.current.replace('/auth/login');
+      irAoLoginComPilhaLimpa(container, routerRef.current);
     }, PRAZO_FECHAR_MODAIS_MS);
-  }, [semSessao, deveIrAoLogin]);
+  }, [semSessao, deveIrAoLogin, container]);
 
   useEffect(() => cancelar, []);
 }

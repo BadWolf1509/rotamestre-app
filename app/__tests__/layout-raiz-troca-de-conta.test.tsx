@@ -92,12 +92,24 @@ describe('layout raiz: troca de conta', () => {
     mockMontagensDaPilha.total = 0;
   });
 
-  it('remonta a pilha quando a conta sai', () => {
+  // N-1: na saída, quem limpa a pilha é a dona (useNavegacaoDeSaida). Remontar
+  // aqui fazia a pilha renascer na área antiga sem sessão antes do login.
+  it('não remonta a pilha quando a conta sai', () => {
     mockUsuario.userData = { id: 'gestor' };
     const { rerender } = render(<RootLayout />);
     expect(mockMontagensDaPilha.total).toBe(1);
 
     mockUsuario.userData = null;
+    rerender(<RootLayout />);
+
+    expect(mockMontagensDaPilha.total).toBe(1);
+  });
+
+  it('remonta a pilha quando uma conta é trocada por outra', () => {
+    mockUsuario.userData = { id: 'gestor' };
+    const { rerender } = render(<RootLayout />);
+
+    mockUsuario.userData = { id: 'motorista' };
     rerender(<RootLayout />);
 
     expect(mockMontagensDaPilha.total).toBe(2);

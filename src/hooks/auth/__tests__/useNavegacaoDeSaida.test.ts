@@ -15,9 +15,24 @@ import {
 const mockReplace = jest.fn();
 let mockSegments: string[] = ['gestor'];
 
+// Container do expo-router: uma rota interna (o layout raiz) com a pilha de
+// `app/_layout.tsx` aninhada. O comportamento real está medido em
+// navegacao-de-saida-pilha-real.test.tsx.
+let mockPilhaRaiz: { key: string; index: number } | undefined;
+let mockProntoParaNavegar = true;
+const mockContainer = {
+  isReady: () => mockProntoParaNavegar,
+  getRootState: () => ({
+    index: 0,
+    routes: [{ name: '__root', state: mockPilhaRaiz }],
+  }),
+  dispatch: jest.fn(),
+};
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
   useSegments: () => mockSegments,
+  useNavigationContainerRef: () => mockContainer,
 }));
 
 let mockUser: { id: string } | null = { id: 'gestor-1' };
@@ -46,6 +61,9 @@ describe('useNavegacaoDeSaida', () => {
     mockUser = { id: 'gestor-1' };
     mockLoading = false;
     mockUsuarioOfflineId = null;
+    mockPilhaRaiz = { key: 'pilha-raiz', index: 0 };
+    mockProntoParaNavegar = true;
+    mockContainer.dispatch.mockClear();
   });
 
   afterEach(() => {
@@ -75,6 +93,47 @@ describe('useNavegacaoDeSaida', () => {
     esperarModais();
     expect(mockReplace).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/auth/login');
+  });
+
+  // N-1: o replace só troca o topo da pilha raiz; o que a conta abriu antes
+  // ficava montado embaixo do login.
+  it('pilha raiz com telas empilhadas: esvazia a pilha raiz uma vez e então troca pelo login', () => {
+    mockPilhaRaiz = { key: 'pilha-raiz', index: 2 };
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    rerender({});
+    esperarModais();
+
+    expect(mockContainer.dispatch).toHaveBeenCalledTimes(1);
+    expect(mockContainer.dispatch).toHaveBeenCalledWith({
+      type: 'POP_TO_TOP',
+      target: 'pilha-raiz',
+    });
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/auth/login');
+    // Na ordem: primeiro esvazia, depois troca a tela que sobrou.
+    expect(mockContainer.dispatch.mock.invocationCallOrder[0]).toBeLessThan(
+      mockReplace.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('pilha raiz com uma tela só: basta o replace (POP_TO_TOP sobraria sem quem o trate)', () => {
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    rerender({});
+    esperarModais();
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('container ainda sem estado: não esvazia, mas leva ao login', () => {
+    mockProntoParaNavegar = false;
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    rerender({});
+    esperarModais();
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledTimes(1);
   });
 
   it('re-renders e troca de segmento durante a espera não repetem o replace', () => {

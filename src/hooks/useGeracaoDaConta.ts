@@ -16,7 +16,9 @@ export function useGeracaoDaConta(userId: string | null): number {
   const geracaoRef = useRef(0);
 
   const anterior = anteriorRef.current;
-  if (anterior !== null && anterior !== userId) geracaoRef.current += 1;
+  if (anterior !== null && userId !== null && anterior !== userId) {
+    geracaoRef.current += 1;
+  }
   anteriorRef.current = userId;
 
   return geracaoRef.current;
