@@ -6,6 +6,8 @@
  */
 import { act, renderHook } from '@testing-library/react-native';
 
+import { logger } from '@/lib/logger';
+
 import {
   haSaidaEmCurso,
   PRAZO_FECHAR_MODAIS_MS,
@@ -333,6 +335,56 @@ describe('useNavegacaoDeSaida', () => {
     esperarModais();
     expect(mockContainer.dispatch).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('estado parcial ao limpar embaixo do login: registra logger.warn, sem dispatch', () => {
+    const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    mockPilhaRaiz = { key: 'pilha-raiz', index: 2 };
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    mockSegments = ['auth', 'login'];
+    rerender({});
+    esperarModais();
+
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+    expect(aviso).toHaveBeenCalledTimes(1);
+    expect(aviso.mock.calls[0][0]).toContain('[useNavegacaoDeSaida]');
+    expect(aviso.mock.calls[0]).toHaveLength(2);
+    aviso.mockRestore();
+  });
+
+  it('container indisponível ao limpar embaixo do login: registra logger.warn', () => {
+    const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    mockPilhaRaiz = PILHA_COM_LOGIN_NO_TOPO;
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    mockSegments = ['auth', 'login'];
+    mockProntoParaNavegar = false;
+    rerender({});
+    esperarModais();
+
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+    expect(aviso).toHaveBeenCalledTimes(1);
+    aviso.mockRestore();
+  });
+
+  it('login já sozinho na pilha: nada a limpar, sem aviso', () => {
+    const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    mockPilhaRaiz = {
+      key: 'pilha-raiz',
+      index: 0,
+      stale: false,
+      routes: [{ key: 'auth-1', name: 'auth' }],
+    };
+    const { rerender } = renderHook(() => useNavegacaoDeSaida());
+    mockUser = null;
+    mockSegments = ['auth', 'login'];
+    rerender({});
+    esperarModais();
+
+    expect(mockContainer.dispatch).not.toHaveBeenCalled();
+    expect(aviso).not.toHaveBeenCalled();
+    aviso.mockRestore();
   });
 
   it('abrir direto uma área protegida sem sessão leva ao login uma vez', () => {

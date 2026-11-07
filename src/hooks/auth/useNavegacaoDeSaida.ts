@@ -26,6 +26,13 @@
  * antiga sem sessão (`gestor/ajuda`, abas do motorista), não na `index`. A
  * `key` agora só muda na troca direta de conta (A→B).
  *
+ * Quando o login é aberto por quem navega sozinho de propósito (a exclusão de
+ * conta, a conta desativada da `index`), a dona não faz `replace`: ela só
+ * limpa por baixo do login (`limparDebaixoDoLogin`, um RESET da pilha raiz com
+ * a tela do topo), e apenas quando a sessão acabou neste app — login aberto por
+ * um botão "Entrar" de página pública não é saída. Se o estado da pilha não
+ * está pronto, registra `logger.warn` e não limpa.
+ *
  * Onde age: nas áreas protegidas e na `index` depois de uma sessão (a `index`
  * pode estar na tela quando a sessão sai; ela consulta `haSaidaEmCurso()` e
  * deixa a navegação com a dona). Na abertura do app (nunca houve sessão) a
@@ -34,6 +41,8 @@
  */
 import { useNavigationContainerRef, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
+
+import { logger } from '@/lib/logger';
 
 import { useAuth } from '../useAuth';
 
@@ -80,9 +89,21 @@ function irAoLoginComPilhaLimpa(
 function limparDebaixoDoLogin(container: ContainerDeNavegacao): void {
   const raiz = container.isReady() ? container.getRootState() : undefined;
   const pilhaRaiz = raiz?.routes[raiz.index]?.state;
-  if (!pilhaRaiz?.key || pilhaRaiz.stale !== false || pilhaRaiz.index === 0) {
+  if (!pilhaRaiz?.key || pilhaRaiz.stale !== false) {
+    // Voltar sem limpar deixa as telas da conta montadas sob o login: não é
+    // erro, mas precisa de rastro para a validação no aparelho.
+    logger.warn(
+      '[useNavegacaoDeSaida] Pilha raiz indisponível; nada foi limpo sob o login',
+      {
+        containerPronto: container.isReady(),
+        temPilha: Boolean(pilhaRaiz),
+        stale: pilhaRaiz?.stale,
+      },
+    );
     return;
   }
+  // Só o login na pilha: nada embaixo para limpar.
+  if (pilhaRaiz.index === 0) return;
   const topo = pilhaRaiz.routes[pilhaRaiz.index];
   container.dispatch({
     type: 'RESET',
