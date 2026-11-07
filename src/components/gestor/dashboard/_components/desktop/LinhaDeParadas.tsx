@@ -8,12 +8,14 @@
  * - pendente: ponto vazado, só a borda em `gray400` (é desenho, não texto);
  * - pulada: ponto cheio em `warning` — é a atenção.
  *
- * Acima de `maximo`, mostra os primeiros pontos e "+N". A linha não quebra e
- * não estoura a largura: o contêiner corta o que não couber.
+ * Mostra no máximo `maximo` pontos e, além disso, só os que cabem na largura
+ * medida (`onLayout`); o resto vai para o "+N". Nenhum ponto some sem contar
+ * no "+N" — com corte silencioso, uma rota de 10 paradas numa coluna estreita
+ * parecia uma rota de 4. Antes da primeira medida, vale `maximo`.
  */
 
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { STOP_STATUS_CONFIG } from '@/constants/statusConfig';
 import { plural } from '@/lib/plural';
@@ -29,6 +31,34 @@ interface LinhaDeParadasProps {
 }
 
 const MAXIMO_PADRAO = 24;
+const TAMANHO_PONTO = 10;
+/** Espaço entre os pontos (`theme.spacing.xs`). */
+const GAP_PONTOS = 4;
+const PASSO = TAMANHO_PONTO + GAP_PONTOS;
+/**
+ * Reserva para o "+N": até "+99" a 13 px semibold (~26 px) mais o gap da
+ * linha (`theme.spacing.sm`, 8 px).
+ */
+const LARGURA_DO_MAIS = 34;
+
+/** Quantos pontos cabem em `largura` (o último ponto não tem gap depois). */
+function pontosQueCabem(largura: number): number {
+  return Math.max(0, Math.floor((largura + GAP_PONTOS) / PASSO));
+}
+
+/**
+ * Quantos pontos desenhar: todos, se couberem (e não passarem do máximo);
+ * senão, os que cabem ao lado do "+N".
+ */
+function pontosVisiveis(
+  total: number,
+  maximo: number,
+  largura: number | null,
+): number {
+  if (largura === null) return Math.min(total, maximo);
+  if (total <= maximo && total <= pontosQueCabem(largura)) return total;
+  return Math.min(maximo, total, pontosQueCabem(largura - LARGURA_DO_MAIS));
+}
 
 /** "Parada 3, em andamento": o rótulo da config, em minúsculas. */
 function rotuloDoPonto(indice: number, status: StatusParada): string {
@@ -55,6 +85,11 @@ export function LinhaDeParadas({
   maximo = MAXIMO_PADRAO,
   testID,
 }: LinhaDeParadasProps) {
+  const [largura, setLargura] = useState<number | null>(null);
+  const medir = (evento: LayoutChangeEvent) => {
+    setLargura(evento.nativeEvent.layout.width);
+  };
+
   if (paradas.length === 0) {
     return (
       <View testID={testID} style={styles.linha}>
@@ -63,11 +98,14 @@ export function LinhaDeParadas({
     );
   }
 
-  const visiveis = paradas.slice(0, maximo);
+  const visiveis = paradas.slice(
+    0,
+    pontosVisiveis(paradas.length, maximo, largura),
+  );
   const restantes = paradas.length - visiveis.length;
 
   return (
-    <View testID={testID} style={styles.linha}>
+    <View testID={testID} style={styles.linha} onLayout={medir}>
       <View style={styles.pontos}>
         {visiveis.map((status, indice) => (
           <View
@@ -93,22 +131,23 @@ export function LinhaDeParadas({
   );
 }
 
-const TAMANHO_PONTO = 10;
-
 const styles = StyleSheet.create((theme: Theme) => ({
   linha: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+    // Ocupa a coluna inteira: é essa largura que o onLayout mede.
+    alignSelf: 'stretch',
     minWidth: 0,
     flexShrink: 1,
+    // Só rede de segurança: quem decide o que cabe é `pontosVisiveis`.
     overflow: 'hidden',
   },
   pontos: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'center',
-    gap: theme.spacing.xs,
+    gap: GAP_PONTOS,
     flexShrink: 1,
     minWidth: 0,
     overflow: 'hidden',

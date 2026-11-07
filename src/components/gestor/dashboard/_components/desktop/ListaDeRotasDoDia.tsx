@@ -118,8 +118,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.gray200,
   },
+  // Colunas fixas enxutas (nome 170, contagem 64, status 120, distância 64):
+  // a linha de paradas é a que cresce. Status 120 = "Em andamento" a 13 px
+  // semibold (89 px) + ícone 13 + gap 4 + padding 8 + borda 2 = 116.
   nome: {
-    width: 220,
+    width: 170,
     flexShrink: 0,
     fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
@@ -138,11 +141,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
   },
   status: {
-    width: 140,
+    width: 120,
     flexShrink: 0,
   },
   distancia: {
-    width: 72,
+    width: 64,
     flexShrink: 0,
     textAlign: 'right',
     fontSize: theme.typography.fontSize.sm,
