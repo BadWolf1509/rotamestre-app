@@ -24,11 +24,21 @@ import {
   CODIGO_TELEFONE_JA_CADASTRADO,
   respostaTelefoneDuplicado,
 } from './telefoneDuplicado.ts';
-import { exigirUsuario } from '../_shared/autenticacao.ts';
+import {
+  criarValidadorDeUsuario,
+  exigirUsuario,
+} from '../_shared/autenticacao.ts';
 import { chavePublica, chaveSecreta } from '../_shared/chaves.ts';
 import { CORS_PADRAO, jsonResponse, preflight } from '../_shared/http.ts';
 
 const resposta = jsonResponse;
+
+/** O Authorization recebido corresponde a um usuário do Auth? Qual? */
+const usuarioValido = criarValidadorDeUsuario(
+  createClient,
+  Deno.env.get('SUPABASE_URL') ?? '',
+  chavePublica,
+);
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -38,29 +48,26 @@ serve(async (req) => {
   }
 
   try {
-    // Sem "Authorization: Bearer ..." a resposta é 401 antes de qualquer cliente
-    // (antes, o cabeçalho ausente virava null no createClient e caía no 500).
-    // A validação do usuário fica no getUser abaixo, que também guarda o usuário.
-    let user: { id: string } | null = null;
-    let supabaseClient!: ReturnType<typeof createClient>;
-    const recusa401 = await exigirUsuario(
-      req,
-      async (authorization) => {
-        supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          chavePublica(),
-          { global: { headers: { Authorization: authorization } } },
-        );
-        const { data, error } = await supabaseClient.auth.getUser();
-        user = error ? null : (data.user ?? null);
-        return user !== null;
-      },
-      CORS_PADRAO,
-    );
-    if (recusa401 || !user) {
-      return recusa401 ?? resposta(401, { error: 'Não autorizado' });
+    // Sem "Authorization: Bearer ..." ou com JWT que o Auth não reconhece, a
+    // resposta é 401 antes de qualquer outra consulta; com usuário válido a
+    // guarda devolve o id dele.
+    const autenticacao = await exigirUsuario(req, usuarioValido, CORS_PADRAO);
+    if (autenticacao instanceof Response) {
+      return autenticacao;
     }
-    const gestorId: string = (user as { id: string }).id;
+    const gestorId = autenticacao.usuario.id;
+
+    // Cliente com a sessão de quem chama (a RLS vale): o Authorization já foi
+    // conferido pela guarda acima.
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      chavePublica(),
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization') ?? '' },
+        },
+      },
+    );
 
     // Cliente com a chave secreta (só disponível server-side)
     const supabaseAdmin = createClient(

@@ -1,7 +1,9 @@
 // `exigirUsuario` roda em Deno; a validação do JWT (supabase-js por esm.sh) é
 // injetada, então aqui ela é uma função simples. O que importa provar: sem
 // `Authorization: Bearer`, ou com JWT que o Auth não reconhece, ninguém passa —
-// e a validação nem é chamada quando falta o cabeçalho.
+// e a validação nem é chamada quando falta o cabeçalho. Com usuário válido a
+// guarda devolve o próprio usuário (`{ usuario: { id } }`), para a função não
+// precisar guardá-lo numa variável de fora da validação.
 import { criarValidadorDeUsuario, exigirUsuario } from '../autenticacao';
 
 beforeEach(() => {
@@ -17,33 +19,39 @@ function req(headers: Record<string, string> = {}): Request {
   return new Request('https://exemplo.test/fn', { method: 'POST', headers });
 }
 
+/** A recusa é uma Response 401; qualquer outra coisa falha o teste. */
+function comoRecusa(resultado: unknown): Response {
+  expect(resultado).toBeInstanceOf(Response);
+  return resultado as Response;
+}
+
 describe('exigirUsuario', () => {
   it('recusa com 401 sem Authorization, sem chamar a validação', async () => {
     const validar = jest.fn();
-    const resp = await exigirUsuario(req(), validar, cors);
-    expect(resp?.status).toBe(401);
+    const resp = comoRecusa(await exigirUsuario(req(), validar, cors));
+    expect(resp.status).toBe(401);
     expect(validar).not.toHaveBeenCalled();
   });
 
   it('recusa com 401 quando o Authorization não é Bearer', async () => {
     const validar = jest.fn();
-    const resp = await exigirUsuario(
-      req({ Authorization: 'Basic abc' }),
-      validar,
-      cors,
+    const resp = comoRecusa(
+      await exigirUsuario(req({ Authorization: 'Basic abc' }), validar, cors),
     );
-    expect(resp?.status).toBe(401);
+    expect(resp.status).toBe(401);
     expect(validar).not.toHaveBeenCalled();
   });
 
   it('recusa com 401 quando o JWT não corresponde a um usuário', async () => {
-    const validar = jest.fn().mockResolvedValue(false);
-    const resp = await exigirUsuario(
-      req({ Authorization: 'Bearer sb_publishable_xyz' }),
-      validar,
-      cors,
+    const validar = jest.fn().mockResolvedValue(null);
+    const resp = comoRecusa(
+      await exigirUsuario(
+        req({ Authorization: 'Bearer sb_publishable_xyz' }),
+        validar,
+        cors,
+      ),
     );
-    expect(resp?.status).toBe(401);
+    expect(resp.status).toBe(401);
     expect(validar).toHaveBeenCalledWith('Bearer sb_publishable_xyz');
   });
 
@@ -51,28 +59,26 @@ describe('exigirUsuario', () => {
     const validar = jest
       .fn()
       .mockRejectedValue(new Error('detalhe interno do Auth'));
-    const resp = await exigirUsuario(
-      req({ Authorization: 'Bearer x' }),
-      validar,
-      cors,
+    const resp = comoRecusa(
+      await exigirUsuario(req({ Authorization: 'Bearer x' }), validar, cors),
     );
-    expect(resp?.status).toBe(401);
-    expect(await resp?.text()).not.toContain('detalhe interno');
+    expect(resp.status).toBe(401);
+    expect(await resp.text()).not.toContain('detalhe interno');
   });
 
   it('a resposta de recusa leva os cabeçalhos de CORS', async () => {
-    const resp = await exigirUsuario(req(), jest.fn(), cors);
-    expect(resp?.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    const resp = comoRecusa(await exigirUsuario(req(), jest.fn(), cors));
+    expect(resp.headers.get('Access-Control-Allow-Origin')).toBe('*');
   });
 
-  it('deixa passar (null) com usuário válido', async () => {
-    const validar = jest.fn().mockResolvedValue(true);
-    const resp = await exigirUsuario(
+  it('devolve o usuário (id) quando a validação o reconhece', async () => {
+    const validar = jest.fn().mockResolvedValue({ id: 'u-1' });
+    const resultado = await exigirUsuario(
       req({ Authorization: 'Bearer jwt.do.usuario' }),
       validar,
       cors,
     );
-    expect(resp).toBeNull();
+    expect(resultado).toEqual({ usuario: { id: 'u-1' } });
   });
 });
 
@@ -88,7 +94,7 @@ describe('criarValidadorDeUsuario', () => {
 
   it('cria o cliente com a chave publicável e o Authorization recebido', async () => {
     const { createClient } = clienteCom({
-      data: { user: { id: 'u' } },
+      data: { user: { id: 'u', email: 'x@example.invalid' } },
       error: null,
     });
     const validar = criarValidadorDeUsuario(
@@ -96,7 +102,8 @@ describe('criarValidadorDeUsuario', () => {
       'https://p',
       () => 'sb_publishable_x',
     );
-    await expect(validar('Bearer t')).resolves.toBe(true);
+    // Só o id sai da validação.
+    await expect(validar('Bearer t')).resolves.toEqual({ id: 'u' });
     expect(createClient).toHaveBeenCalledWith(
       'https://p',
       'sb_publishable_x',
@@ -106,21 +113,17 @@ describe('criarValidadorDeUsuario', () => {
     );
   });
 
-  it('recusa quando o getUser devolve erro ou nenhum usuário', async () => {
+  it('recusa quando o getUser devolve erro, nenhum usuário ou usuário sem id', async () => {
     const semUsuario = clienteCom({ data: { user: null }, error: null });
     const comErro = clienteCom({
       data: { user: { id: 'u' } },
       error: { message: 'x' },
     });
-    await expect(
-      criarValidadorDeUsuario(
-        semUsuario.createClient,
-        'u',
-        () => 'k',
-      )('Bearer t'),
-    ).resolves.toBe(false);
-    await expect(
-      criarValidadorDeUsuario(comErro.createClient, 'u', () => 'k')('Bearer t'),
-    ).resolves.toBe(false);
+    const semId = clienteCom({ data: { user: { email: 'x' } }, error: null });
+    for (const { createClient } of [semUsuario, comErro, semId]) {
+      await expect(
+        criarValidadorDeUsuario(createClient, 'u', () => 'k')('Bearer t'),
+      ).resolves.toBeNull();
+    }
   });
 });

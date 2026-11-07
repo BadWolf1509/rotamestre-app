@@ -38,6 +38,12 @@ describe.each(funcoes)('%s: autenticação e entrada', (nome) => {
     expect(compartilhado).toMatch(/headers:\s*\{\s*Authorization/);
   });
 
+  it('a recusa da guarda é a Response devolvida (instanceof), não um truthy', () => {
+    expect(fonte).toMatch(
+      /const autenticacao = await exigirUsuario\(req, usuarioValido, CORS_PADRAO\);\s+if \(autenticacao instanceof Response\) \{\s+return autenticacao;/,
+    );
+  });
+
   it('exige o usuário antes de ler o corpo e antes de chamar a Google', () => {
     const guarda = fonte.indexOf('await exigirUsuario(');
     const corpo = fonte.indexOf('req.json()');
