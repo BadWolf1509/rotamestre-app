@@ -10,6 +10,8 @@
 import type { RouteStatus } from '@/context/route-status/types';
 import type { IconName } from '@/types/icons';
 
+import { formatarDuracao } from './formatarDuracao';
+
 /** O que a ação principal faz; quem chama decide como (rota, diálogo…). */
 export type DestinoDaAcaoPrincipal =
   | 'iniciar-rota'
@@ -78,13 +80,5 @@ export function formatarTempoDecorrido(
   agora: Date,
 ): string | null {
   if (!iniciadaEm) return null;
-  const decorridoMs = Math.max(
-    0,
-    agora.getTime() - new Date(iniciadaEm).getTime(),
-  );
-  const horas = Math.floor(decorridoMs / 3_600_000);
-  const minutos = Math.floor((decorridoMs % 3_600_000) / 60_000);
-  // Não mostrar "0h" quando menos de 1 hora.
-  if (horas === 0) return `${minutos}min`;
-  return `${horas}h ${minutos}min`;
+  return formatarDuracao(agora.getTime() - new Date(iniciadaEm).getTime());
 }
