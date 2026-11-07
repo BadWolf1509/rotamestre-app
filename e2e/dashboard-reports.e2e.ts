@@ -133,9 +133,9 @@ test.describe('Reports and Export E2E Tests', () => {
     }) => {
       await gestorPage.gotoGestaoRotas();
 
-      // "6 rota(s) encontrada(s)" — o número é o que o filtro devolveu.
+      // "6 rotas encontradas" — o número é o que o filtro devolveu.
       await expect(
-        page.getByText(/\d+\s*rota\(s\)\s*encontrada\(s\)/i).first(),
+        page.getByText(/\d+\s*rotas?\s*encontradas?/i).first(),
       ).toBeVisible({
         timeout: 15000,
       });

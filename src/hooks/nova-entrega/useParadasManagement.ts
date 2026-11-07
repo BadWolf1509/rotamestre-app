@@ -14,6 +14,7 @@ import {
   type EnderecoLoteResolvido,
 } from '@/lib/nova-entrega/localizarEnderecoLote';
 import { photonService } from '@/lib/photon';
+import { plural } from '@/lib/plural';
 import {
   MAX_ROUTE_STOPS,
   WAYPOINTS_RECOMENDADO,
@@ -197,7 +198,7 @@ export function useParadasManagement({
     }
     if (count > 0) {
       return {
-        texto: `${count} parada(s) na lista`,
+        texto: `${plural(count, 'parada', 'paradas')} na lista`,
         cor: 'default',
         icone: null,
       };
@@ -426,7 +427,7 @@ export function useParadasManagement({
         setParadas((current) => reindex([...current, ...novas]));
         invalidateOptimization();
         showToast(
-          `${novas.length} parada(s) importada(s).${fora ? ` ${textoLinhasFora(fora)}` : ''}`,
+          `${plural(novas.length, 'parada importada', 'paradas importadas')}.${fora ? ` ${textoLinhasFora(fora)}` : ''}`,
           fora ? 'info' : 'success',
           5000,
         );
@@ -459,7 +460,7 @@ export function useParadasManagement({
       invalidateOptimization();
       showToast(
         dependentes
-          ? `Parada removida e ${dependentes} vínculo(s) desfeito(s).`
+          ? `Parada removida e ${plural(dependentes, 'vínculo desfeito', 'vínculos desfeitos')}.`
           : 'Parada removida.',
         'info',
         7000,

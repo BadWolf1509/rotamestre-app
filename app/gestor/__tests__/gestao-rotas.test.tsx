@@ -141,7 +141,7 @@ describe('GestaoRotas (mobile/tablet)', () => {
     render(<GestaoRotas />);
 
     expect(screen.getByText(/Mostrando 100 de 437 rotas/)).toBeTruthy();
-    expect(screen.getByText(/437 rota\(s\) encontrada\(s\)/)).toBeTruthy();
+    expect(screen.getByText(/437 rotas encontradas/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('gestao-rotas-carregar-mais'));
     expect(mockCarregarMais).toHaveBeenCalledTimes(1);
   });
@@ -190,7 +190,7 @@ it('o progresso da exportação sai por formatarDecimal', () => {
   ).toBeTruthy();
 });
 
-it('o total de rotas encontradas sai por formatarDecimal', () => {
+it('o total de rotas encontradas usa a concordância certa', () => {
   mockEstadoHook = {
     rotasFiltradas: rotasFalsas(100),
     total: 2345,
@@ -199,7 +199,14 @@ it('o total de rotas encontradas sai por formatarDecimal', () => {
   comMarcador();
   render(<GestaoRotas />);
 
-  expect(screen.getByText('#2345# rota(s) encontrada(s)')).toBeTruthy();
+  expect(screen.getByText('2345 rotas encontradas')).toBeTruthy();
+});
+
+it('com uma rota o subtítulo diz "1 rota encontrada"', () => {
+  mockEstadoHook = { rotasFiltradas: rotasFalsas(1), total: 1 };
+  render(<GestaoRotas />);
+
+  expect(screen.getByText('1 rota encontrada')).toBeTruthy();
 });
 
 function rotasFalsas(n: number) {

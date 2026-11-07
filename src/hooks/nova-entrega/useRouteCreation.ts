@@ -9,6 +9,7 @@ import type {
 import { googleMapsService } from '@/lib/google';
 import { logger } from '@/lib/logger';
 import { mensagemRegraDoBanco } from '@/lib/motorista/mensagemRegraDoBanco';
+import { plural } from '@/lib/plural';
 import { supabase } from '@/lib/supabase';
 import type { OtimizacaoEstado } from '@/types/rota';
 
@@ -264,7 +265,7 @@ export function useRouteCreation({
       showToast(
         result.reused
           ? 'A rota já havia sido criada e foi recuperada com segurança.'
-          : `Rota criada com sucesso com ${paradas.length} parada(s).`,
+          : `Rota criada com sucesso com ${plural(paradas.length, 'parada', 'paradas')}.`,
         'success',
         5000,
       );

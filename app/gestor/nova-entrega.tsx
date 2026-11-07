@@ -30,6 +30,7 @@ import { useNovaEntrega } from '@/hooks/useNovaEntrega';
 import { mensagemParadaDuplicada } from '@/hooks/useNovaEntrega.helpers';
 import { useResponsive } from '@/hooks/useResponsive';
 import { confirmarMotoristaNuncaEntrou } from '@/lib/motorista/confirmarMotoristaNuncaEntrou';
+import { plural } from '@/lib/plural';
 import { useUnistyles } from '@/utils/styles';
 
 export default function NovaEntrega() {
@@ -160,7 +161,7 @@ export default function NovaEntrega() {
       if (linkedCount > 0) {
         const confirmed = await showConfirm({
           title: 'Remover retirada vinculada?',
-          message: `${linkedCount} entrega(s) dependem desta retirada. Ao remover, os vínculos serão desfeitos. Você ainda poderá usar “Desfazer”.`,
+          message: `${linkedCount === 1 ? '1 entrega depende' : `${linkedCount} entregas dependem`} desta retirada. Ao remover, os vínculos serão desfeitos. Você ainda poderá usar “Desfazer”.`,
           type: 'warning',
           confirmText: 'Remover e desvincular',
         });
@@ -503,7 +504,7 @@ export default function NovaEntrega() {
         >
           <View style={styles.mobileActionSummary}>
             <Text style={styles.mobileActionCount}>
-              {paradas.length} parada(s)
+              {plural(paradas.length, 'parada', 'paradas')}
             </Text>
             <Text style={styles.mobileActionHint} numberOfLines={1}>
               {routeValidation.erros[0] || 'Pronta para revisão'}

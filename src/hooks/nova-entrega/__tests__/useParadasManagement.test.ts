@@ -526,7 +526,7 @@ describe('useParadasManagement', () => {
       });
       expect(callbacks.onRotaOtimizadaReset).toHaveBeenCalled();
       expect(callbacks.showToast).toHaveBeenCalledWith(
-        '2 parada(s) importada(s).',
+        '2 paradas importadas.',
         'success',
         5000,
       );
@@ -554,7 +554,7 @@ describe('useParadasManagement', () => {
       });
       expect(result.current.paradas).toHaveLength(2);
       expect(callbacks.showToast).toHaveBeenCalledWith(
-        '1 parada(s) importada(s). 1 linha não entrou.',
+        '1 parada importada. 1 linha não entrou.',
         'info',
         5000,
       );
@@ -595,7 +595,7 @@ describe('useParadasManagement', () => {
       });
 
       expect(callbacks.showToast).toHaveBeenCalledWith(
-        '1 parada(s) importada(s). 2 linhas não entraram.',
+        '1 parada importada. 2 linhas não entraram.',
         'info',
         5000,
       );

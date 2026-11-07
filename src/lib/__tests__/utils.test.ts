@@ -59,7 +59,7 @@ describe('lib/utils', () => {
       expect(result?.id).toBe('log-123');
       expect(result?.type).toBe('status_change');
       expect(result?.title).toBe('Rota Criada');
-      expect(result?.description).toContain('5 parada(s)');
+      expect(result?.description).toContain('5 paradas');
       expect(result?.colorKey).toBe('purple');
       expect(result?.icon).toBe('add-circle');
     });

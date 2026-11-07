@@ -289,7 +289,7 @@ describe('timeline', () => {
         type: 'status_change',
         timestamp: ts,
         title: 'Rota Criada',
-        description: 'Rota criada com 5 parada(s) • 2 vínculo(s)',
+        description: 'Rota criada com 5 paradas • 2 vínculos',
         icon: 'add-circle',
         colorKey: 'purple',
       });
@@ -302,7 +302,7 @@ describe('timeline', () => {
         timestamp: ts,
         detalhes: { total_paradas: 3 },
       });
-      expect(result?.description).toBe('Rota criada com 3 parada(s)');
+      expect(result?.description).toBe('Rota criada com 3 paradas');
     });
 
     it('should map rota_criada with null detalhes', () => {
@@ -312,7 +312,7 @@ describe('timeline', () => {
         timestamp: ts,
         detalhes: null,
       });
-      expect(result?.description).toBe('Rota criada com 0 parada(s)');
+      expect(result?.description).toBe('Rota criada com 0 paradas');
     });
 
     it('should map route started event', () => {
@@ -442,7 +442,7 @@ describe('timeline', () => {
         map('rota_finalizada', { paradas_concluidas: 8, paradas_puladas: 2 }),
       ).toMatchObject({
         title: 'Resumo Confirmado',
-        description: '8 concluída(s), 2 pulada(s)',
+        description: '8 concluídas, 2 puladas',
         icon: 'document-text',
         colorKey: 'blue',
       });
@@ -450,7 +450,7 @@ describe('timeline', () => {
     it('ROTA_FINALIZADA sem detalhes: resumo com zeros', () => {
       expect(map('ROTA_FINALIZADA', null)).toMatchObject({
         title: 'Resumo Confirmado',
-        description: '0 concluída(s), 0 pulada(s)',
+        description: '0 concluídas, 0 puladas',
       });
     });
     it.each(
@@ -552,7 +552,7 @@ describe('timeline', () => {
       });
       expect(result).toMatchObject({
         title: 'Parada Removida',
-        description: '4 parada(s) restante(s)',
+        description: '4 paradas restantes',
         icon: 'trash',
         colorKey: 'error',
       });
@@ -704,7 +704,7 @@ describe('timeline', () => {
         detalhes: 'invalid' as any,
       });
       // detalhes is not an object, so it becomes null internally
-      expect(result?.description).toBe('Rota criada com 0 parada(s)');
+      expect(result?.description).toBe('Rota criada com 0 paradas');
     });
   });
 

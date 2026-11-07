@@ -8,6 +8,7 @@
 
 import { toLocalISODate } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { plural } from '@/lib/plural';
 
 // ============================================================================
 // CONSTANTS
@@ -264,9 +265,9 @@ export function mapLogToTimelineEvent(log: {
   if (evento === 'rota_criada') {
     const totalParadas = detalhes?.total_paradas || 0;
     const temVinculos = detalhes?.tem_vinculos;
-    let description = `Rota criada com ${totalParadas} parada(s)`;
+    let description = `Rota criada com ${plural(totalParadas, 'parada', 'paradas')}`;
     if (temVinculos) {
-      description += ` • ${detalhes?.total_vinculos || 0} vínculo(s)`;
+      description += ` • ${plural(detalhes?.total_vinculos || 0, 'vínculo', 'vínculos')}`;
     }
     return {
       id: `log-${log.id}`,
@@ -370,7 +371,7 @@ export function mapLogToTimelineEvent(log: {
       type: 'status_change',
       timestamp: log.timestamp,
       title: 'Resumo Confirmado',
-      description: `${concluidas} concluída(s), ${puladas} pulada(s)`,
+      description: `${plural(concluidas, 'concluída', 'concluídas')}, ${plural(puladas, 'pulada', 'puladas')}`,
       icon: 'document-text',
       colorKey: 'blue',
     };
@@ -422,7 +423,11 @@ export function mapLogToTimelineEvent(log: {
       type: 'parada_update',
       timestamp: log.timestamp,
       title: 'Parada Removida',
-      description: `${detalhes?.paradas_restantes || 0} parada(s) restante(s)`,
+      description: plural(
+        detalhes?.paradas_restantes || 0,
+        'parada restante',
+        'paradas restantes',
+      ),
       icon: 'trash',
       colorKey: 'error',
     };

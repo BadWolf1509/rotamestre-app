@@ -60,6 +60,7 @@ import { useToast } from '@/hooks/useToast';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { textoMostrando } from '@/lib/gestor/consultaRotas';
+import { plural } from '@/lib/plural';
 import { styles } from '@/styles/gestor/gestao-rotas.styles';
 import { useUnistyles } from '@/utils/styles';
 
@@ -262,7 +263,7 @@ export default function GestaoRotas() {
   const pendentesCount =
     contagens?.pendentes ??
     rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
-  const subtituloFiltros = `${formatarDecimal(totalRotas, 0)} rota(s) encontrada(s)`;
+  const subtituloFiltros = `${plural(totalRotas, 'rota encontrada', 'rotas encontradas')}`;
 
   // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
   // Função chamada no JSX (não componente declarado no render).
