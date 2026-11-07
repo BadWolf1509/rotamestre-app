@@ -3608,16 +3608,18 @@ da função).
 - **B-2** `remind_pending_routes(p_urgency)` (mesma assinatura e ACL) delega
   a `lembrar_rotas_no_horario(p_urgency, p_agora)` com `now()`. A interna
   (corpo da Migration 26) só avisa na janela de Brasília — normal
-  **15:00–20:00**, final **19:00–22:00**, tiradas do `expire-routes.yml`
-  (16:00, 20:00, expiração 22:00): 1 h antes para disparo manual, e o fim é
-  onde o aviso seguinte assume — e não repete o mesmo tipo de aviso para a
+  **15:00–17:00**, final **19:00–22:00**, tiradas do `expire-routes.yml`
+  (16:00, 20:00, expiração 22:00): 1 h antes para disparo manual; a normal
+  fecha às 17:00 porque o texto da pendente diz "Expediente termina às 17h!"
+  (o aviso final cobre o resto), e a final fecha na expiração — e não repete o mesmo tipo de aviso para a
   mesma rota e o mesmo motorista desde a meia-noite (`NOT EXISTS` em
   `notificacoes`). Fora da janela devolve (0, 0). A interna não é DEFINER e só
   o dono a executa; o instante como argumento é para a sonda provar as
   janelas.
-- **B-4** A função do gatilho da Migration 76 (`rota_status_pelo_gestor`)
-  recusa toda chegada a `concluida` com parada real (`is_checkpoint IS
-DISTINCT FROM false`) `pendente`/`em_andamento`: P0001
+- **B-4** Rota só conclui sem parada real aberta: a função do gatilho da
+  Migration 76 (`rota_status_pelo_gestor`) trava as paradas e confere, em
+  toda chegada a `concluida`, as reais (`is_checkpoint IS DISTINCT FROM
+false`) em `pendente`/`em_andamento`; havendo alguma, P0001
   `ROTA_PARADAS_PENDENTES: ...`, o prefixo da `finalizar_rota` (já mapeado em
   `src/lib/errorMapping.ts`). Vale para motorista e gestor; sessão sem
   usuário segue passando. A `finalizar_rota` não muda de comportamento: recusa

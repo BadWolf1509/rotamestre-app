@@ -123,9 +123,10 @@ describe('B-2: lembrete só na janela e uma vez por dia', () => {
     expect(lembrar).not.toMatch(/\bnow\(\)/);
   });
 
-  it('janelas: normal de 15:00 a 20:00, final de 19:00 a 22:00 (Brasília)', () => {
+  it('janelas: normal de 15:00 a 17:00, final de 19:00 a 22:00 (Brasília)', () => {
+    // A normal fecha às 17:00: o texto do lembrete diz "Expediente termina às 17h!".
     expect(lembrar).toMatch(
-      /IF p_urgency = 'final' THEN\s+v_na_janela := v_hora >= TIME '19:00' AND v_hora < TIME '22:00';\s+ELSE\s+v_na_janela := v_hora >= TIME '15:00' AND v_hora < TIME '20:00';\s+END IF;/,
+      /IF p_urgency = 'final' THEN\s+v_na_janela := v_hora >= TIME '19:00' AND v_hora < TIME '22:00';\s+ELSE\s+v_na_janela := v_hora >= TIME '15:00' AND v_hora < TIME '17:00';\s+END IF;/,
     );
     const guarda = lembrar.indexOf('IF NOT v_na_janela THEN');
     const loop = lembrar.indexOf('FOR r IN');
@@ -196,6 +197,15 @@ describe('B-4: concluir rota com parada real aberta é recusado no gatilho', () 
     expect(gestor).toBeGreaterThan(conferencia);
   });
 
+  it('trava as paradas da rota antes de contar, como a finalizar_rota', () => {
+    const trava = gatilho.search(
+      /PERFORM 1\s+FROM public\.paradas p\s+WHERE p\.rota_id = OLD\.id\s+FOR NO KEY UPDATE;/,
+    );
+    const contagem = gatilho.indexOf('SELECT count(*)');
+    expect(trava).toBeGreaterThan(-1);
+    expect(contagem).toBeGreaterThan(trava);
+  });
+
   it('conta parada real aberta como a finalizar_rota e recusa com ROTA_PARADAS_PENDENTES', () => {
     expect(gatilho).toMatch(
       /FROM public\.paradas p\s+WHERE p\.rota_id = OLD\.id\s+AND p\.is_checkpoint IS DISTINCT FROM false\s+AND p\.status IN \('pendente', 'em_andamento'\);/,
@@ -246,6 +256,17 @@ describe('B-5: limpar_notificacoes_antigas', () => {
       /WHERE n2\.lida = true\s+AND n2\.created_at < v_corte_lidas/,
     );
     expect(limpar).toMatch(/WHERE l2\.created_at < v_corte_logs/);
+  });
+
+  it('dono fixado em postgres (DEFINER que apaga de todas as lojas)', () => {
+    const dono = executavel.indexOf(
+      'ALTER FUNCTION public.limpar_notificacoes_antigas(integer, integer) OWNER TO postgres;',
+    );
+    expect(dono).toBeGreaterThan(
+      executavel.indexOf(
+        'CREATE OR REPLACE FUNCTION public.limpar_notificacoes_antigas(',
+      ),
+    );
   });
 
   it('ACL: só service_role executa; índice de created_at nos logs', () => {
@@ -325,6 +346,22 @@ describe('Migration 83: COMMENT, rollback, sonda e documentação', () => {
       expect(sonda).toContain(termo);
     }
     expect(sonda).not.toMatch(/^\s*COMMIT;/m);
+  });
+
+  it('texto neutro: a B-4 é descrita pela garantia, não pelo caminho antigo', () => {
+    const publicos = [m.sql, sonda].join('\n').toLowerCase();
+    for (const termo of [
+      'pulava',
+      'pula a conferência',
+      'burla',
+      'contorn',
+      'vaza',
+      'brecha',
+      'explor',
+      'vulnerab',
+    ]) {
+      expect(publicos).not.toContain(termo);
+    }
   });
 
   it('MIGRATIONS.md registra a 83 como não aplicada', () => {

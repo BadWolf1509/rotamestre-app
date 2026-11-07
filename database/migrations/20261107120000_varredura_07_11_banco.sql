@@ -23,8 +23,10 @@
 --         - janela em America/Sao_Paulo, a partir dos horários do
 --           `.github/workflows/expire-routes.yml` (lembrete 16:00, aviso
 --           final 20:00, expiração 22:00, dias úteis):
---             normal: 15:00 ≤ hora < 20:00 — 1 h antes do agendado para
---               disparo manual; termina quando o aviso final assume;
+--             normal: 15:00 ≤ hora < 17:00 — 1 h antes do agendado para
+--               disparo manual; termina às 17:00 porque o texto da rota
+--               pendente diz "Expediente termina às 17h!" (depois disso o
+--               aviso final das 20:00 cobre a rota);
 --             final:  19:00 ≤ hora < 22:00 — termina na expiração: depois
 --               dela o texto "expira às 22:00" seria falso (e, depois da
 --               meia-noite, falaria de rota do dia seguinte);
@@ -43,22 +45,21 @@
 --       e contagens são os da Migration 26 (20260831234500), última
 --       definição.
 --
---   B-4 `em_andamento → concluida` por UPDATE direto pulava a conferência de
---       paradas pendentes que a `finalizar_rota` faz. A função do gatilho da
---       Migration 76 (`rota_status_pelo_gestor`, 20261027100000, última
---       definição) passa a recusar toda chegada a `concluida` com parada real
---       (`is_checkpoint IS DISTINCT FROM false`, o critério da
---       `finalizar_rota`) em `pendente`/`em_andamento`: P0001 com a mensagem
---       `ROTA_PARADAS_PENDENTES: ...`, o mesmo prefixo da `finalizar_rota`
---       (o app já o mapeia em `src/lib/errorMapping.ts`). Vale para o
---       motorista e para o gestor; sessão sem usuário (cron, chave secreta,
---       CLI) segue passando, como na Migration 76.
---       `finalizar_rota` (última definição em 20261024111000) não é afetada:
---       ela recusa antes com o mesmo código se houver parada real aberta,
---       conclui a chegada (`is_checkpoint = false`, fora da contagem) e só
---       então faz o UPDATE da rota — quando o gatilho conta, não sobra
---       parada real aberta. Partida e chegada pendentes não bloqueiam o
---       UPDATE direto do app até a 1.14.2, que conclui sem passar por elas.
+--   B-4 Rota só conclui sem parada real aberta, qualquer que seja o caminho.
+--       A função do gatilho da Migration 76 (`rota_status_pelo_gestor`,
+--       20261027100000, última definição) passa a conferir, em toda chegada
+--       a `concluida`, as paradas reais (`is_checkpoint IS DISTINCT FROM
+--       false`, o critério da `finalizar_rota`) em `pendente`/`em_andamento`,
+--       com as paradas travadas antes de contar (como a `finalizar_rota`);
+--       havendo alguma: P0001 com a mensagem `ROTA_PARADAS_PENDENTES: ...`, o
+--       mesmo prefixo da `finalizar_rota` (o app já o mapeia em
+--       `src/lib/errorMapping.ts`). Vale para o motorista e para o gestor;
+--       sessão sem usuário (cron, chave secreta, CLI) segue passando, como na
+--       Migration 76.
+--       `finalizar_rota` (última definição em 20261024111000) não muda de
+--       comportamento: ela confere antes com o mesmo código, conclui a
+--       chegada (`is_checkpoint = false`, fora da contagem) e só então grava
+--       a rota. Partida e chegada não contam.
 --
 --   B-5 `notificacoes` e `push_notification_logs` não tinham retenção.
 --       `limpar_notificacoes_antigas(p_dias_lidas 90, p_dias_push_logs 30)`
@@ -93,8 +94,8 @@
 --     B-4: (a) conferência no gatilho da Migration 76 (escolhida: mesmo
 --          lugar que já decide a transição, sem gatilho novo para ordenar);
 --          (b) gatilho próprio: dois BEFORE UPDATE OF status com ordem
---          alfabética a cuidar; (c) tirar o UPDATE direto do motorista:
---          quebra o app até a 1.14.2 (atalho de compatibilidade, B-7).
+--          alfabética a cuidar; (c) só aceitar a conclusão pela RPC: o app
+--          até a 1.14.2 conclui por UPDATE (compatibilidade, B-7).
 --          Escopo: toda chegada a `concluida` (o gestor também), porque rota
 --          concluída com parada real aberta é estado inválido para qualquer
 --          um; o motorista só chega a `concluida` vindo de `em_andamento`.
@@ -107,9 +108,9 @@
 --     - B-1: o gestor pelo vínculo passa a receber o aviso de rota não
 --       executada/abandonada; quem saiu da loja deixa de receber;
 --     - B-2: lembrete fora de hora ou repetido deixa de chegar;
---     - B-4: motorista no app até a 1.14.2 que conclui com parada real aberta
---       recebe o erro (o app mostra "concluir com paradas pendentes");
---       caminho normal (todas concluídas ou puladas) não muda;
+--     - B-4: concluir com parada real aberta devolve o erro (o app mostra
+--       "concluir com paradas pendentes"); o caminho normal (todas
+--       concluídas ou puladas) não muda;
 --     - B-5: notificação lida com mais de 90 dias some da lista.
 --
 --   Ordem de deploy: esta migration antes do deploy da `expire-routes` nova
@@ -344,11 +345,12 @@ BEGIN
 
   -- Janela (B-2): agendador atrasado ou disparo manual fora de hora não avisa.
   -- Agendado (expire-routes.yml): lembrete 16:00, aviso final 20:00,
-  -- expiração 22:00.
+  -- expiração 22:00. A normal fecha às 17:00: o texto da pendente diz
+  -- "Expediente termina às 17h!".
   IF p_urgency = 'final' THEN
     v_na_janela := v_hora >= TIME '19:00' AND v_hora < TIME '22:00';
   ELSE
-    v_na_janela := v_hora >= TIME '15:00' AND v_hora < TIME '20:00';
+    v_na_janela := v_hora >= TIME '15:00' AND v_hora < TIME '17:00';
   END IF;
 
   IF NOT v_na_janela THEN
@@ -437,7 +439,7 @@ ALTER FUNCTION public.lembrar_rotas_no_horario(text, timestamptz) OWNER TO postg
 REVOKE ALL ON FUNCTION public.lembrar_rotas_no_horario(text, timestamptz) FROM PUBLIC, anon, authenticated, service_role;
 
 COMMENT ON FUNCTION public.lembrar_rotas_no_horario(text, timestamptz) IS
-  'Migration 83: corpo do lembrete de rota com o instante como argumento. Só avisa na janela de America/Sao_Paulo (normal 15:00-20:00, final 19:00-22:00) e não repete o mesmo tipo de aviso para a mesma rota e motorista no dia. Chamada só pela remind_pending_routes; EXECUTE só do dono.';
+  'Migration 83: corpo do lembrete de rota com o instante como argumento. Só avisa na janela de America/Sao_Paulo (normal 15:00-17:00, final 19:00-22:00) e não repete o mesmo tipo de aviso para a mesma rota e motorista no dia. Chamada só pela remind_pending_routes; EXECUTE só do dono.';
 
 CREATE OR REPLACE FUNCTION public.remind_pending_routes(p_urgency text DEFAULT 'normal')
 RETURNS TABLE(
@@ -459,7 +461,7 @@ REVOKE ALL ON FUNCTION public.remind_pending_routes(text) FROM PUBLIC, anon, aut
 GRANT EXECUTE ON FUNCTION public.remind_pending_routes(text) TO service_role;
 
 COMMENT ON FUNCTION public.remind_pending_routes(text) IS
-  'Migration 83 (sobre a 26): lembra motoristas de rota a vencer, pela lembrar_rotas_no_horario com now(). Só na janela de America/Sao_Paulo (normal 15:00-20:00, final 19:00-22:00; fora dela devolve 0, 0) e uma vez por dia por rota e tipo. PENDENTES: rota do dia. EM ANDAMENTO: data <= hoje - 7. p_urgency=final envia o aviso das 20:00.';
+  'Migration 83 (sobre a 26): lembra motoristas de rota a vencer, pela lembrar_rotas_no_horario com now(). Só na janela de America/Sao_Paulo (normal 15:00-17:00, final 19:00-22:00; fora dela devolve 0, 0) e uma vez por dia por rota e tipo. PENDENTES: rota do dia. EM ANDAMENTO: data <= hoje - 7. p_urgency=final envia o aviso das 20:00.';
 
 -- ----------------------------------------------------------------------------
 -- B-4. rota_status_pelo_gestor — corpo da Migration 76 + conferência de
@@ -480,10 +482,16 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Concluir com parada real aberta é recusado para todos (Migration 83,
-  -- B-4), com o critério e o código da finalizar_rota. Partida e chegada
-  -- (is_checkpoint = false) não contam.
+  -- Rota só conclui sem parada real aberta (Migration 83, B-4), com o
+  -- critério e o código da finalizar_rota. Partida e chegada
+  -- (is_checkpoint = false) não contam. As paradas são travadas antes da
+  -- contagem, como na finalizar_rota (FOR NO KEY UPDATE, nunca FOR UPDATE).
   IF NEW.status = 'concluida' THEN
+    PERFORM 1
+       FROM public.paradas p
+      WHERE p.rota_id = OLD.id
+        FOR NO KEY UPDATE;
+
     SELECT count(*)
       INTO v_pendentes
       FROM public.paradas p
@@ -610,6 +618,7 @@ BEGIN
 END;
 $$;
 
+ALTER FUNCTION public.limpar_notificacoes_antigas(integer, integer) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.limpar_notificacoes_antigas(integer, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.limpar_notificacoes_antigas(integer, integer) TO service_role;
 
@@ -634,7 +643,7 @@ COMMIT;
 -- ROLLBACK:
 -- -- Corpos das últimas definições nos arquivos (expire: 20260831230000;
 -- -- remind: 20260831234500; gatilho: 20261027100000), ACL e COMMENT de antes.
--- -- Reverter a B-4 reabre a conclusão direta com parada aberta; reverter a B-2
+-- -- Reverter a B-4 tira a conferência de paradas do gatilho; reverter a B-2
 -- -- volta o lembrete fora de hora e repetido.
 -- BEGIN;
 -- SET LOCAL lock_timeout = '3s';

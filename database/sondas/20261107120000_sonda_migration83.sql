@@ -35,9 +35,9 @@
 --    1. B-1: rota pendente de ontem em A expira → avisados GA, GV e M; GL
 --       não; rota `nao_executada`
 --    2. B-2 fora da janela: `lembrar_rotas_no_horario` com normal às 10:00 e
---       às 20:00 e final às 18:59 e às 22:30 → (0, 0) nos quatro; nenhuma
+--       às 17:00 e final às 18:59 e às 22:30 → (0, 0) nos quatro; nenhuma
 --       notificação
---    3. B-2 na janela e repetido: normal às 16:00 → 1 aviso; normal às 17:30
+--    3. B-2 na janela e repetido: normal às 16:00 → 1 aviso; normal às 16:30
 --       → 0; final às 20:00 → 1 urgente; final às 21:59 → 0; um aviso de
 --       cada tipo na rota
 --    4. B-4: M conclui por UPDATE direto com parada real pendente → P0001
@@ -181,7 +181,7 @@ BEGIN
     v_det := '';
     FOR v_status, v_args IN
       SELECT x.urg, x.hora FROM (VALUES
-        ('normal', '10:00'), ('normal', '20:00'), ('final', '18:59'), ('final', '22:30')
+        ('normal', '10:00'), ('normal', '17:00'), ('final', '18:59'), ('final', '22:30')
       ) AS x(urg, hora)
     LOOP
       SELECT l.routes_found, l.reminders_sent INTO v_found, v_sent
@@ -196,7 +196,7 @@ BEGIN
     END LOOP;
     SELECT count(*) INTO v_n FROM public.notificacoes WHERE rota_id = v_rota2;
     r := r || CASE WHEN v_ok AND v_n = 0
-      THEN ' | 2 OK: fora da janela (normal 10:00 e 20:00; final 18:59 e 22:30) não avisa'
+      THEN ' | 2 OK: fora da janela (normal 10:00 e 17:00; final 18:59 e 22:30) não avisa'
       ELSE ' | 2 FALHOU:' || v_det || ' ' || v_n || ' notificação(ões)' END;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 2 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
@@ -210,7 +210,7 @@ BEGIN
     v_det := '';
     FOR v_status, v_args, v_n IN
       SELECT x.urg, x.hora, x.esperado FROM (VALUES
-        ('normal', '16:00', 1), ('normal', '17:30', 0), ('final', '20:00', 1), ('final', '21:59', 0)
+        ('normal', '16:00', 1), ('normal', '16:30', 0), ('final', '20:00', 1), ('final', '21:59', 0)
       ) AS x(urg, hora, esperado)
     LOOP
       SELECT l.routes_found, l.reminders_sent INTO v_found, v_sent
@@ -230,7 +230,7 @@ BEGIN
       INTO v_n, v_n2c, v_n3c
       FROM public.notificacoes WHERE rota_id = v_rota2;
     r := r || CASE WHEN v_ok AND v_n = 1 AND v_n2c = 1 AND v_n3c = 2
-      THEN ' | 3 OK: na janela avisa uma vez por tipo (16:00 e 20:00); 17:30 e 21:59 não repetem'
+      THEN ' | 3 OK: na janela avisa uma vez por tipo (16:00 e 20:00); 16:30 e 21:59 não repetem'
       ELSE ' | 3 FALHOU:' || v_det || ' pendente=' || v_n || ' urgente=' || v_n2c || ' total=' || v_n3c END;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 3 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
