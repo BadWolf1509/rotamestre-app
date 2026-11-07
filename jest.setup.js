@@ -142,6 +142,9 @@ const mockTheme = {
     gray100: '#f3f4f6',
     gray50: '#f9fafb',
     primary: '#1e5aa8',
+    background: '#f9fafb',
+    text: '#1f2937',
+    textSecondary: '#4b5563',
     primaryDark: '#164178',
     primaryBg: '#e6ecfb',
     secondary: '#f7a02a',
@@ -184,6 +187,7 @@ const mockTheme = {
     fontSans: 'System',
     fontSansSemiBold: 'System',
     fontSansBold: 'System',
+    fontDisplay: 'Viga',
   },
   spacing: {
     // Escala numerica (grade de 4px) — o codigo de producao usa

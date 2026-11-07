@@ -9,7 +9,9 @@ import type { CategoriaLabel, StatusLabel } from './types';
 /**
  * Create category labels based on theme
  */
-export function createCategoriaLabels(theme: Theme): Record<string, CategoriaLabel> {
+export function createCategoriaLabels(
+  theme: Theme,
+): Record<string, CategoriaLabel> {
   return {
     accident: {
       label: 'Acidente/Incidente',
@@ -50,7 +52,7 @@ export function createCategoriaLabels(theme: Theme): Record<string, CategoriaLab
 export function createStatusLabels(theme: Theme): Record<string, StatusLabel> {
   return {
     aberto: { label: 'Aberto', color: theme.colors.error },
-    em_analise: { label: 'Em Análise', color: theme.colors.warning },
+    em_analise: { label: 'Em análise', color: theme.colors.warning },
     resolvido: { label: 'Resolvido', color: theme.colors.success },
     fechado: { label: 'Fechado', color: theme.colors.gray500 },
   };

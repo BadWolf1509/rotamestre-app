@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { render, fireEvent } from '@testing-library/react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import {
   DesktopPageLayout,
@@ -17,7 +17,13 @@ jest.mock('expo-router', () => ({
 
 // Mock NotificationModalContext
 jest.mock('@/components/SeletorUnidade', () => ({
-  SeletorUnidade: ({ papel, compact }: { papel?: string; compact?: boolean }) => {
+  SeletorUnidade: ({
+    papel,
+    compact,
+  }: {
+    papel?: string;
+    compact?: boolean;
+  }) => {
     const { Text } = require('react-native');
     return <Text>{`seletor-${papel}-${compact ? 'compacto' : 'cheio'}`}</Text>;
   },
@@ -64,11 +70,11 @@ jest.mock('@/utils/styles', () => {
       background: '#fff',
       surface: '#fff',
       text: '#000',
-      textSecondary: '#6b7280',
+      textSecondary: '#445566',
       border: '#e5e7eb',
     },
     spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
-    typography: { xs: 12, sm: 14, base: 16 },
+    typography: { xs: 12, sm: 14, base: 16, fontDisplay: 'Viga' },
     borderRadius: { sm: 8, md: 12, lg: 16, xl: 24, full: 9999 },
     shadows: { sm: {}, md: {} },
     components: {
@@ -111,6 +117,30 @@ describe('DesktopPageLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
+  });
+
+  describe('Tipografia', () => {
+    it('o título usa a fonte de exibição, sem negrito sintético', () => {
+      const { getByText } = render(
+        <DesktopPageLayout title="Título">
+          <Text>c</Text>
+        </DesktopPageLayout>,
+      );
+      const estilo = StyleSheet.flatten(getByText('Título').props.style);
+      expect(estilo.fontFamily).toBe('Viga');
+      expect(estilo.fontWeight).toBeUndefined();
+    });
+
+    it('o subtítulo usa textSecondary', () => {
+      const { getByText } = render(
+        <DesktopPageLayout title="T" subtitle="Sub">
+          <Text>c</Text>
+        </DesktopPageLayout>,
+      );
+      expect(StyleSheet.flatten(getByText('Sub').props.style).color).toBe(
+        '#445566',
+      );
+    });
   });
 
   describe('Renderização Básica', () => {
@@ -476,7 +506,9 @@ describe('DesktopPageLayout', () => {
         <DesktopPageLayout
           title="Title"
           userMenuTrigger={<Text>User Menu</Text>}
-          userMenuItems={[{ label: 'Perfil', icon: 'person', onPress: jest.fn() }]}
+          userMenuItems={[
+            { label: 'Perfil', icon: 'person', onPress: jest.fn() },
+          ]}
         >
           <Text>Content</Text>
         </DesktopPageLayout>,

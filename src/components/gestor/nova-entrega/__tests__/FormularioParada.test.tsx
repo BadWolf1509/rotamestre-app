@@ -7,8 +7,10 @@ import {
 } from '@testing-library/react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { StyleSheet } from 'react-native';
 
 import { paradaSchema } from '@/hooks/useNovaEntrega';
+import { defaultTheme } from '@/utils/styles';
 
 import { FormularioParada } from '../FormularioParada';
 
@@ -151,5 +153,39 @@ describe('FormularioParada — erro de endereço', () => {
     fireEvent.press(screen.getByTestId('mock-selecionar'));
 
     await waitFor(() => expect(screen.getByText('Validado')).toBeTruthy());
+  });
+});
+
+describe('FormularioParada — seletor de tipo', () => {
+  it('com Entrega ativa, Retirada fica neutra e Entrega marcada', () => {
+    render(<Harness />);
+    const entrega = screen.getByRole('radio', {
+      name: 'Selecionar tipo entrega',
+    });
+    const retirada = screen.getByRole('radio', {
+      name: 'Selecionar tipo retirada',
+    });
+
+    expect(entrega.props.accessibilityState.checked).toBe(true);
+    expect(retirada.props.accessibilityState.checked).toBe(false);
+
+    const estilo = StyleSheet.flatten(retirada.props.style);
+    expect(estilo.borderColor).toBe(defaultTheme.colors.gray300);
+    expect(estilo.backgroundColor).toBe(defaultTheme.colors.background);
+    expect(StyleSheet.flatten(entrega.props.style).backgroundColor).toBe(
+      defaultTheme.colors.primary,
+    );
+  });
+
+  it('ao escolher Retirada, ela ganha o fundo warning', () => {
+    render(<Harness />);
+    fireEvent.press(screen.getByText('Retirada'));
+    const retirada = screen.getByRole('radio', {
+      name: 'Selecionar tipo retirada',
+    });
+    expect(retirada.props.accessibilityState.checked).toBe(true);
+    expect(StyleSheet.flatten(retirada.props.style).backgroundColor).toBe(
+      defaultTheme.colors.warning,
+    );
   });
 });

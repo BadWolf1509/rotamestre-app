@@ -4,7 +4,11 @@
 
 import type { Theme } from '@/utils/styles';
 
-import { createCategoriaLabels, createStatusLabels, formatIncidentDate } from '../constants';
+import {
+  createCategoriaLabels,
+  createStatusLabels,
+  formatIncidentDate,
+} from '../constants';
 
 // Mock theme object with necessary colors
 const mockTheme = {
@@ -102,7 +106,7 @@ describe('incidentes-gestor/constants', () => {
     it('em_analise label has correct properties', () => {
       const labels = createStatusLabels(mockTheme);
 
-      expect(labels.em_analise.label).toBe('Em Análise');
+      expect(labels.em_analise.label).toBe('Em análise');
       expect(labels.em_analise.color).toBe(mockTheme.colors.warning);
     });
 

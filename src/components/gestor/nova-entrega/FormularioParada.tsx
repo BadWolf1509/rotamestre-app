@@ -105,12 +105,14 @@ export const FormularioParada = memo(function FormularioParada({
               accessibilityState={{ checked: value === 'entrega' }}
             >
               <Ionicons
-                name="arrow-down-circle"
+                name={
+                  value === 'entrega' ? 'checkmark-circle' : 'arrow-down-circle'
+                }
                 size={isDesktop ? 16 : 18}
                 color={
                   value === 'entrega'
                     ? theme.colors.white
-                    : theme.colors.primary
+                    : theme.colors.textSecondary
                 }
                 style={styles.radioIcon}
               />
@@ -127,7 +129,6 @@ export const FormularioParada = memo(function FormularioParada({
             <TouchableOpacity
               style={[
                 styles.radioButton,
-                styles.radioButtonRetirada,
                 isDesktop && styles.radioButtonDesktop,
                 value === 'retirada' && styles.radioButtonRetiradaActive,
               ]}
@@ -140,19 +141,20 @@ export const FormularioParada = memo(function FormularioParada({
               accessibilityState={{ checked: value === 'retirada' }}
             >
               <Ionicons
-                name="arrow-up-circle"
+                name={
+                  value === 'retirada' ? 'checkmark-circle' : 'arrow-up-circle'
+                }
                 size={isDesktop ? 16 : 18}
                 color={
                   value === 'retirada'
                     ? theme.colors.white
-                    : theme.colors.warning
+                    : theme.colors.textSecondary
                 }
                 style={styles.radioIcon}
               />
               <Text
                 style={[
                   styles.radioText,
-                  styles.radioTextRetirada,
                   isDesktop && styles.radioTextDesktop,
                   value === 'retirada' && styles.radioTextActive,
                 ]}

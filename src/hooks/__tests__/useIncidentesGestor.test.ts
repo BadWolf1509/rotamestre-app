@@ -703,7 +703,7 @@ describe('useIncidentesGestor', () => {
         color: mockTheme.colors.error,
       });
       expect(result.current.statusLabels.em_analise).toEqual({
-        label: 'Em Análise',
+        label: 'Em análise',
         color: mockTheme.colors.warning,
       });
       expect(result.current.statusLabels.resolvido).toEqual({

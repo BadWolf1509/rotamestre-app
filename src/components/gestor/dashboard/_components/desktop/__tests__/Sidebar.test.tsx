@@ -1,5 +1,8 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
+
+import { defaultTheme } from '@/utils/styles';
 
 import { Sidebar } from '../Sidebar';
 
@@ -84,10 +87,26 @@ describe('Sidebar', () => {
       expect(toJSON()).toBeTruthy();
     });
 
-    it('deve renderizar Painel do Gestor', () => {
+    it('deve renderizar "Painel do gestor" sem caixa alta', () => {
       const { getByText } = render(<Sidebar {...defaultProps} />);
 
-      expect(getByText('Painel do Gestor')).toBeTruthy();
+      const subtitulo = getByText('Painel do gestor');
+      const estilo = StyleSheet.flatten(subtitulo.props.style);
+      expect(estilo.textTransform).toBeUndefined();
+      expect(estilo.letterSpacing).toBeUndefined();
+      expect(estilo.fontSize).toBe(13);
+    });
+
+    it('marca o item ativo com a borda na cor primária', () => {
+      const { getByText } = render(<Sidebar {...defaultProps} />);
+
+      let no = getByText('Início').parent;
+      let borda: unknown;
+      while (no && borda === undefined) {
+        borda = StyleSheet.flatten(no.props.style)?.borderLeftColor;
+        no = no.parent;
+      }
+      expect(borda).toBe(defaultTheme.colors.primary);
     });
 
     it('deve renderizar itens de navegação', () => {

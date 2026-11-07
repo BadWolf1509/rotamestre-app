@@ -241,7 +241,7 @@ export default function IncidentesScreen() {
             <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>
               {resumoGeral.emAnalise}
             </Text>
-            <Text style={styles.resumoLabel}>Em Análise</Text>
+            <Text style={styles.resumoLabel}>Em análise</Text>
           </View>
           <View style={styles.resumoCard}>
             <Text style={[styles.resumoValue, { color: theme.colors.success }]}>

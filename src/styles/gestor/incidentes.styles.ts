@@ -302,7 +302,7 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   },
   resumoValue: {
     fontSize: theme.typography['3xl'],
-    fontFamily: theme.typography.fontSansBold,
+    fontFamily: theme.typography.fontDisplay,
     marginBottom: theme.spacing.xs,
   },
   resumoLabel: {
