@@ -138,6 +138,10 @@ export const novaEntregaStyles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.warning,
     borderColor: theme.colors.warning,
   },
+  // Branco sobre warning dá 2,15:1; o texto escuro passa de 4,5:1 nos dois temas
+  radioTextRetiradaActive: {
+    color: theme.colors.onWarning,
+  },
   // Vínculo section
   vinculoSection: {
     marginBottom: theme.spacing.lg,

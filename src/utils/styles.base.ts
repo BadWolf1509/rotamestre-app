@@ -474,6 +474,8 @@ export const defaultTheme: Theme = {
     green800: '#166534',
     warningLight: '#fef3c7',
     warningDark: '#d97706',
+    // Texto sobre fundo warning, escuro nos dois temas (>= 4,5:1)
+    onWarning: '#111827',
     errorLight: '#fee2e2',
     successLight: '#d1fae5',
     whatsapp: '#25D366',
@@ -864,6 +866,7 @@ const darkColors = {
   warningBg: '#451a03',
   warningLight: '#78350f',
   warningDark: '#b45309',
+  onWarning: '#1a2029',
   error: '#f87171',
   errorDark: '#ef4444', // Hover/pressed state (darker in dark mode)
   errorBg: '#450a0a',

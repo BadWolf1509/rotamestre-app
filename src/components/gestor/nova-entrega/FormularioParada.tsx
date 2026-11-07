@@ -147,7 +147,7 @@ export const FormularioParada = memo(function FormularioParada({
                 size={isDesktop ? 16 : 18}
                 color={
                   value === 'retirada'
-                    ? theme.colors.white
+                    ? theme.colors.onWarning
                     : theme.colors.textSecondary
                 }
                 style={styles.radioIcon}
@@ -156,7 +156,7 @@ export const FormularioParada = memo(function FormularioParada({
                 style={[
                   styles.radioText,
                   isDesktop && styles.radioTextDesktop,
-                  value === 'retirada' && styles.radioTextActive,
+                  value === 'retirada' && styles.radioTextRetiradaActive,
                 ]}
               >
                 Retirada

@@ -151,6 +151,7 @@ const mockTheme = {
     success: '#22c55e',
     error: '#ef4444',
     warning: '#f59e0b',
+    onWarning: '#111827',
     info: '#3b82f6',
     overlay: 'rgba(0, 0, 0, 0.5)',
     whatsapp: '#25D366',
