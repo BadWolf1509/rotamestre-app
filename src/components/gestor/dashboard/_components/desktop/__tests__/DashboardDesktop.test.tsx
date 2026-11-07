@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import React from 'react';
 
 import { DashboardDesktop } from '../DashboardDesktop';
@@ -216,6 +216,27 @@ describe('DashboardDesktop', () => {
       );
 
       expect(getByText('Nenhuma rota cadastrada hoje')).toBeTruthy();
+      fireEvent.press(getByRole('button', { name: 'Criar rota' }));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
+    });
+
+    it('com filtro de período o vazio fala do período, sem "hoje", e mantém "Criar rota"', () => {
+      const { getByTestId, getByRole, queryByText } = render(
+        <DashboardDesktop
+          {...defaultProps}
+          rotas={[]}
+          filters={{
+            dataInicio: new Date(2026, 10, 1),
+            dataFim: new Date(2026, 10, 5),
+          }}
+        />,
+      );
+
+      // O ResumoDoDia acima também diz "Nenhuma rota no período".
+      const vazio = within(getByTestId('rotas-table'));
+      expect(vazio.getByText('Nenhuma rota no período')).toBeTruthy();
+      expect(queryByText('Nenhuma rota cadastrada hoje')).toBeNull();
+      expect(queryByText(/do dia/)).toBeNull();
       fireEvent.press(getByRole('button', { name: 'Criar rota' }));
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });

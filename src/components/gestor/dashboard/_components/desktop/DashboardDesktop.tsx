@@ -163,6 +163,10 @@ export function DashboardDesktop({
     [router],
   );
 
+  // Sem período escolhido, a Início mostra as rotas de hoje; com ele, o
+  // vazio não pode dizer "hoje".
+  const comFiltroDePeriodo = Boolean(filters.dataInicio || filters.dataFim);
+
   const irParaNovaRota = useCallback(() => {
     router.push('/gestor/nova-entrega');
   }, [router]);
@@ -232,8 +236,16 @@ export function DashboardDesktop({
             <View testID="rotas-table">
               <EmptyState
                 icon="map-outline"
-                title="Nenhuma rota cadastrada hoje"
-                description="Crie a primeira rota de entrega do dia"
+                title={
+                  comFiltroDePeriodo
+                    ? 'Nenhuma rota no período'
+                    : 'Nenhuma rota cadastrada hoje'
+                }
+                description={
+                  comFiltroDePeriodo
+                    ? 'Ajuste os filtros ou crie uma nova rota'
+                    : 'Crie a primeira rota de entrega do dia'
+                }
                 actionLabel="Criar rota"
                 onActionPress={irParaNovaRota}
                 compact
