@@ -2,8 +2,9 @@
  * Desktop view (table) for DataTable
  *
  * - As colunas preenchem a largura do cartão: `width` é a base, e cada
- *   coluna cresce na proporção dela (`larguraDaColuna`). Mais estreito que a
- *   soma das bases, a tabela rola na horizontal.
+ *   coluna cresce na proporção dela (`larguraDaColuna`, em `larguras.ts`, a
+ *   mesma regra do skeleton). Mais estreito que a soma das bases, a tabela
+ *   rola na horizontal.
  * - Célula de texto em uma linha, com reticências, e o texto inteiro no
  *   `accessibilityLabel`.
  * - Ações `danger` vão para o menu "Mais ações" (`MenuDeAcoes`); as outras
@@ -20,14 +21,17 @@ import {
   TouchableOpacity,
   Pressable,
   ScrollView,
-  DimensionValue,
   type GestureResponderEvent,
-  type ViewStyle,
 } from 'react-native';
 
 import { useUnistyles } from '@/utils/styles';
 
 import { PaginationDesktop } from './DataTablePagination';
+import {
+  larguraDaColuna,
+  larguraDaColunaDeAcoes,
+  separarAcoes,
+} from './larguras';
 import { MenuDeAcoes } from './MenuDeAcoes';
 import { dataTableStyles as styles } from './styles';
 import { getColumnDisplayValue } from './types';
@@ -53,29 +57,6 @@ interface DataTableDesktopViewProps<T> {
   onPrevious: () => void;
   onNext: () => void;
   testID?: string;
-}
-
-/** Largura-base sem `width` (era o `minWidth` de antes). */
-const LARGURA_BASE_PADRAO = 100;
-/** Largura de cada botão de ação visível e do botão "⋯". */
-const LARGURA_BOTAO_ACAO = 130;
-const LARGURA_MENU = 48;
-
-/**
- * Número: parte da base (`width`) e cresce na proporção dela (`flexGrow`),
- * sem encolher. String ('20%'): largura fixa, como antes.
- *
- * `width`, e não `flexBasis`: dentro do ScrollView horizontal o conteúdo se
- * mede pelo max-content, e no Chrome a contribuição de um item flex vem do
- * conteúdo, não do flex-basis — um nome longo em nowrap alargaria a tabela
- * inteira (rolagem horizontal, sem reticências).
- */
-function larguraDaColuna(width: number | string | undefined): ViewStyle {
-  if (typeof width === 'string') {
-    return { width: width as DimensionValue, minWidth: LARGURA_BASE_PADRAO };
-  }
-  const base = width ?? LARGURA_BASE_PADRAO;
-  return { width: base, flexGrow: base, flexShrink: 0 };
 }
 
 function pararPropagacao(evento?: GestureResponderEvent) {
@@ -104,16 +85,9 @@ function DataTableDesktopViewInner<T>({
 }: DataTableDesktopViewProps<T>) {
   const { theme } = useUnistyles();
 
-  const acoesNaLinha = (actions ?? []).filter((a) => a.type !== 'danger');
-  const acoesNoMenu = (actions ?? []).filter((a) => a.type === 'danger');
+  const { acoesNaLinha, acoesNoMenu } = separarAcoes(actions);
   const temAcoes = acoesNaLinha.length + acoesNoMenu.length > 0;
-  const estiloColunaAcoes: ViewStyle = {
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis:
-      acoesNaLinha.length * LARGURA_BOTAO_ACAO +
-      (acoesNoMenu.length > 0 ? LARGURA_MENU : 0),
-  };
+  const estiloColunaAcoes = larguraDaColunaDeAcoes(actions);
 
   // Função chamada no JSX (não componente declarado no render).
   const renderTextoDaCelula = (valor: string | number | null | undefined) => {
@@ -180,7 +154,13 @@ function DataTableDesktopViewInner<T>({
                 );
               })}
               {temAcoes && (
-                <View style={[styles.tableHeaderCell, estiloColunaAcoes]}>
+                <View
+                  style={[
+                    styles.tableHeaderCell,
+                    styles.tableHeaderCellAcoes,
+                    estiloColunaAcoes,
+                  ]}
+                >
                   <Text style={styles.tableHeaderText} numberOfLines={1}>
                     Ações
                   </Text>

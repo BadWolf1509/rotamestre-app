@@ -137,6 +137,10 @@ export const dataTableStyles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // "Ações" à direita, como os botões das células (tableCellActions).
+  tableHeaderCellAcoes: {
+    justifyContent: 'flex-end',
+  },
   // Desktop do gestor: nenhum texto de dados abaixo de 13 px.
   tableHeaderText: {
     fontSize: 13,

@@ -5,7 +5,7 @@ import {
   screen,
 } from '@testing-library/react-native';
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { useUnistyles } from '@/utils/styles';
 
@@ -162,6 +162,39 @@ describe('DataTable Component', () => {
   });
 
   describe('Estado de Loading', () => {
+    // Estilos de todas as Views da árvore, achatados.
+    const estilosDasViews = () =>
+      screen
+        .UNSAFE_getAllByType(View)
+        .map((v) => StyleSheet.flatten(v.props.style) ?? {});
+
+    it('o skeleton desktop usa a mesma largura das colunas e das ações da tabela', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={[
+            { key: 'name', label: 'Nome', width: 240 },
+            { key: 'status', label: 'Status', width: 150 },
+          ]}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          isLoading
+          skeletonRows={2}
+        />,
+      );
+
+      const estilos = estilosDasViews();
+      // Cabeçalho + 2 linhas: 3 células de cada coluna e da coluna de ações.
+      expect(
+        estilos.filter((e) => e.width === 240 && e.flexGrow === 240),
+      ).toHaveLength(3);
+      expect(
+        estilos.filter((e) => e.width === 150 && e.flexGrow === 150),
+      ).toHaveLength(3);
+      // 1 botão na linha (130) + menu "⋯" (48), como na tabela carregada.
+      expect(estilos.filter((e) => e.flexBasis === 178)).toHaveLength(3);
+    });
+
     it('deve renderizar skeleton quando isLoading=true', () => {
       const { root } = render(
         <DataTable
@@ -275,6 +308,30 @@ describe('DataTable Component', () => {
       );
 
       expect(getByText('Ações')).toBeTruthy();
+    });
+
+    it('o cabeçalho "Ações" alinha à direita, como as células', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />,
+      );
+
+      // Sobe do texto até a célula: o primeiro ancestral com flexBasis.
+      let celula: ReturnType<typeof screen.getByText> | null =
+        screen.getByText('Ações');
+      while (
+        celula &&
+        StyleSheet.flatten(celula.props.style)?.flexBasis === undefined
+      ) {
+        celula = celula.parent;
+      }
+      expect(StyleSheet.flatten(celula?.props.style).justifyContent).toBe(
+        'flex-end',
+      );
     });
 
     it('deve chamar callback ao clicar em ação', () => {
