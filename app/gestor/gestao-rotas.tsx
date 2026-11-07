@@ -156,6 +156,8 @@ export default function GestaoRotas() {
       key: 'data',
       label: 'Data',
       width: 100,
+      // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
+      minWidth: 95,
       sortable: true,
       render: (rota) => (
         <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>
@@ -165,6 +167,7 @@ export default function GestaoRotas() {
       key: 'motorista',
       label: 'Motorista',
       width: 180,
+      minWidth: 130,
       noWrap: true,
       sortable: true,
       render: (rota) => {
@@ -186,6 +189,7 @@ export default function GestaoRotas() {
       key: 'paradas',
       label: 'Paradas',
       width: 80,
+      minWidth: 70,
       align: 'center',
       render: (rota) => (
         <Text
@@ -197,6 +201,7 @@ export default function GestaoRotas() {
       key: 'distancia',
       label: 'Distância',
       width: 90,
+      minWidth: 80,
       align: 'right',
       desktopOnly: true,
       render: (rota) => (
@@ -211,6 +216,7 @@ export default function GestaoRotas() {
       key: 'iniciada_em',
       label: 'Iniciada',
       width: 120,
+      minWidth: 100,
       desktopOnly: true,
       render: (rota) => (
         <Text style={styles.tableCellText}>
@@ -222,6 +228,7 @@ export default function GestaoRotas() {
       key: 'concluida_em',
       label: 'Concluída',
       width: 120,
+      minWidth: 100,
       desktopOnly: true,
       render: (rota) => (
         <Text style={styles.tableCellText}>
@@ -235,6 +242,7 @@ export default function GestaoRotas() {
       // 150: o rótulo mais longo, "Não executada" (ROUTE_STATUS_CONFIG, o
       // mesmo de getStatusLabel), com ícone, sem reticências e com folga.
       width: 150,
+      minWidth: 140,
       sortable: true,
       render: (rota) => {
         if (!rota.status) {

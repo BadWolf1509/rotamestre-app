@@ -87,7 +87,10 @@ export function SkeletonDesktop<T>({
           {columns.map((column) => (
             <View
               key={column.key}
-              style={[styles.tableHeaderCell, larguraDaColuna(column.width)]}
+              style={[
+                styles.tableHeaderCell,
+                larguraDaColuna(column.width, column.minWidth),
+              ]}
             >
               <SkeletonBox />
             </View>
@@ -108,7 +111,10 @@ export function SkeletonDesktop<T>({
             {columns.map((column) => (
               <View
                 key={column.key}
-                style={[styles.tableCell, larguraDaColuna(column.width)]}
+                style={[
+                  styles.tableCell,
+                  larguraDaColuna(column.width, column.minWidth),
+                ]}
               >
                 <SkeletonBox />
               </View>

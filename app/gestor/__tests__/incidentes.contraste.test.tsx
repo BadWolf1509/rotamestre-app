@@ -6,11 +6,35 @@ import { render, renderHook, screen } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
+import { larguraMinimaDaTabela } from '@/components/data-table/larguras';
+import type {
+  DataTableAction,
+  DataTableColumn,
+} from '@/components/data-table/types';
 import { useUnistyles } from '@/utils/styles';
 
 import Incidentes from '../incidentes';
 
 let mockIsDesktop = true;
+
+// Captura colunas e ações que a tela entrega ao DataTable (render real).
+let mockColunas: DataTableColumn<object>[] = [];
+let mockAcoes: DataTableAction<object>[] = [];
+jest.mock('@/design-system', () => {
+  const real = jest.requireActual('@/design-system');
+  const ReactLocal = jest.requireActual('react');
+  return {
+    ...real,
+    DataTable: (props: {
+      columns: DataTableColumn<object>[];
+      actions?: DataTableAction<object>[];
+    }) => {
+      mockColunas = props.columns;
+      mockAcoes = props.actions ?? [];
+      return ReactLocal.createElement(real.DataTable, props);
+    },
+  };
+});
 
 jest.mock('@/hooks/useIncidentesGestor', () => {
   const rotulo = { label: 'X', icon: 'alert', color: '#000000' };
@@ -148,4 +172,13 @@ it.each([
     .getAllByText('rotulo-aberto')
     .map((el) => StyleSheet.flatten(el.props.style).color);
   expect(cores).toContain('#abcdef');
+});
+
+it('a tabela cabe no cartão de 950 px (1280 de janela) sem rolar', () => {
+  mockIsDesktop = true;
+  render(<Incidentes />);
+
+  expect(larguraMinimaDaTabela(mockColunas, mockAcoes)).toBeLessThanOrEqual(
+    950,
+  );
 });

@@ -145,6 +145,9 @@ export default function IncidentesScreen() {
         key: 'created_at',
         label: 'Data/Hora',
         width: 140,
+        // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar; data,
+        // categoria e local quebram em duas linhas antes de cortar.
+        minWidth: 120,
         render: (item) => (
           <Text style={styles.tableCellText}>
             {formatDate(item.created_at)}
@@ -155,6 +158,7 @@ export default function IncidentesScreen() {
         key: 'motorista_nome',
         label: 'Motorista',
         width: 220,
+        minWidth: 130,
         render: (item) => (
           <Text style={styles.tableCellText}>{item.motorista_nome}</Text>
         ),
@@ -163,6 +167,7 @@ export default function IncidentesScreen() {
         key: 'categoria',
         label: 'Categoria',
         width: 180,
+        minWidth: 130,
         render: (item) => {
           const cat = categoriaLabels[item.categoria];
           return (
@@ -179,6 +184,7 @@ export default function IncidentesScreen() {
         key: 'endereco',
         label: 'Local',
         width: 280,
+        minWidth: 150,
         render: (item) => (
           <Text style={styles.tableCellText} numberOfLines={2}>
             {item.endereco}
@@ -189,6 +195,7 @@ export default function IncidentesScreen() {
         key: 'status',
         label: 'Status',
         width: 120,
+        minWidth: 110,
         render: (item) => {
           const st = statusLabels[item.status];
           return (

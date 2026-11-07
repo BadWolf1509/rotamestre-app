@@ -9,6 +9,10 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useUnistyles } from '@/utils/styles';
 
+import {
+  larguraDaColunaDeAcoes,
+  larguraMinimaDaTabela,
+} from '../data-table/larguras';
 import { DataTable, DataTableColumn, DataTableAction } from '../DataTable';
 
 // Mock useResponsive hook
@@ -192,7 +196,8 @@ describe('DataTable Component', () => {
         estilos.filter((e) => e.width === 150 && e.flexGrow === 150),
       ).toHaveLength(3);
       // 1 botão na linha (130) + menu "⋯" (48), como na tabela carregada.
-      expect(estilos.filter((e) => e.flexBasis === 178)).toHaveLength(3);
+      const acoes = larguraDaColunaDeAcoes(sampleActions).flexBasis;
+      expect(estilos.filter((e) => e.flexBasis === acoes)).toHaveLength(3);
     });
 
     it('deve renderizar skeleton quando isLoading=true', () => {
@@ -478,6 +483,67 @@ describe('DataTable Component', () => {
   });
 
   describe('Largura e texto das células (desktop)', () => {
+    const colunasComMinimo: DataTableColumn<SampleItem>[] = [
+      { key: 'name', label: 'Nome', width: 240, minWidth: 140 },
+      { key: 'status', label: 'Status', width: 150 },
+    ];
+
+    it('a coluna encolhe até o minWidth dela', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunasComMinimo}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      let no: ReturnType<typeof screen.getByText> | null =
+        screen.getByText('João Silva');
+      while (no && StyleSheet.flatten(no.props.style)?.flexGrow === undefined) {
+        no = no.parent;
+      }
+      const estilo = StyleSheet.flatten(no?.props.style);
+      expect(estilo.flexShrink).toBe(240);
+      expect(estilo.minWidth).toBe(140);
+    });
+
+    it('a rolagem horizontal só começa abaixo da soma dos mínimos', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunasComMinimo}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />,
+      );
+
+      const rolagem = screen.UNSAFE_getByProps({ horizontal: true });
+      const conteudo = StyleSheet.flatten(rolagem.props.contentContainerStyle);
+      expect(conteudo.minWidth).toBe(
+        larguraMinimaDaTabela(colunasComMinimo, sampleActions),
+      );
+      expect(conteudo.flexShrink).toBe(1);
+    });
+
+    it('ação emMenu sai da linha e vai para o menu "Mais ações"', () => {
+      render(
+        <DataTable
+          data={[sampleData[0]]}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={[
+            { label: 'Editar', onPress: mockEdit, type: 'primary' },
+            { label: 'Desativar', onPress: mockDelete, emMenu: true },
+          ]}
+        />,
+      );
+
+      expect(screen.queryByText('Desativar')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Mais ações'));
+      fireEvent.press(screen.getByRole('menuitem', { name: 'Desativar' }));
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[0]);
+    });
+
     it('nome de 60 caracteres fica numa linha, com o texto inteiro no accessibilityLabel', () => {
       const nomeLongo =
         'Maximiliano Bartholomeu de Albuquerque Cavalcanti Figueiredo';

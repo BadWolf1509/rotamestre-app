@@ -18,6 +18,8 @@ import {
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
+import { larguraMinimaDaTabela } from '@/components/data-table/larguras';
+import type { DataTableAction } from '@/components/data-table/types';
 import { useUnistyles } from '@/utils/styles';
 
 import GestaoRotas from '../gestao-rotas';
@@ -40,13 +42,18 @@ afterEach(() => {
 
 // Captura as colunas que a tela entrega ao DataTable (render real preservado).
 let mockColunasDaTabela: { key: string; width?: number }[] = [];
+let mockAcoesDaTabela: DataTableAction<object>[] = [];
 jest.mock('@/design-system', () => {
   const real = jest.requireActual('@/design-system');
   const ReactLocal = jest.requireActual('react');
   return {
     ...real,
-    DataTable: (props: { columns: { key: string; width?: number }[] }) => {
+    DataTable: (props: {
+      columns: { key: string; width?: number }[];
+      actions?: DataTableAction<object>[];
+    }) => {
       mockColunasDaTabela = props.columns;
+      mockAcoesDaTabela = props.actions ?? [];
       return ReactLocal.createElement(real.DataTable, props);
     },
   };
@@ -269,6 +276,14 @@ describe('GestaoRotas (desktop)', () => {
       screen.getByText('nao_executada').props.style,
     );
     expect(estilo.color).toBe(colors.errorText);
+  });
+
+  it('a tabela cabe no cartão de 950 px (1280 de janela) sem rolar', () => {
+    render(<GestaoRotas />);
+
+    expect(
+      larguraMinimaDaTabela(mockColunasDaTabela, mockAcoesDaTabela),
+    ).toBeLessThanOrEqual(950);
   });
 
   it('o nome longo do motorista fica numa linha, com o nome inteiro no accessibilityLabel', () => {

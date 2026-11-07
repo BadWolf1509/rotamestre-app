@@ -304,6 +304,8 @@ export default function MotoristasGestor() {
       key: 'avatar',
       label: '',
       width: 60,
+      // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
+      minWidth: 56,
       render: (motorista) => (
         <MotoristaAvatar fotoUrl={motorista.foto_url} nome={motorista.nome} />
       ),
@@ -312,6 +314,7 @@ export default function MotoristasGestor() {
       key: 'nome',
       label: 'Nome',
       width: 200,
+      minWidth: 130,
       sortable: true,
       noWrap: true,
       render: (motorista) => (
@@ -322,6 +325,7 @@ export default function MotoristasGestor() {
       key: 'email',
       label: 'E-mail',
       width: 260,
+      minWidth: 160,
       noWrap: true,
       render: (motorista) => (
         <Text style={styles.tableCellText}>{motorista.email}</Text>
@@ -331,6 +335,7 @@ export default function MotoristasGestor() {
       key: 'telefone',
       label: 'Telefone',
       width: 130,
+      minWidth: 130,
       render: (motorista) => (
         <Text style={styles.tableCellText}>{motorista.telefone || '-'}</Text>
       ),
@@ -339,6 +344,7 @@ export default function MotoristasGestor() {
       key: 'created_at',
       label: 'Cadastrado em',
       width: 130,
+      minWidth: 100,
       desktopOnly: true,
       render: (motorista) => (
         <Text style={styles.tableCellText}>
@@ -350,6 +356,7 @@ export default function MotoristasGestor() {
       key: 'ativo',
       label: 'Status',
       width: 100,
+      minWidth: 90,
       render: (motorista) => (
         <StatusBadge
           color={motorista.ativo ? theme.colors.success : theme.colors.gray600}
@@ -385,6 +392,8 @@ export default function MotoristasGestor() {
       icon: (motorista) =>
         motorista.ativo ? 'close-circle-outline' : 'checkmark-circle-outline',
       type: 'secondary',
+      // No desktop vai ao menu "⋯": três botões não cabiam sem rolar.
+      emMenu: true,
       onPress: toggleAtivo,
     },
   ];

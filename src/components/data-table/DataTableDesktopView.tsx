@@ -7,7 +7,7 @@
  *   rola na horizontal.
  * - Célula de texto em uma linha, com reticências, e o texto inteiro no
  *   `accessibilityLabel`.
- * - Ações `danger` vão para o menu "Mais ações" (`MenuDeAcoes`); as outras
+ * - Ações `danger` e as `emMenu` vão para o menu "Mais ações" (`MenuDeAcoes`); as outras
  *   seguem como botão.
  * - Com `onRowPress`, a linha inteira é clicável; as ações e o menu param a
  *   propagação, para o clique nelas não abrir a linha também.
@@ -30,6 +30,7 @@ import { PaginationDesktop } from './DataTablePagination';
 import {
   larguraDaColuna,
   larguraDaColunaDeAcoes,
+  larguraMinimaDaTabela,
   separarAcoes,
 } from './larguras';
 import { MenuDeAcoes } from './MenuDeAcoes';
@@ -112,7 +113,10 @@ function DataTableDesktopViewInner<T>({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={true}
-          contentContainerStyle={styles.tableScrollContent}
+          contentContainerStyle={[
+            styles.tableScrollContent,
+            { minWidth: larguraMinimaDaTabela(columns, actions) },
+          ]}
         >
           <View style={styles.tableScrollInner}>
             {/* Table Header */}
@@ -130,7 +134,7 @@ function DataTableDesktopViewInner<T>({
                     key={column.key}
                     style={[
                       styles.tableHeaderCell,
-                      larguraDaColuna(column.width),
+                      larguraDaColuna(column.width, column.minWidth),
                       column.align === 'center' && { alignItems: 'center' },
                       column.align === 'right' && { alignItems: 'flex-end' },
                     ]}
@@ -195,7 +199,7 @@ function DataTableDesktopViewInner<T>({
                       key={column.key}
                       style={[
                         styles.tableCell,
-                        larguraDaColuna(column.width),
+                        larguraDaColuna(column.width, column.minWidth),
                         column.align === 'center' && { alignItems: 'center' },
                         column.align === 'right' && { alignItems: 'flex-end' },
                       ]}

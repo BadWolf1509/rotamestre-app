@@ -22,10 +22,16 @@ export interface DataTableColumn<T = DataTableItem> {
   label: string;
   /**
    * Largura-base da coluna (só desktop), ex.: 100, '20%'. Número: a coluna
-   * parte dessa largura e cresce na mesma proporção das outras
-   * (`flexGrow: width`, `flexBasis: width`) até preencher o cartão.
+   * parte dessa largura e cresce ou encolhe na mesma proporção das outras
+   * (`flexGrow`/`flexShrink: width`) para caber no cartão.
    */
   width?: number | string;
+  /**
+   * Até onde a coluna encolhe (só desktop, com `width` numérico). Sem ele,
+   * ela não encolhe abaixo de `width`. Abaixo da soma dos mínimos, a tabela
+   * rola na horizontal.
+   */
+  minWidth?: number;
   /** Custom render function */
   render?: (item: T) => React.ReactNode;
   /** Enable sorting? */
@@ -72,6 +78,11 @@ export interface DataTableAction<T = DataTableItem> {
    * "Mais ações" (⋯). O mobile continua mostrando todas como botão.
    */
   type?: 'primary' | 'secondary' | 'danger';
+  /**
+   * No desktop, manda a ação para o menu "Mais ações" (⋯) mesmo sem ser
+   * `danger`, para a coluna de ações caber. O mobile não muda.
+   */
+  emMenu?: boolean;
 }
 
 /**

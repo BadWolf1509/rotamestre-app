@@ -117,13 +117,16 @@ export const dataTableStyles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
     overflow: 'hidden',
   },
-  // O conteúdo da rolagem horizontal ocupa ao menos a largura do cartão;
-  // passando dela (soma das larguras-base), rola.
+  // O conteúdo da rolagem ocupa a largura do cartão: cresce até ela e
+  // encolhe as colunas até os mínimos (o `minWidth`, posto pela view, é a
+  // soma deles). Só abaixo disso a tabela rola na horizontal.
   tableScrollContent: {
     flexGrow: 1,
+    flexShrink: 1,
   },
   tableScrollInner: {
     flexGrow: 1,
+    flexShrink: 1,
   },
   tableHeader: {
     flexDirection: 'row',
