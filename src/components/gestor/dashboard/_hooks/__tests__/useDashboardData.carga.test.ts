@@ -565,3 +565,58 @@ describe('useDashboardData — eventos de realtime', () => {
     expect(result.current.rotas).toHaveLength(2);
   });
 });
+
+describe('useDashboardData — estados das paradas (linha de paradas)', () => {
+  it('pede a ordem e devolve paradas_status pela ordem, sem partida e chegada', async () => {
+    mockTabelas.rotas = [
+      {
+        ...rota('r1', hoje, 'em_andamento'),
+        // Fora de ordem de propósito: a ordem é a de `paradas.ordem`.
+        paradas: [
+          { id: 'c', status: 'pendente', is_checkpoint: false, ordem: 5 },
+          { id: 'p3', status: 'pulada', is_checkpoint: true, ordem: 3 },
+          { id: 'p1', status: 'concluida', is_checkpoint: true, ordem: 1 },
+          { id: 'b', status: 'concluida', is_checkpoint: false, ordem: 0 },
+          { id: 'p4', status: 'pendente', is_checkpoint: null, ordem: 4 },
+          { id: 'p2', status: 'em_andamento', is_checkpoint: true, ordem: 2 },
+        ],
+      },
+    ];
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.rotas).toHaveLength(1));
+    const [r1] = result.current.rotas;
+    expect(r1.paradas_status).toEqual([
+      'concluida',
+      'em_andamento',
+      'pulada',
+      'pendente',
+    ]);
+    expect(r1.total_paradas).toBe(4);
+    expect(r1.paradas_concluidas).toBe(1);
+
+    const lista = mockConsultas.find(
+      (c) => c.tabela === 'rotas' && c.colunas.includes('paradas('),
+    );
+    expect(lista?.colunas).toMatch(
+      /paradas\(\s*id,\s*status,\s*is_checkpoint,\s*ordem\s*\)/,
+    );
+  });
+
+  it('rota só com partida e chegada: paradas_status vazio', async () => {
+    mockTabelas.rotas = [
+      {
+        ...rota('r1', hoje),
+        paradas: [
+          { id: 'b', status: 'pendente', is_checkpoint: false, ordem: 0 },
+          { id: 'c', status: 'pendente', is_checkpoint: false, ordem: 1 },
+        ],
+      },
+    ];
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.rotas).toHaveLength(1));
+    expect(result.current.rotas[0].paradas_status).toEqual([]);
+    expect(result.current.rotas[0].total_paradas).toBe(0);
+  });
+});

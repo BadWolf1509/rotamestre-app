@@ -141,8 +141,12 @@ test.describe('Gestor Route Creation E2E Tests', () => {
     test('should navigate to nova-entrega from dashboard', async ({ page }) => {
       await gestorPage.gotoInicio();
 
-      // A ação rápida do painel precisa existir e levar à criação de rota.
-      const novaEntregaLink = page.getByText('Nova Rota de Entrega').first();
+      // A ação de criar rota precisa existir e levar à criação: "Nova rota"
+      // no cabeçalho do desktop, "Nova Rota de Entrega" nas ações rápidas do
+      // mobile.
+      const novaEntregaLink = page
+        .getByRole('button', { name: /^Nova (rota|Rota de Entrega)$/ })
+        .first();
       await expect(novaEntregaLink).toBeVisible({ timeout: 15000 });
       await novaEntregaLink.click();
 

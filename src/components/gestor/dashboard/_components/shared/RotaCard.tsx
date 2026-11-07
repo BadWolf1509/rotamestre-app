@@ -2,7 +2,7 @@
  * RotaCard - Route summary card for dashboard
  *
  * Displays a route's key information: driver name, date, status, and progress.
- * Used in both mobile (card list) and desktop (within RotasTable) views.
+ * Used in the mobile card list.
  *
  * Features:
  * - Status badge with color coding

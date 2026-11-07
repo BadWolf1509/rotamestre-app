@@ -25,6 +25,17 @@ jest.mock('@/components/route-filters', () => {
   };
 });
 
+/**
+ * O desktop começa recolhido (só o botão "Filtros" e o resumo): os testes das
+ * seções abrem a barra antes. No mobile não há o botão, e nada muda.
+ */
+function renderAberto(ui: React.ReactElement) {
+  const resultado = render(ui);
+  const botao = resultado.queryByTestId('route-filters-toggle');
+  if (botao) fireEvent.press(botao);
+  return resultado;
+}
+
 describe('RouteFilters Component', () => {
   const mockOnFiltersChange = jest.fn();
   const mockMotoristas = [
@@ -78,7 +89,7 @@ describe('RouteFilters Component', () => {
       const start = new Date('2025-02-01');
       const end = new Date('2025-02-05');
 
-      const { getByTestId, getByText, UNSAFE_getByType } = render(
+      const { getByTestId, getByText, UNSAFE_getByType } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -104,7 +115,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve renderizar todos os campos de filtro', () => {
-      const { getByText } = render(
+      const { getByText } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -119,7 +130,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve aplicar filtro de status quando selecionado', () => {
-      const { getByTestId } = render(
+      const { getByTestId } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -143,7 +154,7 @@ describe('RouteFilters Component', () => {
         status: 'em_andamento',
       };
 
-      const { getByTestId } = render(
+      const { getByTestId } = renderAberto(
         <RouteFilters
           filters={filtersWithStatus}
           onFiltersChange={mockOnFiltersChange}
@@ -162,7 +173,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve aplicar filtro de motorista quando selecionado', () => {
-      const { getByTestId } = render(
+      const { getByTestId } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -186,7 +197,7 @@ describe('RouteFilters Component', () => {
         motoristaId: 'motorista-1',
       };
 
-      const { getByTestId } = render(
+      const { getByTestId } = renderAberto(
         <RouteFilters
           filters={filtersWithMotorista}
           onFiltersChange={mockOnFiltersChange}
@@ -212,7 +223,7 @@ describe('RouteFilters Component', () => {
         motoristaId: 'motorista-1',
       };
 
-      const { getByText } = render(
+      const { getByText } = renderAberto(
         <RouteFilters
           filters={filtersWithData}
           onFiltersChange={mockOnFiltersChange}
@@ -231,7 +242,7 @@ describe('RouteFilters Component', () => {
 
   describe('Filter Behavior', () => {
     it('não remonta as seções quando o pai re-renderiza', () => {
-      const { rerender } = render(
+      const { rerender } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -261,7 +272,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve aplicar filtro de data programaticamente', () => {
-      const { rerender } = render(
+      const { rerender } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -296,7 +307,7 @@ describe('RouteFilters Component', () => {
         dataFim: new Date('2025-01-31'),
       };
 
-      render(
+      renderAberto(
         <RouteFilters
           filters={filtersWithPeriod}
           onFiltersChange={mockOnFiltersChange}
@@ -316,7 +327,7 @@ describe('RouteFilters Component', () => {
         dataInicio: new Date('2025-01-15'),
       };
 
-      const { rerender } = render(
+      const { rerender } = renderAberto(
         <RouteFilters
           filters={filtersWithDate}
           onFiltersChange={mockOnFiltersChange}
@@ -346,7 +357,7 @@ describe('RouteFilters Component', () => {
 
   describe('Mobile Variant', () => {
     it('deve renderizar botão flutuante em mobile', () => {
-      const { getByTestId } = render(
+      const { getByTestId } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -359,7 +370,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('deve abrir modal ao clicar no botão flutuante', () => {
-      const { getByTestId, getByText } = render(
+      const { getByTestId, getByText } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -385,7 +396,7 @@ describe('RouteFilters Component', () => {
         motoristaId: null,
       };
 
-      const { getByText } = render(
+      const { getByText } = renderAberto(
         <RouteFilters
           filters={filtersWithData}
           onFiltersChange={mockOnFiltersChange}
@@ -399,7 +410,7 @@ describe('RouteFilters Component', () => {
     });
 
     it('não deve mostrar badge quando nenhum filtro ativo', () => {
-      const { queryByTestId } = render(
+      const { queryByTestId } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -419,7 +430,7 @@ describe('RouteFilters Component', () => {
         motoristaId: 'motorista-1',
       };
 
-      const { getByText } = render(
+      const { getByText } = renderAberto(
         <RouteFilters
           filters={filtersWithAllActive}
           onFiltersChange={mockOnFiltersChange}
@@ -442,7 +453,7 @@ describe('RouteFilters Component', () => {
         motoristaId: 'motorista-1',
       };
 
-      render(
+      renderAberto(
         <RouteFilters
           filters={multipleFilters}
           onFiltersChange={mockOnFiltersChange}
@@ -466,7 +477,7 @@ describe('RouteFilters Component', () => {
         motoristaId: 'motorista-1',
       };
 
-      const { getByTestId, rerender: _rerender } = render(
+      const { getByTestId, rerender: _rerender } = renderAberto(
         <RouteFilters
           filters={filtersWithMultiple}
           onFiltersChange={mockOnFiltersChange}

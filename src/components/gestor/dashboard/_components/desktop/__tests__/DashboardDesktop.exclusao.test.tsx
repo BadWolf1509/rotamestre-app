@@ -66,37 +66,30 @@ jest.mock('@/components/Dialog', () => ({
     );
   },
 }));
-jest.mock('../RotasTable', () => ({
-  RotasTable: ({
-    rotas,
-    onDelete,
-  }: {
-    rotas: { id: string }[];
-    onDelete: (id: string) => void;
-  }) => {
-    const { Text, TouchableOpacity, View } = require('react-native');
-    return (
-      <View>
-        {rotas.map((r) => (
-          <TouchableOpacity
-            key={r.id}
-            testID={`delete-${r.id}`}
-            onPress={() => onDelete(r.id)}
-          >
-            <Text>Excluir</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  },
-}));
-jest.mock('../../shared/StatsCard', () => ({ StatsCard: () => null }));
-
 const rotasNaTela = [
   { id: 'r-and', status: 'em_andamento', motorista_nome: 'Ana' },
   { id: 'r-conc', status: 'concluida', motorista_nome: 'Bia' },
   { id: 'r-pend', status: 'pendente', motorista_nome: 'Caio' },
-];
+].map((r) => ({
+  ...r,
+  data: '2026-10-22',
+  motorista_id: null,
+  total_paradas: 0,
+  paradas_concluidas: 0,
+  distancia_total: 0,
+  paradas_status: [],
+}));
+
+/** "Excluir rota" mora no menu "⋯" da linha (`ListaDeRotasDoDia`). */
+function pedirExclusao(
+  getByTestId: (id: string) => unknown,
+  getByText: (t: string) => unknown,
+  rotaId: string,
+) {
+  const parar = { stopPropagation: jest.fn() };
+  fireEvent.press(getByTestId(`rota-dia-acoes-${rotaId}`) as never, parar);
+  fireEvent.press(getByText('Excluir rota') as never, parar);
+}
 
 function renderizar() {
   const props = {
@@ -146,9 +139,9 @@ beforeEach(() => {
 
 describe('DashboardDesktop — exclusão de rota', () => {
   it('não apaga rota em andamento e diz por quê', async () => {
-    const { getByTestId, queryByTestId } = renderizar();
+    const { getByTestId, getByText, queryByTestId } = renderizar();
 
-    fireEvent.press(getByTestId('delete-r-and'));
+    pedirExclusao(getByTestId, getByText, 'r-and');
     if (queryByTestId('dialog-confirmar')) {
       fireEvent.press(getByTestId('dialog-confirmar'));
     }
@@ -160,9 +153,9 @@ describe('DashboardDesktop — exclusão de rota', () => {
   });
 
   it('rota concluída: a confirmação avisa que os comprovantes deixam de aparecer', () => {
-    const { getByTestId } = renderizar();
+    const { getByTestId, getByText } = renderizar();
 
-    fireEvent.press(getByTestId('delete-r-conc'));
+    pedirExclusao(getByTestId, getByText, 'r-conc');
 
     expect(getByTestId('dialog-mensagem').props.children).toMatch(
       /comprovantes de entrega/,
@@ -170,9 +163,9 @@ describe('DashboardDesktop — exclusão de rota', () => {
   });
 
   it('rota pendente: apaga e grava o log rota_excluida', async () => {
-    const { getByTestId, props } = renderizar();
+    const { getByTestId, getByText, props } = renderizar();
 
-    fireEvent.press(getByTestId('delete-r-pend'));
+    pedirExclusao(getByTestId, getByText, 'r-pend');
     fireEvent.press(getByTestId('dialog-confirmar'));
 
     await waitFor(() =>
