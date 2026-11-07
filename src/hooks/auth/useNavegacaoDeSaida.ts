@@ -15,15 +15,22 @@
  *     tempo de fechar;
  * (b) manter os `replace` onde estavam, só adiando o do logout — não tira os
  *     `replace` concorrentes dos layouts;
- * (c) `router.dismissAll()` antes do `replace` — sem evidência de que resolve,
- *     e mexe na pilha que a troca de geração (`useGeracaoDaConta`) já remonta.
+ * (c) `router.dismissAll()` antes do `replace` — medido no expo-router 58
+ *     (N-1, 07/11): age na pilha aninhada mais funda e, com telas empilhadas
+ *     no gestor e na raiz, deixa as da raiz montadas sob o login.
  *
- * Onde age: nas áreas protegidas e na `index` depois de uma sessão. A troca de
- * geração (`useGeracaoDaConta`) remonta a pilha raiz na rota `index`, e a
- * `index` navegaria ao login sozinha, sem esperar os modais; por isso ela
- * consulta `haSaidaEmCurso()` e deixa a navegação com a dona. Na abertura do
- * app (nunca houve sessão) a `index` decide sozinha; `auth`/`onboarding`/
- * páginas públicas não exigem sessão.
+ * Como leva ao login (N-1): esvazia a pilha raiz e troca a tela que sobrou
+ * pelo login (`irAoLoginComPilhaLimpa`). Até 07/11 a `key` da pilha raiz
+ * (`useGeracaoDaConta`) mudava na saída e remontava a pilha ANTES deste
+ * replace: os logs [P33] do dev client mostraram a remontagem caindo na área
+ * antiga sem sessão (`gestor/ajuda`, abas do motorista), não na `index`. A
+ * `key` agora só muda na troca direta de conta (A→B).
+ *
+ * Onde age: nas áreas protegidas e na `index` depois de uma sessão (a `index`
+ * pode estar na tela quando a sessão sai; ela consulta `haSaidaEmCurso()` e
+ * deixa a navegação com a dona). Na abertura do app (nunca houve sessão) a
+ * `index` decide sozinha; `auth`/`onboarding`/páginas públicas não exigem
+ * sessão.
  */
 import { useNavigationContainerRef, useRouter, useSegments } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -87,8 +94,8 @@ export function useNavegacaoDeSaida(): void {
 
   const semSessao = !loading && !user && !usuarioOfflineId;
 
-  // Já houve sessão neste app: a `index` sem sessão é a pilha remontada
-  // depois de uma saída, não a abertura.
+  // Já houve sessão neste app: a `index` sem sessão aparece depois de uma
+  // saída (ela estava na tela), não é a abertura.
   const teveSessaoRef = useRef(false);
   if (user || usuarioOfflineId) teveSessaoRef.current = true;
 
@@ -99,7 +106,7 @@ export function useNavegacaoDeSaida(): void {
   const deveIrAoLogin = semSessao && ondeADonaAge;
 
   // Lidos por ref: o router muda de identidade entre renders em algumas
-  // versões, e os segmentos mudam durante a espera (a pilha remonta).
+  // versões, e os segmentos mudam durante a espera.
   const routerRef = useRef(router);
   routerRef.current = router;
   const segmentsRef = useRef(segments);
@@ -114,7 +121,7 @@ export function useNavegacaoDeSaida(): void {
 
   useEffect(() => {
     // A sessão voltou antes do prazo (refresh): nada a fazer. Mudança de
-    // segmento NÃO cancela — a remontagem da pilha passa pela `index`.
+    // segmento NÃO cancela — a pilha pode passar pela `index` na espera.
     if (!semSessao) {
       cancelar();
       return;

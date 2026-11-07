@@ -205,10 +205,11 @@ describe('useNavegacaoDeSaida', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  // A troca de geração (useGeracaoDaConta) remonta a pilha raiz, que nasce
-  // na rota index. A espera não pode morrer ali: era a index quem navegava,
-  // sem esperar os modais.
-  it('a pilha remonta na index durante a espera: navega mesmo assim, uma vez', () => {
+  // A index pode estar na tela durante a espera (até 07/11 a troca de geração
+  // remontava a pilha na saída; hoje a geração só muda na troca A→B). A
+  // espera não pode morrer ali: era a index quem navegava, sem esperar os
+  // modais.
+  it('a pilha passa pela index durante a espera: navega mesmo assim, uma vez', () => {
     const { rerender } = renderHook(() => useNavegacaoDeSaida());
     mockUser = null;
     rerender({});
@@ -219,7 +220,7 @@ describe('useNavegacaoDeSaida', () => {
     expect(mockReplace).toHaveBeenCalledWith('/auth/login');
   });
 
-  it('a pilha remonta na index ANTES de a sessão sair: a dona navega (teve sessão)', () => {
+  it('a pilha está na index ANTES de a sessão sair: a dona navega (teve sessão)', () => {
     const { rerender } = renderHook(() => useNavegacaoDeSaida());
     mockSegments = [];
     rerender({});
