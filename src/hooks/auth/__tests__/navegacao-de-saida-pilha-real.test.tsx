@@ -10,7 +10,7 @@
  * dev client, 07/11). A dona agora esvazia a pilha raiz e só então troca a
  * tela que sobrou pelo login.
  */
-import { Stack, Tabs, router } from 'expo-router';
+import { Stack, Tabs, router, useNavigationContainerRef } from 'expo-router';
 import { act, renderRouter } from 'expo-router/testing-library';
 import React, { useEffect } from 'react';
 import { Text } from 'react-native';
@@ -65,8 +65,10 @@ const telasMontadas = () =>
 
 const OPCOES = { headerShown: false, animation: 'none' } as const;
 
+let container: ReturnType<typeof useNavigationContainerRef> | null = null;
 function LayoutRaiz() {
   useNavegacaoDeSaida();
+  container = useNavigationContainerRef();
   return <Stack screenOptions={OPCOES} />;
 }
 const pilha = () => <Stack screenOptions={OPCOES} />;
@@ -156,6 +158,37 @@ describe('navegação de saída sobre o expo-router real (N-1)', () => {
     expect(r.getPathname()).toBe('/auth/login');
     expect(telasMontadas()).toEqual(['auth/login']);
   });
+
+  // C3 (cinto da N-1): a pilha do gestor que nasce sem tela-alvo (remontagem,
+  // estado perdido) ia para a 1ª rota em ordem alfabética, `gestor/ajuda` —
+  // o que os logs [P33] mostraram. A âncora do layout manda para a Início.
+  it.each([
+    [false, 'gestor/ajuda'],
+    [true, 'gestor/inicio'],
+  ])(
+    'pilha do gestor que nasce sem tela-alvo (âncora=%s) começa em %s',
+    async (comAncora, esperada) => {
+      const r = await renderRouter(
+        {
+          ...ROTAS,
+          'gestor/_layout': comAncora
+            ? { default: pilha, unstable_settings: ancoraDoGestor }
+            : pilha,
+        },
+        { initialUrl: '/unidade' },
+      );
+      act(() => {
+        const raiz = container!.getRootState();
+        const pilhaRaiz = raiz.routes[raiz.index].state;
+        container!.dispatch({
+          type: 'NAVIGATE',
+          payload: { name: 'gestor' },
+          target: pilhaRaiz?.key,
+        });
+      });
+      expect(r.getPathname()).toBe('/' + esperada);
+    },
+  );
 
   it('pilha raiz com uma tela só: troca pelo login, sem ação sobrando', async () => {
     const r = await renderRouter(ROTAS, { initialUrl: '/gestor/inicio' });

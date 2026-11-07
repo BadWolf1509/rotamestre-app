@@ -1,11 +1,17 @@
 /**
- * A pilha raiz remonta quando a conta sai ou é trocada, e só então.
+ * A pilha raiz remonta só quando uma conta é trocada por OUTRA (A→B direto).
  *
- * O logout navega com `router.replace('/auth/login')`, que só troca a tela do
- * topo: depois de sair do gestor e entrar como motorista (moto g15,
- * 04/11/2026), a Minha Unidade do gestor seguia montada embaixo, pedindo a
- * equipe com a sessão do motorista, e a barra de abas do motorista parou de
- * responder. Ver `src/hooks/useGeracaoDaConta.ts`.
+ * Origem: depois de sair do gestor e entrar como motorista (moto g15,
+ * 04/11/2026), a Minha Unidade do gestor seguia montada embaixo do login,
+ * pedindo a equipe com a sessão do motorista. Desde a N-1 (07/11) a saída
+ * (A→null) é resolvida pela dona da navegação de saída, que esvazia a pilha
+ * raiz; remontar ali fazia a pilha renascer na área antiga sem sessão. A
+ * troca A→B, que não passa pela dona, segue remontando.
+ *
+ * N-2: a conta vem da SESSÃO (`useAuth`), o mesmo sinal da dona — não do
+ * perfil (`useUser`), que chega depois: na troca A→B as telas de A rodavam
+ * com a sessão de B até o perfil de B chegar, e o perfil sem linha (null com
+ * sessão viva) era lido como saída.
  */
 import { render } from '@testing-library/react-native';
 import React from 'react';
@@ -38,7 +44,7 @@ jest.mock('expo-router', () => {
     return <Text>pilha-de-rotas</Text>;
   };
   Stack.Screen = () => null;
-  return { Stack, usePathname: () => '/' };
+  return { Stack, usePathname: () => mockCaminho.atual };
 });
 jest.mock('expo-font', () => ({ useFonts: () => [true, null] }));
 jest.mock('expo-splash-screen', () => ({
@@ -54,10 +60,21 @@ jest.mock('@/hooks/useManterPushTokenAtualizado', () => ({
   useManterPushTokenAtualizado: jest.fn(),
 }));
 const mockMontagensDaPilha = { total: 0 };
-const mockUsuario: { userData: { id: string } | null } = { userData: null };
+const mockCaminho = { atual: '/' };
+const mockSessao: {
+  user: { id: string } | null;
+  usuarioOfflineId: string | null;
+} = { user: null, usuarioOfflineId: null };
+jest.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ ...mockSessao, loading: false }),
+}));
+const mockUsuario: { userData: { id: string; papel?: string } | null } = {
+  userData: null,
+};
 jest.mock('@/hooks/useUser', () => ({ useUser: () => mockUsuario }));
+const mockTela = { isDesktop: false };
 jest.mock('@/hooks/useResponsive', () => ({
-  useResponsive: () => ({ isDesktop: false }),
+  useResponsive: () => mockTela,
 }));
 const repassa = ({ children }: { children: React.ReactNode }) => children;
 jest.mock('@/hooks/useUnidadeAtiva', () => ({ UnidadeAtivaProvider: repassa }));
@@ -87,39 +104,76 @@ jest.mock('@/utils/navigationPreferencesMigration', () => ({
   migrateNavigationPreferences: jest.fn(() => Promise.resolve()),
 }));
 
+function entrar(id: string | null) {
+  mockSessao.user = id ? { id } : null;
+}
+
 describe('layout raiz: troca de conta', () => {
   beforeEach(() => {
     mockMontagensDaPilha.total = 0;
+    mockSessao.user = null;
+    mockSessao.usuarioOfflineId = null;
+    mockUsuario.userData = null;
+    mockCaminho.atual = '/';
+    mockTela.isDesktop = false;
   });
 
   // N-1: na saída, quem limpa a pilha é a dona (useNavegacaoDeSaida). Remontar
   // aqui fazia a pilha renascer na área antiga sem sessão antes do login.
   it('não remonta a pilha quando a conta sai', () => {
-    mockUsuario.userData = { id: 'gestor' };
+    entrar('gestor');
     const { rerender } = render(<RootLayout />);
     expect(mockMontagensDaPilha.total).toBe(1);
 
-    mockUsuario.userData = null;
+    entrar(null);
     rerender(<RootLayout />);
 
     expect(mockMontagensDaPilha.total).toBe(1);
   });
 
-  it('remonta a pilha quando uma conta é trocada por outra', () => {
+  it('remonta a pilha quando a sessão troca de conta, sem esperar o perfil novo', () => {
+    entrar('gestor');
     mockUsuario.userData = { id: 'gestor' };
     const { rerender } = render(<RootLayout />);
 
-    mockUsuario.userData = { id: 'motorista' };
+    // A sessão já é de B; o perfil ainda é o de A (chega depois).
+    entrar('motorista');
     rerender(<RootLayout />);
 
     expect(mockMontagensDaPilha.total).toBe(2);
   });
 
   it('não remonta a pilha quando alguém entra vindo de nenhuma conta', () => {
-    mockUsuario.userData = null;
     const { rerender } = render(<RootLayout />);
 
-    mockUsuario.userData = { id: 'motorista' };
+    entrar('motorista');
+    rerender(<RootLayout />);
+
+    expect(mockMontagensDaPilha.total).toBe(1);
+  });
+
+  it('perfil sem linha com a sessão viva não remonta a pilha (não é saída nem troca)', () => {
+    entrar('gestor');
+    mockUsuario.userData = { id: 'gestor' };
+    const { rerender } = render(<RootLayout />);
+
+    mockUsuario.userData = null;
+    rerender(<RootLayout />);
+    mockUsuario.userData = { id: 'gestor' };
+    rerender(<RootLayout />);
+
+    expect(mockMontagensDaPilha.total).toBe(1);
+  });
+
+  it('sessão offline do mesmo dono não remonta a pilha', () => {
+    entrar('motorista');
+    const { rerender } = render(<RootLayout />);
+
+    mockSessao.user = null;
+    mockSessao.usuarioOfflineId = 'motorista';
+    rerender(<RootLayout />);
+    entrar('motorista');
+    mockSessao.usuarioOfflineId = null;
     rerender(<RootLayout />);
 
     expect(mockMontagensDaPilha.total).toBe(1);

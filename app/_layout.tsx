@@ -21,6 +21,7 @@ import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sideb
 import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
 import { useNavegacaoDeSaida } from '@/hooks/auth/useNavegacaoDeSaida';
+import { useAuth } from '@/hooks/useAuth';
 import { useGeracaoDaConta } from '@/hooks/useGeracaoDaConta';
 import { useManterPushTokenAtualizado } from '@/hooks/useManterPushTokenAtualizado';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -125,10 +126,11 @@ function detectE2EEnvironment(): boolean {
 
 export default function RootLayout() {
   const { theme } = useUnistyles();
-  // Chave da pilha: quando a conta sai ou é trocada, nada do que ela abriu
-  // continua montado sob a próxima (ver useGeracaoDaConta).
-  const { userData } = useUser();
-  const geracaoDaConta = useGeracaoDaConta(userData?.id ?? null);
+  // Chave da pilha: na troca direta de conta (A→B), nada do que A abriu
+  // continua montado sob B (ver useGeracaoDaConta). A conta vem da sessão — o
+  // mesmo sinal da dona da saída —, não do perfil, que chega depois (N-2).
+  const { user, usuarioOfflineId = null } = useAuth();
+  const geracaoDaConta = useGeracaoDaConta(user?.id ?? usuarioOfflineId);
 
   // A conta saiu: um só replace para o login, depois de os modais fecharem
   // (R-NUC-1, pendência 33). Logout e layouts protegidos não navegam.
