@@ -28,6 +28,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
+import { enviarAoExpo } from './envioExpo.ts';
 import {
   extrairTicket,
   mascararToken,
@@ -327,18 +328,28 @@ Deno.serve(async (req: Request) => {
         token: mascararToken(token),
       });
 
-      // Enviar para Expo Push Service
-      const expoPushResponse = await fetch(EXPO_PUSH_URL, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Accept-Encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(pushMessage),
-      });
+      // Enviar para Expo Push Service, com prazo por aparelho (envioExpo.ts):
+      // rede fora, prazo estourado ou corpo inválido não lançam — viram log
+      // de falha deste aparelho e o laço segue para o próximo.
+      const envio = await enviarAoExpo(fetch, EXPO_PUSH_URL, pushMessage);
+      if (!envio.ok) {
+        console.error(
+          `[send-push] Envio à Expo sem resposta válida (usuário ${usuario_id}):`,
+          envio.motivo,
+        );
+        await logPushAttempt(supabase, {
+          notificacao_id,
+          usuario_id,
+          push_token: token,
+          status: 'failed',
+          response: { motivo: envio.motivo, http: envio.http ?? null },
+          error_message: `envio_${envio.motivo}`,
+        });
+        ultimoErro = `Envio à Expo: ${envio.motivo}`;
+        continue;
+      }
 
-      const expoPushResult = await expoPushResponse.json();
+      const expoPushResult = envio.corpo;
 
       // Envio único: a Expo devolve `data` como objeto (ver expoTicket.ts).
       const ticket = extrairTicket(expoPushResult);
@@ -346,7 +357,7 @@ Deno.serve(async (req: Request) => {
       console.log('[send-push] Resposta Expo:', {
         notificacao_id,
         usuario_id,
-        http: expoPushResponse.status,
+        http: envio.http,
         ...resumoDoTicket(ticket),
       });
 
