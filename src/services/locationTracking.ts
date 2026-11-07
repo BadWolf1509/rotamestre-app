@@ -4,6 +4,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
 
 import { aguardarAppEmPrimeiroPlano } from '@/lib/appEmPrimeiroPlano';
+import { usuarioIdDaSessaoLocal } from '@/lib/auth/sessao';
 import { isNetworkError } from '@/lib/errorMapping';
 import { logarFalha } from '@/lib/logarFalha';
 import { logger } from '@/lib/logger';
@@ -241,19 +242,19 @@ class LocationTrackingService {
 
     try {
       // Usuário da sessão local. `getUser()` faria um GET /auth/v1/user a
-      // cada posição; o token já é validado pelo RLS do insert.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return;
+      // cada posição; o token já é validado pelo RLS do insert. Sem rede o
+      // ponto é guardado no aparelho, então o dono do aparelho serve.
+      const usuarioId = await usuarioIdDaSessaoLocal({
+        aceitarDonoDoAparelho: true,
+      });
+      if (!usuarioId) return;
 
       // Inserir em motorista_locations para histórico e rastreamento em tempo
       // real. Sem rede, a posição fica guardada no aparelho e sobe em lote com
       // a próxima que conseguir enviar (`filaPosicoes`).
       await registrarPosicao(
         {
-          motorista_id: user.id,
+          motorista_id: usuarioId,
           rota_id: this.navigationState.rotaId,
           latitude: location.latitude,
           longitude: location.longitude,

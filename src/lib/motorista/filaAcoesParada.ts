@@ -34,7 +34,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { MotivoSkip } from '@/constants/skipReasons';
-import { lerSessao, type EstadoSessao } from '@/lib/auth/sessao';
+import {
+  lerSessao,
+  usuarioIdDaSessaoLocal,
+  type EstadoSessao,
+} from '@/lib/auth/sessao';
 import { lerJsonParaExibir, lerJsonParaGravar } from '@/lib/leituraLocal';
 import { logger } from '@/lib/logger';
 import { criarSerie } from '@/lib/serie';
@@ -596,10 +600,8 @@ export async function sincronizarFilaAcoesParada(): Promise<ResultadoProcessamen
   const vazio = { enviadas: 0, descartadas: [], restantes: 0 };
   if ((await lerFilaAcoesParada()).length === 0) return vazio;
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const usuarioAtual = session?.user?.id;
+    // Sessão de verdade, sem o dono do aparelho: enviar sem sessão cairia na RLS.
+    const usuarioAtual = await usuarioIdDaSessaoLocal();
     if (!usuarioAtual) return vazio;
     return await processarFilaAcoesParada({ usuarioAtual });
   } catch (error) {

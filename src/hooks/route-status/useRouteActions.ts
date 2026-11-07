@@ -21,7 +21,8 @@ import {
   type PortaParadas,
   type ResultadoAplicacao,
 } from '@/lib/motorista/filaAcoesParada';
-import { isOnline, solicitarEnvioFila } from '@/lib/offline';
+import { solicitarEnvioFila } from '@/lib/offline';
+import { semRedeConfirmada } from '@/lib/semRede';
 import { supabase } from '@/lib/supabase';
 import {
   stopBackgroundTracking,
@@ -221,7 +222,12 @@ export function useRouteActions({
   // o sinal voltar, em vez de virar erro e a entrega sumir.
   const executarOuEnfileirar = useCallback(
     async (acao: AcaoParada, rotulo: string): Promise<DestinoDaAcao> => {
-      if (!(await isOnline())) {
+      // Só vai direto à fila com a falta de rede CONFIRMADA (modo avião ou
+      // queda observada). `isOnline()` exigia `isInternetReachable === true`,
+      // que vem null logo na abertura: com rede, a ação ia à fila à toa. Na
+      // dúvida tenta o envio — falha de rede cai no catch e vai à fila do mesmo
+      // jeito.
+      if (await semRedeConfirmada()) {
         await enfileirarAcaoParada(acao);
         return 'na_fila';
       }
