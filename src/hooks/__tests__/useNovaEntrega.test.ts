@@ -61,7 +61,6 @@ jest.mock('@/lib/routeOptimization', () => ({
   validarRotaParaOtimizacao: (...args: any[]) =>
     mockValidarRotaParaOtimizacao(...args),
   MAX_ROUTE_STOPS: 3,
-  MAX_WAYPOINTS: 3,
   WAYPOINTS_RECOMENDADO: 2,
 }));
 

@@ -10,9 +10,6 @@
  */
 export const MAX_ROUTE_STOPS = 50;
 
-/** Alias temporário para consumidores antigos. */
-export const MAX_WAYPOINTS = MAX_ROUTE_STOPS;
-
 /** Limite recomendado para melhor otimizacao (deixa margem para API) */
 export const WAYPOINTS_RECOMENDADO = 40;
 
