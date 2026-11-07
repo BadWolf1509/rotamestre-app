@@ -4,9 +4,10 @@
 -- Banco único = produção, sem pgTAP. Rodar com a Migration 82 já valendo na
 -- mesma sessão: depois de aplicá-la, ou, para conferir antes, na MESMA
 -- execução que o corpo da migration (sem o BEGIN/COMMIT dela), para que o
--- RAISE do fim desfaça as duas coisas. Sem a migration, sai FALHOU o caso 1
--- (as funções existem); os casos 2 e 3 já saem OK — são o que precisa
--- continuar valendo.
+-- RAISE do fim desfaça as duas coisas. Sem a migration, saem FALHOU os casos
+-- 1 (as funções existem) e 2 (a sobrecarga `get_user_unidade(uuid)` ainda
+-- existe); o caso 3 já sai OK. Medido em 07/11/2026: FALHOU 1 e 2 antes, 3/3
+-- OK com o corpo da migration na mesma execução.
 --
 -- Cenário do caso 3 (não depende de dado real): loja A; gestor GA, gestor
 -- ativo de A; motorista M, ativo em A; uma rota de A com uma parada, criadas

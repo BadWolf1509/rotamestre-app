@@ -3484,7 +3484,9 @@ view mostrava); real sem teto 224, 376 e 242; real com o teto de 24 h da view
 **Arquivo:** `20261107100000_rpcs_paradas_rota_aberta_e_codigos.sql` · **⏳ não
 aplicada.** Aplicar pelo CLI (`db query --linked`) com a sonda na mesma
 execução antes (esperados FALHOU nos casos 1, 3, 4, 5, 6, 8, 9, 10 e 11; OK nos
-casos 2 e 7), depois a migration, depois a sonda de novo (11/11 OK); registrar
+casos 2 e 7), depois a migration, depois a sonda de novo (11/11 OK). **Sonda
+medida em 07/11/2026** (pelo CLI, RAISE final resumido): exatamente esses
+FALHOU antes, 11/11 OK com o corpo na mesma execução, nada ficou no banco. Registrar
 com a versão do arquivo.
 
 **O que faz.** Reescreve as duas RPCs com a mesma assinatura, SECURITY DEFINER,
@@ -3549,8 +3551,11 @@ vivos de 06/11/2026).
 
 **Arquivo:** `20261107101000_apagar_funcoes_mortas.sql` · **⏳ não aplicada.**
 Aplicar pelo CLI (`db query --linked`) com a sonda na mesma execução antes
-(esperado FALHOU no caso 1; OK nos casos 2 e 3), depois a migration, depois a
-sonda de novo (3/3 OK); registrar com a versão do arquivo.
+(esperados FALHOU nos casos 1 e 2; OK no caso 3), depois a migration, depois a
+sonda de novo (3/3 OK); registrar com a versão do arquivo. **Sonda medida em
+07/11/2026** (pelo CLI, com o RAISE final resumido porque a API corta mensagens
+de erro em ~1.200 caracteres): FALHOU 1 e 2 antes; 3/3 OK com o corpo na mesma
+execução; nada ficou no banco.
 
 **O que faz.** `DROP FUNCTION IF EXISTS`, com a assinatura exata e sem CASCADE,
 em `get_user_role(uuid)`, `get_user_unidade(uuid)`, `get_user_unidades(uuid)`,
