@@ -246,4 +246,170 @@ describe('useNovaEntregaDraft', () => {
     expect(mockChain.eq).toHaveBeenCalledWith('usuario_id', 'user-1');
     expect(mockChain.eq).toHaveBeenCalledWith('unidade_id', 'unit-1');
   });
+
+  describe('gravações em ordem (B-GES-10)', () => {
+    const outroPayload: NovaEntregaDraftPayload = {
+      ...savedPayload,
+      motoristaSelecionado: 'driver-2',
+    };
+
+    function montarHook(onRestore = jest.fn()) {
+      return renderHook(
+        ({ payload }) =>
+          useNovaEntregaDraft({
+            userId: 'user-1',
+            unidadeId: 'unit-1',
+            payload,
+            onRestore,
+          }),
+        { initialProps: { payload: emptyPayload } },
+      );
+    }
+
+    async function hidratar() {
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+
+    afterEach(() => jest.useRealTimers());
+
+    it('o segundo salvamento só sai depois que o primeiro terminou', async () => {
+      jest.useFakeTimers();
+      mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+      const eventos: string[] = [];
+      let liberarPrimeiro: () => void = () => {};
+      mockUpsert
+        .mockImplementationOnce(
+          (linha: { payload: { motoristaSelecionado: string } }) => {
+            eventos.push(`inicio:${linha.payload.motoristaSelecionado}`);
+            return new Promise((resolve) => {
+              liberarPrimeiro = () => {
+                eventos.push('fim:driver-1');
+                resolve(mockQueryResult);
+              };
+            });
+          },
+        )
+        .mockImplementationOnce(
+          (linha: { payload: { motoristaSelecionado: string } }) => {
+            eventos.push(`inicio:${linha.payload.motoristaSelecionado}`);
+            return Promise.resolve(mockQueryResult);
+          },
+        );
+      const { rerender } = montarHook();
+      await hidratar();
+
+      rerender({ payload: savedPayload });
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+        await Promise.resolve();
+      });
+      rerender({ payload: outroPayload });
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+        await Promise.resolve();
+      });
+
+      // O 1º ainda está em voo: o 2º não pode ter começado.
+      expect(eventos).toEqual(['inicio:driver-1']);
+
+      await act(async () => {
+        liberarPrimeiro();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(eventos).toEqual([
+        'inicio:driver-1',
+        'fim:driver-1',
+        'inicio:driver-2',
+      ]);
+    });
+
+    it('limpar o rascunho depois de um upsert em voo: o delete vem por último e o timer pendente morre', async () => {
+      jest.useFakeTimers();
+      mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+      const eventos: string[] = [];
+      let liberarUpsert: () => void = () => {};
+      mockUpsert.mockImplementationOnce(() => {
+        eventos.push('upsert');
+        return new Promise((resolve) => {
+          liberarUpsert = () => {
+            eventos.push('upsert-fim');
+            resolve(mockQueryResult);
+          };
+        });
+      });
+      const { result, rerender } = montarHook();
+      await hidratar();
+
+      rerender({ payload: savedPayload });
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+        await Promise.resolve();
+      });
+      // Nova edição agenda outro salvamento, e a rota é criada antes dele.
+      rerender({ payload: outroPayload });
+      mockChain.delete.mockImplementation(() => {
+        eventos.push('delete');
+        return mockChain;
+      });
+
+      let limpando: Promise<void> = Promise.resolve();
+      act(() => {
+        limpando = result.current.clearDraft();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+        await Promise.resolve();
+      });
+      expect(eventos).toEqual(['upsert']); // delete espera o upsert em voo
+
+      await act(async () => {
+        liberarUpsert();
+        await limpando;
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+      });
+
+      expect(eventos).toEqual(['upsert', 'upsert-fim', 'delete']);
+      expect(mockUpsert).toHaveBeenCalledTimes(1);
+      mockChain.delete.mockReturnValue(mockChain);
+    });
+
+    it('rascunho restaurado não é regravado só por ter sido restaurado (não renova expira_em)', async () => {
+      jest.useFakeTimers();
+      mockMaybeSingle.mockResolvedValue({
+        data: {
+          payload: savedPayload,
+          atualizado_em: '2026-07-23T20:00:00.000Z',
+          expira_em: '2099-07-30T20:00:00.000Z',
+        },
+        error: null,
+      });
+      const { rerender } = montarHook();
+      await hidratar();
+
+      // O pai aplica o rascunho restaurado.
+      rerender({ payload: savedPayload });
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+      });
+      expect(mockUpsert).not.toHaveBeenCalled();
+
+      // Uma edição de verdade volta a gravar.
+      rerender({ payload: outroPayload });
+      await act(async () => {
+        jest.advanceTimersByTime(800);
+        await Promise.resolve();
+      });
+      expect(mockUpsert).toHaveBeenCalledTimes(1);
+    });
+  });
 });

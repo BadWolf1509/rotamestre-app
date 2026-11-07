@@ -9,6 +9,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 
+import { CORES_DE_STATUS_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { getStatusLabel } from '@/components/map/infoWindowBuilders';
 import {
   tituloDoPino,
@@ -17,7 +18,6 @@ import {
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import type { ParadaMapItem as Parada } from '@/types/parada-map';
 import { getMarkerFillColor } from '@/utils/mapMarkerColors';
-import { useUnistyles } from '@/utils/styles';
 
 interface ParadaMarkerProps {
   parada: Parada;
@@ -40,8 +40,10 @@ export function ParadaMarker({
   rotulo,
   servicos,
 }: ParadaMarkerProps) {
-  const { theme } = useUnistyles();
-  const markerColor = getMarkerFillColor(parada.status, theme.colors);
+  const markerColor = getMarkerFillColor(
+    parada.status,
+    CORES_DE_STATUS_SOBRE_O_MAPA,
+  );
   const titulo = tituloDoPino(parada, servicos);
 
   return (

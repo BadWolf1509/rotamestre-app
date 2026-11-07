@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { desfazerContaCriada } from './compensacao.ts';
 import {
   ehEmailDuplicadoNoAuth,
   normalizarEmail,
@@ -23,28 +24,45 @@ import {
   CODIGO_TELEFONE_JA_CADASTRADO,
   respostaTelefoneDuplicado,
 } from './telefoneDuplicado.ts';
+import { exigirUsuario } from '../_shared/autenticacao.ts';
 import { chavePublica, chaveSecreta } from '../_shared/chaves.ts';
+import { CORS_PADRAO, jsonResponse, preflight } from '../_shared/http.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
-
-const resposta = (status: number, corpo: unknown) =>
-  new Response(JSON.stringify(corpo), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+const resposta = jsonResponse;
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  const respostaPreflight = preflight(req);
+  if (respostaPreflight) {
+    return respostaPreflight;
   }
 
   try {
-    // Criar cliente Supabase com Service Role Key (só disponível server-side)
+    // Sem "Authorization: Bearer ..." a resposta é 401 antes de qualquer cliente
+    // (antes, o cabeçalho ausente virava null no createClient e caía no 500).
+    // A validação do usuário fica no getUser abaixo, que também guarda o usuário.
+    let user: { id: string } | null = null;
+    let supabaseClient!: ReturnType<typeof createClient>;
+    const recusa401 = await exigirUsuario(
+      req,
+      async (authorization) => {
+        supabaseClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          chavePublica(),
+          { global: { headers: { Authorization: authorization } } },
+        );
+        const { data, error } = await supabaseClient.auth.getUser();
+        user = error ? null : (data.user ?? null);
+        return user !== null;
+      },
+      CORS_PADRAO,
+    );
+    if (recusa401 || !user) {
+      return recusa401 ?? resposta(401, { error: 'Não autorizado' });
+    }
+    const gestorId: string = (user as { id: string }).id;
+
+    // Cliente com a chave secreta (só disponível server-side)
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       chaveSecreta(),
@@ -55,30 +73,6 @@ serve(async (req) => {
         },
       },
     );
-
-    // Criar cliente normal para validar o usuário chamador
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      chavePublica(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      },
-    );
-
-    // Validar que o usuário está autenticado e é gestor
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     // Corpo: lido e validado antes de qualquer consulta (400 diz o campo).
     let corpo: unknown;
@@ -97,7 +91,7 @@ serve(async (req) => {
     const { data: gestorData, error: gestorError } = await supabaseClient
       .from('usuarios')
       .select('papel, unidade_id, ativo')
-      .eq('id', user.id)
+      .eq('id', gestorId)
       .single();
 
     // A loja é a que o gestor tem aberta na tela (`unidade_id`); app antigo não
@@ -110,7 +104,7 @@ serve(async (req) => {
       ? await supabaseAdmin
           .from('usuario_unidades')
           .select('id')
-          .eq('usuario_id', user.id)
+          .eq('usuario_id', gestorId)
           .eq('unidade_id', unidadeId)
           .eq('papel', 'gestor')
           .eq('ativo', true)
@@ -125,10 +119,7 @@ serve(async (req) => {
       vinculo: vinculoGestor,
     });
     if (permissao === 'indisponivel') {
-      return new Response(JSON.stringify({ error: MSG_PERMISSAO_INDISPONIVEL }), {
-        status: 503,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return resposta(503, { error: MSG_PERMISSAO_INDISPONIVEL });
     }
     if (permissao === 'proibido') {
       return resposta(403, {
@@ -150,24 +141,15 @@ serve(async (req) => {
 
     if (emailError) {
       // Sem a checagem não dá para saber se a conta já existe; não arrisca.
-      return new Response(
-        JSON.stringify({ error: 'Não foi possível verificar o e-mail.' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return resposta(500, { error: 'Não foi possível verificar o e-mail.' });
     }
 
     if (contasComEmail && contasComEmail.length > 0) {
       const recusa = respostaEmailJaCadastrado();
-      return new Response(
-        JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
-        {
-          status: recusa.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return resposta(recusa.status, {
+        error: recusa.error,
+        codigo: recusa.codigo,
+      });
     }
 
     // Telefone já usado por motorista ativo (nunca vincula pelo telefone: só recusa)
@@ -210,16 +192,10 @@ serve(async (req) => {
           unidadesVinculadas,
         );
         if (duplicado) {
-          return new Response(
-            JSON.stringify({
-              error: duplicado.error,
-              codigo: duplicado.codigo,
-            }),
-            {
-              status: duplicado.status,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            },
-          );
+          return resposta(duplicado.status, {
+            error: duplicado.error,
+            codigo: duplicado.codigo,
+          });
         }
       }
     }
@@ -241,13 +217,10 @@ serve(async (req) => {
     if (createAuthError) {
       if (ehEmailDuplicadoNoAuth(createAuthError)) {
         const recusa = respostaEmailJaCadastrado();
-        return new Response(
-          JSON.stringify({ error: recusa.error, codigo: recusa.codigo }),
-          {
-            status: recusa.status,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
+        return resposta(recusa.status, {
+          error: recusa.error,
+          codigo: recusa.codigo,
+        });
       }
 
       // Mensagem do Auth só no log; para fora, o motivo de negócio que o
@@ -260,17 +233,11 @@ serve(async (req) => {
           : codigoAuth === 'email_address_invalid'
             ? 'E-mail inválido.'
             : 'Não foi possível criar o usuário. Tente de novo.';
-      return new Response(JSON.stringify({ error: mensagemAuth }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return resposta(400, { error: mensagemAuth });
     }
 
     if (!authData.user) {
-      return new Response(JSON.stringify({ error: 'Usuário não foi criado' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return resposta(500, { error: 'Usuário não foi criado' });
     }
 
     // Criar registro na tabela usuarios
@@ -290,34 +257,22 @@ serve(async (req) => {
 
     if (insertError) {
       // Se falhar ao criar registro, deletar usuário do Auth
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      await desfazerContaCriada(supabaseAdmin, authData.user.id);
 
       if (ehViolacaoTelefoneUnico(insertError)) {
-        return new Response(
-          JSON.stringify({
-            error: MSG_TELEFONE_OUTRA_LOJA,
-            codigo: CODIGO_TELEFONE_JA_CADASTRADO,
-          }),
-          {
-            status: 409,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
+        return resposta(409, {
+          error: MSG_TELEFONE_OUTRA_LOJA,
+          codigo: CODIGO_TELEFONE_JA_CADASTRADO,
+        });
       }
 
       console.error(
         '[criar-motorista] insert em usuarios falhou:',
         insertError,
       );
-      return new Response(
-        JSON.stringify({
-          error: 'Não foi possível criar o motorista. Tente de novo.',
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return resposta(400, {
+        error: 'Não foi possível criar o motorista. Tente de novo.',
+      });
     }
 
     // ✅ MULTI-UNIDADE: Criar vínculo em usuario_unidades
@@ -338,33 +293,18 @@ serve(async (req) => {
       // Sem vínculo o motorista não aparece na lista (que vem de
       // usuario_unidades) e o gestor não consegue criá-lo depois. Desfaz tudo:
       // apagar a conta leva junto a linha de `usuarios` (ON DELETE CASCADE).
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return new Response(
-        JSON.stringify({
-          error: 'Não foi possível vincular o motorista à loja. Tente de novo.',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      await desfazerContaCriada(supabaseAdmin, authData.user.id);
+      return resposta(500, {
+        error: 'Não foi possível vincular o motorista à loja. Tente de novo.',
+      });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        motorista: usuarioData,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    );
+    return resposta(200, {
+      success: true,
+      motorista: usuarioData,
+    });
   } catch (error) {
     console.error('[criar-motorista] Erro inesperado:', error);
-    return new Response(JSON.stringify({ error: 'Erro interno' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return resposta(500, { error: 'Erro interno' });
   }
 });

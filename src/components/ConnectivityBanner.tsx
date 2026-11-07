@@ -110,7 +110,9 @@ export function ConnectivityBanner({
       accessibilityRole="alert"
       style={[
         styles.container,
-        position === 'top' ? styles.positionTop : styles.positionBottom,
+        // Fora do StyleSheet de propósito: com 2 estilos do Unistyles num
+        // Animated.View o array é achatado e o aviso sai a cada render.
+        position === 'top' ? { top: 0 } : { bottom: 0 },
         {
           backgroundColor,
           transform: [{ translateY: slideAnim }],
@@ -200,12 +202,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     zIndex: theme.zIndex.banner,
     paddingVertical: theme.components.connectivityBanner.paddingV,
     paddingHorizontal: theme.spacing.md,
-  },
-  positionTop: {
-    top: 0,
-  },
-  positionBottom: {
-    bottom: 0,
   },
   content: {
     flexDirection: 'row',

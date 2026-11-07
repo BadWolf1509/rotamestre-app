@@ -6,8 +6,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { useDrawerLogout } from '../useDrawerLogout';
 
+const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: jest.fn() }),
+  useRouter: () => ({ replace: mockReplace }),
 }));
 jest.mock('@/lib/auth', () => ({
   authService: { signOut: jest.fn(() => Promise.resolve()) },
@@ -28,6 +29,27 @@ jest.mock('@/lib/offline', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockContar.mockResolvedValue({ acoes: 0, fotos: 0, posicoes: 0 });
+});
+
+describe('useDrawerLogout — saída', () => {
+  // R-NUC-1: o menu só encerra a sessão e se fecha; levar ao login é do
+  // layout raiz (useNavegacaoDeSaida), depois de os modais fecharem.
+  it('confirmar: signOut e fecha o menu, sem navegar', async () => {
+    const { authService } = jest.requireMock('@/lib/auth') as {
+      authService: { signOut: jest.Mock };
+    };
+    const onClose = jest.fn();
+    const { result } = renderHook(() => useDrawerLogout({ onClose }));
+    await act(async () => {
+      result.current.handleLogoutPress();
+    });
+    await act(async () => {
+      await result.current.handleLogoutConfirm();
+    });
+    expect(authService.signOut).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
 });
 
 describe('useDrawerLogout — aviso de pendências', () => {

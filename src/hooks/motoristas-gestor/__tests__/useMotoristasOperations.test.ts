@@ -70,11 +70,14 @@ jest.mock('@/lib/phone', () => ({
   getPhoneErrorMessage: jest.fn(() => null),
 }));
 
+const mockInvoke = jest.fn();
+
 // Mock supabase
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
     rpc: jest.fn(),
+    functions: { invoke: (...a: unknown[]) => mockInvoke(...a) },
     auth: {
       getSession: jest.fn(),
       signInWithPassword: jest.fn(),
@@ -90,10 +93,6 @@ jest.mock('@/lib/supabase', () => ({
 // RPCs da tela Motoristas: a lista e o toggle
 const mockListar = jest.fn();
 const mockAlternar = jest.fn();
-
-// Mock global fetch
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
 
 // ==========================================================================
 // Helpers
@@ -190,13 +189,10 @@ describe('useMotoristasOperations', () => {
       error: null,
     });
 
-    // Default: successful fetch response
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: jest
-        .fn()
-        .mockResolvedValue(JSON.stringify({ id: 'new-motorista-1' })),
+    // Default: criar-motorista responde sucesso
+    mockInvoke.mockResolvedValue({
+      data: { id: 'new-motorista-1' },
+      error: null,
     });
 
     process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
@@ -318,9 +314,8 @@ describe('useMotoristasOperations', () => {
       senha: 'senha123',
     };
 
-    it('creates motorista via edge function on success', async () => {
+    it('creates motorista via supabase.functions.invoke on success', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
-
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       const onSuccess = jest.fn();
@@ -328,25 +323,18 @@ describe('useMotoristasOperations', () => {
         await result.current.adicionarMotorista(validFormData, onSuccess);
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://test.supabase.co/functions/v1/criar-motorista',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer mock-token',
-          }),
-          body: JSON.stringify({
-            nome: 'Novo Motorista',
-            email: 'novo@test.com',
-            senha: 'senha123',
-            telefone: null,
-            // a loja aberta na tela, não a principal do gestor
-            unidade_id: 'unidade-123',
-          }),
-        }),
-      );
-
+      // Pelo cliente (prazo, token renovado, X-Client-Info): nunca fetch cru.
+      expect(mockInvoke).toHaveBeenCalledWith('criar-motorista', {
+        method: 'POST',
+        body: {
+          nome: 'Novo Motorista',
+          email: 'novo@test.com',
+          senha: 'senha123',
+          telefone: null,
+          // a loja aberta na tela, não a principal do gestor
+          unidade_id: 'unidade-123',
+        },
+      });
       expect(onSuccess).toHaveBeenCalled();
       expect(mockShowToast).toHaveBeenCalledWith(
         'Motorista adicionado com sucesso!',
@@ -356,7 +344,6 @@ describe('useMotoristasOperations', () => {
 
     it('logs user action after successful creation', async () => {
       const { result } = renderHook(() => useMotoristasOperations());
-
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
@@ -373,34 +360,16 @@ describe('useMotoristasOperations', () => {
       );
     });
 
-    it('handles session error', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: { session: null },
-        error: { message: 'Session expired' },
+    const erroHttp = (status: number, corpo: string) =>
+      Object.assign(new Error('non-2xx'), {
+        name: 'FunctionsHttpError',
+        context: new Response(corpo, { status }),
       });
+
+    it('sessão expirada (401 da função) pede novo login', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: erroHttp(401, '{}') });
 
       const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      await act(async () => {
-        await result.current.adicionarMotorista(validFormData, jest.fn());
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(
-        expect.stringContaining('Erro ao obter sessão'),
-        'error',
-      );
-    });
-
-    it('handles missing session', async () => {
-      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
-        data: { session: null },
-        error: null,
-      });
-
-      const { result } = renderHook(() => useMotoristasOperations());
-
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
@@ -424,11 +393,10 @@ describe('useMotoristasOperations', () => {
         'TypeError: Network request failed (nativo)',
         new TypeError('Network request failed'),
       ],
-      ['FunctionsFetchError', erroFunctionsFetch],
     ])(
       'falha de rede (%s) vira "Sem conexão. Tente de novo."',
       async (_n, erro) => {
-        mockFetch.mockRejectedValue(erro);
+        mockInvoke.mockRejectedValue(erro);
 
         const { result } = renderHook(() => useMotoristasOperations());
         await waitFor(() => expect(result.current.loading).toBe(false));
@@ -446,8 +414,26 @@ describe('useMotoristasOperations', () => {
       },
     );
 
+    it('FunctionsFetchError (rede ou prazo do cliente) vira "Sem conexão"', async () => {
+      mockInvoke.mockResolvedValue({ data: null, error: erroFunctionsFetch });
+
+      const { result } = renderHook(() => useMotoristasOperations());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      const onSuccess = jest.fn();
+      await act(async () => {
+        await result.current.adicionarMotorista(validFormData, onSuccess);
+      });
+
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Sem conexão. Tente de novo.',
+        'error',
+      );
+      expect(onSuccess).not.toHaveBeenCalled();
+    });
+
     it('falha que não é de rede no envio vira a mensagem genérica', async () => {
-      mockFetch.mockRejectedValue(new Error('algo estranho'));
+      mockInvoke.mockRejectedValue(new Error('algo estranho'));
 
       const { result } = renderHook(() => useMotoristasOperations());
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -464,19 +450,17 @@ describe('useMotoristasOperations', () => {
 
     it('nenhuma mensagem de falha fala em deploy', async () => {
       const respostas = [
-        () => mockFetch.mockRejectedValue(new TypeError('Failed to fetch')),
-        () => mockFetch.mockRejectedValue(new Error('x')),
+        () => mockInvoke.mockRejectedValue(new TypeError('Failed to fetch')),
+        () => mockInvoke.mockRejectedValue(new Error('x')),
         () =>
-          mockFetch.mockResolvedValue({
-            ok: true,
-            status: 200,
-            text: jest.fn().mockResolvedValue('<html>502</html>'),
+          mockInvoke.mockResolvedValue({
+            data: '<html>502</html>',
+            error: null,
           }),
         () =>
-          mockFetch.mockResolvedValue({
-            ok: false,
-            status: 500,
-            text: jest.fn().mockResolvedValue('{}'),
+          mockInvoke.mockResolvedValue({
+            data: null,
+            error: erroHttp(500, '{}'),
           }),
       ];
 
@@ -496,11 +480,7 @@ describe('useMotoristasOperations', () => {
     });
 
     it('resposta de erro sem texto da função vira a mensagem genérica', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 500,
-        text: jest.fn().mockResolvedValue('{}'),
-      });
+      mockInvoke.mockResolvedValue({ data: null, error: erroHttp(500, '{}') });
 
       const { result } = renderHook(() => useMotoristasOperations());
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -515,42 +495,22 @@ describe('useMotoristasOperations', () => {
       );
     });
 
-    it('shows the edge function text when the email already has an account (409)', async () => {
-      const msg =
-        'Este e-mail já tem uma conta no RotaMestre. Para usar o mesmo motorista em mais de uma loja, fale com o suporte.';
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 409,
-        text: jest
-          .fn()
-          .mockResolvedValue(
-            JSON.stringify({ error: msg, codigo: 'email_ja_cadastrado' }),
-          ),
-      });
-
-      const { result } = renderHook(() => useMotoristasOperations());
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(validFormData, onSuccess);
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith(msg, 'error');
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
-
-    it('shows the edge function error text on duplicate phone (409)', async () => {
-      const texto =
-        'Este motorista já usa o RotaMestre em outra loja. Cadastre-o com o e-mail da conta dele para vinculá-lo à sua loja.';
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 409,
-        text: jest
-          .fn()
-          .mockResolvedValue(
-            JSON.stringify({ error: texto, codigo: 'telefone_ja_cadastrado' }),
-          ),
+    it.each([
+      [
+        'e-mail que já tem conta',
+        409,
+        'Este e-mail já tem uma conta no RotaMestre. Para usar o mesmo motorista em mais de uma loja, fale com o suporte.',
+      ],
+      [
+        'telefone duplicado',
+        409,
+        'Este motorista já usa o RotaMestre em outra loja. Cadastre-o com o e-mail da conta dele para vinculá-lo à sua loja.',
+      ],
+      ['erro de validação', 400, 'Email já existe'],
+    ])('mostra o texto da função: %s', async (_n, status, texto) => {
+      mockInvoke.mockResolvedValue({
+        data: null,
+        error: erroHttp(status, JSON.stringify({ error: texto })),
       });
 
       const { result } = renderHook(() => useMotoristasOperations());
@@ -565,37 +525,10 @@ describe('useMotoristasOperations', () => {
       expect(onSuccess).not.toHaveBeenCalled();
     });
 
-    it('handles non-ok response from edge function', async () => {
-      mockFetch.mockResolvedValue({
-        ok: false,
-        status: 400,
-        text: jest
-          .fn()
-          .mockResolvedValue(JSON.stringify({ error: 'Email já existe' })),
-      });
-
-      const { result } = renderHook(() => useMotoristasOperations());
-
-      await waitFor(() => expect(result.current.loading).toBe(false));
-
-      const onSuccess = jest.fn();
-      await act(async () => {
-        await result.current.adicionarMotorista(validFormData, onSuccess);
-      });
-
-      expect(mockShowToast).toHaveBeenCalledWith('Email já existe', 'error');
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
-
     it('handles invalid JSON response', async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: jest.fn().mockResolvedValue('not json {{{'),
-      });
+      mockInvoke.mockResolvedValue({ data: 'not json {{{', error: null });
 
       const { result } = renderHook(() => useMotoristasOperations());
-
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
@@ -609,17 +542,16 @@ describe('useMotoristasOperations', () => {
     });
 
     it('sets salvando during operation', async () => {
-      let resolveFetch: (value: unknown) => void;
-      const fetchPromise = new Promise((resolve) => {
-        resolveFetch = resolve;
-      });
-      mockFetch.mockReturnValue(fetchPromise);
+      let resolverChamada: (value: unknown) => void;
+      mockInvoke.mockReturnValue(
+        new Promise((resolve) => {
+          resolverChamada = resolve;
+        }),
+      );
 
       const { result } = renderHook(() => useMotoristasOperations());
-
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      // Start operation (don't await)
       let addPromise: Promise<void>;
       act(() => {
         addPromise = result.current.adicionarMotorista(
@@ -628,16 +560,10 @@ describe('useMotoristasOperations', () => {
         );
       });
 
-      // salvando should be true while waiting
       expect(result.current.salvando).toBe(true);
 
-      // Resolve fetch
       await act(async () => {
-        resolveFetch!({
-          ok: true,
-          status: 200,
-          text: jest.fn().mockResolvedValue(JSON.stringify({ id: 'new-1' })),
-        });
+        resolverChamada!({ data: { id: 'new-1' }, error: null });
         await addPromise!;
       });
 

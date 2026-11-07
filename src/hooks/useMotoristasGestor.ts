@@ -15,27 +15,18 @@ import {
   useMotoristasOperations,
 } from './motoristas-gestor';
 
-import type { UseMotoristasFormReturn } from './motoristas-gestor';
+import type {
+  MotoristaDetalhado,
+  UseMotoristasFormReturn,
+} from './motoristas-gestor';
+
+// O tipo mora em motoristas-gestor/types.ts (sem ciclo); reexportado aqui para
+// quem já importa de useMotoristasGestor.
+export type { MotoristaDetalhado };
 
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface MotoristaDetalhado {
-  id: string;
-  nome: string;
-  email: string;
-  telefone?: string;
-  foto_url?: string;
-  ativo: boolean;
-  created_at: string;
-  /**
-   * Vínculo com a loja ativa. `false` só para quem atende outra loja e foi
-   * desativado nesta: a RLS de usuarios o esconde, então perfil e edição não
-   * abrem (só reativar). Ausente fora da lista de listar_motoristas_unidade.
-   */
-  vinculo_ativo?: boolean;
-}
 
 const MSG_VINCULO_INATIVO =
   'Este motorista está desativado nesta loja. Ative-o para ver o perfil ou editar.';

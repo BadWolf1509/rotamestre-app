@@ -19,10 +19,9 @@ import {
 } from '@/components/motorista/home/QuickActions';
 import { StartRouteButton } from '@/components/motorista/home/StartRouteButton';
 import { StatusSection } from '@/components/motorista/home/StatusSection';
+import { ModaisDaParada } from '@/components/motorista/ModaisDaParada';
 import { NavigationMode } from '@/components/motorista/NavigationMode';
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
-import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
-import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import {
   SwipeOnboarding,
   hasSeenSwipeOnboarding,
@@ -32,9 +31,8 @@ import { useNavegacaoTelaCheia } from '@/context/NavegacaoTelaCheiaContext';
 import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus } from '@/context/RouteStatusContext';
 import { Dialog, SupportModal } from '@/design-system';
-import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
+import { useAcoesDaParada } from '@/hooks/motorista/useAcoesDaParada';
 import { useInicioModals } from '@/hooks/motorista/useInicioModals';
-import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
@@ -46,13 +44,13 @@ import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissa
 import { useUser } from '@/hooks/useUser';
 import { formatarMomentoDosDados } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
+import { acaoPrincipal, formatarTempoDecorrido } from '@/lib/motorista/acaoPrincipal';
 import {
   deveSairDoModoNavegacao,
   mensagemFinalizarRota,
 } from '@/lib/motorista/modoNavegacao';
 import {
   chegouPelaParadaAnterior,
-  paradasDaVisita,
 } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
@@ -61,11 +59,10 @@ import {
   REMEDIO_CADEADO_WEB,
 } from '@/lib/permissoes';
 import LocationTrackingService from '@/services/locationTracking';
-import type { IconName } from '@/types/icons';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 const OPCOES_INICIO: OpcoesDoWatcher = {
-  accuracy: Location.Accuracy.BestForNavigation,
+  accuracy: Location.Accuracy.Balanced,
   timeInterval: 10000,
   distanceInterval: 50,
 };
@@ -110,16 +107,14 @@ function MotoristaInicioContent() {
 
   // Entrega e retirada no mesmo local: cada serviço tem o seu comprovante, e
   // o fluxo do próximo abre quando o anterior conclui.
-  const sequencia = useConclusaoEmSequencia({
-    paradas,
-    abrirConclusao: modals.openCompletionFlow,
-  });
-
-  const pularVisita = usePuloDaVisita({
+  const { sequencia, pularVisita, aoConcluirComSucesso } = useAcoesDaParada({
     paradas,
     skipStop,
+    refreshRoute,
     showSuccess,
     showError,
+    abrirConclusao: modals.openCompletionFlow,
+    paradaEmConclusao: modals.selectedParadaForCompletion,
   });
 
   // Navegação em tela cheia: o layout de abas esconde cabeçalho e abas.
@@ -238,7 +233,7 @@ function MotoristaInicioContent() {
   });
 
   useLocationWatcher({
-    enabled: temPermissaoDeLocalizacao,
+    enabled: temPermissaoDeLocalizacao && !emNavegacao,
     options: OPCOES_INICIO,
     onLocation: (novaPosicao) =>
       setLocation({
@@ -247,28 +242,24 @@ function MotoristaInicioContent() {
       }),
   });
 
-  // Main action handler
+  // Ação principal: o estado da rota define o que ela faz e como aparece
+  // (`acaoPrincipal`); aqui só se executa o destino.
+  const acao = acaoPrincipal(routeStatus);
   const handleMainAction = async () => {
-    switch (routeStatus) {
-      case 'pending':
+    switch (acao.destino) {
+      case 'iniciar-rota':
         await handleStartRoute();
         break;
-
-      case 'active':
-      case 'last-stop':
+      case 'navegar':
         handleNavigateToStop();
         break;
-
-      case 'ready-to-complete':
+      case 'finalizar-rota':
         await handleCompleteRoute();
         break;
-
-      case 'completed':
+      case 'ver-resumo':
         router.push('/motorista/resumo');
         break;
-
-      case 'no-route':
-      default:
+      case 'ver-historico':
         router.push('/motorista/historico');
         break;
     }
@@ -313,15 +304,6 @@ function MotoristaInicioContent() {
     } finally {
       setIsStartingRoute(false);
     }
-  };
-
-  // O StopCompletionFlow chama onSuccess e logo depois onClose. O próximo
-  // serviço só abre depois do refresh, com o modal atual já fechado: abrir no
-  // mesmo instante deixaria o onClose fechar o recém-aberto.
-  const handleConclusaoSucesso = async () => {
-    const concluidaId = modals.selectedParadaForCompletion?.id;
-    await refreshRoute();
-    if (concluidaId) sequencia.aoConcluir(concluidaId);
   };
 
   // Navigate to current stop
@@ -404,65 +386,16 @@ function MotoristaInicioContent() {
     setRefreshing(false);
   };
 
-  // Calculate elapsed time
-  const getElapsedTime = () => {
-    if (!route?.iniciada_em) return null;
-
-    const start = new Date(route.iniciada_em).getTime();
-    const now = Date.now();
-    const elapsed = now - start;
-
-    const hours = Math.floor(elapsed / (1000 * 60 * 60));
-    const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
-
-    // Não mostrar "0h" quando menos de 1 hora
-    if (hours === 0) return `${minutes}min`;
-    return `${hours}h ${minutes}min`;
-  };
-
-  // Get FAB properties
-  const getFABProps = (): { icon: IconName; color: string; label: string } => {
-    switch (routeStatus) {
-      case 'pending':
-        return {
-          icon: 'play-circle',
-          color: theme.colors.success,
-          label: 'Iniciar',
-        };
-
-      case 'active':
-      case 'last-stop':
-        return {
-          icon: 'navigate',
-          color: theme.colors.secondary,
-          label: 'Navegar',
-        };
-
-      case 'ready-to-complete':
-        return {
-          icon: 'checkmark-circle',
-          color: theme.colors.success,
-          label: 'Finalizar',
-        };
-
-      case 'completed':
-        return {
-          icon: 'document-text',
-          color: theme.colors.primary,
-          label: 'Detalhes',
-        };
-
-      case 'no-route':
-      default:
-        return {
-          icon: 'time',
-          color: theme.colors.primary,
-          label: 'Histórico',
-        };
-    }
-  };
-
-  const fabProps = getFABProps();
+  // Tempo desde o início da rota: o relógio anda a cada minuto, senão o
+  // "há 2h 3min" só mudava quando algo mais re-renderizasse a tela.
+  const [agora, setAgora] = useState(() => new Date());
+  const rotaIniciadaEm = route?.iniciada_em;
+  useEffect(() => {
+    if (!rotaIniciadaEm) return;
+    setAgora(new Date());
+    const id = setInterval(() => setAgora(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, [rotaIniciadaEm]);
 
   // Handle navigation mode callbacks
   const handleNavigationComplete = async () => {
@@ -486,31 +419,23 @@ function MotoristaInicioContent() {
   // aparecia quando o motorista saía da navegação, já longe do cliente.
   const renderModaisDaParada = () => (
     <>
-      {/* Modal de Conclusão de Parada (com foto) */}
-      {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para evitar loop */}
-      {/* quando currentStop muda após a conclusão da parada */}
-      <StopCompletionFlow
-        parada={modals.selectedParadaForCompletion}
-        visible={modals.showCompletionFlow}
-        onClose={modals.closeCompletionFlow}
-        onSuccess={handleConclusaoSucesso}
-        allowSkipPhoto={true}
+      {/* Usa selectedParadaForCompletion (capturado no momento do swipe) para
+          evitar loop quando currentStop muda após a conclusão da parada. */}
+      <ModaisDaParada
+        paradas={paradas}
         contexto={sequencia.contexto}
+        conclusao={{
+          parada: modals.selectedParadaForCompletion,
+          visible: modals.showCompletionFlow,
+          onClose: modals.closeCompletionFlow,
+          onSuccess: aoConcluirComSucesso,
+        }}
+        pulo={{
+          parada: modals.showSkipModal ? modals.selectedParadaForSkip : null,
+          onConfirm: handleConfirmSkip,
+          onCancel: modals.closeSkipModal,
+        }}
       />
-
-      {/* Skip Reason Modal */}
-      {modals.showSkipModal && modals.selectedParadaForSkip && (
-        <SkipReasonModal
-          visible={modals.showSkipModal}
-          parada={modals.selectedParadaForSkip}
-          outrosServicosNoLocal={paradasDaVisita(
-            paradas,
-            modals.selectedParadaForSkip,
-          ).slice(1)}
-          onConfirm={handleConfirmSkip}
-          onCancel={modals.closeSkipModal}
-        />
-      )}
 
       {/* AlertDialog for useAlert hook — "Parada Pulada" e erros vêm daqui */}
       {AlertDialog}
@@ -570,7 +495,7 @@ function MotoristaInicioContent() {
           routeStatus={routeStatus}
           completedStops={progress.completed}
           totalStops={progress.total}
-          timeElapsed={getElapsedTime() ?? undefined}
+          timeElapsed={formatarTempoDecorrido(rotaIniciadaEm, agora) ?? undefined}
           estadoDaCarga={estadoDaCarga}
         />
 
@@ -689,10 +614,10 @@ function MotoristaInicioContent() {
       {/* Floating Action Button - apenas quando NÃO é pending (pending usa StartRouteButton) */}
       {routeStatus !== 'pending' && !estadoDaCarga && (
         <FloatingActionButton
-          icon={fabProps.icon}
-          color={fabProps.color}
+          icon={acao.icone}
+          color={theme.colors[acao.cor]}
           onPress={handleMainAction}
-          label={fabProps.label}
+          label={acao.rotulo}
         />
       )}
 

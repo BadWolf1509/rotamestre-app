@@ -11,9 +11,11 @@ const WORKTREES_ANINHADOS = `${path.join(__dirname, '.claude', 'worktrees').repl
 
 module.exports = {
   preset: 'jest-expo',
+  // Zera calls/results entre testes (não mexe em implementação).
+  clearMocks: true,
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo-router|escape-string-regexp)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|native-base|react-native-svg|react-native-unistyles|@shopify/flash-list)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo-router|escape-string-regexp)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@react-navigation/.*|react-native-unistyles|@shopify/flash-list)',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',

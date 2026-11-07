@@ -96,54 +96,6 @@ export function DesktopFormGrid({
   );
 }
 
-/**
- * DesktopFormField - Wrapper for a single field with compact desktop spacing
- *
- * Use this around individual fields that should use desktop density.
- *
- * @example
- * <DesktopFormField>
- *   <Input label="Nome" value={nome} />
- * </DesktopFormField>
- */
-interface DesktopFormFieldProps {
-  children: React.ReactNode;
-  /** Full width (span 2 columns in grid) */
-  fullWidth?: boolean;
-  testID?: string;
-}
-
-export function DesktopFormField({
-  children,
-  fullWidth = false,
-  testID,
-}: DesktopFormFieldProps) {
-  const { theme } = useUnistyles();
-  const { isDesktop } = useResponsive();
-
-  const marginBottom = isDesktop ? theme.desktop.field.marginBottom : theme.spacing.md;
-
-  if (Platform.OS === 'web') {
-    return (
-      <div
-        data-testid={testID}
-        style={{
-          marginBottom,
-          ...(fullWidth ? { gridColumn: '1 / -1' } : {}),
-        }}
-      >
-        {children}
-      </div>
-    );
-  }
-
-  return (
-    <View style={{ marginBottom }} testID={testID}>
-      {children}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create((_theme: Theme) => ({
   container: {
     width: '100%',

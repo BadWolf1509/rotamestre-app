@@ -2,9 +2,9 @@
 // Setup para Jest
 // Note: @/utils/color is mocked via moduleNameMapper in jest.config.js
 
-import '@testing-library/jest-native/extend-expect';
-
-global.fetch = jest.fn();
+// fetch sem mock no teste falha com mensagem clara, em vez de devolver undefined
+// e quebrar longe da causa ("Cannot read properties of undefined").
+global.fetch = jest.fn(() => Promise.reject(new Error('fetch sem mock neste teste')));
 
 // Mock MapLibre Native (avoid native module errors in tests)
 // v11 API shape: named exports Map/Marker/GeoJSONSource/Layer/Camera.
@@ -75,8 +75,10 @@ global.console = {
   log: jest.fn(),
   error: jest.fn(),
   warn: jest.fn(),
-
 };
+
+// Aviso inesperado de console.error/warn falha o teste (jest.mocks/consoleAvisos.js).
+require('./jest.mocks/consoleAvisos').instalarVigiaDoConsole(global.console);
 
 // Mock NativeEventEmitter (requerido pelo Unistyles)
 jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter');

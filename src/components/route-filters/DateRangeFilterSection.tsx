@@ -8,7 +8,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, Modal, Platform } from 'react-native';
 import DateTimePickerModal, { useDefaultStyles } from 'react-native-ui-datepicker';
 
@@ -49,7 +49,7 @@ export function DateRangeFilterSection({
 
   // Calendar styles for web
   const defaultStyles = useDefaultStyles('light');
-  const calendarStyles = useMemo(() => ({
+  const calendarStyles = {
     ...defaultStyles,
     headerText: {
       color: theme.colors.gray900,
@@ -103,12 +103,12 @@ export function DateRangeFilterSection({
     selected: {
       backgroundColor: theme.colors.primary,
     },
-  }), [defaultStyles, theme]);
+  };
 
-  const datePickerComponents = useMemo(() => ({
+  const datePickerComponents = {
     IconPrev: <Ionicons name="chevron-back" size={18} color={theme.colors.gray900} />,
     IconNext: <Ionicons name="chevron-forward" size={18} color={theme.colors.gray900} />,
-  }), [theme]);
+  };
 
   // Mobile handlers
   const handleDataInicioChange = (_event: any, selectedDate?: Date) => {

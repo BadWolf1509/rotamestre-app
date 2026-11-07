@@ -9,7 +9,6 @@
  * precisa trocar de conta. Ficou: avisar + disparar o envio ao abrir.
  */
 
-import { useRouter } from 'expo-router';
 import { useState, useCallback, useRef } from 'react';
 
 import { authService } from '@/lib/auth';
@@ -36,7 +35,6 @@ export function useDrawerLogout({
   onClose,
   motoristaId,
 }: UseDrawerLogoutOptions) {
-  const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [logoutMessage, setLogoutMessage] = useState(MENSAGEM_SAIDA_PADRAO);
@@ -88,14 +86,15 @@ export function useDrawerLogout({
 
     try {
       // authService: tira o token de push do banco e limpa o estado local.
+      // Levar ao login é do layout raiz (useNavegacaoDeSaida), depois de
+      // este menu e o diálogo terminarem de fechar (R-NUC-1).
       await authService.signOut();
       onClose();
-      router.replace('/auth/login');
     } catch (error) {
       logger.error('Erro ao fazer logout:', error);
       setShowErrorDialog(true);
     }
-  }, [onClose, router]);
+  }, [onClose]);
 
   const handleLogoutCancel = useCallback(() => {
     aberturaRef.current++;

@@ -7,10 +7,15 @@ import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist';
 
+import { useSoltarNaLista } from '@/hooks/gestao-rotas/useSoltarNaLista';
 import type {
   ImportParadasFn,
   LocalizarLoteFn,
 } from '@/hooks/nova-entrega/useParadasManagement';
+import type {
+  MotoristaDaNovaEntrega,
+  PercursoDaNovaEntrega,
+} from '@/hooks/useNovaEntrega';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -21,26 +26,13 @@ import { ParadaCard } from './ParadaCard';
 import { RotaOtimizadaBanner } from './RotaOtimizadaBanner';
 import { RouteDateSelector } from './RouteDateSelector';
 
-import type {
-  DistanciaManualReal,
-  EnderecoUnidade,
-  MotoristaResumo,
-  Parada,
-  ParadasStatus,
-  RotaOtimizadaState,
-} from './types';
+import type { Parada, ParadasStatus } from './types';
 
 export interface ParadasListAndActionsProps {
   paradas: Parada[];
   paradasStatus: ParadasStatus;
-  motoristas: MotoristaResumo[];
-  motoristaSelecionado: string;
-  rotaOtimizada: RotaOtimizadaState | null;
-  ordemManual: boolean;
-  distanciaManualReal: DistanciaManualReal | null;
-  enderecoUnidade: EnderecoUnidade | null;
-  isOptimizing: boolean;
-  isCalculandoReal: boolean;
+  motorista: MotoristaDaNovaEntrega;
+  percurso: PercursoDaNovaEntrega;
   isLoading: boolean;
   isDesktop: boolean;
   dataRota: string;
@@ -51,11 +43,9 @@ export interface ParadasListAndActionsProps {
   onMoveDown: (index: number) => void;
   onRemove: (index: number) => void;
   onEdit: (index: number) => void;
-  onReorder: (data: Parada[]) => void;
+  onReorder: (data: Parada[]) => boolean | void;
   onLocalizarLote: LocalizarLoteFn;
   onImport: ImportParadasFn;
-  onOptimize: () => void;
-  onSelectMotorista: (id: string) => void;
   onChangeDataRota: (value: string) => void;
   onGenerateRoute: () => void;
 }
@@ -63,14 +53,8 @@ export interface ParadasListAndActionsProps {
 export const ParadasListAndActions = memo(function ParadasListAndActions({
   paradas,
   paradasStatus,
-  motoristas,
-  motoristaSelecionado,
-  rotaOtimizada,
-  ordemManual,
-  distanciaManualReal,
-  enderecoUnidade,
-  isOptimizing,
-  isCalculandoReal,
+  motorista,
+  percurso,
   isLoading,
   isDesktop,
   dataRota,
@@ -84,14 +68,32 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
   onReorder,
   onLocalizarLote,
   onImport,
-  onOptimize,
-  onSelectMotorista,
   onChangeDataRota,
   onGenerateRoute,
 }: ParadasListAndActionsProps) {
   const { theme } = useUnistyles();
+  const {
+    rotaOtimizada,
+    ordemManual,
+    distanciaManualReal,
+    enderecoUnidade,
+    otimizando: isOptimizing,
+    calculandoReal: isCalculandoReal,
+    otimizar: onOptimize,
+  } = percurso;
+  const {
+    lista: motoristas,
+    selecionado: motoristaSelecionado,
+    selecionar: onSelectMotorista,
+  } = motorista;
   const router = useRouter();
   const styles = createStyles(theme, isDesktop);
+  // Mesma guarda do modal Reordenar: ordem igual não conta, e arrasto recusado
+  // remonta a lista nativa (que guardaria a ordem arrastada).
+  const { onDragEnd, resetToken } = useSoltarNaLista({
+    ordemAtual: paradas,
+    aplicar: onReorder,
+  });
 
   const renderStop = ({
     item,
@@ -223,10 +225,11 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
           </View>
 
           <DraggableFlatList
+            key={`paradas-${resetToken}`}
             data={paradas}
             keyExtractor={(parada) => parada.id}
             renderItem={renderStop}
-            onDragEnd={({ data }) => onReorder(data)}
+            onDragEnd={({ data }) => onDragEnd(data)}
             scrollEnabled={false}
             activationDistance={8}
           />

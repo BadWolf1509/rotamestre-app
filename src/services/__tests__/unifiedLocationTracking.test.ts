@@ -16,7 +16,6 @@ import {
   stopBackgroundTracking,
   isBackgroundTrackingActive,
   getTrackingContext,
-  updateTrackingContext,
   requestAndStartTracking,
   garantirRastreamentoDaRota,
   POSICOES_ENTRE_CONFERENCIAS,
@@ -489,27 +488,6 @@ describe('unifiedLocationTracking', () => {
       const result = await getTrackingContext();
 
       expect(result).toBeNull();
-    });
-  });
-
-  describe('updateTrackingContext', () => {
-    it('deve atualizar contexto existente', async () => {
-      mockGetItem.mockResolvedValueOnce(JSON.stringify(mockContext));
-
-      await updateTrackingContext({ motoristaNome: 'Novo Nome' });
-
-      expect(mockSetItem).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining('Novo Nome'),
-      );
-    });
-
-    it('não deve fazer nada se contexto não existe', async () => {
-      mockGetItem.mockResolvedValueOnce(null);
-
-      await updateTrackingContext({ motoristaNome: 'Novo Nome' });
-
-      expect(mockSetItem).not.toHaveBeenCalled();
     });
   });
 

@@ -9,8 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
-import { useUnistyles } from '@/utils/styles';
 
 interface CheckpointMarkerProps {
   /** 0 = PARTIDA, 1+ = CHEGADA */
@@ -23,7 +23,6 @@ interface CheckpointMarkerProps {
  * Sem toque aqui: quem trata é o onPress do <Marker> (ver ParadaMarker).
  */
 export function CheckpointMarker({ index, endereco }: CheckpointMarkerProps) {
-  const { theme } = useUnistyles();
   const isPartida = index === 0;
 
   return (
@@ -35,7 +34,7 @@ export function CheckpointMarker({ index, endereco }: CheckpointMarkerProps) {
       <Ionicons
         name={isPartida ? 'flag' : 'home'}
         size={16}
-        color={theme.colors.white}
+        color={CORES_SOBRE_O_MAPA.branco}
       />
     </View>
   );

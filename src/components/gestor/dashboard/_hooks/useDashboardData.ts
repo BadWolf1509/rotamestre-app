@@ -5,9 +5,11 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { getTodayISO, parseLocalDate, toLocalISODate } from '@/lib/dateUtils';
 import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
+import { dadosDeTesteDoInicio } from '@/lib/gestor/dadosDeTeste';
 import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import type { Usuario } from '@/types/usuario';
 
 export interface Stats {
   total: number;
@@ -61,7 +63,7 @@ export interface DashboardData {
   /** Com erro e dados anteriores na tela: de quando são (epoch ms). */
   dadosDe: number | null;
   onRefresh: () => Promise<void>;
-  userData: any;
+  userData: Usuario | null;
 }
 
 export interface UseDashboardDataOptions {
@@ -77,6 +79,22 @@ export interface UseDashboardDataOptions {
 // HELPERS - Funções utilitárias extraídas
 // ============================================================================
 
+/** Embed `usuarios` do PostgREST: objeto (muitos-para-um) ou lista. */
+type EmbedNome = { nome?: unknown } | { nome?: unknown }[] | null | undefined;
+
+/** Linha de `rotas` como as consultas do painel a trazem. */
+interface LinhaRota {
+  id: string;
+  data: string;
+  status: string;
+  motorista_id: string | null;
+  iniciada_em?: string | null;
+  concluida_em?: string | null;
+  distancia_total?: number | null;
+  usuarios?: EmbedNome;
+  paradas?: { status: string; is_checkpoint?: boolean | null }[] | null;
+}
+
 /**
  * Valida e formata uma data para string ISO (YYYY-MM-DD)
  */
@@ -90,7 +108,9 @@ function formatDateToISO(date: Date | null | undefined): string | null {
 /**
  * Calcula o tempo médio de conclusão das rotas em minutos
  */
-function calcularTempoMedio(rotas: any[]): number {
+function calcularTempoMedio(
+  rotas: Pick<LinhaRota, 'status' | 'iniciada_em' | 'concluida_em'>[],
+): number {
   let tempoTotalMinutos = 0;
   let rotasComTempo = 0;
 
@@ -117,7 +137,7 @@ function calcularTempoMedio(rotas: any[]): number {
  * mesmo das listas (`nomeMotoristaDaRota`), nunca "Desconhecido".
  */
 function encontrarMotoristaDestaque(
-  rotas: any[],
+  rotas: Pick<LinhaRota, 'id' | 'status' | 'motorista_id' | 'usuarios'>[],
   nomesForaDaLoja: Map<string, string> = new Map(),
 ): { nome: string; rotasConcluidas: number } | null {
   const motoristasCount: Record<
@@ -162,13 +182,13 @@ function encontrarMotoristaDestaque(
  * 72, `buscarNomesForaDaLoja`).
  */
 function processarRotasComParadas(
-  rotasData: any[],
+  rotasData: LinhaRota[],
   nomesForaDaLoja: Map<string, string>,
 ): RotaResumo[] {
   return rotasData.map((rota) => {
     // Filtra apenas paradas reais (checkpoints, não base)
     const paradasReais = (rota.paradas || []).filter(
-      (parada: any) => parada.is_checkpoint !== false,
+      (parada) => parada.is_checkpoint !== false,
     );
 
     return {
@@ -176,15 +196,14 @@ function processarRotasComParadas(
       data: rota.data,
       status: rota.status,
       motorista_nome: nomeMotoristaDaRota(
-        rota.usuarios?.nome,
+        nomeDoEmbed(rota.usuarios),
         rota.motorista_id,
         nomesForaDaLoja.get(rota.id),
       ),
       motorista_id: rota.motorista_id,
       total_paradas: paradasReais.length,
-      paradas_concluidas: paradasReais.filter(
-        (p: any) => p.status === 'concluida',
-      ).length,
+      paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida')
+        .length,
       distancia_total: rota.distancia_total || 0,
     };
   });
@@ -194,7 +213,6 @@ function processarRotasComParadas(
  * Nome do embed `usuarios`. Sem tipos gerados do banco, o PostgREST-js infere
  * o embed como lista; o servidor manda objeto (muitos-para-um). Aceita os dois.
  */
-type EmbedNome = { nome?: unknown } | { nome?: unknown }[] | null | undefined;
 function nomeDoEmbed(embed: EmbedNome): string | null {
   const nome = Array.isArray(embed) ? embed[0]?.nome : embed?.nome;
   return typeof nome === 'string' ? nome : null;
@@ -459,60 +477,11 @@ export function useDashboardData(
 
           if (!vigente()) return;
 
-          const mockRotas: RotaResumo[] = [
-            {
-              id: 'rota-1',
-              data: new Date().toISOString(),
-              status: 'em_andamento',
-              motorista_nome: 'Motorista Teste 1',
-              motorista_id: 'mot-1',
-              total_paradas: 10,
-              paradas_concluidas: 4,
-              distancia_total: 15.5,
-            },
-            {
-              id: 'rota-2',
-              data: new Date().toISOString(),
-              status: 'concluida',
-              motorista_nome: 'Motorista Teste 2',
-              motorista_id: 'mot-2',
-              total_paradas: 8,
-              paradas_concluidas: 8,
-              distancia_total: 12.0,
-            },
-            {
-              id: 'rota-3',
-              data: new Date().toISOString(),
-              status: 'pendente',
-              motorista_nome: 'Sem motorista',
-              motorista_id: null,
-              total_paradas: 5,
-              paradas_concluidas: 0,
-              distancia_total: 8.2,
-            },
-          ];
-
-          setRotas(mockRotas);
-          setStats({
-            total: 3,
-            emAndamento: 1,
-            concluidas: 1,
-            distanciaTotal: 35.7,
-            incidentesAbertos: 1,
-          });
-          setTodayStats({ totalHoje: 3 });
-          setKpis({
-            rotasSemana: 15,
-            rotasMes: 45,
-            taxaSucesso: 95,
-            tempoMedioMinutos: 45,
-            totalParadas: 150,
-            paradasConcluidas: 142,
-            motoristaDestaque: {
-              nome: 'Motorista Teste 2',
-              rotasConcluidas: 20,
-            },
-          });
+          const teste = dadosDeTesteDoInicio();
+          setRotas(teste.rotas);
+          setStats(teste.stats);
+          setTodayStats(teste.todayStats);
+          setKpis(teste.kpis);
 
           return;
         }

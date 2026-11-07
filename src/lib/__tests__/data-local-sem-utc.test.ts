@@ -21,12 +21,16 @@
  * (`const d = rota.data; new Date(d)`) passa batido. Protege contra a
  * reintrodução literal, que foi como o bug entrou.
  */
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { extname, join, relative } from 'path';
+import { readFileSync } from 'fs';
+import { relative } from 'path';
 
-const RAIZ = join(__dirname, '..', '..', '..');
+import {
+  RAIZ_REPOSITORIO as RAIZ,
+  exigirVolume,
+  listarFontes,
+} from '@/__tests__/helpers/fontes';
+
 const DIRETORIOS = ['src', 'app'];
-const EXTENSOES = new Set(['.ts', '.tsx']);
 
 /**
  * Colunas `date` (sem hora) deste schema. Montado em pedaços para o próprio
@@ -37,28 +41,11 @@ const PADRAO_PROIBIDO = new RegExp(
   `new Date\\(\\s*[A-Za-z0-9_.?\\[\\]'"]*\\b(?:${COLUNAS_DATE_ONLY.join('|')})\\b`,
 );
 
-function listarFontes(dir: string): string[] {
-  const encontrados: string[] = [];
-
-  for (const nome of readdirSync(dir)) {
-    if (nome === 'node_modules' || nome === '__tests__') continue;
-
-    const caminho = join(dir, nome);
-    if (statSync(caminho).isDirectory()) {
-      encontrados.push(...listarFontes(caminho));
-    } else if (EXTENSOES.has(extname(nome)) && !nome.includes('.test.')) {
-      encontrados.push(caminho);
-    }
-  }
-
-  return encontrados;
-}
-
 describe('coluna date-only nunca passa por new Date()', () => {
-  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+  const fontes = listarFontes({ pastas: DIRETORIOS });
 
   it('acha os arquivos de fonte (senão a varredura passaria vazia)', () => {
-    expect(fontes.length).toBeGreaterThan(100);
+    expect(() => exigirVolume(fontes, 100)).not.toThrow();
   });
 
   it('nenhum arquivo formata `data`/`rota_data` com new Date', () => {
@@ -113,7 +100,7 @@ function helperLocalFazNewDateEmColunaDate(fonte: string): boolean {
 }
 
 describe('coluna date-only nunca passa por helper local com new Date()', () => {
-  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+  const fontes = listarFontes({ pastas: DIRETORIOS });
 
   it('nenhum arquivo passa `data`/`rota_data` a helper que faz new Date', () => {
     const infratores = fontes
@@ -176,7 +163,7 @@ function derivaDiaEmUtc(fonte: string): boolean {
 const ARQUIVO_QUE_DEFINE_A_ALTERNATIVA = 'src/lib/dateUtils.ts';
 
 describe('dia do calendário nunca sai de toISOString()', () => {
-  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+  const fontes = listarFontes({ pastas: DIRETORIOS });
 
   it('nenhum arquivo deriva dia do calendário em UTC', () => {
     const infratores = fontes
@@ -214,7 +201,7 @@ describe('dia do calendário nunca sai de toISOString()', () => {
 const RECORTE_DO_DIA_POR_SPLIT = /\.split\(\s*['"]T['"]\s*\)\s*\[\s*0\s*\]/;
 
 describe('dia do calendário nunca sai de split("T")[0] de timestamp', () => {
-  const fontes = DIRETORIOS.flatMap((d) => listarFontes(join(RAIZ, d)));
+  const fontes = listarFontes({ pastas: DIRETORIOS });
 
   it('nenhum arquivo recorta o dia de um timestamp com split', () => {
     const infratores = fontes

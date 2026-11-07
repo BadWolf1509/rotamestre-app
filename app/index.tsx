@@ -1,9 +1,10 @@
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, type Href } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 
 import { PerfilIndisponivelScreen } from '@/components/auth/PerfilIndisponivelScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { haSaidaEmCurso } from '@/hooks/auth/useNavegacaoDeSaida';
 import { authService } from '@/lib/auth';
 import { marcarAberturaPeloPerfilConhecido } from '@/lib/auth/aberturaPeloPerfilConhecido';
 import { ContaDesativada } from '@/lib/auth/contaAtiva';
@@ -46,9 +47,26 @@ function IndexContent() {
   );
   const [tentando, setTentando] = useState(false);
   const hasRedirected = useRef(false);
+  // Tela desmontada não decide para onde ir. Quando a conta sai, a pilha
+  // remonta aqui e a dona da navegação de saída (useNavegacaoDeSaida) leva ao
+  // login em 400 ms, substituindo esta tela; a leitura da sessão abaixo pode
+  // passar disso (prazo de até 10 s) e, ao voltar, navegaria de novo — o 2º
+  // replace concorrente da pendência 33. Alternativa descartada: manter
+  // `haSaidaEmCurso()` ligado o episódio inteiro — deixaria a index muda numa
+  // visita posterior sem sessão e não cobriria os outros ramos. O portão da
+  // resposta tardia (`portaoDaContaNaRespostaTardia`) segue navegando de
+  // propósito: ele roda depois de a index já ter saído.
+  const montadaRef = useRef(true);
+  function navegar(destino: Href) {
+    if (montadaRef.current) router.replace(destino);
+  }
 
   useEffect(() => {
+    montadaRef.current = true;
     checkSessionAndRedirect();
+    return () => {
+      montadaRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -166,7 +184,7 @@ function IndexContent() {
           );
           await apagarPerfilConhecido(session.user.id);
           hasRedirected.current = true;
-          router.replace('/onboarding/criar-unidade');
+          navegar('/onboarding/criar-unidade');
           return;
         }
 
@@ -179,16 +197,20 @@ function IndexContent() {
           if (!(erroConta instanceof ContaDesativada)) throw erroConta;
           logger.warn('[index] Conta desativada → login com aviso');
           hasRedirected.current = true;
-          router.replace('/auth/login?conta=desativada');
+          navegar('/auth/login?conta=desativada');
           return;
         }
 
         rotearPeloPerfil(usuario);
       } else {
-        // Não autenticado: redireciona para login
         hasRedirected.current = true;
+        // A conta acabou de sair e a pilha remontou aqui: quem leva ao login
+        // é a dona da navegação de saída (layout raiz), depois de os modais
+        // fecharem. Navegar junto era um replace concorrente (R-NUC-1).
+        if (haSaidaEmCurso()) return;
+        // Não autenticado: redireciona para login
         logger.debug('👤 Usuário não autenticado → /auth/login');
-        router.replace('/auth/login');
+        navegar('/auth/login');
       }
     } catch (error) {
       // Erro inesperado: o login não resolveria (a sessão pode ser válida).
@@ -242,21 +264,21 @@ function IndexContent() {
         '🔐 Usuário precisa trocar senha → /onboarding/first-password',
       );
       hasRedirected.current = true;
-      router.replace('/onboarding/first-password');
+      navegar('/onboarding/first-password');
       return;
     }
 
     hasRedirected.current = true;
     if (usuario.papel === 'gestor') {
       logger.debug('✅ Usuário autenticado como gestor → /gestor/inicio');
-      router.replace('/gestor/inicio');
+      navegar('/gestor/inicio');
     } else if (usuario.papel === 'motorista') {
       logger.debug('✅ Usuário autenticado como motorista → /motorista');
-      router.replace('/motorista');
+      navegar('/motorista');
     } else {
       // Tipo desconhecido, vai para login
       logger.warn('⚠️ Tipo de usuário desconhecido, redirecionando para login');
-      router.replace('/auth/login');
+      navegar('/auth/login');
     }
   }
 

@@ -47,8 +47,6 @@ import {
   DataTable,
   Dialog,
   DesktopCard,
-  DesktopCardGrid,
-  DesktopLayout,
   DesktopModal,
   EmptyState,
   FilterChip,
@@ -56,17 +54,12 @@ import {
   Icon,
   Input,
   MetricCard,
-  MobileButton,
   MobileCard,
-  MobileEmptyState,
   MobileHeader,
   MobileLoading,
   Modal,
   Progress,
   ResponsiveGrid,
-  Skeleton,
-  SkeletonCard,
-  SkeletonList,
   SplitView,
   StatusBadge,
   StepIndicator,
@@ -3144,7 +3137,7 @@ const themeName = UnistylesRuntime.themeName;`}
           <SectionHeader
             id="feedback"
             title="Feedback"
-            description="Toast, Progress, Skeleton e estados de carregamento"
+            description="Toast, Progress e estados de carregamento"
           />
 
           <Text style={styles.groupTitle}>Toast</Text>
@@ -3264,115 +3257,6 @@ const themeName = UnistylesRuntime.themeName;`}
             ]}
           />
 
-          <Text style={styles.groupTitle}>Skeleton Loader</Text>
-          <Text
-            style={{
-              fontSize: 13,
-              color: theme.colors.gray600,
-              marginBottom: theme.spacing.sm,
-            }}
-          >
-            Componentes de carregamento com animação shimmer para indicar
-            conteúdo sendo carregado.
-          </Text>
-
-          <Text
-            style={{
-              fontSize: 12,
-              fontFamily: theme.typography.fontSansSemiBold,
-              color: theme.colors.gray700,
-              marginTop: theme.spacing.md,
-              marginBottom: theme.spacing.sm,
-            }}
-          >
-            Skeleton (Base)
-          </Text>
-          <View
-            style={{ gap: theme.spacing.sm, marginBottom: theme.spacing.md }}
-          >
-            <Skeleton width="100%" height={16} />
-            <Skeleton width="80%" height={16} />
-            <Skeleton width="60%" height={16} />
-          </View>
-
-          <Text
-            style={{
-              fontSize: 12,
-              fontFamily: theme.typography.fontSansSemiBold,
-              color: theme.colors.gray700,
-              marginBottom: theme.spacing.sm,
-            }}
-          >
-            SkeletonCard
-          </Text>
-          <SkeletonCard />
-
-          <Text
-            style={{
-              fontSize: 12,
-              fontFamily: theme.typography.fontSansSemiBold,
-              color: theme.colors.gray700,
-              marginTop: theme.spacing.md,
-              marginBottom: theme.spacing.sm,
-            }}
-          >
-            SkeletonList
-          </Text>
-          <SkeletonList count={3} />
-
-          <Text style={styles.groupTitle}>Skeleton Props</Text>
-          <PropsTable
-            props={[
-              {
-                name: 'width',
-                type: 'number | string',
-                default: "'100%'",
-                description: 'Largura do skeleton',
-              },
-              {
-                name: 'height',
-                type: 'number',
-                default: '20',
-                description: 'Altura do skeleton',
-              },
-              {
-                name: 'borderRadius',
-                type: 'number',
-                default: '4',
-                description: 'Raio da borda',
-              },
-              {
-                name: 'style',
-                type: 'ViewStyle',
-                description: 'Estilos customizados',
-              },
-            ]}
-          />
-
-          <Text style={styles.groupTitle}>SkeletonCard</Text>
-          <Text
-            style={{
-              fontSize: 13,
-              color: theme.colors.gray600,
-              marginBottom: theme.spacing.sm,
-            }}
-          >
-            Skeleton pré-configurado para cards com avatar e linhas de texto.
-            Não aceita props.
-          </Text>
-
-          <Text style={styles.groupTitle}>SkeletonList Props</Text>
-          <PropsTable
-            props={[
-              {
-                name: 'count',
-                type: 'number',
-                default: '3',
-                description: 'Quantidade de itens (máx: 7 para performance)',
-              },
-            ]}
-          />
-
           <Text style={styles.groupTitle}>Empty State</Text>
           <EmptyState
             title="Nenhum dado encontrado"
@@ -3420,7 +3304,7 @@ const themeName = UnistylesRuntime.themeName;`}
           />
 
           <CodeBlock
-            code={`import { Toast, Progress, Skeleton, SkeletonCard, SkeletonList, EmptyState } from '@/design-system';
+            code={`import { Toast, Progress, EmptyState } from '@/design-system';
 
 <Toast
   visible={visible}
@@ -3430,16 +3314,6 @@ const themeName = UnistylesRuntime.themeName;`}
 />
 
 <Progress progress={0.5} label="50%" />
-
-// Skeleton base - customizável
-<Skeleton width="100%" height={16} />
-<Skeleton width={200} height={40} borderRadius={8} />
-
-// Skeleton pré-definido para cards
-<SkeletonCard />
-
-// Skeleton pré-definido para listas
-<SkeletonList count={5} />
 
 <EmptyState
   title="Sem dados"
@@ -3677,7 +3551,13 @@ const columns: DataTableColumn[] = [
             Cards com variantes para diferentes contextos (default, outlined,
             elevated).
           </Text>
-          <DesktopCardGrid columns={3}>
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: theme.spacing.md,
+            }}
+          >
             <DesktopCard title="Card Default" variant="default">
               <Text style={{ color: theme.colors.gray600, fontSize: 13 }}>
                 Variante padrão com fundo e sombra sutil.
@@ -3693,7 +3573,7 @@ const columns: DataTableColumn[] = [
                 Variante com sombra pronunciada.
               </Text>
             </DesktopCard>
-          </DesktopCardGrid>
+          </View>
 
           <Text style={styles.groupTitle}>SplitView</Text>
           <Text style={styles.description}>
@@ -3765,28 +3645,6 @@ const columns: DataTableColumn[] = [
             />
           </View>
 
-          <Text style={styles.groupTitle}>DesktopLayout</Text>
-          <Text style={styles.description}>
-            Wrapper com padding responsivo e max-width para conteúdo
-            centralizado.
-          </Text>
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: theme.colors.gray200,
-              borderRadius: theme.borderRadius.md,
-              overflow: 'hidden',
-            }}
-          >
-            <DesktopLayout
-              style={{ backgroundColor: theme.colors.gray50, minHeight: 80 }}
-            >
-              <Text style={{ color: theme.colors.gray700 }}>
-                Conteúdo dentro do DesktopLayout (padding automático)
-              </Text>
-            </DesktopLayout>
-          </View>
-
           <Text style={styles.groupTitle}>DesktopCard Props</Text>
           <PropsTable
             props={[
@@ -3834,30 +3692,6 @@ const columns: DataTableColumn[] = [
                 name: 'style',
                 type: 'ViewStyle',
                 description: 'Estilos customizados',
-              },
-            ]}
-          />
-
-          <Text style={styles.groupTitle}>DesktopCardGrid Props</Text>
-          <PropsTable
-            props={[
-              {
-                name: 'children',
-                type: 'React.ReactNode',
-                required: true,
-                description: 'DesktopCards filhos',
-              },
-              {
-                name: 'columns',
-                type: 'number',
-                default: '3',
-                description: 'Número de colunas',
-              },
-              {
-                name: 'gap',
-                type: 'number',
-                default: '16',
-                description: 'Espaçamento entre cards',
               },
             ]}
           />
@@ -3918,45 +3752,6 @@ const columns: DataTableColumn[] = [
                 type: 'boolean',
                 default: 'false',
                 description: 'Inverter ordem no mobile',
-              },
-            ]}
-          />
-
-          <Text style={styles.groupTitle}>DesktopLayout Props</Text>
-          <PropsTable
-            props={[
-              {
-                name: 'children',
-                type: 'React.ReactNode',
-                required: true,
-                description: 'Conteúdo',
-              },
-              {
-                name: 'scrollable',
-                type: 'boolean',
-                default: 'false',
-                description: 'Permitir scroll vertical',
-              },
-              {
-                name: 'maxWidth',
-                type: 'number',
-                default: '1280',
-                description: 'Largura máxima',
-              },
-              {
-                name: 'backgroundColor',
-                type: 'string',
-                description: 'Cor de fundo',
-              },
-              {
-                name: 'style',
-                type: 'ViewStyle',
-                description: 'Estilos do container',
-              },
-              {
-                name: 'contentStyle',
-                type: 'ViewStyle',
-                description: 'Estilos do content wrapper',
               },
             ]}
           />
@@ -4087,19 +3882,15 @@ const columns: DataTableColumn[] = [
           <CodeBlock
             code={`import {
   DesktopCard,
-  DesktopCardGrid,
-  DesktopLayout,
   DesktopModal,
   DesktopPageLayout,
   SplitView,
   ErrorBoundary,
 } from '@/design-system';
 
-<DesktopCardGrid columns={3}>
-  <DesktopCard title="Título" variant="elevated">
-    Conteúdo
-  </DesktopCard>
-</DesktopCardGrid>
+<DesktopCard title="Título" variant="elevated">
+  Conteúdo
+</DesktopCard>
 
 <SplitView
   left={<MapView />}
@@ -4136,33 +3927,6 @@ const columns: DataTableColumn[] = [
               title="Título da Tela"
               subtitle="Subtítulo opcional"
               showBack={false}
-            />
-          </View>
-
-          <Text style={styles.groupTitle}>MobileButton</Text>
-          <Text style={styles.description}>
-            Botões com variantes semânticas otimizadas para mobile.
-          </Text>
-          <View style={styles.componentRow}>
-            <MobileButton
-              title="Primary"
-              variant="primary"
-              onPress={() => showToast('info')}
-            />
-            <MobileButton
-              title="Secondary"
-              variant="secondary"
-              onPress={() => showToast('info')}
-            />
-            <MobileButton
-              title="Danger"
-              variant="danger"
-              onPress={() => showToast('error')}
-            />
-            <MobileButton
-              title="Success"
-              variant="success"
-              onPress={() => showToast('success')}
             />
           </View>
 
@@ -4227,17 +3991,8 @@ const columns: DataTableColumn[] = [
             </SwipeableRow>
           </View>
 
-          <Text style={styles.groupTitle}>
-            MobileEmptyState e MobileLoading
-          </Text>
+          <Text style={styles.groupTitle}>MobileLoading</Text>
           <View style={{ gap: theme.spacing.md }}>
-            <MobileEmptyState
-              icon="folder-open-outline"
-              title="Nenhuma rota encontrada"
-              subtitle="Crie uma nova rota para começar"
-              actionLabel="Nova Rota"
-              onAction={() => showToast('info')}
-            />
             <View style={{ alignItems: 'center', padding: theme.spacing.md }}>
               <MobileLoading message="Carregando dados..." />
             </View>
@@ -4276,52 +4031,6 @@ const columns: DataTableColumn[] = [
             ]}
           />
 
-          <Text style={styles.groupTitle}>MobileButton Props</Text>
-          <PropsTable
-            props={[
-              {
-                name: 'title',
-                type: 'string',
-                required: true,
-                description: 'Texto do botão',
-              },
-              {
-                name: 'variant',
-                type: "'primary' | 'secondary' | 'danger' | 'success' | 'warning'",
-                default: "'primary'",
-                description: 'Variante visual',
-              },
-              {
-                name: 'size',
-                type: "'small' | 'medium' | 'large'",
-                default: "'medium'",
-                description: 'Tamanho do botão',
-              },
-              {
-                name: 'loading',
-                type: 'boolean',
-                default: 'false',
-                description: 'Mostra spinner',
-              },
-              {
-                name: 'icon',
-                type: 'React.ReactNode',
-                description: 'Ícone à esquerda',
-              },
-              {
-                name: 'fullWidth',
-                type: 'boolean',
-                default: 'false',
-                description: 'Ocupar largura total',
-              },
-              {
-                name: 'disabled',
-                type: 'boolean',
-                description: 'Estado desabilitado',
-              },
-            ]}
-          />
-
           <Text style={styles.groupTitle}>MobileCard Props</Text>
           <PropsTable
             props={[
@@ -4349,50 +4058,6 @@ const columns: DataTableColumn[] = [
                 name: 'onPress',
                 type: '() => void',
                 description: 'Torna o card clicável',
-              },
-              {
-                name: 'style',
-                type: 'ViewStyle',
-                description: 'Estilos customizados',
-              },
-            ]}
-          />
-
-          <Text style={styles.groupTitle}>MobileEmptyState Props</Text>
-          <PropsTable
-            props={[
-              {
-                name: 'title',
-                type: 'string',
-                required: true,
-                description: 'Título principal',
-              },
-              {
-                name: 'subtitle',
-                type: 'string',
-                description: 'Texto secundário',
-              },
-              {
-                name: 'icon',
-                type: 'string',
-                default: "'📋'",
-                description: 'Emoji ou ícone',
-              },
-              {
-                name: 'actionLabel',
-                type: 'string',
-                description: 'Texto do botão de ação',
-              },
-              {
-                name: 'onAction',
-                type: '() => void',
-                description: 'Callback do botão',
-              },
-              {
-                name: 'fullScreen',
-                type: 'boolean',
-                default: 'false',
-                description: 'Ocupar tela inteira',
               },
               {
                 name: 'style',
@@ -4435,16 +4100,12 @@ const columns: DataTableColumn[] = [
           <CodeBlock
             code={`import {
   MobileHeader,
-  MobileButton,
   MobileCard,
-  MobileEmptyState,
   MobileLoading,
 } from '@/design-system';
 import { SwipeableRow } from '@/components/SwipeableRow';
 
 <MobileHeader title="Rotas" subtitle="5 rotas ativas" />
-
-<MobileButton title="Iniciar" variant="success" />
 
 <SwipeableRow
   leftActions={[{ icon: 'checkmark', label: 'OK', color: 'green', onPress: fn }]}

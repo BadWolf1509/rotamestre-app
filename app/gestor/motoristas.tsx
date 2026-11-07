@@ -24,7 +24,7 @@ import {
   DesktopModal,
   DesktopPageLayout,
   Dialog,
-  MobileEmptyState,
+  EmptyState,
   StatusBadge,
   Toast,
 } from '@/design-system';
@@ -611,10 +611,11 @@ export default function MotoristasGestor() {
             </View>
 
             {motoristas.length === 0 ? (
-              <MobileEmptyState
-                icon="👤"
+              <EmptyState
+                compact
+                emoji="👤"
                 title="Nenhum motorista cadastrado"
-                subtitle="Adicione o primeiro motorista usando o botão acima"
+                description="Adicione o primeiro motorista usando o botão acima"
               />
             ) : (
               <DataTable

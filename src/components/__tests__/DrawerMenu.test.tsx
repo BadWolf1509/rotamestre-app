@@ -334,11 +334,13 @@ describe('DrawerMenu Component', () => {
         fireEvent.press(sairButtons[sairButtons.length - 1]);
       });
 
+      // R-NUC-1: o menu só encerra a sessão e se fecha; levar ao login é do
+      // layout raiz (useNavegacaoDeSaida), depois de os modais fecharem.
       await waitFor(() => {
         expect(supabase.auth.signOut).toHaveBeenCalled();
         expect(mockOnClose).toHaveBeenCalled();
-        expect(mockReplace).toHaveBeenCalledWith('/auth/login');
       });
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it('deve exibir dialog de erro quando logout falhar', async () => {

@@ -32,6 +32,8 @@ import { StatsCard } from '../shared/StatsCard';
 import type { DashboardData } from '../../_hooks/useDashboardData';
 
 interface DashboardDesktopProps extends DashboardData {
+  /** Nome da loja ATIVA (seletor), não a do perfil. */
+  unidadeNome?: string | null;
   filters: RouteFiltersType;
   onFiltersChange: (filters: RouteFiltersType) => void;
 }
@@ -50,6 +52,7 @@ export function DashboardDesktop({
   erroCarga,
   dadosDe,
   onRefresh,
+  unidadeNome,
   userData, // Receber userData como prop ao invés de usar useUser
   filters,
   onFiltersChange,
@@ -180,7 +183,7 @@ export function DashboardDesktop({
     <>
       <DesktopPageLayout
         title={pageMeta.title}
-        subtitle={userData?.unidades?.nome || pageMeta.subtitle}
+        subtitle={unidadeNome || pageMeta.subtitle}
         breadcrumbs={pageMeta.breadcrumbs}
         userMenuTrigger={userMenuTrigger}
         userMenuItems={userMenuItems}

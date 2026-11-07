@@ -41,6 +41,7 @@ import {
   type ContagemPorStatus,
   type FiltrosRotas,
 } from '@/lib/gestor/consultaRotas';
+import { rotasDeTesteDaGestao } from '@/lib/gestor/dadosDeTeste';
 import {
   excluirRota as excluirRotaNoServidor,
   ExclusaoRotaError,
@@ -265,45 +266,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         logger.warn('[GestaoRotas] Mocking data for E2E/CI');
         await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate delay
 
-        const mockRotas: RotaHistorico[] = [
-          {
-            id: 'rota-1',
-            data: new Date().toISOString(),
-            status: 'em_andamento',
-            distancia_total: 15.5,
-            iniciada_em: new Date().toISOString(),
-            concluida_em: undefined,
-            motorista_id: 'mot-1',
-            motorista_nome: 'Motorista Teste 1',
-            paradas_count: 10,
-            paradas_concluidas: 4,
-          },
-          {
-            id: 'rota-2',
-            data: new Date(Date.now() - 86400000).toISOString(),
-            status: 'concluida',
-            distancia_total: 12.0,
-            iniciada_em: new Date(Date.now() - 90000000).toISOString(),
-            concluida_em: new Date(Date.now() - 86400000).toISOString(),
-            motorista_id: 'mot-2',
-            motorista_nome: 'Motorista Teste 2',
-            paradas_count: 8,
-            paradas_concluidas: 8,
-          },
-          {
-            id: 'rota-3',
-            data: new Date().toISOString(),
-            status: 'pendente',
-            distancia_total: 8.2,
-            iniciada_em: undefined,
-            concluida_em: undefined,
-            motorista_id: undefined,
-            motorista_nome: 'Sem motorista',
-            paradas_count: 5,
-            paradas_concluidas: 0,
-          },
-        ];
-
+        const mockRotas = rotasDeTesteDaGestao();
         setRotas(mockRotas);
         setTotal(mockRotas.length);
         jaMostrouRef.current = true;

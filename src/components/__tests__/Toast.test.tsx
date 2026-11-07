@@ -183,4 +183,73 @@ describe('Toast Component', () => {
     expect(mockDismiss).toHaveBeenCalled();
     jest.useRealTimers();
   });
+
+  it('esconder pelo pai antes do duration (auto-dispensa ativa) chama onDismiss', () => {
+    // B-UI-3: com duration > 0 o efeito saía antes de gravar wasVisibleRef,
+    // e o ramo "pai escondeu" nunca rodava.
+    jest.useFakeTimers();
+    const mockDismiss = jest.fn();
+    const props = {
+      message: 'Teste',
+      type: 'success' as const,
+      onDismiss: mockDismiss,
+      duration: 3000,
+    };
+
+    const { rerender } = render(<Toast visible={true} {...props} />);
+    rerender(<Toast visible={false} {...props} />);
+
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(mockDismiss).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+  it('auto-dispensa seguida de o pai esconder chama onDismiss uma vez só', () => {
+    jest.useFakeTimers();
+    const mockDismiss = jest.fn();
+    const props = {
+      message: 'Teste',
+      type: 'success' as const,
+      onDismiss: mockDismiss,
+      duration: 1000,
+    };
+
+    const { rerender } = render(<Toast visible={true} {...props} />);
+    act(() => {
+      jest.advanceTimersByTime(1300);
+    });
+    // O pai reage ao onDismiss escondendo o toast.
+    rerender(<Toast visible={false} {...props} />);
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(mockDismiss).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+  });
+
+  it('mesma instância: dispensa, mostra de novo e o pai esconde → dispensa de novo', () => {
+    // I3: o useToast reaproveita a instância; a 1ª dispensa não pode matar o
+    // ramo "pai escondeu" dos toasts seguintes (inclusive loading, sem timer).
+    jest.useFakeTimers();
+    const mockDismiss = jest.fn();
+    const props = { message: 'Teste', type: 'loading' as const, onDismiss: mockDismiss };
+
+    const { rerender } = render(<Toast visible={true} {...props} />);
+    rerender(<Toast visible={false} {...props} />);
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+    expect(mockDismiss).toHaveBeenCalledTimes(1);
+
+    rerender(<Toast visible={true} {...props} />);
+    rerender(<Toast visible={false} {...props} />);
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+    expect(mockDismiss).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
 });

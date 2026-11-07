@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname, type Href } from 'expo-router';
-import { useState } from 'react';
 import {
   Image,
   ScrollView,
@@ -13,9 +12,6 @@ import { UnistylesRuntime } from 'react-native-unistyles';
 
 import LogoHorizontalDark from '@/../assets/logo-horizontal.png';
 import LogoHorizontalLight from '@/../assets/logo-horizontal1.png';
-import { Dialog } from '@/design-system';
-import { authService } from '@/lib/auth';
-import { logger } from '@/lib/logger';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 interface SidebarProps {
@@ -33,8 +29,6 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   // REMOVIDO: const { userData } = useUser(); // Evitar chamada duplicada
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
   // Detectar tema escuro para usar logo apropriada
   const isDarkMode = UnistylesRuntime.themeName?.startsWith('dark');
@@ -107,90 +101,47 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
     onNavigate?.();
   };
 
-  async function handleLogoutConfirm() {
-    setShowLogoutDialog(false);
-    try {
-      await authService.signOut();
-      router.replace('/auth/login');
-    } catch (error) {
-      logger.error('Erro ao fazer logout:', error);
-      setShowErrorDialog(true);
-    }
-  }
-
   return (
-    <>
-      <View style={styles.container}>
-        {/* Logo / Brand */}
-        <View style={styles.header}>
-          <Image
-            source={LogoHorizontal}
-            style={styles.logoImage as ImageStyle}
-          />
-          <Text style={styles.brandSubtitle}>Painel do Gestor</Text>
-        </View>
-
-        {/* Navigation */}
-        <ScrollView style={styles.scrollView}>
-          <View style={styles.navigation}>
-            {navItems
-              .filter((item) => item.show)
-              .map((item) => {
-                const isActive = pathname === item.path;
-
-                return (
-                  <TouchableOpacity
-                    key={item.path}
-                    onPress={() => handleNavigation(item.path)}
-                    style={[styles.navItem, isActive && styles.navItemActive]}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={item.icon}
-                      size={22}
-                      color={
-                        isActive ? theme.colors.primary : theme.colors.gray500
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.navLabel,
-                        isActive && styles.navLabelActive,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-          </View>
-        </ScrollView>
+    <View style={styles.container}>
+      {/* Logo / Brand */}
+      <View style={styles.header}>
+        <Image source={LogoHorizontal} style={styles.logoImage as ImageStyle} />
+        <Text style={styles.brandSubtitle}>Painel do Gestor</Text>
       </View>
 
-      {/* Dialogs */}
-      <Dialog
-        visible={showLogoutDialog}
-        variant="confirm"
-        title="Sair da conta"
-        message="Deseja realmente encerrar sua sessão? Você precisará fazer login novamente."
-        confirmText="Sair"
-        cancelText="Cancelar"
-        type="danger"
-        icon="log-out-outline"
-        onConfirm={handleLogoutConfirm}
-        onCancel={() => setShowLogoutDialog(false)}
-      />
+      {/* Navigation */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.navigation}>
+          {navItems
+            .filter((item) => item.show)
+            .map((item) => {
+              const isActive = pathname === item.path;
 
-      <Dialog
-        visible={showErrorDialog}
-        variant="alert"
-        title="Erro ao sair"
-        message="Não foi possível encerrar sua sessão. Verifique sua conexão e tente novamente."
-        confirmText="Entendi"
-        type="danger"
-        onConfirm={() => setShowErrorDialog(false)}
-      />
-    </>
+              return (
+                <TouchableOpacity
+                  key={item.path}
+                  onPress={() => handleNavigation(item.path)}
+                  style={[styles.navItem, isActive && styles.navItemActive]}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={22}
+                    color={
+                      isActive ? theme.colors.primary : theme.colors.gray500
+                    }
+                  />
+                  <Text
+                    style={[styles.navLabel, isActive && styles.navLabelActive]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 

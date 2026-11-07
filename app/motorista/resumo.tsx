@@ -7,7 +7,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ParadaCard, type Parada } from '@/components/motorista/ParadaCard';
 import {
   MobileCard,
-  MobileEmptyState,
+  EmptyState,
   MobileHeader,
   MobileLoading,
 } from '@/design-system';
@@ -158,12 +158,12 @@ export default function ResumoMotorista() {
     return (
       <>
         {renderDesktopHeader()}
-        <MobileEmptyState
-          icon="⚠️"
+        <EmptyState
+          emoji="⚠️"
           title="Não foi possível carregar o resumo"
-          subtitle={error}
+          description={error}
           actionLabel="Tentar novamente"
-          onAction={recargar}
+          onActionPress={recargar}
           fullScreen
         />
       </>
@@ -174,12 +174,12 @@ export default function ResumoMotorista() {
     return (
       <>
         {renderDesktopHeader()}
-        <MobileEmptyState
-          icon="🛣️"
+        <EmptyState
+          emoji="🛣️"
           title="Nenhuma rota concluída disponível"
-          subtitle="Complete uma rota para visualizar o resumo"
+          description="Complete uma rota para visualizar o resumo"
           actionLabel="Ver Rotas Disponíveis"
-          onAction={() => router.push('/motorista')}
+          onActionPress={() => router.push('/motorista')}
           fullScreen
         />
       </>

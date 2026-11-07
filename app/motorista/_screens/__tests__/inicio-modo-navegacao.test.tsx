@@ -624,3 +624,36 @@ describe('Início do motorista — pular os serviços do local juntos', () => {
     await waitFor(() => expect(mockShowError).toHaveBeenCalledWith(erro));
   });
 });
+
+/**
+ * B-MOT-1 / R-MOT-1 — o ponto azul do mini-mapa não justifica o GPS no nível
+ * mais alto, e dentro da navegação o `NavigationMode` já tem o seu watcher:
+ * o da Início fica desligado.
+ */
+describe('Início do motorista — GPS do mini-mapa', () => {
+  const { useLocationWatcher } = jest.requireMock('@/hooks/useLocationWatcher');
+
+  function ultimaChamada() {
+    const chamadas = useLocationWatcher.mock.calls;
+    return chamadas[chamadas.length - 1][0] as {
+      enabled: boolean;
+      options: { accuracy: number };
+    };
+  }
+
+  it('pede precisão Balanced (não BestForNavigation) fora da navegação', async () => {
+    useLocationWatcher.mockClear();
+    const { findByText } = render(<MotoristaInicio />);
+    await findByText('mini-mapa');
+
+    expect(ultimaChamada().options.accuracy).toBe(3);
+  });
+
+  it('desliga o watcher da Início enquanto o modo navegação está aberto', async () => {
+    useLocationWatcher.mockClear();
+    const { getByText, findByText } = render(<MotoristaInicio />);
+    await entrarNoModoNavegacao(getByText, findByText);
+
+    await waitFor(() => expect(ultimaChamada().enabled).toBe(false));
+  });
+});

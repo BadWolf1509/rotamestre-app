@@ -483,19 +483,11 @@ async function registrarNoBanco(
     // o tira de qualquer OUTRA conta. Um aparelho é de uma conta por vez — se
     // o logout de A falhou (offline), a linha de A ainda tem este token, e só
     // o servidor pode limpá-la quando B entra (a RLS não deixa B tocar em A).
-    let { error } = await supabase.rpc('registrar_push_token', {
+    // Sem reserva para "a função ainda não existe" (R-DB-1): a migration está
+    // aplicada, e a coluna usuarios.push_token é mantida NULL por CHECK.
+    const { error } = await supabase.rpc('registrar_push_token', {
       p_token: token,
     });
-
-    // PGRST202 = a função não existe no banco (app publicado antes da
-    // migration). Cai no UPDATE direto antigo da própria linha, para o
-    // registro não depender da ordem de deploy. Qualquer outro erro fica.
-    if (error?.code === 'PGRST202') {
-      ({ error } = await supabase
-        .from('usuarios')
-        .update({ push_token: token })
-        .eq('id', userId));
-    }
 
     if (error) {
       // Não-crítico: sem rede, a próxima abertura do app tenta de novo.
@@ -613,20 +605,11 @@ export async function unregisterPushToken(
     // por aparelho; a RLS só deixa o dono ver e apagar) e a coluna
     // `usuarios.push_token` fica sempre vazia. Apaga só o deste aparelho: os
     // outros aparelhos da conta seguem recebendo.
-    let { error } = await supabase
+    // Sem reserva para "a tabela ainda não existe" (R-DB-1): ver acima.
+    const { error } = await supabase
       .from('push_tokens')
       .delete()
       .eq('token', guardado.token);
-
-    // PGRST205 = a tabela não existe no banco (migration ainda não aplicada):
-    // cai no UPDATE antigo da coluna, para não depender da ordem de deploy.
-    if (error?.code === 'PGRST205') {
-      ({ error } = await supabase
-        .from('usuarios')
-        .update({ push_token: null })
-        .eq('id', userId)
-        .eq('push_token', guardado.token));
-    }
 
     // O PostgREST devolve `{ error }` sem lançar (offline, por exemplo): só
     // esquece o token local quando o banco de fato limpou.

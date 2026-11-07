@@ -101,7 +101,10 @@ describe('useRequireAuth', () => {
   });
 
   describe('Usuário não autenticado', () => {
-    it('deve redirecionar para login quando não autenticado', async () => {
+    // R-NUC-1: quem leva ao login quando a conta sai é só o layout raiz
+    // (useNavegacaoDeSaida). Cada layout montado navegando por conta própria
+    // somava até 4 replace no mesmo instante (pendência 33).
+    it('sem sessão: não autorizado, e não navega (a dona é a raiz)', async () => {
       mockUser = null;
       mockUserData = null;
 
@@ -112,11 +115,11 @@ describe('useRequireAuth', () => {
       });
 
       expect(result.current.isAuthorized).toBe(false);
-      expect(mockReplace).toHaveBeenCalledWith('/auth/login');
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
-    it('deve usar redirectTo customizado', async () => {
-      mockUser = null;
+    it('deve usar redirectTo customizado (sessão sem perfil)', async () => {
+      mockUserData = null;
 
       const { result } = renderHook(() =>
         useRequireAuth({ redirectTo: '/custom-login' }),

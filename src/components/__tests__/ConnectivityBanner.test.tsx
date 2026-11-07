@@ -5,7 +5,7 @@
 
 import { render } from '@testing-library/react-native';
 import React from 'react';
-import { Animated } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 
 import {
   ConnectivityBanner,
@@ -135,6 +135,25 @@ describe('ConnectivityBanner', () => {
       const { getByText } = render(<ConnectivityBanner />);
 
       expect(getByText('Sem conexão com a internet')).toBeTruthy();
+    });
+
+    it('ancora no topo (top 0) por padrão e embaixo (bottom 0) com position="bottom"', () => {
+      mockUseIsOnline.mockReturnValue(false);
+
+      const topo = render(<ConnectivityBanner />);
+      const estiloTopo = StyleSheet.flatten(
+        topo.UNSAFE_getAllByProps({ accessibilityRole: 'alert' })[0].props.style,
+      ) as Record<string, unknown>;
+      expect(estiloTopo.top).toBe(0);
+      expect(estiloTopo.bottom).toBeUndefined();
+      topo.unmount();
+
+      const base = render(<ConnectivityBanner position="bottom" />);
+      const estiloBase = StyleSheet.flatten(
+        base.UNSAFE_getAllByProps({ accessibilityRole: 'alert' })[0].props.style,
+      ) as Record<string, unknown>;
+      expect(estiloBase.bottom).toBe(0);
+      expect(estiloBase.top).toBeUndefined();
     });
 
     it('should accept bottom position prop', () => {

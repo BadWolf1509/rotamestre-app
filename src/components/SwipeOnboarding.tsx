@@ -42,7 +42,7 @@ export async function hasSeenSwipeOnboarding(): Promise<boolean> {
 /**
  * Mark swipe onboarding as seen.
  */
-export async function markSwipeOnboardingSeen(): Promise<void> {
+async function markSwipeOnboardingSeen(): Promise<void> {
   try {
     const AsyncStorage = (
       await import('@react-native-async-storage/async-storage')

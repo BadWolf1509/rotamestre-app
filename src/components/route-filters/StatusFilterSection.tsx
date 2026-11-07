@@ -18,14 +18,15 @@ interface StatusFilterSectionProps {
 
 export function StatusFilterSection({ status, onStatusChange }: StatusFilterSectionProps) {
   const { theme } = useUnistyles();
+  const { warning, info, success, error } = theme.colors;
 
   const statusOptions = useMemo<StatusOption[]>(() => [
     { value: null, label: 'Todos', color: undefined },
-    { value: 'pendente', label: 'Pendente', color: theme.colors.warning },
-    { value: 'em_andamento', label: 'Em Andamento', color: theme.colors.info },
-    { value: 'concluida', label: 'Concluída', color: theme.colors.success },
-    { value: 'cancelada', label: 'Cancelada', color: theme.colors.error },
-  ], [theme]);
+    { value: 'pendente', label: 'Pendente', color: warning },
+    { value: 'em_andamento', label: 'Em Andamento', color: info },
+    { value: 'concluida', label: 'Concluída', color: success },
+    { value: 'cancelada', label: 'Cancelada', color: error },
+  ], [warning, info, success, error]);
 
   const handleStatusChange = (newStatus: RouteFiltersState['status']) => {
     const toggledStatus = status === newStatus ? null : newStatus;

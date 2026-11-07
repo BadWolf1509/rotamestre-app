@@ -284,9 +284,19 @@ export function useNavigationModeLogic({
             longitude: userLocation.longitude,
           },
           { latitude: currentStop.latitude, longitude: currentStop.longitude },
+          // Sem passos: nada na navegação os consome desde que o Turn-by-Turn
+          // próprio saiu (as instruções vêm do app externo).
+          undefined,
+          { steps: false },
         );
 
         if (!cancelled) {
+          // Grava a posição consultada com ou sem polyline: o fallback do OSRM
+          // devolve polyline vazia, e sem isto a guarda de 50 m nunca valia.
+          prevUserLocationRef.current = {
+            lat: userLocation.latitude,
+            lon: userLocation.longitude,
+          };
           if (routeData?.polyline) {
             const decoded = decodePolyline(routeData.polyline);
             setRoutePath(decoded.length >= 2 ? decoded : []);
@@ -295,10 +305,6 @@ export function useNavigationModeLogic({
                 ? routeData.duration
                 : null,
             );
-            prevUserLocationRef.current = {
-              lat: userLocation.latitude,
-              lon: userLocation.longitude,
-            };
           } else {
             setRoutePath([]);
             setDuracaoRotaSeg(null);

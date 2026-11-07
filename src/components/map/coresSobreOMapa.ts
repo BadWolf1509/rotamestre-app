@@ -10,9 +10,9 @@ const claro = defaultTheme.colors;
  * se invertem no escuro (`white` vira cinza-escuro): a borda dos pinos sumia e o
  * número saía escuro. Por isso nada aqui vem do tema ativo: é a paleta clara,
  * a mesma em que o mapa é desenhado. Vale para o mini-mapa da Início, o modo
- * navegação (nativo e web), o mapa web do gestor e o `MotoristaMarker`. O mapa
- * NATIVO do gestor (`src/components/map/mobile/`: `styles.ts`, `ParadaMarker.tsx`,
- * `CheckpointMarker.tsx`) ainda usa o tema: item pendente.
+ * navegação (nativo e web), o mapa do gestor (web e nativo) e o
+ * `MotoristaMarker`. No mapa nativo do gestor o BALÃO (`ParadaCallout`,
+ * `CheckpointCallout`) é cartão de interface e segue o tema.
  */
 export const CORES_SOBRE_O_MAPA = {
   branco: claro.white,

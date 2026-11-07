@@ -164,7 +164,11 @@ export async function recalcularRota(
       waypoints,
     );
 
-    if (!resultado) {
+    // OSRM fora do ar devolve uma estimativa em linha reta (sem polyline).
+    // Gravá-la faria a rota exibir distância e tempo inventados como se fossem
+    // reais; os dados derivados já foram invalidados acima, então a rota fica
+    // "sem cálculo" e o chamador avisa que o valor pode estar desatualizado.
+    if (!resultado || resultado.is_estimated) {
       return {
         success: false,
         error: 'Não foi possível calcular a rota. Verifique os endereços.',
@@ -233,23 +237,18 @@ export async function reordenarParadas(
     });
 
     if (error) {
+      // A RPC existe em produção (banco único): não há reserva não atômica.
       logger.error('[reordenarParadas] RPC error', error);
-      // Fallback para método sequencial se RPC não existir
-      if (error.code === '42883' || error.message?.includes('does not exist')) {
-        logger.debug('[reordenarParadas] RPC not found, using fallback');
-        return reordenarParadasFallback(paradas);
-      }
       return { success: false, error: 'Erro ao reordenar paradas.' };
     }
 
     if (data && !data.success) {
+      // `data.error` é o SQLERRM cru do Postgres (violação de UNIQUE, nome de
+      // gatilho, lock_timeout): vai só para o log, nunca para o toast.
       logger.error('[reordenarParadas] RPC returned error', {
         error: data.error,
       });
-      return {
-        success: false,
-        error: data.error || 'Erro ao reordenar paradas.',
-      };
+      return { success: false, error: 'Erro ao reordenar paradas.' };
     }
 
     logger.debug(
@@ -259,73 +258,47 @@ export async function reordenarParadas(
     return { success: true };
   } catch (error) {
     logger.error('[reordenarParadas] Erro', error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Erro desconhecido ao reordenar paradas.',
-    };
+    return { success: false, error: 'Erro ao reordenar paradas.' };
   }
 }
 
 /**
- * Fallback: Reordena paradas sequencialmente (usado se RPC não existir)
- * Abordagem de duas etapas para evitar conflitos de unique constraint
+ * Paradas reais da rota, relidas do banco (ordenadas). A lista da tela é um
+ * retrato: se outro gestor ou o motorista mexeu, renumerar por ela gravaria
+ * ordem sobre estado velho. Devolve `null` se a leitura falhar (quem chama
+ * cai no retrato da tela).
  */
-async function reordenarParadasFallback(
-  paradas: ParadaBasica[],
-): Promise<{ success: boolean; error?: string }> {
-  logger.debug(
-    '[reordenarParadasFallback] Using sequential fallback for',
-    paradas.length,
-    'paradas',
-  );
-
-  // STEP 1: Move all paradas to temporary high values (1000+)
-  for (let i = 0; i < paradas.length; i++) {
-    const tempOrdem = 1000 + i;
-    const { error } = await supabase
+async function relerParadasReais(
+  rotaId: string,
+): Promise<ParadaBasica[] | null> {
+  try {
+    const { data, error } = await supabase
       .from('paradas')
-      .update({ ordem: tempOrdem })
-      .eq('id', paradas[i].id);
-
-    if (error) {
-      logger.error('[reordenarParadasFallback] Error in step 1', error);
-      return {
-        success: false,
-        error: 'Erro ao mover paradas para valores temporários.',
-      };
-    }
+      .select('id, ordem, latitude, longitude, is_checkpoint')
+      .eq('rota_id', rotaId)
+      .order('ordem')
+      .returns<ParadaBasica[]>();
+    if (error) throw error;
+    if (!data) return null;
+    return data.filter((p) => p.is_checkpoint !== false);
+  } catch (error) {
+    logger.warn(
+      '[removerParadaERecalcular] Releitura das paradas falhou; usando a lista da tela',
+      error,
+    );
+    return null;
   }
-
-  // STEP 2: Assign the correct target values (1, 2, 3, ...)
-  for (let i = 0; i < paradas.length; i++) {
-    const targetOrdem = i + 1;
-    const { error } = await supabase
-      .from('paradas')
-      .update({ ordem: targetOrdem })
-      .eq('id', paradas[i].id);
-
-    if (error) {
-      logger.error('[reordenarParadasFallback] Error in step 2', error);
-      return { success: false, error: 'Erro ao atribuir ordem correta.' };
-    }
-  }
-
-  logger.debug('[reordenarParadasFallback] Completed');
-  return { success: true };
 }
 
 /**
  * Remove uma parada e recalcula a rota
  * 1. Deleta a parada do banco
- * 2. Reordena as paradas restantes
+ * 2. Relê as paradas restantes do banco e as renumera
  * 3. Recalcula a rota
  *
  * @param paradaId - ID da parada a ser removida
  * @param rotaId - ID da rota
- * @param paradasRestantes - Paradas que ficarão (excluindo a removida)
+ * @param paradasRestantes - Paradas que ficarão segundo a tela (reserva se a releitura falhar)
  * @param enderecoUnidade - Coordenadas da unidade
  * @param usuarioId - ID do usuário que está removendo (para log)
  */
@@ -381,8 +354,10 @@ export async function removerParadaERecalcular(
     // passos seguintes: a parada já saiu, mesmo que a renumeração falhe.
     await marcarOtimizacaoAlterada(rotaId);
 
-    // 2. Reordenar paradas restantes
-    const reordenResult = await reordenarParadas(paradasRestantes);
+    // 2. Reordenar as paradas que SOBRARAM no banco (e não as do retrato da tela)
+    const doBanco = await relerParadasReais(rotaId);
+    const restantes = doBanco ?? paradasRestantes;
+    const reordenResult = await reordenarParadas(restantes);
     if (!reordenResult.success) {
       // A parada já foi removida. Evite manter uma geometria que ainda passe
       // pelo ponto excluído e reporte a operação como concluída com ressalva.
@@ -404,7 +379,7 @@ export async function removerParadaERecalcular(
     // 3. Recalcular rota
     const recalcResult = await recalcularRota(
       rotaId,
-      paradasRestantes,
+      restantes.map((p, idx) => ({ ...p, ordem: idx + 1 })),
       enderecoUnidade,
     );
     if (!recalcResult.success) {
@@ -421,7 +396,7 @@ export async function removerParadaERecalcular(
       // Checa o `error` do insert (o supabase-js devolve em vez de lançar)
       await logRotaAction(usuarioId, rotaId, 'parada_removida', {
         parada_id: paradaId,
-        paradas_restantes: paradasRestantes.length,
+        paradas_restantes: restantes.length,
       });
     }
 

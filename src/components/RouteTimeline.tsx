@@ -74,18 +74,23 @@ interface RouteTimelineProps {
 /**
  * Cria um resolver de cores semânticas baseado no theme
  */
-const createColorResolver = (theme: Theme) => {
+type CoresDaTimeline = Pick<
+  Theme['colors'],
+  'info' | 'success' | 'error' | 'warning' | 'purple' | 'blue500' | 'gray500'
+>;
+
+const createColorResolver = (colors: CoresDaTimeline) => {
   const colorMap: Record<TimelineSemanticColor, string> = {
-    info: theme.colors.info,
-    success: theme.colors.success,
-    error: theme.colors.error,
-    warning: theme.colors.warning,
-    purple: theme.colors.purple,
-    blue: theme.colors.blue500,
-    gray: theme.colors.gray500,
+    info: colors.info,
+    success: colors.success,
+    error: colors.error,
+    warning: colors.warning,
+    purple: colors.purple,
+    blue: colors.blue500,
+    gray: colors.gray500,
   };
   return (semantic: TimelineSemanticColor): string =>
-    colorMap[semantic] || theme.colors.gray500;
+    colorMap[semantic] || colors.gray500;
 };
 
 export function RouteTimeline({
@@ -130,7 +135,21 @@ export function RouteTimeline({
   const hasMarkedAsSeen = useRef(false);
 
   // Resolver de cores
-  const getColor = useMemo(() => createColorResolver(theme), [theme]);
+  const { info, success, error, warning, purple, blue500, gray500 } =
+    theme.colors;
+  const getColor = useMemo(
+    () =>
+      createColorResolver({
+        info,
+        success,
+        error,
+        warning,
+        purple,
+        blue500,
+        gray500,
+      }),
+    [info, success, error, warning, purple, blue500, gray500],
+  );
 
   // isNew + animação: deriva quais ids são recém-adicionados a cada mudança.
   // loadMore (paginação) e carga inicial não disparam o destaque de "novo".

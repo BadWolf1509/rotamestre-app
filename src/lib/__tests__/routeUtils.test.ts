@@ -204,6 +204,33 @@ describe('routeUtils', () => {
       });
     });
 
+    it('B-GES-1: rota estimada em linha reta (OSRM fora) não é gravada como real', async () => {
+      const chain = criarCadeia({ data: null, error: null });
+      mockFrom.mockReturnValue(chain);
+      mockGetDirectionsSequential.mockResolvedValue({
+        distancia_total_metros: 13000,
+        duracao_total_segundos: 1500,
+        polyline: '',
+        is_estimated: true,
+      });
+
+      const result = await recalcularRota(
+        mockRotaId,
+        mockParadas,
+        validEnderecoUnidade,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Não foi possível calcular a rota');
+      // só a invalidação (null) pode ter sido gravada: nunca a distância inventada
+      expect(chain.update).toHaveBeenCalledTimes(1);
+      expect(chain.update).toHaveBeenCalledWith({
+        distancia_total: null,
+        tempo_total: null,
+        polyline: null,
+      });
+    });
+
     it('deve atualizar rota com sucesso quando Google Directions retorna dados', async () => {
       const chain = criarCadeia({ data: null, error: null });
       mockFrom.mockReturnValue(chain);
@@ -299,25 +326,21 @@ describe('routeUtils', () => {
       });
     });
 
-    it('deve usar fallback se RPC não existe (erro 42883)', async () => {
+    it('R-DB-1: RPC inexistente (42883) é erro simples, sem reserva não atômica', async () => {
       mockRpc.mockResolvedValue({
         data: null,
         error: { code: '42883', message: 'function does not exist' },
       });
 
-      // Mock do supabase.from para o fallback
-      const chain = criarCadeia({ data: null, error: null });
-      mockFrom.mockReturnValue(chain);
-
-      const paradas = [
+      const result = await reordenarParadas([
         { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-      ];
+      ]);
 
-      const result = await reordenarParadas(paradas);
-
-      // Fallback deve ser chamado
-      expect(mockFrom).toHaveBeenCalledWith('paradas');
-      expect(result.success).toBe(true);
+      expect(result).toEqual({
+        success: false,
+        error: 'Erro ao reordenar paradas.',
+      });
+      expect(mockFrom).not.toHaveBeenCalled();
     });
 
     it('deve retornar erro se RPC retorna erro genérico', async () => {
@@ -337,6 +360,7 @@ describe('routeUtils', () => {
     });
 
     it('deve retornar erro se RPC retorna data.success = false', async () => {
+      const erro = jest.spyOn(logger, 'error').mockImplementation(() => {});
       mockRpc.mockResolvedValue({
         data: { success: false, error: 'Custom RPC error' },
         error: null,
@@ -349,7 +373,12 @@ describe('routeUtils', () => {
       const result = await reordenarParadas(paradas);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Custom RPC error');
+      // B-DB-1: o SQLERRM cru não vai para o toast; só para o logger.
+      expect(result.error).toBe('Erro ao reordenar paradas.');
+      expect(erro).toHaveBeenCalledWith(
+        '[reordenarParadas] RPC returned error',
+        { error: 'Custom RPC error' },
+      );
     });
 
     it('deve capturar exceções', async () => {
@@ -362,103 +391,8 @@ describe('routeUtils', () => {
       const result = await reordenarParadas(paradas);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('RPC exception');
-    });
-
-    it('deve usar fallback com sucesso quando RPC não existe', async () => {
-      // RPC retorna erro "does not exist"
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: {
-          code: null,
-          message: 'function reordenar_paradas does not exist',
-        },
-      });
-
-      // Mock para fallback (step 1 e step 2)
-      let updateCount = 0;
-      mockFrom.mockImplementation(() => ({
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation(() => {
-          updateCount++;
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const paradas = [
-        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-        { id: 'p2', ordem: 2, latitude: -23.56, longitude: -46.64 },
-      ];
-
-      const result = await reordenarParadas(paradas);
-
-      expect(result.success).toBe(true);
-      // Fallback faz 2 etapas: temp values (2 updates) + final values (2 updates) = 4 updates
-      expect(updateCount).toBe(4);
-    });
-
-    it('deve retornar erro no fallback se step 1 falhar', async () => {
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: '42883', message: 'function does not exist' },
-      });
-
-      let updateCount = 0;
-      mockFrom.mockImplementation(() => ({
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation(() => {
-          updateCount++;
-          // Falhar na primeira atualização
-          if (updateCount === 1) {
-            return Promise.resolve({
-              data: null,
-              error: { message: 'Step 1 error' },
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const paradas = [
-        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-      ];
-
-      const result = await reordenarParadas(paradas);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('valores temporários');
-    });
-
-    it('deve retornar erro no fallback se step 2 falhar', async () => {
-      mockRpc.mockResolvedValue({
-        data: null,
-        error: { code: '42883', message: 'function does not exist' },
-      });
-
-      let updateCount = 0;
-      mockFrom.mockImplementation(() => ({
-        update: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockImplementation(() => {
-          updateCount++;
-          // Falhar na segunda atualização (step 2)
-          if (updateCount === 2) {
-            return Promise.resolve({
-              data: null,
-              error: { message: 'Step 2 error' },
-            });
-          }
-          return Promise.resolve({ data: null, error: null });
-        }),
-      }));
-
-      const paradas = [
-        { id: 'p1', ordem: 1, latitude: -23.55, longitude: -46.63 },
-      ];
-
-      const result = await reordenarParadas(paradas);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('ordem correta');
+      // B-DB-1: texto da exceção só no logger, nunca no toast.
+      expect(result.error).toBe('Erro ao reordenar paradas.');
     });
   });
 
@@ -659,6 +593,13 @@ describe('routeUtils', () => {
         .mockReturnValueOnce(
           cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
         )
+        // releitura das paradas que sobraram
+        .mockReturnValueOnce(
+          criarCadeia({
+            data: [{ id: 'p1', ordem: 1, latitude: -23.56, longitude: -46.64 }],
+            error: null,
+          }),
+        )
         .mockReturnValueOnce({
           update: jest.fn().mockReturnThis(),
           eq: jest.fn().mockResolvedValue({ data: null, error: null }),
@@ -686,6 +627,83 @@ describe('routeUtils', () => {
         expect.objectContaining({ evento: 'parada_removida' }),
       );
       expect(result.success).toBe(true);
+    });
+
+    it('R-GES-2: renumera pelas paradas que o BANCO tem, não pelo retrato velho da tela', async () => {
+      mockFrom
+        .mockReturnValueOnce(
+          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+        )
+        .mockReturnValueOnce(
+          criarCadeia({
+            data: [
+              // partida (checkpoint) fora; outro gestor acrescentou 'novo'
+              {
+                id: 'base',
+                ordem: 0,
+                latitude: 0,
+                longitude: 0,
+                is_checkpoint: false,
+              },
+              {
+                id: 'p1',
+                ordem: 1,
+                latitude: -23.56,
+                longitude: -46.64,
+                is_checkpoint: true,
+              },
+              {
+                id: 'novo',
+                ordem: 2,
+                latitude: -23.57,
+                longitude: -46.65,
+                is_checkpoint: true,
+              },
+            ],
+            error: null,
+          }),
+        )
+        .mockReturnValue(criarCadeia({ data: null, error: null }));
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes, // a tela só conhece p1
+        mockEnderecoUnidade,
+      );
+
+      expect(mockRpc).toHaveBeenCalledWith('reordenar_paradas', {
+        p_parada_ids: ['p1', 'novo'],
+        p_novas_ordens: [1, 2],
+      });
+    });
+
+    it('R-GES-2: releitura falhando cai no retrato da tela', async () => {
+      mockFrom
+        .mockReturnValueOnce(
+          cadeiaDelete({ data: [{ id: mockParadaId }], error: null }),
+        )
+        .mockReturnValueOnce(
+          criarCadeia({ data: null, error: { message: 'rede' } }),
+        )
+        .mockReturnValue(criarCadeia({ data: null, error: null }));
+      mockRpc.mockResolvedValue({ data: { success: true }, error: null });
+      mockGetDirectionsSequential.mockResolvedValue(null);
+      jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+      await removerParadaERecalcular(
+        mockParadaId,
+        mockRotaId,
+        mockParadasRestantes,
+        mockEnderecoUnidade,
+      );
+
+      expect(mockRpc).toHaveBeenCalledWith('reordenar_paradas', {
+        p_parada_ids: ['p1'],
+        p_novas_ordens: [1],
+      });
     });
 
     it('só apaga parada que ainda não foi finalizada (condiciona o DELETE ao status)', async () => {

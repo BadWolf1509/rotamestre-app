@@ -393,13 +393,20 @@ Deno.serve(async (req: Request) => {
 
     // Atualizar notificação como enviada (chegou a pelo menos um aparelho)
     if (notificacao_id && algumEnviado) {
-      await supabase
+      const { error: marcarEnviadoError } = await supabase
         .from('notificacoes')
         .update({
           push_enviado: true,
           push_enviado_at: new Date().toISOString(),
         })
         .eq('id', notificacao_id);
+      if (marcarEnviadoError) {
+        // O push já saiu; só a marcação falhou. Fica no log da função.
+        console.error(
+          '[send-push] Erro ao marcar push_enviado:',
+          marcarEnviadoError,
+        );
+      }
     }
 
     return new Response(
@@ -419,7 +426,6 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         error: 'Internal server error',
-        details: String(error),
       }),
       { status: 500, headers },
     );
@@ -439,15 +445,20 @@ async function logPushAttempt(
   },
 ) {
   try {
-    await supabase.from('push_notification_logs').insert({
-      notificacao_id: data.notificacao_id,
-      usuario_id: data.usuario_id,
-      // Só os 6 últimos: o token inteiro bastaria para tomar o aparelho.
-      push_token: data.push_token ? mascararToken(data.push_token) : null,
-      status: data.status,
-      response: data.response || null,
-      error_message: data.error_message || null,
-    });
+    const { error: logError } = await supabase
+      .from('push_notification_logs')
+      .insert({
+        notificacao_id: data.notificacao_id,
+        usuario_id: data.usuario_id,
+        // Só os 6 últimos: o token inteiro bastaria para tomar o aparelho.
+        push_token: data.push_token ? mascararToken(data.push_token) : null,
+        status: data.status,
+        response: data.response || null,
+        error_message: data.error_message || null,
+      });
+    if (logError) {
+      console.error('[send-push] Erro ao salvar log:', logError);
+    }
   } catch (error) {
     console.error('[send-push] Erro ao salvar log:', error);
   }

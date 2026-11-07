@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Modal as RNModal,
   View,
   Text,
   TouchableOpacity,
@@ -28,16 +27,11 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { JanelaModalNativa } from '@/components/JanelaModalNativa';
 import { useResponsive } from '@/hooks/useResponsive';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
-
-// No Android o Modal abre numa janela nativa à parte, que o GestureHandlerRootView
-// da raiz (app/_layout.tsx) não alcança: sem um próprio, gesto do Gesture
-// Handler dentro do modal não recebe toque (o arrasto do Reordenar travava).
-const RAIZ_DE_GESTOS_DO_MODAL = { flex: 1 } as const;
 
 type ModalSize = 'small' | 'medium' | 'large' | 'full';
 
@@ -346,144 +340,149 @@ export function Modal({
   // MOBILE: React Native Modal
   // ============================================
   return (
-    <RNModal
+    <JanelaModalNativa
       visible={visible}
       transparent={transparent}
       animationType={animationType === 'none' ? 'none' : undefined}
       onRequestClose={onClose}
       accessibilityViewIsModal={true}
     >
-      <GestureHandlerRootView style={RAIZ_DE_GESTOS_DO_MODAL}>
-        {/* Overlay */}
+      {/* Overlay */}
+      <Animated.View
+        style={[
+          styles.overlay,
+          {
+            opacity: fadeAnim,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.overlayTouchable}
+          activeOpacity={1}
+          onPress={onClose}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Fechar modal"
+          accessibilityHint="Toque fora do modal para fechar"
+        />
+      </Animated.View>
+
+      {/* Modal Content */}
+      <View style={styles.container}>
         <Animated.View
           style={[
-            styles.overlay,
+            size === 'full' ? styles.fullModal : styles.modal,
             {
-              opacity: fadeAnim,
+              // Modal cheio: width/height 100% vêm do fullModal; o inline não pode sobrescrever.
+              ...(size === 'full' ? {} : { width: getModalWidth() }),
+              transform: [
+                { translateY: animationType === 'slide' ? slideAnim : 0 },
+              ],
+              opacity: animationType === 'fade' ? fadeAnim : 1,
             },
+            style,
           ]}
         >
-          <TouchableOpacity
-            style={styles.overlayTouchable}
-            activeOpacity={1}
-            onPress={onClose}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Fechar modal"
-            accessibilityHint="Toque fora do modal para fechar"
-          />
+          {/* Header */}
+          {(title || showCloseButton) && (
+            <View style={styles.header}>
+              {title ? (
+                <Text style={styles.title} accessibilityRole="header">
+                  {title}
+                </Text>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
+              {showCloseButton && (
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={onClose}
+                  activeOpacity={0.7}
+                  accessible
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar modal"
+                >
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.gray500}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Content */}
+          <View style={styles.content}>{children}</View>
         </Animated.View>
-
-        {/* Modal Content */}
-        <View style={styles.container}>
-          <Animated.View
-            style={[
-              styles.modal,
-              {
-                width: getModalWidth(),
-                transform: [
-                  { translateY: animationType === 'slide' ? slideAnim : 0 },
-                ],
-                opacity: animationType === 'fade' ? fadeAnim : 1,
-              },
-              size === 'full' && styles.fullModal,
-              style,
-            ]}
-          >
-            {/* Header */}
-            {(title || showCloseButton) && (
-              <View style={styles.header}>
-                {title ? (
-                  <Text style={styles.title} accessibilityRole="header">
-                    {title}
-                  </Text>
-                ) : (
-                  <View style={{ flex: 1 }} />
-                )}
-                {showCloseButton && (
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={onClose}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel="Fechar modal"
-                  >
-                    <Ionicons
-                      name="close"
-                      size={24}
-                      color={theme.colors.gray500}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Content */}
-            <View style={styles.content}>{children}</View>
-          </Animated.View>
-        </View>
-      </GestureHandlerRootView>
-    </RNModal>
+      </View>
+    </JanelaModalNativa>
   );
 }
 
-const styles = StyleSheet.create((theme: Theme) => ({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    zIndex: 30,
-  },
-  overlayTouchable: {
-    flex: 1,
-  },
-
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 31,
-  },
-
-  modal: {
+const styles = StyleSheet.create((theme: Theme) => {
+  const modal = {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.xl,
-    maxHeight: '80%',
+    maxHeight: '80%' as const,
     ...theme.shadows.lg,
-  },
-  fullModal: {
-    width: '100%',
-    height: '100%',
-    maxHeight: '100%',
-    borderRadius: 0,
-  },
+  };
 
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: theme.components.modal.headerPadding,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
+  return {
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      zIndex: 30,
+    },
+    overlayTouchable: {
+      flex: 1,
+    },
 
-  title: {
-    fontFamily: theme.typography.fontSansBold,
-    fontSize: theme.typography.fontSize.base,
-    lineHeight: theme.typography.fontSize.base * 1.5,
-    color: theme.colors.gray900,
-    flex: 1,
-  },
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 31,
+    },
 
-  closeButton: {
-    padding: theme.spacing.xs,
-    marginLeft: theme.spacing.sm,
-  },
+    modal,
+    // Variante completa do `modal` (não um 2º estilo por cima): o Animated.View
+    // achata o array e 2 estilos do Unistyles geram o aviso a cada render.
+    fullModal: {
+      ...modal,
+      width: '100%',
+      height: '100%',
+      maxHeight: '100%',
+      borderRadius: 0,
+    },
 
-  content: {
-    padding: theme.components.modal.bodyPadding,
-  },
-}));
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: theme.components.modal.headerPadding,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.gray200,
+    },
+
+    title: {
+      fontFamily: theme.typography.fontSansBold,
+      fontSize: theme.typography.fontSize.base,
+      lineHeight: theme.typography.fontSize.base * 1.5,
+      color: theme.colors.gray900,
+      flex: 1,
+    },
+
+    closeButton: {
+      padding: theme.spacing.xs,
+      marginLeft: theme.spacing.sm,
+    },
+
+    content: {
+      padding: theme.components.modal.bodyPadding,
+    },
+  };
+});
 
 /**
  * ============================================

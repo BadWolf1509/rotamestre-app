@@ -8,19 +8,17 @@ import {
   type TextStyle,
 } from 'react-native';
 
+import { EmptyState } from '@/components/EmptyState';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
-import { MobileEmptyState } from '@/components/mobile/MobileEmptyState';
+import { ModaisDaParada } from '@/components/motorista/ModaisDaParada';
 import { ParadaCard, Parada } from '@/components/motorista/ParadaCard';
 import { ParadaCardSkeletonList } from '@/components/motorista/ParadaCardSkeleton';
-import { SkipReasonModal } from '@/components/motorista/SkipReasonModal';
-import { StopCompletionFlow } from '@/components/motorista/StopCompletionFlow';
 import { type MotivoSkip } from '@/constants/skipReasons';
 import { getEstadoDaCarga } from '@/context/route-status/calculations';
 import { useRouteStatus, ParadaData } from '@/context/RouteStatusContext';
 import { Text } from '@/design-system';
-import { useConclusaoEmSequencia } from '@/hooks/motorista/useConclusaoEmSequencia';
-import { usePuloDaVisita } from '@/hooks/motorista/usePuloDaVisita';
+import { useAcoesDaParada } from '@/hooks/motorista/useAcoesDaParada';
 import { useRestaurarConclusaoEmVoo } from '@/hooks/motorista/useRestaurarConclusaoEmVoo';
 import { useRestaurarRascunhoIncidente } from '@/hooks/motorista/useRestaurarRascunhoIncidente';
 import { useAlert } from '@/hooks/useAlert';
@@ -30,7 +28,6 @@ import {
   ehRecusaPorRotaEncerrada,
   MENSAGEM_RETOMAR_ROTA_ENCERRADA,
 } from '@/lib/motorista/recusaRotaEncerrada';
-import { paradasDaVisita } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import { updateParadaStatus, logParadaAction } from '@/lib/queries/paradas';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -93,15 +90,14 @@ export default function CheckpointsMotorista() {
     setSelectedParadaForCompletion(parada);
     setShowCompletionFlow(true);
   }, []);
-  const sequencia = useConclusaoEmSequencia({
-    paradas: paradasContext,
-    abrirConclusao,
-  });
-  const pularVisita = usePuloDaVisita({
+  const { sequencia, pularVisita, aoConcluirComSucesso } = useAcoesDaParada({
     paradas: paradasContext,
     skipStop,
+    refreshRoute,
     showSuccess,
     showError,
+    abrirConclusao,
+    paradaEmConclusao: selectedParadaForCompletion,
   });
 
   // Abre o modal de conclusão com foto
@@ -121,14 +117,6 @@ export default function CheckpointsMotorista() {
     },
     [route?.status, showWarning, sequencia, paradaDoContexto],
   );
-
-  // O StopCompletionFlow chama onSuccess e onClose no mesmo tique; esperar o
-  // refresh deixa o modal fechar antes de o próximo serviço abrir zerado.
-  async function handleCompletionSuccess() {
-    const concluidaId = selectedParadaForCompletion?.id;
-    await refreshRoute();
-    if (concluidaId) sequencia.aoConcluir(concluidaId);
-  }
 
   // Reabre o fluxo de conclusão que a recriação da Activity interrompeu.
   // Ver `src/hooks/motorista/useRestaurarConclusaoEmVoo.ts`.
@@ -343,12 +331,12 @@ export default function CheckpointsMotorista() {
         testID="motorista-checkpoints-sem-conexao"
         style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
       >
-        <MobileEmptyState
-          icon="📡"
+        <EmptyState
+          emoji="📡"
           title="Sem conexão"
-          subtitle="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
+          description="Não foi possível carregar a sua rota. Confira o sinal e tente de novo."
           actionLabel="Tentar novamente"
-          onAction={refreshRoute}
+          onActionPress={refreshRoute}
           fullScreen
         />
       </View>
@@ -362,10 +350,10 @@ export default function CheckpointsMotorista() {
         testID="motorista-checkpoints-empty"
         style={{ flex: 1, backgroundColor: theme.colors.gray50 }}
       >
-        <MobileEmptyState
-          icon="📋"
+        <EmptyState
+          emoji="📋"
           title="Nenhuma rota ativa no momento"
-          subtitle="Aguarde o gestor atribuir uma nova rota"
+          description="Aguarde o gestor atribuir uma nova rota"
           fullScreen
         />
       </View>
@@ -579,32 +567,24 @@ export default function CheckpointsMotorista() {
           />
         )}
 
-        {/* Modal de Conclusão de Parada (com foto) */}
-        <StopCompletionFlow
-          parada={selectedParadaForCompletion}
-          visible={showCompletionFlow}
-          onClose={() => {
-            setShowCompletionFlow(false);
-            setSelectedParadaForCompletion(null);
-          }}
-          onSuccess={handleCompletionSuccess}
-          allowSkipPhoto={true}
+        <ModaisDaParada
+          paradas={paradasContext}
           contexto={sequencia.contexto}
+          conclusao={{
+            parada: selectedParadaForCompletion,
+            visible: showCompletionFlow,
+            onClose: () => {
+              setShowCompletionFlow(false);
+              setSelectedParadaForCompletion(null);
+            },
+            onSuccess: aoConcluirComSucesso,
+          }}
+          pulo={{
+            parada: paradaParaPular,
+            onConfirm: confirmarSkip,
+            onCancel: () => setSkipModalParada(null),
+          }}
         />
-
-        {/* Modal de Motivo de Skip */}
-        {paradaParaPular && (
-          <SkipReasonModal
-            visible
-            parada={paradaParaPular}
-            outrosServicosNoLocal={paradasDaVisita(
-              paradasContext,
-              paradaParaPular,
-            ).slice(1)}
-            onConfirm={confirmarSkip}
-            onCancel={() => setSkipModalParada(null)}
-          />
-        )}
 
         {AlertDialog}
       </ErrorBoundary>

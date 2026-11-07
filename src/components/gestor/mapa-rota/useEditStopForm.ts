@@ -22,7 +22,6 @@ import {
   entregasQueDependemDe,
 } from '@/lib/gestor/vinculoParada';
 import { logger } from '@/lib/logger';
-import { maskPhone } from '@/lib/phone';
 import { photonService } from '@/lib/photon';
 import { logParadaAction } from '@/lib/queries/logs';
 import {
@@ -34,7 +33,8 @@ import {
   type ParadaModalFormData,
 } from '@/lib/schemas/parada';
 import { supabase } from '@/lib/supabase';
-import type { Coordenadas } from '@/types/endereco';
+
+import { useCamposEnderecoParada } from './useCamposEnderecoParada';
 
 import type { Parada } from './types';
 
@@ -150,23 +150,10 @@ export function useEditStopForm({
       (longitude ?? null) !== parada.longitude
     : false;
 
-  // Handle address selection from autocomplete
-  // Photon já retorna coordenadas diretamente - não precisa de getPlaceDetails!
-  const handleAddressSelect = useCallback(
-    (address: string, _placeId: string, coordinates?: Coordenadas) => {
-      setValue('endereco', address);
-      setValue('latitude', coordinates?.latitude);
-      setValue('longitude', coordinates?.longitude);
-      setError(null);
-      // Erro cruzado: a mensagem mora em `endereco` ("não achei as
-      // coordenadas"), mas a causa era lat/long, que acabaram de chegar.
-      // `setValue` não revalida e a revalidação assíncrona perde a corrida:
-      // sem isto o erro ficaria preso ao lado do selo de endereço válido.
-      if (coordinates) {
-        clearErrors('endereco');
-      }
-    },
-    [setValue, clearErrors],
+  // Seleção do autocomplete e máscara do telefone: iguais às do adicionar.
+  const { handleAddressSelect, handlePhoneChange } = useCamposEnderecoParada(
+    { setValue, clearErrors, isSubmitted },
+    () => setError(null),
   );
 
   // Handle address text change (manual typing). Outro texto invalida as
@@ -185,14 +172,6 @@ export function useEditStopForm({
       }
     },
     [setValue, isSubmitted, parada],
-  );
-
-  // Handle phone formatting
-  const handlePhoneChange = useCallback(
-    (text: string) => {
-      setValue('telefone', maskPhone(text), { shouldValidate: isSubmitted });
-    },
-    [setValue, isSubmitted],
   );
 
   // Save changes

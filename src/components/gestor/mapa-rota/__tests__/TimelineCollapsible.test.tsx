@@ -1,5 +1,7 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
+import { criarCadeia } from '@/__tests__/helpers/cadeiaSupabase';
+
 import { TimelineCollapsible } from '../TimelineCollapsible';
 
 const mockFrom = jest.fn();
@@ -28,31 +30,12 @@ jest.mock('@/components/RouteTimeline', () => {
   };
 });
 
-const createLogsQuery = (data: any[]) => {
-  const query: any = {
-    select: jest.fn(() => query),
-    eq: jest.fn(() => query),
-    order: jest.fn(() => ({ data })),
-  };
-  return query;
-};
-
-const createParadasQuery = (data: any[]) => {
-  const query: any = {
-    select: jest.fn(() => query),
-    eq: jest.fn(() => query),
-    not: jest.fn(() => ({ data })),
-  };
-  return query;
-};
-
-const createIncidentesQuery = (data: any[]) => {
-  const query: any = {
-    select: jest.fn(() => query),
-    eq: jest.fn(() => ({ data })),
-  };
-  return query;
-};
+// Cadeia aguardável (select/eq/order/limit/not/returns): o resumo lê `error`.
+const createLogsQuery = (data: any[], error: unknown = null) =>
+  criarCadeia({ data, error });
+const createParadasQuery = (data: any[]) => criarCadeia({ data, error: null });
+const createIncidentesQuery = (data: any[]) =>
+  criarCadeia({ data, error: null });
 
 describe('TimelineCollapsible', () => {
   beforeEach(() => {
@@ -118,6 +101,28 @@ describe('TimelineCollapsible', () => {
     await waitFor(() => {
       expect(getByText('Nenhum evento registrado')).toBeTruthy();
     });
+  });
+
+  it('B-GES-9: falha da consulta mostra "indisponível", não "nenhum evento"', async () => {
+    mockUseTimelineLastSeen.mockReturnValue({
+      countNewEvents: jest.fn(() => 0),
+      markAllAsSeen: jest.fn(),
+      loading: false,
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'logs') return createLogsQuery([], new Error('rls'));
+      if (table === 'paradas') return createParadasQuery([]);
+      return createIncidentesQuery([]);
+    });
+
+    const { getByText, queryByText } = render(
+      <TimelineCollapsible rotaId="rota-erro" />,
+    );
+
+    await waitFor(() => {
+      expect(getByText('Resumo indisponível no momento')).toBeTruthy();
+    });
+    expect(queryByText('Nenhum evento registrado')).toBeNull();
   });
 
   it('expande ao tocar no header', async () => {

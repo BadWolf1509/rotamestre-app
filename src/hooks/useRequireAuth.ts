@@ -10,22 +10,26 @@ type RequiredRole = 'gestor' | 'motorista' | 'any';
 interface UseRequireAuthOptions {
   /** Papel obrigatório para acessar a rota. 'any' permite qualquer papel autenticado. */
   role?: RequiredRole;
-  /** Redirecionar para esta rota se não autenticado (default: /auth/login) */
+  /** Destino da sessão sem perfil ou de papel desconhecido (default: /auth/login) */
   redirectTo?: Href;
 }
 
 /**
  * Hook para proteger rotas que requerem autenticação.
  *
- * Redireciona automaticamente para login se:
- * - Usuário não está autenticado
- * - Usuário não tem o papel requerido (se especificado)
+ * Sem sessão, só responde `isAuthorized=false`: quem leva ao login é o
+ * layout raiz (`useNavegacaoDeSaida`), uma vez por saída (R-NUC-1). Cada
+ * layout montado navegando por conta própria somava vários replace no mesmo
+ * instante da troca de conta (pendência 33).
+ *
+ * Ainda redireciona quando há sessão e o destino é outro: sessão sem perfil
+ * (`redirectTo`), primeira senha e papel diferente do exigido.
  *
  * @example
  * // Em um layout protegido:
  * const { isReady, isAuthorized } = useRequireAuth({ role: 'gestor' });
  * if (!isReady) return <LoadingScreen />;
- * if (!isAuthorized) return null; // Redirect já aconteceu
+ * if (!isAuthorized) return null; // A navegação é de outra parte
  */
 export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const { role = 'any', redirectTo = '/auth/login' } = options;
@@ -107,10 +111,10 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
 
     // Verificar autenticação. Offline com o último usuário não é "deslogado":
     // segue, e o useUser responde com o perfil conhecido dele.
+    // Sem sessão: a navegação ao login é do layout raiz (R-NUC-1).
     if (!user && !usuarioOfflineId) {
       setIsReady(true);
       setIsAuthorized(false);
-      router.replace(redirectTo);
       return;
     }
 

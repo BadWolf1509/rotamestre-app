@@ -39,3 +39,37 @@ export async function exigirUsuario(
     return recusa();
   }
 }
+
+interface ClienteComGetUser {
+  auth: {
+    getUser: () => Promise<{ data: { user: unknown }; error: unknown }>;
+  };
+}
+
+/**
+ * Validador de `exigirUsuario` pela chave publicável: cria um cliente com o
+ * `Authorization` recebido e pergunta ao Auth quem é. O `createClient` vem
+ * injetado (na função, o do esm.sh; no Jest, um falso), e a chave é lida só na
+ * hora de validar, como `chavePublica()` exige.
+ */
+export function criarValidadorDeUsuario(
+  createClient: (
+    url: string,
+    chave: string,
+    opcoes: Record<string, unknown>,
+  ) => ClienteComGetUser,
+  url: string,
+  obterChave: () => string,
+): ValidarAutorizacao {
+  return async (authorization) => {
+    const cliente = createClient(url, obterChave(), {
+      global: { headers: { Authorization: authorization } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const {
+      data: { user },
+      error,
+    } = await cliente.auth.getUser();
+    return !error && !!user;
+  };
+}

@@ -45,7 +45,11 @@ jest.mock('../useUser', () => ({
   useUser: () => ({ userData: { id: 'g1', unidades: { nome: 'Loja' } } }),
 }));
 jest.mock('../useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: mockLoja, loading: false }),
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockLoja,
+    unidadeAtivaData: { id: mockLoja, nome: 'Nome de ' + mockLoja },
+    loading: false,
+  }),
 }));
 const mockToast = {
   toast: { visible: false, message: '', type: 'success' },
@@ -97,6 +101,14 @@ beforeEach(() => {
 });
 
 describe('useIncidentesGestor — troca de loja', () => {
+  it('B-GES-5: unidade_nome do incidente é o da loja ATIVA, não o do perfil', async () => {
+    mockLoja = 'loja-b';
+    const { result } = montar();
+    await waitFor(() => expect(result.current.incidentes).toHaveLength(1));
+
+    expect(result.current.incidentes[0].unidade_nome).toBe('Nome de loja-b');
+  });
+
   it('não mostra os incidentes da loja anterior enquanto a nova carrega', async () => {
     const { result, rerender } = montar();
     await waitFor(() => expect(result.current.incidentes).toHaveLength(2));

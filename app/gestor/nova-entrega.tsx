@@ -45,24 +45,13 @@ export default function NovaEntrega() {
   const {
     form,
     paradas,
-    motoristas,
-    motoristaSelecionado,
+    motorista,
+    rascunho,
+    percurso,
     vinculoSelecionado,
     dataRota,
     setDataRota,
     isLoading,
-    isLoadingMotoristas,
-    isLoadingEndereco,
-    isOptimizing,
-    isDraftHydrating,
-    isDraftSaving,
-    draftLastSavedAt,
-    draftSaveError,
-    rotaOtimizada,
-    ordemManual,
-    distanciaManualReal,
-    isCalculandoReal,
-    enderecoUnidade,
     retiradasDisponiveis,
     paradasStatus,
     routeValidation,
@@ -71,7 +60,6 @@ export default function NovaEntrega() {
     toastState,
     showToast,
     hideToast,
-    setMotoristaSelecionado,
     setVinculoSelecionado,
     onAddParada,
     localizarLote,
@@ -82,13 +70,28 @@ export default function NovaEntrega() {
     moveParadaUp,
     moveParadaDown,
     reorderParadas,
-    otimizarRota,
     gerarRota,
     limparFormulario,
     findDuplicate,
     userData,
     unidadeNome,
   } = novaEntrega;
+
+  const { lista: motoristas, selecionado: motoristaSelecionado } = motorista;
+  const {
+    rotaOtimizada,
+    ordemManual,
+    distanciaManualReal,
+    enderecoUnidade,
+    carregandoEndereco: isLoadingEndereco,
+  } = percurso;
+  const {
+    hidratando: isDraftHydrating,
+    salvando: isDraftSaving,
+    salvoEm: draftLastSavedAt,
+    erro: draftSaveError,
+  } = rascunho;
+  const isLoadingMotoristas = motorista.carregando;
 
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -243,14 +246,8 @@ export default function NovaEntrega() {
   const listProps = {
     paradas,
     paradasStatus,
-    motoristas,
-    motoristaSelecionado,
-    rotaOtimizada,
-    ordemManual,
-    distanciaManualReal,
-    enderecoUnidade,
-    isOptimizing,
-    isCalculandoReal,
+    motorista,
+    percurso,
     isLoading,
     isDesktop,
     dataRota,
@@ -263,8 +260,6 @@ export default function NovaEntrega() {
     onReorder: reorderParadas,
     onLocalizarLote: localizarLote,
     onImport: importParadas,
-    onOptimize: otimizarRota,
-    onSelectMotorista: setMotoristaSelecionado,
     onChangeDataRota: setDataRota,
     onGenerateRoute: openReview,
   };

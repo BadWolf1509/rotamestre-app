@@ -16,6 +16,7 @@ import {
   type ResultadoCancelarRota,
   type ResultadoReativarRota,
 } from '@/lib/gestor/acoesRota';
+import { marcarOtimizacaoAlterada } from '@/lib/gestor/otimizacaoRota';
 import {
   mensagemParadaNaoAlteravel,
   podeAlterarParada,
@@ -31,32 +32,6 @@ import {
 import { supabase } from '@/lib/supabase';
 
 import type { Parada, Rota } from '../types';
-
-/**
- * Confere se um UPDATE realmente afetou algum registro, quando algum era
- * esperado.
- *
- * RLS pode barrar um UPDATE devolvendo 204 com ZERO linhas e `error: null`
- * (o `Prefer: return=minimal` default não distingue "0 linhas" de "N linhas"
- * sem `.select()` encadeado) — checar só `error` não basta. Por isso todo
- * UPDATE nesta tela encadeia `.select('id')` e passa o resultado por aqui —
- * ou, no UPDATE condicionado ao status da ROTA, por `assertRotaAtualizada`.
- * Cancelar e reativar não passam por aqui: vão pelas RPCs de `acoesRota`.
- *
- * A checagem é "afetou ZERO quando devia afetar alguma" (`esperado > 0`),
- * não "afetou MENOS que o esperado".
- */
-function assertUpdateAfetouLinhas(
-  data: { id: string }[] | null,
-  error: unknown,
-  esperado: number,
-  mensagem: string,
-): void {
-  if (error) throw error;
-  if (esperado > 0 && (data?.length ?? 0) === 0) {
-    throw new Error(mensagem);
-  }
-}
 
 /**
  * Aviso de rota que mudou de situação enquanto a tela estava aberta. Vem de
@@ -79,7 +54,10 @@ class RotaMudouDeSituacao extends Error {
   }
 }
 
-/** Como `assertUpdateAfetouLinhas`, para o UPDATE condicional da ROTA. */
+/**
+ * Confere se o UPDATE condicional da ROTA afetou alguma linha: RLS pode barrar
+ * com 204, ZERO linhas e `error: null`, e checar só `error` não basta.
+ */
 function assertRotaAtualizada(
   data: { id: string }[] | null,
   error: unknown,
@@ -569,13 +547,16 @@ export function useMapaRotaHandlers({
         throw new Error('Rota não encontrada');
       }
 
+      // O toast de erro sai uma vez só: nos ramos que já avisaram, o catch
+      // não repete (antes decidia pelo texto da mensagem começar com 'Erro').
+      let avisado = false;
       try {
         setIsReordering(true);
 
         if (!enderecoUnidade) {
-          const errorMsg = 'Erro: Coordenadas da unidade não encontradas';
-          showToast(errorMsg, 'error');
-          throw new Error(errorMsg);
+          avisado = true;
+          showToast('Erro: Coordenadas da unidade não encontradas', 'error');
+          throw new Error('Coordenadas da unidade não encontradas');
         }
 
         // 1. Update order in database
@@ -590,9 +571,13 @@ export function useMapaRotaHandlers({
         );
 
         if (!reorderResult.success) {
-          const errorMsg = reorderResult.error || 'Erro ao reordenar paradas';
-          showToast(errorMsg, 'error');
-          throw new Error(errorMsg);
+          // `reorderResult.error` já é texto fixo (o cru fica no logger).
+          avisado = true;
+          showToast(
+            reorderResult.error || 'Erro ao reordenar paradas',
+            'error',
+          );
+          throw new Error(reorderResult.error || 'Erro ao reordenar paradas');
         }
 
         // 2. Recalculate route with new order
@@ -621,54 +606,23 @@ export function useMapaRotaHandlers({
           recalcWarning = true;
         }
 
-        // 3. Reordenar à mão desfaz a otimização. Rota sem registro (NULL)
-        // permanece sem registro — não inventamos o passado dela.
-        const desfezOtimizacao = rota.otimizacao_estado === 'otimizada';
-        // Escopo elevado até o log abaixo: o log precisa saber se o UPDATE
-        // realmente aconteceu, não só se ele foi tentado — mesmo motivo (e
-        // mesmo helper) de `assertUpdateAfetouLinhas` acima: RLS pode barrar
-        // o UPDATE devolvendo 204 com ZERO linhas e `error: null`, e checar
-        // só `error` não bastava.
-        let otimizacaoMarcadaComoDesfeita = false;
-        if (desfezOtimizacao) {
-          try {
-            const { data, error } = await supabase
-              .from('rotas')
-              .update({ otimizacao_estado: 'otimizada_alterada' })
-              .eq('id', id)
-              .select('id');
-
-            assertUpdateAfetouLinhas(
-              data,
-              error,
-              1,
-              'UPDATE de otimizacao_estado não afetou nenhuma linha (RLS ou rota inexistente)',
-            );
-            otimizacaoMarcadaComoDesfeita = true;
-          } catch (estadoError) {
-            // `error`, não `warn`: warn é __DEV__-only (src/lib/logger.ts) e em
-            // produção some. Este é o único ramo em que uma escrita de auditoria
-            // falha em silêncio — a coluna fica 'otimizada' e o log registra
-            // desfez_otimizacao: false, então sem isto a alteração manual não
-            // deixa rastro nenhum.
-            logger.error(
-              '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
-              estadoError,
-            );
-          }
-        }
+        // 3. Reordenar à mão desfaz a otimização. O UPDATE é condicionado a
+        // 'otimizada' no banco (marcarOtimizacaoAlterada): não depende do
+        // estado da tela, que pode estar velho, e rota sem registro (NULL)
+        // permanece sem registro. Nunca lança; devolve se a coluna mudou de
+        // fato, e é isso que o log afirma.
+        const otimizacaoMarcadaComoDesfeita =
+          await marcarOtimizacaoAlterada(id);
 
         // 4. Log action
         if (userData?.id) {
           await logRotaAction(userData.id, id, 'paradas_reordenadas', {
             nova_ordem: newOrder.map((p) => ({ id: p.id, ordem: p.ordem })),
             alterado_por: userData.nome,
-            // Reflete o que de fato foi gravado: `otimizacaoMarcadaComoDesfeita`
-            // só fica `true` quando o UPDATE acima passou por
-            // `assertUpdateAfetouLinhas` sem lançar — ou seja, quando ele
-            // realmente afetou a linha. Se falhou (erro OU zero linhas por
-            // RLS), `rotas.otimizacao_estado` continua 'otimizada' no banco —
-            // o log não pode afirmar que a otimização foi desfeita.
+            // Reflete o que de fato foi gravado: só `true` se o UPDATE
+            // condicional afetou a linha. Se falhou (erro OU zero linhas por
+            // RLS ou porque a rota não estava otimizada), o log não afirma
+            // que a otimização foi desfeita.
             desfez_otimizacao: otimizacaoMarcadaComoDesfeita,
           });
         }
@@ -696,9 +650,7 @@ export function useMapaRotaHandlers({
         await loadRotaEParadas();
       } catch (error) {
         logger.error('[useMapaRotaHandlers] Erro ao reordenar paradas', error);
-        if (error instanceof Error && !error.message.startsWith('Erro')) {
-          showToast('Erro ao reordenar paradas', 'error');
-        }
+        if (!avisado) showToast('Erro ao reordenar paradas', 'error');
         throw error;
       } finally {
         setIsReordering(false);

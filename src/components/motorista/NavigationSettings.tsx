@@ -260,7 +260,11 @@ export function NavigationSettings({
               maximumValue={100}
               step={10}
               value={settings.proximityRadius}
+              // Durante o arrasto só o rótulo muda; grava uma vez ao soltar.
               onValueChange={(value) =>
+                setSettings((atual) => ({ ...atual, proximityRadius: value }))
+              }
+              onSlidingComplete={(value) =>
                 handleSettingChange('proximityRadius', value)
               }
               minimumTrackTintColor={theme.colors.primary}

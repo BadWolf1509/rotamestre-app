@@ -256,9 +256,10 @@ export const authService = {
       if (error && !error.message?.includes('Auth session missing')) {
         throw error;
       }
-    } catch (err: any) {
+    } catch (err) {
       // Trata graciosamente erros de sessão inexistente
-      if (!err.message?.includes('Auth session missing')) {
+      const mensagem = err instanceof Error ? err.message : undefined;
+      if (!mensagem?.includes('Auth session missing')) {
         throw err;
       }
     } finally {

@@ -42,7 +42,7 @@ import {
   Dialog,
   FilterChip,
   MobileCard,
-  MobileEmptyState,
+  EmptyState,
   MobileLoading,
   Modal,
   Button,
@@ -645,10 +645,11 @@ export default function GestaoRotas() {
             onSort={handleSort}
             emptyState={
               erroCarga ? null : (
-                <MobileEmptyState
-                  icon="📋"
+                <EmptyState
+                  compact
+                  emoji="📋"
                   title="Nenhuma rota encontrada"
-                  subtitle={
+                  description={
                     filtroStatus !== 'todas'
                       ? 'Tente alterar os filtros'
                       : 'Crie sua primeira rota de entrega'
@@ -656,7 +657,7 @@ export default function GestaoRotas() {
                   actionLabel={
                     filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined
                   }
-                  onAction={
+                  onActionPress={
                     filtroStatus === 'todas'
                       ? () => router.push('/gestor/nova-entrega')
                       : undefined

@@ -175,25 +175,19 @@ describe('unregisterPushToken: só o token deste aparelho', () => {
     expect(mockDeletes[0]?.eq).toEqual([['token', TOKEN]]);
   });
 
-  it('banco sem a Migration 45 (PGRST205): cai no UPDATE antigo da coluna', async () => {
+  // R-DB-1: a reserva "tabela ainda não existe" saiu (Migration 45
+  // aplicada, banco único; a coluna usuarios.push_token fica sempre NULL pela
+  // CHECK usuarios_push_token_vazio). Erro é erro: mantém a chave local.
+  it('PGRST205 (tabela ausente) é erro: não cai na coluna antiga', async () => {
     getItem.mockResolvedValue(JSON.stringify({ token: TOKEN, userId: 'A' }));
-    // Formato real do PostgREST quando a tabela não está no schema cache.
     mockErroDelete = {
       code: 'PGRST205',
       message:
         "Could not find the table 'public.push_tokens' in the schema cache",
     };
 
-    await expect(unregisterPushToken('A')).resolves.toBe(true);
-    expect(mockChamadas).toEqual([
-      {
-        update: { push_token: null },
-        eq: [
-          ['id', 'A'],
-          ['push_token', TOKEN],
-        ],
-      },
-    ]);
+    await expect(unregisterPushToken('A')).resolves.toBe(false);
+    expect(mockChamadas).toEqual([]);
   });
 
   it('sem token guardado não mexe no banco (o token no banco é de outro aparelho)', async () => {
@@ -216,23 +210,19 @@ describe('registerPushToken: falha da RPC', () => {
     expect(setItem).not.toHaveBeenCalled();
   });
 
-  it('RPC ainda não publicada (PGRST202): cai no UPDATE direto da própria linha', async () => {
+  // R-DB-1: a reserva (UPDATE direto de usuarios.push_token) saiu — a RPC
+  // está aplicada e a coluna é mantida NULL por CHECK desde a Migration 45.
+  it('PGRST202 (função ausente) é erro: não cai no UPDATE da coluna', async () => {
     getItem.mockResolvedValue(null);
-    // Formato real do PostgREST quando a função não existe no schema cache.
     mockErroRpc = {
       code: 'PGRST202',
       message:
         'Could not find the function public.registrar_push_token(p_token) in the schema cache',
     };
 
-    await expect(registerPushToken('A')).resolves.toBe(true);
-    expect(mockChamadas).toEqual([
-      { update: { push_token: TOKEN }, eq: [['id', 'A']] },
-    ]);
-    expect(setItem).toHaveBeenCalledWith(
-      CHAVE,
-      JSON.stringify({ token: TOKEN, userId: 'A' }),
-    );
+    await expect(registerPushToken('A')).resolves.toBe(false);
+    expect(mockChamadas).toEqual([]);
+    expect(setItem).not.toHaveBeenCalled();
   });
 
   it('outro erro da RPC (ex.: 42501) NÃO cai no UPDATE direto', async () => {

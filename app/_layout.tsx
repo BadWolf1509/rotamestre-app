@@ -20,6 +20,7 @@ import Toast from 'react-native-toast-message';
 import { Sidebar } from '@/components/gestor/dashboard/_components/desktop/Sidebar';
 import { NotificationDataProvider } from '@/context/NotificationDataContext';
 import { NotificationModalProvider } from '@/context/NotificationModalContext';
+import { useNavegacaoDeSaida } from '@/hooks/auth/useNavegacaoDeSaida';
 import { useGeracaoDaConta } from '@/hooks/useGeracaoDaConta';
 import { useManterPushTokenAtualizado } from '@/hooks/useManterPushTokenAtualizado';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -128,6 +129,10 @@ export default function RootLayout() {
   // continua montado sob a próxima (ver useGeracaoDaConta).
   const { userData } = useUser();
   const geracaoDaConta = useGeracaoDaConta(userData?.id ?? null);
+
+  // A conta saiu: um só replace para o login, depois de os modais fecharem
+  // (R-NUC-1, pendência 33). Logout e layouts protegidos não navegam.
+  useNavegacaoDeSaida();
 
   // Reenvia o registro do aparelho (push) ao abrir e ao voltar ao app.
   useManterPushTokenAtualizado();

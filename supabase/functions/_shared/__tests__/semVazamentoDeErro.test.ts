@@ -4,15 +4,27 @@
 // (`expire-routes.yml`) imprime o corpo da resposta no log do Actions, que
 // qualquer um lê num repositório público. O detalhe vai para o `console.error`
 // (log da função, só no painel); para fora, mensagem genérica ou de negócio.
-import { readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 
-const funcoes = ['criar-motorista', 'expire-routes', 'remind-routes'];
+// Toda função do diretório, não uma lista fixa: função nova entra na guarda sozinha.
+const pastaFuncoes = join(__dirname, '..', '..');
+const funcoes = readdirSync(pastaFuncoes).filter(
+  (nome) =>
+    !nome.startsWith('_') &&
+    !nome.startsWith('.') &&
+    statSync(join(pastaFuncoes, nome)).isDirectory() &&
+    existsSync(join(pastaFuncoes, nome, 'index.ts')),
+);
 
 // Corpo de resposta (JSON.stringify({...})) que interpola `.message`/`.details`
 // de um erro. `[^}]*` atravessa linhas e para no fim do objeto literal.
 const VAZA_MENSAGEM =
-  /JSON\.stringify\(\{[^}]*\b\w*(?:[Ee]rror|err)\.(?:message|details)\b/;
+  /JSON\.stringify\(\{[^}]*(?:\b\w*(?:[Ee]rror|err)\.(?:message|details|stack)\b|String\(\s*\w*(?:[Ee]rror|err)\w*\s*\))/;
+
+it('acha as funções (senão a guarda passaria vazia)', () => {
+  expect(funcoes.length).toBeGreaterThanOrEqual(7);
+});
 
 describe.each(funcoes)('%s: sem vazamento de erro interno', (nome) => {
   const fonte = readFileSync(
@@ -43,6 +55,13 @@ describe('a própria guarda', () => {
     expect(
       "JSON.stringify({\n error: err instanceof Error ? err.message : 'x',",
     ).toMatch(VAZA_MENSAGEM);
+  });
+
+  it('pega String(error) e .stack no corpo da resposta', () => {
+    expect(
+      "JSON.stringify({\n error: 'x',\n details: String(error),\n }),",
+    ).toMatch(VAZA_MENSAGEM);
+    expect('JSON.stringify({ error: err.stack }),').toMatch(VAZA_MENSAGEM);
   });
 
   it('não acusa mensagem fixa', () => {

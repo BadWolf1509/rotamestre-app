@@ -3,20 +3,15 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
 import { ROTA_STATUS_LABELS, type FiltroStatus } from '@/lib/statusLabels';
-import { supabase } from '@/lib/supabase';
-import {
-  showError,
-  showInfo,
-  showSuccess,
-  showWarning,
-} from '@/utils/errorHandling';
+import { showError, showSuccess, showWarning } from '@/utils/errorHandling';
+
+import { compartilharArquivo, registrarExportacao } from './exportacao';
 
 import type { RotaHistorico } from './types';
 
@@ -55,7 +50,7 @@ export async function exportRotasToCSV({
 
     // Log the export action
     if (userId) {
-      logExportAction(userId, rotas.length, filtroStatus);
+      registrarExportacao(userId, rotas.length, filtroStatus, 'csv');
     }
 
     if (Platform.OS === 'web') {
@@ -160,40 +155,9 @@ async function shareCSVMobile(
     encoding: FileSystem.EncodingType.UTF8,
   });
 
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(fileUri, {
-      mimeType: 'text/csv',
-      dialogTitle: 'Exportar Relatório de Rotas',
-      UTI: 'public.comma-separated-values-text',
-    });
-  } else {
-    showInfo('Arquivo Salvo', `O arquivo foi salvo em: ${fileUri}`);
-  }
-}
-
-/**
- * Log export action to database
- */
-function logExportAction(
-  userId: string,
-  totalRotas: number,
-  filtroStatus: FiltroStatus,
-): void {
-  supabase
-    .from('logs')
-    .insert({
-      usuario_id: userId,
-      evento: 'exportacao_rotas',
-      detalhes: {
-        total_rotas: totalRotas,
-        filtro_status: filtroStatus,
-        formato: 'csv',
-        plataforma: Platform.OS,
-      },
-    })
-    .then(({ error }) => {
-      if (error)
-        logger.warn('Falha ao registrar log de exportação:', error.message);
-    });
+  await compartilharArquivo(fileUri, {
+    mimeType: 'text/csv',
+    dialogTitle: 'Exportar Relatório de Rotas',
+    UTI: 'public.comma-separated-values-text',
+  });
 }

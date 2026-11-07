@@ -6,7 +6,7 @@
 
 import { useState, useCallback } from 'react';
 
-import type { MotoristaDetalhado } from '../useMotoristasGestor';
+import type { MotoristaDetalhado } from './types';
 
 export interface UseMotoristasModalsReturn {
   // Modal visibility

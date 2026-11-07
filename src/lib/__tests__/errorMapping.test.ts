@@ -631,6 +631,26 @@ describe('errorMapping', () => {
       expect(isNetworkError(new Error('Request timed out'))).toBe(true);
     });
 
+    // R-NUC-2: mesmo padrão de falhaDeRede.ts — a Edge Function sem resposta
+    // (FunctionsFetchError) caía no erro genérico.
+    // Pela classe (ehFalhaDeRede), não só pela mensagem: o refresh do
+    // auth-js sem rede pode vir com texto que o padrão não conhece.
+    it('AuthRetryableFetchError é rede, qualquer que seja o texto', () => {
+      const { AuthRetryableFetchError } = jest.requireActual(
+        '@supabase/supabase-js',
+      );
+      expect(isNetworkError(new AuthRetryableFetchError('{}', 0))).toBe(true);
+    });
+
+    it('Edge Function sem resposta é rede', () => {
+      expect(
+        isNetworkError({
+          name: 'FunctionsFetchError',
+          message: 'Failed to send a request to the Edge Function',
+        }),
+      ).toBe(true);
+    });
+
     it('should return false for non-network errors', () => {
       expect(isNetworkError(new Error('Invalid login credentials'))).toBe(
         false,

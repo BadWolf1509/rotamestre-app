@@ -26,6 +26,14 @@ npm test -- <padrão>      # filtrar por nome/caminho
 - E2E: `e2e/` (Playwright; ver `npm run test:e2e`)
 - Regressão visual: `tools/scripts/run-visual-tests.cjs` (`npm run test:visual`)
 
+### Guardas estáticas (testes que leem o código)
+
+Use `listarFontes` / `lerFontes` / `exigirVolume` de `src/__tests__/helpers/fontes.ts`; não reescreva o percurso de pastas em cada guarda. O helper lança se a pasta pedida não existe, e `exigirVolume(lista, piso)` impede que um glob vazio passe como "nenhuma ocorrência".
+
+### Dívidas de ferramenta conhecidas
+
+- `npm run scan:morto`: o número de "Unused exports" muda a cada onda; rode o comando em vez de copiar um valor para a documentação.
+
 ### Caveats conhecidos
 
 - `react-test-renderer` deve ter a mesma versão que `react` (restrição de paridade do jest-expo).
@@ -80,13 +88,12 @@ npm test -- <padrão>      # filtrar por nome/caminho
 
 ## Stack de Testes
 
-| Ferramenta                    | Versão | Propósito                             |
-| ----------------------------- | ------ | ------------------------------------- |
-| Jest                          | 29.x   | Test runner e framework de testes     |
-| jest-expo                     | 56.x   | Preset para projetos Expo             |
-| @testing-library/react-native | 13.x   | Utilitários para testar componentes   |
-| @testing-library/jest-native  | 5.x    | Matchers adicionais para React Native |
-| jest-junit                    | 16.x   | Reporter XML para CI/CD               |
+| Ferramenta                    | Versão | Propósito                           |
+| ----------------------------- | ------ | ----------------------------------- |
+| Jest                          | 30.x   | Test runner e framework de testes   |
+| jest-expo                     | 58.x   | Preset para projetos Expo           |
+| @testing-library/react-native | 13.x   | Utilitários para testar componentes |
+| jest-junit                    | 17.x   | Reporter XML para CI/CD             |
 
 ## Estrutura de Arquivos
 

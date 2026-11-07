@@ -12,35 +12,23 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-import { exigirUsuario } from '../_shared/autenticacao.ts';
+import {
+  criarValidadorDeUsuario,
+  exigirUsuario,
+} from '../_shared/autenticacao.ts';
 import { chavePublica } from '../_shared/chaves.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-};
+import { CORS_PADRAO, jsonResponse, preflight } from '../_shared/http.ts';
 
 // Endereço digitado não passa disso; texto maior é abuso ou erro.
 const TAMANHO_MAXIMO_INPUT = 200;
 const TAMANHO_MAXIMO_SESSION_TOKEN = 128;
 
 /** O Authorization recebido corresponde a um usuário do Auth? */
-async function usuarioValido(authorization: string): Promise<boolean> {
-  const cliente = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    chavePublica(),
-    {
-      global: { headers: { Authorization: authorization } },
-      auth: { autoRefreshToken: false, persistSession: false },
-    },
-  );
-  const {
-    data: { user },
-    error,
-  } = await cliente.auth.getUser();
-  return !error && !!user;
-}
+const usuarioValido = criarValidadorDeUsuario(
+  createClient,
+  Deno.env.get('SUPABASE_URL') ?? '',
+  chavePublica,
+);
 
 interface AutocompleteRequest {
   input: string;
@@ -58,12 +46,12 @@ interface PlaceSuggestion {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  const respostaPreflight = preflight(req);
+  if (respostaPreflight) {
+    return respostaPreflight;
   }
 
-  const naoAutorizado = await exigirUsuario(req, usuarioValido, corsHeaders);
+  const naoAutorizado = await exigirUsuario(req, usuarioValido, CORS_PADRAO);
   if (naoAutorizado) {
     return naoAutorizado;
   }
@@ -79,29 +67,17 @@ serve(async (req) => {
         (typeof sessionToken !== 'string' ||
           sessionToken.length > TAMANHO_MAXIMO_SESSION_TOKEN))
     ) {
-      return new Response(
-        JSON.stringify({ error: 'Entrada inválida', predictions: [] }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return jsonResponse(400, { error: 'Entrada inválida', predictions: [] });
     }
 
     if (!input || input.length < 3) {
-      return new Response(JSON.stringify({ predictions: [] }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(200, { predictions: [] });
     }
 
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!apiKey) {
       console.error('[Places Autocomplete] GOOGLE_MAPS_API_KEY ausente');
-      return new Response(JSON.stringify({ error: 'Serviço indisponível' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse(500, { error: 'Serviço indisponível' });
     }
 
     // Places API (New): POST com body JSON (antes: GET com query params)
@@ -150,18 +126,11 @@ serve(async (req) => {
         response.status,
         data.error?.message,
       );
-      return new Response(
-        // A mensagem da Google fica no log acima; para fora, só o genérico.
-        JSON.stringify({
-          error: 'Erro na API de autocomplete',
-          status: 'REQUEST_DENIED',
-          predictions: [],
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      );
+      return jsonResponse(400, {
+        error: 'Erro na API de autocomplete',
+        status: 'REQUEST_DENIED',
+        predictions: [],
+      });
     }
 
     // Adaptar suggestions (New) para o contrato legado que o app consome
@@ -177,28 +146,16 @@ serve(async (req) => {
         },
       }));
 
-    return new Response(
-      JSON.stringify({
-        predictions,
-        status: predictions.length > 0 ? 'OK' : 'ZERO_RESULTS',
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    );
+    return jsonResponse(200, {
+      predictions,
+      status: predictions.length > 0 ? 'OK' : 'ZERO_RESULTS',
+    });
   } catch (error) {
     console.error('[Places Autocomplete] Exception:', error);
-    return new Response(
-      JSON.stringify({
-        error: 'Erro interno',
-        status: 'INTERNAL_ERROR',
-        predictions: [],
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      },
-    );
+    return jsonResponse(500, {
+      error: 'Erro interno',
+      status: 'INTERNAL_ERROR',
+      predictions: [],
+    });
   }
 });

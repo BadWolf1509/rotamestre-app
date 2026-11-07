@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useSoltarNaLista } from '@/hooks/gestao-rotas/useSoltarNaLista';
 import {
   mensagemEntregaAntesDaRetirada,
   primeiraViolacaoNova,
@@ -89,7 +90,6 @@ export function useReorderState({
   // identidade do array jogava fora a ordem que o gestor acabou de montar.
   const [ordemLocal, setOrdemLocal] = useState<string[] | null>(null);
   const [avisoVinculo, setAviso] = useState<string | null>(null);
-  const [resetToken, setResetToken] = useState(0);
 
   // Separar paradas fixas (concluídas/puladas) das reordenáveis
   const { fixedParadas, reorderableParadas } = useMemo(() => {
@@ -179,23 +179,12 @@ export function useReorderState({
     [fixedParadas],
   );
 
-  // Handler de reordenação (mobile - drag-and-drop)
-  const handleDragEnd = useCallback(
-    async (data: Parada[]) => {
-      if (!canReorder) return;
-
-      // Soltar sem mudar a ordem (toque longo sem mexer, ou devolver ao
-      // lugar) não é uma reordenação: gravaria a mesma ordem e fecharia o
-      // modal como se o gestor tivesse salvo.
-      const mesmaOrdem =
-        data.length === currentWebList.length &&
-        data.every((p, i) => p.id === currentWebList[i]?.id);
-      if (mesmaOrdem) return;
-
-      if (recusaPorVinculo(currentWebList, data)) {
-        setResetToken((t) => t + 1);
-        return;
-      }
+  // Handler de reordenação (mobile - drag-and-drop). A guarda comum (mesma
+  // ordem, recusa, falha de gravação) mora em useSoltarNaLista.
+  const aplicarArrasto = useCallback(
+    async (data: Parada[]): Promise<boolean> => {
+      if (!canReorder) return false;
+      if (recusaPorVinculo(currentWebList, data)) return false;
 
       // Recalcular ordem considerando as paradas fixas
       const newOrder = data.map((p, idx) => ({
@@ -204,9 +193,14 @@ export function useReorderState({
       }));
 
       await onReorder([...fixedParadas, ...newOrder]);
+      return true;
     },
     [canReorder, currentWebList, fixedParadas, onReorder, recusaPorVinculo],
   );
+  const { onDragEnd: handleDragEnd, resetToken } = useSoltarNaLista({
+    ordemAtual: currentWebList,
+    aplicar: aplicarArrasto,
+  });
 
   // Move parada para cima
   const moveUp = useCallback(

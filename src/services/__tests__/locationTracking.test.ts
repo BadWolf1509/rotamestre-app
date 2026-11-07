@@ -135,8 +135,6 @@ describe('LocationTrackingService', () => {
 
     // Reset singleton internal state
     (locationTrackingService as any).navigationState = null;
-    (locationTrackingService as any).chegadaAnunciadaPara = null;
-    (locationTrackingService as any).lastNotificationTime = 0;
 
     // Default mock state
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
@@ -371,6 +369,38 @@ describe('LocationTrackingService', () => {
       );
     });
 
+    // R-MOT-6: dois toques rápidos em chaves diferentes liam o mesmo `current`
+    // e a segunda gravação apagava a primeira.
+    it('duas chamadas concorrentes não perdem uma à outra', async () => {
+      let guardado: string | null = null;
+      (AsyncStorage.getItem as jest.Mock).mockImplementation(async () => {
+        const lido = guardado;
+        await Promise.resolve();
+        await Promise.resolve();
+        return lido;
+      });
+      (AsyncStorage.setItem as jest.Mock).mockImplementation(
+        async (_chave: string, valor: string) => {
+          await Promise.resolve();
+          guardado = valor;
+        },
+      );
+
+      await Promise.all([
+        locationTrackingService.updateNavigationPreferences({
+          soundAlerts: false,
+        }),
+        locationTrackingService.updateNavigationPreferences({
+          vibrationAlerts: false,
+        }),
+      ]);
+
+      expect(JSON.parse(guardado ?? '{}')).toEqual({
+        soundAlerts: false,
+        vibrationAlerts: false,
+      });
+    });
+
     it('deve criar preferências se não existirem', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
       const newPrefs = { navegarCom: 'externo' as const };
@@ -440,9 +470,10 @@ describe('LocationTrackingService', () => {
       expect(estado.soundAlerts).toBe(true);
       expect(estado.proximityRadius).toBe(50);
       expect(estado.rotaId).toBe('rota-1');
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      // B-MOT-5: o estado vive só em memória; nada é gravado em disco.
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
         'navigationState',
-        JSON.stringify(estado),
+        expect.anything(),
       );
     });
   });
@@ -503,9 +534,10 @@ describe('LocationTrackingService', () => {
           distanceInterval: 10,
         }),
       );
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      // B-MOT-5: ninguém lia o JSON em disco; o estado fica só em memória.
+      expect(AsyncStorage.setItem).not.toHaveBeenCalledWith(
         'navigationState',
-        expect.stringContaining('"rotaId":"rota-1"'),
+        expect.anything(),
       );
 
       // Verify navigation state was set correctly
@@ -727,7 +759,6 @@ describe('LocationTrackingService', () => {
         enabled: true,
         rotaId: 'r1',
       };
-      (locationTrackingService as any).chegadaAnunciadaPara = 'stop-1';
       (
         Location.hasStartedLocationUpdatesAsync as jest.Mock
       ).mockResolvedValueOnce(true);
@@ -738,9 +769,7 @@ describe('LocationTrackingService', () => {
       expect(Location.stopLocationUpdatesAsync).toHaveBeenCalledWith(
         'background-location-tracking',
       );
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('navigationState');
       expect((locationTrackingService as any).navigationState).toBeNull();
-      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
     });
 
     it('deve limpar estado sem erro quando nenhuma task rodando', async () => {
@@ -752,7 +781,6 @@ describe('LocationTrackingService', () => {
 
       expect(result).toBe(true);
       expect(Location.stopLocationUpdatesAsync).not.toHaveBeenCalled();
-      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('navigationState');
     });
   });
 
@@ -917,59 +945,6 @@ describe('LocationTrackingService', () => {
 
       expect(mockFrom).not.toHaveBeenCalledWith('motorista_locations');
     });
-
-    it('anuncia a chegada quando dentro do geofence com accuracy válida', async () => {
-      setUpNavigationState();
-
-      // Same coordinates as stop = 0m distance, accuracy 10 <= 50
-      await locationTrackingService.processLocationUpdate({
-        ...baseLocation,
-        latitude: stopLocation.latitude,
-        longitude: stopLocation.longitude,
-        accuracy: 10,
-      });
-
-      expect((locationTrackingService as any).chegadaAnunciadaPara).toBe(
-        'stop-1',
-      );
-    });
-
-    it('NÃO considera chegada quando accuracy > MIN_ACCURACY (50m)', async () => {
-      setUpNavigationState();
-
-      await locationTrackingService.processLocationUpdate({
-        ...baseLocation,
-        latitude: stopLocation.latitude,
-        longitude: stopLocation.longitude,
-        accuracy: 100, // > 50m MIN_ACCURACY
-      });
-
-      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
-    });
-
-    it('volta a anunciar depois que o motorista sai do raio', async () => {
-      setUpNavigationState();
-
-      await locationTrackingService.processLocationUpdate({
-        ...baseLocation,
-        latitude: stopLocation.latitude,
-        longitude: stopLocation.longitude,
-        accuracy: 10,
-      });
-      expect((locationTrackingService as any).chegadaAnunciadaPara).toBe(
-        'stop-1',
-      );
-
-      // ~1100m de distância
-      await locationTrackingService.processLocationUpdate({
-        ...baseLocation,
-        latitude: -23.56,
-        longitude: -46.64,
-        accuracy: 10,
-      });
-
-      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
-    });
   });
 
   // =========================================================================
@@ -1031,152 +1006,6 @@ describe('LocationTrackingService', () => {
       for (const chain of chains) {
         expect(chain.update).not.toHaveBeenCalled();
       }
-    });
-  });
-
-  // =========================================================================
-  // handleProximityNotifications (via processLocationUpdate)
-  // =========================================================================
-
-  describe('handleProximityNotifications via processLocationUpdate', () => {
-    const stopLocation = { latitude: -23.55, longitude: -46.63 };
-
-    function setUpNavigationState() {
-      (locationTrackingService as any).navigationState = {
-        enabled: true,
-        soundAlerts: false,
-        vibrationAlerts: false,
-        proximityRadius: 50,
-        currentStopLocation: stopLocation,
-        currentStopId: 'stop-1',
-        rotaId: 'rota-1',
-      };
-    }
-
-    it('deve atualizar lastNotificationTime para distância < 100m', async () => {
-      setUpNavigationState();
-      (locationTrackingService as any).lastNotificationTime = 0;
-
-      // ~78m from stop (within 100m, outside 50m geofence)
-      await locationTrackingService.processLocationUpdate({
-        latitude: -23.5507,
-        longitude: -46.63,
-        accuracy: 10,
-        timestamp: Date.now(),
-      });
-
-      expect(
-        (locationTrackingService as any).lastNotificationTime,
-      ).toBeGreaterThan(0);
-    });
-
-    it('deve atualizar lastNotificationTime para distância < 500m', async () => {
-      setUpNavigationState();
-      (locationTrackingService as any).lastNotificationTime = 0;
-
-      // ~333m from stop (within 500m range)
-      await locationTrackingService.processLocationUpdate({
-        latitude: -23.553,
-        longitude: -46.63,
-        accuracy: 10,
-        timestamp: Date.now(),
-      });
-
-      expect(
-        (locationTrackingService as any).lastNotificationTime,
-      ).toBeGreaterThan(0);
-    });
-
-    it('deve respeitar throttle de 30 segundos', async () => {
-      setUpNavigationState();
-      // Set last notification to "just now"
-      (locationTrackingService as any).lastNotificationTime = Date.now();
-
-      const timeBefore = (locationTrackingService as any).lastNotificationTime;
-
-      // ~78m from stop
-      await locationTrackingService.processLocationUpdate({
-        latitude: -23.5507,
-        longitude: -46.63,
-        accuracy: 10,
-        timestamp: Date.now(),
-      });
-
-      // Should NOT update because throttle (< 30s since last)
-      expect((locationTrackingService as any).lastNotificationTime).toBe(
-        timeBefore,
-      );
-    });
-  });
-  // =========================================================================
-  // Chegada anunciada UMA vez por parada (TST-8)
-  // =========================================================================
-
-  describe('aviso de chegada', () => {
-    const naParada = {
-      latitude: -23.55,
-      longitude: -46.63,
-      accuracy: 10,
-      timestamp: 1_700_000_000_000,
-    };
-    let enviar: jest.SpyInstance;
-
-    beforeEach(() => {
-      (locationTrackingService as any).navigationState = {
-        enabled: true,
-        soundAlerts: false,
-        vibrationAlerts: false,
-        proximityRadius: 50,
-        currentStopLocation: { latitude: -23.55, longitude: -46.63 },
-        currentStopId: 'stop-1',
-        rotaId: 'rota-1',
-      };
-      enviar = jest.spyOn(locationTrackingService as any, 'sendNotification');
-    });
-
-    afterEach(() => enviar.mockRestore());
-
-    it('a segunda leitura no mesmo lugar não repete o aviso', async () => {
-      await locationTrackingService.processLocationUpdate(naParada);
-      await locationTrackingService.processLocationUpdate(naParada);
-
-      expect(enviar).toHaveBeenCalledTimes(1);
-      expect(enviar.mock.calls[0][0]).toContain('chegou');
-    });
-
-    it('sai do raio e volta: avisa de novo', async () => {
-      await locationTrackingService.processLocationUpdate(naParada);
-      // ~1100 m adiante: sai do raio
-      await locationTrackingService.processLocationUpdate({
-        ...naParada,
-        latitude: -23.56,
-      });
-      enviar.mockClear();
-      await locationTrackingService.processLocationUpdate(naParada);
-
-      expect(enviar).toHaveBeenCalledTimes(1);
-      expect(enviar.mock.calls[0][0]).toContain('chegou');
-    });
-
-    it('precisão pior que 50 m não anuncia chegada (cai no aviso de proximidade)', async () => {
-      await locationTrackingService.processLocationUpdate({
-        ...naParada,
-        accuracy: 51,
-      });
-
-      expect(
-        enviar.mock.calls.some(([t]) => String(t).includes('chegou')),
-      ).toBe(false);
-      expect((locationTrackingService as any).chegadaAnunciadaPara).toBeNull();
-    });
-
-    it('sem parada atual no estado, não anuncia', async () => {
-      (locationTrackingService as any).navigationState.currentStopId =
-        undefined;
-
-      await locationTrackingService.processLocationUpdate(naParada);
-
-      expect(enviar).not.toHaveBeenCalled();
     });
   });
 

@@ -76,9 +76,11 @@ export function Toast({
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
   const wasVisibleRef = useRef(false);
+  const jaDispensouRef = useRef(false);
   const dismissCallback = onDismiss || onHide;
 
   const handleDismiss = useCallback(() => {
+    jaDispensouRef.current = true;
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -96,7 +98,14 @@ export function Toast({
   }, [fadeAnim, dismissCallback, translateY]);
 
   useEffect(() => {
+    const estavaVisivel = wasVisibleRef.current;
+    // Grava antes de qualquer retorno antecipado (o cleanup do timer saía antes
+    // e o ramo "pai escondeu" nunca rodava: B-UI-3).
+    wasVisibleRef.current = visible;
+
     if (visible) {
+      // Novo show na mesma instância (useToast): rearma o ramo "pai escondeu".
+      if (!estavaVisivel) jaDispensouRef.current = false;
       // Slide in + fade in
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -119,11 +128,9 @@ export function Toast({
         }, duration);
         return () => clearTimeout(timer);
       }
-    } else if (wasVisibleRef.current) {
+    } else if (estavaVisivel && !jaDispensouRef.current) {
       handleDismiss();
     }
-
-    wasVisibleRef.current = visible;
   }, [duration, handleDismiss, type, translateY, visible, fadeAnim]);
 
   if (!visible) return null;

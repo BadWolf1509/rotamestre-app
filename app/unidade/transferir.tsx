@@ -18,7 +18,9 @@ import { useAlert } from '@/hooks/useAlert';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
+import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
+import { ehGestorPrincipalDaLoja } from '@/lib/gestor/equipeDaLoja';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
@@ -34,6 +36,10 @@ export default function TransferirGestaoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { userData, loading: userLoading } = useUser();
+  // Loja aberta no seletor (B-DB-2), não a coluna legada usuarios.unidade_id:
+  // com a loja B aberta, a tela mostrava a equipe e chamava a RPC da A.
+  const { unidadeAtiva, unidadeAtivaData } = useUnidadeAtiva();
+  const nomeDaLoja = unidadeAtivaData?.nome;
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -50,10 +56,12 @@ export default function TransferirGestaoScreen() {
   const [transferring, setTransferring] = useState(false);
   const isDesktopView = isDesktop;
   const isLoading = userLoading || loading;
-  const isGestorPrincipal = userData?.is_gestor_principal === true;
+  // Principal DESTA loja: o flag vale no slot legado, e a RPC só aceita o
+  // principal da própria loja (ver ehGestorPrincipalDaLoja).
+  const isGestorPrincipal = ehGestorPrincipalDaLoja(userData, unidadeAtiva);
 
   const loadGestoresElegiveis = useCallback(async () => {
-    const unidadeId = userData?.unidade_id;
+    const unidadeId = isGestorPrincipal ? unidadeAtiva : null;
     if (!unidadeId) {
       setGestores([]);
       setLoading(false);
@@ -81,7 +89,7 @@ export default function TransferirGestaoScreen() {
     } finally {
       setLoading(false);
     }
-  }, [showToast, userData?.unidade_id]);
+  }, [showToast, isGestorPrincipal, unidadeAtiva]);
 
   useEffect(() => {
     loadGestoresElegiveis();
@@ -104,7 +112,7 @@ export default function TransferirGestaoScreen() {
       return;
     }
 
-    if (!selectedGestor) return;
+    if (!selectedGestor || !unidadeAtiva) return;
 
     const novoGestor = gestores.find((g) => g.id === selectedGestor);
     if (!novoGestor) return;
@@ -113,7 +121,7 @@ export default function TransferirGestaoScreen() {
       setTransferring(true);
 
       const { error } = await supabase.rpc('transferir_gestao_principal', {
-        p_unidade_id: userData!.unidade_id,
+        p_unidade_id: unidadeAtiva,
         p_novo_gestor_id: selectedGestor,
       });
 
@@ -139,7 +147,7 @@ export default function TransferirGestaoScreen() {
   }
 
   // Verificar se é gestor principal
-  if (!userData?.is_gestor_principal) {
+  if (!isGestorPrincipal) {
     return (
       <ErrorBoundary>
         <View style={styles.container}>
@@ -148,7 +156,7 @@ export default function TransferirGestaoScreen() {
               <View>
                 <Text style={styles.headerTitle}>Transferir Gestão</Text>
                 <Text style={styles.headerSubtitle}>
-                  {userData?.unidades?.nome}
+                  {nomeDaLoja}
                 </Text>
               </View>
             </View>
@@ -291,7 +299,7 @@ export default function TransferirGestaoScreen() {
         <ErrorBoundary>
           <DesktopPageLayout
             title={pageMeta.title}
-            subtitle={userData?.unidades?.nome}
+            subtitle={nomeDaLoja}
             breadcrumbs={pageMeta.breadcrumbs}
             userMenuTrigger={userMenuTrigger}
             userMenuItems={userMenuItems}
@@ -315,7 +323,7 @@ export default function TransferirGestaoScreen() {
       <ErrorBoundary>
         <DesktopPageLayout
           title={pageMeta.title}
-          subtitle={userData?.unidades?.nome}
+          subtitle={nomeDaLoja}
           breadcrumbs={pageMeta.breadcrumbs}
           userMenuTrigger={userMenuTrigger}
           userMenuItems={userMenuItems}
@@ -349,7 +357,7 @@ export default function TransferirGestaoScreen() {
               <View>
                 <Text style={styles.headerTitle}>Transferir Gestão</Text>
                 <Text style={styles.headerSubtitle}>
-                  {userData?.unidades?.nome}
+                  {nomeDaLoja}
                 </Text>
               </View>
             </View>
@@ -376,7 +384,7 @@ export default function TransferirGestaoScreen() {
         <View style={styles.mobileContent}>
           <MobileCard
             title="Transferir Gestão Principal"
-            subtitle={userData?.unidades?.nome}
+            subtitle={nomeDaLoja}
             variant="bordered"
           >
             {renderMainContent()}

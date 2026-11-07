@@ -2,8 +2,5 @@
   "name": "rotamestre-scripts",
   "version": "1.0.0",
   "description": "Scripts utilitários do RotaMestre",
-  "type": "module",
-  "dependencies": {
-    "sharp": "^0.34.4"
-  }
+  "type": "module"
 }

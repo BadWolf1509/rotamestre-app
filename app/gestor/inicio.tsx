@@ -25,7 +25,7 @@ export default function GestorInicio() {
   // dele não existe na nova e o painel mostraria "nenhuma rota". Ajuste
   // durante o render (e não num useEffect) para que a carga da loja nova já
   // saia sem o filtro, em vez de consultar uma vez com a combinação inválida.
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const { unidadeAtiva, unidadeAtivaData } = useUnidadeAtiva();
   const [lojaDosFiltros, setLojaDosFiltros] = useState(unidadeAtiva);
   if (lojaDosFiltros !== unidadeAtiva) {
     setLojaDosFiltros(unidadeAtiva);
@@ -49,6 +49,7 @@ export default function GestorInicio() {
       <ErrorBoundary>
         <DashboardDesktop
           {...dashboardData}
+          unidadeNome={unidadeAtivaData?.nome}
           filters={filters}
           onFiltersChange={setFilters}
         />
@@ -60,6 +61,7 @@ export default function GestorInicio() {
     <ErrorBoundary>
       <DashboardMobile
         {...dashboardData}
+        unidadeNome={unidadeAtivaData?.nome}
         filters={filters}
         onFiltersChange={setFilters}
       />

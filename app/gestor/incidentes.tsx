@@ -19,7 +19,7 @@ import {
   ErrorBoundary,
   FilterChip,
   MobileCard,
-  MobileEmptyState,
+  EmptyState,
   MobileLoading,
   StatusBadge,
   Toast,
@@ -387,10 +387,11 @@ export default function IncidentesScreen() {
 
     if (incidentes.length === 0) {
       return (
-        <MobileEmptyState
-          icon="⚠️"
+        <EmptyState
+          compact
+          emoji="⚠️"
           title="Nenhum incidente"
-          subtitle="Não há incidentes reportados no momento."
+          description="Não há incidentes reportados no momento."
         />
       );
     }

@@ -36,10 +36,12 @@ jest.mock('@/lib/supabase', () => ({
       select: () => ({
         eq: (_c: string, loja: string) => ({
           eq: () => ({
-            eq: () =>
-              new Promise((resolve) => {
-                mockRespostas[loja] = { resolver: resolve };
-              }),
+            eq: () => ({
+              returns: () =>
+                new Promise((resolve) => {
+                  mockRespostas[loja] = { resolver: resolve };
+                }),
+            }),
           }),
         }),
       }),

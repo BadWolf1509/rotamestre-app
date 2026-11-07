@@ -32,12 +32,6 @@ const TRACKING_CONTEXT_KEY = CHAVE_CONTEXTO_RASTREAMENTO;
 
 // Configurações de tracking
 const CONFIG = {
-  // Foreground (app aberto)
-  foreground: {
-    accuracy: Location.Accuracy.High,
-    timeInterval: 10000, // 10 segundos
-    distanceInterval: 20, // 20 metros
-  },
   // Background (app minimizado/fechado)
   background: {
     accuracy: Location.Accuracy.Balanced, // Economia de bateria
@@ -439,26 +433,6 @@ export async function getTrackingContext(): Promise<TrackingContext | null> {
       error,
     );
     return null;
-  }
-}
-
-/**
- * Atualiza o contexto de rastreamento
- * Útil para atualizar informações sem reiniciar o tracking
- */
-export async function updateTrackingContext(
-  updates: Partial<TrackingContext>,
-): Promise<void> {
-  try {
-    const current = await getTrackingContext();
-    if (current) {
-      await AsyncStorage.setItem(
-        TRACKING_CONTEXT_KEY,
-        JSON.stringify({ ...current, ...updates }),
-      );
-    }
-  } catch (err) {
-    logger.error('[LocationTracking] Erro ao atualizar contexto', err);
   }
 }
 

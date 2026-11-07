@@ -5,6 +5,8 @@
  * Todas as mensagens são genéricas e seguras.
  */
 
+import { ehFalhaDeRede, PADRAO_MENSAGEM_DE_REDE } from './falhaDeRede';
+
 // ============================================================================
 // TIPOS
 // ============================================================================
@@ -505,10 +507,9 @@ const ERROR_PATTERNS: Array<{
     },
   },
 
-  // Erros de rede
+  // Erros de rede (padrão único: src/lib/falhaDeRede.ts, R-NUC-2)
   {
-    pattern:
-      /network|connection|offline|fetch.*failed|failed to fetch|\bload failed|sem conexão|econnrefused/i,
+    pattern: PADRAO_MENSAGEM_DE_REDE,
     result: {
       title: 'Sem conexão',
       message: 'Verifique sua conexão com a internet e tente novamente.',
@@ -630,9 +631,12 @@ export function getErrorString(error: unknown): string {
 }
 
 /**
- * Verifica se é um erro de rede/conexão
+ * Verifica se é um erro de rede/conexão. Rede pela fonte única
+ * (`ehFalhaDeRede`, que também reconhece as classes de erro do supabase-js),
+ * ou tempo esgotado pelo mapa de mensagens.
  */
 export function isNetworkError(error: unknown): boolean {
+  if (ehFalhaDeRede(error)) return true;
   const result = getErrorMessage(error);
   return result.code === 'NETWORK_ERROR' || result.code === 'TIMEOUT';
 }

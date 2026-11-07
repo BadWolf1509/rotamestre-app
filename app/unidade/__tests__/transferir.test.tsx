@@ -63,6 +63,19 @@ jest.mock('@/hooks/useUser', () => ({
   useUser: () => mockUseUser(),
 }));
 
+// Loja aberta no seletor (B-DB-2): a tela segue ela, não a coluna legada
+// usuarios.unidade_id.
+let mockUnidadeAtiva: string | null = 'unidade-1';
+jest.mock('@/hooks/useUnidadeAtiva', () => ({
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockUnidadeAtiva,
+    unidadeAtivaData: mockUnidadeAtiva
+      ? { id: mockUnidadeAtiva, nome: `Loja ${mockUnidadeAtiva}` }
+      : null,
+    loading: false,
+  }),
+}));
+
 // Força o branch mobile: mesmo motivo de
 // app/unidade/__tests__/{index,equipe}.test.tsx — o branch desktop monta
 // DesktopPageLayout por completo.
@@ -113,6 +126,7 @@ const mockRpc = jest.fn();
 describe('TransferirGestaoScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUnidadeAtiva = 'unidade-1';
     mockUseUser.mockReturnValue({ userData: GESTOR_PRINCIPAL, loading: false });
     (mockSupabase.from as jest.Mock).mockImplementation(() =>
       usuariosQueryBuilder(),
@@ -200,6 +214,39 @@ describe('TransferirGestaoScreen', () => {
   // is_gestor_principal = true (ver task-5-report.md, seção Preocupações) —
   // ou seja, todo gestor real que abrir esta tela cai neste portão. Ele
   // nunca tinha teste.
+  // B-DB-2: gestor de duas lojas, principal só da A (o flag vale no slot
+  // legado usuarios.unidade_id), com a B aberta no seletor. A tela mostrava
+  // a A (lista e RPC da loja legada); a RPC só aceita o principal da própria
+  // loja, então na B a tela tem de bloquear, sem consultar a equipe.
+  it('com outra loja aberta no seletor, bloqueia: o principal é da loja legada', async () => {
+    mockUnidadeAtiva = 'unidade-2';
+
+    render(<TransferirGestaoScreen />);
+
+    expect(
+      await screen.findByText(
+        'Apenas o gestor principal pode transferir a gestão.',
+      ),
+    ).toBeTruthy();
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('lista os gestores da loja aberta no seletor', async () => {
+    const consultas: ReturnType<typeof usuariosQueryBuilder>[] = [];
+    (mockSupabase.from as jest.Mock).mockImplementation(() => {
+      const q = usuariosQueryBuilder();
+      consultas.push(q);
+      return q;
+    });
+
+    render(<TransferirGestaoScreen />);
+    await screen.findByText('Gestor Dois');
+
+    expect(consultas[0].eq).toHaveBeenCalledWith('unidade_id', 'unidade-1');
+    expect(screen.getByText('Loja unidade-1')).toBeTruthy();
+  });
+
   it('bloqueia quem não é gestor principal, sem chamar a RPC ou os alertas', async () => {
     mockUseUser.mockReturnValue({
       userData: { ...GESTOR_PRINCIPAL, is_gestor_principal: false },

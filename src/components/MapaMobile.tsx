@@ -2,6 +2,7 @@ import * as MapLibreGL from '@maplibre/maplibre-react-native';
 import React, { useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { useLocationTracking } from '@/components/map/hooks/useLocationTracking';
 import { useMarkerGestures } from '@/components/map/hooks/useMarkerGestures';
 import { useMobileMapCamera } from '@/components/map/hooks/useMobileMapCamera';
@@ -181,7 +182,7 @@ export function MapaMobile({
             <MapLibreGL.Layer
               id="rota-line"
               type="line"
-              paint={{ 'line-color': theme.colors.primary, 'line-width': 4 }}
+              paint={{ 'line-color': CORES_SOBRE_O_MAPA.marca, 'line-width': 4 }}
             />
           </MapLibreGL.GeoJSONSource>
         )}

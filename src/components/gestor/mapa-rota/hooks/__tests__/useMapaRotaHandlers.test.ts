@@ -60,6 +60,12 @@ jest.mock('@/lib/routeUtils', () => ({
   notificarMotoristaRotaEditada: jest.fn(),
 }));
 
+const mockMarcarOtimizacao = jest.fn();
+jest.mock('@/lib/gestor/otimizacaoRota', () => ({
+  marcarOtimizacaoAlterada: (...args: unknown[]) =>
+    mockMarcarOtimizacao(...args),
+}));
+
 // Só as chamadas às RPCs viram mock; as mensagens ficam as reais.
 jest.mock('@/lib/gestor/acoesRota', () => ({
   ...jest.requireActual('@/lib/gestor/acoesRota'),
@@ -264,7 +270,6 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
     loadRotaEParadas: jest.fn().mockResolvedValue(undefined),
   };
 
-  let mockUpdate: jest.Mock;
   let mockLogInsert: jest.Mock;
 
   const setupReorder = (rota: Rota) =>
@@ -272,69 +277,28 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // O UPDATE de otimizacao_estado agora encadeia `.select('id')` e passa
-    // pelo mesmo `assertUpdateAfetouLinhas` das outras escritas desta tela
-    // (revisão do PR #480, item 3) — sem isso, uma linha 0 (RLS) e `error:
-    // null` era anunciada como sucesso na auditoria.
-    mockUpdate = jest.fn(() => ({
-      eq: jest.fn(() => ({
-        select: jest
-          .fn()
-          .mockResolvedValue({ data: [{ id: 'rota-1' }], error: null }),
-      })),
-    }));
     mockLogInsert = jest.fn().mockResolvedValue({ error: null });
     (supabase.from as jest.Mock).mockImplementation(() => ({
-      update: mockUpdate,
       insert: mockLogInsert,
     }));
     (reordenarParadas as jest.Mock).mockResolvedValue({ success: true });
     (recalcularRota as jest.Mock).mockResolvedValue({ success: true });
+    mockMarcarOtimizacao.mockResolvedValue(true);
   });
 
-  it('marca otimizada_alterada quando reordena uma rota otimizada', async () => {
-    const { result } = setupReorder({
-      ...rotaBase,
-      otimizacao_estado: 'otimizada',
-    });
-
-    await act(async () => {
-      await result.current.handleReorderParadas(newOrder);
-    });
-
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ otimizacao_estado: 'otimizada_alterada' }),
-    );
-  });
-
-  it('nao mexe no estado de uma rota sem registro', async () => {
+  it('R-GES-2: marca pelo helper condicional, sem decidir pelo estado velho da tela', async () => {
+    // A tela ainda diz `null` (retrato velho): quem decide é o UPDATE
+    // condicional a 'otimizada' no banco.
     const { result } = setupReorder({ ...rotaBase, otimizacao_estado: null });
 
     await act(async () => {
       await result.current.handleReorderParadas(newOrder);
     });
 
-    expect(mockUpdate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ otimizacao_estado: expect.anything() }),
-    );
+    expect(mockMarcarOtimizacao).toHaveBeenCalledWith('rota-1');
   });
 
-  it('nao promove uma rota ja marcada como manual', async () => {
-    const { result } = setupReorder({
-      ...rotaBase,
-      otimizacao_estado: 'manual',
-    });
-
-    await act(async () => {
-      await result.current.handleReorderParadas(newOrder);
-    });
-
-    expect(mockUpdate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ otimizacao_estado: expect.anything() }),
-    );
-  });
-
-  it('registra desfez_otimizacao no log quando desfaz a otimizacao', async () => {
+  it('registra desfez_otimizacao=true quando o helper marcou a rota', async () => {
     const { result } = setupReorder({
       ...rotaBase,
       otimizacao_estado: 'otimizada',
@@ -352,31 +316,11 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
     );
   });
 
-  it('registra desfez_otimizacao=false quando a rota nao estava otimizada', async () => {
-    const { result } = setupReorder({ ...rotaBase, otimizacao_estado: null });
-
-    await act(async () => {
-      await result.current.handleReorderParadas(newOrder);
-    });
-
-    expect(mockLogInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        detalhes: expect.objectContaining({ desfez_otimizacao: false }),
-      }),
-    );
-  });
-
-  it('nao interrompe a reordenacao quando a marcacao de estado falha', async () => {
+  it('registra desfez_otimizacao=false quando nada foi marcado (sem registro, manual, RLS ou falha)', async () => {
+    mockMarcarOtimizacao.mockResolvedValue(false);
     const { result } = setupReorder({
       ...rotaBase,
       otimizacao_estado: 'otimizada',
-    });
-    mockUpdate.mockReturnValueOnce({
-      eq: jest.fn(() => ({
-        select: jest
-          .fn()
-          .mockResolvedValue({ data: null, error: { message: 'boom' } }),
-      })),
     });
 
     await act(async () => {
@@ -385,38 +329,6 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
       ).resolves.toBeUndefined();
     });
 
-    // `error`, não `warn`: warn é __DEV__-only e sumiria em produção, deixando
-    // a falha de auditoria sem rastro nenhum.
-    expect(logger.error).toHaveBeenCalledWith(
-      '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
-      expect.anything(),
-    );
-    // A reordenação em si não pode ser derrubada pela falha de auditoria.
-    expect(mockLogInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ evento: 'paradas_reordenadas' }),
-    );
-  });
-
-  it('registra desfez_otimizacao=false quando a marcacao de estado falha (a coluna nao mudou)', async () => {
-    const { result } = setupReorder({
-      ...rotaBase,
-      otimizacao_estado: 'otimizada',
-    });
-    mockUpdate.mockReturnValueOnce({
-      eq: jest.fn(() => ({
-        select: jest
-          .fn()
-          .mockResolvedValue({ data: null, error: { message: 'boom' } }),
-      })),
-    });
-
-    await act(async () => {
-      await result.current.handleReorderParadas(newOrder);
-    });
-
-    // O UPDATE falhou: `rotas.otimizacao_estado` continua 'otimizada' no
-    // banco. O log não pode afirmar `desfez_otimizacao: true` nesse caso —
-    // isso mentiria sobre o que de fato aconteceu.
     expect(mockLogInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         evento: 'paradas_reordenadas',
@@ -425,36 +337,55 @@ describe('useMapaRotaHandlers — reordenar paradas (auditoria de otimização)'
     );
   });
 
-  // Revisão do PR #480, item 3: antes desta correção, este UPDATE não
-  // encadeava `.select('id')` — um RLS barrando a escrita voltava 204 com
-  // ZERO linhas e `error: null`, e a auditoria gravava `desfez_otimizacao:
-  // true` para uma coluna que o banco nunca mudou. Sem `.select`, não havia
-  // como distinguir este caso do sucesso: por isso o mock aqui, diferente do
-  // 'boom' acima, não tem `error` nenhum.
-  it('RLS barra o UPDATE de otimizacao_estado (zero linhas, error:null): não afirma desfez_otimizacao', async () => {
-    const { result } = setupReorder({
-      ...rotaBase,
-      otimizacao_estado: 'otimizada',
+  it('erro já avisado (RPC recusou) mostra UM toast e rejeita, sem depender do texto', async () => {
+    (reordenarParadas as jest.Mock).mockResolvedValue({
+      success: false,
+      error: 'Erro ao reordenar paradas.',
     });
-    mockUpdate.mockReturnValueOnce({
-      eq: jest.fn(() => ({
-        select: jest.fn().mockResolvedValue({ data: [], error: null }),
-      })),
-    });
+    const { result } = setupReorder(rotaBase);
 
     await act(async () => {
-      await result.current.handleReorderParadas(newOrder);
+      await expect(
+        result.current.handleReorderParadas(newOrder),
+      ).rejects.toThrow();
     });
 
-    expect(logger.error).toHaveBeenCalledWith(
-      '[useMapaRotaHandlers] Falha ao marcar otimização desfeita',
-      expect.anything(),
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Erro ao reordenar paradas.',
+      'error',
     );
-    expect(mockLogInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        evento: 'paradas_reordenadas',
-        detalhes: expect.objectContaining({ desfez_otimizacao: false }),
-      }),
+  });
+
+  it('mensagem que não começa com "Erro" também não duplica o toast', async () => {
+    (reordenarParadas as jest.Mock).mockResolvedValue({
+      success: false,
+      error: 'Parada já finalizada.',
+    });
+    const { result } = setupReorder(rotaBase);
+
+    await act(async () => {
+      await expect(
+        result.current.handleReorderParadas(newOrder),
+      ).rejects.toThrow();
+    });
+
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+  });
+
+  it('exceção inesperada vira o toast genérico', async () => {
+    (reordenarParadas as jest.Mock).mockRejectedValue(new Error('rede caiu'));
+    const { result } = setupReorder(rotaBase);
+
+    await act(async () => {
+      await expect(
+        result.current.handleReorderParadas(newOrder),
+      ).rejects.toThrow('rede caiu');
+    });
+
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Erro ao reordenar paradas',
+      'error',
     );
   });
 });

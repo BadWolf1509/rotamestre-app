@@ -9,7 +9,7 @@
  * fechar, para o próximo remontar com passo e foto zerados.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type { ParadaData } from '@/context/route-status/types';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
@@ -57,5 +57,9 @@ export function useConclusaoEmSequencia({ paradas, abrirConclusao }: Params) {
           .map((p) => rotuloTipoParada(p.tipo).titulo)
           .join(' + ')}`;
 
-  return { iniciar, aoConcluir, contexto };
+  // Identidade estável: as telas põem `sequencia` em dependências de useCallback.
+  return useMemo(
+    () => ({ iniciar, aoConcluir, contexto }),
+    [iniciar, aoConcluir, contexto],
+  );
 }

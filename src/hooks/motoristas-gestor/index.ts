@@ -13,3 +13,5 @@ export type { UseMotoristasModalsReturn } from './useMotoristasModals';
 
 export { useMotoristasOperations } from './useMotoristasOperations';
 export type { UseMotoristasOperationsReturn } from './useMotoristasOperations';
+
+export type { MotoristaDetalhado } from './types';
