@@ -168,13 +168,13 @@ test.describe('Reports and Export E2E Tests', () => {
   });
 
   test.describe('Route Details Report', () => {
-    test('"Ver Detalhes" leva ao mapa da rota', async ({ page }) => {
+    test('"Ver detalhes" leva ao mapa da rota', async ({ page }) => {
       await gestorPage.gotoGestaoRotas();
       await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
         timeout: 15000,
       });
 
-      await page.getByText('Ver Detalhes').first().click();
+      await page.getByText('Ver detalhes').first().click();
 
       await expect(page).toHaveURL(/mapa-rota/, { timeout: 15000 });
     });
@@ -226,7 +226,7 @@ test.describe('Real-time Tracking E2E Tests', () => {
 
       // Ação de linha da tabela, com o rótulo exato (antes um regex solto
       // /ver.*detalhes|mapa|detalhes/ pegava o primeiro texto que casasse).
-      await page.getByText('Ver Detalhes').first().click();
+      await page.getByText('Ver detalhes').first().click();
 
       await expect(page).toHaveURL(/mapa-rota/, { timeout: 15000 });
     });

@@ -1,29 +1,44 @@
 /**
  * Desktop view (table) for DataTable
+ *
+ * - As colunas preenchem a largura do cartão: `width` é a base, e cada
+ *   coluna cresce na proporção dela (`larguraDaColuna`). Mais estreito que a
+ *   soma das bases, a tabela rola na horizontal.
+ * - Célula de texto em uma linha, com reticências, e o texto inteiro no
+ *   `accessibilityLabel`.
+ * - Ações `danger` vão para o menu "Mais ações" (`MenuDeAcoes`); as outras
+ *   seguem como botão.
+ * - Com `onRowPress`, a linha inteira é clicável; as ações e o menu param a
+ *   propagação, para o clique nelas não abrir a linha também.
  */
 
-import { Ionicons } from "@expo/vector-icons";
-import { memo } from "react";
+import { Ionicons } from '@expo/vector-icons';
+import { memo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   ScrollView,
   DimensionValue,
-} from "react-native";
+  type GestureResponderEvent,
+  type ViewStyle,
+} from 'react-native';
 
-import { useUnistyles } from "@/utils/styles";
+import { useUnistyles } from '@/utils/styles';
 
-import { PaginationDesktop } from "./DataTablePagination";
-import { dataTableStyles as styles } from "./styles";
-import { getColumnDisplayValue } from "./types";
+import { PaginationDesktop } from './DataTablePagination';
+import { MenuDeAcoes } from './MenuDeAcoes';
+import { dataTableStyles as styles } from './styles';
+import { getColumnDisplayValue } from './types';
 
-import type { DataTableColumn, DataTableAction, DataTableItem } from "./types";
+import type { DataTableColumn, DataTableAction, DataTableItem } from './types';
 
 interface DataTableDesktopViewProps<T> {
   data: T[];
   columns: DataTableColumn<T>[];
   actions?: DataTableAction<T>[];
+  onRowPress?: (item: T) => void;
   keyExtractor: (item: T) => string;
   title?: string;
   currentPage: number;
@@ -33,17 +48,40 @@ interface DataTableDesktopViewProps<T> {
   totalItems: number;
   pagination: boolean;
   sortColumn: string | null;
-  sortDirection: "asc" | "desc";
+  sortDirection: 'asc' | 'desc';
   onSort: (columnKey: string) => void;
   onPrevious: () => void;
   onNext: () => void;
   testID?: string;
 }
 
+/** Largura-base sem `width` (era o `minWidth` de antes). */
+const LARGURA_BASE_PADRAO = 100;
+/** Largura de cada botão de ação visível e do botão "⋯". */
+const LARGURA_BOTAO_ACAO = 130;
+const LARGURA_MENU = 48;
+
+/**
+ * Número: cresce na proporção da base (`flexGrow: width`, `flexBasis: width`)
+ * e nunca encolhe abaixo dela. String ('20%'): largura fixa, como antes.
+ */
+function larguraDaColuna(width: number | string | undefined): ViewStyle {
+  if (typeof width === 'string') {
+    return { width: width as DimensionValue, minWidth: LARGURA_BASE_PADRAO };
+  }
+  const base = width ?? LARGURA_BASE_PADRAO;
+  return { flexGrow: base, flexShrink: 0, flexBasis: base };
+}
+
+function pararPropagacao(evento?: GestureResponderEvent) {
+  evento?.stopPropagation?.();
+}
+
 function DataTableDesktopViewInner<T>({
   data,
   columns,
   actions,
+  onRowPress,
   keyExtractor,
   title,
   currentPage,
@@ -61,60 +99,86 @@ function DataTableDesktopViewInner<T>({
 }: DataTableDesktopViewProps<T>) {
   const { theme } = useUnistyles();
 
+  const acoesNaLinha = (actions ?? []).filter((a) => a.type !== 'danger');
+  const acoesNoMenu = (actions ?? []).filter((a) => a.type === 'danger');
+  const temAcoes = acoesNaLinha.length + acoesNoMenu.length > 0;
+  const estiloColunaAcoes: ViewStyle = {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis:
+      acoesNaLinha.length * LARGURA_BOTAO_ACAO +
+      (acoesNoMenu.length > 0 ? LARGURA_MENU : 0),
+  };
+
+  // Função chamada no JSX (não componente declarado no render).
+  const renderTextoDaCelula = (valor: string | number | null | undefined) => {
+    const texto = valor === null || valor === undefined ? '' : String(valor);
+    return (
+      <Text
+        style={[styles.tableCellText, styles.tableCellTextNoWrap]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        accessibilityLabel={texto}
+      >
+        {texto}
+      </Text>
+    );
+  };
+
   return (
     <View style={styles.container} testID={testID}>
       {title && <Text style={styles.title}>{title}</Text>}
 
       <View style={styles.tableContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-          <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={styles.tableScrollContent}
+        >
+          <View style={styles.tableScrollInner}>
             {/* Table Header */}
             <View style={styles.tableHeader} accessibilityRole="header">
               {columns.map((column) => {
                 const isSorted = column.sortable && sortColumn === column.key;
                 const sortLabel = isSorted
-                  ? sortDirection === "asc"
-                    ? ", ordenado crescente"
-                    : ", ordenado decrescente"
-                  : "";
+                  ? sortDirection === 'asc'
+                    ? ', ordenado crescente'
+                    : ', ordenado decrescente'
+                  : '';
 
                 return (
                   <TouchableOpacity
                     key={column.key}
                     style={[
                       styles.tableHeaderCell,
-                      {
-                        width: (column.width || "auto") as DimensionValue,
-                        minWidth: 100,
-                      },
-                      column.align === "center" && { alignItems: "center" },
-                      column.align === "right" && { alignItems: "flex-end" },
+                      larguraDaColuna(column.width),
+                      column.align === 'center' && { alignItems: 'center' },
+                      column.align === 'right' && { alignItems: 'flex-end' },
                     ]}
                     onPress={() => column.sortable && onSort(column.key)}
                     disabled={!column.sortable}
-                    accessibilityRole={column.sortable ? "button" : undefined}
+                    accessibilityRole={column.sortable ? 'button' : undefined}
                     accessibilityLabel={`${column.label}${sortLabel}`}
                     accessibilityHint={
-                      column.sortable ? "Toque para ordenar" : undefined
+                      column.sortable ? 'Toque para ordenar' : undefined
                     }
                   >
-                    <Text style={styles.tableHeaderText}>{column.label}</Text>
+                    <Text style={styles.tableHeaderText} numberOfLines={1}>
+                      {column.label}
+                    </Text>
                     {isSorted && (
                       <Text style={styles.sortIndicator}>
-                        {sortDirection === "asc" ? " ↑" : " ↓"}
+                        {sortDirection === 'asc' ? ' ↑' : ' ↓'}
                       </Text>
                     )}
                   </TouchableOpacity>
                 );
               })}
-              {actions && actions.length > 0 && (
-                <View
-                  style={[
-                    styles.tableHeaderCell,
-                    { width: actions.length * 100, minWidth: 180 },
-                  ]}
-                >
-                  <Text style={styles.tableHeaderText}>Ações</Text>
+              {temAcoes && (
+                <View style={[styles.tableHeaderCell, estiloColunaAcoes]}>
+                  <Text style={styles.tableHeaderText} numberOfLines={1}>
+                    Ações
+                  </Text>
                 </View>
               )}
             </View>
@@ -128,63 +192,60 @@ function DataTableDesktopViewInner<T>({
               </View>
             )}
             {data.map((item, index) => (
-              <View
+              <Pressable
                 key={keyExtractor(item)}
                 style={[
                   styles.tableRow,
                   index % 2 === 0 && styles.tableRowEven,
+                  onRowPress && styles.tableRowClicavel,
                 ]}
+                onPress={onRowPress ? () => onRowPress(item) : undefined}
+                focusable={!!onRowPress}
                 accessible
                 accessibilityLabel={columns
                   .map(
                     (col) =>
                       `${col.label}: ${getColumnDisplayValue(item as DataTableItem, col.key)}`,
                   )
-                  .join(", ")}
+                  .join(', ')}
               >
                 {columns.map((column) => (
                   <View
                     key={column.key}
                     style={[
                       styles.tableCell,
-                      {
-                        width: (column.width || "auto") as DimensionValue,
-                        minWidth: 100,
-                      },
-                      column.align === "center" && { alignItems: "center" },
-                      column.align === "right" && { alignItems: "flex-end" },
+                      larguraDaColuna(column.width),
+                      column.align === 'center' && { alignItems: 'center' },
+                      column.align === 'right' && { alignItems: 'flex-end' },
                     ]}
                   >
-                    {column.render ? (
-                      column.render(item)
-                    ) : (
-                      <Text
-                        style={[
-                          styles.tableCellText,
-                          column.noWrap && styles.tableCellTextNoWrap,
-                        ]}
-                        numberOfLines={column.noWrap ? 1 : undefined}
-                        ellipsizeMode={column.noWrap ? "tail" : undefined}
-                      >
-                        {getColumnDisplayValue(
-                          item as DataTableItem,
-                          column.key,
+                    {column.render
+                      ? column.render(item)
+                      : renderTextoDaCelula(
+                          getColumnDisplayValue(
+                            item as DataTableItem,
+                            column.key,
+                          ),
                         )}
-                      </Text>
-                    )}
                   </View>
                 ))}
 
                 {/* Desktop Actions */}
-                {actions && actions.length > 0 && (
-                  <View style={[styles.tableCell, styles.tableCellActions]}>
-                    {actions.map((action, idx) => {
+                {temAcoes && (
+                  <View
+                    style={[
+                      styles.tableCell,
+                      styles.tableCellActions,
+                      estiloColunaAcoes,
+                    ]}
+                  >
+                    {acoesNaLinha.map((action, idx) => {
                       const label =
-                        typeof action.label === "function"
+                        typeof action.label === 'function'
                           ? action.label(item)
                           : action.label;
                       const icon = action.icon
-                        ? typeof action.icon === "function"
+                        ? typeof action.icon === 'function'
                           ? action.icon(item)
                           : action.icon
                         : undefined;
@@ -194,21 +255,26 @@ function DataTableDesktopViewInner<T>({
                           key={idx}
                           style={[
                             styles.tableActionButton,
-                            action.type === "danger" &&
+                            action.type === 'danger' &&
                               styles.tableActionButtonDanger,
-                            action.type === "secondary" &&
+                            action.type === 'secondary' &&
                               styles.tableActionButtonSecondary,
                           ]}
-                          onPress={() => action.onPress(item)}
+                          onPress={(evento) => {
+                            pararPropagacao(evento);
+                            action.onPress(item);
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={label}
                         >
                           {icon && (
                             <Ionicons
                               name={icon}
                               size={16}
                               color={
-                                action.type === "danger"
+                                action.type === 'danger'
                                   ? theme.colors.error
-                                  : action.type === "secondary"
+                                  : action.type === 'secondary'
                                     ? theme.colors.gray600
                                     : theme.colors.primary
                               }
@@ -217,9 +283,9 @@ function DataTableDesktopViewInner<T>({
                           <Text
                             style={[
                               styles.tableActionText,
-                              action.type === "danger" &&
+                              action.type === 'danger' &&
                                 styles.tableActionTextDanger,
-                              action.type === "secondary" &&
+                              action.type === 'secondary' &&
                                 styles.tableActionTextSecondary,
                             ]}
                           >
@@ -228,9 +294,20 @@ function DataTableDesktopViewInner<T>({
                         </TouchableOpacity>
                       );
                     })}
+                    {acoesNoMenu.length > 0 && (
+                      <MenuDeAcoes
+                        item={item}
+                        acoes={acoesNoMenu}
+                        testID={
+                          testID
+                            ? `${testID}-menu-${keyExtractor(item)}`
+                            : undefined
+                        }
+                      />
+                    )}
                   </View>
                 )}
-              </View>
+              </Pressable>
             ))}
           </View>
         </ScrollView>

@@ -57,11 +57,18 @@ const mockLoadRotas = jest.fn();
 const mockCarregarMais = jest.fn();
 let mockEstadoHook: Record<string, unknown> = {};
 let mockOpcoesDoHook: { statusColorMap?: Record<string, string> } = {};
+const mockVerDetalhes = jest.fn();
+const mockExcluirRota = jest.fn();
+let mockEhDesktop = false;
 
 jest.mock('@/hooks/useGestaoRotas', () => ({
   FILTRO_STATUS_OPTIONS: ['todas', 'pendente'],
   useGestaoRotas: (opcoes: { statusColorMap?: Record<string, string> }) => {
     mockOpcoesDoHook = opcoes;
+    // Estado real: "Excluir rota" abre o Dialog como o hook de verdade faz.
+    const [confirmando, setConfirmando] = jest
+      .requireActual('react')
+      .useState(false);
     return {
       rotasFiltradas: [],
       loading: false,
@@ -69,15 +76,21 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
       dadosDe: null,
       filtroStatus: 'todas',
       searchQuery: '',
-      showConfirmModal: false,
-      confirmacaoExclusao: { titulo: '', mensagem: '' },
+      showConfirmModal: confirmando,
+      confirmacaoExclusao: {
+        titulo: 'Excluir rota?',
+        mensagem: 'A rota de Ana será excluída.',
+      },
       userData: { id: 'g1' },
       setFiltroStatus: jest.fn(),
       setSearchQuery: jest.fn(),
-      verDetalhes: jest.fn(),
-      excluirRota: jest.fn(),
+      verDetalhes: mockVerDetalhes,
+      excluirRota: (rota: unknown) => {
+        mockExcluirRota(rota);
+        setConfirmando(true);
+      },
       handleConfirmDelete: jest.fn(),
-      handleCancelDelete: jest.fn(),
+      handleCancelDelete: () => setConfirmando(false),
       exportarParaCSV: mockExportarCSV,
       exportarParaXLSX: mockExportarXLSX,
       loadRotas: mockLoadRotas,
@@ -95,7 +108,11 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
   },
 }));
 jest.mock('@/hooks/useResponsive', () => ({
-  useResponsive: () => ({ isDesktop: false, isMobile: true, isTablet: false }),
+  useResponsive: () => ({
+    isDesktop: mockEhDesktop,
+    isMobile: !mockEhDesktop,
+    isTablet: false,
+  }),
 }));
 jest.mock('@/hooks/useDesktopHeaderMenu', () => ({
   useDesktopHeaderMenu: () => ({
@@ -109,6 +126,7 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 beforeEach(() => {
   jest.clearAllMocks();
   mockEstadoHook = {};
+  mockEhDesktop = false;
 });
 
 describe('GestaoRotas (mobile/tablet)', () => {
@@ -130,7 +148,7 @@ describe('GestaoRotas (mobile/tablet)', () => {
     render(<GestaoRotas />);
 
     const status = mockColunasDaTabela.find((c) => c.key === 'status');
-    expect(status?.width).toBeGreaterThanOrEqual(140);
+    expect(status?.width).toBeGreaterThanOrEqual(150);
   });
 
   it('Exportar abre as opções na tela (não Alert) e Excel exporta XLSX', () => {
@@ -194,6 +212,60 @@ describe('GestaoRotas (mobile/tablet)', () => {
     ).toBeTruthy();
     fireEvent.press(screen.getByLabelText('Abrir menu de exportação'));
     expect(screen.queryByText('Excel (XLSX)')).toBeNull();
+  });
+});
+
+describe('GestaoRotas (desktop)', () => {
+  beforeEach(() => {
+    mockEhDesktop = true;
+    mockEstadoHook = { rotasFiltradas: rotasFalsas(2), total: 2 };
+  });
+
+  it('tocar na linha abre a rota, a mesma navegação de "Ver detalhes"', () => {
+    render(<GestaoRotas />);
+
+    fireEvent.press(screen.getAllByText('Ana')[1]);
+
+    expect(mockVerDetalhes).toHaveBeenCalledTimes(1);
+    expect(mockVerDetalhes).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'r1' }),
+    );
+  });
+
+  it('"Ver detalhes" fica na linha e "Excluir rota" só no menu "Mais ações"', () => {
+    render(<GestaoRotas />);
+
+    expect(screen.getAllByText('Ver detalhes')).toHaveLength(2);
+    expect(screen.queryByText('Excluir rota')).toBeNull();
+    expect(screen.getAllByLabelText('Mais ações')).toHaveLength(2);
+  });
+
+  it('escolher "Excluir rota" no menu abre o Dialog de confirmação', () => {
+    render(<GestaoRotas />);
+    expect(screen.queryByText('Excluir rota?')).toBeNull();
+
+    fireEvent.press(screen.getAllByLabelText('Mais ações')[0]);
+    fireEvent.press(screen.getByRole('menuitem', { name: 'Excluir rota' }));
+
+    expect(mockExcluirRota).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'r0' }),
+    );
+    expect(mockVerDetalhes).not.toHaveBeenCalled();
+    expect(screen.getByText('Excluir rota?')).toBeTruthy();
+    expect(screen.getByText('A rota de Ana será excluída.')).toBeTruthy();
+  });
+
+  it('o nome longo do motorista fica numa linha, com o nome inteiro no accessibilityLabel', () => {
+    const nome = 'Maximiliano Bartholomeu de Albuquerque Cavalcanti Figueiredo';
+    mockEstadoHook = {
+      rotasFiltradas: [{ ...rotasFalsas(1)[0], motorista_nome: nome }],
+      total: 1,
+    };
+    render(<GestaoRotas />);
+
+    const texto = screen.getByText(nome);
+    expect(texto.props.numberOfLines).toBe(1);
+    expect(texto.props.accessibilityLabel).toBe(nome);
   });
 });
 

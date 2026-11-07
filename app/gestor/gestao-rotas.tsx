@@ -162,11 +162,20 @@ export default function GestaoRotas() {
       width: 180,
       noWrap: true,
       sortable: true,
-      render: (rota) => (
-        <Text style={styles.tableCellText}>
-          {rota.motorista_nome || 'Sem motorista'}
-        </Text>
-      ),
+      render: (rota) => {
+        // Uma linha, com reticências; o nome inteiro fica no rótulo acessível.
+        const nome = rota.motorista_nome || 'Sem motorista';
+        return (
+          <Text
+            style={styles.tableCellText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            accessibilityLabel={nome}
+          >
+            {nome}
+          </Text>
+        );
+      },
     },
     {
       key: 'paradas',
@@ -218,7 +227,8 @@ export default function GestaoRotas() {
     {
       key: 'status',
       label: 'Status',
-      width: 140,
+      // 150: "Não executada" com ícone, sem reticências e com folga.
+      width: 150,
       sortable: true,
       render: (rota) => {
         if (!rota.status) {
@@ -239,13 +249,14 @@ export default function GestaoRotas() {
 
   const actions: DataTableAction<RotaHistorico>[] = [
     {
-      label: 'Ver Detalhes',
+      label: 'Ver detalhes',
       icon: 'eye-outline',
       type: 'secondary',
       onPress: verDetalhes,
     },
     {
-      label: 'Excluir',
+      // No desktop, `danger` vai para o menu "Mais ações" da linha.
+      label: 'Excluir rota',
       icon: 'trash-outline',
       type: 'danger',
       onPress: excluirRota,
@@ -488,6 +499,7 @@ export default function GestaoRotas() {
                 data={rotasFiltradas}
                 columns={columns}
                 actions={actions}
+                onRowPress={verDetalhes}
                 keyExtractor={(rota) => rota.id}
                 itemsPerPage={20}
                 pagination

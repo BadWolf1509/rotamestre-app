@@ -1,6 +1,13 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import {
+  render,
+  fireEvent,
+  renderHook,
+  screen,
+} from '@testing-library/react-native';
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+
+import { useUnistyles } from '@/utils/styles';
 
 import { DataTable, DataTableColumn, DataTableAction } from '../DataTable';
 
@@ -219,10 +226,42 @@ describe('DataTable Component', () => {
       );
 
       const editButtons = getAllByText('Editar');
-      const deleteButtons = getAllByText('Excluir');
 
       expect(editButtons.length).toBe(3); // 3 items
-      expect(deleteButtons.length).toBe(3);
+    });
+
+    it('a ação danger sai da linha e vai para o menu "Mais ações"', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />,
+      );
+
+      expect(screen.queryByText('Excluir')).toBeNull();
+      const menus = screen.getAllByLabelText('Mais ações');
+      expect(menus).toHaveLength(3);
+
+      fireEvent.press(menus[1]);
+      fireEvent.press(screen.getByRole('menuitem', { name: 'Excluir' }));
+
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[1]);
+    });
+
+    it('sem ação danger não há menu "Mais ações"', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={[sampleActions[0]]}
+        />,
+      );
+
+      expect(screen.queryByLabelText('Mais ações')).toBeNull();
     });
 
     it('deve renderizar header "Ações" quando há ações', () => {
@@ -267,7 +306,154 @@ describe('DataTable Component', () => {
       // Ionicons são renderizados como elementos React, não como texto
       // Apenas verificamos que as ações foram renderizadas corretamente
       expect(getAllByText('Editar').length).toBeGreaterThan(0);
-      expect(getAllByText('Excluir').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Linha clicável (onRowPress)', () => {
+    it('tocar na linha chama onRowPress(item)', () => {
+      const onRowPress = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getByText('Maria Santos'));
+
+      expect(onRowPress).toHaveBeenCalledTimes(1);
+      expect(onRowPress).toHaveBeenCalledWith(sampleData[1]);
+    });
+
+    it('tocar numa ação da linha chama só a ação', () => {
+      const onRowPress = jest.fn();
+      const stopPropagation = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getAllByText('Editar')[0], { stopPropagation });
+
+      expect(mockEdit).toHaveBeenCalledWith(sampleData[0]);
+      expect(onRowPress).not.toHaveBeenCalled();
+      // No web, o clique sobe pelo DOM até a linha: a ação o interrompe.
+      expect(stopPropagation).toHaveBeenCalledTimes(1);
+    });
+
+    it('abrir o menu e escolher a ação danger não chama onRowPress', () => {
+      const onRowPress = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getAllByLabelText('Mais ações')[0]);
+      fireEvent.press(screen.getByRole('menuitem', { name: 'Excluir' }));
+
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[0]);
+      expect(onRowPress).not.toHaveBeenCalled();
+    });
+
+    it('clique no espaço da lista do menu (fora de um item) não chega à linha', () => {
+      const onRowPress = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getAllByLabelText('Mais ações')[0]);
+      fireEvent.press(screen.UNSAFE_getByProps({ accessibilityRole: 'menu' }));
+
+      expect(onRowPress).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Largura e texto das células (desktop)', () => {
+    it('nome de 60 caracteres fica numa linha, com o texto inteiro no accessibilityLabel', () => {
+      const nomeLongo =
+        'Maximiliano Bartholomeu de Albuquerque Cavalcanti Figueiredo';
+      expect(nomeLongo).toHaveLength(60);
+      render(
+        <DataTable
+          data={[{ id: '9', name: nomeLongo, email: 'x@y.z', status: 'ativo' }]}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const texto = screen.getByText(nomeLongo);
+      expect(texto.props.numberOfLines).toBe(1);
+      expect(texto.props.accessibilityLabel).toBe(nomeLongo);
+    });
+
+    it('a coluna cresce na proporção da largura-base (flexGrow e flexBasis)', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={[
+            { key: 'name', label: 'Nome', width: 240 },
+            { key: 'status', label: 'Status', width: 150 },
+          ]}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      // Sobe do texto até a célula: o primeiro ancestral com flexBasis.
+      let no: ReturnType<typeof screen.getByText> | null =
+        screen.getByText('João Silva');
+      while (
+        no &&
+        StyleSheet.flatten(no.props.style)?.flexBasis === undefined
+      ) {
+        no = no.parent;
+      }
+      const estilo = StyleSheet.flatten(no?.props.style);
+      expect(estilo.flexGrow).toBe(240);
+      expect(estilo.flexBasis).toBe(240);
+    });
+
+    it('cabeçalho com 13 px em gray600 semibold e célula com 14 px', () => {
+      const { result } = renderHook(() => useUnistyles());
+      const { theme } = result.current;
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const cabecalho = StyleSheet.flatten(
+        screen.getByText('Nome').props.style,
+      );
+      expect(cabecalho.fontSize).toBe(13);
+      expect(cabecalho.color).toBe(theme.colors.gray600);
+      expect(cabecalho.fontFamily).toBe(theme.typography.fontSansSemiBold);
+
+      const celula = StyleSheet.flatten(
+        screen.getByText('João Silva').props.style,
+      );
+      expect(celula.fontSize).toBe(14);
     });
   });
 

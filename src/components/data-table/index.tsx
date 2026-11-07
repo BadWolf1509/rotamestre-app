@@ -37,6 +37,7 @@ function DataTableInner<T extends DataTableItem = DataTableItem>({
   data,
   columns,
   actions,
+  onRowPress,
   keyExtractor,
   title,
   itemsPerPage = 10,
@@ -125,6 +126,7 @@ function DataTableInner<T extends DataTableItem = DataTableItem>({
       data={paginatedData}
       columns={columns}
       actions={actions}
+      onRowPress={onRowPress}
       keyExtractor={keyExtractor}
       title={title}
       currentPage={currentPage}

@@ -41,7 +41,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
   test.describe('View Delivery Proofs', () => {
     /**
      * "should access route details with photo proofs" saiu: era exatamente o
-     * mesmo caminho de `dashboard-reports.e2e.ts` › "Ver Detalhes leva ao mapa
+     * mesmo caminho de `dashboard-reports.e2e.ts` › "Ver detalhes leva ao mapa
      * da rota", com a mesma não-asserção. Lá ele afirma.
      */
     test('os detalhes da rota abrem o mapa com o painel do trajeto', async ({
@@ -52,7 +52,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
         timeout: 15000,
       });
 
-      await page.getByText('Ver Detalhes').first().click();
+      await page.getByText('Ver detalhes').first().click();
 
       // É nesta tela que a foto de comprovação aparece para o gestor. Antes
       // conferia-se o comprimento da página; agora exige-se a tela montada.

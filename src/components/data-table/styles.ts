@@ -117,6 +117,14 @@ export const dataTableStyles = StyleSheet.create((theme: Theme) => ({
     borderColor: theme.colors.gray200,
     overflow: 'hidden',
   },
+  // O conteúdo da rolagem horizontal ocupa ao menos a largura do cartão;
+  // passando dela (soma das larguras-base), rola.
+  tableScrollContent: {
+    flexGrow: 1,
+  },
+  tableScrollInner: {
+    flexGrow: 1,
+  },
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: theme.colors.gray50,
@@ -129,10 +137,11 @@ export const dataTableStyles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Desktop do gestor: nenhum texto de dados abaixo de 13 px.
   tableHeaderText: {
-    fontSize: theme.components.table.headerFontSize,
-    fontFamily: theme.typography.fontSansBold,
-    color: theme.colors.gray700,
+    fontSize: 13,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray600,
   },
   sortIndicator: {
     fontSize: theme.components.table.headerFontSize - 2,
@@ -159,12 +168,15 @@ export const dataTableStyles = StyleSheet.create((theme: Theme) => ({
   tableRowEven: {
     backgroundColor: theme.colors.gray50,
   },
+  tableRowClicavel: {
+    ...(Platform.OS === 'web' && ({ cursor: 'pointer' } as any)),
+  },
   tableCell: {
     padding: theme.spacing.sm,
     justifyContent: 'center',
   },
   tableCellText: {
-    fontSize: theme.components.table.rowFontSize,
+    fontSize: theme.typography.sm,
     fontFamily: theme.typography.fontSans,
     color: theme.colors.gray900,
   },
@@ -179,6 +191,8 @@ export const dataTableStyles = StyleSheet.create((theme: Theme) => ({
   },
   tableCellActions: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: theme.spacing.xs,
   },
   tableActionButton: {
