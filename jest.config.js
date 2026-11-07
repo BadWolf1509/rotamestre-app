@@ -14,8 +14,11 @@ module.exports = {
   // Zera calls/results entre testes (não mexe em implementação).
   clearMocks: true,
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // `standard-navigation` (dependência do expo-router 58) é ESM: sem ele aqui,
+  // o expo-router real não carrega no jest (testes com `renderRouter`, como
+  // src/hooks/auth/__tests__/navegacao-de-saida-pilha-real.test.tsx).
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo-router|escape-string-regexp)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@react-navigation/.*|react-native-unistyles|@shopify/flash-list)',
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo-router|standard-navigation|escape-string-regexp)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|@react-navigation/.*|react-native-unistyles|@shopify/flash-list)',
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
