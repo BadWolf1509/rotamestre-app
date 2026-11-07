@@ -64,6 +64,7 @@
       "green800": "#166534",
       "warningLight": "#fef3c7",
       "warningDark": "#d97706",
+      "onWarning": "#111827",
       "errorLight": "#fee2e2",
       "successLight": "#d1fae5",
       "whatsapp": "#25D366",
@@ -355,7 +356,7 @@
     },
     "pageLayout": {
       "contentPadding": 32,
-      "headerTitleFontSize": 24,
+      "headerTitleFontSize": 28,
       "headerSubtitleFontSize": 14,
       "breadcrumbFontSize": 13
     },

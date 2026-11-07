@@ -60,6 +60,7 @@
   <color name="color_green800">#86efac</color>
   <color name="color_warning_light">#78350f</color>
   <color name="color_warning_dark">#b45309</color>
+  <color name="color_on_warning">#1a2029</color>
   <color name="color_error_light">#7f1d1d</color>
   <color name="color_success_light">#065f46</color>
   <color name="color_whatsapp">#25D366</color>

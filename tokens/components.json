@@ -88,7 +88,7 @@
   },
   "pageLayout": {
     "contentPadding": 32,
-    "headerTitleFontSize": 24,
+    "headerTitleFontSize": 28,
     "headerSubtitleFontSize": 14,
     "breadcrumbFontSize": 13
   },

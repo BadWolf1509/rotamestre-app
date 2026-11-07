@@ -61,6 +61,7 @@
     "green800": "#166534",
     "warning-light": "#fef3c7",
     "warning-dark": "#d97706",
+    "on-warning": "#111827",
     "error-light": "#fee2e2",
     "success-light": "#d1fae5",
     "whatsapp": "#25D366",
