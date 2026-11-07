@@ -62,7 +62,7 @@ jest.mock('@/utils/styles', () => {
 });
 
 // Mock ConnectivityIndicator
-jest.mock('@/components/ConnectivityBanner', () => ({
+jest.mock('@/components/ConnectivityIndicator', () => ({
   ConnectivityIndicator: () => null,
 }));
 
