@@ -32,6 +32,7 @@ export {
   mapIncidenteToTimelineEvent,
   formatRelativeTime,
   getDateGroup,
+  agruparEventosPorDia,
   calculateDurationBetween,
   computeNewlyAddedIds,
 } from './timeline';

@@ -33,8 +33,7 @@ import {
 import { useTimelineData } from '@/hooks/gestao-rotas';
 import { useTimelineLastSeen } from '@/hooks/useTimelineLastSeen';
 import {
-  getDateGroup,
-  groupBy,
+  agruparEventosPorDia,
   computeNewlyAddedIds,
   type TimelineSemanticColor,
 } from '@/lib/utils';
@@ -283,26 +282,11 @@ export function RouteTimeline({
     });
   }, [events, activeFilter]);
 
-  const groupedEvents = useMemo(() => {
-    const grouped = groupBy(filteredEvents, (event) =>
-      getDateGroup(event.timestamp),
-    );
-    const groups: { date: string; events: TimelineEvent[] }[] = [];
-    const orderedKeys = Object.keys(grouped).sort((a, b) => {
-      if (a === 'Hoje') return -1;
-      if (b === 'Hoje') return 1;
-      if (a === 'Ontem') return -1;
-      if (b === 'Ontem') return 1;
-      return (
-        new Date(b.split('/').reverse().join('-')).getTime() -
-        new Date(a.split('/').reverse().join('-')).getTime()
-      );
-    });
-    orderedKeys.forEach((key) => {
-      groups.push({ date: key, events: grouped[key] });
-    });
-    return groups;
-  }, [filteredEvents]);
+  // Agrupa e ordena pela chave ISO local do dia; o rótulo só vai para a tela.
+  const groupedEvents = useMemo(
+    () => agruparEventosPorDia(filteredEvents),
+    [filteredEvents],
+  );
 
   const filterCounts = useMemo(
     () => ({

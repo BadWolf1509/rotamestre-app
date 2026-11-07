@@ -6,6 +6,7 @@
  * into timeline events.
  */
 
+import { toLocalISODate } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 
 // ============================================================================
@@ -675,9 +676,12 @@ export function formatRelativeTime(timestamp: string | Date): string {
  * @param timestamp - ISO string or Date
  * @returns "Hoje", "Ontem", or formatted date (ex: "25/12/2025")
  */
-export function getDateGroup(timestamp: string | Date): string {
+export function getDateGroup(
+  timestamp: string | Date,
+  agora: Date = new Date(),
+): string {
   const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-  const now = new Date();
+  const now = agora;
 
   // Compare only date (ignore time)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -705,6 +709,34 @@ export function getDateGroup(timestamp: string | Date): string {
     month: '2-digit',
     year: 'numeric',
   });
+}
+
+/**
+ * Agrupa eventos por dia LOCAL, do mais novo para o mais antigo.
+ *
+ * A chave do grupo é a data ISO local (`2025-10-30`), que ordena como texto; o
+ * rótulo ("Hoje", "Ontem", "30/10/2025") só aparece na tela. Antes a tela
+ * agrupava e ordenava pelo próprio rótulo, relendo "dd/mm/aaaa" para comparar:
+ * num motor sem os dados de locale pt-BR o texto sai em outra ordem e os dias
+ * se embaralham.
+ */
+export function agruparEventosPorDia<T extends { timestamp: string }>(
+  eventos: readonly T[],
+  agora: Date = new Date(),
+): { date: string; events: T[] }[] {
+  const porChave = new Map<string, T[]>();
+  for (const evento of eventos) {
+    const chave = toLocalISODate(new Date(evento.timestamp));
+    const grupo = porChave.get(chave);
+    if (grupo) grupo.push(evento);
+    else porChave.set(chave, [evento]);
+  }
+  return [...porChave.keys()]
+    .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
+    .map((chave) => {
+      const events = porChave.get(chave) ?? [];
+      return { date: getDateGroup(events[0].timestamp, agora), events };
+    });
 }
 
 /**

@@ -21,7 +21,9 @@
  */
 const { createServer } = require('http');
 const { createReadStream, existsSync, readdirSync, statSync } = require('fs');
-const { join, extname, normalize } = require('path');
+const { join, extname } = require('path');
+
+const { resolverRequisicao } = require('./serve-dist-caminho.cjs');
 
 const RAIZ = join(__dirname, '..', '..', 'dist');
 const PORTA = Number(process.env.PORT || 8082);
@@ -43,16 +45,6 @@ const TIPOS = {
   '.ttf': 'font/ttf',
   '.map': 'application/json; charset=utf-8',
 };
-
-/**
- * Resolve o caminho pedido dentro de `dist/`, recusando qualquer coisa que
- * escape da raiz — `normalize` sozinho não basta contra `..%2f`.
- */
-function caminhoSeguro(url) {
-  const semQuery = decodeURIComponent(url.split('?')[0]);
-  const alvo = normalize(join(RAIZ, semQuery));
-  return alvo.startsWith(RAIZ) ? alvo : null;
-}
 
 /**
  * Avisa quando o `dist/` e mais velho que o codigo-fonte.
@@ -97,19 +89,19 @@ function avisarSeDesatualizado() {
 avisarSeDesatualizado();
 
 createServer((req, res) => {
-  const alvo = caminhoSeguro(req.url || '/');
+  // Recusa URI malformada (400), caminho fora da raiz (403) e asset com
+  // extensão que falta (404); só rota sem extensão cai no fallback de SPA.
+  const resolvido = resolverRequisicao(RAIZ, req.url || '/');
 
-  if (!alvo) {
-    res.writeHead(403).end('Fora da raiz');
+  if (resolvido.tipo === 'erro') {
+    res.writeHead(resolvido.status).end(resolvido.motivo);
     return;
   }
 
+  // Fallback de SPA: rota desconhecida devolve o index, que é o que o
+  // expo-router espera para resolver a navegação no cliente.
   const arquivo =
-    existsSync(alvo) && statSync(alvo).isFile()
-      ? alvo
-      : // Fallback de SPA: rota desconhecida devolve o index, que é o que o
-        // expo-router espera para resolver a navegação no cliente.
-        join(RAIZ, 'index.html');
+    resolvido.tipo === 'arquivo' ? resolvido.caminho : join(RAIZ, 'index.html');
 
   if (!existsSync(arquivo)) {
     res.writeHead(404).end('dist/index.html não existe — rode `npm run build:web`');

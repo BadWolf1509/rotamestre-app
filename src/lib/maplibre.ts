@@ -86,4 +86,23 @@ export function zoomFromLongitudeDelta(delta: number): number {
   return Math.max(1, Math.min(20, zoom));
 }
 
+/**
+ * Erro do maplibre que não impede o mapa: falha de um tile/fonte (o evento
+ * traz `sourceId` ou `tile`) ou de sprite, glifo ou imagem do estilo. Os mapas
+ * web usam a mesma regra: só o erro que sobra (estilo, worker) ANTES do
+ * `load` justifica descartar o mapa e mostrar o fallback.
+ */
+export function erroNaoFatalDoMapa(e: unknown): boolean {
+  const evento = (e ?? {}) as {
+    sourceId?: unknown;
+    tile?: unknown;
+    error?: { message?: unknown };
+  };
+  if (evento.sourceId !== undefined || evento.tile !== undefined) return true;
+  const mensagem = evento.error?.message;
+  return (
+    typeof mensagem === 'string' && /sprite|glyph|image|\.pbf/i.test(mensagem)
+  );
+}
+
 export type { LatLng, LngLatTuple, MapBounds, GeoJSONLineString };

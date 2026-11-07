@@ -35,6 +35,7 @@ import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotorist
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
+import { erroNaoFatalDoMapa } from '@/lib/maplibre';
 import { configureMaplibreWorker } from '@/lib/maplibreWorker';
 import {
   montarPinosPorLocal,
@@ -256,10 +257,12 @@ export default function MapaWebMapLibre({
   // toque precisa. O listener do "Ver ações" lê a callback atual pela ref.
   const selectedParadaIdRef = useRef(selectedParadaId);
   const onSelectedMarkerPressRef = useRef(onSelectedMarkerPress);
+  const onMapPressRef = useRef(onMapPress);
   useEffect(() => {
     selectedParadaIdRef.current = selectedParadaId;
     onSelectedMarkerPressRef.current = onSelectedMarkerPress;
-  }, [selectedParadaId, onSelectedMarkerPress]);
+    onMapPressRef.current = onMapPress;
+  }, [selectedParadaId, onSelectedMarkerPress, onMapPress]);
   const temAcoes = onSelectedMarkerPress != null;
 
   // Live driver location — hook called unconditionally (rules of hooks).
@@ -432,6 +435,7 @@ export default function MapaWebMapLibre({
     let cancelled = false;
     let mapInstance: maplibregl.Map | null = null;
     let removeMissingImageHandler: (() => void) | null = null;
+    let carregou = false;
 
     const initializeMap = async () => {
       try {
@@ -451,11 +455,19 @@ export default function MapaWebMapLibre({
           installOpenFreeMapMissingImageHandler(mapInstance);
 
         mapInstance.on('load', () => {
+          carregou = true;
           setMapLoaded(true);
           logger.info('[MapaWebMapLibre] Map loaded successfully');
         });
 
         mapInstance.on('error', (e) => {
+          // Tile, sprite, glifo ou imagem faltando não impedem o mapa, antes
+          // ou depois do load; depois do load, nada mais é fatal.
+          if (carregou || erroNaoFatalDoMapa(e)) {
+            logger.warn('[MapaWebMapLibre] Erro não fatal do mapa:', e);
+            return;
+          }
+          // Antes do load (estilo, worker), o mapa não vai aparecer.
           logger.error('[MapaWebMapLibre] Map error:', e);
           setLoadError('Erro ao carregar o mapa');
         });
@@ -465,7 +477,7 @@ export default function MapaWebMapLibre({
             popupRef.current.remove();
             popupRef.current = null;
           }
-          onMapPress?.();
+          onMapPressRef.current?.();
         });
 
         // Add navigation controls
@@ -492,7 +504,9 @@ export default function MapaWebMapLibre({
       mapRef.current = null;
       setMapLoaded(false);
     };
-  }, [onMapPress]);
+    // onMapPress vem por ref: depender dele recriaria o mapa a cada callback
+    // nova do pai.
+  }, []);
 
   // Add/update route polyline
   useEffect(() => {

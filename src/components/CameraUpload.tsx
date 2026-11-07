@@ -174,11 +174,24 @@ export default function CameraUpload({
     // enquanto ela está aberta, não existe "depois" neste componente.
     await marcarConclusaoEmVoo(paradaId, rotaId);
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 0.8,
-    });
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+    } catch (error) {
+      // Launch que lança (câmera indisponível, intent recusada): nada ficou
+      // em voo, então o marcador não pode sobrar para a Início "restaurar".
+      logger.error('[CameraUpload] Falha ao abrir a câmera:', error);
+      await limparConclusaoEmVoo();
+      showError({
+        title: 'Erro',
+        message: 'Não foi possível abrir a câmera.',
+      });
+      return;
+    }
 
     // Chegou aqui = a Activity sobreviveu e o resultado veio inline. Não há
     // nada pendente para recuperar depois.
@@ -212,11 +225,23 @@ export default function CameraUpload({
     // Mesma razão de `openCamera` — faltava só neste ramo.
     await marcarConclusaoEmVoo(paradaId, rotaId);
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: false,
-      quality: 0.8,
-    });
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+    } catch (error) {
+      // Mesma razão de `openCamera`: launch que lança não deixa marcador.
+      logger.error('[CameraUpload] Falha ao abrir a galeria:', error);
+      await limparConclusaoEmVoo();
+      showError({
+        title: 'Erro',
+        message: 'Não foi possível abrir a galeria.',
+      });
+      return;
+    }
 
     // Chegou aqui = a Activity sobreviveu e o resultado veio inline.
     await limparConclusaoEmVoo();

@@ -2,14 +2,15 @@
 
 Este documento descreve a arquitetura de testes, padrões e convenções utilizadas no projeto rotamestre-app.
 
-## Status Atual
+## Visão geral
 
-**Framework:** Jest + React Native Testing Library
-**Snapshot de 15/08/2026:** 332/332 suites, 5871/5871 testes e 5/5 snapshots passando
-(era 312/5729 em 24/07)
-**Threshold de cobertura:** 73% lines (última medição ~74%)
+**Framework:** Jest + React Native Testing Library.
 
-O comando agregado `npm run validate` passou integralmente nesse snapshot.
+Contagem de suítes e testes e a cobertura medida mudam a cada PR e não ficam
+aqui: rode `npm test` (ou `npm run test:coverage`). O piso de cobertura vale o
+`coverageThreshold` do `jest.config.js`. O comando agregado é
+`npm run validate` (tipos, lint e testes); o histórico de números está em
+`docs/HISTORICO.md`.
 
 ### Executando testes
 
