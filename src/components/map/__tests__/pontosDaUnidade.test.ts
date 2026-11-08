@@ -8,6 +8,7 @@
 import { distanciaMetros } from '@/lib/geo/distancia';
 
 import {
+  ehPontoDaUnidade,
   ESPEC_DO_PONTO,
   pontoQueContem,
   pontosDaUnidade,
@@ -156,5 +157,24 @@ describe('pontosDaUnidadeForaDoDestino (navegação)', () => {
 
   it('sem pontos de unidade: nenhum pino', () => {
     expect(pontosDaUnidadeForaDoDestino(null, undefined, 'p1')).toEqual([]);
+  });
+});
+
+// A semântica é INVERTIDA no banco: `is_checkpoint = false` marca partida e
+// chegada da unidade; `true`/ausente é parada de entrega. Esta tabela fixa o
+// que o código faz hoje (`!== false` = parada real) — mudar aqui muda os seis
+// mapas ao mesmo tempo.
+describe('ehPontoDaUnidade', () => {
+  it.each([
+    [false, true],
+    [true, false],
+    [undefined, false],
+    [null, false],
+  ])('is_checkpoint %p → ponto da unidade: %p', (is_checkpoint, esperado) => {
+    expect(ehPontoDaUnidade({ is_checkpoint })).toBe(esperado);
+  });
+
+  it('objeto sem o campo é parada real', () => {
+    expect(ehPontoDaUnidade({})).toBe(false);
   });
 });

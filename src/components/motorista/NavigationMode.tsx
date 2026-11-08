@@ -726,7 +726,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   currentDestinationRetirada: {
     backgroundColor: CORES_SOBRE_O_MAPA.proxima,
   },
-  // Checkpoint markers (start/end)
   // Other pending stops marker
   otherMarker: {
     backgroundColor: CORES_SOBRE_O_MAPA.apagada,

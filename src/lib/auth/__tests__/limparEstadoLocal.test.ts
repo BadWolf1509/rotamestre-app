@@ -51,7 +51,6 @@ const DO_APARELHO = [
   '@rotamestre:nav_app_preference',
   '@rotamestre:nav_prefs_migration_v1',
   '@rotamestre:notification_settings',
-  '@rotamestre:notification_sound_enabled',
   '@rotamestre/login_limit_x',
   '@rotamestre/ratelimit_y',
   '@rotamestre:tracking_context',

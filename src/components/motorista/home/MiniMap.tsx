@@ -18,7 +18,10 @@ import {
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { PinoDaUnidade } from '@/components/map/PinoDaUnidade';
-import { pontosDaUnidade } from '@/components/map/pontosDaUnidade';
+import {
+  ehPontoDaUnidade,
+  pontosDaUnidade,
+} from '@/components/map/pontosDaUnidade';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import {
   OPENFREEMAP_STYLE_URL,
@@ -63,11 +66,9 @@ interface Rota {
 /**
  * Determina se uma parada é um ponto de entrega (não é checkpoint de unidade)
  *
- * ATENÇÃO: A lógica de is_checkpoint é invertida:
- * - is_checkpoint === false → É checkpoint (partida/chegada da unidade)
- * - is_checkpoint === true ou undefined → É parada de entrega normal
+ * A lógica de is_checkpoint é invertida; ver `ehPontoDaUnidade`.
  */
-const isDeliveryStop = (p: Parada): boolean => p.is_checkpoint !== false;
+const isDeliveryStop = (p: Parada): boolean => !ehPontoDaUnidade(p);
 
 /** Prazo máximo (ms) para o enquadramento esperar o JS ficar ocioso. */
 export const TETO_ESPERA_ENQUADRAMENTO_MS = 300;

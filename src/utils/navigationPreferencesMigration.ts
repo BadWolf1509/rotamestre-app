@@ -42,11 +42,16 @@ const NAV_APP_MAP: Record<
  */
 export async function migrateNavigationPreferences(): Promise<boolean> {
   try {
-    // Verificar se migração já foi feita
-    const migrationCompleted = await AsyncStorage.getItem(
-      LEGACY_KEYS.MIGRATION_COMPLETED,
+    // Uma só leitura (mesma ida ao storage de antes) traz a marca de migração e
+    // a chave antiga de som: quem já migrou antes da remoção da opção ainda a
+    // carrega, e só nesse caso há uma escrita extra (uma vez; depois some).
+    const [[, migrationCompleted], [, somLegado]] = await AsyncStorage.multiGet(
+      [LEGACY_KEYS.MIGRATION_COMPLETED, LEGACY_KEYS.SOUND_ENABLED],
     );
     if (migrationCompleted === 'true') {
+      if (somLegado !== null) {
+        await AsyncStorage.removeItem(LEGACY_KEYS.SOUND_ENABLED);
+      }
       logger.info('[NavigationMigration] Migração já executada anteriormente');
       return false;
     }

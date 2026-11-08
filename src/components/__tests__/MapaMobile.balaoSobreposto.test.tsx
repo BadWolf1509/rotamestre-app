@@ -294,6 +294,81 @@ describe('MapaMobile – balão sobreposto', () => {
     expect(within(balao).queryByText('PARTIDA')).toBeNull();
   });
 
+  // U8-1: o web já desfaz a seleção da parada ao tocar na sede; o nativo
+  // deixava a parada acesa (e o balão dela) junto com o balão da sede.
+  it('tocar na sede com uma parada selecionada avisa onMapPress e abre o balão da sede', async () => {
+    const onMapPress = jest.fn();
+    const utils = render(
+      <MapaMobile
+        paradas={[partida, parada]}
+        selectedParadaId="p1"
+        onMapPress={onMapPress}
+      />,
+    );
+    await medirMapa(utils);
+
+    await act(async () => {
+      fireEvent(utils.getAllByTestId('marker')[0], 'press', {
+        stopPropagation: jest.fn(),
+      });
+    });
+    await cameraParou();
+    await medirBalao(utils);
+
+    expect(onMapPress).toHaveBeenCalledTimes(1);
+    const balao = utils.getByTestId('mapa-balao');
+    expect(within(balao).getByText('Ponto de partida')).toBeTruthy();
+    expect(within(balao).queryByText('Rua Teste, 100')).toBeNull();
+  });
+
+  // U8-3: o pino da unidade é quadrado e centrado na coordenada, como nos
+  // outros cinco mapas; com `bottom` ele ficava ~14 px acima do ponto real.
+  it('o pino da unidade ancora no centro e o balão sobe só da metade dele', async () => {
+    const utils = render(<MapaMobile paradas={[partida, parada]} />);
+    await medirMapa(utils);
+
+    expect(utils.getAllByTestId('marker')[0].props.anchor).toBe('center');
+
+    await act(async () => {
+      fireEvent(utils.getAllByTestId('marker')[0], 'press', {
+        stopPropagation: jest.fn(),
+      });
+    });
+    await cameraParou();
+    await medirBalao(utils);
+
+    // project() devolve [200, 500]; balão 120 de altura, vão de 8 e meio
+    // pino de 28: top = 500 - 14 - 8 - 120.
+    const estilo = Object.assign(
+      {},
+      ...[utils.getByTestId('mapa-balao').props.style].flat(3),
+    );
+    expect(estilo.top).toBe(500 - 14 - 8 - 120);
+  });
+
+  it('selectedParadaId igual ao id da chegada seleciona o pino da sede', async () => {
+    const chegada = { ...partida, id: 'cp9', ordem: 2 };
+    const utils = render(
+      <MapaMobile
+        paradas={[partida, parada, chegada]}
+        selectedParadaId="cp9"
+      />,
+    );
+    await act(async () => {});
+    await medirMapa(utils);
+    await cameraParou();
+    await medirBalao(utils);
+
+    expect(mockEaseTo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        center: [partida.longitude, partida.latitude],
+      }),
+    );
+    const balao = utils.getByTestId('mapa-balao');
+    expect(within(balao).getByText('Sede da unidade')).toBeTruthy();
+    expect(within(balao).queryByText('Rua Teste, 100')).toBeNull();
+  });
+
   it('PARTIDA: o balão aparece sobre o mapa e o "Copiar endereço" funciona', async () => {
     const utils = render(<MapaMobile paradas={[partida, parada]} />);
     await medirMapa(utils);
