@@ -15,7 +15,6 @@ import {
   renderHook,
   screen,
 } from '@testing-library/react-native';
-import React from 'react';
 import { StyleSheet } from 'react-native';
 
 import { larguraMinimaDaTabela } from '@/components/data-table/larguras';
@@ -73,10 +72,6 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
   FILTRO_STATUS_OPTIONS: ['todas', 'pendente'],
   useGestaoRotas: (opcoes: { statusColorMap?: Record<string, string> }) => {
     mockOpcoesDoHook = opcoes;
-    // Estado real: "Excluir rota" abre o Dialog como o hook de verdade faz.
-    const [confirmando, setConfirmando] = jest
-      .requireActual('react')
-      .useState(false);
     return {
       rotasFiltradas: [],
       loading: false,
@@ -84,21 +79,10 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
       dadosDe: null,
       filtroStatus: 'todas',
       searchQuery: '',
-      showConfirmModal: confirmando,
-      confirmacaoExclusao: {
-        titulo: 'Excluir rota?',
-        mensagem: 'A rota de Ana será excluída.',
-      },
       userData: { id: 'g1' },
       setFiltroStatus: jest.fn(),
       setSearchQuery: jest.fn(),
       verDetalhes: mockVerDetalhes,
-      excluirRota: (rota: unknown) => {
-        mockExcluirRota(rota);
-        setConfirmando(true);
-      },
-      handleConfirmDelete: jest.fn(),
-      handleCancelDelete: () => setConfirmando(false),
       exportarParaCSV: mockExportarCSV,
       exportarParaXLSX: mockExportarXLSX,
       loadRotas: mockLoadRotas,
@@ -112,6 +96,27 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
       getStatusColor: () => 'x',
       handleSort: jest.fn(),
       ...mockEstadoHook,
+    };
+  },
+}));
+// A página é dona do fluxo de exclusão: "Excluir rota" abre o diálogo, como o
+// hook de verdade faz (aqui um stub com estado real).
+jest.mock('@/hooks/gestao-rotas/useExclusaoDeRota', () => ({
+  useExclusaoDeRota: () => {
+    const React = jest.requireActual('react');
+    const { Text } = jest.requireActual('react-native');
+    const [aberto, setAberto] = React.useState(false);
+    return {
+      pedirExclusao: (rota: unknown) => {
+        mockExcluirRota(rota);
+        setAberto(true);
+      },
+      dialogo: aberto ? (
+        <>
+          <Text>Excluir rota?</Text>
+          <Text>A rota de Ana será excluída.</Text>
+        </>
+      ) : null,
     };
   },
 }));

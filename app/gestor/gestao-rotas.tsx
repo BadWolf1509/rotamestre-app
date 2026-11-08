@@ -44,7 +44,6 @@ import {
   type DataTableColumn,
   DesktopCard,
   DesktopPageLayout,
-  Dialog,
   FilterChip,
   MobileCard,
   EmptyState,
@@ -54,6 +53,7 @@ import {
   StatusBadge,
   Toast,
 } from '@/design-system';
+import { useExclusaoDeRota } from '@/hooks/gestao-rotas/useExclusaoDeRota';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import {
   useGestaoRotas,
@@ -88,7 +88,7 @@ export default function GestaoRotas() {
 
   // A página é dona do toast (useToast é estado por instância) e o injeta
   // no hook.
-  const { toast: toastState, showToast, hideToast, withToast } = useToast();
+  const { toast: toastState, showToast, hideToast } = useToast();
 
   // Hook de gestão de rotas
   const {
@@ -105,15 +105,10 @@ export default function GestaoRotas() {
     loadRotas,
     filtroStatus,
     searchQuery,
-    showConfirmModal,
-    confirmacaoExclusao,
     userData,
     setFiltroStatus,
     setSearchQuery,
     verDetalhes,
-    excluirRota,
-    handleConfirmDelete,
-    handleCancelDelete,
     exportarParaCSV,
     exportarParaXLSX,
     getStatusLabel,
@@ -123,7 +118,13 @@ export default function GestaoRotas() {
     statusColorMap,
     defaultStatusColor: theme.colors.gray500,
     showToast,
-    withToast,
+  });
+
+  // Exclusão: o mesmo fluxo da Início desktop; a página é dona do toast.
+  const { pedirExclusao, dialogo: dialogoExclusao } = useExclusaoDeRota({
+    showToast,
+    usuarioId: userData?.id,
+    aoExcluir: loadRotas,
   });
 
   // Export dropdown state (desktop). Abaixo de 1024px: Modal com as opções —
@@ -277,7 +278,14 @@ export default function GestaoRotas() {
       label: 'Excluir rota',
       icon: 'trash-outline',
       type: 'danger',
-      onPress: excluirRota,
+      onPress: (rota) =>
+        pedirExclusao({
+          id: rota.id,
+          status: rota.status,
+          motorista_nome: rota.motorista_nome ?? null,
+          total_paradas: rota.paradas_count,
+          statusLabel: getStatusLabel(rota.status),
+        }),
     },
   ];
 
@@ -545,18 +553,8 @@ export default function GestaoRotas() {
           </View>
         </DesktopPageLayout>
 
-        {/* Modal de Confirmação - Desktop */}
-        <Dialog
-          visible={showConfirmModal}
-          variant="confirm"
-          title={confirmacaoExclusao.titulo}
-          message={confirmacaoExclusao.mensagem}
-          confirmText="Excluir"
-          cancelText="Cancelar"
-          type="danger"
-          onConfirm={handleConfirmDelete}
-          onCancel={handleCancelDelete}
-        />
+        {/* Confirmação de exclusão - Desktop */}
+        {dialogoExclusao}
 
         {/* Toast de Feedback */}
         <Toast {...toastState} onDismiss={hideToast} />
@@ -735,18 +733,8 @@ export default function GestaoRotas() {
         </View>
       </Modal>
 
-      {/* Modal de Confirmação de Exclusão - Mobile */}
-      <Dialog
-        visible={showConfirmModal}
-        variant="confirm"
-        title={confirmacaoExclusao.titulo}
-        message={confirmacaoExclusao.mensagem}
-        confirmText="Excluir"
-        cancelText="Cancelar"
-        type="danger"
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-      />
+      {/* Confirmação de exclusão - Mobile */}
+      {dialogoExclusao}
 
       {/* Toast de Feedback */}
       <Toast {...toastState} onDismiss={hideToast} />

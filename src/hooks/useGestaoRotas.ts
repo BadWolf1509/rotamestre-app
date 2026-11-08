@@ -5,7 +5,6 @@
  * - Carregamento paginado no servidor ("carregar mais", 100 por vez), com o
  *   total da loja para a tela avisar quando a lista não mostra tudo
  * - Filtro de status e busca aplicados no servidor (cobrem todas as rotas)
- * - Exclusão de rotas com confirmação
  * - Exportação para CSV e XLSX de TODAS as rotas do filtro, com progresso
  * - Atualização em tempo real
  * - Cache local para melhor UX (stale-while-revalidate)
@@ -26,10 +25,9 @@
 
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
 
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
-import type { ShowToast, WithToast } from '@/hooks/useToast';
+import type { ShowToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { formatarDecimal } from '@/lib/formatNumber';
@@ -42,12 +40,6 @@ import {
   type FiltrosRotas,
 } from '@/lib/gestor/consultaRotas';
 import { rotasDeTesteDaGestao } from '@/lib/gestor/dadosDeTeste';
-import {
-  excluirRota as excluirRotaNoServidor,
-  ExclusaoRotaError,
-  MENSAGEM_ROTA_EM_ANDAMENTO,
-  textoConfirmacaoExclusao,
-} from '@/lib/gestor/excluirRota';
 import { logger } from '@/lib/logger';
 import {
   classifyError,
@@ -88,7 +80,6 @@ interface UseGestaoRotasOptions {
    * de tipo, não toast mudo.
    */
   showToast: ShowToast;
-  withToast: WithToast;
 }
 
 /** Progresso da exportação (busca de todas as páginas). */
@@ -116,7 +107,7 @@ function foiCancelamento(error: unknown): boolean {
 }
 
 export function useGestaoRotas(options: UseGestaoRotasOptions) {
-  const { statusColorMap, defaultStatusColor, showToast, withToast } = options;
+  const { statusColorMap, defaultStatusColor, showToast } = options;
 
   const router = useRouter();
   const { userData } = useUser();
@@ -144,10 +135,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   // certo antes): de quando eles são (epoch ms). null = sem dados anteriores.
   const [dadosDe, setDadosDe] = useState<number | null>(null);
   const ultimaCargaOkRef = useRef<number | null>(null);
-
-  // Modal state for delete confirmation
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [rotaToDelete, setRotaToDelete] = useState<RotaHistorico | null>(null);
 
   // Cancelamento: carga da lista, "carregar mais" e exportação.
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -401,110 +388,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     [router],
   );
 
-  const executarExclusao = useCallback(
-    async (rota: RotaHistorico) => {
-      if (!userData?.id) {
-        showToast('Erro de autenticação. Faça login novamente.', 'error');
-        return;
-      }
-
-      const usuarioId = userData.id;
-
-      try {
-        await withToast(
-          () =>
-            excluirRotaNoServidor({
-              rotaId: rota.id,
-              usuarioId,
-              motoristaNome: rota.motorista_nome,
-              paradasCount: rota.paradas_count,
-            }),
-          {
-            loading: 'Excluindo rota...',
-            success: 'Rota excluída com sucesso!',
-            error: (erro) =>
-              erro instanceof ExclusaoRotaError
-                ? erro.message
-                : 'Não foi possível excluir a rota',
-          },
-        );
-
-        loadRotas();
-      } catch (error) {
-        if (error instanceof ExclusaoRotaError) {
-          // Já explicado no toast; a lista estava velha — recarrega.
-          loadRotas();
-          return;
-        }
-        logger.error('Erro ao excluir rota:', error);
-      }
-    },
-    [userData?.id, showToast, withToast, loadRotas],
-  );
-
-  const excluirRota = useCallback(
-    (rota: RotaHistorico) => {
-      // Atalho de UX: a lista já sabe que está em andamento.
-      // `excluirRotaNoServidor` reconsulta o status; a trava no banco é o
-      // gatilho da Migration 41.
-      if (rota.status === 'em_andamento') {
-        if (Platform.OS === 'web') {
-          showToast(MENSAGEM_ROTA_EM_ANDAMENTO, 'error', 5000);
-        } else {
-          Alert.alert('Ação não permitida', MENSAGEM_ROTA_EM_ANDAMENTO);
-        }
-        return;
-      }
-
-      // Web: use custom modal
-      if (Platform.OS === 'web') {
-        setRotaToDelete(rota);
-        setShowConfirmModal(true);
-      } else {
-        // Mobile: Alert.alert com botões funciona no nativo.
-        const { titulo, mensagem } = textoConfirmacaoExclusao({
-          status: rota.status,
-          motoristaNome: rota.motorista_nome ?? null,
-          paradasCount: rota.paradas_count,
-        });
-        Alert.alert(titulo, mensagem, [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Excluir',
-            style: 'destructive',
-            onPress: () => executarExclusao(rota),
-          },
-        ]);
-      }
-    },
-    [showToast, executarExclusao],
-  );
-
-  /** Título/mensagem do Dialog de confirmação (web) para `rotaToDelete`. */
-  const confirmacaoExclusao = textoConfirmacaoExclusao({
-    status: rotaToDelete?.status,
-    motoristaNome: rotaToDelete
-      ? (rotaToDelete.motorista_nome ?? null)
-      : undefined,
-    paradasCount: rotaToDelete?.paradas_count,
-    statusLabel: rotaToDelete?.status
-      ? getRotaStatusLabel(rotaToDelete.status)
-      : null,
-  });
-
-  const handleConfirmDelete = useCallback(() => {
-    setShowConfirmModal(false);
-    if (rotaToDelete) {
-      executarExclusao(rotaToDelete);
-      setRotaToDelete(null);
-    }
-  }, [rotaToDelete, executarExclusao]);
-
-  const handleCancelDelete = useCallback(() => {
-    setShowConfirmModal(false);
-    setRotaToDelete(null);
-  }, []);
-
   /**
    * Exporta TODAS as rotas que casam com o filtro e a busca (não só as
    * carregadas na lista), na ordenação escolhida na tabela. Busca em páginas
@@ -619,9 +502,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     dadosDe,
     filtroStatus,
     searchQuery,
-    showConfirmModal,
-    rotaToDelete,
-    confirmacaoExclusao,
     userData,
 
     // State Setters
@@ -637,9 +517,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     loadRotas,
     carregarMais,
     verDetalhes,
-    excluirRota,
-    handleConfirmDelete,
-    handleCancelDelete,
     exportarParaCSV,
     exportarParaXLSX,
 
