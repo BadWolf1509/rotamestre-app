@@ -82,9 +82,9 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     width: theme.spacing['6'],
     height: theme.spacing['6'],
     borderRadius: theme.borderRadius.xs + 2,
-    // Eco do pino da unidade (`CORES_SOBRE_O_MAPA.sede`); o balão é cartão
-    // de interface e segue o tema.
-    backgroundColor: theme.colors.primaryDark,
+    // Repete o pino da unidade, em cor fixa nos dois temas (o resto do balão
+    // é cartão de interface e segue o tema).
+    backgroundColor: CORES_SOBRE_O_MAPA.sede,
     justifyContent: 'center',
     alignItems: 'center',
   },

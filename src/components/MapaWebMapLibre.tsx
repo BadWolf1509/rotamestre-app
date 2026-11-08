@@ -729,9 +729,13 @@ export default function MapaWebMapLibre({
 
     const marcadores = pontosUnidade.map((ponto) =>
       new maplibregl.Marker({
-        element: criarElementoDoPinoDaUnidade(ponto, 28, () =>
-          openPopup(ponto.ponto, ponto.membros, ponto),
-        ),
+        element: criarElementoDoPinoDaUnidade(ponto, 28, () => {
+          // O pino barra a propagação, então o 'click' do mapa (que limpava a
+          // seleção) não chega: avisa aqui. Sem isso a parada selecionada
+          // seguia acesa e o próximo toque nela abria as ações direto.
+          onMapPressRef.current?.();
+          openPopup(ponto.ponto, ponto.membros, ponto);
+        }),
       })
         .setLngLat([ponto.ponto.longitude!, ponto.ponto.latitude!])
         .addTo(map),

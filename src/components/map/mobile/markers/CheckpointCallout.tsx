@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import {
   ESPEC_DO_PONTO,
@@ -37,7 +38,11 @@ export function CheckpointCallout({
     <View style={styles.checkpointCalloutContainer}>
       <View style={styles.checkpointCalloutHeader}>
         <View style={styles.checkpointIconBadge}>
-          <Ionicons name={espec.ionicon} size={12} color={theme.colors.white} />
+          <Ionicons
+            name={espec.ionicon}
+            size={12}
+            color={CORES_SOBRE_O_MAPA.branco}
+          />
         </View>
         <Text style={styles.checkpointCalloutTitle}>{espec.titulo}</Text>
       </View>

@@ -100,6 +100,13 @@ describe('mapa nativo do gestor no tema escuro', () => {
     );
   });
 
+  // O selo repete o pino da unidade: mesma cor fixa, nos dois temas.
+  it('selo do balão da unidade: azul-marinho do pino, não o primaryDark do escuro', () => {
+    expect(mapMobileStyles.checkpointIconBadge.backgroundColor).toBe(
+      CORES_SOBRE_O_MAPA.sede,
+    );
+  });
+
   it('o balão segue o tema (cartão de interface)', () => {
     expect(mapMobileStyles.calloutContainer.backgroundColor).toBe(
       darkTheme.colors.surface,

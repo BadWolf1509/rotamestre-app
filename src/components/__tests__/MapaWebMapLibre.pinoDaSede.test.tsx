@@ -172,6 +172,20 @@ describe('MapaWebMapLibre — pino da sede', () => {
     expect(html).not.toContain('🏁');
   });
 
+  // O clique no mapa limpava a seleção; o pino barra a propagação, então
+  // ele mesmo avisa. Sem isso a parada X seguia acesa atrás do popup da sede
+  // e o toque seguinte nela abria as ações direto ("2º toque").
+  it('clicar no pino da sede limpa a seleção, como o clique no mapa', async () => {
+    const onMapPress = jest.fn();
+    await renderizarCarregado({ selectedParadaId: 'p1', onMapPress });
+
+    act(() => {
+      pinosDaUnidade()[0].click();
+    });
+
+    expect(onMapPress).toHaveBeenCalledTimes(1);
+  });
+
   it('selecionar pelo id da chegada abre o popup da sede', async () => {
     await renderizarCarregado({ selectedParadaId: 'chegada' });
 

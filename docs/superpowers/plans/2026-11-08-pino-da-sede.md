@@ -267,3 +267,17 @@ export function PinoDaUnidade(props: {
 
 - **Navegador** (dev web, gestor logado pelo usuário): Mapa da Rota de uma rota real mostra um quadrado azul-marinho com casa, e o clique abre "Sede da unidade". Aba Mapa do motorista no web, igual. Tema escuro, igual.
 - **Aparelho:** fica para a build seguinte à 3058, com mapa do gestor, mini-mapa da Início e modo navegação. O mini-mapa já escondeu defeito de pino que só o aparelho mostrou.
+
+## Execução (08/11/2026)
+
+As 7 tarefas foram feitas. A revisão final, no modelo mais capaz, não achou nada crítico nem importante. Destes pontos menores, três foram corrigidos:
+
+- **Seleção:** o clique no pino da sede limpa a seleção pelo `onMapPress`, como o clique no mapa fazia.
+- **Acessibilidade:** o pino web clicável tem `tabindex="0"` e responde a Enter e Espaço; o pino estático é `role="img"`.
+- **Selo do balão nativo:** usa `CORES_SOBRE_O_MAPA.sede` e ícone branco nos dois temas. É um desvio intencional do "segue o tema" do balão: o selo repete o pino.
+
+**Limitações conhecidas** (aceitas, sem tarefa):
+
+- **Web, pino sobre parada:** uma entrega ou retirada na mesma coordenada da sede fica coberta pelo pino da sede, porque o `Marker` HTML fica acima do canvas. Antes era o checkpoint que ficava coberto. É raro, porque a sede não é ponto de entrega.
+- **Nativo, seleção externa:** `selectedParadaId` com o id da partida ou da chegada não abre o balão da sede, que só reage ao toque no pino (`selectedCheckpointId`). Nenhuma tela seleciona checkpoint de fora hoje. O item 4 do Review Focus vale só para o web.
+- **Âncora:** o pino fica com `anchor="bottom"` no mapa nativo do gestor (o balão usa essa altura) e `center` nos outros mapas. Diferença de cerca de 14 px, cosmética.

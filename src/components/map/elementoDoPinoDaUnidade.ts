@@ -42,15 +42,25 @@ export function criarElementoDoPinoDaUnidade(
   });
   el.innerHTML = `<svg width="${icone}" height="${icone}" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.branco}" aria-hidden="true"><path d="${ESPEC_DO_PONTO[ponto.tipo].svgPath}"/></svg>`;
 
-  if (aoClicar) {
-    el.setAttribute('role', 'button');
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', (evento) => {
-      // O clique no mapa fecharia o popup que este clique abre.
-      evento.stopPropagation();
-      aoClicar();
-    });
+  if (!aoClicar) {
+    // Mini-mapa e navegação: só informa (leitor de tela lê o aria-label).
+    el.setAttribute('role', 'img');
+    return el;
   }
+
+  el.setAttribute('role', 'button');
+  el.setAttribute('tabindex', '0');
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', (evento) => {
+    // O clique no mapa fecharia o popup que este clique abre.
+    evento.stopPropagation();
+    aoClicar();
+  });
+  el.addEventListener('keydown', (evento) => {
+    if (evento.key !== 'Enter' && evento.key !== ' ') return;
+    evento.preventDefault();
+    aoClicar();
+  });
 
   return el;
 }

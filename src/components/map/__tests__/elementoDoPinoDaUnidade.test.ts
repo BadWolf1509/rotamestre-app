@@ -49,8 +49,22 @@ describe('criarElementoDoPinoDaUnidade', () => {
     expect(doMapa).not.toHaveBeenCalled();
   });
 
-  it('sem clique: não se anuncia como botão', () => {
+  it('sem clique: imagem rotulada, fora da ordem de foco', () => {
     const el = criarElementoDoPinoDaUnidade(sede, 22);
-    expect(el.getAttribute('role')).toBeNull();
+    expect(el.getAttribute('role')).toBe('img');
+    expect(el.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('com clique: alcançável pelo teclado (Enter e Espaço)', () => {
+    const aoClicar = jest.fn();
+    const el = criarElementoDoPinoDaUnidade(sede, 28, aoClicar);
+
+    expect(el.getAttribute('tabindex')).toBe('0');
+    el.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    expect(aoClicar).toHaveBeenCalledTimes(2);
   });
 });
