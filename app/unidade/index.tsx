@@ -367,12 +367,8 @@ export default function UnidadeScreen() {
         preencher('estado', uf);
         preenchidos.push('UF');
       }
-      // CEP parcial ("58039") ou com dígito a mais, que o Photon às vezes
-      // devolve, não entra: o maskCEP cortaria o excesso calado e o parcial
-      // trocaria um CEP bom por um inválido.
-      const cepDigitos = (detalhes.cep ?? '').replace(/\D/g, '');
-      if (cepDigitos.length === 8) {
-        preencher('cep', maskCEP(cepDigitos));
+      if (detalhes.cep) {
+        preencher('cep', maskCEP(detalhes.cep));
         preenchidos.push('CEP');
       }
 

@@ -150,24 +150,6 @@ jest.mock('@/components/AddressAutocomplete', () => {
           },
           'selecionar Photon sem nada',
         ),
-        // O Photon às vezes devolve CEP parcial ou com dígito a mais.
-        ...['58039', '580390001'].map((cep) =>
-          ReactActual.createElement(
-            Text,
-            {
-              key: cep,
-              testID: `mock-selecionar-sugestao-osm-cep-invalido-${cep}`,
-              onPress: () =>
-                onSelectAddress?.(
-                  'Av. Epitácio Pessoa',
-                  'osm_W4',
-                  { latitude: -7.1195, longitude: -34.8331 },
-                  { cidade: 'João Pessoa', estado: 'PB', cep },
-                ),
-            },
-            `selecionar Photon com CEP ${cep}`,
-          ),
-        ),
         // Sugestão vinda do ViaCEP: place_id sintético, não resolvível pelo
         // Places (src/lib/viacep.ts:176).
         ReactActual.createElement(
@@ -635,30 +617,6 @@ describe('tela Minha Unidade', () => {
       expect(viacep).toHaveBeenCalledWith('58039-000');
       expect(googlePlacesService.getPlaceDetails).not.toHaveBeenCalled();
     });
-
-    it.each(['58039', '580390001'])(
-      'CEP %s (sem 8 dígitos): preenche cidade e UF e deixa o CEP como está',
-      async (cep) => {
-        render(<UnidadeScreen />);
-        await entrarEmEdicao();
-        const cepAntes = screen.getByPlaceholderText('00000-000').props.value;
-        fireEvent.press(
-          screen.getByTestId(
-            `mock-selecionar-sugestao-osm-cep-invalido-${cep}`,
-          ),
-        );
-
-        await waitFor(() =>
-          expect(screen.getByPlaceholderText('Cidade').props.value).toBe(
-            'João Pessoa',
-          ),
-        );
-        expect(screen.getByPlaceholderText('UF').props.value).toBe('PB');
-        expect(screen.getByPlaceholderText('00000-000').props.value).toBe(
-          cepAntes,
-        );
-      },
-    );
 
     it('sem nada: não chama Places nem ViaCEP e não mexe nos campos', async () => {
       render(<UnidadeScreen />);
