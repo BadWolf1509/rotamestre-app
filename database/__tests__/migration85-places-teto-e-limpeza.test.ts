@@ -181,6 +181,17 @@ describe('Migration 85: rollback, sonda e documentação', () => {
     expect(sonda).not.toMatch(/^\s*COMMIT;/m);
   });
 
+  it('sonda imune a uso concorrente: só conta e confere linhas que ela plantou', () => {
+    // Em produção (READ COMMITTED), outro usuário grava entre duas contagens:
+    // contar a tabela inteira ou igualar ao total real dá FALHOU falso.
+    expect(sonda).not.toMatch(
+      /count\(\*\)\s+INTO\s+\w+\s+FROM\s+public\.uso_places_diario\s*;/,
+    );
+    expect(sonda).not.toMatch(/v_apagadas\s*=\s*v_n\b/);
+    expect(sonda).toMatch(/v_apagadas\s*>=\s*2/);
+    expect(sonda).toMatch(/usuario_id IN \(v_a, v_b, v_c, v_d\)/);
+  });
+
   it('MIGRATIONS.md registra a 85', () => {
     const doc = ler(CAMINHO_DOC);
     expect(doc).toMatch(/### (⏳|✅) Migration 85:/);

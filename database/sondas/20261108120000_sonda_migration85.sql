@@ -14,6 +14,10 @@
 -- usa a chave secreta), e o EXECUTE dela se confere no catálogo e numa
 -- chamada como `authenticated`. O bloco termina SEMPRE em RAISE EXCEPTION,
 -- que desfaz tudo (inclusive as linhas antigas reais que a limpeza apagar).
+-- Uso concorrente: a sonda roda em produção (READ COMMITTED), então só conta
+-- e confere as linhas dos usuários que ela mesma criou — nunca a tabela
+-- inteira nem o total real apagado. O DELETE global do caso 4 trava as linhas
+-- antigas reais até o RAISE do fim; é inócuo (ninguém mais grava dia passado).
 -- Leia o resultado na mensagem "SONDA M85 (desfeita): N OK | N FALHOU ..."
 -- (o detalhe sai antes num RAISE NOTICE; a API corta mensagens de erro em
 -- ~1.200 caracteres).
@@ -26,7 +30,7 @@
 --       gravado; papel `anon` → sem EXECUTE (42501)
 --    4. limpeza padrão: C tem linhas de 9 e de 8 dias atrás e de hoje; D, de
 --       20 dias atrás. `limpar_uso_places_antigo()` apaga as de 9 e 20 dias
---       (e qualquer outra anterior ao corte), devolve o total apagado e
+--       (e qualquer outra anterior ao corte), devolve ao menos 2 apagadas e
 --       mantém as de 8 dias e de hoje
 --    5. piso: `limpar_uso_places_antigo(0)` e `(NULL)` → 22023, nada apagado
 --    6. `authenticated` e `anon` não executam a limpeza (42501)
@@ -134,14 +138,16 @@ BEGIN
   -- 3. Sem usuário: NULL (não false); papel anon: sem EXECUTE
   -- ---------------------------------------------------------------------------
   BEGIN
-    SELECT count(*) INTO v_n FROM public.uso_places_diario;
+    SELECT count(*) INTO v_n FROM public.uso_places_diario
+     WHERE usuario_id IN (v_a, v_b, v_c, v_d);
     v_res := true;
     PERFORM set_config('request.jwt.claims', json_build_object('role', 'authenticated')::text, true);
     SET LOCAL ROLE authenticated;
     v_res := public.consumir_cota_places('details');
     RESET ROLE;
     PERFORM set_config('request.jwt.claims', '', true);
-    SELECT count(*) INTO v_n2 FROM public.uso_places_diario;
+    SELECT count(*) INTO v_n2 FROM public.uso_places_diario
+     WHERE usuario_id IN (v_a, v_b, v_c, v_d);
 
     v_err := 'sem erro';
     BEGIN
@@ -174,18 +180,19 @@ BEGIN
       (v_c, v_hoje - 8, 'autocomplete', 6),
       (v_c, v_hoje, 'details', 7),
       (v_d, v_hoje - 20, 'details', 8);
-    -- Total esperado: as duas plantadas e qualquer linha real antes do corte.
-    SELECT count(*) INTO v_n FROM public.uso_places_diario WHERE dia < v_hoje - 8;
+    -- Só as plantadas entram na conta: o total real apagado varia com o uso.
     v_apagadas := public.limpar_uso_places_antigo();
-    SELECT count(*) INTO v_n2 FROM public.uso_places_diario WHERE dia < v_hoje - 8;
-    v_ok := v_n >= 2 AND v_apagadas = v_n AND v_n2 = 0
+    SELECT count(*) INTO v_n2 FROM public.uso_places_diario
+     WHERE (usuario_id = v_c AND dia = v_hoje - 9)
+        OR (usuario_id = v_d AND dia = v_hoje - 20);
+    v_ok := v_apagadas >= 2 AND v_n2 = 0
       AND EXISTS (SELECT 1 FROM public.uso_places_diario WHERE usuario_id = v_c AND dia = v_hoje - 8 AND chamadas = 6)
       AND EXISTS (SELECT 1 FROM public.uso_places_diario WHERE usuario_id = v_c AND dia = v_hoje AND chamadas = 7)
       AND EXISTS (SELECT 1 FROM public.uso_places_diario WHERE usuario_id = v_a AND dia = v_hoje AND chamadas = 1000);
     r := r || CASE WHEN v_ok
       THEN ' | 4 OK: limpeza apaga as de 9 e 20 dias (' || v_apagadas || ' no total) e mantém as de 8 dias e de hoje'
-      ELSE ' | 4 FALHOU: antes do corte ' || v_n || ', apagadas ' || coalesce(v_apagadas::text, 'nulo')
-           || ', restaram ' || v_n2 END;
+      ELSE ' | 4 FALHOU: apagadas ' || coalesce(v_apagadas::text, 'nulo')
+           || ', antigas plantadas restantes ' || v_n2 END;
   EXCEPTION WHEN OTHERS THEN
     r := r || ' | 4 FALHOU: erro inesperado (' || SQLSTATE || ' ' || SQLERRM || ')';
   END;
@@ -196,7 +203,8 @@ BEGIN
   BEGIN
     INSERT INTO public.uso_places_diario (usuario_id, dia, servico, chamadas) VALUES
       (v_d, v_hoje - 1, 'autocomplete', 9);
-    SELECT count(*) INTO v_n FROM public.uso_places_diario;
+    SELECT count(*) INTO v_n FROM public.uso_places_diario
+     WHERE usuario_id IN (v_a, v_b, v_c, v_d);
     v_err := 'sem erro';
     BEGIN
       PERFORM public.limpar_uso_places_antigo(0);
@@ -207,7 +215,8 @@ BEGIN
       PERFORM public.limpar_uso_places_antigo(NULL);
     EXCEPTION WHEN OTHERS THEN v_err2 := SQLSTATE;
     END;
-    SELECT count(*) INTO v_n2 FROM public.uso_places_diario;
+    SELECT count(*) INTO v_n2 FROM public.uso_places_diario
+     WHERE usuario_id IN (v_a, v_b, v_c, v_d);
     r := r || CASE WHEN v_err = '22023' AND v_err2 = '22023' AND v_n = v_n2
       THEN ' | 5 OK: retenção 0 e NULL recusadas com 22023, nada apagado'
       ELSE ' | 5 FALHOU: 0 -> ' || v_err || ', NULL -> ' || v_err2 || ', linhas ' || v_n || ' -> ' || v_n2 END;
