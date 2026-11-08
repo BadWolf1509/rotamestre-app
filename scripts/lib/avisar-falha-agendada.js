@@ -20,7 +20,7 @@
  * formato do octokit (`octokit.rest.issues.*`), então a lógica é a mesma e o
  * teste a prova com um octokit falso.
  *
- * Uso (no CI): GH_TOKEN e GITHUB_REPOSITORY no ambiente;
+ * Uso (no CI): GH_TOKEN, GITHUB_REPOSITORY e GITHUB_EVENT_NAME no ambiente;
  *   node scripts/lib/avisar-falha-agendada.js <url-da-execucao> "<job>=<resultado>" ...
  * `resultado` é o `needs.<job>.result` (success, failure, skipped, cancelled).
  */
@@ -110,9 +110,14 @@ async function avisarFalha({ octokit, owner, repo, workflow, runUrl, falhou, ago
  * Num disparo roda um só dos jobs agendados; os outros ficam `skipped`.
  * Falha de qualquer um vence; sem falha, vale o primeiro sucesso. Tudo
  * pulado/cancelado: não há o que avisar (devolve null).
+ *
+ * No disparo agendado, `cancelled` também é falha: o job que estoura o
+ * `timeout-minutes` chega assim, e no cron ninguém cancela à mão. No disparo
+ * manual o cancelamento é de quem disparou e não vira aviso.
  */
-function decidirExecucao(jobs) {
-  const falhou = jobs.find((j) => j.resultado === 'failure');
+function decidirExecucao(jobs, { agendado = false } = {}) {
+  const resultadosDeFalha = agendado ? ['failure', 'cancelled'] : ['failure'];
+  const falhou = jobs.find((j) => resultadosDeFalha.includes(j.resultado));
   if (falhou) return { workflow: falhou.nome, falhou: true };
   const passou = jobs.find((j) => j.resultado === 'success');
   if (passou) return { workflow: passou.nome, falhou: false };
@@ -178,7 +183,8 @@ async function executar({ argv, env, criarOctokit = criarOctokitGh, log = consol
     const i = par.lastIndexOf('=');
     return { nome: par.slice(0, i), resultado: par.slice(i + 1) };
   });
-  const decisao = decidirExecucao(jobs);
+  // GITHUB_EVENT_NAME é variável padrão do runner (`schedule` no cron).
+  const decisao = decidirExecucao(jobs, { agendado: env.GITHUB_EVENT_NAME === 'schedule' });
   if (!decisao) {
     log.log('Nenhum job agendado concluiu nesta execução; nada a avisar.');
     return 0;

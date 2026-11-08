@@ -229,13 +229,62 @@ describe('decidirExecucao', () => {
     ).toEqual({ workflow: 'A', falhou: false });
   });
 
-  it('tudo pulado ou cancelado: não há o que avisar', () => {
+  it('fora do agendamento (manual), tudo pulado ou cancelado: não há o que avisar', () => {
     expect(
       decidirExecucao([
         { nome: 'A', resultado: 'skipped' },
         { nome: 'B', resultado: 'cancelled' },
       ]),
     ).toBeNull();
+  });
+  // Job que passa do timeout-minutes chega como `cancelled`, não `failure`.
+  // No cron ninguém cancela à mão: cancelado é lembrete/expiração que não
+  // aconteceu, e precisa virar aviso como a falha.
+  it('disparo agendado: job cancelado conta como falha', () => {
+    expect(
+      decidirExecucao(
+        [
+          { nome: 'A', resultado: 'skipped' },
+          { nome: 'B', resultado: 'cancelled' },
+        ],
+        { agendado: true },
+      ),
+    ).toEqual({ workflow: 'B', falhou: true });
+  });
+});
+
+describe('executar: cancelamento no cron vira issue', () => {
+  const argv = [
+    'https://github.com/org/app/actions/runs/9',
+    'Expire Pending Routes (22:00 BRT)=cancelled',
+    'Remind Pending Routes (16:00 BRT)=skipped',
+  ];
+  const log = () => ({ log: jest.fn(), error: jest.fn() });
+
+  it('GITHUB_EVENT_NAME=schedule: abre a issue do job cancelado', async () => {
+    const { octokit, issues } = criarOctokitFalso();
+    await executar({
+      argv,
+      env: { GITHUB_REPOSITORY: 'org/app', GITHUB_EVENT_NAME: 'schedule' },
+      log: log(),
+      criarOctokit: () => octokit,
+    });
+    expect(issues).toHaveLength(1);
+    expect(issues[0].title).toContain('Expire Pending Routes (22:00 BRT)');
+  });
+
+  it('workflow_dispatch: cancelado à mão não abre issue', async () => {
+    const { octokit, issues } = criarOctokitFalso();
+    await executar({
+      argv,
+      env: {
+        GITHUB_REPOSITORY: 'org/app',
+        GITHUB_EVENT_NAME: 'workflow_dispatch',
+      },
+      log: log(),
+      criarOctokit: () => octokit,
+    });
+    expect(issues).toHaveLength(0);
   });
 });
 
