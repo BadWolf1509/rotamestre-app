@@ -1,5 +1,5 @@
 import * as MapLibreGL from '@maplibre/maplibre-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
@@ -133,7 +133,10 @@ export function MapaMobile({
 
   // Partida e chegada: um pino de sede quando coincidem (100% das rotas em
   // 08/11/2026), um de cada quando não.
-  const pontosUnidade = pontosDaUnidade(checkpoints);
+  const pontosUnidade = useMemo(
+    () => pontosDaUnidade(checkpoints),
+    [checkpoints],
+  );
 
   // Um balão por vez, sobre o mapa: o do pino da unidade, se houver; senão o
   // da parada selecionada.
