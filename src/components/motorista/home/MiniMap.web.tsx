@@ -19,7 +19,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
 import { criarElementoDoPinoDaUnidade } from '@/components/map/elementoDoPinoDaUnidade';
-import { pontosDaUnidade } from '@/components/map/pontosDaUnidade';
+import {
+  ehPontoDaUnidade,
+  pontosDaUnidade,
+} from '@/components/map/pontosDaUnidade';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { erroNaoFatalDoMapa } from '@/lib/maplibre';
@@ -125,7 +128,7 @@ export function MiniMap({
         (p) =>
           p.status !== 'concluida' &&
           p.status !== 'pulada' &&
-          p.is_checkpoint !== false,
+          !ehPontoDaUnidade(p),
       ),
     [paradas],
   );
@@ -140,7 +143,7 @@ export function MiniMap({
       paradas.filter(
         (p) =>
           p.status === 'concluida' &&
-          p.is_checkpoint !== false &&
+          !ehPontoDaUnidade(p) &&
           temCoordenadaValida(p),
       ),
     [paradas],
@@ -154,7 +157,7 @@ export function MiniMap({
 
   // Checkpoints (pontos de partida/chegada da unidade)
   const checkpoints = useMemo(
-    () => todasParadasComCoord.filter((p) => p.is_checkpoint === false),
+    () => todasParadasComCoord.filter((p) => ehPontoDaUnidade(p)),
     [todasParadasComCoord],
   );
 

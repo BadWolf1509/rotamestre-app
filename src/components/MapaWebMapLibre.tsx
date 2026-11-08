@@ -35,6 +35,7 @@ import { criarElementoDoPinoDaUnidade } from '@/components/map/elementoDoPinoDaU
 import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
 import {
+  ehPontoDaUnidade,
   ESPEC_DO_PONTO,
   pontoQueContem,
   pontosDaUnidade,
@@ -264,15 +265,14 @@ export default function MapaWebMapLibre({
 
   // Separate real paradas from checkpoints
   const paradasReais = useMemo(
-    () => paradasComCoord.filter((p) => p.is_checkpoint !== false),
+    () => paradasComCoord.filter((p) => !ehPontoDaUnidade(p)),
     [paradasComCoord],
   );
 
   // Partida e chegada: um pino de sede quando coincidem (100% das rotas em
   // 08/11/2026), um de cada quando não.
   const pontosUnidade = useMemo(
-    () =>
-      pontosDaUnidade(paradasComCoord.filter((p) => p.is_checkpoint === false)),
+    () => pontosDaUnidade(paradasComCoord.filter(ehPontoDaUnidade)),
     [paradasComCoord],
   );
 
