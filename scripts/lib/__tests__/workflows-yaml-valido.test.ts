@@ -37,3 +37,35 @@ describe('YAML dos workflows e das actions', () => {
     },
   );
 });
+
+// Schema do runner para passo `run` de composite action: só estas chaves.
+// `timeout-minutes` vale em passo de job, NÃO em composite — lá o prazo é
+// `timeout <duração> <comando>` dentro do próprio `run`.
+const CHAVES_PASSO_RUN_COMPOSITE = [
+  'name',
+  'id',
+  'if',
+  'run',
+  'env',
+  'continue-on-error',
+  'working-directory',
+  'shell',
+];
+
+describe.each(acoes.map((c) => [relativo(c), c]))('%s', (_nome, caminho) => {
+  it('passos `run` só usam chaves aceitas em composite action', () => {
+    const acao = parseDocument(readFileSync(caminho, 'utf8')).toJS() as {
+      runs?: { steps?: Record<string, unknown>[] };
+    };
+    const passos = acao.runs?.steps ?? [];
+    expect(passos.length).toBeGreaterThan(0);
+    const proibidas = passos
+      .filter((p) => 'run' in p)
+      .flatMap((p) =>
+        Object.keys(p)
+          .filter((chave) => !CHAVES_PASSO_RUN_COMPOSITE.includes(chave))
+          .map((chave) => `${String(p.name ?? p.id ?? '?')}: ${chave}`),
+      );
+    expect(proibidas).toEqual([]);
+  });
+});
