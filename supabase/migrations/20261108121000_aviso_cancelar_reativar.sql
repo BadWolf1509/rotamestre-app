@@ -134,7 +134,7 @@ BEGIN
         'Rota cancelada pelo gestor',
         format(
           'A rota de %s (%s) foi cancelada pelo gestor e não precisa mais ser feita.',
-          to_char(v_aviso_data, 'DD/MM/YYYY'),
+          coalesce(to_char(v_aviso_data, 'DD/MM/YYYY'), 'data não definida'),
           coalesce(v_aviso_loja, 'sua loja')
         ),
         p_rota_id
@@ -262,7 +262,7 @@ BEGIN
         format(
           'A rota de %s foi reativada pelo gestor para hoje, %s.',
           coalesce(v_aviso_loja, 'sua loja'),
-          to_char(v_hoje, 'DD/MM/YYYY')
+          coalesce(to_char(v_hoje, 'DD/MM/YYYY'), 'data não definida')
         ),
         p_rota_id
       );

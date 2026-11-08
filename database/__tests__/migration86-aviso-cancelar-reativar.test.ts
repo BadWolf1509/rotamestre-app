@@ -91,7 +91,10 @@ describe.each([
         `PERFORM public\\.criar_notificacao\\(\\s*v_aviso_motorista,\\s*'${caso.tipo}',\\s*'${caso.titulo}',`,
       ),
     );
-    expect(bloco).toMatch(/to_char\([^)]*'DD\/MM\/YYYY'\)/);
+    // Data nula não pode deixar um buraco no lugar da data na mensagem.
+    expect(bloco).toMatch(
+      /coalesce\(\s*to_char\([^)]*'DD\/MM\/YYYY'\),\s*'data não definida'\s*\)/,
+    );
     expect(bloco).toMatch(/p_rota_id\s*\);/);
     expect(bloco).toMatch(/IF v_aviso_motorista IS NOT NULL THEN/);
   });
