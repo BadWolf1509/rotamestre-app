@@ -215,7 +215,7 @@ async function readSecureValue(key: string): Promise<string | null> {
 let fila: Promise<unknown> = Promise.resolve();
 
 function emFila<T>(operacao: () => Promise<T>): Promise<T> {
-  const resultado = fila.then(operacao, operacao);
+  const resultado = fila.then(operacao);
   fila = resultado.catch(() => undefined);
   return resultado;
 }
