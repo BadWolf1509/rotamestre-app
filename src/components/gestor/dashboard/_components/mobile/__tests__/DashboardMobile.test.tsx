@@ -224,6 +224,23 @@ describe('DashboardMobile', () => {
       expect(queryByText('0')).toBeNull();
     });
 
+    it.each([
+      [1, '1 rota concluída'],
+      [4, '4 rotas concluídas'],
+    ])('motorista destaque com %i: "%s"', (n, frase) => {
+      const { getByText } = render(
+        <DashboardMobile
+          {...defaultProps}
+          kpis={{
+            ...defaultProps.kpis,
+            motoristaDestaque: { nome: 'Ana', rotasConcluidas: n },
+          }}
+        />,
+      );
+
+      expect(getByText(frase)).toBeTruthy();
+    });
+
     it('deve renderizar rotas cards', () => {
       const { getByTestId } = render(<DashboardMobile {...defaultProps} />);
 

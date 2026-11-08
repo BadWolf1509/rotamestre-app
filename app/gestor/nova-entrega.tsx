@@ -522,7 +522,7 @@ export default function NovaEntrega() {
               isLoading
                 ? 'Criando rota'
                 : canGenerateRoute
-                  ? `Revisar rota com ${paradas.length} paradas`
+                  ? `Revisar rota com ${plural(paradas.length, 'parada', 'paradas')}`
                   : routeValidation.erros[0] || 'Rota ainda não pode ser criada'
             }
             accessibilityState={{ disabled: !canGenerateRoute }}

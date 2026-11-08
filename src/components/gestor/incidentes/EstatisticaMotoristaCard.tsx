@@ -3,9 +3,9 @@ import { TouchableOpacity, View } from 'react-native';
 
 import { Text } from '@/components/Text';
 import type { EstatisticaMotorista } from '@/hooks/incidentes-gestor/types';
+import { plural } from '@/lib/plural';
 import { styles } from '@/styles/gestor/incidentes.styles';
 import { useUnistyles } from '@/utils/styles';
-
 
 interface EstatisticaMotoristaCardProps {
   stat: EstatisticaMotorista;
@@ -35,8 +35,7 @@ export function EstatisticaMotoristaCard({
       <View style={styles.motoristaInfo}>
         <Text style={styles.motoristaNome}>{stat.nome}</Text>
         <Text style={styles.motoristaStats}>
-          {stat.total} incidentes ({stat.abertos} abertos, {stat.resolvidos}{' '}
-          resolvidos)
+          {`${plural(stat.total, 'incidente', 'incidentes')} (${plural(stat.abertos, 'aberto', 'abertos')}, ${plural(stat.resolvidos, 'resolvido', 'resolvidos')})`}
         </Text>
       </View>
       {motoristaId !== null && (

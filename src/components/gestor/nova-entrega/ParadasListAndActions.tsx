@@ -16,6 +16,7 @@ import type {
   MotoristaDaNovaEntrega,
   PercursoDaNovaEntrega,
 } from '@/hooks/useNovaEntrega';
+import { plural } from '@/lib/plural';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -321,7 +322,7 @@ export const ParadasListAndActions = memo(function ParadasListAndActions({
               isLoading
                 ? 'Criando rota'
                 : canGenerateRoute
-                  ? `Revisar rota com ${paradas.length} paradas`
+                  ? `Revisar rota com ${plural(paradas.length, 'parada', 'paradas')}`
                   : validationErrors[0] || 'Rota ainda não pode ser criada'
             }
             accessibilityRole="button"
