@@ -1,18 +1,18 @@
 /**
  * Conclui a partida que ficou pendente numa rota já em andamento.
  *
- * POR QUE EXISTE. O início da rota são três escritas separadas (rota →
- * partida → 1ª parada). Se a rede cai depois da primeira, a rota fica em
+ * POR QUE EXISTE. Até o app da Migration 88, o início da rota eram três
+ * escritas separadas (rota → partida → 1ª parada). Se a rede cai depois da
+ * primeira, a rota fica em
  * andamento com a partida pendente; quando a tela recarrega (rede de volta,
  * realtime), ela já mostra a rota em andamento e o botão Iniciar some — não
  * há mais toque que complete o passo 2, e a `finalizar_rota` só conclui a
  * chegada. O gestor via a partida "pendente" para sempre (caso real em
  * 19/10/2026).
  *
- * Alternativas: (a) RPC transacional `iniciar_rota` — fecha a janela de vez,
- * mas pede migration e não conserta as rotas que versões antigas deixarem
- * assim; (b) este reparo idempotente na carga confirmada. Ficou (b) no app;
- * (a) segue recomendada no banco.
+ * O app atual inicia pela RPC transacional `iniciar_rota` (Migration 88), que
+ * fecha a janela; este reparo idempotente na carga confirmada fica para as
+ * rotas que versões antigas (três escritas) deixarem assim.
  *
  * Só com a carga confirmada pelo banco e com o UPDATE condicionado a
  * `status = 'pendente'`. Gravou ou o servidor recusou: não tenta mais nesta
