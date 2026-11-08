@@ -67,7 +67,7 @@ describe('uso_places_diario: fechada à API', () => {
 describe('consumir_cota_places', () => {
   it('assinatura, DEFINER e search_path fixo', () => {
     expect(funcao).toMatch(
-      /consumir_cota_places\(p_servico text\)\s+RETURNS boolean\s+LANGUAGE plpgsql\s+SECURITY DEFINER\s+SET search_path = public\s+AS \$\$/,
+      /consumir_cota_places\(p_servico text\)\s+RETURNS boolean\s+LANGUAGE plpgsql\s+SECURITY DEFINER\s+SET search_path = ''\s+AS \$\$/,
     );
   });
 

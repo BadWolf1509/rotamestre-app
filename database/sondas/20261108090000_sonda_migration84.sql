@@ -29,7 +29,7 @@
 --    7. a API não lê nem grava a tabela direto: SELECT, INSERT, UPDATE e
 --       DELETE como `authenticated` → 42501
 --    8. catálogo: RLS ligada e nenhuma policy; anon/authenticated sem
---       privilégio na tabela; função DEFINER, search_path=public, dona
+--       privilégio na tabela; função DEFINER, search_path vazio, dona
 --       postgres, EXECUTE de authenticated e não de anon/PUBLIC, COMMENT da
 --       Migration 84
 -- ============================================================================
@@ -320,7 +320,7 @@ BEGIN
       FROM pg_proc p
      WHERE p.oid = to_regprocedure('public.consumir_cota_places(text)')
        AND p.prosecdef
-       AND p.proconfig = ARRAY['search_path=public']
+       AND p.proconfig = ARRAY['search_path=""']
        AND pg_get_userbyid(p.proowner) = 'postgres'
        AND p.proacl IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM aclexplode(p.proacl) a WHERE a.grantee = 0)

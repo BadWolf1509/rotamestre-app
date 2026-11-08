@@ -64,7 +64,7 @@ CREATE OR REPLACE FUNCTION public.consumir_cota_places(p_servico text)
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_uid uuid := auth.uid();
