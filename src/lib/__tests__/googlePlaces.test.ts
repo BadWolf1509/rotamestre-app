@@ -433,6 +433,92 @@ describe('googlePlacesService', () => {
     });
   });
 
+  describe('esgotamento do Google memorizado (429)', () => {
+    const resposta429 = {
+      error: 'Limite diário de buscas de endereço atingido.',
+      status: 'OVER_QUERY_LIMIT',
+      predictions: [],
+    };
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('depois de um 429, a busca seguinte no mesmo dia não chama a Edge Function nem avisa de novo', async () => {
+      jest.useFakeTimers({ now: new Date(2026, 10, 8, 15, 0, 0) });
+      mockFetchResponse(resposta429, false, 429);
+      await googlePlacesService.buscarSugestoes('Rua Augusta');
+      logger.warn.mockClear();
+      mockFetch.mockClear();
+
+      const resultado =
+        await googlePlacesService.buscarSugestoes('Rua Augusta 2');
+
+      expect(resultado).toEqual({ sugestoes: [], falhou: true });
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('o 429 do detalhe também esgota o Google para a busca', async () => {
+      jest.useFakeTimers({ now: new Date(2026, 10, 8, 15, 0, 0) });
+      mockFetchResponse(resposta429, false, 429);
+      await googlePlacesService.getPlaceDetails('place_123');
+      logger.warn.mockClear();
+      mockFetch.mockClear();
+
+      const resultado =
+        await googlePlacesService.buscarSugestoes('Rua Augusta');
+
+      expect(resultado).toEqual({ sugestoes: [], falhou: true });
+      expect(await googlePlacesService.getPlaceDetails('place_456')).toBeNull();
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
+
+    it('googleEsgotadoAte devolve a meia-noite local seguinte e null antes do 429', async () => {
+      const mod = require('../googlePlaces');
+      jest.useFakeTimers({ now: new Date(2026, 10, 8, 15, 0, 0) });
+      expect(mod.googleEsgotadoAte()).toBeNull();
+
+      mockFetchResponse(resposta429, false, 429);
+      await googlePlacesService.buscarSugestoes('Rua Augusta');
+
+      expect(mod.googleEsgotadoAte()).toBe(new Date(2026, 10, 9).getTime());
+
+      mod.reiniciarEsgotamentoDoGoogle();
+      expect(mod.googleEsgotadoAte()).toBeNull();
+    });
+
+    it('depois da meia-noite volta ao Google', async () => {
+      const mod = require('../googlePlaces');
+      jest.useFakeTimers({ now: new Date(2026, 10, 8, 23, 59, 0) });
+      mockFetchResponse(resposta429, false, 429);
+      await googlePlacesService.buscarSugestoes('Rua Augusta');
+
+      jest.setSystemTime(new Date(2026, 10, 9, 0, 0, 1));
+      expect(mod.googleEsgotadoAte()).toBeNull();
+      mockFetchResponse(makeAutocompleteResponse());
+      const resultado =
+        await googlePlacesService.buscarSugestoes('Rua Augusta 3');
+
+      expect(resultado.falhou).toBe(false);
+      expect(resultado.sugestoes).toHaveLength(1);
+    });
+
+    it('erro 5xx, timeout e rede não memorizam: a busca seguinte chama o Google', async () => {
+      const mod = require('../googlePlaces');
+      mockFetchResponse(null, false, 500);
+      await googlePlacesService.buscarSugestoes('Rua Augusta');
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      await googlePlacesService.buscarSugestoes('Rua Augusta 2');
+
+      expect(mod.googleEsgotadoAte()).toBeNull();
+      mockFetchResponse(makeAutocompleteResponse());
+      await googlePlacesService.buscarSugestoes('Rua Augusta 3');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+  });
+
   describe('getPlaceDetails', () => {
     it('sem sessão, cai para a chave publishable e devolve o endereço', async () => {
       getSession.mockResolvedValue({ data: { session: null }, error: null });

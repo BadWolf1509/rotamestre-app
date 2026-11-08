@@ -143,7 +143,12 @@ describe('coluna date-only nunca passa por helper local com new Date()', () => {
  * `toLocalISODate()` em `src/lib/dateUtils.ts`.
  */
 /** Montado em pedaços para o próprio arquivo não casar com a regra. */
-const RECORTES_DE_DIA = ["split('T')[0]", 'slice(0,10)'];
+const RECORTES_DE_DIA = [
+  "split('T')[0]",
+  'slice(0,10)',
+  'substring(0,10)',
+  'substr(0,10)',
+];
 const CHAMADA_ISO = 'toISO' + 'String()';
 
 /** Ignora espaços para não depender da formatação do prettier. */
@@ -179,6 +184,12 @@ describe('dia do calendário nunca sai de toISOString()', () => {
       derivaDiaEmUtc("const hoje = now.toISOString().split('T')[0];"),
     ).toBe(true);
     expect(derivaDiaEmUtc('const d = date.toISOString().slice(0, 10);')).toBe(
+      true,
+    );
+    expect(
+      derivaDiaEmUtc('const d = date.toISOString().substring(0, 10);'),
+    ).toBe(true);
+    expect(derivaDiaEmUtc('const d = date.toISOString().substr(0, 10);')).toBe(
       true,
     );
     // Timestamp completo continua legítimo — o problema é recortar o dia dele.

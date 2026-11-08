@@ -25,6 +25,7 @@ import {
   respostaTelefoneDuplicado,
 } from './telefoneDuplicado.ts';
 import {
+  clienteDoUsuario,
   criarValidadorDeUsuario,
   exigirUsuario,
 } from '../_shared/autenticacao.ts';
@@ -59,14 +60,10 @@ serve(async (req) => {
 
     // Cliente com a sessão de quem chama (a RLS vale): o Authorization já foi
     // conferido pela guarda acima.
-    const supabaseClient = createClient(
+    const supabaseClient = clienteDoUsuario(
+      createClient,
       Deno.env.get('SUPABASE_URL') ?? '',
-      chavePublica(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization') ?? '' },
-        },
-      },
+      req.headers.get('Authorization') ?? '',
     );
 
     // Cliente com a chave secreta (só disponível server-side)

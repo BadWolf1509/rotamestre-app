@@ -115,6 +115,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Retenção do uso do Google Places (8 dias, Migration 85): a cota só
+    // apagava as linhas de quem volta a buscar. Mesma regra: falha só vai
+    // para o log (inclusive a RPC ainda não existir).
+    let usoPlacesApagados: number | null = null;
+    const limpezaPlaces = await supabase.rpc('limpar_uso_places_antigo');
+    if (limpezaPlaces.error) {
+      console.error(
+        'Error calling limpar_uso_places_antigo:',
+        limpezaPlaces.error,
+      );
+    } else {
+      usoPlacesApagados = limpezaPlaces.data as number;
+      console.log(`Deleted ${usoPlacesApagados} old Places usage rows`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -124,6 +139,7 @@ Deno.serve(async (req) => {
         notificacoes_apagadas:
           retencaoNotificacoes?.notificacoes_apagadas ?? null,
         push_logs_apagados: retencaoNotificacoes?.push_logs_apagados ?? null,
+        uso_places_apagados: usoPlacesApagados,
         executed_at: new Date().toISOString(),
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },

@@ -4,7 +4,11 @@
 // e a validação nem é chamada quando falta o cabeçalho. Com usuário válido a
 // guarda devolve o próprio usuário (`{ usuario: { id } }`), para a função não
 // precisar guardá-lo numa variável de fora da validação.
-import { criarValidadorDeUsuario, exigirUsuario } from '../autenticacao';
+import {
+  clienteDoUsuario,
+  criarValidadorDeUsuario,
+  exigirUsuario,
+} from '../autenticacao';
 
 beforeEach(() => {
   jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -125,5 +129,52 @@ describe('criarValidadorDeUsuario', () => {
         criarValidadorDeUsuario(createClient, 'u', () => 'k')('Bearer t'),
       ).resolves.toBeNull();
     }
+  });
+});
+
+describe('clienteDoUsuario', () => {
+  const ambiente: Record<string, string | undefined> = {};
+  let denoAntes: unknown;
+
+  beforeAll(() => {
+    denoAntes = (globalThis as { Deno?: unknown }).Deno;
+    (globalThis as { Deno?: unknown }).Deno = {
+      env: { get: (nome: string) => ambiente[nome] },
+    };
+  });
+
+  afterAll(() => {
+    (globalThis as { Deno?: unknown }).Deno = denoAntes;
+  });
+
+  it('cria o cliente com a chave publicável, o Authorization recebido e sem sessão persistida', () => {
+    ambiente.SUPABASE_PUBLISHABLE_KEYS = JSON.stringify({
+      default: 'sb_publishable_padrao',
+    });
+    const cliente = { marca: 'cliente' };
+    const createClient = jest.fn(() => cliente);
+    expect(
+      clienteDoUsuario(createClient, 'https://p', 'Bearer jwt.do.usuario'),
+    ).toBe(cliente);
+    expect(createClient).toHaveBeenCalledWith(
+      'https://p',
+      'sb_publishable_padrao',
+      {
+        global: { headers: { Authorization: 'Bearer jwt.do.usuario' } },
+        auth: { autoRefreshToken: false, persistSession: false },
+      },
+    );
+  });
+
+  it('aceita outra fonte da chave (o validador injeta a dele)', () => {
+    const createClient = jest.fn(() => ({}));
+    clienteDoUsuario(createClient, 'https://p', 'Bearer t', () => 'k');
+    expect(createClient).toHaveBeenCalledWith(
+      'https://p',
+      'k',
+      expect.objectContaining({
+        global: { headers: { Authorization: 'Bearer t' } },
+      }),
+    );
   });
 });

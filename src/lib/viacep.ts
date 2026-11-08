@@ -53,6 +53,9 @@ export interface ViaCEPResponse {
  */
 export interface ViaCEPPlaceSuggestion extends PlaceSuggestion {
   cep: string;
+  /** Município e UF do CEP (ausentes em respostas guardadas em cache antigo). */
+  cidade?: string;
+  uf?: string;
   // Coordenadas não disponíveis via ViaCEP
   // Será necessário geocodificar depois se precisar
 }
@@ -180,6 +183,8 @@ function responseToSuggestion(data: ViaCEPResponse): ViaCEPPlaceSuggestion {
       secondary_text: secondaryParts.join(', '),
     },
     cep: formatCEP(data.cep),
+    ...(data.localidade ? { cidade: data.localidade } : {}),
+    ...(data.uf ? { uf: data.uf } : {}),
   };
 }
 

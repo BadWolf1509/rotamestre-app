@@ -237,8 +237,8 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
-    // Sentinela do `startRoute` (useRouteActions): o UPDATE condicionado a
-    // "pendente + deste motorista" voltou com 0 linhas — a tela estava velha.
+    // Sentinela do `startRoute` (useRouteActions): a RPC `iniciar_rota`
+    // respondeu situacao_mudou ou sem_permissao — a tela estava velha.
     pattern: /ROTA_NAO_PENDENTE/,
     result: {
       title: 'Rota não pode ser iniciada',
@@ -317,7 +317,7 @@ const ERROR_PATTERNS: Array<{
     // gestor ativo daquela unidade. Mensagem específica para deixar claro que
     // é falta de permissão, não erro genérico.
     // code usa a convenção semântica das demais entradas (não o nome cru da
-    // sentinela) para que isPermissionError() reconheça este erro.
+    // sentinela) para o erro ser tratado como de permissão.
     pattern: /SEM_PERMISSAO/i,
     result: {
       title: 'Sem permissão',
@@ -389,7 +389,7 @@ const ERROR_PATTERNS: Array<{
     // carregamento da tela e a confirmação (ex.: outra transferência já
     // aconteceu, ou a conta foi desativada nesse intervalo). code usa a
     // convenção semântica de SEM_PERMISSAO (não o nome cru da sentinela) para
-    // que isPermissionError() reconheça este erro também.
+    // o erro ser tratado como de permissão.
     pattern: /só o gestor principal da unidade pode transferir a gestão/i,
     result: {
       title: 'Sem permissão',
@@ -623,14 +623,6 @@ export function getErrorMessage(error: unknown): UserFriendlyError {
 }
 
 /**
- * Versão simplificada que retorna apenas a mensagem
- */
-export function getErrorString(error: unknown): string {
-  const { message } = getErrorMessage(error);
-  return message;
-}
-
-/**
  * Verifica se é um erro de rede/conexão. Rede pela fonte única
  * (`ehFalhaDeRede`, que também reconhece as classes de erro do supabase-js),
  * ou tempo esgotado pelo mapa de mensagens.
@@ -640,27 +632,3 @@ export function isNetworkError(error: unknown): boolean {
   const result = getErrorMessage(error);
   return result.code === 'NETWORK_ERROR' || result.code === 'TIMEOUT';
 }
-
-/**
- * Verifica se é um erro de autenticação
- */
-export function isAuthError(error: unknown): boolean {
-  const result = getErrorMessage(error);
-  return result.code?.startsWith('AUTH_') ?? false;
-}
-
-/**
- * Verifica se é um erro de permissão
- */
-export function isPermissionError(error: unknown): boolean {
-  const result = getErrorMessage(error);
-  return result.code === 'RLS_VIOLATION' || result.code === 'PERMISSION_DENIED';
-}
-
-export default {
-  getErrorMessage,
-  getErrorString,
-  isNetworkError,
-  isAuthError,
-  isPermissionError,
-};

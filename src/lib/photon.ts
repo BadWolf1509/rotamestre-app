@@ -19,6 +19,7 @@
  */
 
 import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
+import { nomeEstadoParaUF } from '@/lib/estados';
 import { logger } from '@/lib/logger';
 
 import type { PlaceSuggestion } from './google-shared';
@@ -62,11 +63,15 @@ interface BoundingBox {
  * @param radiusKm - Raio em quilômetros
  * @returns Bounding box
  */
-function calculateBboxFromCenter(center: Coordenadas, radiusKm: number): BoundingBox {
+function calculateBboxFromCenter(
+  center: Coordenadas,
+  radiusKm: number,
+): BoundingBox {
   // 1 grau de latitude ≈ 111km (constante)
   // 1 grau de longitude ≈ 111km * cos(latitude) (varia com latitude)
   const latDelta = radiusKm / 111;
-  const lonDelta = radiusKm / (111 * Math.cos((center.latitude * Math.PI) / 180));
+  const lonDelta =
+    radiusKm / (111 * Math.cos((center.latitude * Math.PI) / 180));
 
   return {
     minLat: center.latitude - latDelta,
@@ -129,6 +134,11 @@ interface PhotonResponse {
  */
 export interface PhotonPlaceSuggestion extends PlaceSuggestion {
   coordinates: Coordenadas;
+  /** Cidade, UF e CEP do próprio Photon: dispensam o details do Google. */
+  cidade?: string;
+  /** UF (sigla); o Photon devolve o estado por extenso. */
+  estado?: string;
+  cep?: string;
 }
 
 // ============================================================================
@@ -233,6 +243,8 @@ function featureToSuggestion(feature: PhotonFeature): PhotonPlaceSuggestion {
   const props = feature.properties;
   const [longitude, latitude] = feature.geometry.coordinates;
 
+  const estado = nomeEstadoParaUF(props.state);
+
   return {
     place_id: `osm_${props.osm_type}${props.osm_id}`,
     description: formatAddress(props),
@@ -244,6 +256,9 @@ function featureToSuggestion(feature: PhotonFeature): PhotonPlaceSuggestion {
       latitude,
       longitude,
     },
+    ...(props.city ? { cidade: props.city } : {}),
+    ...(estado ? { estado } : {}),
+    ...(props.postcode ? { cep: props.postcode } : {}),
   };
 }
 
@@ -274,7 +289,7 @@ function featureToEndereco(feature: PhotonFeature): EnderecoGeocodificado {
  */
 async function fetchWithTimeout(
   url: string,
-  timeout: number = REQUEST_TIMEOUT
+  timeout: number = REQUEST_TIMEOUT,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -317,7 +332,7 @@ export const photonService = {
    */
   async autocompleteAddress(
     input: string,
-    locationBias?: Coordenadas
+    locationBias?: Coordenadas,
   ): Promise<PhotonPlaceSuggestion[]> {
     if (input.length < 3) {
       return [];
@@ -394,7 +409,9 @@ export const photonService = {
       const response = await fetchWithTimeout(url);
 
       if (!response.ok) {
-        logger.warn('[Photon] API returned non-OK status', { status: response.status });
+        logger.warn('[Photon] API returned non-OK status', {
+          status: response.status,
+        });
         return [];
       }
 
@@ -402,7 +419,7 @@ export const photonService = {
 
       // Filtrar apenas resultados do Brasil
       const brazilFeatures = data.features.filter(
-        (f) => f.properties.countrycode === 'BR'
+        (f) => f.properties.countrycode === 'BR',
       );
 
       const suggestions = brazilFeatures.map(featureToSuggestion);
@@ -433,10 +450,14 @@ export const photonService = {
    * @param placeId - ID no formato "osm_N12345" ou "osm_W12345"
    * @returns Endereço geocodificado ou null
    */
-  async getPlaceDetails(_placeId: string): Promise<EnderecoGeocodificado | null> {
+  async getPlaceDetails(
+    _placeId: string,
+  ): Promise<EnderecoGeocodificado | null> {
     // Photon não tem endpoint de place details
     // Se precisar, usar geocodeAddress com o endereço
-    logger.warn('[Photon] getPlaceDetails não suportado - use coordenadas do autocomplete');
+    logger.warn(
+      '[Photon] getPlaceDetails não suportado - use coordenadas do autocomplete',
+    );
     return null;
   },
 
@@ -446,7 +467,9 @@ export const photonService = {
    * @param endereco - Endereço em texto livre
    * @returns Endereço geocodificado com coordenadas
    */
-  async geocodeAddress(endereco: string): Promise<EnderecoGeocodificado | null> {
+  async geocodeAddress(
+    endereco: string,
+  ): Promise<EnderecoGeocodificado | null> {
     if (!endereco || endereco.length < 3) {
       return null;
     }
@@ -472,14 +495,18 @@ export const photonService = {
       const response = await fetchWithTimeout(url);
 
       if (!response.ok) {
-        logger.warn('[Photon] Geocoding API returned non-OK status', { status: response.status });
+        logger.warn('[Photon] Geocoding API returned non-OK status', {
+          status: response.status,
+        });
         return null;
       }
 
       const data: PhotonResponse = await response.json();
 
       // Pegar primeiro resultado do Brasil
-      const feature = data.features.find((f) => f.properties.countrycode === 'BR');
+      const feature = data.features.find(
+        (f) => f.properties.countrycode === 'BR',
+      );
 
       if (!feature) {
         logger.warn('[Photon] Nenhum resultado encontrado para', { endereco });
@@ -524,7 +551,9 @@ export const photonService = {
       const response = await fetchWithTimeout(url);
 
       if (!response.ok) {
-        logger.warn('[Photon] Reverse geocoding API returned non-OK status', { status: response.status });
+        logger.warn('[Photon] Reverse geocoding API returned non-OK status', {
+          status: response.status,
+        });
         return null;
       }
 
@@ -565,7 +594,9 @@ export const photonService = {
    * @param coords - Coordenadas (latitude, longitude)
    * @returns Endereço geocodificado completo ou null
    */
-  async reverseGeocodeDetailed(coords: Coordenadas): Promise<EnderecoGeocodificado | null> {
+  async reverseGeocodeDetailed(
+    coords: Coordenadas,
+  ): Promise<EnderecoGeocodificado | null> {
     // Cache key baseada nas coordenadas
     const cacheKey = `photon_reverse_detailed_${coords.latitude.toFixed(5)}_${coords.longitude.toFixed(5)}`;
 
