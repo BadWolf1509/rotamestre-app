@@ -32,6 +32,7 @@ describe('ResumoDoDia', () => {
             distancia_total: 12.4,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -84,6 +85,7 @@ describe('ResumoDoDia', () => {
             distancia_total: 0,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -118,6 +120,7 @@ describe('ResumoDoDia', () => {
             distancia_total: 0,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -134,6 +137,7 @@ describe('ResumoDoDia', () => {
         rotas={[
           rota({ status: 'pendente', total_paradas: 1, distancia_total: 1 }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -175,6 +179,7 @@ describe('ResumoDoDia', () => {
             paradas_concluidas: 0,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -209,6 +214,7 @@ describe('ResumoDoDia', () => {
     const { getByRole } = render(
       <ResumoDoDia
         rotas={[rota({ status: 'pendente', total_paradas: 2 })]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={2}
         onAbrirIncidentes={onAbrirIncidentes}
       />,
@@ -222,6 +228,7 @@ describe('ResumoDoDia', () => {
     const { getByText } = render(
       <ResumoDoDia
         rotas={[]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={1}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -234,6 +241,7 @@ describe('ResumoDoDia', () => {
     const { getByText, queryByRole } = render(
       <ResumoDoDia
         rotas={[]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={null}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -247,6 +255,7 @@ describe('ResumoDoDia', () => {
     const { getByTestId } = render(
       <ResumoDoDia
         rotas={[]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,

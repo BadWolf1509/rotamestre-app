@@ -21,7 +21,7 @@ import type { RotaResumo } from '../../_hooks/useDashboardData';
 interface ResumoDoDiaProps {
   rotas: RotaResumo[];
   /** A frase sem rota; a Início passa a mesma do estado vazio ao lado. */
-  textoSemRotas?: string;
+  textoSemRotas: string;
   /** null = a contagem falhou (indisponível). */
   incidentesAbertos: number | null;
   onAbrirIncidentes: () => void;
@@ -70,7 +70,7 @@ function fraseDoResumo(rotas: RotaResumo[], textoSemRotas: string): string {
 
 export function ResumoDoDia({
   rotas,
-  textoSemRotas = 'Nenhuma rota no período',
+  textoSemRotas,
   incidentesAbertos,
   onAbrirIncidentes,
 }: ResumoDoDiaProps) {
