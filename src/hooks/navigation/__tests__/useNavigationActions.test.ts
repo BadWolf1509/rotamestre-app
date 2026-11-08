@@ -33,7 +33,6 @@ function createMockOptions(
       created_at: new Date().toISOString(),
     },
     triggerHaptic: jest.fn().mockResolvedValue(undefined),
-    playNotificationSound: jest.fn().mockResolvedValue(undefined),
     showConfirm: jest.fn().mockResolvedValue(true),
     stopNavigation: jest.fn().mockResolvedValue(undefined),
     onComplete: jest.fn(),
@@ -74,7 +73,7 @@ describe('useNavigationActions', () => {
         await result.current.handleCompleteStop();
       });
 
-      // Order: haptic impact → showConfirm → playNotificationSound → haptic success → onComplete
+      // Order: haptic impact → showConfirm → haptic success → onComplete
       expect(options.triggerHaptic).toHaveBeenCalledWith('impact');
       expect(options.showConfirm).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -82,7 +81,6 @@ describe('useNavigationActions', () => {
           confirmText: 'Confirmar',
         }),
       );
-      expect(options.playNotificationSound).toHaveBeenCalled();
       expect(options.triggerHaptic).toHaveBeenCalledWith('success');
       expect(options.onComplete).toHaveBeenCalled();
     });
@@ -115,7 +113,6 @@ describe('useNavigationActions', () => {
 
       expect(options.triggerHaptic).toHaveBeenCalledWith('impact');
       expect(options.showConfirm).toHaveBeenCalled();
-      expect(options.playNotificationSound).not.toHaveBeenCalled();
       expect(options.onComplete).not.toHaveBeenCalled();
     });
   });

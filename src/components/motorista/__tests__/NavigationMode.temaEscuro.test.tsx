@@ -121,8 +121,6 @@ jest.mock('@/hooks/navigation', () => ({
   useNavigationModeLogic: () => mockLogica,
   useNavigationFeedback: jest.fn(() => ({
     triggerHaptic: jest.fn(),
-    playNotificationSound: jest.fn(),
-    cleanupSound: jest.fn(),
   })),
   useNavigationActions: jest.fn(() => ({
     handleCompleteStop: jest.fn(),
