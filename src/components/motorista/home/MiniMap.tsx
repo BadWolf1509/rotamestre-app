@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+import { PinoDaUnidade } from '@/components/map/PinoDaUnidade';
+import { pontosDaUnidade } from '@/components/map/pontosDaUnidade';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import {
   OPENFREEMAP_STYLE_URL,
@@ -491,23 +493,17 @@ export function MiniMap({
               </MapLibreGL.Marker>
             ))}
 
-            {/* Checkpoints - Pontos de partida/chegada da unidade (não são paradas de entrega) */}
-            {checkpoints.map((checkpoint) => (
+            {/* Pinos da unidade: sede, ou partida e chegada (pontosDaUnidade) */}
+            {pontosDaUnidade(checkpoints).map((ponto) => (
               <MapLibreGL.Marker
-                key={`checkpoint-${checkpoint.id}`}
+                key={`checkpoint-${ponto.ponto.id}`}
                 lngLat={toLngLat({
-                  latitude: checkpoint.latitude,
-                  longitude: checkpoint.longitude,
+                  latitude: ponto.ponto.latitude,
+                  longitude: ponto.ponto.longitude,
                 })}
                 anchor="center"
               >
-                <View style={styles.checkpointMarker}>
-                  <Ionicons
-                    name={checkpoint.ordem === 0 ? 'location' : 'flag'}
-                    size={20}
-                    color={CORES_SOBRE_O_MAPA.marca}
-                  />
-                </View>
+                <PinoDaUnidade ponto={ponto} tamanho={22} />
               </MapLibreGL.Marker>
             ))}
 
@@ -677,20 +673,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     color: CORES_SOBRE_O_MAPA.branco,
     fontSize: theme.typography.fontSize.xs,
     fontWeight: '700',
-  },
-  checkpointMarker: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: CORES_SOBRE_O_MAPA.branco,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: CORES_SOBRE_O_MAPA.marca,
-    shadowColor: CORES_SOBRE_O_MAPA.sombra,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
   },
 }));

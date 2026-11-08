@@ -279,6 +279,20 @@ describe('MiniMap.web', () => {
   });
 
   describe('marcadores', () => {
+    it('partida e chegada no mesmo lugar: um pino de sede', async () => {
+      await renderizarCarregado({
+        paradas: [
+          ...PARADAS,
+          { ...PARADAS[0], id: 'chegada', ordem: 3, status: 'pendente' },
+        ],
+      });
+
+      const tipos = MockMarker.mock.calls
+        .map(([o]) => (o as { element?: HTMLElement })?.element?.dataset.tipo)
+        .filter(Boolean);
+      expect(tipos).toEqual(['sede']);
+    });
+
     it('nova localização move o marcador do motorista sem refazer os das paradas', async () => {
       const { rerender } = await renderizarCarregado({
         userLocation: { latitude: -23.5, longitude: -46.6 },

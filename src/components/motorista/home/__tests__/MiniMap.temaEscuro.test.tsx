@@ -13,6 +13,8 @@ import { render } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
 
+import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+
 import { MiniMap } from '../MiniMap';
 
 jest.mock('@/utils/styles', () => {
@@ -118,7 +120,7 @@ describe('MiniMap no tema escuro', () => {
     expect(fundo).not.toMatch(/122, 155, 223/); // não o primary do escuro (#7a9bdf)
   });
 
-  it('checkpoint e ícone do botão continuam claros', () => {
+  it('pino da unidade e ícone do botão continuam claros', () => {
     const { UNSAFE_getAllByType, getByLabelText } = tela();
     const icones = UNSAFE_getAllByType('Ionicons' as never);
 
@@ -127,9 +129,12 @@ describe('MiniMap no tema escuro', () => {
     );
     expect(doBotao.props.color).toBe(BRANCO);
 
-    const doCheckpoint = icones.find((i) => i.props.name === 'location');
+    // Só a partida aqui: o pino da unidade, com o fundo azul-marinho da
+    // paleta clara e o ícone branco.
+    const doPino = icones.find((i) => i.props.name === 'flag');
+    expect(doPino?.props.color).toBe(BRANCO);
     expect(
-      StyleSheet.flatten(doCheckpoint?.parent?.props.style).backgroundColor,
-    ).toBe(BRANCO);
+      StyleSheet.flatten(doPino?.parent?.props.style).backgroundColor,
+    ).toBe(CORES_SOBRE_O_MAPA.sede);
   });
 });

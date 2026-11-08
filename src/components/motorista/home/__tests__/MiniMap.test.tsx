@@ -237,6 +237,28 @@ describe('MiniMap', () => {
   });
 
   describe('Markers', () => {
+    // Partida e chegada saem da sede (100% das rotas em 08/11/2026): um pino.
+    it('partida e chegada no mesmo lugar: um pino de sede', () => {
+      const sede = {
+        latitude: -23.5,
+        longitude: -46.6,
+        status: 'pendente',
+        endereco: 'Base',
+      };
+      const { getAllByLabelText, queryByLabelText } = render(
+        <MiniMap
+          paradas={[
+            { ...sede, id: 'partida', ordem: 0, is_checkpoint: false },
+            ...defaultProps.paradas,
+            { ...sede, id: 'chegada', ordem: 3, is_checkpoint: false },
+          ]}
+        />,
+      );
+
+      expect(getAllByLabelText('Sede da unidade, Base')).toHaveLength(1);
+      expect(queryByLabelText(/Ponto de/)).toBeNull();
+    });
+
     it('deve renderizar markers para paradas', () => {
       const { getAllByTestId } = render(<MiniMap {...defaultProps} />);
 
