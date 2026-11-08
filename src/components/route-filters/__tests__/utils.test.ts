@@ -101,9 +101,9 @@ describe('route-filters/utils', () => {
       expect(label).toContain('Até');
     });
 
-    it('returns "Selecionar Período" when no dates', () => {
-      expect(getRangeLabel(null, null)).toBe('Selecionar Período');
-      expect(getRangeLabel(undefined, undefined)).toBe('Selecionar Período');
+    it('returns "Selecionar período" when no dates', () => {
+      expect(getRangeLabel(null, null)).toBe('Selecionar período');
+      expect(getRangeLabel(undefined, undefined)).toBe('Selecionar período');
     });
   });
 

@@ -69,7 +69,7 @@ export const getRangeLabel = (
   if (dataFim) {
     return `Até ${formatDate(dataFim)}`;
   }
-  return 'Selecionar Período';
+  return 'Selecionar período';
 };
 
 /**

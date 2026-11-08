@@ -161,7 +161,7 @@ export default function NovaEntrega() {
       if (linkedCount > 0) {
         const confirmed = await showConfirm({
           title: 'Remover retirada vinculada?',
-          message: `${linkedCount === 1 ? '1 entrega depende' : `${linkedCount} entregas dependem`} desta retirada. Ao remover, os vínculos serão desfeitos. Você ainda poderá usar “Desfazer”.`,
+          message: `${plural(linkedCount, 'entrega depende', 'entregas dependem')} desta retirada. Ao remover, os vínculos serão desfeitos. Você ainda poderá usar “Desfazer”.`,
           type: 'warning',
           confirmText: 'Remover e desvincular',
         });

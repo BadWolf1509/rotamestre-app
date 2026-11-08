@@ -60,7 +60,7 @@ describe('DateRangeFilterSection', () => {
       );
 
       expect(screen.getByTestId('filter-date-range')).toBeTruthy();
-      expect(screen.getByText('Selecionar Período')).toBeTruthy();
+      expect(screen.getByText('Selecionar período')).toBeTruthy();
     });
 
     it('shows formatted date range when dates are provided', () => {

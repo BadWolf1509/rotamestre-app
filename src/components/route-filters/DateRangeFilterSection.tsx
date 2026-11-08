@@ -258,7 +258,7 @@ export function DateRangeFilterSection({
             />
             <View style={styles.datePickerContainer}>
               <View style={styles.datePickerHeader}>
-                <Text style={styles.datePickerTitle}>Selecionar Período</Text>
+                <Text style={styles.datePickerTitle}>Selecionar período</Text>
                 <Pressable onPress={() => setShowWebRangePicker(false)}>
                   <Ionicons
                     name="close"
