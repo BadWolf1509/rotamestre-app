@@ -670,46 +670,52 @@ export async function uploadFotoUsuario(
   }
 }
 
+/** Teto da foto de incidente no bucket. */
+const TAMANHO_MAXIMO_FOTO_INCIDENTE = 5 * 1024 * 1024;
+
 /**
- * Upload de foto de incidente
- * Usa o bucket fotos-entrega com subpasta incidentes/
+ * Sobe a foto de incidente para `incidentes/<nomeArquivo>` no bucket
+ * fotos-entrega (a policy de INSERT aceita a pasta `incidentes/` para o dono
+ * do objeto) e devolve o PATH (signed URL gerado on-read). LANÇA na falha,
+ * com o erro do Storage intacto: a fila de incidentes (`filaIncidentes.ts`)
+ * precisa distinguir rede de recusa. Foto acima do teto lança com
+ * `status: 413` — recusa definitiva, que nunca passaria reenviando.
+ */
+export async function enviarFotoDeIncidente(
+  fotoUri: string,
+  fileName: string,
+): Promise<string> {
+  const { data: fileData, size } = await getFileData(fotoUri);
+  if (size > TAMANHO_MAXIMO_FOTO_INCIDENTE) {
+    logger.error('[Storage] Foto muito grande! Máximo: 5MB');
+    throw Object.assign(new Error('Foto muito grande. Máximo: 5MB'), {
+      status: 413,
+    });
+  }
+  const filePath = `incidentes/${fileName}`;
+  const { error } = await supabase.storage
+    .from(BUCKET_FOTOS_ENTREGA)
+    .upload(filePath, fileData, {
+      contentType: 'image/jpeg',
+      upsert: true,
+    });
+  if (error) throw error;
+  return filePath;
+}
+
+/**
+ * Upload de foto de incidente (envio na hora, pelo wizard).
  *
  * @param fotoUri - URI local da foto
  * @param fileName - Nome do arquivo
- * @returns URL pública da foto ou string vazia se houver erro
+ * @returns o path da foto, ou string vazia se houver erro
  */
 export async function uploadIncidentPhoto(
   fotoUri: string,
   fileName: string,
 ): Promise<string> {
   try {
-    // Ler arquivo usando expo-file-system (nativo) ou fetch (web)
-    const { data: fileData, size } = await getFileData(fotoUri);
-
-    // Validar tamanho (máx 5MB)
-    if (size > 5 * 1024 * 1024) {
-      logger.error('[Storage] Foto muito grande! Máximo: 5MB');
-      throw new Error('Foto muito grande. Máximo: 5MB');
-    }
-
-    // Caminho no bucket: incidentes/nome-do-arquivo.jpg
-    const filePath = `incidentes/${fileName}`;
-
-    // Upload para o bucket fotos-entrega (subpasta incidentes)
-    const { error } = await supabase.storage
-      .from(BUCKET_FOTOS_ENTREGA)
-      .upload(filePath, fileData, {
-        contentType: 'image/jpeg',
-        upsert: true,
-      });
-
-    if (error) {
-      logger.error('[Storage] Erro no upload de incidente', error);
-      throw error;
-    }
-
-    // Persistir o PATH (signed URL gerado on-read)
-    return filePath;
+    return await enviarFotoDeIncidente(fotoUri, fileName);
   } catch (error) {
     logger.error('[Storage] Erro ao fazer upload de foto de incidente', error);
     return '';
