@@ -132,4 +132,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node scripts/lib/avisar-falha-agendada.js             "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"             "Remind Pending Routes (16:00 BRT)=${{ needs.remind-routes.result }}"             "Final Warning - Routes Expiring Soon (20:00 BRT)=${{ needs.final-warning-routes.result }}"             "Expire Pending Routes (22:00 BRT)=${{ needs.expire-routes.result }}"
+          node scripts/lib/avisar-falha-agendada.js \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "Remind Pending Routes (16:00 BRT)=${{ needs.remind-routes.result }}" \
+            "Final Warning - Routes Expiring Soon (20:00 BRT)=${{ needs.final-warning-routes.result }}" \
+            "Expire Pending Routes (22:00 BRT)=${{ needs.expire-routes.result }}"

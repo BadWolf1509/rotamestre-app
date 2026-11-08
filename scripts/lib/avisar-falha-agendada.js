@@ -161,12 +161,18 @@ function criarOctokitGh() {
   };
 }
 
-async function main() {
-  const [runUrl, ...pares] = process.argv.slice(2);
-  const [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
+/**
+ * Devolve o código de saída. O aviso é um extra: se o `gh` falhar (rate limit,
+ * 5xx, token sem permissão), o job não pode ficar vermelho por isso e esconder
+ * um cron que deu certo. Registra `::warning::` (aparece na execução) e sai 0.
+ * Só uso errado (argumentos/ambiente) devolve 2.
+ */
+async function executar({ argv, env, criarOctokit = criarOctokitGh, log = console }) {
+  const [runUrl, ...pares] = argv;
+  const [owner, repo] = (env.GITHUB_REPOSITORY || '').split('/');
   if (!runUrl || !owner || !repo || pares.length === 0) {
-    console.error('Uso: avisar-falha-agendada.js <url-da-execucao> "<job>=<resultado>" ... (com GITHUB_REPOSITORY)');
-    process.exit(2);
+    log.error('Uso: avisar-falha-agendada.js <url-da-execucao> "<job>=<resultado>" ... (com GITHUB_REPOSITORY)');
+    return 2;
   }
   const jobs = pares.map((par) => {
     const i = par.lastIndexOf('=');
@@ -174,18 +180,25 @@ async function main() {
   });
   const decisao = decidirExecucao(jobs);
   if (!decisao) {
-    console.log('Nenhum job agendado concluiu nesta execução; nada a avisar.');
-    return;
+    log.log('Nenhum job agendado concluiu nesta execução; nada a avisar.');
+    return 0;
   }
-  await avisarFalha({ octokit: criarOctokitGh(), owner, repo, runUrl, ...decisao });
-  console.log(decisao.falhou ? 'Falha registrada na issue do agendador.' : 'Sucesso registrado; issue aberta (se havia) fechada.');
+  try {
+    await avisarFalha({ octokit: criarOctokit(), owner, repo, runUrl, ...decisao });
+  } catch (erro) {
+    const motivo = `Aviso do agendador não foi registrado: ${erro && erro.message ? erro.message : erro}`;
+    log.error(motivo);
+    log.log(`::warning::${motivo}`);
+    return 0;
+  }
+  log.log(decisao.falhou ? 'Falha registrada na issue do agendador.' : 'Sucesso registrado; issue aberta (se havia) fechada.');
+  return 0;
 }
 
 if (require.main === module) {
-  main().catch((erro) => {
-    console.error(`Aviso do agendador falhou: ${erro.message}`);
-    process.exit(1);
+  executar({ argv: process.argv.slice(2), env: process.env }).then((codigo) => {
+    process.exitCode = codigo;
   });
 }
 
-module.exports = { avisarFalha, decidirExecucao, LABEL, tituloDe };
+module.exports = { avisarFalha, decidirExecucao, LABEL, tituloDe, executar };

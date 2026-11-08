@@ -8,6 +8,7 @@ const {
   avisarFalha,
   LABEL,
   decidirExecucao,
+  executar,
 } = require('../avisar-falha-agendada.js');
 
 type Issue = {
@@ -235,5 +236,72 @@ describe('decidirExecucao', () => {
         { nome: 'B', resultado: 'cancelled' },
       ]),
     ).toBeNull();
+  });
+});
+
+describe('executar (o aviso nunca derruba o workflow)', () => {
+  const env = { GITHUB_REPOSITORY: 'org/app' };
+  const argv = [
+    'https://github.com/org/app/actions/runs/9',
+    'Expire Pending Routes (22:00 BRT)=failure',
+    'Remind Pending Routes (16:00 BRT)=skipped',
+  ];
+  const novoLog = () => ({ log: jest.fn(), error: jest.fn() });
+
+  it('gh que lança: não propaga, emite ::warning:: e devolve 0', async () => {
+    const log = novoLog();
+    const codigo = await executar({
+      argv,
+      env,
+      log,
+      criarOctokit: () => ({
+        rest: {
+          issues: {
+            listForRepo: jest.fn().mockRejectedValue(new Error('HTTP 502')),
+          },
+        },
+      }),
+    });
+    expect(codigo).toBe(0);
+    expect(log.log).toHaveBeenCalledWith(
+      expect.stringMatching(/^::warning::.*HTTP 502/),
+    );
+    expect(log.error).toHaveBeenCalled();
+  });
+
+  it('criarOctokit que lança (gh ausente): também devolve 0 com warning', async () => {
+    const log = novoLog();
+    const codigo = await executar({
+      argv,
+      env,
+      log,
+      criarOctokit: () => {
+        throw new Error('ENOENT');
+      },
+    });
+    expect(codigo).toBe(0);
+    expect(log.log).toHaveBeenCalledWith(
+      expect.stringContaining('::warning::'),
+    );
+  });
+
+  it('caminho feliz: registra a falha e devolve 0 sem warning', async () => {
+    const { octokit, issues } = criarOctokitFalso();
+    const log = novoLog();
+    const codigo = await executar({
+      argv,
+      env,
+      log,
+      criarOctokit: () => octokit,
+    });
+    expect(codigo).toBe(0);
+    expect(issues).toHaveLength(1);
+    expect(log.log).not.toHaveBeenCalledWith(
+      expect.stringContaining('::warning::'),
+    );
+  });
+
+  it('uso errado (sem repositório) ainda devolve 2', async () => {
+    expect(await executar({ argv, env: {}, log: novoLog() })).toBe(2);
   });
 });

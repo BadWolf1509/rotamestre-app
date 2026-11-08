@@ -34,9 +34,15 @@ http_code="$(curl "${args[@]}")" || http_code="000"
 # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
 if [ "$http_code" != "200" ] || ! jq -e '.success == true' "$resposta" > /dev/null 2>&1; then
   echo "Erro: a função $funcao respondeu HTTP $http_code"
-  jq -r '.error // "sem campo error"' "$resposta" 2>/dev/null || echo "sem campo error"
+  # `.error` vem de fora e o log é público: limita o tamanho.
+  { jq -r '.error // "sem campo error"' "$resposta" 2>/dev/null || echo "sem campo error"; } | head -c 300
+  echo
   exit 1
 fi
 
-jq -c "$filtro" "$resposta"
+# Filtro inválido ou resposta ilegível: não imprime "OK" por cima de um erro.
+if ! jq -c "$filtro" "$resposta"; then
+  echo "Erro: a função $funcao respondeu sucesso, mas o filtro dos contadores falhou"
+  exit 1
+fi
 echo "OK: $funcao"
