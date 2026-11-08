@@ -24,7 +24,11 @@
  * ```
  */
 
-import { googlePlacesService, GooglePlaceSuggestion } from '@/lib/googlePlaces';
+import {
+  googleEsgotadoAte,
+  googlePlacesService,
+  GooglePlaceSuggestion,
+} from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { photonService, PhotonPlaceSuggestion } from '@/lib/photon';
 import { gerarUuid } from '@/lib/uuid';
@@ -281,23 +285,28 @@ export const geocodingService = {
       return [];
     }
 
-    stats.googleCalls++;
-    logger.info('[Geocoding] Buscando via Google Places', { input });
+    // Google esgotado até a meia-noite (429 já avisado): direto ao Photon,
+    // sem chamar o Google e sem repetir o aviso a cada tecla.
+    const googleEsgotado = googleEsgotadoAte() !== null;
+    if (!googleEsgotado) {
+      stats.googleCalls++;
+      logger.info('[Geocoding] Buscando via Google Places', { input });
 
-    const { sugestoes, falhou } = await googlePlacesService.buscarSugestoes(
-      input,
-      sessionToken,
-      locationBias,
-    );
-    if (!falhou) {
-      return sugestoes.map(fromGoogle);
+      const { sugestoes, falhou } = await googlePlacesService.buscarSugestoes(
+        input,
+        sessionToken,
+        locationBias,
+      );
+      if (!falhou) {
+        return sugestoes.map(fromGoogle);
+      }
+
+      // 3. Google falhou (429 do teto diário, erro, timeout): Photon, gratuito.
+      // Sem resultado do Google não é falha e não chega aqui.
+      logger.warn('[Geocoding] Google Places falhou; buscando no Photon', {
+        input,
+      });
     }
-
-    // 3. Google falhou (429 do teto diário, erro, timeout): Photon, gratuito.
-    // Sem resultado do Google não é falha e não chega aqui.
-    logger.warn('[Geocoding] Google Places falhou; buscando no Photon', {
-      input,
-    });
     try {
       const photonResults = await photonService.autocompleteAddress(
         input,
@@ -341,13 +350,16 @@ export const geocodingService = {
         return details.coordenadas;
       }
       // Detalhe sem coordenada (429 do teto diário, erro): Photon pela
-      // descrição da sugestão, como a do ViaCEP.
-      logger.warn(
-        '[Geocoding] Detalhe do Google sem coordenada; tentando Photon',
-        {
-          place_id: suggestion.place_id,
-        },
-      );
+      // descrição da sugestão, como a do ViaCEP. Com o Google esgotado o
+      // aviso do 429 já saiu; não repete.
+      if (googleEsgotadoAte() === null) {
+        logger.warn(
+          '[Geocoding] Detalhe do Google sem coordenada; tentando Photon',
+          {
+            place_id: suggestion.place_id,
+          },
+        );
+      }
       return (
         (await photonService.getCoordinates(suggestion.description)) ?? null
       );

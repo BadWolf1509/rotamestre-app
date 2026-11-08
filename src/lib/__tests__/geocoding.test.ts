@@ -42,8 +42,11 @@ const mockGoogleAutocompleteWithCoordinates = jest.fn();
 // buscarSugestoes devolve as sugestões do mock de autocompleteAddress e marca
 // a falha (429, erro, timeout) pelo mockGoogleFalhou.
 let mockGoogleFalhou = false;
+// Fim do esgotamento memorizado (429), como `googleEsgotadoAte` real.
+let mockGoogleEsgotadoAte: number | null = null;
 
 jest.mock('@/lib/googlePlaces', () => ({
+  googleEsgotadoAte: () => mockGoogleEsgotadoAte,
   googlePlacesService: {
     isAvailable: (...args: unknown[]) => mockGoogleIsAvailable(...args),
     autocompleteAddress: (...args: unknown[]) =>
@@ -131,6 +134,7 @@ describe('geocodingService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGoogleFalhou = false;
+    mockGoogleEsgotadoAte = null;
     mockPhotonGetCoordinates.mockReset();
     mockPhotonAutocompleteAddress.mockReset();
     geocodingService.resetStats();
@@ -293,6 +297,32 @@ describe('geocodingService', () => {
         expect.stringContaining('Photon'),
         expect.anything(),
       );
+    });
+
+    it('Google esgotado até a meia-noite: vai direto ao Photon, sem chamar o Google nem avisar de novo', async () => {
+      mockViacepContainsCEP.mockReturnValue(false);
+      mockGoogleIsAvailable.mockReturnValue(true);
+      mockGoogleEsgotadoAte = Date.now() + 3_600_000;
+      mockPhotonAutocompleteAddress.mockResolvedValue([
+        {
+          place_id: 'photon_1',
+          description: 'Rua Antonio Leite, João Pessoa, PB',
+          structured_formatting: {
+            main_text: 'Rua Antonio Leite',
+            secondary_text: 'João Pessoa, PB',
+          },
+          coordinates: mockCoords,
+        },
+      ]);
+      const { logger } = jest.requireMock('@/lib/logger');
+      logger.warn.mockClear();
+
+      const result = await geocodingService.autocomplete('Rua Antonio Leite');
+
+      expect(result).toEqual([expect.objectContaining({ source: 'photon' })]);
+      expect(mockGoogleAutocompleteAddress).not.toHaveBeenCalled();
+      expect(geocodingService.getStats().googleCalls).toBe(0);
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it('Google sem resultado (não é falha): não consulta o Photon', async () => {
