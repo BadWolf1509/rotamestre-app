@@ -126,10 +126,12 @@ export default function MotoristaPerfil() {
       if (motoristaError) throw motoristaError;
       setMotorista(motoristaData);
 
-      // 2. Performance (view sem linha para motorista inativo → taxa "—")
+      // 2. Performance DESTA loja (RPC da Migration 89): o motorista que
+      // atende outra loja não soma as rotas dela. Sem loja aberta, sem dados.
       const performanceData = await buscarPerformanceMotorista(
         motoristaId,
         motoristaData.nome,
+        unidadeAtiva,
       );
       if (obsoleta()) return false;
       setPerformance(performanceData);

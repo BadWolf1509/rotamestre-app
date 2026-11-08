@@ -64,6 +64,22 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+it('pede a performance do motorista na loja aberta', async () => {
+  const { buscarPerformanceMotorista } = jest.requireMock(
+    '@/lib/gestor/performanceMotorista',
+  );
+  render(<MotoristaPerfil />);
+  await screen.findByText('João Silva');
+
+  await waitFor(() =>
+    expect(buscarPerformanceMotorista).toHaveBeenCalledWith(
+      'motorista-1',
+      'João Silva',
+      'loja-ativa',
+    ),
+  );
+});
+
 it('busca as rotas recentes só da loja aberta', async () => {
   render(<MotoristaPerfil />);
   await screen.findByText('João Silva');
