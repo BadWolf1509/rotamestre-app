@@ -15,13 +15,17 @@
  *   responde (resposta atrasada de uma abertura anterior é descartada), e a
  *   âncora é zerada ao fechar. Onde não há `measureInWindow`, ela abre no
  *   canto superior direito.
+ * - Perto da borda de baixo, abre para cima do botão. Para decidir, ela fica
+ *   invisível até o `onLayout` dar a própria altura (senão pularia).
+ * - A janela mudar de tamanho com ela aberta a fecha: a âncora foi medida na
+ *   janela de antes e ficaria solta.
  * - Todo toque aqui dentro para a propagação: no web o clique sobe pela
  *   árvore React (o Modal é portal, mas o evento segue o React) até a linha
  *   clicável, que dispararia o `onRowPress` junto.
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -30,6 +34,7 @@ import {
   useWindowDimensions,
   View,
   type GestureResponderEvent,
+  type LayoutChangeEvent,
   type ViewInstance,
 } from 'react-native';
 
@@ -44,8 +49,11 @@ interface MenuDeAcoesProps<T> {
 }
 
 interface Ancora {
+  /** Topo da lista quando ela abre para baixo do botão. */
   top: number;
   right: number;
+  /** Topo do botão: a borda de baixo da lista quando ela abre para cima. */
+  topoDoBotao: number;
 }
 
 /** Sem `measureInWindow` (não há como medir): canto superior direito. */
@@ -59,11 +67,13 @@ function pararPropagacao(evento?: GestureResponderEvent) {
 
 export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
   const { theme } = useUnistyles();
-  const { width: larguraJanela } = useWindowDimensions();
+  const { width: larguraJanela, height: alturaJanela } = useWindowDimensions();
   const botaoRef = useRef<ViewInstance>(null);
   const [aberto, setAberto] = useState(false);
   // null = medida da abertura atual ainda não chegou: a lista não aparece.
   const [ancora, setAncora] = useState<Ancora | typeof SEM_MEDIDA | null>(null);
+  // Altura da lista aberta (onLayout); null = ainda não medida.
+  const [alturaLista, setAlturaLista] = useState<number | null>(null);
   // Conta as aberturas: a resposta da medida só vale para a abertura que a pediu.
   const aberturaRef = useRef(0);
 
@@ -71,13 +81,29 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
     aberturaRef.current += 1;
     setAberto(false);
     setAncora(null);
+    setAlturaLista(null);
   }, []);
+
+  // Janela mudou de tamanho com a lista aberta: fecha (a âncora era da
+  // janela de antes). A 1ª execução, na montagem, só guarda o tamanho.
+  const janelaRef = useRef({ larguraJanela, alturaJanela });
+  useEffect(() => {
+    const antes = janelaRef.current;
+    janelaRef.current = { larguraJanela, alturaJanela };
+    if (
+      antes.larguraJanela !== larguraJanela ||
+      antes.alturaJanela !== alturaJanela
+    ) {
+      fechar();
+    }
+  }, [larguraJanela, alturaJanela, fechar]);
 
   const abrir = (evento?: GestureResponderEvent) => {
     pararPropagacao(evento);
     aberturaRef.current += 1;
     const abertura = aberturaRef.current;
     setAncora(null);
+    setAlturaLista(null);
     setAberto(true);
     const medir = botaoRef.current?.measureInWindow;
     if (!medir) {
@@ -89,6 +115,7 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
       setAncora({
         top: y + altura + DISTANCIA_DO_BOTAO,
         right: Math.max(0, larguraJanela - (x + largura)),
+        topoDoBotao: y,
       });
     });
   };
@@ -107,6 +134,23 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
     fechar();
   };
 
+  const medirLista = (evento: LayoutChangeEvent) => {
+    setAlturaLista(evento.nativeEvent.layout.height);
+  };
+
+  /** Abaixo do botão; para cima quando não cabe embaixo e cabe em cima. */
+  const estiloDaPosicao = (posicao: Ancora) => {
+    if (alturaLista === null) {
+      return { top: posicao.top, right: posicao.right, opacity: 0 };
+    }
+    const acimaDoBotao = posicao.topoDoBotao - DISTANCIA_DO_BOTAO - alturaLista;
+    const naoCabeEmbaixo = posicao.top + alturaLista > alturaJanela;
+    return {
+      top: naoCabeEmbaixo && acimaDoBotao >= 0 ? acimaDoBotao : posicao.top,
+      right: posicao.right,
+    };
+  };
+
   // Função chamada no JSX, não componente: identidade nova a cada render
   // remontaria a lista (ver CLAUDE.md).
   const renderLista = (posicao: Ancora | typeof SEM_MEDIDA) => (
@@ -118,11 +162,12 @@ export function MenuDeAcoes<T>({ item, acoes, testID }: MenuDeAcoesProps<T>) {
       tabIndex={-1}
       accessibilityRole="menu"
       accessibilityLabel="Ações da linha"
+      onLayout={posicao === SEM_MEDIDA ? undefined : medirLista}
       style={[
         styles.lista,
         posicao === SEM_MEDIDA
           ? styles.listaSemAncora
-          : { top: posicao.top, right: posicao.right },
+          : estiloDaPosicao(posicao),
       ]}
     >
       {acoes.map((acao, indice) => {
