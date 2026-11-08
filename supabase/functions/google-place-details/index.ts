@@ -10,7 +10,7 @@
 // Teto diário por usuário (Migrations 84 e 85, `consumir_cota_places`): 1000
 // detalhes/dia no dia de Brasília; esgotado → 429 OVER_QUERY_LIMIT, e o app
 // cai no Photon para a coordenada. Publicar DEPOIS da migration.
-// Cota sem resposta em 2 s segue sem teto (`PRAZO_COTA_MS`); a Google tem 8 s.
+// Falha ou demora do banco segue sem teto (fail-open, ver cotaPlaces.ts).
 // Deploy: npx supabase functions deploy google-place-details --no-verify-jwt --project-ref xezslsyxjivunmhhyxtd
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -79,8 +79,8 @@ serve(async (req) => {
       return jsonResponse(500, { error: 'Serviço indisponível' });
     }
 
-    // Teto diário do usuário (Migration 84). Erro do banco segue a busca
-    // (fail-open, ver cotaPlaces.ts).
+    // Teto diário do usuário (Migration 84). Falha ou demora do banco segue
+    // sem teto (fail-open).
     const cliente = clienteDoUsuario(
       createClient,
       Deno.env.get('SUPABASE_URL') ?? '',

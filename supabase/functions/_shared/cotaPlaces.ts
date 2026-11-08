@@ -8,14 +8,10 @@
 // cliente criado com a chave publicável e o `Authorization` de quem busca,
 // para o `auth.uid()` do banco ser o dele; no Jest, um falso.
 //
-// FAIL-OPEN de propósito: erro do banco (RPC ausente, rede, sem resposta em
-// `PRAZO_COTA_MS`, sem usuário na sessão, resposta estranha) devolve 'indisponivel' e a busca SEGUE, com `console.error`.
-// Motivos: (1) a cota é teto de custo, não autorização — quem chega aqui já
-// passou pelo `auth.getUser`; (2) banco fora do ar é transitório, e travar a
-// busca de endereço por isso pararia o cadastro de parada e de loja; (3) a
-// função publicada antes da migration continua funcionando (sem teto) em vez
-// de recusar tudo. O custo de uma janela de falha é limitado pela duração
-// dela; o de travar é o app parado.
+// Falha ou demora do banco segue sem teto (fail-open): devolve 'indisponivel'
+// e a busca segue, com `console.error`. A cota é teto de custo, não
+// autorização — quem chega aqui já passou pelo `auth.getUser` —, e travar a
+// busca de endereço pararia o cadastro de parada e de loja.
 
 import { jsonResponse } from './http.ts';
 
@@ -35,9 +31,8 @@ export const MENSAGEM_COTA_ESGOTADA =
   'Limite diário de buscas de endereço atingido. Tente de novo amanhã.';
 
 /**
- * Quanto a busca espera o banco responder a cota. Passou disso, segue sem
- * teto ('indisponivel'): banco lento não pode prender a busca de endereço
- * até o limite da Edge Function.
+ * Quanto a busca espera o banco responder a cota ('indisponivel' depois
+ * disso, fail-open): banco lento não pode prender a busca de endereço.
  */
 export const PRAZO_COTA_MS = 2000;
 
