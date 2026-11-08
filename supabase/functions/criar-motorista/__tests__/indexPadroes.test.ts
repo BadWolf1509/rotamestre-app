@@ -9,9 +9,11 @@ describe('criar-motorista: padrões do index.ts', () => {
   it('recusa com 401 antes de criar cliente quando falta o Authorization (exigirUsuario)', () => {
     expect(fonte).toMatch(/exigirUsuario\(/);
     expect(fonte).not.toMatch(/get\('Authorization'\)!/);
-    expect(fonte.indexOf('exigirUsuario(')).toBeLessThan(
-      fonte.indexOf('chavePublica()'),
-    );
+    // O cliente da sessão sai de `clienteDoUsuario` (B8-2); o admin, da
+    // chave secreta. Os dois só depois da guarda.
+    const guarda = fonte.indexOf('exigirUsuario(');
+    expect(fonte.indexOf('clienteDoUsuario(')).toBeGreaterThan(guarda);
+    expect(fonte.indexOf('chaveSecreta()')).toBeGreaterThan(guarda);
   });
 
   it('o gestor vem da guarda (B-10), sem variável de fora da validação nem cast', () => {

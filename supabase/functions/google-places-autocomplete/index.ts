@@ -10,12 +10,14 @@
 // Teto diário por usuário (Migration 84, `consumir_cota_places`): 1000
 // consultas/dia no dia de Brasília; esgotado → 429 OVER_QUERY_LIMIT com
 // `predictions: []`, e o app cai no Photon. Publicar DEPOIS da migration.
+// Cota sem resposta em 2 s segue sem teto (`PRAZO_COTA_MS`); a Google tem 8 s.
 // Deploy: npx supabase functions deploy google-places-autocomplete --no-verify-jwt --project-ref xezslsyxjivunmhhyxtd
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import {
+  clienteDoUsuario,
   criarValidadorDeUsuario,
   exigirUsuario,
 } from '../_shared/autenticacao.ts';
@@ -89,15 +91,10 @@ serve(async (req) => {
 
     // Teto diário do usuário (Migration 84): conta só quando vai mesmo chamar
     // a Google. Erro do banco segue a busca (fail-open, ver cotaPlaces.ts).
-    const cliente = createClient(
+    const cliente = clienteDoUsuario(
+      createClient,
       Deno.env.get('SUPABASE_URL') ?? '',
-      chavePublica(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization') ?? '' },
-        },
-        auth: { autoRefreshToken: false, persistSession: false },
-      },
+      req.headers.get('Authorization') ?? '',
     );
     const cota = await consumirCotaPlaces(
       (funcao, args) => cliente.rpc(funcao, args),
@@ -141,6 +138,9 @@ serve(async (req) => {
           'X-Goog-Api-Key': apiKey,
         },
         body: JSON.stringify(requestBody),
+        // Google lenta não prende a função até o limite dela: o abort cai no
+        // catch abaixo (500) e o app usa o Photon.
+        signal: AbortSignal.timeout(8000),
       },
     );
 

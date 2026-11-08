@@ -3,7 +3,11 @@
 // `true` do banco libera; `false` é cota esgotada; qualquer erro (do banco, da
 // rede, resposta sem boolean) é 'indisponivel' — a função segue buscando
 // (fail-open) e registra o motivo no log.
-import { consumirCotaPlaces, respostaCotaEsgotada } from '../cotaPlaces';
+import {
+  consumirCotaPlaces,
+  PRAZO_COTA_MS,
+  respostaCotaEsgotada,
+} from '../cotaPlaces';
 
 beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -44,6 +48,54 @@ describe('consumirCotaPlaces', () => {
       'indisponivel',
     );
     expect(console.error).toHaveBeenCalled();
+  });
+
+  it('null do banco (sem usuário na sessão) é indisponível, não cota esgotada', async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: null, error: null });
+    await expect(consumirCotaPlaces(rpc, 'details')).resolves.toBe(
+      'indisponivel',
+    );
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('[cotaPlaces]'),
+    );
+  });
+
+  it(`banco que não responde em ${PRAZO_COTA_MS} ms é indisponível (a busca segue)`, async () => {
+    jest.useFakeTimers();
+    try {
+      const rpc = jest.fn(() => new Promise<never>(() => {}));
+      const resultado = consumirCotaPlaces(rpc, 'autocomplete');
+      await jest.advanceTimersByTimeAsync(PRAZO_COTA_MS - 1);
+      let resolvido = false;
+      void resultado.then(() => {
+        resolvido = true;
+      });
+      await Promise.resolve();
+      expect(resolvido).toBe(false);
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(resultado).resolves.toBe('indisponivel');
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[cotaPlaces]'),
+        expect.anything(),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('o prazo de 2000 ms é o padrão', () => {
+    expect(PRAZO_COTA_MS).toBe(2000);
+  });
+
+  it('resposta dentro do prazo não deixa timer pendurado', async () => {
+    jest.useFakeTimers();
+    try {
+      const rpc = jest.fn().mockResolvedValue({ data: true, error: null });
+      await expect(consumirCotaPlaces(rpc, 'autocomplete')).resolves.toBe('ok');
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('resposta sem boolean é indisponível, não liberação', async () => {

@@ -7,15 +7,17 @@
 // A resposta preserva o contrato legado (logradouro/numero/bairro/...) que o app consome.
 // Exige o JWT de um usuário logado (desde 26/10/2026): antes, sem verify_jwt e
 // sem autenticação própria, era um proxy anônimo da chave Google.
-// Teto diário por usuário (Migration 84, `consumir_cota_places`): 300
+// Teto diário por usuário (Migrations 84 e 85, `consumir_cota_places`): 1000
 // detalhes/dia no dia de Brasília; esgotado → 429 OVER_QUERY_LIMIT, e o app
 // cai no Photon para a coordenada. Publicar DEPOIS da migration.
+// Cota sem resposta em 2 s segue sem teto (`PRAZO_COTA_MS`); a Google tem 8 s.
 // Deploy: npx supabase functions deploy google-place-details --no-verify-jwt --project-ref xezslsyxjivunmhhyxtd
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import {
+  clienteDoUsuario,
   criarValidadorDeUsuario,
   exigirUsuario,
 } from '../_shared/autenticacao.ts';
@@ -79,15 +81,10 @@ serve(async (req) => {
 
     // Teto diário do usuário (Migration 84). Erro do banco segue a busca
     // (fail-open, ver cotaPlaces.ts).
-    const cliente = createClient(
+    const cliente = clienteDoUsuario(
+      createClient,
       Deno.env.get('SUPABASE_URL') ?? '',
-      chavePublica(),
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization') ?? '' },
-        },
-        auth: { autoRefreshToken: false, persistSession: false },
-      },
+      req.headers.get('Authorization') ?? '',
     );
     const cota = await consumirCotaPlaces(
       (funcao, args) => cliente.rpc(funcao, args),
@@ -115,6 +112,9 @@ serve(async (req) => {
           'X-Goog-Api-Key': apiKey,
           'X-Goog-FieldMask': 'formattedAddress,location,addressComponents',
         },
+        // Google lenta não prende a função até o limite dela: o abort cai no
+        // catch abaixo (500) e o app usa o Photon.
+        signal: AbortSignal.timeout(8000),
       },
     );
 
