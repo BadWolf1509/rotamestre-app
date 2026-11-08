@@ -12,11 +12,15 @@ import { useRouteShape } from '@/components/map/hooks/useRouteShape';
 import { BalaoSobreposto } from '@/components/map/mobile/BalaoSobreposto';
 import { FloatingActionButtons } from '@/components/map/mobile/FloatingActionButtons';
 import { CheckpointCallout } from '@/components/map/mobile/markers/CheckpointCallout';
-import { CheckpointMarker } from '@/components/map/mobile/markers/CheckpointMarker';
 import { ParadaCallout } from '@/components/map/mobile/markers/ParadaCallout';
 import { ParadaMarker } from '@/components/map/mobile/markers/ParadaMarker';
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
 import { useBalaoSobreposto } from '@/components/map/mobile/useBalaoSobreposto';
+import { PinoDaUnidade } from '@/components/map/PinoDaUnidade';
+import {
+  pontoQueContem,
+  pontosDaUnidade,
+} from '@/components/map/pontosDaUnidade';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { MotoristaMarker } from '@/components/MotoristaMarker';
 import { useAlert } from '@/hooks/useAlert';
@@ -39,8 +43,8 @@ interface MapaMobileProps extends MapaAdapterProps {
   onMarkerLongPress?: (paradaId: string) => void;
 }
 
-/** Altura do pino de PARTIDA/CHEGADA (styles.checkpointMarkerCompact). */
-const ALTURA_PINO_CHECKPOINT = 36;
+/** Lado do pino da unidade (sede, ou partida/chegada) — `PinoDaUnidade`. */
+const ALTURA_PINO_CHECKPOINT = 28;
 
 /**
  * Toque no pino. No Android o filho do <Marker> é reposicionado fora do
@@ -124,15 +128,20 @@ export function MapaMobile({
   // Um pino por local: serviços no mesmo ponto saem juntos ("3+4").
   const pinos = montarPinosPorLocal(paradasFiltradas);
 
-  // Um balão por vez, sobre o mapa: o do checkpoint, se houver; senão o da
-  // parada selecionada.
+  // Partida e chegada: um pino de sede quando coincidem (100% das rotas em
+  // 08/11/2026), um de cada quando não.
+  const pontosUnidade = pontosDaUnidade(checkpoints);
+
+  // Um balão por vez, sobre o mapa: o do pino da unidade, se houver; senão o
+  // da parada selecionada.
   const checkpointSelecionado =
-    checkpoints.find((c) => c.id === selectedCheckpointId) ?? null;
+    pontoQueContem(pontosUnidade, selectedCheckpointId) ?? null;
   const pinoSelecionado = checkpointSelecionado
     ? null
     : (pinos.find((p) => p.membros.some((m) => m.id === selectedParadaId)) ??
       null);
-  const selecionado = checkpointSelecionado ?? pinoSelecionado?.principal;
+  const selecionado =
+    checkpointSelecionado?.ponto ?? pinoSelecionado?.principal;
 
   const mapRef = useRef<MapRef>(null);
   const [areaDoMapa, setAreaDoMapa] = useState<{
@@ -182,27 +191,30 @@ export function MapaMobile({
             <MapLibreGL.Layer
               id="rota-line"
               type="line"
-              paint={{ 'line-color': CORES_SOBRE_O_MAPA.marca, 'line-width': 4 }}
+              paint={{
+                'line-color': CORES_SOBRE_O_MAPA.marca,
+                'line-width': 4,
+              }}
             />
           </MapLibreGL.GeoJSONSource>
         )}
 
-        {/* Marcadores dos checkpoints (PARTIDA/CHEGADA) */}
-        {checkpoints.map((parada, index) => (
+        {/* Pinos da unidade: sede, ou partida e chegada (pontosDaUnidade) */}
+        {pontosUnidade.map(({ ponto, membros, tipo }) => (
           <MapLibreGL.Marker
-            key={parada.id}
+            key={ponto.id}
             lngLat={toLngLat({
-              latitude: parada.latitude!,
-              longitude: parada.longitude!,
+              latitude: ponto.latitude!,
+              longitude: ponto.longitude!,
             })}
             anchor="bottom"
             onPress={aoTocarPino(() =>
               setSelectedCheckpointId((prev) =>
-                prev === parada.id ? null : parada.id,
+                prev === ponto.id ? null : ponto.id,
               ),
             )}
           >
-            <CheckpointMarker index={index} endereco={parada.endereco} />
+            <PinoDaUnidade ponto={{ ponto, membros, tipo }} tamanho={28} />
           </MapLibreGL.Marker>
         ))}
 
@@ -257,14 +269,13 @@ export function MapaMobile({
       >
         {checkpointSelecionado && (
           <BalaoSobreposto
-            key={checkpointSelecionado.id}
+            key={checkpointSelecionado.ponto.id}
             ponto={ponto}
             area={areaDoMapa}
             alturaDoPino={ALTURA_PINO_CHECKPOINT}
           >
             <CheckpointCallout
-              index={checkpoints.indexOf(checkpointSelecionado)}
-              endereco={checkpointSelecionado.endereco}
+              ponto={checkpointSelecionado}
               unidadeNome={unidadeNome}
               onCopyAddress={handleCopyAddress}
             />

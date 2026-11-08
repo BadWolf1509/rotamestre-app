@@ -1,4 +1,8 @@
 /**
+ * @jest-environment ./jest.ambiente-jsdom.js
+ */
+
+/**
  * MapaWebMapLibre – câmera estável entre renders
  *
  * O `useUnistyles()` real devolve um proxy NOVO de `theme` a cada render; com
@@ -72,7 +76,15 @@ jest.mock('maplibre-gl', () => {
   const LngLatBounds = jest.fn((sw: unknown, ne: unknown) => ({ sw, ne }));
   const lib = {
     Map: MockMap,
-    Marker: jest.fn(),
+    // Pino da unidade: Marker HTML encadeável.
+    Marker: jest.fn().mockImplementation(() => {
+      const marcador = {
+        setLngLat: jest.fn(() => marcador),
+        addTo: jest.fn(() => marcador),
+        remove: jest.fn(),
+      };
+      return marcador;
+    }),
     NavigationControl: jest.fn(),
     LngLatBounds,
     Popup,

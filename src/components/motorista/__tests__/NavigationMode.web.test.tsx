@@ -340,8 +340,7 @@ describe('NavigationMode.web – tema escuro', () => {
     expect(html).toContain(CORES_SOBRE_O_MAPA.erro); // destino de entrega
     expect(html).toContain(CORES_SOBRE_O_MAPA.proxima); // próxima parada
     expect(html).toContain(CORES_SOBRE_O_MAPA.apagada); // parada não-próxima
-    expect(html).toContain(CORES_SOBRE_O_MAPA.contorno); // checkpoint
-    expect(html).toContain(CORES_SOBRE_O_MAPA.concluida); // checkpoint de partida
+    expect(html).toContain('data-tipo="partida"'); // pino da unidade
     expect(html).toContain(CORES_SOBRE_O_MAPA.usuario); // seta do motorista
   });
 
@@ -355,5 +354,46 @@ describe('NavigationMode.web – tema escuro', () => {
     const mapa = MockMap.mock.results[0].value;
     const camada = mapa.addLayer.mock.calls[0][0];
     expect(camada.paint['line-color']).toBe(CORES_SOBRE_O_MAPA.marca);
+  });
+});
+
+describe('NavigationMode.web — pino da unidade', () => {
+  const SEDE_INI = { ...mockParada('ini', 0), is_checkpoint: false };
+  const SEDE_FIM = {
+    ...mockParada('fim', 9),
+    latitude: SEDE_INI.latitude,
+    longitude: SEDE_INI.longitude,
+    is_checkpoint: false,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockMapa.handlers.clear();
+    mockLogica.startCheckpoint = SEDE_INI;
+    mockLogica.endCheckpoint = SEDE_FIM;
+  });
+  afterEach(() => {
+    mockLogica.startCheckpoint = null;
+    mockLogica.endCheckpoint = null;
+  });
+
+  function tiposDosPinos() {
+    return MockMarker.mock.calls
+      .map((c) => (c[0] as { element?: HTMLElement }).element?.dataset.tipo)
+      .filter(Boolean);
+  }
+
+  it('partida e chegada no mesmo lugar: um pino de sede', async () => {
+    await renderizarCarregado();
+    expect(tiposDosPinos()).toEqual(['sede']);
+  });
+
+  it('voltando à sede (parada atual = chegada), nenhum pino da unidade', async () => {
+    render(elemento(SEDE_FIM), { createNodeMock: () => ({}) });
+    await act(async () => {});
+    act(() => {
+      mockMapa.handlers.get('load')?.();
+    });
+    expect(tiposDosPinos()).toEqual([]);
   });
 });

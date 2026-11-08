@@ -271,6 +271,29 @@ describe('MapaMobile – balão sobreposto', () => {
     expect(utils.queryByText(/Toque para ver ações/)).toBeNull();
   });
 
+  // Partida e chegada saem do mesmo endereço da sede (100% das rotas em
+  // 08/11/2026): o pino da chegada cobria o da partida. Agora é um só.
+  it('partida e chegada no mesmo lugar: um pino, balão "Sede da unidade"', async () => {
+    const chegada = { ...partida, id: 'cp9', ordem: 2 };
+    const utils = render(<MapaMobile paradas={[partida, parada, chegada]} />);
+    await medirMapa(utils);
+
+    expect(utils.getAllByTestId('marker')).toHaveLength(2); // sede + parada
+    expect(utils.getByLabelText('Sede da unidade, Base, 1')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent(utils.getAllByTestId('marker')[0], 'press', {
+        stopPropagation: jest.fn(),
+      });
+    });
+    await cameraParou();
+    await medirBalao(utils);
+
+    const balao = utils.getByTestId('mapa-balao');
+    expect(within(balao).getByText('Sede da unidade')).toBeTruthy();
+    expect(within(balao).queryByText('PARTIDA')).toBeNull();
+  });
+
   it('PARTIDA: o balão aparece sobre o mapa e o "Copiar endereço" funciona', async () => {
     const utils = render(<MapaMobile paradas={[partida, parada]} />);
     await medirMapa(utils);

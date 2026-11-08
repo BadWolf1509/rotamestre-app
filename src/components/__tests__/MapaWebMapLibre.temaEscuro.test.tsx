@@ -1,4 +1,8 @@
 /**
+ * @jest-environment ./jest.ambiente-jsdom.js
+ */
+
+/**
  * MapaWebMapLibre (mapa web do gestor) no tema escuro.
  *
  * O estilo do mapa é sempre claro e o popup do MapLibre tem fundo sempre
@@ -92,7 +96,15 @@ jest.mock('maplibre-gl', () => {
   const LngLatBounds = jest.fn((sw: unknown, ne: unknown) => ({ sw, ne }));
   const lib = {
     Map: MockMap,
-    Marker: jest.fn(),
+    // Pino da unidade e do motorista: Marker HTML encadeável.
+    Marker: jest.fn().mockImplementation(() => {
+      const marcador = {
+        setLngLat: jest.fn(() => marcador),
+        addTo: jest.fn(() => marcador),
+        remove: jest.fn(),
+      };
+      return marcador;
+    }),
     NavigationControl: jest.fn(),
     LngLatBounds,
     Popup,
@@ -268,12 +280,13 @@ describe('MapaWebMapLibre no tema escuro', () => {
     expect(html).not.toContain(darkTheme.colors.primary);
   });
 
-  it('popup do checkpoint idem', async () => {
+  // Aqui partida e chegada ficam a ~1,5 km: dois pinos, este é o da partida.
+  it('popup do pino de partida idem', async () => {
     await renderizarCarregado({ selectedParadaId: 'partida' });
 
     const html = ultimoHtmlDoPopup();
     expectRaizComTextoEscuro(html);
-    expect(html).toContain('Ponto de Partida');
+    expect(html).toContain('Ponto de partida');
     expect(html).toContain(CORES_SOBRE_O_MAPA.textoSecundario);
     expect(html).not.toContain(darkTheme.colors.textSecondary);
   });

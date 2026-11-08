@@ -19,6 +19,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+import { PinoDaUnidade } from '@/components/map/PinoDaUnidade';
+import { pontosDaUnidadeForaDoDestino } from '@/components/map/pontosDaUnidade';
 import {
   useNavigationModeLogic,
   useNavigationFeedback,
@@ -477,43 +479,24 @@ export function NavigationMode({
           </MapLibreGL.GeoJSONSource>
         )}
 
-        {/* Start Checkpoint Marker (ponto de partida) */}
-        {startCheckpoint && startCheckpoint.id !== currentStop.id && (
+        {/* Pinos da unidade: sede, ou partida e chegada (pontosDaUnidade).
+            O que contém a parada atual sai: ela já é o destino desenhado. */}
+        {pontosDaUnidadeForaDoDestino(
+          startCheckpoint,
+          endCheckpoint,
+          currentStop.id,
+        ).map((ponto) => (
           <MapLibreGL.Marker
+            key={`unidade-${ponto.ponto.id}`}
             lngLat={toLngLat({
-              latitude: startCheckpoint.latitude,
-              longitude: startCheckpoint.longitude,
+              latitude: ponto.ponto.latitude,
+              longitude: ponto.ponto.longitude,
             })}
             anchor="center"
           >
-            <View style={styles.checkpointMarker}>
-              <Ionicons
-                name="flag"
-                size={14}
-                color={CORES_SOBRE_O_MAPA.concluida}
-              />
-            </View>
+            <PinoDaUnidade ponto={ponto} tamanho={28} />
           </MapLibreGL.Marker>
-        )}
-
-        {/* End Checkpoint Marker (ponto de chegada/retorno) */}
-        {endCheckpoint && endCheckpoint.id !== currentStop.id && (
-          <MapLibreGL.Marker
-            lngLat={toLngLat({
-              latitude: endCheckpoint.latitude,
-              longitude: endCheckpoint.longitude,
-            })}
-            anchor="center"
-          >
-            <View style={styles.checkpointMarker}>
-              <Ionicons
-                name="home"
-                size={14}
-                color={CORES_SOBRE_O_MAPA.usuario}
-              />
-            </View>
-          </MapLibreGL.Marker>
-        )}
+        ))}
       </MapLibreGL.Map>
 
       {/* Top Bar */}
@@ -748,21 +731,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: CORES_SOBRE_O_MAPA.proxima,
   },
   // Checkpoint markers (start/end)
-  checkpointMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.borderRadius.full,
-    backgroundColor: CORES_SOBRE_O_MAPA.branco,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: CORES_SOBRE_O_MAPA.sombra,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-    borderWidth: 2,
-    borderColor: CORES_SOBRE_O_MAPA.contorno,
-  },
   // Other pending stops marker
   otherMarker: {
     backgroundColor: CORES_SOBRE_O_MAPA.apagada,

@@ -18,6 +18,8 @@ import {
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+import { criarElementoDoPinoDaUnidade } from '@/components/map/elementoDoPinoDaUnidade';
+import { pontosDaUnidade } from '@/components/map/pontosDaUnidade';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
 import { erroNaoFatalDoMapa } from '@/lib/maplibre';
@@ -473,14 +475,12 @@ export function MiniMap({
       markersRef.current.push(marker);
     });
 
-    checkpoints.forEach((checkpoint) => {
+    // Pinos da unidade: sede, ou partida e chegada (pontosDaUnidade).
+    pontosDaUnidade(checkpoints).forEach((ponto) => {
       const marker = new maplibregl.Marker({
-        element: createStopMarkerElement({
-          size: 20,
-          backgroundColor: CORES_SOBRE_O_MAPA.marca,
-        }),
+        element: criarElementoDoPinoDaUnidade(ponto, 22),
       })
-        .setLngLat([checkpoint.longitude, checkpoint.latitude])
+        .setLngLat([ponto.ponto.longitude, ponto.ponto.latitude])
         .addTo(map);
       markersRef.current.push(marker);
     });

@@ -5,7 +5,8 @@
  * Usa tiles do OpenFreeMap (gratuitos, sem API key).
  *
  * Features:
- * - Markers customizados para paradas e checkpoints
+ * - Markers customizados para paradas; partida/chegada no pino da unidade
+ *   (`pontosDaUnidade`), um só de sede quando coincidem
  * - Polyline para rota (via OSRM)
  * - InfoWindow com detalhes da parada
  * - Tracking de motorista em tempo real
@@ -30,8 +31,15 @@ import {
   CORES_DE_STATUS_SOBRE_O_MAPA,
   CORES_SOBRE_O_MAPA,
 } from '@/components/map/coresSobreOMapa';
+import { criarElementoDoPinoDaUnidade } from '@/components/map/elementoDoPinoDaUnidade';
 import { useIdadeDaPosicao } from '@/components/map/hooks/useIdadeDaPosicao';
 import { useMotoristaLocationMapLibre } from '@/components/map/hooks/useMotoristaLocationMapLibre';
+import {
+  ESPEC_DO_PONTO,
+  pontoQueContem,
+  pontosDaUnidade,
+  type PontoDaUnidade,
+} from '@/components/map/pontosDaUnidade';
 import { acaoDoToqueNoPino } from '@/components/map/toqueNoPino';
 import { useRouteDirections } from '@/hooks/useRouteDirections';
 import { logger } from '@/lib/logger';
@@ -84,18 +92,16 @@ export function htmlBotaoVerAcoes(cor: string): string {
  */
 function createPopupContent(
   parada: Parada,
-  isCheckpoint: boolean,
-  isPartida: boolean,
+  pontoDaUnidade: PontoDaUnidade<Parada> | null,
   unidadeNome: string | undefined,
   comAcoes: boolean,
 ): string {
-  if (isCheckpoint) {
-    const title = isPartida ? '🚀 Ponto de Partida' : '🏁 Ponto de Chegada';
-    const subtitle = isPartida ? 'Início da rota' : 'Fim da rota';
+  if (pontoDaUnidade) {
+    const { titulo, subtitulo } = ESPEC_DO_PONTO[pontoDaUnidade.tipo];
     return `
       <div style="padding: 8px; max-width: 250px; font-family: system-ui, -apple-system, sans-serif; color: ${CORES_SOBRE_O_MAPA.texto};">
-        <strong style="font-size: 14px;">${title}</strong>
-        <p style="margin: 4px 0; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${subtitle}</p>
+        <strong style="font-size: 14px;">${titulo}</strong>
+        <p style="margin: 4px 0; font-size: 12px; color: ${CORES_SOBRE_O_MAPA.textoSecundario};">${subtitulo}</p>
         ${unidadeNome ? `<p style="margin: 4px 0; font-size: 12px;"><strong>Unidade:</strong> ${escapeHtml(unidadeNome)}</p>` : ''}
         <p style="margin: 4px 0; font-size: 12px;">${escapeHtml(parada.endereco)}</p>
       </div>
@@ -169,38 +175,15 @@ export function opcoesDoFlyToDaSelecao(
   return { center, zoom: 15, duration: 500, offset: [0, 120] };
 }
 
-/** Features do GeoJSON: checkpoints à parte, um pino por local nas paradas. */
+/**
+ * Features do GeoJSON: um pino por local nas paradas. Partida e chegada não
+ * entram — são o pino da unidade, um `Marker` HTML (ver `pontosDaUnidade`).
+ */
 export function montarFeaturesDosMarcadores(
-  checkpoints: Parada[],
   pinos: Array<PinoPorLocal<Parada>>,
   selectedParadaId: string | null | undefined,
 ) {
-  const partidaId = checkpoints[0]?.id;
-
-  const doCheckpoint = checkpoints.map((parada) => {
-    const isPartida = parada.id === partidaId;
-    return {
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [parada.longitude as number, parada.latitude as number],
-      },
-      properties: {
-        id: parada.id,
-        status: parada.status,
-        ordem: parada.ordem,
-        // Letra, não emoji: a fonte do layer (Noto Sans Bold, OpenFreeMap)
-        // não tem glifo de emoji — o servidor responde 404 à faixa e o
-        // rótulo sai em branco.
-        label: isPartida ? 'I' : 'F',
-        is_checkpoint: true,
-        is_partida: isPartida,
-        is_selected: parada.id === selectedParadaId,
-      },
-    };
-  });
-
-  const dasParadas = pinos.map(({ principal, membros, rotulo }) => ({
+  return pinos.map(({ principal, membros, rotulo }) => ({
     type: 'Feature' as const,
     geometry: {
       type: 'Point' as const,
@@ -214,13 +197,9 @@ export function montarFeaturesDosMarcadores(
       status: principal.status,
       ordem: principal.ordem,
       label: rotulo,
-      is_checkpoint: false,
-      is_partida: false,
       is_selected: membros.some((m) => m.id === selectedParadaId),
     },
   }));
-
-  return [...doCheckpoint, ...dasParadas];
 }
 
 export default function MapaWebMapLibre({
@@ -289,8 +268,11 @@ export default function MapaWebMapLibre({
     [paradasComCoord],
   );
 
-  const checkpoints = useMemo(
-    () => paradasComCoord.filter((p) => p.is_checkpoint === false),
+  // Partida e chegada: um pino de sede quando coincidem (100% das rotas em
+  // 08/11/2026), um de cada quando não.
+  const pontosUnidade = useMemo(
+    () =>
+      pontosDaUnidade(paradasComCoord.filter((p) => p.is_checkpoint === false)),
     [paradasComCoord],
   );
 
@@ -371,17 +353,16 @@ export default function MapaWebMapLibre({
   }, [pinos]);
 
   const markerFeatures = useMemo(
-    () => montarFeaturesDosMarcadores(checkpoints, pinos, selectedParadaId),
-    [checkpoints, pinos, selectedParadaId],
+    () => montarFeaturesDosMarcadores(pinos, selectedParadaId),
+    [pinos, selectedParadaId],
   );
 
-  // Open popup for a parada
+  // Open popup for a parada (ou para o pino da unidade)
   const openPopup = useCallback(
     (
       parada: Parada,
-      isCheckpoint: boolean,
-      isPartida: boolean,
       membros: Parada[] = [parada],
+      pontoDaUnidade: PontoDaUnidade<Parada> | null = null,
     ) => {
       if (
         !mapRef.current ||
@@ -402,7 +383,7 @@ export default function MapaWebMapLibre({
       })
         .setLngLat([parada.longitude, parada.latitude])
         .setHTML(
-          membros.length > 1
+          membros.length > 1 && !pontoDaUnidade
             ? createGrupoPopupContent(
                 membros,
                 CORES_SOBRE_O_MAPA.textoSecundario,
@@ -410,10 +391,9 @@ export default function MapaWebMapLibre({
               )
             : createPopupContent(
                 parada,
-                isCheckpoint,
-                isPartida,
+                pontoDaUnidade,
                 unidadeNome,
-                temAcoes && !isCheckpoint,
+                temAcoes && !pontoDaUnidade,
               ),
         )
         .addTo(mapRef.current);
@@ -589,19 +569,11 @@ export default function MapaWebMapLibre({
       CORES_DE_STATUS_SOBRE_O_MAPA,
     ) as maplibregl.ExpressionSpecification;
 
-    // Radius: checkpoints 18, regular 16, selected +4
+    // Radius: regular 16, selected 20
     const circleRadiusExpression: maplibregl.ExpressionSpecification = [
       'case',
-      [
-        'all',
-        ['==', ['get', 'is_selected'], true],
-        ['==', ['get', 'is_checkpoint'], true],
-      ],
-      22,
       ['==', ['get', 'is_selected'], true],
       20,
-      ['==', ['get', 'is_checkpoint'], true],
-      18,
       16,
     ];
 
@@ -669,7 +641,7 @@ export default function MapaWebMapLibre({
         source: sourceId,
         layout: {
           'text-field': ['get', 'label'],
-          'text-size': ['case', ['==', ['get', 'is_checkpoint'], true], 16, 13],
+          'text-size': 13,
           // Use a single font stack available in the OpenFreeMap sprites
           // to avoid 404s for combined font stacks.
           'text-font': ['Noto Sans Bold'],
@@ -693,24 +665,17 @@ export default function MapaWebMapLibre({
       const parada = pino?.principal ?? paradaLookup.get(id);
       if (!parada) return;
 
-      const rawCheckpoint = feature?.properties?.is_checkpoint;
-      const rawPartida = feature?.properties?.is_partida;
-      const isCheckpoint = rawCheckpoint === true || rawCheckpoint === 'true';
-      const isPartida = rawPartida === true || rawPartida === 'true';
-
-      if (!isCheckpoint) {
-        const acao = acaoDoToqueNoPino(
-          pino?.membros ?? [parada],
-          selectedParadaIdRef.current,
-          onSelectedMarkerPressRef.current != null,
-        );
-        if (acao === 'abrir-acoes') {
-          onSelectedMarkerPressRef.current?.(parada.id);
-        } else {
-          onMarkerPress?.(parada.id);
-        }
+      const acao = acaoDoToqueNoPino(
+        pino?.membros ?? [parada],
+        selectedParadaIdRef.current,
+        onSelectedMarkerPressRef.current != null,
+      );
+      if (acao === 'abrir-acoes') {
+        onSelectedMarkerPressRef.current?.(parada.id);
+      } else {
+        onMarkerPress?.(parada.id);
       }
-      openPopup(parada, isCheckpoint, isPartida, pino?.membros);
+      openPopup(parada, pino?.membros);
     };
 
     const handleMouseEnter = () => {
@@ -756,6 +721,31 @@ export default function MapaWebMapLibre({
     });
   }, [mapLoaded, bounds]);
 
+  // Pinos da unidade (sede, ou partida e chegada): `Marker` HTML, porque a
+  // fonte do estilo não tem glifo de ícone. Recriados quando os pontos mudam.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    const marcadores = pontosUnidade.map((ponto) =>
+      new maplibregl.Marker({
+        element: criarElementoDoPinoDaUnidade(ponto, 28, () => {
+          // O pino barra a propagação, então o 'click' do mapa (que limpava a
+          // seleção) não chega: avisa aqui. Sem isso a parada selecionada
+          // seguia acesa e o próximo toque nela abria as ações direto.
+          onMapPressRef.current?.();
+          openPopup(ponto.ponto, ponto.membros, ponto);
+        }),
+      })
+        .setLngLat([ponto.ponto.longitude!, ponto.ponto.latitude!])
+        .addTo(map),
+    );
+
+    return () => {
+      marcadores.forEach((m) => m.remove());
+    };
+  }, [mapLoaded, pontosUnidade, openPopup]);
+
   // Seleção resolvida a cada render; o efeito abaixo só age quando o
   // CONTEÚDO dela muda, não quando um refetch entrega objetos novos.
   const selecao = useMemo(() => {
@@ -763,13 +753,16 @@ export default function MapaWebMapLibre({
     const parada = paradasComCoord.find((p) => p.id === selectedParadaId);
     if (!parada) return null;
 
-    const isCheckpoint = parada.is_checkpoint === false;
-    const isPartida = isCheckpoint && parada.id === checkpoints[0]?.id;
+    // Partida ou chegada: o pino que a contém (a sede, quando coincidem).
+    const ponto = pontoQueContem(pontosUnidade, parada.id) ?? null;
+    if (ponto) {
+      return { alvo: ponto.ponto, membros: ponto.membros, ponto };
+    }
     const pino = pinoPorParadaId.get(parada.id);
     const alvo = pino?.principal ?? parada;
     const membros = pino?.membros ?? [alvo];
-    return { alvo, isCheckpoint, isPartida, membros };
-  }, [selectedParadaId, paradasComCoord, checkpoints, pinoPorParadaId]);
+    return { alvo, membros, ponto: null };
+  }, [selectedParadaId, paradasComCoord, pontosUnidade, pinoPorParadaId]);
   const selecaoRef = useRef(selecao);
   useEffect(() => {
     selecaoRef.current = selecao;
@@ -783,7 +776,7 @@ export default function MapaWebMapLibre({
         selecao.alvo.id,
         selecao.alvo.latitude,
         selecao.alvo.longitude,
-        selecao.isPartida,
+        selecao.ponto?.tipo ?? '',
         ...selecao.membros.map(
           (m) =>
             `${m.id}:${m.ordem}:${m.tipo}:${m.status}:${m.destinatario ?? ''}:${m.telefone ?? ''}:${m.endereco}`,
@@ -799,7 +792,7 @@ export default function MapaWebMapLibre({
   useEffect(() => {
     const atual = selecaoRef.current;
     if (!chaveDoPopup || !atual || !mapRef.current || !mapLoaded) return;
-    openPopup(atual.alvo, atual.isCheckpoint, atual.isPartida, atual.membros);
+    openPopup(atual.alvo, atual.membros, atual.ponto);
   }, [chaveDoPopup, mapLoaded, openPopup]);
 
   // Handle selected parada: pan to marker

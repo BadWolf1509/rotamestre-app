@@ -270,7 +270,6 @@ describe('MapaWebMapLibre – um pino por local', () => {
 
   it('entrega e retirada no mesmo ponto viram UMA feature "3+4"', () => {
     const features = montarFeaturesDosMarcadores(
-      [],
       montarPinosPorLocal([entrega, retirada]),
       null,
     );
@@ -282,7 +281,6 @@ describe('MapaWebMapLibre – um pino por local', () => {
   it('paradas em pontos diferentes seguem uma feature por parada', () => {
     const longe = { ...retirada, latitude: -23.7, longitude: -46.8 };
     const features = montarFeaturesDosMarcadores(
-      [],
       montarPinosPorLocal([entrega, longe]),
       null,
     );
@@ -291,7 +289,6 @@ describe('MapaWebMapLibre – um pino por local', () => {
 
   it('selecionar qualquer parada do grupo acende o pino', () => {
     const features = montarFeaturesDosMarcadores(
-      [],
       montarPinosPorLocal([entrega, retirada]),
       'r4',
     );
@@ -301,15 +298,13 @@ describe('MapaWebMapLibre – um pino por local', () => {
   // A fonte do layer (Noto Sans Bold, OpenFreeMap) só tem glifos de texto:
   // emoji pede uma faixa de glifos que o servidor responde 404 e o rótulo
   // sai em branco. Todo rótulo do mapa web precisa caber no plano básico.
-  it('partida e chegada usam rótulo com glifo na fonte do mapa (I/F)', () => {
-    const partida = { ...base, id: 'p0', ordem: 0, is_checkpoint: true };
-    const chegada = { ...base, id: 'c9', ordem: 9, is_checkpoint: true };
+  // Partida e chegada não estão aqui: são o pino da unidade (Marker HTML).
+  it('rótulos das paradas usam glifos que a fonte do mapa tem', () => {
     const features = montarFeaturesDosMarcadores(
-      [partida, chegada],
-      montarPinosPorLocal([entrega]),
+      montarPinosPorLocal([entrega, retirada]),
       null,
     );
-    expect(features.map((f) => f.properties.label)).toEqual(['I', 'F', '3']);
+    expect(features.map((f) => f.properties.label)).toEqual(['3+4']);
     for (const f of features) {
       for (const ch of String(f.properties.label)) {
         expect(ch.codePointAt(0)).toBeLessThan(0x2000);

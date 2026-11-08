@@ -59,23 +59,6 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
   balaoSobreposto: {
     position: 'absolute',
   },
-  // Checkpoint compact blue marker - distinct icons for PARTIDA/CHEGADA
-  checkpointMarkerCompact: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.borderRadius.sm,
-    borderBottomLeftRadius: theme.spacing['0.5'],
-    backgroundColor: CORES_SOBRE_O_MAPA.marca,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: theme.spacing['0.5'],
-    borderColor: CORES_SOBRE_O_MAPA.branco,
-    shadowColor: CORES_SOBRE_O_MAPA.sombra,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
   // Callout for checkpoint
   checkpointCalloutContainer: {
     backgroundColor: theme.colors.surface,
@@ -99,7 +82,9 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     width: theme.spacing['6'],
     height: theme.spacing['6'],
     borderRadius: theme.borderRadius.xs + 2,
-    backgroundColor: theme.colors.primary,
+    // Repete o pino da unidade, em cor fixa nos dois temas (o resto do balão
+    // é cartão de interface e segue o tema).
+    backgroundColor: CORES_SOBRE_O_MAPA.sede,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -107,7 +92,11 @@ export const mapMobileStyles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.sm,
     fontWeight: '700',
     color: theme.colors.primary,
-    letterSpacing: 0.5,
+  },
+  checkpointCalloutSubtitulo: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing['1'],
   },
   checkpointCalloutUnidade: {
     fontSize: theme.typography.sm, // 14px
