@@ -13,7 +13,6 @@ jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(),
   getExpoPushTokenAsync: jest.fn(),
-  addNotificationReceivedListener: jest.fn(),
   addNotificationResponseReceivedListener: jest.fn(),
   AndroidImportance: {
     DEFAULT: 3,
@@ -70,21 +69,17 @@ import { Platform } from 'react-native';
 import {
   requestNotificationPermissions,
   getNotificationSettings,
-  saveNotificationSettings,
   sendLocalNotification,
-  notifyRouteComplete,
   notifyOfflineMode,
   notifySyncComplete,
   scheduleRouteReminder,
   cancelRouteReminder,
-  addNotificationReceivedListener,
   addNotificationResponseListener,
   getExpoPushToken,
   registerPushToken,
   unregisterPushToken,
   initializeNotifications,
   initializePushNotifications,
-  notificationService,
 } from '../notifications';
 
 // Type the mocked functions
@@ -101,8 +96,6 @@ const mockSetNotificationChannelAsync =
   Notifications.setNotificationChannelAsync as jest.Mock;
 const mockGetExpoPushTokenAsync =
   Notifications.getExpoPushTokenAsync as jest.Mock;
-const mockAddNotificationReceivedListener =
-  Notifications.addNotificationReceivedListener as jest.Mock;
 const mockAddNotificationResponseReceivedListener =
   Notifications.addNotificationResponseReceivedListener as jest.Mock;
 
@@ -217,7 +210,6 @@ describe('notifications', () => {
       expect(settings).toEqual({
         routeReminder: true,
         offlineAlert: true,
-        routeComplete: true,
         reminderTime: '08:00',
       });
     });
@@ -241,41 +233,6 @@ describe('notifications', () => {
       const settings = await getNotificationSettings();
 
       expect(settings.routeReminder).toBe(true);
-    });
-  });
-
-  describe('saveNotificationSettings', () => {
-    it('should save settings to AsyncStorage', async () => {
-      await saveNotificationSettings({ routeReminder: false });
-
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-        '@rotamestre:notification_settings',
-        expect.any(String),
-      );
-    });
-
-    it('should merge with existing settings', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeReminder: true, reminderTime: '09:00' }),
-      );
-
-      await saveNotificationSettings({ routeReminder: false });
-
-      const savedValue = (AsyncStorage.setItem as jest.Mock).mock.calls[0][1];
-      const parsed = JSON.parse(savedValue);
-      expect(parsed.routeReminder).toBe(false);
-      expect(parsed.reminderTime).toBe('09:00');
-    });
-
-    it('should handle errors gracefully', async () => {
-      (AsyncStorage.setItem as jest.Mock).mockRejectedValue(
-        new Error('Save error'),
-      );
-
-      // Should not throw
-      await expect(
-        saveNotificationSettings({ routeReminder: false }),
-      ).resolves.toBeUndefined();
     });
   });
 
@@ -315,28 +272,6 @@ describe('notifications', () => {
       const result = await sendLocalNotification('Title', 'Body');
 
       expect(result).toBe(null);
-    });
-  });
-
-  describe('notifyRouteComplete', () => {
-    it('should send notification when routeComplete enabled', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeComplete: true }),
-      );
-
-      await notifyRouteComplete(5, '2h 30min');
-
-      expect(mockScheduleNotificationAsync).toHaveBeenCalled();
-    });
-
-    it('should not send notification when routeComplete disabled', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ routeComplete: false }),
-      );
-
-      await notifyRouteComplete(5, '2h 30min');
-
-      expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -481,18 +416,6 @@ describe('notifications', () => {
 
       // Should not throw
       await expect(cancelRouteReminder()).resolves.toBeUndefined();
-    });
-  });
-
-  describe('addNotificationReceivedListener', () => {
-    it('should add listener', () => {
-      const callback = jest.fn();
-
-      addNotificationReceivedListener(callback);
-
-      expect(mockAddNotificationReceivedListener).toHaveBeenCalledWith(
-        callback,
-      );
     });
   });
 
@@ -656,37 +579,6 @@ describe('notifications', () => {
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
         '@rotamestre:push_token',
         JSON.stringify({ token: 'ExponentPushToken[xxx]', userId: 'user-123' }),
-      );
-    });
-  });
-
-  describe('notificationService', () => {
-    it('should export all functions', () => {
-      expect(notificationService.requestPermissions).toBe(
-        requestNotificationPermissions,
-      );
-      expect(notificationService.getSettings).toBe(getNotificationSettings);
-      expect(notificationService.saveSettings).toBe(saveNotificationSettings);
-      expect(notificationService.send).toBe(sendLocalNotification);
-      expect(notificationService.notifyRouteComplete).toBe(notifyRouteComplete);
-      expect(notificationService.notifyOfflineMode).toBe(notifyOfflineMode);
-      expect(notificationService.notifySyncComplete).toBe(notifySyncComplete);
-      expect(notificationService.scheduleRouteReminder).toBe(
-        scheduleRouteReminder,
-      );
-      expect(notificationService.cancelRouteReminder).toBe(cancelRouteReminder);
-      expect(notificationService.addReceivedListener).toBe(
-        addNotificationReceivedListener,
-      );
-      expect(notificationService.addResponseListener).toBe(
-        addNotificationResponseListener,
-      );
-      expect(notificationService.initialize).toBe(initializeNotifications);
-      expect(notificationService.getExpoPushToken).toBe(getExpoPushToken);
-      expect(notificationService.registerPushToken).toBe(registerPushToken);
-      expect(notificationService.unregisterPushToken).toBe(unregisterPushToken);
-      expect(notificationService.initializePush).toBe(
-        initializePushNotifications,
       );
     });
   });

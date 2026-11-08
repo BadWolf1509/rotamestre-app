@@ -274,11 +274,18 @@ class LocationTrackingService {
    * Desligada significava "abrir o app externo" e vira "externo"; ligada era
    * o padrão e só sai do storage, para o padrão continuar vivo. `navegarCom`
    * já salvo vence. A chave antiga nunca sai daqui.
+   *
+   * `soundAlerts` (opção removida, nunca tocou som) é descartada na leitura:
+   * como a gravação parte do que a leitura devolve, ela some do disco na
+   * próxima escrita, em vez de ficar para sempre em quem já a tinha salvo.
    */
   private converterChaveAntiga(
-    salvas: Partial<NavigationState> & { autoAdvance?: unknown },
+    salvas: Partial<NavigationState> & {
+      autoAdvance?: unknown;
+      soundAlerts?: unknown;
+    },
   ): Partial<NavigationState> {
-    const { autoAdvance, ...resto } = salvas;
+    const { autoAdvance, soundAlerts: _soundAlerts, ...resto } = salvas;
     if (resto.navegarCom || autoAdvance !== false) return resto;
     return { ...resto, navegarCom: 'externo' };
   }

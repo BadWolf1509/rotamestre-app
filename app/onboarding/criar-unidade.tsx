@@ -18,6 +18,11 @@ import { useAlert } from '@/hooks/useAlert';
 import { useResponsive } from '@/hooks/useResponsive';
 import { authService } from '@/lib/auth';
 import { nomeEstadoParaUF } from '@/lib/estados';
+import {
+  completarEnderecoDaSugestao,
+  ehPlaceIdDoGoogle,
+  type DadosDeEnderecoDaSugestao,
+} from '@/lib/geocoding';
 import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import {
@@ -118,14 +123,26 @@ function CriarUnidadeScreen() {
   // O place details já foi buscado pelo AddressAutocomplete para resolver as
   // coordenadas (src/lib/geocoding.ts:227), então esta chamada cai no cache de
   // 30 minutos em vez de custar uma nova sessão do Places.
-  async function preencherCidadeUF(placeId?: string) {
-    // Sugestões do ViaCEP entram na mesma lista, mas com place_id sintético no
-    // formato `cep_58030000` (src/lib/viacep.ts:176) — o Places não sabe
-    // resolver isso, e a ida à Edge Function só voltaria vazia.
-    if (!placeId || placeId.startsWith('cep_')) return;
+  async function preencherCidadeUF(
+    placeId?: string,
+    dadosDoEndereco?: DadosDeEnderecoDaSugestao,
+  ) {
+    if (!placeId) return;
 
     try {
-      const detalhes = await googlePlacesService.getPlaceDetails(placeId);
+      let detalhes: { cidade?: string; estado?: string } | null;
+      if (ehPlaceIdDoGoogle(placeId)) {
+        detalhes = await googlePlacesService.getPlaceDetails(placeId);
+      } else if (placeId.startsWith('osm_')) {
+        // Sugestão do Photon (fallback do Google): o details do Google não a
+        // resolve e só gastaria a cota. Cidade e UF vêm da própria sugestão,
+        // completadas pelo ViaCEP quando faltam; sem CEP, ficam à mão.
+        detalhes = await completarEnderecoDaSugestao(dadosDoEndereco);
+      } else {
+        // Sugestões do ViaCEP (`cep_58030000`, src/lib/viacep.ts) também
+        // entram na lista, mas o Places não as resolve.
+        return;
+      }
       if (!detalhes) return;
 
       // A Edge Function extrai os componentes com `longText`, então `estado`
@@ -265,7 +282,12 @@ function CriarUnidadeScreen() {
                     }
                     onChange(text);
                   }}
-                  onSelectAddress={(address, placeId, coords?: Coordenadas) => {
+                  onSelectAddress={(
+                    address,
+                    placeId,
+                    coords?: Coordenadas,
+                    dadosDoEndereco?: DadosDeEnderecoDaSugestao,
+                  ) => {
                     if (coords) {
                       setValue('latitude', coords.latitude);
                       setValue('longitude', coords.longitude);
@@ -273,7 +295,7 @@ function CriarUnidadeScreen() {
                     onChange(address);
                     // Sem await: a seleção do endereço não pode ficar presa
                     // esperando a rede. O preenchimento chega quando chegar.
-                    void preencherCidadeUF(placeId);
+                    void preencherCidadeUF(placeId, dadosDoEndereco);
                     // O erro do schema mora em `endereco` (refine com
                     // path: ['endereco'] em src/lib/schemas/onboarding.ts) mas
                     // quem o causa é a ausência de lat/long. `setValue` sem

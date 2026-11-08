@@ -44,30 +44,31 @@ describe('Photon Geocoding Service', () => {
     it('should return suggestions for valid input', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: {
-                type: 'Point',
-                coordinates: [-34.85, -7.12], // [lon, lat]
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: {
+                  type: 'Point',
+                  coordinates: [-34.85, -7.12], // [lon, lat]
+                },
+                properties: {
+                  osm_id: 12345,
+                  osm_type: 'N',
+                  name: 'Supermercado Teste',
+                  street: 'Rua das Flores',
+                  housenumber: '100',
+                  district: 'Centro',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  country: 'Brazil',
+                  countrycode: 'BR',
+                },
               },
-              properties: {
-                osm_id: 12345,
-                osm_type: 'N',
-                name: 'Supermercado Teste',
-                street: 'Rua das Flores',
-                housenumber: '100',
-                district: 'Centro',
-                city: 'João Pessoa',
-                state: 'Paraíba',
-                country: 'Brazil',
-                countrycode: 'BR',
-              },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.autocompleteAddress('Rua das Flores');
@@ -84,39 +85,74 @@ describe('Photon Geocoding Service', () => {
           latitude: -7.12,
           longitude: -34.85,
         },
+        cidade: 'João Pessoa',
+        // Photon devolve o estado por extenso; a sugestão leva a UF.
+        estado: 'PB',
       });
+    });
+
+    it('leva o CEP do Photon (postcode) à sugestão', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 7,
+                  osm_type: 'W',
+                  street: 'Rua das Flores',
+                  postcode: '58030-000',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  countrycode: 'BR',
+                },
+              },
+            ],
+          }),
+      });
+
+      const result = await photonService.autocompleteAddress('Rua das Flores');
+
+      expect(result[0]).toEqual(
+        expect.objectContaining({ cep: '58030-000', estado: 'PB' }),
+      );
     });
 
     it('should filter out non-Brazilian results', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-43.17, -22.91] },
-              properties: {
-                osm_id: 1,
-                osm_type: 'N',
-                street: 'Rua Brasil',
-                city: 'Rio de Janeiro',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-43.17, -22.91] },
+                properties: {
+                  osm_id: 1,
+                  osm_type: 'N',
+                  street: 'Rua Brasil',
+                  city: 'Rio de Janeiro',
+                  countrycode: 'BR',
+                },
               },
-            },
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-3.70, 40.42] },
-              properties: {
-                osm_id: 2,
-                osm_type: 'N',
-                street: 'Calle Brasil',
-                city: 'Madrid',
-                countrycode: 'ES',
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-3.7, 40.42] },
+                properties: {
+                  osm_id: 2,
+                  osm_type: 'N',
+                  street: 'Calle Brasil',
+                  city: 'Madrid',
+                  countrycode: 'ES',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.autocompleteAddress('Brasil');
@@ -128,7 +164,8 @@ describe('Photon Geocoding Service', () => {
     it('should include location bias parameters when provided', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ type: 'FeatureCollection', features: [] }),
+        json: () =>
+          Promise.resolve({ type: 'FeatureCollection', features: [] }),
       });
 
       await photonService.autocompleteAddress('Rua Teste', {
@@ -138,22 +175,23 @@ describe('Photon Geocoding Service', () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('lat=-7.12'),
-        expect.any(Object)
+        expect.any(Object),
       );
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('lon=-34.85'),
-        expect.any(Object)
+        expect.any(Object),
       );
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('zoom=10'),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
 
     it('should remove house number from query for better results', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ type: 'FeatureCollection', features: [] }),
+        json: () =>
+          Promise.resolve({ type: 'FeatureCollection', features: [] }),
       });
 
       await photonService.autocompleteAddress('Rua das Flores, 123');
@@ -209,32 +247,35 @@ describe('Photon Geocoding Service', () => {
     it('should return geocoded address for valid input', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: {
-                type: 'Point',
-                coordinates: [-34.85, -7.12],
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: {
+                  type: 'Point',
+                  coordinates: [-34.85, -7.12],
+                },
+                properties: {
+                  osm_id: 12345,
+                  osm_type: 'W',
+                  street: 'Rua das Palmeiras',
+                  housenumber: '50',
+                  district: 'Manaíra',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  postcode: '58038-000',
+                  countrycode: 'BR',
+                },
               },
-              properties: {
-                osm_id: 12345,
-                osm_type: 'W',
-                street: 'Rua das Palmeiras',
-                housenumber: '50',
-                district: 'Manaíra',
-                city: 'João Pessoa',
-                state: 'Paraíba',
-                postcode: '58038-000',
-                countrycode: 'BR',
-              },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
-      const result = await photonService.geocodeAddress('Rua das Palmeiras, 50, João Pessoa');
+      const result = await photonService.geocodeAddress(
+        'Rua das Palmeiras, 50, João Pessoa',
+      );
 
       expect(result).toEqual({
         logradouro: 'Rua das Palmeiras',
@@ -254,20 +295,21 @@ describe('Photon Geocoding Service', () => {
     it('should return null when no Brazilian results found', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [0, 0] },
-              properties: {
-                osm_id: 1,
-                osm_type: 'N',
-                countrycode: 'US',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [0, 0] },
+                properties: {
+                  osm_id: 1,
+                  osm_type: 'N',
+                  countrycode: 'US',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.geocodeAddress('123 Main Street');
@@ -278,13 +320,16 @@ describe('Photon Geocoding Service', () => {
     it('should return null when no results found', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [],
-        }),
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [],
+          }),
       });
 
-      const result = await photonService.geocodeAddress('Endereço Inexistente XYZ');
+      const result = await photonService.geocodeAddress(
+        'Endereço Inexistente XYZ',
+      );
 
       expect(result).toBeNull();
     });
@@ -294,25 +339,26 @@ describe('Photon Geocoding Service', () => {
     it('should return address string for valid coordinates', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
-              properties: {
-                osm_id: 12345,
-                osm_type: 'N',
-                street: 'Avenida Epitácio Pessoa',
-                housenumber: '1000',
-                district: 'Tambaú',
-                city: 'João Pessoa',
-                state: 'Paraíba',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 12345,
+                  osm_type: 'N',
+                  street: 'Avenida Epitácio Pessoa',
+                  housenumber: '1000',
+                  district: 'Tambaú',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  countrycode: 'BR',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.reverseGeocode({
@@ -327,10 +373,11 @@ describe('Photon Geocoding Service', () => {
     it('should return null when no results found', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [],
-        }),
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [],
+          }),
       });
 
       const result = await photonService.reverseGeocode({
@@ -360,20 +407,21 @@ describe('Photon Geocoding Service', () => {
     it('should return coordinates for valid address', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
-              properties: {
-                osm_id: 1,
-                osm_type: 'N',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 1,
+                  osm_type: 'N',
+                  countrycode: 'BR',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.getCoordinates('Centro, João Pessoa');
@@ -387,10 +435,11 @@ describe('Photon Geocoding Service', () => {
     it('should return null when geocoding fails', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [],
-        }),
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [],
+          }),
       });
 
       const result = await photonService.getCoordinates('Endereço Inexistente');
@@ -412,26 +461,27 @@ describe('Photon Geocoding Service', () => {
     it('should return detailed address for valid coordinates', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
-              properties: {
-                osm_id: 12345,
-                osm_type: 'W',
-                street: 'Rua Teste',
-                housenumber: '123',
-                district: 'Centro',
-                city: 'João Pessoa',
-                state: 'Paraíba',
-                postcode: '58000-000',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 12345,
+                  osm_type: 'W',
+                  street: 'Rua Teste',
+                  housenumber: '123',
+                  district: 'Centro',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  postcode: '58000-000',
+                  countrycode: 'BR',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.reverseGeocodeDetailed({
@@ -471,10 +521,11 @@ describe('Photon Geocoding Service', () => {
     it('should return null when no features found', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [],
-        }),
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [],
+          }),
       });
 
       const result = await photonService.reverseGeocodeDetailed({
@@ -490,27 +541,28 @@ describe('Photon Geocoding Service', () => {
     it('should format address with establishment name', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
-              properties: {
-                osm_id: 1,
-                osm_type: 'N',
-                osm_key: 'shop',
-                name: 'Padaria Central',
-                street: 'Rua Principal',
-                housenumber: '100',
-                district: 'Centro',
-                city: 'João Pessoa',
-                state: 'Paraíba',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 1,
+                  osm_type: 'N',
+                  osm_key: 'shop',
+                  name: 'Padaria Central',
+                  street: 'Rua Principal',
+                  housenumber: '100',
+                  district: 'Centro',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  countrycode: 'BR',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.autocompleteAddress('Padaria Central');
@@ -522,24 +574,25 @@ describe('Photon Geocoding Service', () => {
     it('should format street without establishment name', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
-              properties: {
-                osm_id: 1,
-                osm_type: 'W',
-                osm_key: 'highway',
-                name: 'Avenida Brasil',
-                city: 'João Pessoa',
-                state: 'Paraíba',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 1,
+                  osm_type: 'W',
+                  osm_key: 'highway',
+                  name: 'Avenida Brasil',
+                  city: 'João Pessoa',
+                  state: 'Paraíba',
+                  countrycode: 'BR',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.autocompleteAddress('Avenida Brasil');
@@ -550,21 +603,22 @@ describe('Photon Geocoding Service', () => {
     it('should handle missing optional fields gracefully', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
-              properties: {
-                osm_id: 1,
-                osm_type: 'N',
-                city: 'João Pessoa',
-                countrycode: 'BR',
+        json: () =>
+          Promise.resolve({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: [-34.85, -7.12] },
+                properties: {
+                  osm_id: 1,
+                  osm_type: 'N',
+                  city: 'João Pessoa',
+                  countrycode: 'BR',
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
       });
 
       const result = await photonService.autocompleteAddress('João Pessoa');

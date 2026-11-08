@@ -37,19 +37,22 @@ const GOOGLE_ERROR_MAP: Record<string, RouteError> = {
   ZERO_RESULTS: {
     code: 'ZERO_RESULTS',
     message: 'No route found between the specified points',
-    userMessage: 'Não foi possível encontrar uma rota entre os pontos especificados. Verifique se os endereços estão corretos.',
+    userMessage:
+      'Não foi possível encontrar uma rota entre os pontos especificados. Verifique se os endereços estão corretos.',
     recoverable: true,
   },
   TIMEOUT: {
     code: 'TIMEOUT',
     message: 'Request timed out',
-    userMessage: 'A requisição demorou muito. Verifique sua conexão e tente novamente.',
+    userMessage:
+      'A requisição demorou muito. Verifique sua conexão e tente novamente.',
     recoverable: true,
   },
   NOT_FOUND: {
     code: 'NOT_FOUND',
     message: 'One or more locations could not be geocoded',
-    userMessage: 'Um ou mais endereços não foram encontrados. Verifique os endereços e tente novamente.',
+    userMessage:
+      'Um ou mais endereços não foram encontrados. Verifique os endereços e tente novamente.',
     recoverable: true,
   },
   MAX_WAYPOINTS_EXCEEDED: {
@@ -67,7 +70,8 @@ const GOOGLE_ERROR_MAP: Record<string, RouteError> = {
   OVER_QUERY_LIMIT: {
     code: 'OVER_QUERY_LIMIT',
     message: 'API quota exceeded',
-    userMessage: 'Limite de uso da API atingido. Aguarde alguns minutos e tente novamente.',
+    userMessage:
+      'Limite de uso da API atingido. Aguarde alguns minutos e tente novamente.',
     recoverable: true,
   },
   REQUEST_DENIED: {
@@ -119,67 +123,6 @@ export function createNetworkError(originalError?: Error): RouteError {
   };
 }
 
-/**
- * Cria erro de timeout.
- */
-export function createTimeoutError(): RouteError {
-  return {
-    code: 'TIMEOUT',
-    message: 'Request timed out',
-    userMessage: 'A requisição demorou muito. Tente novamente.',
-    recoverable: true,
-  };
-}
-
-/**
- * Cria erro de API não carregada.
- */
-export function createApiNotLoadedError(): RouteError {
-  return {
-    code: 'API_NOT_LOADED',
-    message: 'Google Maps API not loaded',
-    userMessage: 'Serviço de mapas não disponível. Recarregue a página.',
-    recoverable: true,
-  };
-}
-
-/**
- * Cria erro de validação.
- */
-export function createValidationError(message: string, details?: string): RouteError {
-  return {
-    code: 'VALIDATION_ERROR',
-    message,
-    userMessage: message,
-    details,
-    recoverable: false,
-  };
-}
-
-/**
- * Cria erro de ciclo detectado.
- */
-export function createCycleError(cycleDescription: string): RouteError {
-  return {
-    code: 'CYCLE_DETECTED',
-    message: `Circular dependency detected: ${cycleDescription}`,
-    userMessage: `Dependência circular detectada: ${cycleDescription}`,
-    recoverable: false,
-  };
-}
-
-/**
- * Cria erro de coordenadas faltando.
- */
-export function createMissingCoordinatesError(address: string): RouteError {
-  return {
-    code: 'MISSING_COORDINATES',
-    message: `Missing coordinates for: ${address}`,
-    userMessage: `Endereço "${address}" não tem coordenadas válidas.`,
-    recoverable: true,
-  };
-}
-
 // ============================================================================
 // RESULTADO COM ERRO
 // ============================================================================
@@ -202,13 +145,6 @@ export function success<T>(data: T): RouteResult<T> {
  */
 export function failure<T>(error: RouteError): RouteResult<T> {
   return { success: false, error };
-}
-
-/**
- * Verifica se é erro recuperável (pode tentar novamente).
- */
-export function isRecoverableError(error: RouteError): boolean {
-  return error.recoverable;
 }
 
 /**

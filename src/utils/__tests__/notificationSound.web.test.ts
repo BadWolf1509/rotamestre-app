@@ -1,14 +1,6 @@
-import {
-  initializeNotificationAudio,
-  playNotificationSound,
-  playSuccessSound,
-  setNotificationSoundEnabled,
-} from '../notificationSound';
-
-const mockSetAudioModeAsync = jest.fn();
+import { playNotificationSound } from '../notificationSound';
 
 jest.mock('expo-audio', () => ({
-  setAudioModeAsync: () => mockSetAudioModeAsync(),
   createAudioPlayer: jest.fn(() => ({
     volume: 1,
     play: jest.fn(),
@@ -52,7 +44,6 @@ describe('notificationSound web', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    setNotificationSoundEnabled(true);
 
     originalWindow = (global as any).window;
     (global as any).window = { AudioContext: MockAudioContext };
@@ -79,22 +70,10 @@ describe('notificationSound web', () => {
     }
   });
 
-  it('initializeNotificationAudio retorna no web', async () => {
-    await initializeNotificationAudio();
-
-    expect(mockSetAudioModeAsync).not.toHaveBeenCalled();
-  });
-
   it('playNotificationSound usa AudioContext no web', async () => {
     await playNotificationSound();
     jest.runAllTimers();
 
     expect(mockCreateOscillator).toHaveBeenCalled();
-  });
-
-  it('playSuccessSound usa AudioContext no web', async () => {
-    await playSuccessSound();
-
-    expect(mockCreateOscillator).toHaveBeenCalledTimes(3);
   });
 });
