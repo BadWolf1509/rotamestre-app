@@ -3668,17 +3668,17 @@ caso 1 roda a expiração real dentro da transação (desfeita) — rodar fora d
 
 ---
 
-### ⏳ Migration 84: teto diário por usuário no Google Places
+### ✅ Migration 84: teto diário por usuário no Google Places
 
-**Arquivo:** `20261108090000_teto_diario_places.sql` · **⏳ não aplicada.**
-Aplicar como `postgres` pelo CLI (`db query --linked`), como a 83: primeiro a
-sonda na mesma execução que o corpo da migration (sem o BEGIN/COMMIT dela;
-esperado 8/8 OK; sem o corpo, todos FALHOU), depois a migration, depois a
-sonda de novo (8/8 OK); registrar em `supabase_migrations.schema_migrations`
-com a versão do arquivo e `RETURNING`. **Só depois** publicar as duas Edge
-Functions (`google-places-autocomplete` e `google-place-details`, com
-`--no-verify-jwt`). A ordem inversa não quebra: sem a RPC, a função cai no
-fail-open (`_shared/cotaPlaces.ts`) e busca sem teto, com `console.error`.
+**Arquivo:** `20261108090000_teto_diario_places.sql` · **✅ aplicada em
+08/11/2026** pelo CLI (`db query --linked`), registrada com a versão do
+arquivo (`RETURNING`). **Sonda medida:** 8/8 OK com o corpo na mesma execução
+(antes de aplicar; a tabela e a função não existiam) e 8/8 OK depois de
+aplicada; nenhum resíduo (`uso_places_diario` com 0 linhas). As duas Edge
+Functions (`google-places-autocomplete` e `google-place-details`) foram
+publicadas logo depois, na v19, com `verify_jwt: false` e o `cotaPlaces` no
+pacote. A ordem inversa não quebraria: sem a RPC, a função cai no fail-open
+(`_shared/cotaPlaces.ts`) e busca sem teto, com `console.error`.
 
 **O que faz.** Decisão do gestor (BKD-4): o cadastro é aberto (sem
 confirmação de e-mail) e o Places é pago; faltava um teto por usuário.
