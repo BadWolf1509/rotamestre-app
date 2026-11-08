@@ -37,6 +37,8 @@ export default function GestorInicio() {
   // Na passada em que a loja acabou de mudar, o `filters` ainda é o antigo
   // (o ajuste acima só vale na re-renderização): não deixa o hook vê-lo.
   const dashboardData = useDashboardData({
+    // KPIs da semana/mês e o total de hoje só o mobile mostra.
+    comKpis: !isDesktop,
     filters:
       lojaDosFiltros !== unidadeAtiva
         ? { ...filters, motoristaId: null }

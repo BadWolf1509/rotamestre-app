@@ -79,6 +79,12 @@ export interface UseDashboardDataOptions {
     dataFim?: Date | null;
     motoristaId?: string | null;
   };
+  /**
+   * Busca o que só o mobile mostra: rotas da semana e do mês (KPIs), nomes do
+   * destaque e o total de hoje. O desktop passa `false` e não paga essas
+   * consultas. Padrão `true`; mudar o valor recarrega.
+   */
+  comKpis?: boolean;
 }
 
 // ============================================================================
@@ -345,12 +351,6 @@ async function buscarTotalHoje(unidadeId: string): Promise<number | null> {
 
 // Estado de "nada carregado ainda" (e de "loja trocada"): objetos no módulo,
 // compartilhados só como valor inicial/reset — nunca mutados.
-const STATS_VAZIO: Stats = {
-  total: 0,
-  emAndamento: 0,
-  concluidas: 0,
-  distanciaTotal: 0,
-};
 const HOJE_VAZIO: TodayStats = { totalHoje: 0 };
 const KPIS_VAZIO: KPIs = {
   rotasSemana: 0,
@@ -373,7 +373,7 @@ const KPIS_VAZIO: KPIs = {
 export function useDashboardData(
   options: UseDashboardDataOptions = {},
 ): DashboardData {
-  const { filters } = options;
+  const { filters, comKpis = true } = options;
   // Filtros por VALOR (primitivos), não pela identidade do objeto: quem
   // chama com `{ status }` literal criaria um objeto novo a cada render, e
   // como toda carga nova agora roda, isso viraria recarga em laço.
@@ -386,7 +386,8 @@ export function useDashboardData(
   const unidadeId = unidadeAtiva;
 
   // Estados
-  const [stats, setStats] = useState<Stats>(STATS_VAZIO);
+  // null = a contagem falhou (a tela mostra "—", nunca 0).
+  const [incidentesAbertos, setIncidentesAbertos] = useState<number | null>(0);
   const [todayStats, setTodayStats] = useState<TodayStats>(HOJE_VAZIO);
   const [kpis, setKpis] = useState<KPIs>(KPIS_VAZIO);
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
@@ -445,7 +446,7 @@ export function useDashboardData(
         ultimaCargaOkRef.current = null;
         erroDoVivoRef.current = false;
         if (!mountedRef.current) return;
-        setStats(STATS_VAZIO);
+        setIncidentesAbertos(0);
         setTodayStats(HOJE_VAZIO);
         setKpis(KPIS_VAZIO);
         setRotas([]);
@@ -494,7 +495,7 @@ export function useDashboardData(
 
           const teste = dadosDeTesteDoInicio();
           setRotas(teste.rotas);
-          setStats(teste.stats);
+          setIncidentesAbertos(teste.stats.incidentesAbertos ?? 0);
           setTodayStats(teste.todayStats);
           setKpis(teste.kpis);
 
@@ -512,10 +513,11 @@ export function useDashboardData(
           filtroStatus,
           filtroMotoristaId,
         });
-        const totalHojePromise = buscarTotalHoje(unidadeId);
+        // "Hoje" só o mobile mostra (`comKpis`).
+        const totalHojePromise = comKpis ? buscarTotalHoje(unidadeId) : null;
         // Rejeição tratada pelo `await` abaixo; isto só evita o aviso de
         // promessa rejeitada sem dono se a lista falhar antes.
-        totalHojePromise.catch(() => {});
+        totalHojePromise?.catch(() => {});
 
         // =====================================================================
         // BUSCAR INCIDENTES ABERTOS (em paralelo com outras queries)
@@ -550,24 +552,26 @@ export function useDashboardData(
         inicioSemana.setDate(agora.getDate() - agora.getDay());
         const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
 
-        const kpisPromise = Promise.all([
-          supabase
-            .from('rotas')
-            .select(
-              'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
-            )
-            .eq('unidade_id', unidadeId)
-            .gte('data', toLocalISODate(inicioSemana))
-            .lte('data', hoje),
-          supabase
-            .from('rotas')
-            .select(
-              'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
-            )
-            .eq('unidade_id', unidadeId)
-            .gte('data', toLocalISODate(inicioMes))
-            .lte('data', hoje),
-        ]);
+        const kpisPromise = comKpis
+          ? Promise.all([
+              supabase
+                .from('rotas')
+                .select(
+                  'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
+                )
+                .eq('unidade_id', unidadeId)
+                .gte('data', toLocalISODate(inicioSemana))
+                .lte('data', hoje),
+              supabase
+                .from('rotas')
+                .select(
+                  'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
+                )
+                .eq('unidade_id', unidadeId)
+                .gte('data', toLocalISODate(inicioMes))
+                .lte('data', hoje),
+            ])
+          : null;
 
         // Executar queries em paralelo
         // A lista aparece assim que chega, sem esperar o resto.
@@ -576,7 +580,7 @@ export function useDashboardData(
         if (listaVigente()) setRotas(rotasComDetalhes);
         if (!vigente()) return;
 
-        const [totalHoje, incidentesAbertos, kpisResult] = await Promise.all([
+        const [totalHoje, incidentes, kpisResult] = await Promise.all([
           totalHojePromise,
           incidentesPromise,
           kpisPromise,
@@ -587,73 +591,70 @@ export function useDashboardData(
 
         if (!vigente()) return;
 
-        // Calcular estatísticas
-        const statsData: Stats = {
-          total: rotasComDetalhes.length,
-          emAndamento: rotasComDetalhes.filter(
-            (r) => r.status === 'em_andamento',
-          ).length,
-          concluidas: rotasComDetalhes.filter((r) => r.status === 'concluida')
-            .length,
-          distanciaTotal: rotasComDetalhes.reduce(
-            (sum, r) => sum + r.distancia_total,
-            0,
-          ),
-          incidentesAbertos,
-        };
+        setIncidentesAbertos(incidentes);
 
-        setStats(statsData);
+        // Sem KPIs (desktop): só os derivados da lista, que não custam consulta.
+        if (!kpisResult) {
+          if (listaVigente()) {
+            setKpis((anteriores) => ({
+              ...anteriores,
+              ...kpisDaLista(rotasComDetalhes),
+            }));
+          }
+        } else {
+          // KPIs
+          const [kpiSemana, kpiMes] = kpisResult;
+          // Erro vira INDISPONÍVEL (null), nunca 0: "0 rotas" seria falso.
+          // Mesmo modelo de `incidentesAbertos`.
+          if (kpiSemana.error) {
+            logger.warn(
+              '[Dashboard] KPI da semana indisponível',
+              kpiSemana.error,
+            );
+          }
+          if (kpiMes.error) {
+            logger.warn('[Dashboard] KPI do mês indisponível', kpiMes.error);
+          }
+          const rotasSemanaData = kpiSemana.error ? null : kpiSemana.data || [];
+          const rotasMesData = kpiMes.error ? null : kpiMes.data || [];
 
-        // KPIs
-        const [kpiSemana, kpiMes] = kpisResult;
-        // Erro vira INDISPONÍVEL (null), nunca 0: "0 rotas" seria falso. Mesmo
-        // modelo de `incidentesAbertos`.
-        if (kpiSemana.error) {
-          logger.warn(
-            '[Dashboard] KPI da semana indisponível',
-            kpiSemana.error,
-          );
+          // Só as concluídas sem nome visível vão à RPC (em geral, nenhuma:
+          // sem chamada). Erro dela vira Map vazio e o KPI mostra o rótulo
+          // oculto.
+          const nomesDestaque = rotasMesData
+            ? await buscarNomesForaDaLoja(
+                rotasMesData
+                  .filter((r) => r.status === 'concluida')
+                  .map((r) => ({
+                    id: r.id,
+                    motorista_id: r.motorista_id,
+                    nomeVisivel: nomeDoEmbed(r.usuarios),
+                  })),
+              )
+            : new Map<string, string>();
+          if (!vigente()) return;
+
+          const listaEhDestaCarga = listaVigente();
+          setKpis((anteriores) => ({
+            rotasSemana: rotasSemanaData ? rotasSemanaData.length : null,
+            rotasMes: rotasMesData ? rotasMesData.length : null,
+            tempoMedioMinutos: rotasMesData
+              ? calcularTempoMedio(rotasMesData)
+              : null,
+            motoristaDestaque: rotasMesData
+              ? encontrarMotoristaDestaque(rotasMesData, nomesDestaque)
+              : null,
+            // Com lista mais nova (evento), os derivados dela continuam
+            // valendo.
+            ...(listaEhDestaCarga
+              ? kpisDaLista(rotasComDetalhes)
+              : {
+                  totalParadas: anteriores.totalParadas,
+                  paradasConcluidas: anteriores.paradasConcluidas,
+                  taxaSucesso: anteriores.taxaSucesso,
+                }),
+          }));
         }
-        if (kpiMes.error) {
-          logger.warn('[Dashboard] KPI do mês indisponível', kpiMes.error);
-        }
-        const rotasSemanaData = kpiSemana.error ? null : kpiSemana.data || [];
-        const rotasMesData = kpiMes.error ? null : kpiMes.data || [];
-
-        // Só as concluídas sem nome visível vão à RPC (em geral, nenhuma: sem
-        // chamada). Erro dela vira Map vazio e o KPI mostra o rótulo oculto.
-        const nomesDestaque = rotasMesData
-          ? await buscarNomesForaDaLoja(
-              rotasMesData
-                .filter((r) => r.status === 'concluida')
-                .map((r) => ({
-                  id: r.id,
-                  motorista_id: r.motorista_id,
-                  nomeVisivel: nomeDoEmbed(r.usuarios),
-                })),
-            )
-          : new Map<string, string>();
-        if (!vigente()) return;
-
-        const listaEhDestaCarga = listaVigente();
-        setKpis((anteriores) => ({
-          rotasSemana: rotasSemanaData ? rotasSemanaData.length : null,
-          rotasMes: rotasMesData ? rotasMesData.length : null,
-          tempoMedioMinutos: rotasMesData
-            ? calcularTempoMedio(rotasMesData)
-            : null,
-          motoristaDestaque: rotasMesData
-            ? encontrarMotoristaDestaque(rotasMesData, nomesDestaque)
-            : null,
-          // Com lista mais nova (evento), os derivados dela continuam valendo.
-          ...(listaEhDestaCarga
-            ? kpisDaLista(rotasComDetalhes)
-            : {
-                totalParadas: anteriores.totalParadas,
-                paradasConcluidas: anteriores.paradasConcluidas,
-                taxaSucesso: anteriores.taxaSucesso,
-              }),
-        }));
         setErroCarga(null);
         setDadosDe(null);
         erroDoVivoRef.current = false;
@@ -677,7 +678,14 @@ export function useDashboardData(
         }
       }
     },
-    [unidadeId, dataInicioStr, dataFimStr, filtroStatus, filtroMotoristaId],
+    [
+      unidadeId,
+      dataInicioStr,
+      dataFimStr,
+      filtroStatus,
+      filtroMotoristaId,
+      comKpis,
+    ],
   );
 
   // ============================================================================
@@ -717,7 +725,7 @@ export function useDashboardData(
           filtroStatus,
           filtroMotoristaId,
         }),
-        buscarTotalHoje(unidadeId),
+        comKpis ? buscarTotalHoje(unidadeId) : Promise.resolve(null),
       ]);
       if (!vigente()) return;
       setRotas(lista);
@@ -739,7 +747,14 @@ export function useDashboardData(
         setDadosDe(ultimaCargaOkRef.current);
       }
     }
-  }, [unidadeId, dataInicioStr, dataFimStr, filtroStatus, filtroMotoristaId]);
+  }, [
+    unidadeId,
+    dataInicioStr,
+    dataFimStr,
+    filtroStatus,
+    filtroMotoristaId,
+    comKpis,
+  ]);
 
   // Realtime: Escutar mudanças em rotas e paradas
   useRealtimeRoutes({
@@ -761,29 +776,16 @@ export function useDashboardData(
   // MEMOIZAÇÃO
   // ============================================================================
 
-  const calculatedStats = useMemo<Stats>(() => {
-    if (rotas.length === 0) {
-      return {
-        total: 0,
-        emAndamento: 0,
-        concluidas: 0,
-        distanciaTotal: 0,
-        incidentesAbertos:
-          stats.incidentesAbertos === null
-            ? null
-            : stats.incidentesAbertos || 0,
-      };
-    }
-
-    return {
+  const calculatedStats = useMemo<Stats>(
+    () => ({
       total: rotas.length,
       emAndamento: rotas.filter((r) => r.status === 'em_andamento').length,
       concluidas: rotas.filter((r) => r.status === 'concluida').length,
       distanciaTotal: rotas.reduce((sum, r) => sum + r.distancia_total, 0),
-      incidentesAbertos:
-        stats.incidentesAbertos === null ? null : stats.incidentesAbertos || 0,
-    };
-  }, [rotas, stats.incidentesAbertos]);
+      incidentesAbertos,
+    }),
+    [rotas, incidentesAbertos],
+  );
 
   // ============================================================================
   // RETURN
