@@ -29,8 +29,8 @@ function medir(arquivo: string): number {
 
   const colunasTexto = bloco(
     fonte,
-    /columns: DataTableColumn</,
-    /actions: DataTableAction</,
+    /columns(?:: | = useMemo<)DataTableColumn</,
+    /actions(?:: | = useMemo<)DataTableAction</,
   );
   const colunas = colunasTexto
     .split(/\bkey: '/)
@@ -45,7 +45,11 @@ function medir(arquivo: string): number {
     expect(Number.isFinite(c.minWidth)).toBe(true);
   });
 
-  const acoesTexto = bloco(fonte, /actions: DataTableAction</, /\n {2,4}\];/);
+  const acoesTexto = bloco(
+    fonte,
+    /actions(?:: | = useMemo<)DataTableAction</,
+    /\n {2,4}\][;,]/,
+  );
   const acoes = acoesTexto
     .split(/\n {4,6}\{\r?\n/)
     .slice(1)

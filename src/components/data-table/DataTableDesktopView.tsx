@@ -11,6 +11,9 @@
  *   seguem como botão.
  * - Com `onRowPress`, a linha inteira é clicável; as ações e o menu param a
  *   propagação, para o clique nelas não abrir a linha também.
+ * - A linha é um grupo (`role="group"`, com o rótulo da linha), nunca um botão:
+ *   botão dentro de botão esconde o "Mais ações" do leitor de tela. O botão
+ *   que abre o detalhe é só o conteúdo da coluna do nome (a 1ª com texto).
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +61,13 @@ interface DataTableDesktopViewProps<T> {
   onPrevious: () => void;
   onNext: () => void;
   testID?: string;
+}
+
+/** Texto de uma coluna no rótulo da linha; vazio quando não há o que ler. */
+function textoDaColunaNoRotulo<T>(coluna: DataTableColumn<T>, item: T): string {
+  if (coluna.rotulo) return coluna.rotulo(item);
+  const valor = getColumnDisplayValue(item as DataTableItem, coluna.key);
+  return valor === null || valor === undefined ? '' : String(valor);
 }
 
 function pararPropagacao(evento?: GestureResponderEvent) {
@@ -187,33 +197,66 @@ function DataTableDesktopViewInner<T>({
                 index % 2 === 0 && styles.tableRowEven,
               ];
               const rotuloLinha = columns
-                .map(
-                  (col) =>
-                    `${col.label}: ${getColumnDisplayValue(item as DataTableItem, col.key)}`,
-                )
+                .map((col) => ({
+                  label: col.label,
+                  texto: textoDaColunaNoRotulo(col, item),
+                }))
+                .filter(({ texto }) => texto !== '')
+                .map(({ label, texto }) => `${label}: ${texto}`)
                 .join(', ');
+              // O botão que abre o detalhe é a 1ª coluna com texto (a coluna
+              // só de avatar não serve de nome).
+              const indiceDoNome = columns.findIndex(
+                (col) => textoDaColunaNoRotulo(col, item) !== '',
+              );
+              const nomeDaLinha =
+                indiceDoNome >= 0
+                  ? textoDaColunaNoRotulo(columns[indiceDoNome], item)
+                  : '';
               const conteudoLinha = (
                 <>
-                  {columns.map((column) => (
-                    <View
-                      key={column.key}
-                      style={[
-                        styles.tableCell,
-                        larguraDaColuna(column.width, column.minWidth),
-                        column.align === 'center' && { alignItems: 'center' },
-                        column.align === 'right' && { alignItems: 'flex-end' },
-                      ]}
-                    >
-                      {column.render
-                        ? column.render(item)
-                        : renderTextoDaCelula(
-                            getColumnDisplayValue(
-                              item as DataTableItem,
-                              column.key,
-                            ),
-                          )}
-                    </View>
-                  ))}
+                  {columns.map((column, indiceColuna) => {
+                    const celula = column.render
+                      ? column.render(item)
+                      : renderTextoDaCelula(
+                          getColumnDisplayValue(
+                            item as DataTableItem,
+                            column.key,
+                          ),
+                        );
+                    return (
+                      <View
+                        key={column.key}
+                        style={[
+                          styles.tableCell,
+                          larguraDaColuna(column.width, column.minWidth),
+                          column.align === 'center' && { alignItems: 'center' },
+                          column.align === 'right' && {
+                            alignItems: 'flex-end',
+                          },
+                        ]}
+                      >
+                        {onRowPress &&
+                        indiceColuna === Math.max(indiceDoNome, 0) ? (
+                          <Pressable
+                            onPress={(evento) => {
+                              pararPropagacao(evento);
+                              onRowPress(item);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              nomeDaLinha ? `Abrir ${nomeDaLinha}` : 'Abrir'
+                            }
+                            accessibilityHint="Abre o detalhe"
+                          >
+                            {celula}
+                          </Pressable>
+                        ) : (
+                          celula
+                        )}
+                      </View>
+                    );
+                  })}
 
                   {/* Desktop Actions */}
                   {temAcoes && (
@@ -296,16 +339,18 @@ function DataTableDesktopViewInner<T>({
               );
 
               // Pressable só com onRowPress: no RNW 0.21 todo Pressable vira
-              // parada de Tab (tabIndex 0, `focusable` é ignorado).
+              // parada de Tab (tabIndex 0, `focusable` é ignorado), por isso
+              // o -1: a parada de Tab da linha é o botão do nome.
               if (onRowPress) {
                 return (
                   <Pressable
                     key={chave}
                     style={[...estiloLinha, styles.tableRowClicavel]}
                     onPress={() => onRowPress(item)}
-                    accessibilityRole="button"
+                    accessible={false}
+                    tabIndex={-1}
+                    role="group"
                     accessibilityLabel={rotuloLinha}
-                    accessibilityHint="Abre o detalhe"
                   >
                     {conteudoLinha}
                   </Pressable>
@@ -315,7 +360,7 @@ function DataTableDesktopViewInner<T>({
                 <View
                   key={chave}
                   style={estiloLinha}
-                  accessible
+                  role="group"
                   accessibilityLabel={rotuloLinha}
                 >
                   {conteudoLinha}

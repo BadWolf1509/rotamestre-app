@@ -278,7 +278,7 @@ describe('GestaoRotas (desktop)', () => {
     render(<GestaoRotas />);
 
     const estilo = StyleSheet.flatten(
-      screen.getByText('nao_executada').props.style,
+      screen.getByText('Não executada').props.style,
     );
     expect(estilo.color).toBe(colors.errorText);
   });

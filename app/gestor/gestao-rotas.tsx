@@ -33,10 +33,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
-  corDeTextoDoStatus,
   coresPorStatusDaRota,
-  getStatusColorKey,
-  getStatusIcon,
+  propsDoStatusBadge,
 } from '@/constants/statusConfig';
 import {
   DataTable,
@@ -112,7 +110,6 @@ export default function GestaoRotas() {
     exportarParaCSV,
     exportarParaXLSX,
     getStatusLabel,
-    getStatusColor,
     handleSort,
   } = useGestaoRotas({
     statusColorMap,
@@ -152,142 +149,156 @@ export default function GestaoRotas() {
   // DATA TABLE CONFIG
   // ============================================
 
-  const columns: DataTableColumn<RotaHistorico>[] = [
-    {
-      key: 'data',
-      label: 'Data',
-      width: 100,
-      // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
-      minWidth: 95,
-      sortable: true,
-      render: (rota) => (
-        <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>
-      ),
-    },
-    {
-      key: 'motorista',
-      label: 'Motorista',
-      width: 180,
-      minWidth: 130,
-      noWrap: true,
-      sortable: true,
-      render: (rota) => {
-        // Uma linha, com reticências; o nome inteiro fica no rótulo acessível.
-        const nome = rota.motorista_nome || 'Sem motorista';
-        return (
+  // Memoizados: o DataTable desktop é `memo`, e coluna/ação novas a cada render
+  // (typing da busca, toast) o redesenhariam inteiro.
+  const columns = useMemo<DataTableColumn<RotaHistorico>[]>(
+    () => [
+      {
+        key: 'data',
+        label: 'Data',
+        width: 100,
+        // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
+        minWidth: 95,
+        sortable: true,
+        render: (rota) => (
+          <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>
+        ),
+      },
+      {
+        key: 'motorista',
+        label: 'Motorista',
+        width: 180,
+        minWidth: 130,
+        noWrap: true,
+        sortable: true,
+        rotulo: (rota) => rota.motorista_nome || 'Sem motorista',
+        render: (rota) => {
+          // Uma linha, com reticências; o nome inteiro fica no rótulo acessível.
+          const nome = rota.motorista_nome || 'Sem motorista';
+          return (
+            <Text
+              style={styles.tableCellText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              accessibilityLabel={nome}
+            >
+              {nome}
+            </Text>
+          );
+        },
+      },
+      {
+        key: 'paradas',
+        label: 'Paradas',
+        width: 80,
+        minWidth: 70,
+        align: 'center',
+        rotulo: (rota) => `${rota.paradas_concluidas}/${rota.paradas_count}`,
+        render: (rota) => (
           <Text
             style={styles.tableCellText}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            accessibilityLabel={nome}
-          >
-            {nome}
-          </Text>
-        );
+          >{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>
+        ),
       },
-    },
-    {
-      key: 'paradas',
-      label: 'Paradas',
-      width: 80,
-      minWidth: 70,
-      align: 'center',
-      render: (rota) => (
-        <Text
-          style={styles.tableCellText}
-        >{`${rota.paradas_concluidas}/${rota.paradas_count}`}</Text>
-      ),
-    },
-    {
-      key: 'distancia',
-      label: 'Distância',
-      width: 90,
-      minWidth: 80,
-      align: 'right',
-      desktopOnly: true,
-      render: (rota) => (
-        <Text style={styles.tableCellText}>
-          {rota.distancia_total
+      {
+        key: 'distancia',
+        label: 'Distância',
+        width: 90,
+        minWidth: 80,
+        align: 'right',
+        desktopOnly: true,
+        rotulo: (rota) =>
+          rota.distancia_total
             ? `${formatarDecimal(rota.distancia_total)} km`
-            : '-'}
-        </Text>
-      ),
-    },
-    {
-      key: 'iniciada_em',
-      label: 'Iniciada',
-      width: 120,
-      minWidth: 100,
-      desktopOnly: true,
-      render: (rota) => (
-        <Text style={styles.tableCellText}>
-          {formatDateTimeBR(rota.iniciada_em)}
-        </Text>
-      ),
-    },
-    {
-      key: 'concluida_em',
-      label: 'Concluída',
-      width: 120,
-      minWidth: 100,
-      desktopOnly: true,
-      render: (rota) => (
-        <Text style={styles.tableCellText}>
-          {formatDateTimeBR(rota.concluida_em)}
-        </Text>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      // 150: o rótulo mais longo, "Não executada" (ROUTE_STATUS_CONFIG, o
-      // mesmo de getStatusLabel), com ícone, sem reticências e com folga.
-      width: 150,
-      minWidth: 140,
-      sortable: true,
-      render: (rota) => {
-        if (!rota.status) {
-          return <Text style={styles.tableCellText}>-</Text>;
-        }
-        return (
-          <StatusBadge
-            label={getStatusLabel(rota.status)}
-            color={getStatusColor(rota.status)}
-            textColor={corDeTextoDoStatus(
-              getStatusColorKey(rota.status),
-              theme.colors,
-            )}
-            variant="soft"
-            size="sm"
-            icon={getStatusIcon(rota.status)}
-          />
-        );
+            : '-',
+        render: (rota) => (
+          <Text style={styles.tableCellText}>
+            {rota.distancia_total
+              ? `${formatarDecimal(rota.distancia_total)} km`
+              : '-'}
+          </Text>
+        ),
       },
-    },
-  ];
+      {
+        key: 'iniciada_em',
+        label: 'Iniciada',
+        width: 120,
+        minWidth: 100,
+        desktopOnly: true,
+        rotulo: (rota) => formatDateTimeBR(rota.iniciada_em),
+        render: (rota) => (
+          <Text style={styles.tableCellText}>
+            {formatDateTimeBR(rota.iniciada_em)}
+          </Text>
+        ),
+      },
+      {
+        key: 'concluida_em',
+        label: 'Concluída',
+        width: 120,
+        minWidth: 100,
+        desktopOnly: true,
+        rotulo: (rota) => formatDateTimeBR(rota.concluida_em),
+        render: (rota) => (
+          <Text style={styles.tableCellText}>
+            {formatDateTimeBR(rota.concluida_em)}
+          </Text>
+        ),
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        // 150: o rótulo mais longo, "Não executada" (ROUTE_STATUS_CONFIG, o
+        // mesmo de getStatusLabel), com ícone, sem reticências e com folga.
+        width: 150,
+        minWidth: 140,
+        sortable: true,
+        render: (rota) => {
+          if (!rota.status) {
+            return <Text style={styles.tableCellText}>-</Text>;
+          }
+          const selo = propsDoStatusBadge(rota.status, theme.colors);
+          return (
+            <StatusBadge
+              label={selo.label}
+              color={selo.color}
+              textColor={selo.textColor}
+              variant="soft"
+              size="sm"
+              icon={selo.icon}
+            />
+          );
+        },
+      },
+    ],
+    [theme.colors],
+  );
 
-  const actions: DataTableAction<RotaHistorico>[] = [
-    {
-      label: 'Ver detalhes',
-      icon: 'eye-outline',
-      type: 'secondary',
-      onPress: verDetalhes,
-    },
-    {
-      // No desktop, `danger` vai para o menu "Mais ações" da linha.
-      label: 'Excluir rota',
-      icon: 'trash-outline',
-      type: 'danger',
-      onPress: (rota) =>
-        pedirExclusao({
-          id: rota.id,
-          status: rota.status,
-          motorista_nome: rota.motorista_nome ?? null,
-          total_paradas: rota.paradas_count,
-          statusLabel: getStatusLabel(rota.status),
-        }),
-    },
-  ];
+  const actions = useMemo<DataTableAction<RotaHistorico>[]>(
+    () => [
+      {
+        label: 'Ver detalhes',
+        icon: 'eye-outline',
+        type: 'secondary',
+        onPress: verDetalhes,
+      },
+      {
+        // No desktop, `danger` vai para o menu "Mais ações" da linha.
+        label: 'Excluir rota',
+        icon: 'trash-outline',
+        type: 'danger',
+        onPress: (rota) =>
+          pedirExclusao({
+            id: rota.id,
+            status: rota.status,
+            motorista_nome: rota.motorista_nome ?? null,
+            total_paradas: rota.paradas_count,
+            statusLabel: getStatusLabel(rota.status),
+          }),
+      },
+    ],
+    [verDetalhes, pedirExclusao, getStatusLabel],
+  );
 
   // ============================================
   // RENDER

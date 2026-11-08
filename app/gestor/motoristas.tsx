@@ -306,6 +306,7 @@ export default function MotoristasGestor() {
       width: 60,
       // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
       minWidth: 56,
+      rotulo: () => '',
       render: (motorista) => (
         <MotoristaAvatar fotoUrl={motorista.foto_url} nome={motorista.nome} />
       ),
@@ -346,6 +347,8 @@ export default function MotoristasGestor() {
       width: 130,
       minWidth: 100,
       desktopOnly: true,
+      rotulo: (motorista) =>
+        new Date(motorista.created_at).toLocaleDateString('pt-BR'),
       render: (motorista) => (
         <Text style={styles.tableCellText}>
           {new Date(motorista.created_at).toLocaleDateString('pt-BR')}
@@ -357,6 +360,7 @@ export default function MotoristasGestor() {
       label: 'Status',
       width: 100,
       minWidth: 90,
+      rotulo: (motorista) => (motorista.ativo ? 'Ativo' : 'Inativo'),
       render: (motorista) => (
         <StatusBadge
           color={motorista.ativo ? theme.colors.success : theme.colors.gray600}

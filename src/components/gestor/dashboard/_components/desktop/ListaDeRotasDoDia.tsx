@@ -3,7 +3,8 @@
  * linha de paradas, "3 de 8", status e distância. A data aparece sempre: é
  * curta, e com filtro de período a lista mistura dias.
  *
- * A linha inteira é clicável e abre o mapa da rota. "Excluir rota" fica no
+ * A linha inteira é clicável e abre o mapa da rota (grupo no leitor de tela;
+ * o botão acessível é o nome). "Excluir rota" fica no
  * menu "⋯" (`MenuDeAcoes`), que interrompe a propagação: escolher nele não
  * abre a rota junto. A confirmação continua no `Dialog` do `DashboardDesktop`.
  */
@@ -60,23 +61,36 @@ export function ListaDeRotasDoDia({
   return (
     <View style={styles.cartao} testID="rotas-table">
       {rotas.map((rota, indice) => (
+        // Grupo, não botão: botão dentro de botão (o "⋯") esconderia o menu do
+        // leitor de tela. O clique na linha (web) segue abrindo a rota; o botão
+        // acessível é o nome. `tabIndex -1`: no RNW todo Pressable é parada de Tab.
         <Pressable
           key={rota.id}
           testID={`rota-dia-${rota.id}`}
           onPress={() => onAbrirRota(rota.id)}
-          accessibilityRole="button"
+          accessible={false}
+          tabIndex={-1}
+          role="group"
           accessibilityLabel={rotuloDaLinha(rota)}
-          accessibilityHint="Abre o detalhe"
           style={[styles.linha, indice > 0 && styles.linhaComDivisor]}
         >
-          <View style={styles.identificacao}>
+          <Pressable
+            onPress={(evento) => {
+              evento?.stopPropagation?.();
+              onAbrirRota(rota.id);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir ${rota.motorista_nome}`}
+            accessibilityHint="Abre o detalhe"
+            style={styles.identificacao}
+          >
             <Text style={styles.nome} numberOfLines={1} ellipsizeMode="tail">
               {rota.motorista_nome}
             </Text>
             <Text style={styles.data} numberOfLines={1}>
               {formatDateBR(rota.data)}
             </Text>
-          </View>
+          </Pressable>
           <View style={styles.paradas}>
             <LinhaDeParadas paradas={rota.paradas_status ?? []} />
           </View>

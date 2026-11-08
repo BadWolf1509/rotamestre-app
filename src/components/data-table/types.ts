@@ -34,6 +34,12 @@ export interface DataTableColumn<T = DataTableItem> {
   minWidth?: number;
   /** Custom render function */
   render?: (item: T) => React.ReactNode;
+  /**
+   * Texto da coluna no rótulo acessível da linha (desktop). Sem ele, o rótulo
+   * usa `item[key]`; com `render` e uma `key` que não é campo do item, passe
+   * `rotulo` para a coluna não sumir (ou sair vazia) do que o leitor de tela lê.
+   */
+  rotulo?: (item: T) => string;
   /** Enable sorting? */
   sortable?: boolean;
   /** Content alignment */
