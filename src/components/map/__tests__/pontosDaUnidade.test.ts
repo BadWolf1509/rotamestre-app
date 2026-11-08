@@ -11,6 +11,7 @@ import {
   ESPEC_DO_PONTO,
   pontoQueContem,
   pontosDaUnidade,
+  pontosDaUnidadeForaDoDestino,
   rotuloAcessivelDoPonto,
 } from '../pontosDaUnidade';
 
@@ -127,5 +128,33 @@ describe('pontosDaUnidade', () => {
     expect(rotuloAcessivelDoPonto(sede)).toBe(
       'Sede da unidade, Av. Epitácio Pessoa, 1000',
     );
+  });
+});
+
+describe('pontosDaUnidadeForaDoDestino (navegação)', () => {
+  const partida = ponto('p0', 0);
+  const chegada = ponto('c9', 9);
+
+  it('destino comum: a sede aparece', () => {
+    expect(
+      pontosDaUnidadeForaDoDestino(partida, chegada, 'p1').map((p) => p.tipo),
+    ).toEqual(['sede']);
+  });
+
+  // Voltando à sede, ela já é o destino desenhado. Tirar só a chegada
+  // deixaria a partida no mesmo ponto — um 2º alvo sobre o destino.
+  it('destino = chegada na sede: nenhum pino', () => {
+    expect(pontosDaUnidadeForaDoDestino(partida, chegada, 'c9')).toEqual([]);
+  });
+
+  it('destino = chegada distante: fica só a partida', () => {
+    const longe = ponto('c9', 9, LAT + 0.01);
+    expect(
+      pontosDaUnidadeForaDoDestino(partida, longe, 'c9').map((p) => p.tipo),
+    ).toEqual(['partida']);
+  });
+
+  it('sem pontos de unidade: nenhum pino', () => {
+    expect(pontosDaUnidadeForaDoDestino(null, undefined, 'p1')).toEqual([]);
   });
 });

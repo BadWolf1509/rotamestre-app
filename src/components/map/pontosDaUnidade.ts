@@ -116,3 +116,19 @@ export function pontoQueContem<T extends PontoComCoordenada>(
   if (!id) return undefined;
   return pontos.find((p) => p.membros.some((m) => m.id === id));
 }
+
+/**
+ * Navegação: os pinos da unidade sem o que contém a parada atual — ela já é o
+ * destino desenhado. Voltando à sede, a sede inteira sai (tirar só a chegada
+ * deixaria a partida no mesmo ponto, um segundo alvo sobre o destino).
+ */
+export function pontosDaUnidadeForaDoDestino<T extends PontoComCoordenada>(
+  partida: T | null | undefined,
+  chegada: T | null | undefined,
+  idDoDestino: string | null | undefined,
+): PontoDaUnidade<T>[] {
+  const checkpoints = [partida, chegada].filter((p): p is T => p != null);
+  return pontosDaUnidade(checkpoints).filter(
+    (p) => !p.membros.some((m) => m.id === idDoDestino),
+  );
+}

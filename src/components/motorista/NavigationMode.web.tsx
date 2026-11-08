@@ -21,6 +21,8 @@ import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { CORES_SOBRE_O_MAPA } from '@/components/map/coresSobreOMapa';
+import { criarElementoDoPinoDaUnidade } from '@/components/map/elementoDoPinoDaUnidade';
+import { pontosDaUnidadeForaDoDestino } from '@/components/map/pontosDaUnidade';
 import {
   useNavigationModeLogic,
   type NavigationModeProps,
@@ -323,57 +325,20 @@ export function NavigationMode({
       markersRef.current.set(parada.id, marker);
     });
 
-    // Start checkpoint
-    if (startCheckpoint && startCheckpoint.id !== currentStop.id) {
-      const el = document.createElement('div');
-      el.innerHTML = `
-        <div style="
-          width: 28px;
-          height: 28px;
-          border-radius: 14px;
-          background: ${CORES_SOBRE_O_MAPA.branco};
-          border: 2px solid ${CORES_SOBRE_O_MAPA.contorno};
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-        ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.concluida}">
-            <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/>
-          </svg>
-        </div>
-      `;
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([startCheckpoint.longitude, startCheckpoint.latitude])
+    // Pinos da unidade: sede, ou partida e chegada (pontosDaUnidade). O que
+    // contém a parada atual sai: ela já é o destino desenhado.
+    pontosDaUnidadeForaDoDestino(
+      startCheckpoint,
+      endCheckpoint,
+      currentStop.id,
+    ).forEach((ponto) => {
+      const marker = new maplibregl.Marker({
+        element: criarElementoDoPinoDaUnidade(ponto, 28),
+      })
+        .setLngLat([ponto.ponto.longitude, ponto.ponto.latitude])
         .addTo(mapRef.current!);
-      markersRef.current.set('start', marker);
-    }
-
-    // End checkpoint
-    if (endCheckpoint && endCheckpoint.id !== currentStop.id) {
-      const el = document.createElement('div');
-      el.innerHTML = `
-        <div style="
-          width: 28px;
-          height: 28px;
-          border-radius: 14px;
-          background: ${CORES_SOBRE_O_MAPA.branco};
-          border: 2px solid ${CORES_SOBRE_O_MAPA.contorno};
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-        ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${CORES_SOBRE_O_MAPA.usuario}">
-            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-          </svg>
-        </div>
-      `;
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([endCheckpoint.longitude, endCheckpoint.latitude])
-        .addTo(mapRef.current!);
-      markersRef.current.set('end', marker);
-    }
+      markersRef.current.set(`unidade-${ponto.ponto.id}`, marker);
+    });
   }, [
     currentStop,
     pendingStops,

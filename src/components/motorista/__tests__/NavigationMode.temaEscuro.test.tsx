@@ -225,13 +225,49 @@ describe('NavigationMode no tema escuro', () => {
     expect(motorista?.borderColor).toBe(CORES_SOBRE_O_MAPA.branco);
   });
 
-  it('checkpoint fica claro com contorno claro', () => {
-    const { getAllByTestId } = render(<NavigationMode {...props} />);
-    const checkpoint = estilosDosMarkers(getAllByTestId).find(
-      (e) => e.width === 28 && e.shadowOpacity === 0.2,
-    );
-    expect(checkpoint?.backgroundColor).toBe(CORES_SOBRE_O_MAPA.branco);
-    expect(checkpoint?.borderColor).toBe(CORES_SOBRE_O_MAPA.contorno);
+  // Aqui partida e chegada ficam a ~600 m: um pino de cada.
+  it('pinos da unidade: azul-marinho da paleta clara, borda branca', () => {
+    const { getAllByLabelText } = render(<NavigationMode {...props} />);
+    const pinos = getAllByLabelText(/^Ponto de (partida|chegada)/);
+    expect(pinos).toHaveLength(2);
+    pinos.forEach((pino) => {
+      const estilo = StyleSheet.flatten(pino.props.style);
+      expect(estilo.backgroundColor).toBe(CORES_SOBRE_O_MAPA.sede);
+      expect(estilo.borderColor).toBe(BRANCO);
+    });
+  });
+
+  describe('partida e chegada no mesmo lugar (a sede)', () => {
+    const CHEGADA_NA_SEDE = {
+      ...CHEGADA,
+      latitude: PARTIDA.latitude,
+      longitude: PARTIDA.longitude,
+    };
+    beforeEach(() => {
+      mockLogica.endCheckpoint = CHEGADA_NA_SEDE;
+    });
+    afterEach(() => {
+      mockLogica.endCheckpoint = CHEGADA;
+    });
+
+    it('um pino de sede', () => {
+      const { getAllByLabelText } = render(<NavigationMode {...props} />);
+      expect(getAllByLabelText(/^Sede da unidade/)).toHaveLength(1);
+    });
+
+    // Voltando à sede, o destino já está desenhado: o pino da sede por cima
+    // dele seria um segundo alvo no mesmo ponto.
+    it('voltando à sede (parada atual = chegada), nenhum pino da unidade', () => {
+      const { queryByLabelText } = render(
+        <NavigationMode {...props} currentStop={CHEGADA_NA_SEDE} />,
+      );
+      // Nem a sede nem um pino de partida que sobrasse no mesmo ponto.
+      expect(
+        queryByLabelText(
+          /^(Sede da unidade|Ponto de partida|Ponto de chegada)/,
+        ),
+      ).toBeNull();
+    });
   });
 
   it('linha da rota usa a cor da marca da paleta clara', () => {
