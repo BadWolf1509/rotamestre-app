@@ -193,9 +193,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
         .first();
       await expect(busca).toBeVisible({ timeout: 15000 });
 
-      const contador = page
-        .getByText(/\d+\s*rota\(s\)\s*encontrada\(s\)/i)
-        .first();
+      const contador = page.getByText(/\d+\s*rotas?\s*encontradas?/i).first();
       await expect(contador).toBeVisible();
       const antes = await contador.textContent();
 
