@@ -151,20 +151,33 @@ beforeEach(() => {
 });
 
 // ============================================================================
-// startRoute
+// startRoute — pela RPC transacional `iniciar_rota` (Migration 88)
 // ============================================================================
 
+/**
+ * O início é uma operação só no banco: a RPC confere que a rota é deste
+ * motorista, ativo e com vínculo ativo na loja, e grava rota, partida e 1ª
+ * parada juntas. O app não escreve mais em `rotas`/`paradas` para iniciar.
+ */
 describe('startRoute', () => {
+  const mockRpc = jest.fn();
+
+  beforeEach(() => {
+    mockRpc.mockReset().mockResolvedValue({ data: 'iniciada', error: null });
+    (supabase as unknown as { rpc: jest.Mock }).rpc = mockRpc;
+  });
+
   it('returns early when route is null', async () => {
     const { startRoute } = setup({ route: null });
     await startRoute();
+    expect(mockRpc).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('returns early when userData is null', async () => {
     const { startRoute } = setup({ userData: null });
     await startRoute();
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('logs warn and returns when status is not pendente', async () => {
@@ -175,154 +188,147 @@ describe('startRoute', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('em_andamento'),
     );
-    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('updates rota status to em_andamento', async () => {
+  it('inicia pela RPC, sem UPDATE direto em rotas/paradas', async () => {
+    const checkpoint = makeParada({ id: 'cp', ordem: 0, is_checkpoint: false });
     const { startRoute } = setup({
-      paradas: [makeParada()],
+      paradas: [checkpoint, makeParada({ id: 'p1', ordem: 1 })],
     });
+
     await startRoute();
 
-    expect(mockFrom).toHaveBeenCalledWith('rotas');
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'em_andamento',
-        iniciada_em: expect.any(String),
-      }),
-    );
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'route-1');
-  });
-
-  it('marks checkpoint partida (ordem=0, is_checkpoint=false) as concluida', async () => {
-    const checkpoint = makeParada({
-      id: 'cp-start',
-      ordem: 0,
-      is_checkpoint: false,
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('iniciar_rota', {
+      p_rota_id: 'route-1',
     });
-    const parada = makeParada({ id: 'parada-1', ordem: 1 });
-    const { startRoute } = setup({ paradas: [checkpoint, parada] });
-
-    await startRoute();
-
-    // First call: update rota, Second call: update checkpoint, Third call: next parada
-    expect(mockFrom).toHaveBeenCalledWith('paradas');
-    const updateCalls = mockUpdate.mock.calls;
-    expect(
-      updateCalls.some(
-        (c: any[]) => c[0]?.status === 'concluida' && c[0]?.concluida_em,
-      ),
-    ).toBe(true);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('calls marcarProximaParadaEmAndamento for first real parada', async () => {
-    const paradas = [
-      makeParada({ id: 'p1', ordem: 1, status: 'pendente' }),
-      makeParada({ id: 'p2', ordem: 2, status: 'pendente' }),
-    ];
-    const { startRoute } = setup({ paradas });
-
-    await startRoute();
-
-    // Should update the first pendente parada to em_andamento
-    const eqCalls = mockUpdateEq.mock.calls;
-    expect(eqCalls.some((c: any[]) => c[0] === 'id' && c[1] === 'p1')).toBe(
-      true,
-    );
-  });
-
-  it('calls loadActiveRoute on success', async () => {
-    const { startRoute, loadActiveRoute } = setup({
-      paradas: [makeParada()],
-    });
-    await startRoute();
-    expect(loadActiveRoute).toHaveBeenCalled();
-  });
-
-  it('throws and logs error on supabase failure', async () => {
-    mockUpdateEq.mockResolvedValueOnce({ error: { message: 'DB error' } });
-    const { startRoute } = setup({ paradas: [makeParada()] });
-
-    await expect(startRoute()).rejects.toEqual({ message: 'DB error' });
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('iniciar rota'),
-      expect.anything(),
-    );
-  });
-
-  it('calls requestAndStartTracking on mobile', async () => {
+  it('iniciada: liga o rastreamento (mobile) e recarrega a rota', async () => {
     (Platform as any).OS = 'android';
-    const { startRoute } = setup({
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: {
+        status: 'em_andamento',
+        motorista_id: 'user-1',
+        iniciada_em: '2026-11-08T13:00:00.000Z',
+      },
+      error: null,
+    });
+    const { startRoute, loadActiveRoute } = setup({
       paradas: [makeParada()],
       userData: { id: 'user-1', nome: 'Carlos' },
     });
 
-    await startRoute();
+    await expect(startRoute()).resolves.toBeUndefined();
 
     expect(requestAndStartTracking).toHaveBeenCalledWith(
       expect.objectContaining({
         rotaId: 'route-1',
         motoristaId: 'user-1',
         motoristaNome: 'Carlos',
+        // `iniciada_em` é o now() do servidor: o rastreamento parte dele, não
+        // do relógio do aparelho.
+        startedAt: '2026-11-08T13:00:00.000Z',
       }),
     );
+    expect(loadActiveRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it('iniciada com a releitura falhando: segue com a hora de agora', async () => {
+    (Platform as any).OS = 'android';
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'falha' },
+    });
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
+
+    await expect(startRoute()).resolves.toBeUndefined();
+
+    expect(requestAndStartTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ startedAt: expect.any(String) }),
+    );
+    expect(loadActiveRoute).toHaveBeenCalledTimes(1);
   });
 
   it('does not call requestAndStartTracking on web', async () => {
     (Platform as any).OS = 'web';
-    const { startRoute } = setup({ paradas: [makeParada()] });
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
 
     await startRoute();
 
     expect(requestAndStartTracking).not.toHaveBeenCalled();
-  });
-});
-
-// ============================================================================
-// startRoute: o UPDATE só vale para rota pendente deste motorista (MOT-3)
-// ============================================================================
-
-/**
- * A tela pode estar velha: o gestor cancelou, passou a rota a outro motorista
- * ou ela já foi iniciada em outro aparelho. Antes o UPDATE ia só por `id`,
- * sem conferir nada — reabria rota cancelada e mostrava "Rota iniciada" até
- * quando a RLS recusava em silêncio (0 linhas, sem erro).
- */
-describe('startRoute confere status e dono no UPDATE', () => {
-  it('filtra por status pendente e pelo motorista, e pede as linhas afetadas', async () => {
-    const { startRoute } = setup({ paradas: [makeParada()] });
-
-    await startRoute();
-
-    expect(mockUpdateEq).toHaveBeenNthCalledWith(1, 'id', 'route-1');
-    expect(mockUpdateFiltro).toHaveBeenCalledWith('status', 'pendente');
-    expect(mockUpdateFiltro).toHaveBeenCalledWith('motorista_id', 'user-1');
-    expect(mockUpdateSelect).toHaveBeenCalledWith('id');
+    expect(loadActiveRoute).toHaveBeenCalled();
   });
 
-  it('0 linhas: recarrega a rota, avisa e NÃO liga o rastreamento nem mexe nas paradas', async () => {
+  /**
+   * Resposta perdida, toque duplo ou início em outro aparelho: a rota já está
+   * em andamento com este motorista. A RPC completa o que faltava; o app segue
+   * como iniciada, com o rastreamento a partir da hora real do início.
+   */
+  it('ja_iniciada: segue como iniciada, rastreando desde a hora real do início', async () => {
     (Platform as any).OS = 'android';
-    const checkpoint = makeParada({ id: 'cp', ordem: 0, is_checkpoint: false });
-    const { startRoute, loadActiveRoute } = setup({
-      paradas: [checkpoint, makeParada({ id: 'p1', ordem: 1 })],
+    mockRpc.mockResolvedValueOnce({ data: 'ja_iniciada', error: null });
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: {
+        status: 'em_andamento',
+        motorista_id: 'user-1',
+        iniciada_em: '2026-10-26T12:00:00.000Z',
+      },
+      error: null,
     });
-    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
 
-    const erro = await startRoute().catch((e) => e);
+    await expect(startRoute()).resolves.toBeUndefined();
 
-    // A tela trata como erro: o "Rota Iniciada" da Início não aparece.
-    expect(getErrorMessage(erro).code).toBe('ROUTE_NOT_PENDING');
+    expect(requestAndStartTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ startedAt: '2026-10-26T12:00:00.000Z' }),
+    );
     expect(loadActiveRoute).toHaveBeenCalledTimes(1);
-    // O contexto de rastreamento é gravado dentro do requestAndStartTracking.
-    expect(requestAndStartTracking).not.toHaveBeenCalled();
-    // Só o UPDATE da rota: nem partida concluída, nem parada em andamento.
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
-  it('0 linhas com recarga falhando: o aviso ainda chega', async () => {
+  it('ja_iniciada com a releitura falhando: segue com a hora de agora', async () => {
+    (Platform as any).OS = 'android';
+    mockRpc.mockResolvedValueOnce({ data: 'ja_iniciada', error: null });
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'falha' },
+    });
+    const { startRoute } = setup({ paradas: [makeParada()] });
+
+    await expect(startRoute()).resolves.toBeUndefined();
+
+    expect(requestAndStartTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ startedAt: expect.any(String) }),
+    );
+  });
+
+  // A tela estava velha: o gestor cancelou, passou a rota a outro motorista,
+  // ou o motorista perdeu o vínculo. Sem "Rota iniciada" e sem rastreamento.
+  it.each(['situacao_mudou', 'sem_permissao'])(
+    '%s: recarrega a rota, avisa e NÃO liga o rastreamento',
+    async (resultado) => {
+      (Platform as any).OS = 'android';
+      mockRpc.mockResolvedValueOnce({ data: resultado, error: null });
+      const { startRoute, loadActiveRoute } = setup({
+        paradas: [makeParada()],
+      });
+
+      const erro = await startRoute().catch((e) => e);
+
+      expect(getErrorMessage(erro).code).toBe('ROUTE_NOT_PENDING');
+      expect(loadActiveRoute).toHaveBeenCalledTimes(1);
+      expect(requestAndStartTracking).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('recusa com recarga falhando: o aviso ainda chega', async () => {
+    mockRpc.mockResolvedValueOnce({ data: 'situacao_mudou', error: null });
     const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
     loadActiveRoute.mockRejectedValueOnce(new Error('falha de rede'));
-    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
 
     const erro = await startRoute().catch((e) => e);
 
@@ -333,10 +339,37 @@ describe('startRoute confere status e dono no UPDATE', () => {
     );
   });
 
+  it('resposta fora do conjunto vira erro, sem anunciar início', async () => {
+    (Platform as any).OS = 'android';
+    mockRpc.mockResolvedValueOnce({ data: 'outra_coisa', error: null });
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
+
+    const erro = await startRoute().catch((e) => e);
+
+    expect(erro).toBeInstanceOf(Error);
+    expect(String(erro.message)).toContain('iniciar_rota');
+    expect(requestAndStartTracking).not.toHaveBeenCalled();
+    expect(loadActiveRoute).not.toHaveBeenCalled();
+  });
+
+  it('throws and logs error on supabase failure', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'DB error' },
+    });
+    const { startRoute } = setup({ paradas: [makeParada()] });
+
+    await expect(startRoute()).rejects.toEqual({ message: 'DB error' });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('iniciar rota'),
+      expect.anything(),
+    );
+  });
+
   // Sem rede o supabase-js NÃO lança: devolve `{ data: null, error }`. O
-  // caminho continua o de antes — erro de rede para a tela, sem fila e sem
-  // virar "rota mudou" (não houve resposta do servidor).
-  it('erro de rede segue o caminho de antes: relança o próprio erro, sem recarregar nem rastrear', async () => {
+  // erro vai para a tela, sem fila e sem virar "rota mudou" (não houve
+  // resposta do servidor).
+  it('erro de rede: relança o próprio erro, sem recarregar nem rastrear', async () => {
     (Platform as any).OS = 'android';
     const erroDeRede = {
       message: 'TypeError: Network request failed',
@@ -344,8 +377,8 @@ describe('startRoute confere status e dono no UPDATE', () => {
       hint: '',
       code: '',
     };
+    mockRpc.mockResolvedValueOnce({ data: null, error: erroDeRede });
     const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
-    mockUpdateEq.mockResolvedValueOnce({ data: null, error: erroDeRede });
 
     const erro = await startRoute().catch((e) => e);
 
@@ -353,78 +386,6 @@ describe('startRoute confere status e dono no UPDATE', () => {
     expect(getErrorMessage(erro).code).toBe('NETWORK_ERROR');
     expect(loadActiveRoute).not.toHaveBeenCalled();
     expect(requestAndStartTracking).not.toHaveBeenCalled();
-  });
-});
-
-// ============================================================================
-// startRoute: meia-execução própria (rota iniciada, partida não concluída)
-// ============================================================================
-
-/**
- * As três escritas do início não são atômicas. Se a rede cai depois da 1ª
- * (rota em andamento), a tela segue "pendente" e o 2º toque achava 0 linhas e
- * dizia "a rota não está mais pendente" — sobre a própria rota, deixando a
- * partida pendente para sempre. Agora o 2º toque reconhece a rota já
- * iniciada por este motorista e completa os passos que faltaram.
- */
-describe('startRoute completa o início que a rede interrompeu', () => {
-  const checkpoint = () =>
-    makeParada({ id: 'cp', ordem: 0, is_checkpoint: false });
-
-  it('0 linhas com a rota já em andamento deste motorista: conclui a partida, marca a 1ª parada e segue', async () => {
-    (Platform as any).OS = 'android';
-    const { startRoute, loadActiveRoute } = setup({
-      paradas: [checkpoint(), makeParada({ id: 'p1', ordem: 1 })],
-    });
-    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
-    mockSelectMaybeSingle.mockResolvedValueOnce({
-      data: {
-        status: 'em_andamento',
-        motorista_id: 'user-1',
-        iniciada_em: '2026-10-26T12:00:00.000Z',
-      },
-      error: null,
-    });
-
-    await expect(startRoute()).resolves.toBeUndefined();
-
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'cp');
-    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
-    // Idempotente: só mexe no que ainda está pendente
-    expect(mockUpdateFiltro).toHaveBeenCalledWith('status', 'pendente');
-    // O rastreamento parte da hora real do início, não da do 2º toque
-    expect(requestAndStartTracking).toHaveBeenCalledWith(
-      expect.objectContaining({ startedAt: '2026-10-26T12:00:00.000Z' }),
-    );
-    expect(loadActiveRoute).toHaveBeenCalled();
-  });
-
-  it('0 linhas com a rota de outro motorista: continua avisando que mudou', async () => {
-    const { startRoute } = setup({ paradas: [checkpoint()] });
-    mockUpdateEq.mockResolvedValueOnce({ data: [], error: null });
-    mockSelectMaybeSingle.mockResolvedValueOnce({
-      data: { status: 'em_andamento', motorista_id: 'outro' },
-      error: null,
-    });
-
-    const erro = await startRoute().catch((e) => e);
-
-    expect(getErrorMessage(erro).code).toBe('ROUTE_NOT_PENDING');
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-  });
-
-  it('a partida é concluída só se ainda pendente', async () => {
-    const { startRoute } = setup({
-      paradas: [checkpoint(), makeParada({ id: 'p1', ordem: 1 })],
-    });
-
-    await startRoute();
-
-    // 1º UPDATE (rota) já filtra por pendente; os da partida e da parada também
-    const filtrosPendente = mockUpdateFiltro.mock.calls.filter(
-      (c: unknown[]) => c[0] === 'status' && c[1] === 'pendente',
-    );
-    expect(filtrosPendente).toHaveLength(3);
   });
 });
 
@@ -679,7 +640,7 @@ describe('completeRoute', () => {
 // Error propagation: marcarProximaParadaEmAndamento
 // ============================================================================
 
-describe('marcarProximaParadaEmAndamento error propagation', () => {
+describe('falha ao promover a próxima parada não desfaz a ação gravada', () => {
   it('completeStop: entrega gravada + falha ao promover a próxima não vira erro', async () => {
     porta.avancarProxima.mockRejectedValueOnce({ message: 'promotion failed' });
     const { completeStop, loadActiveRoute } = setup({
@@ -705,83 +666,5 @@ describe('marcarProximaParadaEmAndamento error propagation', () => {
     });
 
     await expect(skipStop('p1', 'cliente_ausente')).resolves.toBe('enviada');
-  });
-
-  it('propagates error to startRoute caller when promoting first parada fails', async () => {
-    const paradas = [makeParada({ id: 'p1', ordem: 1, status: 'pendente' })];
-
-    const { startRoute } = setup({ paradas });
-
-    // First update (rota status) succeeds, second (promote p1) fails
-    mockUpdateEq
-      .mockResolvedValueOnce({ error: null }) // startRoute: update rota
-      .mockResolvedValueOnce({ error: { message: 'start promotion failed' } }); // marcarProximaParadaEmAndamento
-
-    await expect(startRoute()).rejects.toEqual({
-      message: 'start promotion failed',
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('iniciar rota'),
-      expect.anything(),
-    );
-  });
-});
-
-// ============================================================================
-// Error propagation: startRoute checkpoint update
-// ============================================================================
-
-describe('startRoute checkpoint update error', () => {
-  it('throws when checkpoint partida update fails', async () => {
-    const checkpoint = makeParada({
-      id: 'cp-start',
-      ordem: 0,
-      is_checkpoint: false,
-    });
-    const parada = makeParada({ id: 'p1', ordem: 1 });
-
-    const { startRoute } = setup({ paradas: [checkpoint, parada] });
-
-    // First update (rota status) succeeds, second (checkpoint) fails
-    mockUpdateEq
-      .mockResolvedValueOnce({ error: null }) // update rota
-      .mockResolvedValueOnce({
-        error: { message: 'checkpoint update failed' },
-      }); // update checkpoint
-
-    await expect(startRoute()).rejects.toEqual({
-      message: 'checkpoint update failed',
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining('iniciar rota'),
-      expect.objectContaining({ message: 'checkpoint update failed' }),
-    );
-  });
-
-  it('does not proceed to marcarProximaParadaEmAndamento when checkpoint fails', async () => {
-    const checkpoint = makeParada({
-      id: 'cp-start',
-      ordem: 0,
-      is_checkpoint: false,
-    });
-    const parada = makeParada({ id: 'p1', ordem: 1, status: 'pendente' });
-
-    const { startRoute, loadActiveRoute } = setup({
-      paradas: [checkpoint, parada],
-    });
-
-    // First update (rota) succeeds, second (checkpoint) fails
-    mockUpdateEq
-      .mockResolvedValueOnce({ error: null })
-      .mockResolvedValueOnce({ error: { message: 'checkpoint failed' } });
-
-    await expect(startRoute()).rejects.toEqual({
-      message: 'checkpoint failed',
-    });
-
-    // Should only have 2 update calls (rota + checkpoint), NOT 3 (no promotion)
-    expect(mockUpdateEq).toHaveBeenCalledTimes(2);
-    // loadActiveRoute should not be called since we threw
-    expect(loadActiveRoute).not.toHaveBeenCalled();
   });
 });
