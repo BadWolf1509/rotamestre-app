@@ -5,14 +5,15 @@
  *
  * Returns:
  * - paradasComCoord: paradas with valid lat/lng
- * - paradasReais: paradas that are NOT checkpoints (is_checkpoint !== false means real deliveries)
+ * - paradasReais: paradas that are NOT checkpoints (real deliveries)
  * - paradasFiltradas: paradasReais filtered by statusFilter
- * - checkpoints: paradas that ARE checkpoints (is_checkpoint === false in DB means unit markers)
+ * - checkpoints: paradas that ARE checkpoints (unit markers: partida/chegada)
  * - hasParadasComCoordenadas: boolean shorthand
  */
 
 import { useMemo } from 'react';
 
+import { ehPontoDaUnidade } from '@/components/map/pontosDaUnidade';
 import type { ParadaMapItem as Parada, StatusFilter } from '@/types/parada-map';
 
 interface UseParadaFilteringResult {
@@ -27,8 +28,8 @@ interface UseParadaFilteringResult {
  * Memoized filtering of paradas by coordinate validity, checkpoint status,
  * and status filter.
  *
- * Note: `is_checkpoint !== false` selects real delivery stops (null/undefined/true are real).
- * `is_checkpoint === false` selects unit checkpoint markers (PARTIDA/CHEGADA).
+ * Note: the DB semantics are inverted. `ehPontoDaUnidade` is true for unit
+ * checkpoint markers (PARTIDA/CHEGADA); null/undefined/true are real stops.
  */
 export function useParadaFiltering(
   paradas: Parada[],
@@ -42,7 +43,7 @@ export function useParadaFiltering(
   const hasParadasComCoordenadas = paradasComCoord.length > 0;
 
   const paradasReais = useMemo(
-    () => paradasComCoord.filter((p) => p.is_checkpoint !== false),
+    () => paradasComCoord.filter((p) => !ehPontoDaUnidade(p)),
     [paradasComCoord],
   );
 
@@ -52,7 +53,7 @@ export function useParadaFiltering(
   }, [paradasReais, statusFilter]);
 
   const checkpoints = useMemo(
-    () => paradasComCoord.filter((p) => p.is_checkpoint === false),
+    () => paradasComCoord.filter((p) => ehPontoDaUnidade(p)),
     [paradasComCoord],
   );
 

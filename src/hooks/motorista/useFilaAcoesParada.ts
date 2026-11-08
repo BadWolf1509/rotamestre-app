@@ -11,7 +11,7 @@
  * o aviso é só da tela: as ações continuam na fila; ele volta se o número
  * mudar.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { logger } from '@/lib/logger';
 import {
@@ -33,8 +33,12 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
     contagem: number;
   } | null>(null);
 
+  // Leitura velha não sobrescreve a nova: cada `ler` leva o seu número.
+  const leituraRef = useRef(0);
+
   useEffect(() => {
     if (!motoristaId) {
+      leituraRef.current++;
       setAcoes([]);
       setDescartes([]);
       setDeOutraConta(0);
@@ -42,11 +46,12 @@ export function useFilaAcoesParada(motoristaId: string | null | undefined) {
     }
     let ativo = true;
     const ler = async () => {
+      const leitura = ++leituraRef.current;
       const [fila, avisos] = await Promise.all([
         lerFilaAcoesParada(),
         lerDescartesDaFila(motoristaId),
       ]);
-      if (!ativo) return;
+      if (!ativo || leitura !== leituraRef.current) return;
       setAcoes(fila.filter((a) => a.motoristaId === motoristaId));
       setDeOutraConta(fila.filter((a) => a.motoristaId !== motoristaId).length);
       setDescartes(avisos);
