@@ -255,6 +255,48 @@ describe('googlePlacesService', () => {
       );
     });
 
+    it('429 (teto diário da Edge Function): vazio, falha marcada e a causa no logger.warn', async () => {
+      mockFetchResponse(
+        {
+          error:
+            'Limite diário de buscas de endereço atingido. Tente de novo amanhã.',
+          status: 'OVER_QUERY_LIMIT',
+          predictions: [],
+        },
+        false,
+        429,
+      );
+
+      const resultado =
+        await googlePlacesService.buscarSugestoes('Rua Augusta');
+
+      expect(resultado).toEqual({ sugestoes: [], falhou: true });
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Limite diário'),
+        expect.objectContaining({ status: 429 }),
+      );
+      expect(setCache).not.toHaveBeenCalled();
+    });
+
+    it('buscarSugestoes distingue zero resultados de falha', async () => {
+      mockFetchResponse(
+        makeAutocompleteResponse({ predictions: [], status: 'ZERO_RESULTS' }),
+      );
+      await expect(
+        googlePlacesService.buscarSugestoes('Rua Inexistente'),
+      ).resolves.toEqual({ sugestoes: [], falhou: false });
+
+      mockFetchResponse(null, false, 500);
+      await expect(
+        googlePlacesService.buscarSugestoes('Rua Augusta'),
+      ).resolves.toEqual({ sugestoes: [], falhou: true });
+
+      mockFetchResponse({ error: 'Erro na API', predictions: [] });
+      await expect(
+        googlePlacesService.buscarSugestoes('Rua Augusta 2'),
+      ).resolves.toEqual({ sugestoes: [], falhou: true });
+    });
+
     it('returns empty array on non-200 response', async () => {
       mockFetchResponse(null, false, 500);
 
@@ -481,6 +523,26 @@ describe('googlePlacesService', () => {
       const result = await googlePlacesService.getPlaceDetails('place_123');
 
       expect(result).toBeNull();
+    });
+
+    it('429 (teto diário): null, com a causa no logger.warn', async () => {
+      mockFetchResponse(
+        {
+          error:
+            'Limite diário de buscas de endereço atingido. Tente de novo amanhã.',
+          status: 'OVER_QUERY_LIMIT',
+        },
+        false,
+        429,
+      );
+
+      const result = await googlePlacesService.getPlaceDetails('place_123');
+
+      expect(result).toBeNull();
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Limite diário'),
+        expect.objectContaining({ status: 429 }),
+      );
     });
 
     it('returns null on non-ok response', async () => {

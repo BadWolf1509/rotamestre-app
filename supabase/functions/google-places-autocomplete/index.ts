@@ -7,6 +7,9 @@
 // A resposta preserva o contrato legado ({ status, predictions[] }) que o app consome.
 // Exige o JWT de um usuário logado (desde 26/10/2026): antes, sem verify_jwt e
 // sem autenticação própria, era um proxy anônimo da chave Google.
+// Teto diário por usuário (Migration 84, `consumir_cota_places`): 1000
+// consultas/dia no dia de Brasília; esgotado → 429 OVER_QUERY_LIMIT com
+// `predictions: []`, e o app cai no Photon. Publicar DEPOIS da migration.
 // Deploy: npx supabase functions deploy google-places-autocomplete --no-verify-jwt --project-ref xezslsyxjivunmhhyxtd
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -17,6 +20,10 @@ import {
   exigirUsuario,
 } from '../_shared/autenticacao.ts';
 import { chavePublica } from '../_shared/chaves.ts';
+import {
+  consumirCotaPlaces,
+  respostaCotaEsgotada,
+} from '../_shared/cotaPlaces.ts';
 import { CORS_PADRAO, jsonResponse, preflight } from '../_shared/http.ts';
 
 // Endereço digitado não passa disso; texto maior é abuso ou erro.
@@ -78,6 +85,26 @@ serve(async (req) => {
     if (!apiKey) {
       console.error('[Places Autocomplete] GOOGLE_MAPS_API_KEY ausente');
       return jsonResponse(500, { error: 'Serviço indisponível' });
+    }
+
+    // Teto diário do usuário (Migration 84): conta só quando vai mesmo chamar
+    // a Google. Erro do banco segue a busca (fail-open, ver cotaPlaces.ts).
+    const cliente = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      chavePublica(),
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization') ?? '' },
+        },
+        auth: { autoRefreshToken: false, persistSession: false },
+      },
+    );
+    const cota = await consumirCotaPlaces(
+      (funcao, args) => cliente.rpc(funcao, args),
+      'autocomplete',
+    );
+    if (cota === 'esgotada') {
+      return respostaCotaEsgotada(CORS_PADRAO, { predictions: [] });
     }
 
     // Places API (New): POST com body JSON (antes: GET com query params)

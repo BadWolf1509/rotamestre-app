@@ -126,6 +126,16 @@ async function fetchEdgeFunction<T>(
 
     clearTimeout(timeoutId);
 
+    if (response.status === 429) {
+      // Teto diário do usuário nas Edge Functions (Migration 84): quem chama
+      // cai no fallback (Photon), como em qualquer outra falha.
+      logger.warn(
+        '[GooglePlaces] Limite diário do Places atingido; usando o fallback',
+        { status: response.status },
+      );
+      return null;
+    }
+
     if (!response.ok) {
       logger.warn('[GooglePlaces] Edge Function error', {
         status: response.status,
@@ -178,13 +188,32 @@ export const googlePlacesService = {
     sessionToken?: string,
     locationBias?: Coordenadas,
   ): Promise<GooglePlaceSuggestion[]> {
+    const { sugestoes } = await this.buscarSugestoes(
+      input,
+      sessionToken,
+      locationBias,
+    );
+    return sugestoes;
+  },
+
+  /**
+   * Como `autocompleteAddress`, mas diz se a lista vazia é falha (429 do
+   * teto diário, erro da Edge Function, timeout, rede) ou só falta de
+   * resultado — quem tem fallback (o roteador em `geocoding.ts`) só o usa
+   * na falha.
+   */
+  async buscarSugestoes(
+    input: string,
+    sessionToken?: string,
+    locationBias?: Coordenadas,
+  ): Promise<{ sugestoes: GooglePlaceSuggestion[]; falhou: boolean }> {
     if (!this.isAvailable()) {
       logger.warn('[GooglePlaces] Supabase não configurado');
-      return [];
+      return { sugestoes: [], falhou: true };
     }
 
     if (input.length < 3) {
-      return [];
+      return { sugestoes: [], falhou: false };
     }
 
     // Cache key (includes location bias for different regions)
@@ -198,7 +227,7 @@ export const googlePlacesService = {
     const cached = await getCache<GooglePlaceSuggestion[]>(cacheKey);
     if (cached) {
       logger.info('[GooglePlaces] Cache hit', { input: normalizedInput });
-      return cached;
+      return { sugestoes: cached, falhou: false };
     }
 
     try {
@@ -208,7 +237,7 @@ export const googlePlacesService = {
       );
 
       if (!data) {
-        return [];
+        return { sugestoes: [], falhou: true };
       }
 
       if (data.error) {
@@ -216,7 +245,7 @@ export const googlePlacesService = {
           error: data.error,
           status: data.status,
         });
-        return [];
+        return { sugestoes: [], falhou: true };
       }
 
       const suggestions: GooglePlaceSuggestion[] = (data.predictions || []).map(
@@ -239,10 +268,10 @@ export const googlePlacesService = {
       logger.info('[GooglePlaces] Autocomplete success', {
         count: suggestions.length,
       });
-      return suggestions;
+      return { sugestoes: suggestions, falhou: false };
     } catch (error) {
       logger.error('[GooglePlaces] Erro no autocomplete', error);
-      return [];
+      return { sugestoes: [], falhou: true };
     }
   },
 

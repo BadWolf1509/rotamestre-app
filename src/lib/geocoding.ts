@@ -8,7 +8,9 @@
  * Estratégia simplificada:
  * - CEP é detectado automaticamente e resolvido via ViaCEP (gratuito)
  * - Busca por texto usa Google Places (cobertura completa no Brasil)
- * - Photon mantido apenas para geocodificação reversa e obter coords de CEP
+ * - Photon: geocodificação reversa, coords de CEP e fallback quando o Google
+ *   falha (429 do teto diário por usuário, erro, timeout) — na busca por
+ *   texto e na coordenada da sugestão do Google
  *
  * @example
  * ```ts
@@ -24,7 +26,7 @@
 
 import { googlePlacesService, GooglePlaceSuggestion } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
-import { photonService } from '@/lib/photon';
+import { photonService, PhotonPlaceSuggestion } from '@/lib/photon';
 import { gerarUuid } from '@/lib/uuid';
 import { viacepService, ViaCEPPlaceSuggestion } from '@/lib/viacep';
 
@@ -38,7 +40,7 @@ import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 /**
  * Fonte do resultado de geocodificação
  */
-export type GeocodingSource = 'google' | 'viacep';
+export type GeocodingSource = 'google' | 'viacep' | 'photon';
 
 /**
  * Sugestão unificada com metadados de fonte
@@ -98,6 +100,21 @@ function fromGoogle(suggestion: GooglePlaceSuggestion): UnifiedPlaceSuggestion {
     coordinates: suggestion.coordinates,
     source: 'google',
     needsCoordinates: !suggestion.coordinates, // Google autocomplete não retorna coords
+  };
+}
+
+/**
+ * Converte PhotonPlaceSuggestion (fallback do Google) para
+ * UnifiedPlaceSuggestion — o Photon já devolve a coordenada.
+ */
+function fromPhoton(suggestion: PhotonPlaceSuggestion): UnifiedPlaceSuggestion {
+  return {
+    place_id: suggestion.place_id,
+    description: suggestion.description,
+    structured_formatting: suggestion.structured_formatting,
+    coordinates: suggestion.coordinates,
+    source: 'photon',
+    needsCoordinates: false,
   };
 }
 
@@ -201,12 +218,30 @@ export const geocodingService = {
     stats.googleCalls++;
     logger.info('[Geocoding] Buscando via Google Places', { input });
 
-    const googleResults = await googlePlacesService.autocompleteAddress(
+    const { sugestoes, falhou } = await googlePlacesService.buscarSugestoes(
       input,
       sessionToken,
       locationBias,
     );
-    return googleResults.map(fromGoogle);
+    if (!falhou) {
+      return sugestoes.map(fromGoogle);
+    }
+
+    // 3. Google falhou (429 do teto diário, erro, timeout): Photon, gratuito.
+    // Sem resultado do Google não é falha e não chega aqui.
+    logger.warn('[Geocoding] Google Places falhou; buscando no Photon', {
+      input,
+    });
+    try {
+      const photonResults = await photonService.autocompleteAddress(
+        input,
+        locationBias,
+      );
+      return photonResults.map(fromPhoton);
+    } catch (error) {
+      logger.warn('[Geocoding] Photon também falhou', error);
+      return [];
+    }
   },
 
   /**
@@ -236,7 +271,20 @@ export const geocodingService = {
         suggestion.place_id,
         sessionToken,
       );
-      return details?.coordenadas || null;
+      if (details?.coordenadas) {
+        return details.coordenadas;
+      }
+      // Detalhe sem coordenada (429 do teto diário, erro): Photon pela
+      // descrição da sugestão, como a do ViaCEP.
+      logger.warn(
+        '[Geocoding] Detalhe do Google sem coordenada; tentando Photon',
+        {
+          place_id: suggestion.place_id,
+        },
+      );
+      return (
+        (await photonService.getCoordinates(suggestion.description)) ?? null
+      );
     }
 
     // Se veio do ViaCEP, geocodificar o endereço via Photon

@@ -39,12 +39,21 @@ const mockGoogleIsAvailable = jest.fn();
 const mockGoogleAutocompleteAddress = jest.fn();
 const mockGoogleGetPlaceDetails = jest.fn();
 const mockGoogleAutocompleteWithCoordinates = jest.fn();
+// buscarSugestoes devolve as sugestões do mock de autocompleteAddress e marca
+// a falha (429, erro, timeout) pelo mockGoogleFalhou.
+let mockGoogleFalhou = false;
 
 jest.mock('@/lib/googlePlaces', () => ({
   googlePlacesService: {
     isAvailable: (...args: unknown[]) => mockGoogleIsAvailable(...args),
     autocompleteAddress: (...args: unknown[]) =>
       mockGoogleAutocompleteAddress(...args),
+    buscarSugestoes: async (...args: unknown[]) => ({
+      sugestoes: mockGoogleFalhou
+        ? []
+        : await mockGoogleAutocompleteAddress(...args),
+      falhou: mockGoogleFalhou,
+    }),
     getPlaceDetails: (...args: unknown[]) => mockGoogleGetPlaceDetails(...args),
     autocompleteWithCoordinates: (...args: unknown[]) =>
       mockGoogleAutocompleteWithCoordinates(...args),
@@ -54,11 +63,14 @@ jest.mock('@/lib/googlePlaces', () => ({
 // Mock photonService
 const mockPhotonGetCoordinates = jest.fn();
 const mockPhotonReverseGeocode = jest.fn();
+const mockPhotonAutocompleteAddress = jest.fn();
 
 jest.mock('@/lib/photon', () => ({
   photonService: {
     getCoordinates: (...args: unknown[]) => mockPhotonGetCoordinates(...args),
     reverseGeocode: (...args: unknown[]) => mockPhotonReverseGeocode(...args),
+    autocompleteAddress: (...args: unknown[]) =>
+      mockPhotonAutocompleteAddress(...args),
   },
 }));
 
@@ -114,6 +126,9 @@ const mockEnderecoGeocodificado: EnderecoGeocodificado = {
 describe('geocodingService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGoogleFalhou = false;
+    mockPhotonGetCoordinates.mockReset();
+    mockPhotonAutocompleteAddress.mockReset();
     geocodingService.resetStats();
     // Restore default config
     geocodingService.configure({ enableCEPDetection: true });
@@ -234,6 +249,70 @@ describe('geocodingService', () => {
       expect(mockGoogleAutocompleteAddress).not.toHaveBeenCalled();
     });
 
+    it('Google falhou (429 do teto diário, erro, timeout): cai no Photon com viés e avisa', async () => {
+      mockViacepContainsCEP.mockReturnValue(false);
+      mockGoogleIsAvailable.mockReturnValue(true);
+      mockGoogleFalhou = true;
+      const bias = { latitude: -7.1, longitude: -34.8 };
+      mockPhotonAutocompleteAddress.mockResolvedValue([
+        {
+          place_id: 'photon_1',
+          description: 'Rua Antonio Leite, João Pessoa, PB',
+          structured_formatting: {
+            main_text: 'Rua Antonio Leite',
+            secondary_text: 'João Pessoa, PB',
+          },
+          coordinates: mockCoords,
+        },
+      ]);
+
+      const result = await geocodingService.autocomplete(
+        'Rua Antonio Leite',
+        bias,
+        'sessao-123',
+      );
+
+      expect(mockPhotonAutocompleteAddress).toHaveBeenCalledWith(
+        'Rua Antonio Leite',
+        bias,
+      );
+      expect(result).toEqual([
+        expect.objectContaining({
+          place_id: 'photon_1',
+          source: 'photon',
+          coordinates: mockCoords,
+          needsCoordinates: false,
+        }),
+      ]);
+      const { logger } = jest.requireMock('@/lib/logger');
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Photon'),
+        expect.anything(),
+      );
+    });
+
+    it('Google sem resultado (não é falha): não consulta o Photon', async () => {
+      mockViacepContainsCEP.mockReturnValue(false);
+      mockGoogleIsAvailable.mockReturnValue(true);
+      mockGoogleAutocompleteAddress.mockResolvedValue([]);
+
+      const result = await geocodingService.autocomplete('Rua Inexistente');
+
+      expect(result).toEqual([]);
+      expect(mockPhotonAutocompleteAddress).not.toHaveBeenCalled();
+    });
+
+    it('Google e Photon falham: lista vazia, sem lançar', async () => {
+      mockViacepContainsCEP.mockReturnValue(false);
+      mockGoogleIsAvailable.mockReturnValue(true);
+      mockGoogleFalhou = true;
+      mockPhotonAutocompleteAddress.mockRejectedValue(new Error('rede'));
+
+      await expect(
+        geocodingService.autocomplete('Rua Antonio Leite'),
+      ).resolves.toEqual([]);
+    });
+
     it('should set needsCoordinates to true for Google results without coords', async () => {
       mockViacepContainsCEP.mockReturnValue(false);
       mockGoogleIsAvailable.mockReturnValue(true);
@@ -335,7 +414,32 @@ describe('geocodingService', () => {
       );
     });
 
-    it('should return null when Google Place Details returns no coordinates', async () => {
+    it('detalhe do Google sem coordenada (429 do teto diário, erro): cai no Photon pela descrição', async () => {
+      const suggestion = {
+        place_id: 'ChIJxyz123',
+        description: 'Rua Teste, João Pessoa, PB',
+        structured_formatting: { main_text: 'Rua Teste', secondary_text: '' },
+        source: 'google' as const,
+        needsCoordinates: true,
+      };
+
+      mockGoogleGetPlaceDetails.mockResolvedValue(null);
+      mockPhotonGetCoordinates.mockResolvedValue(mockCoords);
+
+      const result = await geocodingService.getCoordinates(suggestion);
+
+      expect(mockPhotonGetCoordinates).toHaveBeenCalledWith(
+        'Rua Teste, João Pessoa, PB',
+      );
+      expect(result).toEqual(mockCoords);
+      const { logger } = jest.requireMock('@/lib/logger');
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Photon'),
+        expect.anything(),
+      );
+    });
+
+    it('should return null when Google Place Details and Photon return no coordinates', async () => {
       const suggestion = {
         place_id: 'ChIJxyz123',
         description: 'Rua Teste',
@@ -345,6 +449,7 @@ describe('geocodingService', () => {
       };
 
       mockGoogleGetPlaceDetails.mockResolvedValue(null);
+      mockPhotonGetCoordinates.mockResolvedValue(null);
 
       const result = await geocodingService.getCoordinates(suggestion);
 
