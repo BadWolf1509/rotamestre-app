@@ -3668,6 +3668,63 @@ caso 1 roda a expiração real dentro da transação (desfeita) — rodar fora d
 
 ---
 
+### ⏳ Migration 84: teto diário por usuário no Google Places
+
+**Arquivo:** `20261108090000_teto_diario_places.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` pelo CLI (`db query --linked`), como a 83: primeiro a
+sonda na mesma execução que o corpo da migration (sem o BEGIN/COMMIT dela;
+esperado 8/8 OK; sem o corpo, todos FALHOU), depois a migration, depois a
+sonda de novo (8/8 OK); registrar em `supabase_migrations.schema_migrations`
+com a versão do arquivo e `RETURNING`. **Só depois** publicar as duas Edge
+Functions (`google-places-autocomplete` e `google-place-details`, com
+`--no-verify-jwt`). A ordem inversa não quebra: sem a RPC, a função cai no
+fail-open (`_shared/cotaPlaces.ts`) e busca sem teto, com `console.error`.
+
+**O que faz.** Decisão do gestor (BKD-4): o cadastro é aberto (sem
+confirmação de e-mail) e o Places é pago; faltava um teto por usuário.
+
+- `uso_places_diario (usuario_id → auth.users on delete cascade, dia,
+servico in ('autocomplete','details'), chamadas)`, chave primária
+  `(usuario_id, dia, servico)`. RLS ligada **sem policy** e `REVOKE ALL` de
+  PUBLIC/anon/authenticated: ninguém da API lê nem grava direto.
+- `consumir_cota_places(p_servico) returns boolean`, SECURITY DEFINER,
+  `search_path = public`, dona postgres, EXECUTE só de `authenticated`: conta
+  uma chamada do `auth.uid()` no dia de hoje em America/Sao_Paulo e devolve
+  true; no teto (**autocomplete 1000/dia, details 300/dia**, fixos na função)
+  não conta e devolve false. Sem sessão → false; serviço desconhecido → 22023. Incremento atômico (`INSERT … ON CONFLICT DO UPDATE … WHERE chamadas
+< limite RETURNING`). Cada chamada apaga as linhas do próprio usuário com
+  mais de 7 dias.
+- As Edge Functions chamam a RPC com o `Authorization` de quem busca, depois
+  da autenticação e da validação da entrada (no autocomplete, só com input de
+  3+ caracteres, quando vai mesmo chamar a Google). Esgotada → 429 com
+  `{ error, status: 'OVER_QUERY_LIMIT' }` (autocomplete com `predictions: []`).
+  Erro do banco → a busca segue (fail-open).
+- App: 429 (e qualquer erro do Places) cai no Photon — no autocomplete e na
+  coordenada da sugestão do Google —, com `logger.warn` da causa.
+
+**Alternativas.** Contador no banco com RPC DEFINER (escolhida) × tabela com
+policy de INSERT/UPDATE do próprio usuário (ele poderia zerar o contador) ×
+contador em memória da Edge Function (cada isolate tem o seu; não segura) ×
+exigir confirmação de e-mail (descartada pelo gestor). Limites fixos na
+função (escolhida) × tabela de configuração (mais um objeto para um número
+que muda raramente). Upsert com `WHERE` (escolhida) × SELECT e depois UPDATE
+(corrida entre chamadas simultâneas). Fail-open (escolhida: o banco fora do
+ar já derruba o resto do app, e travar a busca de endereço por isso pararia o
+cadastro de parada) × fail-closed. Serviço inválido como exceção (escolhida:
+erro de programação aparece no log) × false (bloquearia todos calado).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration84-teto-diario-places.test.ts`; sonda
+`database/sondas/20261108090000_sonda_migration84.sql` (8 casos, desfeita
+pelo RAISE): teto do autocomplete (1000 aceitas, 1001ª recusada), details
+separado (300), outro usuário não afetado, sem `sub` e papel anon, serviço
+desconhecido, limpeza de 7 dias, tabela fechada à API, catálogo. Guarda das
+funções em `supabase/functions/_shared/__tests__/guardaPlaces.test.ts`;
+helper `supabase/functions/_shared/cotaPlaces.ts` com testes. Rollback
+colável (DROP da função e da tabela).
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
