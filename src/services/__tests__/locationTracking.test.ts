@@ -243,6 +243,27 @@ describe('LocationTrackingService', () => {
       expect(prefs.vibrationAlerts).toBe(false);
       expect(prefs.proximityRadius).toBe(80);
       expect(prefs.navegarCom).toBe('mapa');
+      // A opção saiu do app: o campo não pode vazar para quem lê.
+      expect(prefs).not.toHaveProperty('soundAlerts');
+    });
+
+    it('gravar preferências não regrava o soundAlerts que sobrou no disco', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({ soundAlerts: false, proximityRadius: 80 }),
+      );
+
+      await locationTrackingService.updateNavigationPreferences({
+        vibrationAlerts: false,
+      });
+
+      const gravado = JSON.parse(
+        (AsyncStorage.setItem as jest.Mock).mock.calls.at(-1)[1],
+      );
+      expect(gravado).not.toHaveProperty('soundAlerts');
+      expect(gravado).toMatchObject({
+        proximityRadius: 80,
+        vibrationAlerts: false,
+      });
     });
 
     it('aplica os defaults quando o JSON salvo esta corrompido', async () => {

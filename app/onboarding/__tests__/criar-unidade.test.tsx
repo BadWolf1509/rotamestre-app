@@ -4,6 +4,7 @@ import React from 'react';
 import { authService } from '@/lib/auth';
 import { googlePlacesService } from '@/lib/googlePlaces';
 import { supabase } from '@/lib/supabase';
+import { viacepService } from '@/lib/viacep';
 
 const mockReplace = jest.fn();
 
@@ -74,6 +75,50 @@ jest.mock('@/components/AddressAutocomplete', () => {
               ),
           },
           ReactActual.createElement(Text, null, 'Selecionar sugestão de CEP'),
+        ),
+        // Sugestão do Photon (fallback do Google): place_id `osm_…`, com a
+        // cidade/UF/CEP da própria sugestão no 4º argumento.
+        ReactActual.createElement(
+          TouchableOpacity,
+          {
+            testID: 'mock-endereco-selecionar-osm',
+            onPress: () =>
+              onSelectAddress(
+                'Av. Epitácio Pessoa - João Pessoa',
+                'osm_W1',
+                { latitude: -7.1195, longitude: -34.845 },
+                { cidade: 'João Pessoa', estado: 'PB', cep: '58030-000' },
+              ),
+          },
+          ReactActual.createElement(Text, null, 'Selecionar sugestão Photon'),
+        ),
+        ReactActual.createElement(
+          TouchableOpacity,
+          {
+            testID: 'mock-endereco-selecionar-osm-cep',
+            onPress: () =>
+              onSelectAddress(
+                'Av. Epitácio Pessoa',
+                'osm_W2',
+                { latitude: -7.1195, longitude: -34.845 },
+                { cep: '58030-000' },
+              ),
+          },
+          ReactActual.createElement(Text, null, 'Photon só com CEP'),
+        ),
+        ReactActual.createElement(
+          TouchableOpacity,
+          {
+            testID: 'mock-endereco-selecionar-osm-vazio',
+            onPress: () =>
+              onSelectAddress(
+                'Av. Epitácio Pessoa',
+                'osm_W3',
+                { latitude: -7.1195, longitude: -34.845 },
+                {},
+              ),
+          },
+          ReactActual.createElement(Text, null, 'Photon sem nada'),
         ),
       ),
   };
@@ -327,6 +372,57 @@ describe('tela de onboarding: criar unidade', () => {
     // gasta uma ida à Edge Function que só voltaria vazia.
     await waitFor(() => expect(mockSupabase.auth.getUser).toHaveBeenCalled());
     expect(mockPlaces.getPlaceDetails).not.toHaveBeenCalled();
+  });
+
+  describe('sugestão do Photon (place_id osm_)', () => {
+    let viacep: jest.SpyInstance;
+    beforeEach(() => {
+      viacep = jest.spyOn(viacepService, 'searchByCEP');
+    });
+    afterEach(() => viacep.mockRestore());
+
+    it('preenche cidade e UF do Photon, sem Places nem ViaCEP', async () => {
+      const { getByTestId, getByLabelText } = render(<CriarUnidade />);
+      fireEvent.press(getByTestId('mock-endereco-selecionar-osm'));
+
+      await waitFor(() =>
+        expect(getByLabelText('Cidade').props.value).toBe('João Pessoa'),
+      );
+      expect(getByLabelText('UF (opcional)').props.value).toBe('PB');
+      expect(mockPlaces.getPlaceDetails).not.toHaveBeenCalled();
+      expect(viacep).not.toHaveBeenCalled();
+    });
+
+    it('sem cidade/UF e com CEP: completa pelo ViaCEP, sem Places', async () => {
+      viacep.mockResolvedValue({
+        place_id: 'cep_58030000',
+        description: 'x',
+        structured_formatting: { main_text: 'x', secondary_text: 'y' },
+        cep: '58030-000',
+        cidade: 'João Pessoa',
+        uf: 'PB',
+      });
+      const { getByTestId, getByLabelText } = render(<CriarUnidade />);
+      fireEvent.press(getByTestId('mock-endereco-selecionar-osm-cep'));
+
+      await waitFor(() =>
+        expect(getByLabelText('Cidade').props.value).toBe('João Pessoa'),
+      );
+      expect(getByLabelText('UF (opcional)').props.value).toBe('PB');
+      expect(viacep).toHaveBeenCalledWith('58030-000');
+      expect(mockPlaces.getPlaceDetails).not.toHaveBeenCalled();
+    });
+
+    it('sem nada: deixa os campos vazios e não chama Places nem ViaCEP', async () => {
+      const { getByTestId, getByLabelText } = render(<CriarUnidade />);
+      fireEvent.press(getByTestId('mock-endereco-selecionar-osm-vazio'));
+
+      await waitFor(() => expect(mockSupabase.auth.getUser).toHaveBeenCalled());
+      expect(getByLabelText('Cidade').props.value).toBe('');
+      expect(getByLabelText('UF (opcional)').props.value).toBe('');
+      expect(mockPlaces.getPlaceDetails).not.toHaveBeenCalled();
+      expect(viacep).not.toHaveBeenCalled();
+    });
   });
 
   it('não bloqueia o cadastro quando o Places falha', async () => {

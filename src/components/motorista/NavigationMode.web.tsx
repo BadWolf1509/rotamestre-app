@@ -237,7 +237,7 @@ export function NavigationMode({
           width: 24px;
           height: 24px;
           border-radius: 12px;
-          background: rgba(66, 133, 244, 0.3);
+          background: ${CORES_SOBRE_O_MAPA.usuario}4d;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -246,7 +246,7 @@ export function NavigationMode({
             width: 12px;
             height: 12px;
             border-radius: 6px;
-            background: #4285F4;
+            background: ${CORES_SOBRE_O_MAPA.usuario};
             border: 2px solid ${CORES_SOBRE_O_MAPA.branco};
           "></div>
         </div>

@@ -6,18 +6,11 @@
  * (no external dependencies, works offline)
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { createAudioPlayer } from 'expo-audio';
 import { Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
 
-// Storage key for sound preference
-const SOUND_ENABLED_KEY = '@rotamestre:notification_sound_enabled';
-
-// Sound enabled flag (can be controlled by user settings)
-let soundEnabled = true;
-let soundPreferenceLoaded = false;
 let webAudioContext: AudioContext | null = null;
 let webAudioUnlocked = false;
 let webAudioUnlockListenersAttached = false;
@@ -84,60 +77,10 @@ function getWebAudioContext(): AudioContext | null {
 }
 
 /**
- * Initialize audio mode and load sound preference from storage
- */
-export async function initializeNotificationAudio(): Promise<void> {
-  // Load sound preference from storage
-  await loadSoundPreference();
-
-  if (Platform.OS === 'web') {
-    attachWebAudioUnlockListeners();
-    return;
-  }
-
-  try {
-    // expo-audio (substitui expo-av, descontinuado no SDK 56) — props renomeadas
-    await setAudioModeAsync({
-      allowsRecording: false,
-      shouldPlayInBackground: false,
-      playsInSilentMode: true,
-      interruptionMode: 'duckOthers',
-      shouldRouteThroughEarpiece: false,
-    });
-  } catch (error) {
-    logger.error('[NotificationSound] Error initializing audio:', error);
-  }
-}
-
-/**
- * Load sound preference from AsyncStorage
- */
-async function loadSoundPreference(): Promise<void> {
-  if (soundPreferenceLoaded) return;
-
-  try {
-    const stored = await AsyncStorage.getItem(SOUND_ENABLED_KEY);
-    if (stored !== null) {
-      soundEnabled = stored === 'true';
-    }
-    soundPreferenceLoaded = true;
-  } catch (error) {
-    logger.error('[NotificationSound] Error loading sound preference:', error);
-  }
-}
-
-/**
  * Play notification sound (for new route, alerts)
  * Uses synthesized sound via Web Audio API (works on all platforms)
  */
 export async function playNotificationSound(): Promise<void> {
-  // Ensure preference is loaded
-  if (!soundPreferenceLoaded) {
-    await loadSoundPreference();
-  }
-
-  if (!soundEnabled) return;
-
   // Use Web Audio API for all platforms (synthesized, no external deps)
   if (Platform.OS === 'web') {
     playWebNotificationSound();
@@ -154,28 +97,6 @@ export async function playNotificationSound(): Promise<void> {
       '[NotificationSound] Error playing notification sound:',
       error,
     );
-  }
-}
-
-/**
- * Play success sound (for route completion, stop completion)
- */
-export async function playSuccessSound(): Promise<void> {
-  if (!soundPreferenceLoaded) {
-    await loadSoundPreference();
-  }
-
-  if (!soundEnabled) return;
-
-  if (Platform.OS === 'web') {
-    playWebSuccessSound();
-    return;
-  }
-
-  try {
-    playMobileSuccessSound();
-  } catch (error) {
-    logger.error('[NotificationSound] Error playing success sound:', error);
   }
 }
 
@@ -224,25 +145,6 @@ async function playMobileNotificationSound(): Promise<void> {
     }, 150);
   } catch (error) {
     logger.error('[NotificationSound] Mobile sound error:', error);
-  }
-}
-
-/**
- * Mobile success sound (acorde C5-E5-G5 em sequência) via expo-audio
- */
-async function playMobileSuccessSound(): Promise<void> {
-  try {
-    const sampleRate = 44100;
-    const samples = Math.floor(sampleRate * 0.2); // 200ms
-    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-
-    notes.forEach((note, i) => {
-      setTimeout(() => {
-        playBeep(buildBeepDataUri(samples, sampleRate, note), 0.5);
-      }, i * 100);
-    });
-  } catch (error) {
-    logger.error('[NotificationSound] Mobile success sound error:', error);
   }
 }
 
@@ -372,66 +274,4 @@ function playWebNotificationSound(): void {
   } catch (error) {
     logger.error('[NotificationSound] Web audio error:', error);
   }
-}
-
-/**
- * Web Audio API - Success chime
- */
-function playWebSuccessSound(): void {
-  try {
-    const audioContext = getWebAudioContext();
-    if (!audioContext) return;
-
-    // Success chord: C-E-G
-    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-
-    notes.forEach((freq, index) => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.value = freq;
-      oscillator.type = 'sine';
-
-      const startTime = audioContext.currentTime + index * 0.1;
-      gainNode.gain.setValueAtTime(0.2, startTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
-
-      oscillator.start(startTime);
-      oscillator.stop(startTime + 0.4);
-    });
-  } catch (error) {
-    logger.error('[NotificationSound] Web audio error:', error);
-  }
-}
-
-/**
- * Enable/disable notification sounds (persisted to storage)
- */
-export async function setNotificationSoundEnabled(
-  enabled: boolean,
-): Promise<void> {
-  soundEnabled = enabled;
-
-  try {
-    await AsyncStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
-  } catch (error) {
-    logger.error('[NotificationSound] Error saving sound preference:', error);
-  }
-}
-
-/**
- * Check if notification sounds are enabled
- */
-export function isNotificationSoundEnabled(): boolean {
-  return soundEnabled;
-}
-
-/**
- * Cleanup sounds (call when app is closing)
- */
-export async function cleanupNotificationSounds(): Promise<void> {
-  // No cleanup needed for synthesized sounds
 }

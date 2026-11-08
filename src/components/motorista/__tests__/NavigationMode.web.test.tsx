@@ -344,6 +344,20 @@ describe('NavigationMode.web – tema escuro', () => {
     expect(html).toContain(CORES_SOBRE_O_MAPA.usuario); // seta do motorista
   });
 
+  // U8-4: a bolinha sem rumo tinha o azul do Google fixo, diferente da seta
+  // com rumo (`CORES_SOBRE_O_MAPA.usuario`).
+  it('bolinha do motorista sem rumo usa a cor do usuário da paleta', async () => {
+    mockLogica.userLocation = { latitude: -23.5, longitude: -46.6 };
+    await renderizarCarregado();
+    const html = MockMarker.mock.calls
+      .map((chamada) => chamada[0].element.outerHTML)
+      .join('\n')
+      .toLowerCase();
+
+    expect(html).not.toContain('#4285f4');
+    expect(html).toContain(CORES_SOBRE_O_MAPA.usuario.toLowerCase());
+  });
+
   it('linha da rota usa a cor da marca da paleta clara', async () => {
     mockLogica.routePath = [
       { latitude: -23.5, longitude: -46.6 },

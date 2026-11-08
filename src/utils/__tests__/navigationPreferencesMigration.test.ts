@@ -10,6 +10,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(),
   removeItem: jest.fn(),
   multiRemove: jest.fn(),
+  multiGet: jest.fn(),
 }));
 
 // Mock logger
@@ -45,12 +46,20 @@ describe('navigationPreferencesMigration', () => {
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.removeItem as jest.Mock).mockResolvedValue(undefined);
     (AsyncStorage.multiRemove as jest.Mock).mockResolvedValue(undefined);
+    // Marca de migração e chave de som legada: ausentes por padrão.
+    (AsyncStorage.multiGet as jest.Mock).mockResolvedValue([
+      ['@rotamestre:nav_prefs_migration_v1', null],
+      ['@rotamestre:sound_enabled', null],
+    ]);
     mockUpdateNavigationPreferences.mockResolvedValue(undefined);
   });
 
   describe('migrateNavigationPreferences', () => {
     it('should skip migration if already completed', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('true');
+      (AsyncStorage.multiGet as jest.Mock).mockResolvedValueOnce([
+        ['@rotamestre:nav_prefs_migration_v1', 'true'],
+        ['@rotamestre:sound_enabled', null],
+      ]);
 
       const result = await migrateNavigationPreferences();
 
@@ -61,10 +70,34 @@ describe('navigationPreferencesMigration', () => {
       expect(mockUpdateNavigationPreferences).not.toHaveBeenCalled();
     });
 
+    it('já migrado: apaga a chave de som legada, sem leitura extra', async () => {
+      (AsyncStorage.multiGet as jest.Mock).mockResolvedValueOnce([
+        ['@rotamestre:nav_prefs_migration_v1', 'true'],
+        ['@rotamestre:sound_enabled', 'true'],
+      ]);
+
+      const result = await migrateNavigationPreferences();
+
+      expect(result).toBe(false);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith(
+        '@rotamestre:sound_enabled',
+      );
+      expect(AsyncStorage.getItem).not.toHaveBeenCalled();
+    });
+
+    it('já migrado e sem chave legada: nenhuma escrita', async () => {
+      (AsyncStorage.multiGet as jest.Mock).mockResolvedValueOnce([
+        ['@rotamestre:nav_prefs_migration_v1', 'true'],
+        ['@rotamestre:sound_enabled', null],
+      ]);
+
+      await migrateNavigationPreferences();
+
+      expect(AsyncStorage.removeItem).not.toHaveBeenCalled();
+    });
+
     it('should migrate nav app preference', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null) // migration flag
-        .mockResolvedValueOnce('waze'); // nav app preference
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('waze'); // nav app preference
 
       const result = await migrateNavigationPreferences();
 
@@ -75,9 +108,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should migrate google_maps preference', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('google_maps');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('google_maps');
 
       const result = await migrateNavigationPreferences();
 
@@ -88,9 +119,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should migrate apple_maps preference', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('apple_maps');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('apple_maps');
 
       const result = await migrateNavigationPreferences();
 
@@ -101,9 +130,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should migrate default preference', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('default');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('default');
 
       const result = await migrateNavigationPreferences();
 
@@ -143,9 +170,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should remove legacy keys after migration', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('waze');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('waze');
 
       await migrateNavigationPreferences();
 
@@ -158,9 +183,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should mark migration as completed', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('waze');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('waze');
 
       await migrateNavigationPreferences();
 
@@ -171,9 +194,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should not update preferences if nothing to migrate', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null) // migration flag
-        .mockResolvedValueOnce(null); // nav app preference; // sound enabled
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null); // nav app preference; // sound enabled
 
       const result = await migrateNavigationPreferences();
 
@@ -187,9 +208,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should skip unknown nav app values', async () => {
-      (AsyncStorage.getItem as jest.Mock)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce('unknown_app');
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce('unknown_app');
 
       const result = await migrateNavigationPreferences();
 
@@ -198,7 +217,7 @@ describe('navigationPreferencesMigration', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(
+      (AsyncStorage.multiGet as jest.Mock).mockRejectedValueOnce(
         new Error('Storage error'),
       );
 

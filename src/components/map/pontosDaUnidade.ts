@@ -18,6 +18,20 @@ import { RAIO_MESMO_LOCAL_METROS } from '@/lib/route-optimization/agrupamento';
 
 export type TipoPontoDaUnidade = 'sede' | 'partida' | 'chegada';
 
+/**
+ * A parada é partida/chegada da unidade, não entrega ou retirada?
+ *
+ * ATENÇÃO, a semântica é invertida: no banco `is_checkpoint = false` marca os
+ * pontos da unidade; `true`, `null` e ausente são paradas de entrega. Parada
+ * real é, portanto, `!ehPontoDaUnidade(p)`. Único lugar que compara o campo
+ * com `false` nos mapas (guarda: `ponto-da-unidade-predicado-unico.test.ts`).
+ */
+export function ehPontoDaUnidade(p: {
+  is_checkpoint?: boolean | null;
+}): boolean {
+  return p.is_checkpoint === false;
+}
+
 export interface PontoComCoordenada {
   id: string;
   ordem: number;

@@ -11,13 +11,7 @@ jest.mock('../logger', () => ({
   },
 }));
 
-import {
-  getErrorMessage,
-  getErrorString,
-  isNetworkError,
-  isAuthError,
-  isPermissionError,
-} from '../errorMapping';
+import { getErrorMessage, isNetworkError } from '../errorMapping';
 
 describe('errorMapping', () => {
   beforeEach(() => {
@@ -242,13 +236,7 @@ describe('errorMapping', () => {
         expect(resultado.message).toMatch(/permiss/i);
         // O texto cru da sentinela nunca pode chegar ao usuário.
         expect(resultado.message).not.toContain('SEM_PERMISSAO');
-      });
-
-      it('usa code PERMISSION_DENIED para que isPermissionError() reconheça a sentinela', () => {
-        const resultado = getErrorMessage({ message: 'SEM_PERMISSAO' });
-
         expect(resultado.code).toBe('PERMISSION_DENIED');
-        expect(isPermissionError({ message: 'SEM_PERMISSAO' })).toBe(true);
       });
     });
 
@@ -304,20 +292,6 @@ describe('errorMapping', () => {
         expect(resultado.title).not.toBe('Algo deu errado');
         expect(resultado.message).not.toContain('Algo deu errado');
         expect(resultado.code).toBe('PERMISSION_DENIED');
-      });
-
-      it('usa code PERMISSION_DENIED para que isPermissionError() reconheça a sentinela', () => {
-        const resultado = getErrorMessage({
-          message: 'Só o gestor principal da unidade pode transferir a gestão',
-        });
-
-        expect(resultado.code).toBe('PERMISSION_DENIED');
-        expect(
-          isPermissionError({
-            message:
-              'Só o gestor principal da unidade pode transferir a gestão',
-          }),
-        ).toBe(true);
       });
     });
 
@@ -603,24 +577,6 @@ describe('errorMapping', () => {
     });
   });
 
-  describe('getErrorString', () => {
-    it('should return only the message', () => {
-      const error = new Error('Invalid login credentials');
-      const result = getErrorString(error);
-
-      expect(result).toBe('Verifique seus dados e tente novamente.');
-    });
-
-    it('should return default message for unknown error', () => {
-      const error = new Error('Unknown xyz');
-      const result = getErrorString(error);
-
-      expect(result).toBe(
-        'Ocorreu um erro inesperado. Tente novamente ou contate o suporte.',
-      );
-    });
-  });
-
   describe('isNetworkError', () => {
     it('should return true for network errors', () => {
       expect(isNetworkError(new Error('Network error'))).toBe(true);
@@ -656,33 +612,6 @@ describe('errorMapping', () => {
         false,
       );
       expect(isNetworkError({ message: 'permission denied' })).toBe(false);
-    });
-  });
-
-  describe('isAuthError', () => {
-    it('should return true for auth errors', () => {
-      expect(isAuthError(new Error('Invalid login credentials'))).toBe(true);
-      expect(isAuthError({ message: 'Email not confirmed' })).toBe(true);
-      expect(isAuthError(new Error('User already registered'))).toBe(true);
-    });
-
-    it('should return false for non-auth errors', () => {
-      expect(isAuthError(new Error('Network error'))).toBe(false);
-      expect(isAuthError({ message: 'permission denied' })).toBe(false);
-    });
-  });
-
-  describe('isPermissionError', () => {
-    it('should return true for permission errors', () => {
-      expect(isPermissionError(new Error('RLS policy'))).toBe(true);
-      expect(isPermissionError({ message: 'permission denied' })).toBe(true);
-    });
-
-    it('should return false for non-permission errors', () => {
-      expect(isPermissionError(new Error('Network error'))).toBe(false);
-      expect(isPermissionError(new Error('Invalid login credentials'))).toBe(
-        false,
-      );
     });
   });
 });

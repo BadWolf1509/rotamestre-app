@@ -9,6 +9,7 @@ import { googlePlacesService } from '@/lib/googlePlaces';
 import { logger } from '@/lib/logger';
 import { SELECT_UNIDADE_APP } from '@/lib/queries/colunasUnidade';
 import { supabase } from '@/lib/supabase';
+import { viacepService } from '@/lib/viacep';
 
 import UnidadeScreen from '../index';
 
@@ -104,6 +105,50 @@ jest.mock('@/components/AddressAutocomplete', () => {
               ),
           },
           'selecionar sugestão',
+        ),
+        // Sugestões do Photon (fallback do Google): place_id `osm_…` e a
+        // cidade/UF/CEP da própria sugestão no 4º argumento.
+        ReactActual.createElement(
+          Text,
+          {
+            testID: 'mock-selecionar-sugestao-osm',
+            onPress: () =>
+              onSelectAddress?.(
+                'Av. Epitácio Pessoa, João Pessoa',
+                'osm_W1',
+                { latitude: -7.1195, longitude: -34.8331 },
+                { cidade: 'João Pessoa', estado: 'PB', cep: '58039000' },
+              ),
+          },
+          'selecionar sugestão Photon',
+        ),
+        ReactActual.createElement(
+          Text,
+          {
+            testID: 'mock-selecionar-sugestao-osm-cep',
+            onPress: () =>
+              onSelectAddress?.(
+                'Av. Epitácio Pessoa',
+                'osm_W2',
+                { latitude: -7.1195, longitude: -34.8331 },
+                { cep: '58039-000' },
+              ),
+          },
+          'selecionar Photon só com CEP',
+        ),
+        ReactActual.createElement(
+          Text,
+          {
+            testID: 'mock-selecionar-sugestao-osm-vazio',
+            onPress: () =>
+              onSelectAddress?.(
+                'Av. Epitácio Pessoa',
+                'osm_W3',
+                { latitude: -7.1195, longitude: -34.8331 },
+                {},
+              ),
+          },
+          'selecionar Photon sem nada',
         ),
         // Sugestão vinda do ViaCEP: place_id sintético, não resolvível pelo
         // Places (src/lib/viacep.ts:176).
@@ -523,6 +568,73 @@ describe('tela Minha Unidade', () => {
       ),
     );
     expect(googlePlacesService.getPlaceDetails).not.toHaveBeenCalled();
+  });
+
+  describe('sugestão do Photon (place_id osm_)', () => {
+    let viacep: jest.SpyInstance;
+    beforeEach(() => {
+      viacep = jest.spyOn(viacepService, 'searchByCEP');
+    });
+    afterEach(() => viacep.mockRestore());
+
+    it('preenche cidade, UF e CEP do Photon, sem Places nem ViaCEP', async () => {
+      render(<UnidadeScreen />);
+      await entrarEmEdicao();
+      fireEvent.press(screen.getByTestId('mock-selecionar-sugestao-osm'));
+
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText('Cidade').props.value).toBe(
+          'João Pessoa',
+        ),
+      );
+      expect(screen.getByPlaceholderText('UF').props.value).toBe('PB');
+      expect(screen.getByPlaceholderText('00000-000').props.value).toBe(
+        '58039-000',
+      );
+      expect(googlePlacesService.getPlaceDetails).not.toHaveBeenCalled();
+      expect(viacep).not.toHaveBeenCalled();
+    });
+
+    it('sem cidade/UF e com CEP: completa pelo ViaCEP, sem Places', async () => {
+      viacep.mockResolvedValue({
+        place_id: 'cep_58039000',
+        description: 'x',
+        structured_formatting: { main_text: 'x', secondary_text: 'y' },
+        cep: '58039-000',
+        cidade: 'João Pessoa',
+        uf: 'PB',
+      });
+      render(<UnidadeScreen />);
+      await entrarEmEdicao();
+      fireEvent.press(screen.getByTestId('mock-selecionar-sugestao-osm-cep'));
+
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText('Cidade').props.value).toBe(
+          'João Pessoa',
+        ),
+      );
+      expect(screen.getByPlaceholderText('UF').props.value).toBe('PB');
+      expect(viacep).toHaveBeenCalledWith('58039-000');
+      expect(googlePlacesService.getPlaceDetails).not.toHaveBeenCalled();
+    });
+
+    it('sem nada: não chama Places nem ViaCEP e não mexe nos campos', async () => {
+      render(<UnidadeScreen />);
+      await entrarEmEdicao();
+      const cidadeAntes = screen.getByPlaceholderText('Cidade').props.value;
+      fireEvent.press(screen.getByTestId('mock-selecionar-sugestao-osm-vazio'));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('mock-sede-input').props.value).toContain(
+          'Epitácio Pessoa',
+        ),
+      );
+      expect(screen.getByPlaceholderText('Cidade').props.value).toBe(
+        cidadeAntes,
+      );
+      expect(googlePlacesService.getPlaceDetails).not.toHaveBeenCalled();
+      expect(viacep).not.toHaveBeenCalled();
+    });
   });
 
   it('mostra a sede também fora do modo edição', async () => {

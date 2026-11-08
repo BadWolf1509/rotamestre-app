@@ -44,14 +44,15 @@ import { useRevalidarPermissaoDeLocalizacao } from '@/hooks/useRevalidarPermissa
 import { useUser } from '@/hooks/useUser';
 import { formatarMomentoDosDados } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
-import { acaoPrincipal, formatarTempoDecorrido } from '@/lib/motorista/acaoPrincipal';
+import {
+  acaoPrincipal,
+  formatarTempoDecorrido,
+} from '@/lib/motorista/acaoPrincipal';
 import {
   deveSairDoModoNavegacao,
   mensagemFinalizarRota,
 } from '@/lib/motorista/modoNavegacao';
-import {
-  chegouPelaParadaAnterior,
-} from '@/lib/motorista/visitaNoLocal';
+import { chegouPelaParadaAnterior } from '@/lib/motorista/visitaNoLocal';
 import { abrirNavegacao } from '@/lib/navigation';
 import {
   abrirConfiguracoesDoApp,
@@ -88,7 +89,6 @@ function MotoristaInicioContent() {
     atualizadoEm,
     refreshRoute,
     startRoute,
-    completeStop: _completeStop,
     skipStop,
     completeRoute,
   } = useRouteStatus();
@@ -495,7 +495,9 @@ function MotoristaInicioContent() {
           routeStatus={routeStatus}
           completedStops={progress.completed}
           totalStops={progress.total}
-          timeElapsed={formatarTempoDecorrido(rotaIniciadaEm, agora) ?? undefined}
+          timeElapsed={
+            formatarTempoDecorrido(rotaIniciadaEm, agora) ?? undefined
+          }
           estadoDaCarga={estadoDaCarga}
         />
 

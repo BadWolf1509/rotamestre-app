@@ -164,7 +164,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
  * EXEMPLOS DE USO
  * ============================================
  *
- * import { EmptyState } from '@/components/EmptyState';
+ * import { EmptyState } from '@/design-system';
  *
  * // Empty state básico
  * <EmptyState

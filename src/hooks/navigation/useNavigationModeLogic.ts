@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ehPontoDaUnidade } from '@/components/map/pontosDaUnidade';
 import type { ParadaData } from '@/context/RouteStatusContext';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
@@ -73,14 +74,14 @@ export function useNavigationModeLogic({
   const prevUserLocationRef = useRef<{ lat: number; lon: number } | null>(null);
 
   // Filter out checkpoints - only show real delivery/pickup stops
-  // is_checkpoint === false means checkpoint, true/undefined means real stop
+  // ehPontoDaUnidade = checkpoint (partida/chegada); o resto é parada real
   const realParadas = useMemo(() => {
-    return paradas.filter((p) => p.is_checkpoint !== false);
+    return paradas.filter((p) => !ehPontoDaUnidade(p));
   }, [paradas]);
 
   // Get checkpoints (start/end points) for special markers
   const checkpoints = useMemo(() => {
-    return paradas.filter((p) => p.is_checkpoint === false);
+    return paradas.filter((p) => ehPontoDaUnidade(p));
   }, [paradas]);
 
   // Identify start and end checkpoints

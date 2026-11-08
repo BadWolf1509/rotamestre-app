@@ -10,7 +10,7 @@ exports[`Badge deve aplicar tamanho small 1`] = `
       {
         "alignItems": "center",
         "alignSelf": "flex-start",
-        "borderRadius": 4,
+        "borderRadius": 8,
         "justifyContent": "center",
       },
       {
@@ -18,7 +18,7 @@ exports[`Badge deve aplicar tamanho small 1`] = `
         "paddingVertical": 4,
       },
       {
-        "backgroundColor": undefined,
+        "backgroundColor": "#fff3d6",
       },
       undefined,
     ]
@@ -28,13 +28,13 @@ exports[`Badge deve aplicar tamanho small 1`] = `
     style={
       [
         {
-          "fontFamily": "System",
+          "fontFamily": "NunitoSans-SemiBold",
         },
         {
           "fontSize": 12,
         },
         {
-          "color": "#f7a02a",
+          "color": "#d4820a",
         },
       ]
     }
@@ -54,7 +54,7 @@ exports[`Badge deve aplicar variante outlined 1`] = `
       {
         "alignItems": "center",
         "alignSelf": "flex-start",
-        "borderRadius": 4,
+        "borderRadius": 8,
         "justifyContent": "center",
       },
       {
@@ -63,7 +63,7 @@ exports[`Badge deve aplicar variante outlined 1`] = `
       },
       {
         "backgroundColor": "transparent",
-        "borderColor": "#f7a02a",
+        "borderColor": "#d4820a",
         "borderWidth": 1,
       },
       undefined,
@@ -74,13 +74,13 @@ exports[`Badge deve aplicar variante outlined 1`] = `
     style={
       [
         {
-          "fontFamily": "System",
+          "fontFamily": "NunitoSans-SemiBold",
         },
         {
           "fontSize": 14,
         },
         {
-          "color": "#f7a02a",
+          "color": "#d4820a",
         },
       ]
     }

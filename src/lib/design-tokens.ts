@@ -206,15 +206,8 @@ export const spacing = {
   '6xl': defaultTheme.spacing['6xl'],
 } as const;
 
-/**
- * Type-safe spacing getter
- * @param token - Spacing token key
- * @returns Numeric spacing value in pixels
- */
+/** Chave válida da escala de espaçamento. */
 export type SpacingToken = keyof typeof spacing;
-export function getSpacing(token: SpacingToken): number {
-  return spacing[token];
-}
 
 // ============================================
 // 4. BORDER RADIUS
@@ -319,7 +312,7 @@ export const components = {
 // ============================================
 
 export function getBadgeColor(
-  status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
+  status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada',
 ): { background: string; text: string } {
   switch (status) {
     case 'pendente':
@@ -351,7 +344,7 @@ export function getBadgeColor(
 }
 
 export function getStatusColor(
-  status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
+  status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada',
 ): string {
   switch (status) {
     case 'pendente':
@@ -368,7 +361,7 @@ export function getStatusColor(
 }
 
 export function getStatusIcon(
-  status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada'
+  status: 'pendente' | 'em_andamento' | 'concluida' | 'cancelada',
 ): string {
   switch (status) {
     case 'pendente':

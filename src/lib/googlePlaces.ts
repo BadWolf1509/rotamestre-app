@@ -9,6 +9,7 @@
  */
 
 import { CACHE_TTL, getCache, setCache } from '@/lib/cache';
+import { getTodayISO, parseLocalDate } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { gerarUuid } from '@/lib/uuid';
@@ -70,6 +71,38 @@ export interface GooglePlaceSuggestion extends PlaceSuggestion {
 }
 
 // ============================================================================
+// ESGOTAMENTO DO GOOGLE (429 do teto diário)
+// ============================================================================
+
+// Quando o teto diário estoura, toda busca até a meia-noite repetiria o 429 (e
+// o aviso). Guardamos o fim do dia em memória: nova sessão do app tenta de
+// novo, e uma tentativa a mais é barata.
+let esgotadoAteEpochMs: number | null = null;
+
+/** Meia-noite do dia seguinte no relógio local, pelo dia de `dateUtils`. */
+function proximaMeiaNoiteLocal(): number {
+  const amanha = parseLocalDate(getTodayISO()) ?? new Date();
+  amanha.setDate(amanha.getDate() + 1);
+  return amanha.getTime();
+}
+
+/**
+ * Até quando o Google está esgotado (epoch ms da próxima meia-noite local),
+ * ou `null` se está liberado. Só o 429 memoriza; 5xx, timeout e rede não.
+ */
+export function googleEsgotadoAte(): number | null {
+  if (esgotadoAteEpochMs !== null && Date.now() >= esgotadoAteEpochMs) {
+    esgotadoAteEpochMs = null;
+  }
+  return esgotadoAteEpochMs;
+}
+
+/** Zera a memória do esgotamento (uso em teste). */
+export function reiniciarEsgotamentoDoGoogle(): void {
+  esgotadoAteEpochMs = null;
+}
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
@@ -128,7 +161,9 @@ async function fetchEdgeFunction<T>(
 
     if (response.status === 429) {
       // Teto diário do usuário nas Edge Functions (Migration 84): quem chama
-      // cai no fallback (Photon), como em qualquer outra falha.
+      // cai no fallback (Photon), como em qualquer outra falha, e o Google
+      // fica marcado como esgotado até a meia-noite.
+      esgotadoAteEpochMs = proximaMeiaNoiteLocal();
       logger.warn(
         '[GooglePlaces] Limite diário do Places atingido; usando o fallback',
         { status: response.status },
@@ -216,6 +251,11 @@ export const googlePlacesService = {
       return { sugestoes: [], falhou: false };
     }
 
+    // Esgotado hoje: falha silenciosa (o aviso saiu no 429), sem tocar a rede.
+    if (googleEsgotadoAte() !== null) {
+      return { sugestoes: [], falhou: true };
+    }
+
     // Cache key (includes location bias for different regions)
     const normalizedInput = input.toLowerCase().trim();
     const biasKey = locationBias
@@ -299,6 +339,10 @@ export const googlePlacesService = {
     if (cached) {
       logger.info('[GooglePlaces] Cache hit for place details', { placeId });
       return cached;
+    }
+
+    if (googleEsgotadoAte() !== null) {
+      return null;
     }
 
     try {
