@@ -132,5 +132,10 @@ describe('buscarPerformanceMotorista', () => {
     const perf = await buscarPerformanceMotorista('m1', 'Ana', 'loja-a');
 
     expect(perf).toMatchObject({ total_rotas: 0, taxa_execucao: null });
+    // Registra só o tipo do que veio, nunca a resposta inteira.
+    expect(mockWarn).toHaveBeenCalledWith(
+      '[performanceMotorista] RPC recusou',
+      'string',
+    );
   });
 });

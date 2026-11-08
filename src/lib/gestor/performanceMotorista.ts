@@ -71,7 +71,8 @@ export async function buscarPerformanceMotorista(
   if (!ehObjeto(data) || data.success !== true) {
     logger.warn(
       '[performanceMotorista] RPC recusou',
-      ehObjeto(data) ? data.code : data,
+      // Fora do formato, só o tipo: a resposta inteira não vai ao log.
+      ehObjeto(data) ? data.code : typeof data,
     );
     return semDados(motoristaId, nome, unidadeId);
   }
