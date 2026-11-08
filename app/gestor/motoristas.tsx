@@ -373,7 +373,7 @@ export default function MotoristasGestor() {
 
   const actions: DataTableAction<MotoristaDetalhado>[] = [
     {
-      label: 'Ver Perfil',
+      label: 'Ver perfil',
       icon: 'person-outline',
       type: 'secondary',
       onPress: (motorista) => {
@@ -431,7 +431,7 @@ export default function MotoristasGestor() {
           size={18}
           color={theme.colors.white}
         />
-        <Text style={styles.cardAddButtonText}>Adicionar Motorista</Text>
+        <Text style={styles.cardAddButtonText}>Adicionar motorista</Text>
       </TouchableOpacity>
     </View>
   ) : undefined;

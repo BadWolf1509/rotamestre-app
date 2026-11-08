@@ -149,7 +149,7 @@ describe('DashboardDesktop', () => {
       );
       expect(queryByText('Total Hoje')).toBeNull();
       expect(queryByText('Ações Rápidas')).toBeNull();
-      expect(queryByText('Nova Rota de Entrega')).toBeNull();
+      expect(queryByText('Nova rota de entrega')).toBeNull();
     });
 
     it('a distância sai com vírgula, não com ponto', () => {

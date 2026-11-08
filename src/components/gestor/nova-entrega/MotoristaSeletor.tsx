@@ -55,7 +55,7 @@ export const MotoristaSeletor = memo(function MotoristaSeletor({
       )}
       {motoristas.length === 0 ? (
         // Beco sem saída do gestor novo: a unidade recém-criada não tem
-        // motorista, mas "Nova Rota de Entrega" é a primeira ação do dashboard.
+        // motorista, mas "Nova rota de entrega" é a primeira ação do dashboard.
         // Sem esta saída dá para preencher paradas, geocodificar e otimizar, e
         // só descobrir no fim que a rota não pode ser concluída.
         <View style={styles.emptyState}>

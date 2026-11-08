@@ -110,7 +110,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
     }) => {
       await gestorPage.gotoMotoristas();
 
-      await page.getByText('Adicionar Motorista').first().click();
+      await page.getByText('Adicionar motorista').first().click();
 
       for (const placeholder of [
         /Digite o nome completo/i,

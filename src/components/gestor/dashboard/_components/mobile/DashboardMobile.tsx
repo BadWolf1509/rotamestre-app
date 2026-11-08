@@ -345,7 +345,7 @@ export function DashboardMobile({
               style={styles.quickActionCard}
               onPress={handleNovaEntregaPress}
               accessibilityRole="button"
-              accessibilityLabel="Nova Rota de Entrega"
+              accessibilityLabel="Nova rota de entrega"
             >
               <View
                 style={[
@@ -359,14 +359,14 @@ export function DashboardMobile({
                   color={theme.colors.primary}
                 />
               </View>
-              <Text style={styles.quickActionLabel}>Nova Rota</Text>
+              <Text style={styles.quickActionLabel}>Nova rota</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickActionCard}
               onPress={handleMotoristasPress}
               accessibilityRole="button"
-              accessibilityLabel="Gerenciar Motoristas"
+              accessibilityLabel="Gerenciar motoristas"
             >
               <View
                 style={[
@@ -448,7 +448,7 @@ export function DashboardMobile({
             icon="map-outline"
             title="Nenhuma rota cadastrada hoje"
             description="Crie sua primeira rota de entrega para começar"
-            actionLabel="Nova Rota de Entrega"
+            actionLabel="Nova rota de entrega"
             onActionPress={handleNovaEntregaPress}
           />
         </View>

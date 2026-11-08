@@ -278,7 +278,7 @@ test.describe('Performance Analytics E2E Tests', () => {
       await expect(
         page.getByText('Ativos', { exact: false }).first(),
       ).toBeVisible();
-      await expect(page.getByText('Adicionar Motorista').first()).toBeVisible();
+      await expect(page.getByText('Adicionar motorista').first()).toBeVisible();
 
       for (const coluna of ['Nome', 'Status']) {
         await expect(

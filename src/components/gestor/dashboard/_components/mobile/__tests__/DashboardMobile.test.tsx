@@ -302,7 +302,7 @@ describe('DashboardMobile', () => {
         <DashboardMobile {...defaultProps} rotas={[]} />,
       );
 
-      expect(getByText('Nova Rota de Entrega')).toBeTruthy();
+      expect(getByText('Nova rota de entrega')).toBeTruthy();
       fireEvent.press(getByTestId('empty-state-action'));
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });
@@ -312,7 +312,7 @@ describe('DashboardMobile', () => {
     it('deve navegar para nova entrega ao clicar no botão', () => {
       const { getByText } = render(<DashboardMobile {...defaultProps} />);
 
-      fireEvent.press(getByText('Nova Rota'));
+      fireEvent.press(getByText('Nova rota'));
 
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });

@@ -230,7 +230,7 @@ export default function MapaRota() {
             </Text>
 
             <Button
-              title="Ver Minhas Rotas"
+              title="Ver minhas rotas"
               variant="primary"
               onPress={() => router.push('/gestor/gestao-rotas')}
               style={styles.primaryButton}
@@ -240,7 +240,7 @@ export default function MapaRota() {
             <Text style={styles.emptyStateOr}>Ou crie uma nova rota:</Text>
 
             <Button
-              title="Nova Rota"
+              title="Nova rota"
               variant="outline"
               onPress={() => router.push('/gestor/nova-entrega')}
               style={styles.secondaryButton}

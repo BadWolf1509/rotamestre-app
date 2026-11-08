@@ -118,3 +118,11 @@ it('Ativar/Desativar vai para o menu "Mais ações" da linha', async () => {
   fireEvent.press(screen.getAllByLabelText('Mais ações')[0]);
   expect(screen.getByRole('menuitem', { name: 'Desativar' })).toBeTruthy();
 });
+
+it('"Ver perfil" e "Adicionar motorista" com maiúscula só na primeira palavra', async () => {
+  render(<MotoristasGestor />);
+  await screen.findByText('Ativo');
+
+  expect(screen.getAllByText('Ver perfil').length).toBeGreaterThan(0);
+  expect(screen.getByText('Adicionar motorista')).toBeTruthy();
+});

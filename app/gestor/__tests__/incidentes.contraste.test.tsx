@@ -182,3 +182,20 @@ it('a tabela cabe no cartão de 950 px (1280 de janela) sem rolar', () => {
     950,
   );
 });
+
+it('os botões das linhas têm maiúscula só na primeira palavra', () => {
+  mockIsDesktop = true;
+  render(<Incidentes />);
+
+  expect(mockAcoes.map((a) => a.label)).toEqual([
+    'Ver detalhes',
+    'Alterar status',
+  ]);
+});
+
+it('no celular, o botão diz "Alterar status"', () => {
+  mockIsDesktop = false;
+  render(<Incidentes />);
+
+  expect(screen.getAllByText('Alterar status').length).toBeGreaterThan(0);
+});

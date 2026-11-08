@@ -434,7 +434,7 @@ export default function GestaoRotas() {
           accessibilityRole="button"
           accessibilityLabel="Criar nova rota"
         >
-          <Text style={styles.cardHeaderButtonPrimaryText}>Nova Rota</Text>
+          <Text style={styles.cardHeaderButtonPrimaryText}>Nova rota</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -687,7 +687,7 @@ export default function GestaoRotas() {
                       : 'Crie sua primeira rota de entrega'
                   }
                   actionLabel={
-                    filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined
+                    filtroStatus === 'todas' ? 'Criar nova rota' : undefined
                   }
                   onActionPress={
                     filtroStatus === 'todas'

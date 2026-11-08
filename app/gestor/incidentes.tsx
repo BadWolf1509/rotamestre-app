@@ -214,13 +214,13 @@ export default function IncidentesScreen() {
     const actions: DataTableAction<Incidente>[] = [
       {
         icon: 'eye-outline',
-        label: 'Ver Detalhes',
+        label: 'Ver detalhes',
         type: 'secondary',
         onPress: handleVerDetalhes,
       },
       {
         icon: 'create-outline',
-        label: 'Alterar Status',
+        label: 'Alterar status',
         type: 'primary',
         onPress: handleAlterarStatus,
       },
@@ -440,7 +440,7 @@ export default function IncidentesScreen() {
                   size={16}
                   color={theme.colors.primary}
                 />
-                <Text style={styles.mobileActionText}>Alterar Status</Text>
+                <Text style={styles.mobileActionText}>Alterar status</Text>
               </TouchableOpacity>
             </MobileCard>
           );

@@ -278,6 +278,12 @@ describe('GestaoRotas (desktop)', () => {
     expect(estilo.color).toBe(colors.errorText);
   });
 
+  it('o botão do cabeçalho diz "Nova rota"', () => {
+    render(<GestaoRotas />);
+
+    expect(screen.getByText('Nova rota')).toBeTruthy();
+  });
+
   it('a tabela cabe no cartão de 950 px (1280 de janela) sem rolar', () => {
     render(<GestaoRotas />);
 
