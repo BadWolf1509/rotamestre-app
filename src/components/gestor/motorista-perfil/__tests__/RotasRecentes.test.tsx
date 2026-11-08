@@ -18,26 +18,6 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-// Mock styles
-jest.mock('@/utils/styles', () => {
-  const theme = {
-    colors: {
-      primary: '#284093',
-      success: '#10b981',
-      warning: '#f7a02a',
-      error: '#ef4444',
-      info: '#3b82f6',
-      gray300: '#d1d5db',
-      gray500: '#6b7280',
-      gray600: '#4b5563',
-    },
-  };
-
-  return {
-    useUnistyles: () => ({ theme }),
-  };
-});
-
 // Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: ({ name, testID }: { name: string; testID?: string }) => {
@@ -59,18 +39,6 @@ jest.mock('../styles', () => ({
     rotaInfo: {},
     rotaData: {},
     rotaDistancia: {},
-    rotaStatusBadge: {},
-    rotaStatusText: {},
-    rotaStatusConcluida: {},
-    rotaStatusTextConcluida: {},
-    rotaStatusEmAndamento: {},
-    rotaStatusTextEmAndamento: {},
-    rotaStatusPendente: {},
-    rotaStatusTextPendente: {},
-    rotaStatusNaoExecutada: {},
-    rotaStatusTextNaoExecutada: {},
-    rotaStatusCancelada: {},
-    rotaStatusTextCancelada: {},
     emptyRotas: {},
     emptyRotasText: {},
   },
@@ -220,16 +188,16 @@ describe('RotasRecentes', () => {
       expect(getByText('checkmark-circle')).toBeTruthy();
     });
 
-    it('deve mostrar time para em andamento', () => {
+    it('deve mostrar time-outline para em andamento', () => {
       const { getByText } = render(<RotasRecentes rotas={[mockRotas[1]]} />);
 
-      expect(getByText('time')).toBeTruthy();
+      expect(getByText('time-outline')).toBeTruthy();
     });
 
-    it('deve mostrar hourglass para pendente', () => {
+    it('deve mostrar hourglass-outline para pendente', () => {
       const { getByText } = render(<RotasRecentes rotas={[mockRotas[2]]} />);
 
-      expect(getByText('hourglass')).toBeTruthy();
+      expect(getByText('hourglass-outline')).toBeTruthy();
     });
 
     it('deve mostrar alert-circle para não executada', () => {
@@ -246,7 +214,7 @@ describe('RotasRecentes', () => {
   });
 
   describe('Status desconhecido', () => {
-    it('deve usar fallback para status desconhecido', () => {
+    it('mostra o texto do status desconhecido em vez de fingir pendente', () => {
       const rotaDesconhecida: RotaRecente = {
         id: 'rota-x',
         data: '2025-12-15',
@@ -255,12 +223,12 @@ describe('RotasRecentes', () => {
         paradas_count: 2,
       };
 
-      const { getByText } = render(
+      const { getByText, queryByText } = render(
         <RotasRecentes rotas={[rotaDesconhecida]} />,
       );
 
-      // Deve usar config de pendente como fallback
-      expect(getByText('Pendente')).toBeTruthy();
+      expect(getByText('status invalido')).toBeTruthy();
+      expect(queryByText('Pendente')).toBeNull();
     });
   });
 });

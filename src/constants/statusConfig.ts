@@ -222,3 +222,60 @@ export function coresPorStatusDaRota(
   });
   return cores;
 }
+
+type CoresDoSelo = CoresDeTextoDoStatus &
+  Pick<Theme['colors'], 'warning' | 'info' | 'success' | 'error'>;
+
+export interface PropsDoStatusBadge {
+  color: string;
+  textColor: string;
+  icon: IconName;
+  label: string;
+}
+
+function propsDaConfig(config: StatusConfig, colors: CoresDoSelo) {
+  return {
+    color: colors[config.colorKey],
+    textColor: corDeTextoDoStatus(config.colorKey, colors),
+    icon: config.icon,
+    label: config.label,
+  };
+}
+
+/**
+ * Trio do `StatusBadge` (cor, cor do texto com contraste, ícone) mais o rótulo,
+ * de um status de rota — com `pulada` caindo na config da parada. Valor fora
+ * das listas (status novo no CHECK) vira o neutro de informação, com o texto
+ * sem o sublinhado, em vez de quebrar. Os selos de rota usam isto para não
+ * remontar o trio à mão (e esquecer o contraste).
+ */
+export function propsDoStatusBadge(
+  status: string,
+  colors: CoresDoSelo,
+): PropsDoStatusBadge {
+  const chave = status.toLowerCase();
+  const config =
+    ROUTE_STATUS_CONFIG[chave as RouteStatusType] ??
+    STOP_STATUS_CONFIG[chave as StopStatusType];
+  if (config) return propsDaConfig(config, colors);
+  return {
+    color: colors.info,
+    textColor: corDeTextoDoStatus('info', colors),
+    icon: 'help-circle-outline',
+    label: rotuloDoStatus(status),
+  };
+}
+
+/**
+ * O mesmo trio para o status de uma parada (ícones próprios: `pendente` é
+ * círculo vazio, não ampulheta). Fora da lista cai em `pendente`.
+ */
+export function propsDoStatusBadgeDaParada(
+  status: string,
+  colors: CoresDoSelo,
+): PropsDoStatusBadge {
+  return propsDaConfig(
+    STOP_STATUS_CONFIG[status as StopStatusType] ?? STOP_STATUS_CONFIG.pendente,
+    colors,
+  );
+}

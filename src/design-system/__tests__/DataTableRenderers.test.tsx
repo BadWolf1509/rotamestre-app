@@ -152,9 +152,9 @@ describe('StatusCell', () => {
     expect(getByText('Custom Label')).toBeTruthy();
   });
 
-  it('deve usar status como fallback para status desconhecido', () => {
+  it('mostra o status desconhecido sem sublinhado, como o resto do app', () => {
     const { getByText } = render(<StatusCell status="unknown_status" />);
 
-    expect(getByText('unknown_status')).toBeTruthy();
+    expect(getByText('unknown status')).toBeTruthy();
   });
 });

@@ -11,7 +11,7 @@ import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   STOP_STATUS_CONFIG,
-  corDeTextoDoStatus,
+  propsDoStatusBadgeDaParada,
 } from '@/constants/statusConfig';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
@@ -74,7 +74,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     const status =
       STOP_STATUS_CONFIG[parada.status as keyof typeof STOP_STATUS_CONFIG] ||
       STOP_STATUS_CONFIG.pendente;
-    const statusColor = theme.colors[status.colorKey];
+    const selo = propsDoStatusBadgeDaParada(parada.status, theme.colors);
+    const statusColor = selo.color;
     const hasPhoto = !!fotoUrl && !imageError;
     const showPhotoPlaceholder = parada.status === 'concluida' && !hasPhoto;
     const tipoIcon = parada.tipo === 'entrega' ? 'cube' : 'swap-horizontal';
@@ -119,12 +120,12 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
 
           {/* Status */}
           <StatusBadge
-            label={status.label}
-            color={statusColor}
-            textColor={corDeTextoDoStatus(status.colorKey, theme.colors)}
+            label={selo.label}
+            color={selo.color}
+            textColor={selo.textColor}
             variant="soft"
             size="sm"
-            icon={status.icon}
+            icon={selo.icon}
             testID="parada-status-badge"
             containerStyle={styles.statusBadge}
           />

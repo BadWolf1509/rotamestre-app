@@ -7,11 +7,16 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
+import { StatusBadge } from '@/components/StatusBadge';
+import {
+  OPACIDADE_FUNDO_STATUS_SOFT,
+  propsDoStatusBadge,
+} from '@/constants/statusConfig';
 // `rotas.data` é coluna date: new Date() dela é meia-noite UTC e, em UTC-3,
 // volta um dia. formatDateBR monta a data com componentes locais.
 import { formatDateBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
-import type { IconName } from '@/types/icons';
+import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
 
 import { styles } from './styles';
@@ -23,63 +28,12 @@ interface RotasRecentesProps {
   onVerTodas?: () => void;
 }
 
-const STATUS_CONFIG: Record<
-  string,
-  {
-    label: string;
-    badgeStyle: string;
-    textStyle: string;
-    icon: IconName;
-    iconColor: string;
-  }
-> = {
-  concluida: {
-    label: 'Concluída',
-    badgeStyle: 'rotaStatusConcluida',
-    textStyle: 'rotaStatusTextConcluida',
-    icon: 'checkmark-circle',
-    iconColor: 'success',
-  },
-  em_andamento: {
-    label: 'Em andamento',
-    badgeStyle: 'rotaStatusEmAndamento',
-    textStyle: 'rotaStatusTextEmAndamento',
-    icon: 'time',
-    iconColor: 'info',
-  },
-  pendente: {
-    label: 'Pendente',
-    badgeStyle: 'rotaStatusPendente',
-    textStyle: 'rotaStatusTextPendente',
-    icon: 'hourglass',
-    iconColor: 'warning',
-  },
-  nao_executada: {
-    label: 'Não executada',
-    badgeStyle: 'rotaStatusNaoExecutada',
-    textStyle: 'rotaStatusTextNaoExecutada',
-    icon: 'alert-circle',
-    iconColor: 'error',
-  },
-  cancelada: {
-    label: 'Cancelada',
-    badgeStyle: 'rotaStatusCancelada',
-    textStyle: 'rotaStatusTextCancelada',
-    icon: 'close-circle',
-    iconColor: 'gray600',
-  },
-};
-
 function RotaCard({ rota }: { rota: RotaRecente }) {
   const { theme } = useUnistyles();
   const router = useRouter();
 
-  const statusConfig = STATUS_CONFIG[rota.status] || STATUS_CONFIG.pendente;
-  // Excluir 'incident' do tipo pois é um objeto, não uma string de cor
-  type SimpleColorKey = Exclude<keyof typeof theme.colors, 'incident'>;
-  const iconColor =
-    theme.colors[statusConfig.iconColor as SimpleColorKey] ||
-    theme.colors.gray500;
+  // Rótulo, cor, contraste e ícone da escala única de status (statusConfig).
+  const selo = propsDoStatusBadge(rota.status, theme.colors);
 
   return (
     <TouchableOpacity
@@ -91,10 +45,15 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
         <View
           style={[
             styles.rotaIconContainer,
-            { backgroundColor: iconColor + '20' },
+            {
+              backgroundColor: withOpacity(
+                selo.color,
+                OPACIDADE_FUNDO_STATUS_SOFT,
+              ),
+            },
           ]}
         >
-          <Ionicons name={statusConfig.icon} size={20} color={iconColor} />
+          <Ionicons name={selo.icon} size={20} color={selo.textColor} />
         </View>
         <View style={styles.rotaInfo}>
           <Text style={styles.rotaData}>{formatDateBR(rota.data)}</Text>
@@ -106,21 +65,13 @@ function RotaCard({ rota }: { rota: RotaRecente }) {
         </View>
       </View>
 
-      <View
-        style={[
-          styles.rotaStatusBadge,
-          styles[statusConfig.badgeStyle as keyof typeof styles],
-        ]}
-      >
-        <Text
-          style={[
-            styles.rotaStatusText,
-            styles[statusConfig.textStyle as keyof typeof styles],
-          ]}
-        >
-          {statusConfig.label}
-        </Text>
-      </View>
+      <StatusBadge
+        label={selo.label}
+        color={selo.color}
+        textColor={selo.textColor}
+        variant="soft"
+        size="sm"
+      />
     </TouchableOpacity>
   );
 }
