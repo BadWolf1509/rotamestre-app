@@ -377,6 +377,9 @@ function IncidentReportWizardComponent({
     });
 
     if (result.success) {
+      // Registrado ou guardado na fila: o reporte está resolvido, e o
+      // rascunho em voo não pode ser religado por um restore pós-câmera.
+      await limparRascunhoIncidente();
       setFotoPerdida(result.fotoPerdida === true);
       setEnfileirado(result.enfileirado === true);
       setShowSuccessModal(true);

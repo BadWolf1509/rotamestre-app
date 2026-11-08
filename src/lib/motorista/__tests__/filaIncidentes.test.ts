@@ -80,6 +80,8 @@ interface LinhaFake {
 
 function criarServidor(sessao: () => string) {
   const linhas: LinhaFake[] = [];
+  /** Rastro em `logs` (`incidente_reportado`), por id. */
+  const registros: string[] = [];
   const objetos: string[] = [];
   let falhaInsert: unknown = null;
   let falhaFoto: unknown = null;
@@ -113,12 +115,16 @@ function criarServidor(sessao: () => string) {
         throw ERRO_DE_REDE;
       }
     },
+    async registrar(incidente) {
+      registros.push(incidente.id);
+    },
   };
 
   return {
     porta,
     linhas,
     objetos,
+    registros,
     falharInsertCom(e: unknown) {
       falhaInsert = e;
     },
@@ -337,6 +343,8 @@ describe('processarFilaIncidentes', () => {
 
     expect(segunda).toEqual({ enviados: 1, descartados: 0 });
     expect(servidor.linhas).toHaveLength(1);
+    // A linha gravada sem resposta também deixa rastro em `logs`.
+    expect(servidor.registros).toEqual([servidor.linhas[0].id]);
     expect(servidor.objetos).toHaveLength(1);
     expect(await lerFilaIncidentes()).toEqual([]);
     expect(await lerDescartesDeIncidentes('mot-1')).toEqual([]);
@@ -357,6 +365,38 @@ describe('processarFilaIncidentes', () => {
     expect(servidor.linhas).toHaveLength(0);
     expect((await lerFilaIncidentes())[0].tentativas).toBe(0);
   });
+
+  it.each([
+    ['tamanho (413)', { status: 413, message: 'Foto muito grande' }],
+    [
+      'policy do bucket (403)',
+      {
+        statusCode: '403',
+        status: 403,
+        message: 'new row violates row-level security',
+      },
+    ],
+    ['requisição inválida (400)', { status: 400, message: 'Invalid' }],
+  ])(
+    'recusa definitiva da FOTO (%s): o reporte sobe sem ela, em vez de ser descartado',
+    async (_nome, erro) => {
+      const servidor = criarServidor(() => 'mot-1');
+      await enfileirarIncidente(
+        incidente({ motoristaId: 'mot-1', fotoLocal: 'file:///cache/h.jpg' }),
+      );
+      servidor.falharFotoCom(erro);
+
+      const r = await processarFilaIncidentes({
+        usuarioAtual: 'mot-1',
+        porta: servidor.porta,
+      });
+
+      expect(r).toEqual({ enviados: 1, descartados: 0 });
+      expect(servidor.linhas[0].foto_url).toBeNull();
+      expect(await lerFilaIncidentes()).toEqual([]);
+      expect(await lerDescartesDeIncidentes('mot-1')).toEqual([]);
+    },
+  );
 
   it('cópia local apagada: o incidente sobe sem a foto, em vez de travar a fila', async () => {
     const servidor = criarServidor(() => 'mot-1');
@@ -398,5 +438,55 @@ describe('sincronizarFilaIncidentes', () => {
     const r = await sincronizarFilaIncidentes(servidor.porta);
 
     expect(r).toEqual({ enviados: 1, descartados: 0 });
+  });
+});
+
+describe('na web', () => {
+  const { Platform } = require('react-native');
+  const plataformaOriginal = Platform.OS;
+  const fetchOriginal = global.fetch;
+  afterEach(() => {
+    Platform.OS = plataformaOriginal;
+    global.fetch = fetchOriginal;
+  });
+
+  it('a foto blob: perdida ao recarregar a aba não trava a fila: sobe sem ela', async () => {
+    Platform.OS = 'web';
+    // Depois do recarregamento, a URL blob: não resolve mais.
+    global.fetch = jest.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    const servidor = criarServidor(() => 'mot-1');
+    await enfileirarIncidente(
+      incidente({ motoristaId: 'mot-1', fotoLocal: 'blob:http://app/abc' }),
+    );
+
+    const r = await processarFilaIncidentes({
+      usuarioAtual: 'mot-1',
+      porta: servidor.porta,
+    });
+
+    expect(r).toEqual({ enviados: 1, descartados: 0 });
+    expect(servidor.linhas[0].foto_url).toBeNull();
+  });
+
+  it('a foto blob: ainda viva (mesma aba) sobe normalmente', async () => {
+    Platform.OS = 'web';
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+    })) as unknown as typeof fetch;
+    const servidor = criarServidor(() => 'mot-1');
+    // Na web o fake de upload não vê o disco: a URI vale.
+    arquivos.add('blob:http://app/viva');
+    await enfileirarIncidente(
+      incidente({ motoristaId: 'mot-1', fotoLocal: 'blob:http://app/viva' }),
+    );
+
+    await processarFilaIncidentes({
+      usuarioAtual: 'mot-1',
+      porta: servidor.porta,
+    });
+
+    expect(servidor.linhas[0].foto_url).toBe(servidor.objetos[0]);
   });
 });

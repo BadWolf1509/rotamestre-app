@@ -19,6 +19,11 @@ jest.mock('../../motorista/filaPosicoes', () => ({
   invalidarPosicoesEmVoo: () => ordem.push('invalidar'),
 }));
 
+const mockApagarArquivo = jest.fn(async (_caminho: string) => undefined);
+jest.mock('expo-file-system/legacy', () => ({
+  deleteAsync: (caminho: string) => mockApagarArquivo(caminho),
+}));
+
 const DA_PESSOA = [
   '@cache_user_data_u1',
   '@cache_rotas_list_un1',
@@ -41,6 +46,9 @@ const DO_APARELHO = [
   // (sobem quando ela entrar) — sair desta não pode apagá-los.
   '@rotamestre:fila_acoes_parada',
   '@rotamestre:fila_acoes_parada_descartes',
+  // Incidentes reportados sem rede e seus avisos: idem, por conta.
+  '@rotamestre:fila_incidentes',
+  '@rotamestre:fila_incidentes_descartes',
   '@rotamestre:offline_queue',
   '@rotamestre:offline_photos_index',
   '@rotamestre:theme_preference',
@@ -120,7 +128,39 @@ describe('limparAparelhoAoExcluirConta', () => {
     ...dono,
   });
 
+  const incidente = (id: string, motoristaId: string) => ({
+    id,
+    motoristaId,
+    rotaId: 'r1',
+    paradaId: 'p1',
+    categoria: 'blocked',
+    descricao: 'Portão',
+    endereco: 'Rua A',
+    fotoLocal: `/docs/offline_incidentes/${id}.jpg`,
+    em: '2026-11-08T12:00:00.000Z',
+    tentativas: 0,
+  });
+
   beforeEach(() => {
+    mockApagarArquivo.mockClear();
+    disco.set(
+      '@rotamestre:fila_incidentes',
+      JSON.stringify([
+        incidente('i1', 'quem-sai'),
+        incidente('i2', 'outra-conta'),
+      ]),
+    );
+    disco.set(
+      '@rotamestre:fila_incidentes_descartes',
+      JSON.stringify([
+        { incidente: incidente('i3', 'quem-sai'), motivo: 'recusado', em: 'x' },
+        {
+          incidente: incidente('i4', 'outra-conta'),
+          motivo: 'recusado',
+          em: 'x',
+        },
+      ]),
+    );
     disco.set(
       '@rotamestre:fila_acoes_parada',
       JSON.stringify([acao('p1', 'quem-sai'), acao('p2', 'outra-conta')]),
@@ -184,7 +224,28 @@ describe('limparAparelhoAoExcluirConta', () => {
     expect(disco.has('@rotamestre:theme_preference')).toBe(false);
   });
 
+  it('incidentes guardados: ficam os de outra conta; os de quem sai somem, com a foto local', async () => {
+    await limparAparelhoAoExcluirConta('quem-sai');
+
+    expect(
+      ler('@rotamestre:fila_incidentes').map((i: { id: string }) => i.id),
+    ).toEqual(['i2']);
+    expect(
+      ler('@rotamestre:fila_incidentes_descartes').map(
+        (d: { incidente: { id: string } }) => d.incidente.id,
+      ),
+    ).toEqual(['i4']);
+    expect(mockApagarArquivo).toHaveBeenCalledWith(
+      '/docs/offline_incidentes/i1.jpg',
+    );
+    expect(mockApagarArquivo).not.toHaveBeenCalledWith(
+      '/docs/offline_incidentes/i2.jpg',
+    );
+  });
+
   it('sem pendência de outra conta, não regrava chave vazia', async () => {
+    disco.delete('@rotamestre:fila_incidentes');
+    disco.delete('@rotamestre:fila_incidentes_descartes');
     disco.set(
       '@rotamestre:fila_acoes_parada',
       JSON.stringify([acao('p1', 'quem-sai')]),

@@ -85,6 +85,8 @@ export interface PortaIncidentes {
   subirFoto(incidente: IncidenteNaFila, fotoLocal: string): Promise<string>;
   /** INSERT da linha com o `id` do item. Lança na falha (23505 inclusive). */
   inserir(incidente: IncidenteNaFila, fotoPath: string | null): Promise<void>;
+  /** Rastro `incidente_reportado` em `logs`. Não lança (fire-and-forget). */
+  registrar(incidente: IncidenteNaFila, fotoPath: string | null): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -175,8 +177,25 @@ async function apagarFotoDoAparelho(fotoLocal?: string): Promise<void> {
   }
 }
 
+/**
+ * A foto guardada ainda pode ser lida? Na web a fila guarda a URI `blob:` do
+ * seletor, que morre ao recarregar a aba: a leitura dela (local, não é rede)
+ * falha com TypeError, que a fila tomaria por falha de rede e esperaria para
+ * sempre. Ler aqui e tratar a falha como "foto sumiu" faz o reporte subir sem
+ * ela, como no nativo com a cópia apagada. Alternativa descartada: enfileirar
+ * sem foto na web — perderia também a foto da aba que nunca foi recarregada.
+ */
 async function fotoExiste(fotoLocal: string): Promise<boolean> {
-  if (Platform.OS === 'web') return true;
+  if (Platform.OS === 'web') {
+    if (!/^(blob|data):/.test(fotoLocal)) return true;
+    try {
+      await fetch(fotoLocal);
+      return true;
+    } catch {
+      // URI de outra sessão da aba: a foto não existe mais.
+      return false;
+    }
+  }
   return (await FileSystem.getInfoAsync(fotoLocal)).exists;
 }
 
@@ -261,23 +280,35 @@ async function contarTentativa(id: string): Promise<number> {
 }
 
 /**
- * Envia um item: `inserido` agora, ou `ja_existia` (gravado antes). Lança
+ * Envia um item: `inserido` agora, ou `ja_existia` (gravado antes), com o
+ * path da foto que foi junto (null = sem foto). Lança
  * o erro do servidor quando não houve resposta definitiva ou houve recusa.
  */
 async function enviarItem(
   item: IncidenteNaFila,
   porta: PortaIncidentes,
-): Promise<'inserido' | 'ja_existia'> {
+): Promise<{ resultado: 'inserido' | 'ja_existia'; fotoPath: string | null }> {
   let fotoPath = item.fotoPath ?? null;
   if (!fotoPath && item.fotoLocal) {
     if (await fotoExiste(item.fotoLocal)) {
-      fotoPath = await porta.subirFoto(item, item.fotoLocal);
-      // Guarda o path ANTES do INSERT: se ele cair, o reenvio não sobe a foto
-      // de novo (um objeto a mais no Storage seria só custo, mas evitável).
-      const path = fotoPath;
-      await mudarFila((fila) =>
-        fila.map((x) => (x.id === item.id ? { ...x, fotoPath: path } : x)),
-      );
+      try {
+        fotoPath = await porta.subirFoto(item, item.fotoLocal);
+      } catch (erroFoto) {
+        // Rede/5xx: o reporte espera junto com a foto. Recusa definitiva da
+        // foto (tamanho, policy do bucket): ela nunca vai passar — o reporte
+        // sobe sem ela, como o envio na hora faz com `fotoPerdida`, em vez de
+        // gastar as tentativas e descartar o reporte inteiro.
+        if (!ehErroDefinitivo(erroFoto)) throw erroFoto;
+        logger.warn('[FilaIncidentes] Foto recusada; envia sem ela', erroFoto);
+      }
+      if (fotoPath) {
+        // Guarda o path ANTES do INSERT: se ele cair, o reenvio não sobe a
+        // foto de novo (um objeto a mais no Storage seria só custo).
+        const path = fotoPath;
+        await mudarFila((fila) =>
+          fila.map((x) => (x.id === item.id ? { ...x, fotoPath: path } : x)),
+        );
+      }
     } else {
       // Cópia apagada (limpeza do sistema, app reinstalado): o reporte vale
       // mais que a foto, e travar aqui seguraria a fila para sempre.
@@ -286,10 +317,10 @@ async function enviarItem(
   }
   try {
     await porta.inserir(item, fotoPath);
-    return 'inserido';
+    return { resultado: 'inserido', fotoPath };
   } catch (erro) {
     // Gravou numa tentativa anterior e a resposta se perdeu.
-    if (ehDuplicata(erro)) return 'ja_existia';
+    if (ehDuplicata(erro)) return { resultado: 'ja_existia', fotoPath };
     throw erro;
   }
 }
@@ -309,7 +340,12 @@ export async function processarFilaIncidentes({
     );
     for (const item of meus) {
       try {
-        await enviarItem(item, porta);
+        const { fotoPath } = await enviarItem(item, porta);
+        // Rastro também no `ja_existia`: a tentativa que gravou a linha perdeu
+        // a resposta antes de registrar.
+        void porta
+          .registrar(item, fotoPath)
+          .catch((e) => logger.warn('[FilaIncidentes] Falha no rastro', e));
         await mudarFila((fila) => fila.filter((x) => x.id !== item.id));
         await apagarFotoDoAparelho(item.fotoLocal);
         enviados++;
@@ -382,9 +418,13 @@ export const portaIncidentesSupabase: PortaIncidentes = {
       status: 'aberto',
     });
     if (error) throw error;
-    // Rastro, como no envio na hora (fire-and-forget; `logAction` não lança).
+  },
+
+  async registrar(incidente, fotoPath) {
+    // Rastro, como no envio na hora (`logAction` não lança). A parada vai em
+    // `detalhes`: `logs` não tem coluna `parada_id`.
     if (incidente.rotaId) {
-      void logIncidenteAction(
+      await logIncidenteAction(
         incidente.motoristaId,
         incidente.id,
         'incidente_reportado',

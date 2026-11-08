@@ -70,11 +70,22 @@ jest.mock('@/lib/motorista/filaIncidentes', () => ({
   enfileirarIncidente: (...a: unknown[]) => mockEnfileirar(...a),
 }));
 
+const mockSolicitarEnvio = jest.fn();
+jest.mock('@/lib/offline', () => ({
+  solicitarEnvioFila: (...a: unknown[]) => mockSolicitarEnvio(...a),
+}));
+
 describe('useIncidentSubmit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSemRede.mockResolvedValue(false);
     mockEnfileirar.mockResolvedValue(undefined);
+    mockSolicitarEnvio.mockResolvedValue({
+      fotos: 0,
+      acoes: 0,
+      descartadas: 0,
+      incidentes: 0,
+    });
     mockUploadIncidentPhoto.mockResolvedValue('https://storage.com/photo.jpg');
     mockSingle.mockResolvedValue({ data: { id: 'incident-123' }, error: null });
   });
@@ -114,6 +125,8 @@ describe('useIncidentSubmit', () => {
         tentativas: 0,
       });
       expect(guardado.id).toMatch(/^[0-9a-f-]{36}$/);
+      // Sem rede, nada a tentar agora: a volta da rede dispara o envio.
+      expect(mockSolicitarEnvio).not.toHaveBeenCalled();
       // Pedido do motorista: só o NetInfo desconectado vale; a queda
       // observada há segundos não impede de tentar
       expect(mockSemRede).toHaveBeenCalledWith({ ignorarQuedaObservada: true });
@@ -166,6 +179,9 @@ describe('useIncidentSubmit', () => {
       // A foto já subiu: vai o path, não a foto de novo
       expect(guardado.fotoPath).toBe('https://storage.com/photo.jpg');
       expect(guardado.fotoLocal).toBeUndefined();
+      // Com rede (a falha foi da resposta), tenta de novo já, pelo envio
+      // único da fila, sem esperar o próximo gatilho.
+      expect(mockSolicitarEnvio).toHaveBeenCalledTimes(1);
     });
 
     it('o insert não é repetido na hora: 5xx vai para a fila, que reenvia sem duplicar', async () => {

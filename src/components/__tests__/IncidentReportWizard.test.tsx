@@ -49,6 +49,19 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Espiã do rascunho em voo: o reporte guardado não pode ficar religável.
+const mockLimparRascunho = jest.fn();
+jest.mock('@/lib/motorista/rascunhoIncidente', () => {
+  const real = jest.requireActual('@/lib/motorista/rascunhoIncidente');
+  return {
+    ...real,
+    limparRascunhoIncidente: (...a: unknown[]) => {
+      mockLimparRascunho(...a);
+      return real.limparRascunhoIncidente(...a);
+    },
+  };
+});
+
 // Mock do hook de envio: o que importa aqui é o que o wizard faz com o resultado.
 const mockSubmitIncident = jest.fn();
 jest.mock('@/hooks/useIncidentSubmit', () => ({
@@ -383,6 +396,7 @@ describe('IncidentReportWizard', () => {
       await waitFor(() => {
         expect(screen.getByText('Enviar Reporte')).toBeTruthy();
       });
+      mockLimparRascunho.mockClear();
       fireEvent.press(screen.getByText('Enviar Reporte'));
     };
 
@@ -441,6 +455,9 @@ describe('IncidentReportWizard', () => {
         ).toBeTruthy();
       });
       expect(screen.getByText('Reporte guardado')).toBeTruthy();
+      // Guardado = resolvido: sem rascunho para o restore pós-câmera reabrir,
+      // mesmo antes do OK.
+      expect(mockLimparRascunho).toHaveBeenCalled();
       expect(
         screen.queryByText(
           'O problema foi registrado e será analisado pela gestão.',

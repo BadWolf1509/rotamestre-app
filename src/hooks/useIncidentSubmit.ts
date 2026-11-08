@@ -38,6 +38,7 @@ import {
   enfileirarIncidente,
   type IncidenteNaFila,
 } from '@/lib/motorista/filaIncidentes';
+import { solicitarEnvioFila } from '@/lib/offline';
 import { pedirPermissao } from '@/lib/permissoes';
 import { photonService } from '@/lib/photon';
 import { createIncidente, logIncidenteAction } from '@/lib/queries';
@@ -298,7 +299,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
           // Só a recusa definitiva do banco chega ao motorista como erro.
           const original = result.error.originalError ?? result.error;
           if (!ehErroDefinitivo(original)) {
-            return await enfileirar(
+            const guardado = await enfileirar(
               paraFila({
                 endereco: finalEndereco,
                 fotoPath: uploadedPhotoUrl || undefined,
@@ -306,6 +307,13 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
                 fotoLocal: uploadedPhotoUrl ? undefined : data.photoUri,
               }),
             );
+            // Havia rede (a falha foi da resposta): tenta já, pelo envio único
+            // da fila, em vez de esperar o próximo gatilho (volta da rede,
+            // primeiro plano) — que pode não vir com o NetInfo "conectado".
+            solicitarEnvioFila().catch((e) =>
+              logger.warn('[Incidente] Falha ao pedir o envio da fila', e),
+            );
+            return guardado;
           }
           throw new Error(`Erro ao salvar incidente: ${result.error.message}`);
         }
