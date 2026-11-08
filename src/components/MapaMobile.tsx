@@ -43,7 +43,10 @@ interface MapaMobileProps extends MapaAdapterProps {
   onMarkerLongPress?: (paradaId: string) => void;
 }
 
-/** Lado do pino da unidade (sede, ou partida/chegada) — `PinoDaUnidade`. */
+/**
+ * Lado do pino da unidade (sede, ou partida/chegada) — `PinoDaUnidade`. O pino
+ * é quadrado e ancorado no centro: sobre a coordenada só fica metade dele.
+ */
 const ALTURA_PINO_CHECKPOINT = 28;
 
 /**
@@ -211,7 +214,7 @@ export function MapaMobile({
               latitude: ponto.latitude!,
               longitude: ponto.longitude!,
             })}
-            anchor="bottom"
+            anchor="center"
             onPress={aoTocarPino(() => {
               // O pino barra a propagação, então o onPress do mapa (que limpa
               // a parada selecionada) não chega: avisa aqui, como o web.
@@ -279,7 +282,7 @@ export function MapaMobile({
             key={checkpointSelecionado.ponto.id}
             ponto={ponto}
             area={areaDoMapa}
-            alturaDoPino={ALTURA_PINO_CHECKPOINT}
+            alturaDoPino={ALTURA_PINO_CHECKPOINT / 2}
           >
             <CheckpointCallout
               ponto={checkpointSelecionado}

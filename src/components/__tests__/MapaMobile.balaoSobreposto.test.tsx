@@ -321,6 +321,31 @@ describe('MapaMobile – balão sobreposto', () => {
     expect(within(balao).queryByText('Rua Teste, 100')).toBeNull();
   });
 
+  // U8-3: o pino da unidade é quadrado e centrado na coordenada, como nos
+  // outros cinco mapas; com `bottom` ele ficava ~14 px acima do ponto real.
+  it('o pino da unidade ancora no centro e o balão sobe só da metade dele', async () => {
+    const utils = render(<MapaMobile paradas={[partida, parada]} />);
+    await medirMapa(utils);
+
+    expect(utils.getAllByTestId('marker')[0].props.anchor).toBe('center');
+
+    await act(async () => {
+      fireEvent(utils.getAllByTestId('marker')[0], 'press', {
+        stopPropagation: jest.fn(),
+      });
+    });
+    await cameraParou();
+    await medirBalao(utils);
+
+    // project() devolve [200, 500]; balão 120 de altura, vão de 8 e meio
+    // pino de 28: top = 500 - 14 - 8 - 120.
+    const estilo = Object.assign(
+      {},
+      ...[utils.getByTestId('mapa-balao').props.style].flat(3),
+    );
+    expect(estilo.top).toBe(500 - 14 - 8 - 120);
+  });
+
   it('selectedParadaId igual ao id da chegada seleciona o pino da sede', async () => {
     const chegada = { ...partida, id: 'cp9', ordem: 2 };
     const utils = render(
