@@ -10,7 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import { View, Text, Pressable, Modal, Platform } from 'react-native';
-import DateTimePickerModal, { useDefaultStyles } from 'react-native-ui-datepicker';
+import DateTimePickerModal, {
+  useDefaultStyles,
+} from 'react-native-ui-datepicker';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -38,7 +40,9 @@ export function DateRangeFilterSection({
   // Web: Range picker modal
   const [showWebRangePicker, setShowWebRangePicker] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [_selectedPreset, setSelectedPreset] = useState<PeriodPreset | null>(null);
+  const [_selectedPreset, setSelectedPreset] = useState<PeriodPreset | null>(
+    null,
+  );
   const [rangeSelection, setRangeSelection] = useState<{
     startDate: Date | undefined;
     endDate: Date | undefined;
@@ -106,8 +110,12 @@ export function DateRangeFilterSection({
   };
 
   const datePickerComponents = {
-    IconPrev: <Ionicons name="chevron-back" size={18} color={theme.colors.gray900} />,
-    IconNext: <Ionicons name="chevron-forward" size={18} color={theme.colors.gray900} />,
+    IconPrev: (
+      <Ionicons name="chevron-back" size={18} color={theme.colors.gray900} />
+    ),
+    IconNext: (
+      <Ionicons name="chevron-forward" size={18} color={theme.colors.gray900} />
+    ),
   };
 
   // Mobile handlers
@@ -146,7 +154,7 @@ export function DateRangeFilterSection({
   const applyWebRangeFilter = () => {
     onDateRangeChange(
       rangeSelection.startDate || null,
-      rangeSelection.endDate || null
+      rangeSelection.endDate || null,
     );
     setShowWebRangePicker(false);
   };
@@ -174,8 +182,14 @@ export function DateRangeFilterSection({
             testID="filter-date-range"
             onPress={openWebRangePicker}
           >
-            <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
-            <Text style={styles.dateButtonText}>{getRangeLabel(dataInicio, dataFim)}</Text>
+            <Ionicons
+              name="calendar-outline"
+              size={20}
+              color={theme.colors.gray500}
+            />
+            <Text style={styles.dateButtonText}>
+              {getRangeLabel(dataInicio, dataFim)}
+            </Text>
           </Pressable>
         ) : (
           <>
@@ -183,8 +197,14 @@ export function DateRangeFilterSection({
               style={styles.dateButton}
               onPress={() => setShowDateInicioPicker(true)}
             >
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
-              <Text style={styles.dateButtonText}>{formatDate(dataInicio)}</Text>
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={theme.colors.gray500}
+              />
+              <Text style={styles.dateButtonText}>
+                {formatDate(dataInicio)}
+              </Text>
             </Pressable>
 
             <Text style={styles.dateSeparator}>até</Text>
@@ -193,7 +213,11 @@ export function DateRangeFilterSection({
               style={styles.dateButton}
               onPress={() => setShowDateFimPicker(true)}
             >
-              <Ionicons name="calendar-outline" size={20} color={theme.colors.gray500} />
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={theme.colors.gray500}
+              />
               <Text style={styles.dateButtonText}>{formatDate(dataFim)}</Text>
             </Pressable>
           </>
@@ -236,7 +260,11 @@ export function DateRangeFilterSection({
               <View style={styles.datePickerHeader}>
                 <Text style={styles.datePickerTitle}>Selecionar Período</Text>
                 <Pressable onPress={() => setShowWebRangePicker(false)}>
-                  <Ionicons name="close" size={24} color={theme.colors.gray500} />
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={theme.colors.gray500}
+                  />
                 </Pressable>
               </View>
 
