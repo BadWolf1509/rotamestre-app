@@ -3820,6 +3820,82 @@ motorista_indisponivel na reativação não avisam, catálogo. Rollback colável
 
 ---
 
+### ⏳ Migration 87: `resolvido_em` do incidente mantido pelo banco
+
+**Arquivo:** `20261108122000_incidentes_resolvido_em.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda. Não exige versão nova do app.
+
+**O que faz.** Pendência 30(i). Gatilho `trg_incidentes_resolvido_em`
+(BEFORE INSERT OR UPDATE OF status em `incidentes`), função
+`incidentes_resolvido_em()` SECURITY INVOKER, search_path vazio, sem EXECUTE
+para a API. A regra é a que o app já grava (`useIncidentesModals`):
+
+- entra em `resolvido` com `resolvido_em` nulo → `now()`; a hora que o app
+  mandou fica (só preenche o nulo);
+- sai de `resolvido` → `resolvido_em` nulo;
+- `resolvido` → `resolvido` (só a observação) não mexe na data, nem quando ela
+  é nula num registro antigo.
+
+Só `resolvido` conta: em `resolvido` → `fechado` o app já manda `null`.
+
+**Alternativas.** Status: só `resolvido` (escolhida, a regra do app) ×
+`resolvido` e `fechado` (em `resolvido` → `fechado` o gatilho teria de apagar
+a data do app ou trocá-la por `now()`). Onde: gatilho (escolhida, vale para
+painel, chave secreta e app antigo) × só no app (como hoje) × coluna gerada
+(não guarda hora). Sobrescrever: só o nulo (escolhida) × sempre `now()`.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration87-incidentes-resolvido-em.test.ts`; sonda
+`database/sondas/20261108122000_sonda_migration87.sql` (8 casos, desfeita pelo
+RAISE): preenche ao resolver, mantém a hora mandada, resolvido → resolvido não
+muda, reabrir e fechar limpam, INSERT resolvido preenche, registro antigo sem
+data segue sem data, catálogo. Rollback colável.
+
+---
+
+### ⏳ Migration 88: iniciar a rota numa RPC transacional (`iniciar_rota`)
+
+**Arquivo:** `20261108123000_iniciar_rota_rpc.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda **antes** de mesclar o app que chama a
+RPC (o app novo não tem caminho alternativo para a RPC ausente). O app
+publicado segue com as três escritas e não é afetado.
+
+**O que faz.** Pendência 30(j). `iniciar_rota(p_rota_id uuid) RETURNS text`,
+SECURITY DEFINER, search_path vazio, EXECUTE de `authenticated`/`service_role`:
+
+- sem sessão, rota que não existe, de outro motorista, de loja sem vínculo
+  ativo ou com o cadastro inativo → `sem_permissao` (a regra da policy
+  `rotas_update` e da `finalizar_rota`);
+- `concluida`/`cancelada`/`nao_executada` → `situacao_mudou`, sem escrita;
+- `pendente` → numa transação, rota `em_andamento` com `iniciada_em = now()`,
+  partida (ordem 0, `is_checkpoint = false`) concluída com a mesma hora e a 1ª
+  parada real pendente em andamento (se nenhuma real já estiver) →
+  `iniciada`;
+- `em_andamento` → `ja_iniciada`, completando o que um início pela metade de
+  versão antiga deixou (partida com a hora do `iniciada_em`, 1ª real).
+
+Trava `FOR NO KEY UPDATE` na rota e depois nas paradas (ordem de
+`finalizar_rota`/`cancelar_rota`). Os gatilhos das Migrations 75/76/77/83
+seguem valendo; `notify_rota_iniciada` e os logs continuam como no início pelo
+app.
+
+**Alternativas.** Resposta: texto num conjunto fechado (escolhida, como
+`cancelar_rota`) × RAISE com sentinela (recusa esperada viraria erro) × jsonb
+`{success, code}` (formato da Migration 81, pedido pelo app publicado, que aqui
+não existe). `ja_iniciada`: completa o início pela metade (escolhida, o que o
+app faz hoje) × só responde. Vínculo: qualquer papel ativo na loja (escolhida,
+a regra de hoje) × só papel `motorista`.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration88-iniciar-rota.test.ts`; sonda
+`database/sondas/20261108123000_sonda_migration88.sql` (7 casos, desfeita pelo
+RAISE): iniciada (com o aviso ao gestor), ja_iniciada sem mudança, ja_iniciada
+completando início pela metade, situacao_mudou (cancelada e concluida),
+sem_permissao (outro motorista, gestor, vínculo inativo, cadastro inativo, sem
+sessão), rota só com partida e chegada, catálogo. Rollback colável.
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
