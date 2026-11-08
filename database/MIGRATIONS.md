@@ -3896,6 +3896,45 @@ sessão), rota só com partida e chegada, catálogo. Rollback colável.
 
 ---
 
+### ⏳ Migration 89: desempenho do motorista por loja (`desempenho_motorista_na_loja`)
+
+**Arquivo:** `20261108124000_desempenho_motorista_por_loja.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda **antes** de mesclar o app que chama a
+RPC (o app novo não lê mais a view). O app publicado segue lendo a
+`vw_performance_motoristas` e não é afetado.
+
+**O que faz.** Pendências 26 e 30(h): o perfil do motorista somava as rotas de
+todas as lojas que o RLS deixasse ver. `desempenho_motorista_na_loja(p_motorista_id
+uuid, p_unidade_id uuid) RETURNS jsonb`, STABLE, SECURITY DEFINER, search_path
+vazio, EXECUTE de `authenticated`/`service_role`:
+
+- sem sessão ou sem vínculo ativo de gestor na loja →
+  `{success: false, code: 'SEM_PERMISSAO', error}` (padrão da Migration 81);
+- senão `{success: true, total_rotas, rotas_concluidas, rotas_em_andamento,
+rotas_nao_executadas, rotas_canceladas, taxa_execucao, distancia_total_km,
+tempo_medio_minutos}`, com as fórmulas da view (Migration 80), só nas rotas
+  com `unidade_id = p_unidade_id`. Motorista sem rota na loja → zeros.
+
+Diferença deliberada da view: sem o filtro `usuarios.ativo = true` — o
+motorista desativado mostra o histórico dele na loja, em vez de zeros.
+
+**Alternativas.** Forma: RPC com a loja no argumento (escolhida) × view nova
+por motorista e loja (regra de quem vê espalhada no RLS) × `unidade_id` na view
+atual (quebra o `.maybeSingle()` do app publicado). Motorista sem vínculo com a
+loja: zeros (escolhida: só conta rotas que o gestor já lê, e responde igual
+para qualquer id) × recusa com `code` próprio (estado que a tela não alcança).
+Resposta: jsonb `{success, code}` (escolhida) × RAISE 42501.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration89-desempenho-motorista-por-loja.test.ts`; sonda
+`database/sondas/20261108124000_sonda_migration89.sql` (7 casos, desfeita pelo
+RAISE): números de A só com as rotas de A, de B só com as de B, gestor das duas
+lojas vendo cada uma separada (e a view somando), SEM_PERMISSAO (gestor de outra
+loja, vínculo inativo, motorista, sem sessão, loja nula), zeros sem rota na
+loja, motorista desativado, catálogo. Rollback colável.
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
