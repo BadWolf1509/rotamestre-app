@@ -75,7 +75,11 @@ jest.mock('@/lib/photon', () => ({
 }));
 
 // Import after mocks are set up
-import { geocodingService } from '../geocoding';
+import {
+  completarEnderecoDaSugestao,
+  ehPlaceIdDoGoogle,
+  geocodingService,
+} from '../geocoding';
 
 // ============================================================================
 // TEST DATA
@@ -684,5 +688,114 @@ describe('geocodingService', () => {
       mockGoogleIsAvailable.mockReturnValue(false);
       expect(geocodingService.isGoogleAvailable()).toBe(false);
     });
+  });
+});
+
+describe('ehPlaceIdDoGoogle', () => {
+  it('é falso para os ids sintéticos do Photon (osm_) e do ViaCEP (cep_)', () => {
+    expect(ehPlaceIdDoGoogle('osm_N1')).toBe(false);
+    expect(ehPlaceIdDoGoogle('osm_W12345')).toBe(false);
+    expect(ehPlaceIdDoGoogle('cep_58000000')).toBe(false);
+    expect(ehPlaceIdDoGoogle('')).toBe(false);
+  });
+
+  it('é verdadeiro para o id do Google', () => {
+    expect(ehPlaceIdDoGoogle('ChIJ0WGkg4FEzpQRrlsz_whLqZs')).toBe(true);
+  });
+});
+
+describe('sugestão do Photon leva cidade, UF e CEP', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGoogleFalhou = true;
+    mockViacepContainsCEP.mockReturnValue(false);
+    mockGoogleIsAvailable.mockReturnValue(true);
+  });
+  afterEach(() => {
+    mockGoogleFalhou = false;
+  });
+
+  it('repassa cidade, UF e CEP do Photon à sugestão unificada', async () => {
+    mockPhotonAutocompleteAddress.mockResolvedValue([
+      {
+        place_id: 'osm_N1',
+        description: 'Rua A, João Pessoa, Paraíba',
+        structured_formatting: { main_text: 'Rua A', secondary_text: 'x' },
+        coordinates: { latitude: -7.1, longitude: -34.8 },
+        cidade: 'João Pessoa',
+        estado: 'PB',
+        cep: '58030-000',
+      },
+    ]);
+
+    const [sugestao] = await geocodingService.autocomplete('Rua A');
+
+    expect(sugestao).toEqual(
+      expect.objectContaining({
+        source: 'photon',
+        cidade: 'João Pessoa',
+        estado: 'PB',
+        cep: '58030-000',
+      }),
+    );
+  });
+});
+
+describe('completarEnderecoDaSugestao', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('Photon com cidade e UF: usa o que veio e não chama o ViaCEP', async () => {
+    const r = await completarEnderecoDaSugestao({
+      cidade: 'João Pessoa',
+      estado: 'PB',
+      cep: '58030-000',
+    });
+    expect(r).toEqual({
+      cidade: 'João Pessoa',
+      estado: 'PB',
+      cep: '58030-000',
+    });
+    expect(mockViacepSearchByCEP).not.toHaveBeenCalled();
+  });
+
+  it('sem cidade/UF e com CEP: completa pelo ViaCEP', async () => {
+    mockViacepSearchByCEP.mockResolvedValue({
+      ...mockViaCEPSuggestion,
+      cidade: 'João Pessoa',
+      uf: 'PB',
+    });
+    const r = await completarEnderecoDaSugestao({ cep: '58068-504' });
+    expect(mockViacepSearchByCEP).toHaveBeenCalledWith('58068-504');
+    expect(r).toEqual({
+      cidade: 'João Pessoa',
+      estado: 'PB',
+      cep: '58068-504',
+    });
+  });
+
+  it('só a cidade faltando UF: também completa pelo ViaCEP, sem perder o que veio', async () => {
+    mockViacepSearchByCEP.mockResolvedValue({
+      ...mockViaCEPSuggestion,
+      cidade: 'João Pessoa',
+      uf: 'PB',
+    });
+    const r = await completarEnderecoDaSugestao({
+      cidade: 'João Pessoa',
+      cep: '58068-504',
+    });
+    expect(r.estado).toBe('PB');
+  });
+
+  it('sem cidade/UF e sem CEP: campos vazios, sem ViaCEP nem Google', async () => {
+    const r = await completarEnderecoDaSugestao({});
+    expect(r).toEqual({ cidade: '', estado: '', cep: '' });
+    expect(mockViacepSearchByCEP).not.toHaveBeenCalled();
+    expect(mockGoogleGetPlaceDetails).not.toHaveBeenCalled();
+  });
+
+  it('ViaCEP sem resposta: campos vazios', async () => {
+    mockViacepSearchByCEP.mockResolvedValue(null);
+    const r = await completarEnderecoDaSugestao({ cep: '58068-504' });
+    expect(r).toEqual({ cidade: '', estado: '', cep: '58068-504' });
   });
 });

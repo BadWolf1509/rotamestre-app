@@ -49,6 +49,9 @@ export interface UnifiedPlaceSuggestion extends PlaceSuggestion {
   coordinates?: Coordenadas;
   source: GeocodingSource;
   cep?: string;
+  /** Cidade e UF que a própria fonte trouxe (Photon): dispensam o details. */
+  cidade?: string;
+  estado?: string;
   /** Indica se precisa de chamada extra para obter coordenadas */
   needsCoordinates?: boolean;
 }
@@ -69,6 +72,66 @@ const stats: GeocodingStats = {
   googleCalls: 0,
   viacepCalls: 0,
 };
+
+// ============================================================================
+// ENDEREÇO DA SUGESTÃO ESCOLHIDA
+// ============================================================================
+
+/**
+ * O place_id é do Google? Os ids sintéticos do ViaCEP (`cep_…`) e do Photon
+ * (`osm_…`) não são, e o details do Google não os resolve — chamar assim
+ * gasta a cota diária sem preencher nada.
+ */
+export function ehPlaceIdDoGoogle(placeId: string): boolean {
+  return (
+    placeId.length > 0 &&
+    !placeId.startsWith('cep_') &&
+    !placeId.startsWith('osm_')
+  );
+}
+
+/** O que a sugestão escolhida (Photon) já sabe do endereço. */
+export interface DadosDeEnderecoDaSugestao {
+  cidade?: string;
+  /** UF (sigla). */
+  estado?: string;
+  cep?: string;
+}
+
+/** Cidade, UF e CEP prontos para os campos; vazio quando não se sabe. */
+export interface EnderecoDaSugestao {
+  cidade: string;
+  estado: string;
+  cep: string;
+}
+
+/**
+ * Cidade, UF e CEP de uma sugestão do Photon, sem passar pelo Google.
+ * Cidade e UF do Photon valem como vieram (o ViaCEP nem é chamado). Faltando
+ * algum, o ViaCEP completa pelo CEP da sugestão; sem CEP, ficam vazios para o
+ * gestor preencher.
+ */
+export async function completarEnderecoDaSugestao(
+  dados: DadosDeEnderecoDaSugestao = {},
+): Promise<EnderecoDaSugestao> {
+  const resultado: EnderecoDaSugestao = {
+    cidade: dados.cidade ?? '',
+    estado: dados.estado ?? '',
+    cep: dados.cep ?? '',
+  };
+  if ((resultado.cidade && resultado.estado) || !resultado.cep) {
+    return resultado;
+  }
+
+  const porCep = await viacepService.searchByCEP(resultado.cep);
+  if (!porCep) return resultado;
+
+  return {
+    ...resultado,
+    cidade: resultado.cidade || porCep.cidade || '',
+    estado: resultado.estado || porCep.uf || '',
+  };
+}
 
 // ============================================================================
 // CONFIGURATION
@@ -115,6 +178,9 @@ function fromPhoton(suggestion: PhotonPlaceSuggestion): UnifiedPlaceSuggestion {
     coordinates: suggestion.coordinates,
     source: 'photon',
     needsCoordinates: false,
+    ...(suggestion.cidade ? { cidade: suggestion.cidade } : {}),
+    ...(suggestion.estado ? { estado: suggestion.estado } : {}),
+    ...(suggestion.cep ? { cep: suggestion.cep } : {}),
   };
 }
 
