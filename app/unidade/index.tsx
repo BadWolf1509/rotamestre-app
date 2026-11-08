@@ -88,7 +88,11 @@ export default function UnidadeScreen() {
   const { userData, loading: userLoading } = useUser();
   // A loja ABERTA, não o `usuarios.unidade_id` legado (gestor de várias
   // lojas editava a ficha de outra).
-  const { unidadeAtiva, refresh: recarregarLojas } = useUnidadeAtiva();
+  const {
+    unidadeAtiva,
+    loading: lojaCarregando,
+    refresh: recarregarLojas,
+  } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -125,7 +129,9 @@ export default function UnidadeScreen() {
   const [sedeLatitude, setSedeLatitude] = useState<number | undefined>();
   const [sedeLongitude, setSedeLongitude] = useState<number | undefined>();
   const isDesktopView = isDesktop;
-  const isLoading = userLoading || loading;
+  // Sem loja resolvida ainda, "sem dados" não é resposta: a tela pintava
+  // o vazio (ou um bloqueio) antes de a carga começar.
+  const isLoading = userLoading || loading || lojaCarregando;
 
   // Derivados da sede, compartilhados entre a guarda do salvamento e o texto
   // de apoio do campo. Mantê-los numa fonte só impede que a mensagem exibida

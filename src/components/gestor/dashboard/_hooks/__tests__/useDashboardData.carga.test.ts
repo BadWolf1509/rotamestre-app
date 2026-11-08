@@ -23,7 +23,7 @@ jest.mock('@/hooks/useRealtimeRoutes', () => ({
   useRealtimeRoutes: jest.fn(),
 }));
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: 'loja-a' }),
+  useUnidadeAtiva: () => ({ unidadeAtiva: 'loja-a', loading: false }),
 }));
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
