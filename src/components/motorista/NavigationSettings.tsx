@@ -41,7 +41,6 @@ interface NavigationSettingsProps {
 export type NavigationSettingsState = Pick<
   PreferenciasDeNavegacao,
   | 'navegarCom'
-  | 'soundAlerts'
   | 'vibrationAlerts'
   | 'proximityRadius'
   | 'showSpeedometer'
@@ -282,20 +281,6 @@ export function NavigationSettings({
       {/* Notifications Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Notificações</Text>
-
-        <View style={styles.setting}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Alertas Sonoros</Text>
-            <Text style={styles.settingDescription}>
-              Sons ao aproximar ou chegar ao destino
-            </Text>
-          </View>
-          <Switch
-            value={settings.soundAlerts}
-            onValueChange={(value) => handleSettingChange('soundAlerts', value)}
-            {...coresDoSwitch(theme, settings.soundAlerts)}
-          />
-        </View>
 
         <View style={styles.setting}>
           <View style={styles.settingInfo}>

@@ -27,7 +27,6 @@ jest.mock('@/services/locationTracking', () => ({
       ...jest.requireActual('@/lib/motorista/preferenciasNavegacaoPadrao')
         .PREFERENCIAS_PADRAO,
       navegarCom: 'mapa',
-      soundAlerts: true,
       vibrationAlerts: true,
       proximityRadius: 50,
     }),
@@ -219,10 +218,13 @@ describe('NavigationSettings', () => {
     expect(queryByText('Navegação por Voz')).toBeNull();
   });
 
-  it('deve mostrar seção de Notificações', () => {
-    const { getByText } = render(<NavigationSettings {...defaultProps} />);
+  it('deve mostrar seção de Notificações, sem Alertas Sonoros', () => {
+    const { getByText, queryByText } = render(
+      <NavigationSettings {...defaultProps} />,
+    );
     expect(getByText('Notificações')).toBeTruthy();
-    expect(getByText('Alertas Sonoros')).toBeTruthy();
+    expect(queryByText('Alertas Sonoros')).toBeNull();
+    expect(queryByText('Sons ao aproximar ou chegar ao destino')).toBeNull();
     expect(getByText('Vibração')).toBeTruthy();
   });
 
@@ -274,11 +276,6 @@ describe('NavigationSettings', () => {
     expect(
       LocationTrackingService.updateNavigationPreferences,
     ).not.toHaveBeenCalled();
-  });
-
-  it('deve mostrar descrição dos Alertas Sonoros', () => {
-    const { getByText } = render(<NavigationSettings {...defaultProps} />);
-    expect(getByText('Sons ao aproximar ou chegar ao destino')).toBeTruthy();
   });
 
   it('deve mostrar descrição da Vibração', () => {
@@ -384,11 +381,6 @@ describe('NavigationSettings', () => {
       expect(
         LocationTrackingService.updateNavigationPreferences,
       ).toHaveBeenCalledWith({ proximityRadius: 80 });
-    });
-
-    it('deve ter switch para Alertas Sonoros', () => {
-      const { getByText } = render(<NavigationSettings {...defaultProps} />);
-      expect(getByText('Alertas Sonoros')).toBeTruthy();
     });
 
     it('deve ter switch para Vibração', () => {

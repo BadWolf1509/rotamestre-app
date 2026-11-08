@@ -194,7 +194,6 @@ describe('LocationTrackingService', () => {
       // O caso exato do bug de 2026-09: um consumidor que decide o destino do
       // "Navegar" precisa receber um valor, nao `undefined`.
       expect(prefs.navegarCom).toBe('mapa');
-      expect(prefs.soundAlerts).toBe(true);
       expect(prefs.vibrationAlerts).toBe(true);
       expect(prefs.proximityRadius).toBe(50);
       expect(AsyncStorage.getItem).toHaveBeenCalledWith(
@@ -205,7 +204,6 @@ describe('LocationTrackingService', () => {
     it('o que esta salvo vence o default', async () => {
       const savedPrefs = {
         navegarCom: 'externo',
-        soundAlerts: true,
         vibrationAlerts: false,
         proximityRadius: 100,
       };
@@ -222,12 +220,28 @@ describe('LocationTrackingService', () => {
       // O estado real de quem nunca mexeu numa das chaves — que e como o
       // aparelho estava quando o defeito apareceu.
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ soundAlerts: false }),
+        JSON.stringify({ vibrationAlerts: false }),
       );
 
       const prefs = await locationTrackingService.getNavigationPreferences();
 
-      expect(prefs.soundAlerts).toBe(false);
+      expect(prefs.vibrationAlerts).toBe(false);
+      expect(prefs.navegarCom).toBe('mapa');
+    });
+
+    it('preferência salva antes com a chave removida (soundAlerts) segue carregando', async () => {
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
+        JSON.stringify({
+          soundAlerts: false,
+          vibrationAlerts: false,
+          proximityRadius: 80,
+        }),
+      );
+
+      const prefs = await locationTrackingService.getNavigationPreferences();
+
+      expect(prefs.vibrationAlerts).toBe(false);
+      expect(prefs.proximityRadius).toBe(80);
       expect(prefs.navegarCom).toBe('mapa');
     });
 
@@ -282,7 +296,7 @@ describe('LocationTrackingService', () => {
 
       it('gravar qualquer ajuste converte e apaga a chave antiga', async () => {
         (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-          JSON.stringify({ autoAdvance: false, soundAlerts: false }),
+          JSON.stringify({ autoAdvance: false, proximityRadius: 90 }),
         );
 
         await locationTrackingService.updateNavigationPreferences({
@@ -294,14 +308,14 @@ describe('LocationTrackingService', () => {
         )?.[1];
         expect(JSON.parse(gravado)).toEqual({
           navegarCom: 'externo',
-          soundAlerts: false,
+          proximityRadius: 90,
           vibrationAlerts: false,
         });
       });
 
       it('gravar com autoAdvance:true salvo não congela o padrão', async () => {
         (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-          JSON.stringify({ autoAdvance: true, soundAlerts: false }),
+          JSON.stringify({ autoAdvance: true, proximityRadius: 90 }),
         );
 
         await locationTrackingService.updateNavigationPreferences({
@@ -312,7 +326,7 @@ describe('LocationTrackingService', () => {
           (c) => c[0] === 'navigationPreferences',
         )?.[1];
         expect(JSON.parse(gravado)).toEqual({
-          soundAlerts: false,
+          proximityRadius: 90,
           vibrationAlerts: false,
         });
       });
@@ -328,17 +342,17 @@ describe('LocationTrackingService', () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
       await locationTrackingService.updateNavigationPreferences({
-        soundAlerts: false,
+        vibrationAlerts: false,
       });
 
       const gravado = (AsyncStorage.setItem as jest.Mock).mock.calls.find(
         (c) => c[0] === 'navigationPreferences',
       )?.[1];
-      expect(JSON.parse(gravado)).toEqual({ soundAlerts: false });
+      expect(JSON.parse(gravado)).toEqual({ vibrationAlerts: false });
 
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(gravado);
       const lido = await locationTrackingService.getNavigationPreferences();
-      expect(lido.soundAlerts).toBe(false);
+      expect(lido.vibrationAlerts).toBe(false);
       expect(lido.navegarCom).toBe('mapa');
     });
   });
@@ -349,7 +363,7 @@ describe('LocationTrackingService', () => {
 
   describe('updateNavigationPreferences', () => {
     it('deve atualizar preferências existentes (merge)', async () => {
-      const currentPrefs = { navegarCom: 'mapa', soundAlerts: false };
+      const currentPrefs = { navegarCom: 'mapa' };
       const newPrefs = { vibrationAlerts: true, proximityRadius: 75 };
 
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
@@ -362,7 +376,6 @@ describe('LocationTrackingService', () => {
         'navigationPreferences',
         JSON.stringify({
           navegarCom: 'mapa',
-          soundAlerts: false,
           vibrationAlerts: true,
           proximityRadius: 75,
         }),
@@ -388,7 +401,7 @@ describe('LocationTrackingService', () => {
 
       await Promise.all([
         locationTrackingService.updateNavigationPreferences({
-          soundAlerts: false,
+          proximityRadius: 90,
         }),
         locationTrackingService.updateNavigationPreferences({
           vibrationAlerts: false,
@@ -396,7 +409,7 @@ describe('LocationTrackingService', () => {
       ]);
 
       expect(JSON.parse(guardado ?? '{}')).toEqual({
-        soundAlerts: false,
+        proximityRadius: 90,
         vibrationAlerts: false,
       });
     });
@@ -437,7 +450,7 @@ describe('LocationTrackingService', () => {
       // Gravar os padrões de hoje os congelaria: um padrão alterado numa versão
       // futura nunca alcançaria quem tivesse restaurado (pendência 15d).
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(
-        JSON.stringify({ soundAlerts: false, proximityRadius: 90 }),
+        JSON.stringify({ vibrationAlerts: false, proximityRadius: 90 }),
       );
 
       await locationTrackingService.restaurarPreferenciasPadrao();
@@ -459,7 +472,7 @@ describe('LocationTrackingService', () => {
     it('com rastreamento ativo, a sessão em curso volta aos padrões', async () => {
       (locationTrackingService as any).navigationState = {
         ...PREFERENCIAS_PADRAO,
-        soundAlerts: false,
+        vibrationAlerts: false,
         proximityRadius: 90,
         rotaId: 'rota-1',
       };
@@ -467,7 +480,7 @@ describe('LocationTrackingService', () => {
       await locationTrackingService.restaurarPreferenciasPadrao();
 
       const estado = (locationTrackingService as any).navigationState;
-      expect(estado.soundAlerts).toBe(true);
+      expect(estado.vibrationAlerts).toBe(true);
       expect(estado.proximityRadius).toBe(50);
       expect(estado.rotaId).toBe('rota-1');
       // B-MOT-5: o estado vive só em memória; nada é gravado em disco.
@@ -822,7 +835,6 @@ describe('LocationTrackingService', () => {
     function setUpNavigationState(overrides: Record<string, any> = {}) {
       (locationTrackingService as any).navigationState = {
         enabled: true,
-        soundAlerts: false,
         vibrationAlerts: false,
         proximityRadius: 50,
         currentStopLocation: stopLocation,
@@ -974,7 +986,6 @@ describe('LocationTrackingService', () => {
       jest.useFakeTimers();
       (locationTrackingService as any).navigationState = {
         enabled: true,
-        soundAlerts: false,
         vibrationAlerts: false,
         proximityRadius: 50,
         currentStopLocation: { latitude: -23.55, longitude: -46.63 },

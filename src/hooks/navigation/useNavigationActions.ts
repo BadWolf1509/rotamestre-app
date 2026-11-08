@@ -15,7 +15,6 @@ import type { IconName } from '@/types/icons';
 interface UseNavigationActionsOptions {
   currentStop: ParadaData;
   triggerHaptic: (type: 'impact' | 'success' | 'warning') => Promise<void>;
-  playNotificationSound: () => Promise<void>;
   showConfirm: (opts: {
     title: string;
     message: string;
@@ -33,7 +32,6 @@ interface UseNavigationActionsOptions {
 export function useNavigationActions({
   currentStop,
   triggerHaptic,
-  playNotificationSound,
   showConfirm,
   stopNavigation,
   onComplete,
@@ -60,17 +58,10 @@ export function useNavigationActions({
       cancelText: 'Cancelar',
     });
     if (confirmed) {
-      await playNotificationSound();
       await triggerHaptic('success');
       onComplete();
     }
-  }, [
-    currentStop,
-    triggerHaptic,
-    showConfirm,
-    playNotificationSound,
-    onComplete,
-  ]);
+  }, [currentStop, triggerHaptic, showConfirm, onComplete]);
 
   const handleSkipStop = useCallback(async () => {
     await triggerHaptic('impact');

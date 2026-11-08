@@ -18,7 +18,6 @@ jest.mock('@/lib/motorista/preferenciasNavegacaoPadrao', () => {
       ...real.PREFERENCIAS_PADRAO,
       navegarCom: 'externo',
       proximityRadius: 80,
-      soundAlerts: false,
     },
   };
 });

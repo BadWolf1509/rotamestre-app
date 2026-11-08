@@ -26,7 +26,6 @@ jest.mock('@/services/locationTracking', () => ({
     getNavigationPreferences: jest.fn().mockResolvedValue({
       ...jest.requireActual('@/lib/motorista/preferenciasNavegacaoPadrao')
         .PREFERENCIAS_PADRAO,
-      soundAlerts: true,
       vibrationAlerts: true,
       showSpeedometer: true,
       navegarCom: 'mapa',

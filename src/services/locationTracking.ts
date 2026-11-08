@@ -145,7 +145,6 @@ class LocationTrackingService {
       this.navigationState = {
         enabled: true,
         navegarCom: prefs.navegarCom,
-        soundAlerts: prefs.soundAlerts ?? true,
         vibrationAlerts: prefs.vibrationAlerts ?? true,
         proximityRadius: prefs.proximityRadius ?? GEOFENCE_RADIUS,
         rotaId,

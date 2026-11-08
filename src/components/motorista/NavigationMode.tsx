@@ -118,12 +118,10 @@ export function NavigationMode({
   const [alturaPainel, setAlturaPainel] = useState(0);
   const MARGEM_ENQUADRAMENTO = 48;
 
-  // Feedback hooks (haptics + sound)
-  const { triggerHaptic, playNotificationSound, cleanupSound } =
-    useNavigationFeedback({
-      vibrationAlerts: preferences.vibrationAlerts,
-      soundAlerts: preferences.soundAlerts,
-    });
+  // Feedback hooks (haptics)
+  const { triggerHaptic } = useNavigationFeedback({
+    vibrationAlerts: preferences.vibrationAlerts,
+  });
 
   // Animation refs for UI improvements
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -153,9 +151,8 @@ export function NavigationMode({
   useEffect(
     () => () => {
       stopNavigation();
-      cleanupSound();
     },
-    [stopNavigation, cleanupSound],
+    [stopNavigation],
   );
 
   // "Manter Tela Ligada": até 03/10/2026 só o Turn-by-Turn aplicava; no
@@ -229,7 +226,6 @@ export function NavigationMode({
   } = useNavigationActions({
     currentStop,
     triggerHaptic,
-    playNotificationSound,
     showConfirm,
     stopNavigation,
     onComplete,

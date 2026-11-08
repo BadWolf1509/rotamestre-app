@@ -6,30 +6,33 @@
  *
  * Chaves migradas:
  * - @rotamestre:nav_app_preference → preferredNavApp
- * - @rotamestre:sound_enabled → soundAlerts
+ *
+ * A antiga @rotamestre:sound_enabled (alertas sonoros) não é mais migrada: a
+ * opção foi removida, porque nunca tocou som.
  */
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { logger } from "@/lib/logger";
-import locationTrackingService from "@/services/locationTracking";
+import { logger } from '@/lib/logger';
+import locationTrackingService from '@/services/locationTracking';
 
 // Chaves antigas que serão migradas
 const LEGACY_KEYS = {
-  NAV_APP_PREFERENCE: "@rotamestre:nav_app_preference",
-  SOUND_ENABLED: "@rotamestre:sound_enabled",
+  NAV_APP_PREFERENCE: '@rotamestre:nav_app_preference',
+  // Só é apagada (não migrada): a opção de alertas sonoros foi removida.
+  SOUND_ENABLED: '@rotamestre:sound_enabled',
   // Chave de controle para evitar migrações repetidas
-  MIGRATION_COMPLETED: "@rotamestre:nav_prefs_migration_v1",
+  MIGRATION_COMPLETED: '@rotamestre:nav_prefs_migration_v1',
 };
 
 // Mapeamento de valores antigos para novos
 const NAV_APP_MAP: Record<
   string,
-  "waze" | "google_maps" | "apple_maps" | "default"
+  'waze' | 'google_maps' | 'apple_maps' | 'default'
 > = {
-  waze: "waze",
-  google_maps: "google_maps",
-  apple_maps: "apple_maps",
-  default: "default",
+  waze: 'waze',
+  google_maps: 'google_maps',
+  apple_maps: 'apple_maps',
+  default: 'default',
 };
 
 /**
@@ -43,18 +46,17 @@ export async function migrateNavigationPreferences(): Promise<boolean> {
     const migrationCompleted = await AsyncStorage.getItem(
       LEGACY_KEYS.MIGRATION_COMPLETED,
     );
-    if (migrationCompleted === "true") {
-      logger.info("[NavigationMigration] Migração já executada anteriormente");
+    if (migrationCompleted === 'true') {
+      logger.info('[NavigationMigration] Migração já executada anteriormente');
       return false;
     }
 
-    logger.info("[NavigationMigration] Iniciando migração de preferências");
+    logger.info('[NavigationMigration] Iniciando migração de preferências');
 
     // Buscar valores antigos
-    const [navAppValue, soundEnabledValue] = await Promise.all([
-      AsyncStorage.getItem(LEGACY_KEYS.NAV_APP_PREFERENCE),
-      AsyncStorage.getItem(LEGACY_KEYS.SOUND_ENABLED),
-    ]);
+    const navAppValue = await AsyncStorage.getItem(
+      LEGACY_KEYS.NAV_APP_PREFERENCE,
+    );
 
     // Preparar objeto de migração
     const migratedPrefs: Record<string, unknown> = {};
@@ -70,18 +72,10 @@ export async function migrateNavigationPreferences(): Promise<boolean> {
       }
     }
 
-    // Migrar preferência de som
-    if (soundEnabledValue !== null) {
-      migratedPrefs.soundAlerts = soundEnabledValue === "true";
-      logger.info(
-        `[NavigationMigration] Migrado sound_enabled: ${soundEnabledValue}`,
-      );
-    }
-
     // Aplicar preferências migradas se houver alguma
     if (Object.keys(migratedPrefs).length > 0) {
       await locationTrackingService.updateNavigationPreferences(migratedPrefs);
-      logger.info("[NavigationMigration] Preferências migradas com sucesso");
+      logger.info('[NavigationMigration] Preferências migradas com sucesso');
     }
 
     // Remover chaves antigas
@@ -90,15 +84,15 @@ export async function migrateNavigationPreferences(): Promise<boolean> {
         AsyncStorage.removeItem(k),
       ),
     );
-    logger.info("[NavigationMigration] Chaves antigas removidas");
+    logger.info('[NavigationMigration] Chaves antigas removidas');
 
     // Marcar migração como concluída
-    await AsyncStorage.setItem(LEGACY_KEYS.MIGRATION_COMPLETED, "true");
-    logger.info("[NavigationMigration] Migração marcada como concluída");
+    await AsyncStorage.setItem(LEGACY_KEYS.MIGRATION_COMPLETED, 'true');
+    logger.info('[NavigationMigration] Migração marcada como concluída');
 
     return true;
   } catch (error) {
-    logger.error("[NavigationMigration] Erro durante migração:", error);
+    logger.error('[NavigationMigration] Erro durante migração:', error);
     return false;
   }
 }
@@ -108,5 +102,5 @@ export async function migrateNavigationPreferences(): Promise<boolean> {
  */
 export async function resetMigrationState(): Promise<void> {
   await AsyncStorage.removeItem(LEGACY_KEYS.MIGRATION_COMPLETED);
-  logger.info("[NavigationMigration] Estado de migração resetado");
+  logger.info('[NavigationMigration] Estado de migração resetado');
 }

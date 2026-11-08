@@ -1,26 +1,21 @@
 /**
- * useNavigationFeedback - Haptic and sound feedback for navigation
+ * useNavigationFeedback - Haptic feedback for navigation
  *
  * Extracted from NavigationMode.tsx to reduce component complexity.
- * Handles haptic feedback (expo-haptics) and notification sounds (expo-audio).
+ * Handles haptic feedback (expo-haptics).
  */
 
-import { setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { Platform } from 'react-native';
 
 interface UseNavigationFeedbackOptions {
   vibrationAlerts: boolean;
-  soundAlerts: boolean;
 }
 
 export function useNavigationFeedback({
   vibrationAlerts,
-  soundAlerts,
 }: UseNavigationFeedbackOptions) {
-  const soundRef = useRef<AudioPlayer | null>(null);
-
   const triggerHaptic = useCallback(
     async (type: 'impact' | 'success' | 'warning') => {
       if (Platform.OS === 'web' || !vibrationAlerts) return;
@@ -44,39 +39,5 @@ export function useNavigationFeedback({
     [vibrationAlerts],
   );
 
-  const playNotificationSound = useCallback(async () => {
-    if (Platform.OS === 'web' || !soundAlerts) return;
-
-    try {
-      // Configure audio mode for notifications (expo-audio)
-      await setAudioModeAsync({
-        allowsRecording: false,
-        shouldPlayInBackground: false,
-        playsInSilentMode: false,
-        interruptionMode: 'mixWithOthers',
-        shouldRouteThroughEarpiece: false,
-      });
-
-      // Unload previous sound if exists
-      if (soundRef.current) {
-        soundRef.current.remove();
-        soundRef.current = null;
-      }
-
-      // Play a simple notification beep using Audio
-      // Note: Custom sounds can be added to assets/sounds/ folder
-      // For now, we use haptics as the primary feedback
-    } catch {
-      // Audio not available
-    }
-  }, [soundAlerts]);
-
-  const cleanupSound = useCallback(async () => {
-    if (soundRef.current) {
-      soundRef.current.remove();
-      soundRef.current = null;
-    }
-  }, []);
-
-  return { triggerHaptic, playNotificationSound, cleanupSound, soundRef };
+  return { triggerHaptic };
 }

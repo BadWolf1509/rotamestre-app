@@ -18,7 +18,6 @@ export interface NavigationState {
    * prometia exatamente o comportamento que gerou entregas sem foto.
    */
   navegarCom: ModoNavegar;
-  soundAlerts: boolean;
   vibrationAlerts: boolean;
   proximityRadius: number;
   // Extended preferences from NavigationSettings
@@ -55,7 +54,6 @@ export type PreferenciasDeNavegacao = NavigationState &
 export const PREFERENCIAS_PADRAO: PreferenciasDeNavegacao = {
   enabled: true,
   navegarCom: 'mapa',
-  soundAlerts: true,
   vibrationAlerts: true,
   proximityRadius: 50,
   showSpeedometer: true,
