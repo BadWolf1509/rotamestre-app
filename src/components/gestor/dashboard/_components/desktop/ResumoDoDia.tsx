@@ -50,8 +50,13 @@ function fraseDoResumo(rotas: RotaResumo[]): string {
   }
   if (partes.length === 0) partes.push(plural(rotas.length, 'rota', 'rotas'));
 
-  const total = rotas.reduce((soma, r) => soma + r.total_paradas, 0);
-  const feitas = rotas.reduce((soma, r) => soma + r.paradas_concluidas, 0);
+  // Rota cancelada ou não executada não vai mais ser feita: suas paradas
+  // saem do total e do feito (senão o dia parece atrasado para sempre).
+  const rotasDoDia = rotas.filter(
+    (r) => r.status !== 'cancelada' && r.status !== 'nao_executada',
+  );
+  const total = rotasDoDia.reduce((soma, r) => soma + r.total_paradas, 0);
+  const feitas = rotasDoDia.reduce((soma, r) => soma + r.paradas_concluidas, 0);
   const km = rotas.reduce((soma, r) => soma + r.distancia_total, 0);
 
   return `${partes.join(', ')} — ${feitas} de ${plural(

@@ -144,6 +144,47 @@ describe('ResumoDoDia', () => {
     );
   });
 
+  // G8-8: a parada de uma rota cancelada ou não executada não vai mais ser
+  // feita; contá-la no denominador (e no feito) faria o dia parecer atrasado.
+  it('paradas de rota cancelada ou não executada ficam fora do total e do feito', () => {
+    const { getByTestId } = render(
+      <ResumoDoDia
+        rotas={[
+          rota({
+            id: 'a',
+            status: 'concluida',
+            total_paradas: 4,
+            paradas_concluidas: 4,
+          }),
+          rota({
+            id: 'b',
+            status: 'em_andamento',
+            total_paradas: 3,
+            paradas_concluidas: 1,
+          }),
+          rota({
+            id: 'c',
+            status: 'cancelada',
+            total_paradas: 5,
+            paradas_concluidas: 2,
+          }),
+          rota({
+            id: 'd',
+            status: 'nao_executada',
+            total_paradas: 2,
+            paradas_concluidas: 0,
+          }),
+        ]}
+        incidentesAbertos={0}
+        onAbrirIncidentes={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
+      /— 5 de 7 paradas feitas,/,
+    );
+  });
+
   it('com incidentes abertos, o trecho é pressionável e leva aos incidentes', () => {
     const onAbrirIncidentes = jest.fn();
     const { getByRole } = render(
