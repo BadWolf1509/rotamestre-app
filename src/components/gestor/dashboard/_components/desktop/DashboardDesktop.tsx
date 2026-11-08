@@ -18,6 +18,32 @@ import { ResumoDoDia } from './ResumoDoDia';
 
 import type { DashboardData } from '../../_hooks/useDashboardData';
 
+/**
+ * O que a Início diz sem rota, no vazio e no resumo (a mesma frase nos dois).
+ * Sem período a lista é a de hoje; com ele, não se fala em "hoje". Com filtro
+ * de status ou motorista, o dia pode ter rota que o filtro esconde: nada de
+ * "crie a primeira rota".
+ */
+function textosDoVazio(filters: RouteFiltersType): {
+  titulo: string;
+  descricao: string;
+} {
+  const ajusteOsFiltros = 'Ajuste os filtros ou crie uma nova rota';
+  if (filters.dataInicio || filters.dataFim) {
+    return { titulo: 'Nenhuma rota no período', descricao: ajusteOsFiltros };
+  }
+  if (filters.status || filters.motoristaId) {
+    return {
+      titulo: 'Nenhuma rota hoje com esses filtros',
+      descricao: ajusteOsFiltros,
+    };
+  }
+  return {
+    titulo: 'Nenhuma rota cadastrada hoje',
+    descricao: 'Crie a primeira rota de entrega do dia',
+  };
+}
+
 interface DashboardDesktopProps extends DashboardData {
   /** Nome da loja ATIVA (seletor), não a do perfil. */
   unidadeNome?: string | null;
@@ -79,9 +105,7 @@ export function DashboardDesktop({
     [router],
   );
 
-  // Sem período escolhido, a Início mostra as rotas de hoje; com ele, o
-  // vazio não pode dizer "hoje".
-  const comFiltroDePeriodo = Boolean(filters.dataInicio || filters.dataFim);
+  const vazio = textosDoVazio(filters);
 
   const irParaNovaRota = useCallback(() => {
     router.push('/gestor/nova-entrega');
@@ -130,6 +154,7 @@ export function DashboardDesktop({
 
           <ResumoDoDia
             rotas={rotas}
+            textoSemRotas={vazio.titulo}
             incidentesAbertos={stats.incidentesAbertos ?? null}
             onAbrirIncidentes={abrirIncidentes}
           />
@@ -147,16 +172,8 @@ export function DashboardDesktop({
             <View testID="rotas-table">
               <EmptyState
                 icon="map-outline"
-                title={
-                  comFiltroDePeriodo
-                    ? 'Nenhuma rota no período'
-                    : 'Nenhuma rota cadastrada hoje'
-                }
-                description={
-                  comFiltroDePeriodo
-                    ? 'Ajuste os filtros ou crie uma nova rota'
-                    : 'Crie a primeira rota de entrega do dia'
-                }
+                title={vazio.titulo}
+                description={vazio.descricao}
                 actionLabel="Criar rota"
                 onActionPress={irParaNovaRota}
                 compact

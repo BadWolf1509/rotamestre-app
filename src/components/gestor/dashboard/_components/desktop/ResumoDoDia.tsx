@@ -20,6 +20,8 @@ import type { RotaResumo } from '../../_hooks/useDashboardData';
 
 interface ResumoDoDiaProps {
   rotas: RotaResumo[];
+  /** A frase sem rota; a Início passa a mesma do estado vazio ao lado. */
+  textoSemRotas?: string;
   /** null = a contagem falhou (indisponível). */
   incidentesAbertos: number | null;
   onAbrirIncidentes: () => void;
@@ -34,8 +36,8 @@ const PARTES_DE_STATUS: [RouteStatusType, string, string][] = [
   ['nao_executada', 'não executada', 'não executadas'],
 ];
 
-function fraseDoResumo(rotas: RotaResumo[]): string {
-  if (rotas.length === 0) return 'Nenhuma rota no período';
+function fraseDoResumo(rotas: RotaResumo[], textoSemRotas: string): string {
+  if (rotas.length === 0) return textoSemRotas;
 
   const partes: string[] = [];
   for (const [status, singular, pluralForma] of PARTES_DE_STATUS) {
@@ -68,6 +70,7 @@ function fraseDoResumo(rotas: RotaResumo[]): string {
 
 export function ResumoDoDia({
   rotas,
+  textoSemRotas = 'Nenhuma rota no período',
   incidentesAbertos,
   onAbrirIncidentes,
 }: ResumoDoDiaProps) {
@@ -79,7 +82,7 @@ export function ResumoDoDia({
   return (
     <View style={styles.container} testID="gestor-dashboard-stats">
       <Text style={styles.frase} testID="gestor-dashboard-resumo">
-        {fraseDoResumo(rotas)}
+        {fraseDoResumo(rotas, textoSemRotas)}
       </Text>
       {textoIncidentes ? (
         <Pressable

@@ -211,13 +211,51 @@ describe('DashboardDesktop', () => {
 
   describe('Sem rotas', () => {
     it('mostra o estado vazio com "Criar rota"', () => {
-      const { getByText, getByRole } = render(
+      const { getByTestId, getByRole } = render(
         <DashboardDesktop {...defaultProps} rotas={[]} />,
       );
 
-      expect(getByText('Nenhuma rota cadastrada hoje')).toBeTruthy();
+      // O ResumoDoDia acima diz a mesma frase.
+      expect(
+        within(getByTestId('rotas-table')).getByText(
+          'Nenhuma rota cadastrada hoje',
+        ),
+      ).toBeTruthy();
       fireEvent.press(getByRole('button', { name: 'Criar rota' }));
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
+    });
+
+    it('sem filtro, o resumo diz o mesmo que o vazio ("hoje"), não "no período"', () => {
+      const { getByTestId } = render(
+        <DashboardDesktop {...defaultProps} rotas={[]} />,
+      );
+
+      const resumo = getByTestId('gestor-dashboard-resumo');
+      expect(resumo).toHaveTextContent('Nenhuma rota cadastrada hoje');
+      expect(resumo).not.toHaveTextContent(/no período/);
+    });
+
+    it('com filtro só de status ou motorista, o vazio fala dos filtros, não de criar a primeira rota', () => {
+      const { getByTestId, queryByText } = render(
+        <DashboardDesktop
+          {...defaultProps}
+          rotas={[]}
+          filters={{ status: 'concluida', motoristaId: 'm1' }}
+        />,
+      );
+
+      const vazio = within(getByTestId('rotas-table'));
+      expect(
+        vazio.getByText('Nenhuma rota hoje com esses filtros'),
+      ).toBeTruthy();
+      expect(
+        vazio.getByText('Ajuste os filtros ou crie uma nova rota'),
+      ).toBeTruthy();
+      expect(queryByText('Nenhuma rota cadastrada hoje')).toBeNull();
+      expect(queryByText(/primeira rota/)).toBeNull();
+      expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
+        'Nenhuma rota hoje com esses filtros',
+      );
     });
 
     it('com filtro de período o vazio fala do período, sem "hoje", e mantém "Criar rota"', () => {
