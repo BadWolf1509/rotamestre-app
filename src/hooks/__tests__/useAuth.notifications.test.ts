@@ -25,19 +25,15 @@ jest.mock('../../lib/notifications', () => ({
   unregisterPushToken: jest.fn().mockResolvedValue(undefined),
   requestNotificationPermissions: jest.fn().mockResolvedValue(false),
   getNotificationSettings: jest.fn().mockResolvedValue({}),
-  saveNotificationSettings: jest.fn().mockResolvedValue(undefined),
   sendLocalNotification: jest.fn().mockResolvedValue(null),
-  notifyRouteComplete: jest.fn().mockResolvedValue(undefined),
   notifyOfflineMode: jest.fn().mockResolvedValue(undefined),
   notifySyncComplete: jest.fn().mockResolvedValue(undefined),
   scheduleRouteReminder: jest.fn().mockResolvedValue(null),
   cancelRouteReminder: jest.fn().mockResolvedValue(undefined),
-  addNotificationReceivedListener: jest.fn(),
   addNotificationResponseListener: jest.fn(),
   initializeNotifications: jest.fn().mockResolvedValue(undefined),
   initializePushNotifications: jest.fn().mockResolvedValue(undefined),
   getExpoPushToken: jest.fn().mockResolvedValue(null),
-  notificationService: {},
 }));
 
 jest.mock('../../lib/cache', () => ({
