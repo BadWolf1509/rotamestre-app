@@ -3725,6 +3725,52 @@ colável (DROP da função e da tabela).
 
 ---
 
+### ⏳ Migration 85: Places — teto de details, sessão ausente e limpeza global
+
+**Arquivo:** `20261108120000_places_teto_e_limpeza.sql` · **⏳ não aplicada.**
+Aplicar como `postgres`, rodar a sonda e só então publicar as Edge Functions
+`google-places-autocomplete`, `google-place-details`, `criar-motorista` e
+`expire-routes`. A ordem inversa não quebra: a função publicada antes trata o
+false antigo como esgotada (como hoje) e o null novo como indisponível; a
+`expire-routes` sem a RPC só registra o erro no log.
+
+**O que faz.** Achados B8-1, B8-4 e B8-5 da varredura de 08/11.
+
+- `consumir_cota_places` recriada a partir da versão viva da 84 (conferida no
+  catálogo em 08/11), mudando só: teto de **details 1000/dia** (era 300;
+  decisão do gestor, importação em lote acima de 300 linhas caía no Photon) e
+  **sem sessão → NULL** (era false, que a Edge Function lia como esgotada e
+  respondia 429). ACL e o resto do corpo iguais.
+- `limpar_uso_places_antigo(p_dias integer default 8) returns integer`,
+  SECURITY DEFINER, `search_path` vazio, dona postgres, EXECUTE só de
+  `service_role`: apaga de todos os usuários as linhas com `dia` anterior a
+  hoje (Brasília) menos p_dias e devolve quantas apagou; piso de 1 dia
+  (22023). Chamada pela `expire-routes` depois de
+  `limpar_notificacoes_antigas`; erro da limpeza só vai para o log.
+- Edge Functions (mesma entrega): a cota tem prazo de 2 s (`PRAZO_COTA_MS`,
+  B8-3) e a chamada à Google, 8 s (`AbortSignal.timeout`); o cliente com o
+  `Authorization` de quem chama sai de `clienteDoUsuario` (B8-2).
+
+**Alternativas.** Sem sessão: NULL (escolhida: já é o ramo indisponível do
+helper, sem mudar tipo nem contrato) × exceção (sessão ausente é estado
+esperado, não erro de programação) × manter false e tratar na função (o banco
+seguiria dizendo "esgotada"). Limpeza: RPC na `expire-routes` (escolhida,
+caminho das Migrations 37 e 83) × pg_cron (não há no projeto); DELETE único
+(escolhido: no máximo 2 linhas por usuário por dia) × lotes como a 83.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration85-places-teto-e-limpeza.test.ts` (inclui: o
+corpo da cota é o da 84 fora as duas mudanças); sonda
+`database/sondas/20261108120000_sonda_migration85.sql` (7 casos, desfeita
+pelo RAISE): details 1000, autocomplete 1000, sem `sub` → NULL e anon sem
+EXECUTE, limpeza padrão (apaga 9 e 20 dias, mantém 8 e hoje), piso 0/NULL,
+API sem EXECUTE na limpeza, catálogo. Guarda nova
+`database/__tests__/rpcs-das-edge-functions.test.ts` (B8-6): RPC chamada em
+`supabase/functions/**` não pode ter DROP/REVOKE em migration posterior à
+última que a cria. Rollback colável (corpo da 84 e DROP da limpeza).
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
