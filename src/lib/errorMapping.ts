@@ -237,8 +237,8 @@ const ERROR_PATTERNS: Array<{
     },
   },
   {
-    // Sentinela do `startRoute` (useRouteActions): o UPDATE condicionado a
-    // "pendente + deste motorista" voltou com 0 linhas — a tela estava velha.
+    // Sentinela do `startRoute` (useRouteActions): a RPC `iniciar_rota`
+    // respondeu situacao_mudou ou sem_permissao — a tela estava velha.
     pattern: /ROTA_NAO_PENDENTE/,
     result: {
       title: 'Rota não pode ser iniciada',

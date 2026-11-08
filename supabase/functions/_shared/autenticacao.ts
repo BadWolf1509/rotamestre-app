@@ -10,6 +10,8 @@
 // A chave publishable (`sb_publishable_...`) também chega como Bearer quando o
 // cliente não tem sessão; ela não é um JWT de usuário e o `getUser` a recusa.
 
+import { chavePublica } from './chaves.ts';
+
 /** O usuário que a validação reconheceu (só o que as funções usam). */
 export interface UsuarioAutenticado {
   id: string;
@@ -56,26 +58,49 @@ interface ClienteComGetUser {
   };
 }
 
+/** A forma do `createClient` do supabase-js que estes helpers usam. */
+type CriarCliente<C> = (
+  url: string,
+  chave: string,
+  opcoes: Record<string, unknown>,
+) => C;
+
+/**
+ * Cliente com a sessão de quem chama: chave publicável + o `Authorization`
+ * recebido, sem renovar nem guardar sessão (a função não tem onde guardar).
+ * Com ele a RLS vale e o `auth.uid()` do banco é o do usuário. Fonte única
+ * desse cliente nas funções chamadas pelo app; o `createClient` vem injetado
+ * (na função, o do esm.sh; no Jest, um falso) e a chave é lida na hora.
+ */
+export function clienteDoUsuario<C>(
+  createClient: CriarCliente<C>,
+  url: string,
+  authorization: string,
+  obterChave: () => string = chavePublica,
+): C {
+  return createClient(url, obterChave(), {
+    global: { headers: { Authorization: authorization } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
 /**
  * Validador de `exigirUsuario` pela chave publicável: cria um cliente com o
- * `Authorization` recebido e pergunta ao Auth quem é. O `createClient` vem
- * injetado (na função, o do esm.sh; no Jest, um falso), e a chave é lida só na
- * hora de validar, como `chavePublica()` exige.
+ * `Authorization` recebido (`clienteDoUsuario`) e pergunta ao Auth quem é. A
+ * chave é lida só na hora de validar, como `chavePublica()` exige.
  */
 export function criarValidadorDeUsuario(
-  createClient: (
-    url: string,
-    chave: string,
-    opcoes: Record<string, unknown>,
-  ) => ClienteComGetUser,
+  createClient: CriarCliente<ClienteComGetUser>,
   url: string,
   obterChave: () => string,
 ): ValidarAutorizacao {
   return async (authorization) => {
-    const cliente = createClient(url, obterChave(), {
-      global: { headers: { Authorization: authorization } },
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    const cliente = clienteDoUsuario(
+      createClient,
+      url,
+      authorization,
+      obterChave,
+    );
     const {
       data: { user },
       error,

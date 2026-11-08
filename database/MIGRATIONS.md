@@ -3725,6 +3725,216 @@ colável (DROP da função e da tabela).
 
 ---
 
+### ⏳ Migration 85: Places — teto de details, sessão ausente e limpeza global
+
+**Arquivo:** `20261108120000_places_teto_e_limpeza.sql` · **⏳ não aplicada.**
+Aplicar como `postgres`, rodar a sonda e só então publicar as Edge Functions
+`google-places-autocomplete`, `google-place-details`, `criar-motorista` e
+`expire-routes`. A ordem inversa não quebra: a função publicada antes trata o
+false antigo como esgotada (como hoje) e o null novo como indisponível; a
+`expire-routes` sem a RPC só registra o erro no log.
+
+**O que faz.** Achados B8-1, B8-4 e B8-5 da varredura de 08/11.
+
+- `consumir_cota_places` recriada a partir da versão viva da 84 (conferida no
+  catálogo em 08/11), mudando só: teto de **details 1000/dia** (era 300;
+  decisão do gestor, importação em lote acima de 300 linhas caía no Photon) e
+  **sem sessão → NULL** (era false, que a Edge Function lia como esgotada e
+  respondia 429). ACL e o resto do corpo iguais.
+- `limpar_uso_places_antigo(p_dias integer default 8) returns integer`,
+  SECURITY DEFINER, `search_path` vazio, dona postgres, EXECUTE só de
+  `service_role`: apaga de todos os usuários as linhas com `dia` anterior a
+  hoje (Brasília) menos p_dias e devolve quantas apagou; piso de 1 dia
+  (22023). Chamada pela `expire-routes` depois de
+  `limpar_notificacoes_antigas`; erro da limpeza só vai para o log.
+- Edge Functions (mesma entrega): a cota tem prazo de 2 s (`PRAZO_COTA_MS`,
+  B8-3) e a chamada à Google, 8 s (`AbortSignal.timeout`); o cliente com o
+  `Authorization` de quem chama sai de `clienteDoUsuario` (B8-2).
+
+**Alternativas.** Sem sessão: NULL (escolhida: já é o ramo indisponível do
+helper, sem mudar tipo nem contrato) × exceção (sessão ausente é estado
+esperado, não erro de programação) × manter false e tratar na função (o banco
+seguiria dizendo "esgotada"). Limpeza: RPC na `expire-routes` (escolhida,
+caminho das Migrations 37 e 83) × pg_cron (não há no projeto); DELETE único
+(escolhido: no máximo 2 linhas por usuário por dia) × lotes como a 83.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration85-places-teto-e-limpeza.test.ts` (inclui: o
+corpo da cota é o da 84 fora as duas mudanças); sonda
+`database/sondas/20261108120000_sonda_migration85.sql` (7 casos, desfeita
+pelo RAISE): details 1000, autocomplete 1000, sem `sub` → NULL e anon sem
+EXECUTE, limpeza padrão (apaga 9 e 20 dias, mantém 8 e hoje), piso 0/NULL,
+API sem EXECUTE na limpeza, catálogo. Guarda nova
+`database/__tests__/rpcs-das-edge-functions.test.ts` (B8-6): RPC chamada em
+`supabase/functions/**` não pode ter DROP/REVOKE em migration posterior à
+última que a cria. Rollback colável (corpo da 84 e DROP da limpeza).
+
+---
+
+### ⏳ Migration 86: aviso ao motorista ao cancelar e ao reativar a rota
+
+**Arquivo:** `20261108121000_aviso_cancelar_reativar.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda. Não exige publicar Edge Function nem
+versão nova do app: os dois tipos já estão na lista de push da
+`send-push-notification` e no app (ícone, cor, destino do toque).
+
+**O que faz.** Achado B-11 da varredura de 07/11; decisão do gestor: avisar o
+motorista nos dois casos, com push.
+
+- `cancelar_rota` e `reativar_rota` recriadas a partir das versões vivas
+  (Migrations 70 e 78, conferidas no catálogo em 08/11), acrescentando só um
+  bloco logo antes do `RETURN 'cancelada'` / `RETURN 'reativada'` que chama
+  `criar_notificacao` para o motorista da rota (rota sem motorista não avisa).
+  `ja_cancelada`, `situacao_mudou`, `sem_permissao` e
+  `motorista_indisponivel` saem antes e não avisam.
+- Cancelada: tipo `rota_nao_executada` (toque leva ao Histórico, que lista a
+  cancelada), título "Rota cancelada pelo gestor", mensagem com a data da rota
+  e a loja. Reativada: tipo `nova_rota_atribuida` (toque leva à Início),
+  título "Rota reativada", mensagem com a loja e a data de hoje.
+- O bloco tem EXCEPTION próprio: erro no aviso desfaz só o aviso (WARNING no
+  log), nunca a RPC. Cobre a recusa da `criar_notificacao` quando o motorista
+  já saiu da loja (cancela sem avisar). Motorista sem token de push fica só
+  com a notificação no sino.
+- ACL e o resto dos corpos iguais; COMMENT da Migration 86 nas duas.
+
+**Alternativas.** Tipo: reaproveitar `rota_nao_executada`/`nova_rota_atribuida`
+(escolhida: título e mensagem vêm da notificação, do tipo saem só ícone,
+destino e prioridade; sem publicar função nem lançar app) × tipos novos
+`rota_cancelada`/`rota_reativada` (exigiriam a lista de push da
+`send-push-notification`, sem a qual o push é descartado calado, mais destino e
+ícone no app; versões instaladas mostrariam ícone genérico sem destino). Onde:
+nas RPCs (escolhida: aviso só do resultado `cancelada`/`reativada`, caminho
+único dessas transições desde as Migrations 75/76) × gatilho AFTER UPDATE em
+`rotas` (teria de reconhecer as transições pelo par de status).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration86-aviso-cancelar-reativar.test.ts` (inclui: fora
+o bloco do aviso, os corpos são os das Migrations 70 e 78; o aviso só fica no
+caminho do resultado de sucesso; os tipos estão na lista de push e no app);
+sonda `database/sondas/20261108121000_sonda_migration86.sql` (10 casos,
+desfeita pelo RAISE): cancelada avisa (motorista sem token), ja_cancelada,
+situacao_mudou, sem_permissao e sem sessão não avisam, aviso recusado não
+desfaz o cancelamento, reativada avisa, situacao_mudou/sem_permissao/
+motorista_indisponivel na reativação não avisam, catálogo. Rollback colável
+(corpos das 70 e 78).
+
+---
+
+### ⏳ Migration 87: `resolvido_em` do incidente mantido pelo banco
+
+**Arquivo:** `20261108122000_incidentes_resolvido_em.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda. Não exige versão nova do app.
+
+**O que faz.** Pendência 30(i). Gatilho `trg_incidentes_resolvido_em`
+(BEFORE INSERT OR UPDATE OF status em `incidentes`), função
+`incidentes_resolvido_em()` SECURITY INVOKER, search_path vazio, sem EXECUTE
+para a API. A regra é a que o app já grava (`useIncidentesModals`):
+
+- entra em `resolvido` com `resolvido_em` nulo → `now()`; a hora que o app
+  mandou fica (só preenche o nulo);
+- sai de `resolvido` → `resolvido_em` nulo;
+- `resolvido` → `resolvido` (só a observação) não mexe na data, nem quando ela
+  é nula num registro antigo.
+
+Só `resolvido` conta: em `resolvido` → `fechado` o app já manda `null`.
+
+**Alternativas.** Status: só `resolvido` (escolhida, a regra do app) ×
+`resolvido` e `fechado` (em `resolvido` → `fechado` o gatilho teria de apagar
+a data do app ou trocá-la por `now()`). Onde: gatilho (escolhida, vale para
+painel, chave secreta e app antigo) × só no app (como hoje) × coluna gerada
+(não guarda hora). Sobrescrever: só o nulo (escolhida) × sempre `now()`.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration87-incidentes-resolvido-em.test.ts`; sonda
+`database/sondas/20261108122000_sonda_migration87.sql` (8 casos, desfeita pelo
+RAISE): preenche ao resolver, mantém a hora mandada, resolvido → resolvido não
+muda, reabrir e fechar limpam, INSERT resolvido preenche, registro antigo sem
+data segue sem data, catálogo. Rollback colável.
+
+---
+
+### ⏳ Migration 88: iniciar a rota numa RPC transacional (`iniciar_rota`)
+
+**Arquivo:** `20261108123000_iniciar_rota_rpc.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda **antes** de mesclar o app que chama a
+RPC (o app novo não tem caminho alternativo para a RPC ausente). O app
+publicado segue com as três escritas e não é afetado.
+
+**O que faz.** Pendência 30(j). `iniciar_rota(p_rota_id uuid) RETURNS text`,
+SECURITY DEFINER, search_path vazio, EXECUTE de `authenticated`/`service_role`:
+
+- sem sessão, rota que não existe, de outro motorista, de loja sem vínculo
+  ativo ou com o cadastro inativo → `sem_permissao` (a regra da policy
+  `rotas_update` e da `finalizar_rota`);
+- `concluida`/`cancelada`/`nao_executada` → `situacao_mudou`, sem escrita;
+- `pendente` → numa transação, rota `em_andamento` com `iniciada_em = now()`,
+  partida (ordem 0, `is_checkpoint = false`) concluída com a mesma hora e a 1ª
+  parada real pendente em andamento (se nenhuma real já estiver) →
+  `iniciada`;
+- `em_andamento` → `ja_iniciada`, completando o que um início pela metade de
+  versão antiga deixou (partida com a hora do `iniciada_em`, 1ª real).
+
+Trava `FOR NO KEY UPDATE` na rota e depois nas paradas (ordem de
+`finalizar_rota`/`cancelar_rota`). Os gatilhos das Migrations 75/76/77/83
+seguem valendo; `notify_rota_iniciada` e os logs continuam como no início pelo
+app.
+
+**Alternativas.** Resposta: texto num conjunto fechado (escolhida, como
+`cancelar_rota`) × RAISE com sentinela (recusa esperada viraria erro) × jsonb
+`{success, code}` (formato da Migration 81, pedido pelo app publicado, que aqui
+não existe). `ja_iniciada`: completa o início pela metade (escolhida, o que o
+app faz hoje) × só responde. Vínculo: qualquer papel ativo na loja (escolhida,
+a regra de hoje) × só papel `motorista`.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration88-iniciar-rota.test.ts`; sonda
+`database/sondas/20261108123000_sonda_migration88.sql` (7 casos, desfeita pelo
+RAISE): iniciada (com o aviso ao gestor), ja_iniciada sem mudança, ja_iniciada
+completando início pela metade, situacao_mudou (cancelada e concluida),
+sem_permissao (outro motorista, gestor, vínculo inativo, cadastro inativo, sem
+sessão), rota só com partida e chegada, catálogo. Rollback colável.
+
+---
+
+### ⏳ Migration 89: desempenho do motorista por loja (`desempenho_motorista_na_loja`)
+
+**Arquivo:** `20261108124000_desempenho_motorista_por_loja.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda **antes** de mesclar o app que chama a
+RPC (o app novo não lê mais a view). O app publicado segue lendo a
+`vw_performance_motoristas` e não é afetado.
+
+**O que faz.** Pendências 26 e 30(h): o perfil do motorista somava as rotas de
+todas as lojas que o RLS deixasse ver. `desempenho_motorista_na_loja(p_motorista_id
+uuid, p_unidade_id uuid) RETURNS jsonb`, STABLE, SECURITY DEFINER, search_path
+vazio, EXECUTE de `authenticated`/`service_role`:
+
+- sem sessão ou sem vínculo ativo de gestor na loja →
+  `{success: false, code: 'SEM_PERMISSAO', error}` (padrão da Migration 81);
+- senão `{success: true, total_rotas, rotas_concluidas, rotas_em_andamento,
+rotas_nao_executadas, rotas_canceladas, taxa_execucao, distancia_total_km,
+tempo_medio_minutos}`, com as fórmulas da view (Migration 80), só nas rotas
+  com `unidade_id = p_unidade_id`. Motorista sem rota na loja → zeros.
+
+Diferença deliberada da view: sem o filtro `usuarios.ativo = true` — o
+motorista desativado mostra o histórico dele na loja, em vez de zeros.
+
+**Alternativas.** Forma: RPC com a loja no argumento (escolhida) × view nova
+por motorista e loja (regra de quem vê espalhada no RLS) × `unidade_id` na view
+atual (quebra o `.maybeSingle()` do app publicado). Motorista sem vínculo com a
+loja: zeros (escolhida: só conta rotas que o gestor já lê, e responde igual
+para qualquer id) × recusa com `code` próprio (estado que a tela não alcança).
+Resposta: jsonb `{success, code}` (escolhida) × RAISE 42501.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration89-desempenho-motorista-por-loja.test.ts`; sonda
+`database/sondas/20261108124000_sonda_migration89.sql` (7 casos, desfeita pelo
+RAISE): números de A só com as rotas de A, de B só com as de B, gestor das duas
+lojas vendo cada uma separada (e a view somando), SEM_PERMISSAO (gestor de outra
+loja, vínculo inativo, motorista, sem sessão, loja nula), zeros sem rota na
+loja, motorista desativado, catálogo. Rollback colável.
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de

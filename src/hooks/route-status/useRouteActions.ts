@@ -21,6 +21,7 @@ import {
   type PortaParadas,
   type ResultadoAplicacao,
 } from '@/lib/motorista/filaAcoesParada';
+import { iniciarRota } from '@/lib/motorista/iniciarRota';
 import { solicitarEnvioFila } from '@/lib/offline';
 import { semRedeConfirmada } from '@/lib/semRede';
 import { supabase } from '@/lib/supabase';
@@ -42,33 +43,11 @@ interface UseRouteActionsOptions {
 }
 
 /**
- * Marca a próxima parada pendente como "em_andamento"
- * Encontra a parada com menor ordem que ainda está pendente
- */
-async function marcarProximaParadaEmAndamento(paradasAtuais: ParadaData[]) {
-  const proximaPendente = paradasAtuais
-    .filter((p) => p.status === 'pendente' && p.is_checkpoint !== false)
-    .sort((a, b) => a.ordem - b.ordem)[0];
-
-  if (proximaPendente) {
-    // Só se ainda pendente: repetir (início retomado) não regride nada.
-    const { error } = await supabase
-      .from('paradas')
-      .update({ status: 'em_andamento' })
-      .eq('id', proximaPendente.id)
-      .eq('status', 'pendente');
-
-    if (error) {
-      logger.error('[RouteStatus] marcarProximaParadaEmAndamento Erro', error);
-      throw error;
-    }
-  }
-}
-
-/**
  * A rota já está em andamento com este motorista? Devolve o `iniciada_em`
- * (a hora real do início) ou null. Falha de leitura conta como "não": cai no
- * aviso de rota que mudou, como antes.
+ * (a hora real do início, gravada pelo servidor) ou null. Só para o
+ * rastreamento partir da hora certa quando a RPC responde `iniciada` ou
+ * `ja_iniciada`; falha de leitura devolve null e quem chama usa a hora de
+ * agora.
  */
 async function lerInicioProprio(
   rotaId: string,
@@ -131,41 +110,17 @@ export function useRouteActions({
     }
 
     try {
-      let now = new Date().toISOString();
+      // 1. Rota, partida e 1ª parada numa transação só, pela RPC (Migration
+      // 88). A tela pode estar velha (gestor cancelou, passou a outro
+      // motorista, motorista sem vínculo): a RPC confere e responde. Erro de
+      // rede chega em `error` e vai para a tela (iniciar não entra na fila
+      // offline).
+      const resultado = await iniciarRota(route.id);
 
-      // 1. Atualizar status da rota — só se ainda estiver pendente e for
-      // deste motorista. A tela pode estar velha (gestor cancelou, passou a
-      // outro motorista, ou já iniciada em outro aparelho), e a RLS recusa
-      // com 0 linhas, sem erro. Erro de rede chega em `error` e segue como
-      // antes: vai para a tela (iniciar não entra na fila offline).
-      const { data: iniciadas, error } = await supabase
-        .from('rotas')
-        .update({
-          status: 'em_andamento',
-          iniciada_em: now,
-        })
-        .eq('id', route.id)
-        .eq('status', 'pendente')
-        .eq('motorista_id', motoristaId)
-        .select('id');
-
-      if (error) throw error;
-
-      // 0 linhas. Antes de tratar como mudança alheia, confere se é o início
-      // DESTE motorista que a rede interrompeu depois do passo 1 (a tela
-      // ficou "pendente"): aí os passos 2–3, idempotentes, completam o que
-      // faltou. Alternativa descartada aqui: RPC transacional `iniciar_rota`
-      // — fecharia a janela de vez, mas pede migration (fora deste PR).
-      const jaIniciadaPorMim =
-        !iniciadas || iniciadas.length === 0
-          ? await lerInicioProprio(route.id, motoristaId)
-          : null;
-      if (jaIniciadaPorMim) now = jaIniciadaPorMim;
-
-      if ((!iniciadas || iniciadas.length === 0) && !jaIniciadaPorMim) {
-        // O servidor respondeu e nada mudou: sem "Rota iniciada", sem
-        // rastreamento (nem o contexto dele) e sem mexer nas paradas. A
-        // recarga traz o estado real; falhar nela não pode engolir o aviso.
+      if (resultado === 'situacao_mudou' || resultado === 'sem_permissao') {
+        // O servidor respondeu e nada mudou: sem "Rota iniciada" e sem
+        // rastreamento (nem o contexto dele). A recarga traz o estado real;
+        // falhar nela não pode engolir o aviso.
         try {
           await loadActiveRoute();
         } catch (erroRecarga) {
@@ -179,33 +134,22 @@ export function useRouteActions({
         );
       }
 
-      // 2. Marcar ponto de partida (ordem 0) como concluído
-      const checkpointPartida = paradas.find(
-        (p) => p.is_checkpoint === false && p.ordem === 0,
-      );
-      if (checkpointPartida) {
-        const { error: checkpointError } = await supabase
-          .from('paradas')
-          .update({
-            status: 'concluida',
-            concluida_em: now,
-          })
-          .eq('id', checkpointPartida.id)
-          .eq('status', 'pendente');
+      // `ja_iniciada`: resposta perdida, toque duplo ou outro aparelho — a
+      // rota já está em andamento com este motorista e a RPC completou o que
+      // faltava. Segue como iniciada. Nos dois casos o rastreamento parte do
+      // `iniciada_em` gravado pelo servidor (now() do banco), não do relógio
+      // do aparelho; sem conseguir relê-lo, usa a hora de agora.
 
-        if (checkpointError) throw checkpointError;
-      }
-
-      // 3. Marcar primeira parada real como "em_andamento"
-      await marcarProximaParadaEmAndamento(paradas);
-
-      // 4. Iniciar rastreamento de localização em background (apenas mobile)
+      // 2. Iniciar rastreamento de localização em background (apenas mobile)
       if (Platform.OS !== 'web') {
+        const inicio =
+          (await lerInicioProprio(route.id, motoristaId)) ??
+          new Date().toISOString();
         await requestAndStartTracking({
           rotaId: route.id,
           motoristaId,
           motoristaNome: motoristaNome || 'Motorista',
-          startedAt: now,
+          startedAt: inicio,
         });
       }
 
@@ -214,7 +158,7 @@ export function useRouteActions({
       logger.error('[RouteStatus] Erro ao iniciar rota', error);
       throw error;
     }
-  }, [route, paradas, motoristaId, motoristaNome, loadActiveRoute]);
+  }, [route, motoristaId, motoristaNome, loadActiveRoute]);
 
   // Concluir e pular passam pela fila de ações de parada
   // (`src/lib/motorista/filaAcoesParada.ts`): sem rede — ou com a rede caindo

@@ -183,7 +183,10 @@ jest.mock('@/lib/supabase', () => {
       from: jest.fn((tableName: string) => createQueryMock(tableName)),
       rpc: jest.fn((fn: string, args: unknown) => {
         mockRpcCalls.push({ fn, args });
-        return Promise.resolve({ data: null, error: null });
+        return Promise.resolve({
+          data: fn === 'iniciar_rota' ? 'iniciada' : null,
+          error: null,
+        });
       }),
       channel: mockChannel,
       removeChannel: jest.fn(),
@@ -1718,40 +1721,9 @@ describe('RouteStatusContext actions', () => {
       expect(mockUpdateCalls).toHaveLength(0);
     });
 
-    it('deve atualizar status da rota para em_andamento', async () => {
-      mockRotasData = [createMockRoute({ id: 'rota-123', status: 'pendente' })];
-      mockParadasData = [
-        createMockParada({
-          id: 'p1',
-          ordem: 1,
-          status: 'pendente',
-          is_checkpoint: true,
-        }),
-      ];
-
-      const { getByTestId } = render(
-        <RouteStatusProvider>
-          <TestComponentWithActions />
-        </RouteStatusProvider>,
-      );
-
-      await waitFor(() => {
-        expect(getByTestId('routeDbStatus').props.children).toBe('pendente');
-      });
-
-      await act(async () => {
-        fireEvent.press(getByTestId('startRoute'));
-      });
-
-      // Verifica se o update foi chamado para a rota
-      const rotaUpdate = mockUpdateCalls.find(
-        (c) => c.table === 'rotas' && c.data.status === 'em_andamento',
-      );
-      expect(rotaUpdate).toBeDefined();
-      expect(rotaUpdate?.filter.value).toBe('rota-123');
-    });
-
-    it('deve marcar checkpoint de partida como concluido', async () => {
+    // Rota, partida e 1ª parada vão numa transação só, pela RPC `iniciar_rota`
+    // (Migration 88): o app não escreve em `rotas` nem em `paradas` para iniciar.
+    it('deve iniciar a rota pela RPC iniciar_rota, sem UPDATE direto', async () => {
       mockRotasData = [createMockRoute({ id: 'rota-123', status: 'pendente' })];
       mockParadasData = [
         createMockParada({
@@ -1782,57 +1754,11 @@ describe('RouteStatusContext actions', () => {
         fireEvent.press(getByTestId('startRoute'));
       });
 
-      // Verifica se o checkpoint foi atualizado
-      const checkpointUpdate = mockUpdateCalls.find(
-        (c) => c.table === 'paradas' && c.filter.value === 'checkpoint-partida',
-      );
-      expect(checkpointUpdate).toBeDefined();
-      expect(checkpointUpdate?.data.status).toBe('concluida');
-    });
-
-    it('deve marcar primeira parada real como em_andamento', async () => {
-      mockRotasData = [createMockRoute({ id: 'rota-123', status: 'pendente' })];
-      mockParadasData = [
-        createMockParada({
-          id: 'checkpoint-partida',
-          ordem: 0,
-          status: 'pendente',
-          is_checkpoint: false,
-        }),
-        createMockParada({
-          id: 'p1',
-          ordem: 1,
-          status: 'pendente',
-          is_checkpoint: true,
-        }),
-        createMockParada({
-          id: 'p2',
-          ordem: 2,
-          status: 'pendente',
-          is_checkpoint: true,
-        }),
-      ];
-
-      const { getByTestId } = render(
-        <RouteStatusProvider>
-          <TestComponentWithActions />
-        </RouteStatusProvider>,
-      );
-
-      await waitFor(() => {
-        expect(getByTestId('routeDbStatus').props.children).toBe('pendente');
+      expect(mockRpcCalls).toContainEqual({
+        fn: 'iniciar_rota',
+        args: { p_rota_id: 'rota-123' },
       });
-
-      await act(async () => {
-        fireEvent.press(getByTestId('startRoute'));
-      });
-
-      // Verifica se a primeira parada real foi marcada como em_andamento
-      const paradaUpdate = mockUpdateCalls.find(
-        (c) => c.table === 'paradas' && c.data.status === 'em_andamento',
-      );
-      expect(paradaUpdate).toBeDefined();
-      expect(paradaUpdate?.filter.value).toBe('p1');
+      expect(mockUpdateCalls).toHaveLength(0);
     });
   });
 

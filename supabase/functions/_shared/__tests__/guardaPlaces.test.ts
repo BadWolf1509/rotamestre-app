@@ -82,9 +82,14 @@ describe.each([
   });
 
   it(`consome a cota de '${servico}' com um cliente do Authorization recebido`, () => {
+    // O cliente com a sessão de quem busca sai de `clienteDoUsuario`
+    // (_shared/autenticacao.ts, testado em autenticacao.test.ts).
+    expect(fonte).toMatch(
+      /import\s*\{[^}]*clienteDoUsuario[^}]*\}\s*from\s*'\.\.\/_shared\/autenticacao\.ts'/,
+    );
     expect(fonte).toMatch(
       new RegExp(
-        String.raw`createClient\(\s*Deno\.env\.get\('SUPABASE_URL'\) \?\? '',\s*chavePublica\(\),\s*\{[\s\S]*?headers:\s*\{\s*Authorization:\s*req\.headers\.get\('Authorization'\)`,
+        String.raw`const cliente = clienteDoUsuario\(\s*createClient,\s*Deno\.env\.get\('SUPABASE_URL'\) \?\? '',\s*req\.headers\.get\('Authorization'\) \?\? '',?\s*\)`,
       ),
     );
     expect(fonte).toMatch(
@@ -92,6 +97,13 @@ describe.each([
         String.raw`await consumirCotaPlaces\(\s*\(funcao, args\) => cliente\.rpc\(funcao, args\),\s*'${servico}',?\s*\)`,
       ),
     );
+  });
+
+  it('a chamada à Google tem prazo de 8 s (AbortSignal.timeout)', () => {
+    const google = fonte.indexOf('places.googleapis.com');
+    const trecho = fonte.slice(google, fonte.indexOf('await response', google));
+    expect(trecho).toMatch(/signal:\s*AbortSignal\.timeout\(8000\)/);
+    expect(fonte.match(/await fetch\(/g)).toHaveLength(1);
   });
 
   it('cota esgotada devolve o 429 do helper', () => {
@@ -121,4 +133,23 @@ describe.each([
       expect(cota).toBeGreaterThan(curto);
     });
   }
+});
+
+// O cliente com o Authorization de quem chama tem uma fonte só
+// (`clienteDoUsuario`): montado à mão em cada função, uma cópia esquecia as
+// opções de sessão. Vale para as funções chamadas pelo app com a sessão.
+describe.each([
+  'google-places-autocomplete',
+  'google-place-details',
+  'criar-motorista',
+])('%s: cliente do usuário pela fonte única', (nome) => {
+  const fonte = readFileSync(
+    join(__dirname, '..', '..', nome, 'index.ts'),
+    'utf8',
+  );
+
+  it('não monta à mão um cliente com o Authorization recebido', () => {
+    expect(fonte).not.toMatch(/headers:\s*\{\s*Authorization/);
+    expect(fonte).toMatch(/clienteDoUsuario\(\s*createClient,/);
+  });
 });
