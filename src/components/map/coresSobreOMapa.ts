@@ -18,6 +18,10 @@ export const CORES_SOBRE_O_MAPA = {
   branco: claro.white,
   sombra: claro.black,
   marca: claro.primary,
+  // Pino da sede/partida/chegada (`pontosDaUnidade`): azul-marinho da marca,
+  // fora da escala de status — verde, laranja, `primary`, cinza e vermelho já
+  // dizem concluída, pendente, em andamento, pulada e não executada.
+  sede: claro.primaryDark,
   proxima: claro.warning,
   pendente: claro.gray500,
   concluida: claro.success,
