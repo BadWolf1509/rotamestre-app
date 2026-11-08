@@ -122,7 +122,7 @@ describe('MapaMobile – toque no pino', () => {
   });
 
   // O balão do checkpoint (sobre o mapa) está em MapaMobile.balaoSobreposto.
-  it('toque no Marker do checkpoint não chega ao mapa', () => {
+  it('toque no Marker do checkpoint barra o evento do mapa e avisa onMapPress uma vez', () => {
     const onMapPress = jest.fn();
     const { getAllByTestId } = render(
       <MapaMobile paradas={[partida, parada]} onMapPress={onMapPress} />,
@@ -130,8 +130,10 @@ describe('MapaMobile – toque no pino', () => {
 
     const stopPropagation = tocarMarcador(getAllByTestId('marker')[0]);
 
+    // O bubbling até o Map é barrado; o aviso vem direto do pino (U8-1),
+    // para a parada selecionada não seguir acesa junto com o balão da sede.
     expect(stopPropagation).toHaveBeenCalled();
-    expect(onMapPress).not.toHaveBeenCalled();
+    expect(onMapPress).toHaveBeenCalledTimes(1);
   });
 });
 

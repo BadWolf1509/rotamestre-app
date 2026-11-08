@@ -134,8 +134,12 @@ export function MapaMobile({
 
   // Um balão por vez, sobre o mapa: o do pino da unidade, se houver; senão o
   // da parada selecionada.
+  // O id vem do toque no pino (selectedCheckpointId) ou de fora
+  // (selectedParadaId: o gestor seleciona a partida/chegada pela lista).
   const checkpointSelecionado =
-    pontoQueContem(pontosUnidade, selectedCheckpointId) ?? null;
+    pontoQueContem(pontosUnidade, selectedCheckpointId) ??
+    pontoQueContem(pontosUnidade, selectedParadaId) ??
+    null;
   const pinoSelecionado = checkpointSelecionado
     ? null
     : (pinos.find((p) => p.membros.some((m) => m.id === selectedParadaId)) ??
@@ -208,11 +212,14 @@ export function MapaMobile({
               longitude: ponto.longitude!,
             })}
             anchor="bottom"
-            onPress={aoTocarPino(() =>
+            onPress={aoTocarPino(() => {
+              // O pino barra a propagação, então o onPress do mapa (que limpa
+              // a parada selecionada) não chega: avisa aqui, como o web.
+              onMapPress?.();
               setSelectedCheckpointId((prev) =>
                 prev === ponto.id ? null : ponto.id,
-              ),
-            )}
+              );
+            })}
           >
             <PinoDaUnidade ponto={{ ponto, membros, tipo }} tamanho={28} />
           </MapLibreGL.Marker>
