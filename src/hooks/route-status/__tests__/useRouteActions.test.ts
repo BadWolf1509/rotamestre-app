@@ -640,7 +640,7 @@ describe('completeRoute', () => {
 // Error propagation: marcarProximaParadaEmAndamento
 // ============================================================================
 
-describe('marcarProximaParadaEmAndamento error propagation', () => {
+describe('falha ao promover a próxima parada não desfaz a ação gravada', () => {
   it('completeStop: entrega gravada + falha ao promover a próxima não vira erro', async () => {
     porta.avancarProxima.mockRejectedValueOnce({ message: 'promotion failed' });
     const { completeStop, loadActiveRoute } = setup({
