@@ -144,13 +144,35 @@ describe('ListaDeRotasDoDia', () => {
     );
 
     expect(queryByText('Excluir rota')).toBeNull();
-    fireEvent.press(getByTestId('rota-dia-acoes-r1'), {
-      stopPropagation: jest.fn(),
-    });
-    fireEvent.press(getByText('Excluir rota'), { stopPropagation: jest.fn() });
+    // O RNTL não propaga o toque até a linha: o que prova é o espião.
+    const stopPropagation = jest.fn();
+    fireEvent.press(getByTestId('rota-dia-acoes-r1'), { stopPropagation });
+    fireEvent.press(getByText('Excluir rota'), { stopPropagation });
 
     expect(onExcluirRota).toHaveBeenCalledWith('r1');
     expect(onAbrirRota).not.toHaveBeenCalled();
+    expect(stopPropagation).toHaveBeenCalledTimes(2);
+  });
+
+  it('o botão do nome abre a rota uma vez só (o toque não sobe até a linha)', () => {
+    const onAbrirRota = jest.fn();
+    render(
+      <ListaDeRotasDoDia
+        rotas={rotas}
+        onAbrirRota={onAbrirRota}
+        onExcluirRota={jest.fn()}
+      />,
+    );
+
+    const stopPropagation = jest.fn();
+    fireEvent.press(
+      screen.getByRole('button', { name: `Abrir ${rotas[0].motorista_nome}` }),
+      { stopPropagation },
+    );
+
+    expect(onAbrirRota).toHaveBeenCalledTimes(1);
+    expect(onAbrirRota).toHaveBeenCalledWith(rotas[0].id);
+    expect(stopPropagation).toHaveBeenCalledTimes(1);
   });
 
   it('nenhum botão fica dentro de outro botão; o nome abre a rota e o "Mais ações" é alcançável', () => {
