@@ -3771,6 +3771,55 @@ API sem EXECUTE na limpeza, catálogo. Guarda nova
 
 ---
 
+### ⏳ Migration 86: aviso ao motorista ao cancelar e ao reativar a rota
+
+**Arquivo:** `20261108121000_aviso_cancelar_reativar.sql` · **⏳ não aplicada.**
+Aplicar como `postgres` e rodar a sonda. Não exige publicar Edge Function nem
+versão nova do app: os dois tipos já estão na lista de push da
+`send-push-notification` e no app (ícone, cor, destino do toque).
+
+**O que faz.** Achado B-11 da varredura de 07/11; decisão do gestor: avisar o
+motorista nos dois casos, com push.
+
+- `cancelar_rota` e `reativar_rota` recriadas a partir das versões vivas
+  (Migrations 70 e 78, conferidas no catálogo em 08/11), acrescentando só um
+  bloco logo antes do `RETURN 'cancelada'` / `RETURN 'reativada'` que chama
+  `criar_notificacao` para o motorista da rota (rota sem motorista não avisa).
+  `ja_cancelada`, `situacao_mudou`, `sem_permissao` e
+  `motorista_indisponivel` saem antes e não avisam.
+- Cancelada: tipo `rota_nao_executada` (toque leva ao Histórico, que lista a
+  cancelada), título "Rota cancelada pelo gestor", mensagem com a data da rota
+  e a loja. Reativada: tipo `nova_rota_atribuida` (toque leva à Início),
+  título "Rota reativada", mensagem com a loja e a data de hoje.
+- O bloco tem EXCEPTION próprio: erro no aviso desfaz só o aviso (WARNING no
+  log), nunca a RPC. Cobre a recusa da `criar_notificacao` quando o motorista
+  já saiu da loja (cancela sem avisar). Motorista sem token de push fica só
+  com a notificação no sino.
+- ACL e o resto dos corpos iguais; COMMENT da Migration 86 nas duas.
+
+**Alternativas.** Tipo: reaproveitar `rota_nao_executada`/`nova_rota_atribuida`
+(escolhida: título e mensagem vêm da notificação, do tipo saem só ícone,
+destino e prioridade; sem publicar função nem lançar app) × tipos novos
+`rota_cancelada`/`rota_reativada` (exigiriam a lista de push da
+`send-push-notification`, sem a qual o push é descartado calado, mais destino e
+ícone no app; versões instaladas mostrariam ícone genérico sem destino). Onde:
+nas RPCs (escolhida: aviso só do resultado `cancelada`/`reativada`, caminho
+único dessas transições desde as Migrations 75/76) × gatilho AFTER UPDATE em
+`rotas` (teria de reconhecer as transições pelo par de status).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration86-aviso-cancelar-reativar.test.ts` (inclui: fora
+o bloco do aviso, os corpos são os das Migrations 70 e 78; o aviso só fica no
+caminho do resultado de sucesso; os tipos estão na lista de push e no app);
+sonda `database/sondas/20261108121000_sonda_migration86.sql` (10 casos,
+desfeita pelo RAISE): cancelada avisa (motorista sem token), ja_cancelada,
+situacao_mudou, sem_permissao e sem sessão não avisam, aviso recusado não
+desfaz o cancelamento, reativada avisa, situacao_mudou/sem_permissao/
+motorista_indisponivel na reativação não avisam, catálogo. Rollback colável
+(corpos das 70 e 78).
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
