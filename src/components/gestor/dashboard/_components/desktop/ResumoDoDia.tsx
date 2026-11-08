@@ -59,7 +59,7 @@ function fraseDoResumo(rotas: RotaResumo[], textoSemRotas: string): string {
   );
   const total = rotasDoDia.reduce((soma, r) => soma + r.total_paradas, 0);
   const feitas = rotasDoDia.reduce((soma, r) => soma + r.paradas_concluidas, 0);
-  const km = rotas.reduce((soma, r) => soma + r.distancia_total, 0);
+  const km = rotasDoDia.reduce((soma, r) => soma + r.distancia_total, 0);
 
   return `${partes.join(', ')} — ${feitas} de ${plural(
     total,

@@ -185,6 +185,25 @@ describe('ResumoDoDia', () => {
     );
   });
 
+  it('a distância usa o mesmo recorte: rota cancelada ou não executada não soma km', () => {
+    const { getByTestId } = render(
+      <ResumoDoDia
+        rotas={[
+          rota({ id: 'a', status: 'concluida', distancia_total: 10 }),
+          rota({ id: 'b', status: 'cancelada', distancia_total: 30 }),
+          rota({ id: 'c', status: 'nao_executada', distancia_total: 5 }),
+        ]}
+        textoSemRotas="Nenhuma rota"
+        incidentesAbertos={0}
+        onAbrirIncidentes={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
+      /, 10,0 km$/,
+    );
+  });
+
   it('com incidentes abertos, o trecho é pressionável e leva aos incidentes', () => {
     const onAbrirIncidentes = jest.fn();
     const { getByRole } = render(
