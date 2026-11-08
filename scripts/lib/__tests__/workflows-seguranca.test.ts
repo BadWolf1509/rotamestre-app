@@ -215,12 +215,15 @@ describe('expire-routes.yml: cron sem corpo de resposta no log público', () => 
     expect(executado).not.toContain('echo "$body"');
   });
 
-  it('cada um dos 3 jobs grava a resposta em arquivo e exige success == true', () => {
-    expect((executado.match(/-o resposta\.json/g) ?? []).length).toBe(3);
-    expect(
-      (executado.match(/jq -e '\.success == true' resposta\.json/g) ?? [])
-        .length,
-    ).toBe(3);
+  it('os 3 jobs chamam o script, que grava a resposta em arquivo e exige success == true', () => {
+    expect((executado.match(/scripts\/chamar-edge\.sh/g) ?? []).length).toBe(3);
+    const script = readFileSync(
+      join(pasta, '..', '..', 'scripts', 'chamar-edge.sh'),
+      'utf8',
+    );
+    expect(script).toMatch(/-o "\$resposta"/);
+    expect(script).toContain('jq -e \'.success == true\' "$resposta"');
+    expect(script).not.toMatch(/cat "\$resposta"|echo "\$body"/);
   });
 });
 
@@ -278,3 +281,55 @@ describe.each(['test.yml', 'quality.yml'])(
     });
   },
 );
+
+// Agendador endurecido (L8-9, 30(e)): cada job tem teto de tempo, a chamada às
+// Edge Functions passa pelo script único (curl com --max-time) e só o job que
+// avisa a falha escreve em issues.
+describe('expire-routes.yml: agendador endurecido', () => {
+  const fonte = ler('expire-routes.yml').replace(/\r\n/g, '\n');
+  const bloco = (id: string) =>
+    (fonte.match(
+      new RegExp(
+        String.raw`^ {2}${id}:\n([\s\S]*?)(?=^ {2}[\w-]+:\n|(?![\s\S]))`,
+        'm',
+      ),
+    ) ?? [])[1] ?? '';
+  const jobsDeChamada = [
+    'remind-routes',
+    'final-warning-routes',
+    'expire-routes',
+  ];
+
+  it.each(jobsDeChamada)('%s: timeout de 5 min e chamada pelo script', (id) => {
+    const corpo = bloco(id);
+    expect(corpo).toMatch(/^ {4}timeout-minutes:\s*5\s*$/m);
+    expect(corpo).toContain('scripts/chamar-edge.sh');
+    expect(corpo).not.toMatch(/\bcurl\b/);
+    expect(corpo).not.toMatch(/issues:\s*write/);
+  });
+
+  it('o script usa --max-time 60 e confere success com jq', () => {
+    const script = readFileSync(
+      join(pasta, '..', '..', 'scripts', 'chamar-edge.sh'),
+      'utf8',
+    );
+    expect(script).toMatch(/--max-time 60/);
+    expect(script).toContain("jq -e '.success == true'");
+  });
+
+  it('avisar-falha: roda sempre, depois dos três jobs, com issues: write só nele', () => {
+    const corpo = bloco('avisar-falha');
+    expect(corpo).toMatch(/^ {4}if:\s*always\(\)\s*$/m);
+    expect(corpo).toMatch(/^ {4}timeout-minutes:\s*5\s*$/m);
+    expect(corpo).toMatch(
+      /needs:\s*\[remind-routes, final-warning-routes, expire-routes\]/,
+    );
+    expect(corpo).toMatch(/^ {6}issues:\s*write\s*$/m);
+    expect(corpo).toContain('scripts/lib/avisar-falha-agendada.js');
+    const semComentario = fonte
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('#'))
+      .join('\n');
+    expect(semComentario.match(/issues:\s*write/g)).toHaveLength(1);
+  });
+});

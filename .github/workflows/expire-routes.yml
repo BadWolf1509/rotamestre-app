@@ -41,7 +41,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.schedule || github.event.inputs.action }}
   cancel-in-progress: false
 
-# GITHUB_TOKEN só leitura: nenhum job aqui escreve no repositório.
+# GITHUB_TOKEN só leitura por padrão. A única exceção é o job `avisar-falha`,
+# que declara `issues: write` por conta própria (abre/comenta/fecha a issue).
 permissions:
   contents: read
 
@@ -50,83 +51,85 @@ jobs:
   remind-routes:
     name: Remind Pending Routes (16:00 BRT)
     runs-on: ubuntu-latest
-    # Só executa às 19:00 UTC OU se for dispatch manual com action=remind
+    timeout-minutes: 5
     if: github.event.schedule == '0 19 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'remind')
 
     steps:
-      - name: Call Remind Edge Function
-        run: |
-          echo "🕐 Sending route reminders at 16:00 BRT..."
+      - name: Checkout (só os scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
 
-          http_code=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
-            "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json") || http_code="000"
-
-          # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
-          # O corpo inteiro não vai ao log (repositório público): só contadores.
-          if [ "$http_code" != "200" ] || ! jq -e '.success == true' resposta.json > /dev/null 2>&1; then
-            echo "❌ Error: Edge Function returned HTTP $http_code"
-            jq -r '.error // "sem campo error"' resposta.json 2>/dev/null || echo "sem campo error"
-            exit 1
-          fi
-
-          jq -c '{routes_found, reminders_sent}' resposta.json
-          echo "✅ Reminders sent successfully"
+      - name: Chamar a Edge Function remind-routes
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: scripts/chamar-edge.sh remind-routes '{routes_found, reminders_sent}'
 
   # Job para aviso FINAL às 20:00 (23:00 UTC) - 2h antes da expiração
   final-warning-routes:
     name: Final Warning - Routes Expiring Soon (20:00 BRT)
     runs-on: ubuntu-latest
-    # Só executa às 23:00 UTC OU se for dispatch manual com action=final-warning
+    timeout-minutes: 5
     if: github.event.schedule == '0 23 * * 1-5' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'final-warning')
 
     steps:
-      - name: Call Final Warning Edge Function
-        run: |
-          echo "⚠️ Sending FINAL warning - routes expire in 2 hours (20:00 BRT)..."
+      - name: Checkout (só os scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
 
-          http_code=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
-            "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/remind-routes" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json" \
-            -d '{"urgency": "final"}') || http_code="000"
-
-          # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
-          # O corpo inteiro não vai ao log (repositório público): só contadores.
-          if [ "$http_code" != "200" ] || ! jq -e '.success == true' resposta.json > /dev/null 2>&1; then
-            echo "❌ Error: Edge Function returned HTTP $http_code"
-            jq -r '.error // "sem campo error"' resposta.json 2>/dev/null || echo "sem campo error"
-            exit 1
-          fi
-
-          jq -c '{routes_found, reminders_sent}' resposta.json
-          echo "✅ Final warnings sent successfully"
+      - name: Chamar a Edge Function remind-routes
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: scripts/chamar-edge.sh remind-routes '{routes_found, reminders_sent}' '{"urgency": "final"}'
 
   # Job para expiração das 22:00 (01:00 UTC)
   expire-routes:
     name: Expire Pending Routes (22:00 BRT)
     runs-on: ubuntu-latest
-    # Só executa às 01:00 UTC OU se for dispatch manual com action=expire
+    timeout-minutes: 5
     if: github.event.schedule == '0 1 * * 2-6' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'expire')
 
     steps:
-      - name: Call Expire Edge Function
+      - name: Checkout (só os scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Chamar a Edge Function expire-routes
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: scripts/chamar-edge.sh expire-routes '{expired_count, notifications_sent, localizacoes_apagadas}'
+
+  # Cron que falha em silêncio é lembrete/expiração que não aconteceu: o job
+  # vermelho fica numa aba que ninguém abre. Este passo transforma a falha em
+  # issue (label `agendador-falhou`), comenta nas repetições e fecha quando o
+  # job volta a passar. Roda sempre; só um dos três jobs acima executa por
+  # disparo, os outros chegam como `skipped`. O texto da issue leva só nome do
+  # job, link da execução e horário (repositório público).
+  avisar-falha:
+    name: Avisar falha do agendador
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [remind-routes, final-warning-routes, expire-routes]
+    if: always()
+    # Sobrescreve o topo: o job precisa ler o repositório (checkout) e escrever issues.
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout (só os scripts)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      - name: Abrir, comentar ou fechar a issue do agendador
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "🕙 Expiring pending routes at 22:00 BRT..."
-
-          http_code=$(curl -sS -o resposta.json -w '%{http_code}' -X POST \
-            "https://xezslsyxjivunmhhyxtd.supabase.co/functions/v1/expire-routes" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            -H "Content-Type: application/json") || http_code="000"
-
-          # Falha se o HTTP não for 200 OU se o corpo não trouxer success == true.
-          # O corpo inteiro não vai ao log (repositório público): só contadores.
-          if [ "$http_code" != "200" ] || ! jq -e '.success == true' resposta.json > /dev/null 2>&1; then
-            echo "❌ Error: Edge Function returned HTTP $http_code"
-            jq -r '.error // "sem campo error"' resposta.json 2>/dev/null || echo "sem campo error"
-            exit 1
-          fi
-
-          jq -c '{expired_count, notifications_sent, localizacoes_apagadas}' resposta.json
-          echo "✅ Routes expired successfully"
+          node scripts/lib/avisar-falha-agendada.js             "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"             "Remind Pending Routes (16:00 BRT)=${{ needs.remind-routes.result }}"             "Final Warning - Routes Expiring Soon (20:00 BRT)=${{ needs.final-warning-routes.result }}"             "Expire Pending Routes (22:00 BRT)=${{ needs.expire-routes.result }}"
