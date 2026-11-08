@@ -18,6 +18,12 @@ export interface MembroDaEquipe {
   /** Principal DESTA loja (ver `ehGestorPrincipalDaLoja`). */
   is_gestor_principal: boolean;
   ativo: boolean;
+  /**
+   * A loja é o slot legado (`usuarios.unidade_id`) da pessoa. A RPC de
+   * transferência só aceita como destino quem tem o vínculo ativo E a loja
+   * nesse slot; a Equipe lista pelo vínculo, então os dois podem divergir.
+   */
+  slot_na_loja: boolean;
   created_at: string;
   foto_url: string | null;
 }
@@ -50,8 +56,14 @@ export function ehGestorPrincipalDaLoja(
   );
 }
 
-type LinhaMotorista = Omit<MembroDaEquipe, 'papel' | 'is_gestor_principal'>;
-type LinhaGestor = Omit<MembroDaEquipe, 'is_gestor_principal'> & {
+type LinhaMotorista = Omit<
+  MembroDaEquipe,
+  'papel' | 'is_gestor_principal' | 'slot_na_loja'
+>;
+type LinhaGestor = Omit<
+  MembroDaEquipe,
+  'is_gestor_principal' | 'slot_na_loja'
+> & {
   is_gestor_principal: boolean | null;
   unidade_id: string | null;
 };
@@ -83,6 +95,7 @@ export async function carregarEquipeDaLoja(
     email: m.email,
     papel: 'motorista',
     is_gestor_principal: false,
+    slot_na_loja: false,
     ativo: m.ativo,
     created_at: m.created_at,
     foto_url: m.foto_url,
@@ -95,6 +108,7 @@ export async function carregarEquipeDaLoja(
     .filter((u): u is LinhaGestor => !!u)
     .map(({ unidade_id: _unidade, ...u }) => ({
       ...u,
+      slot_na_loja: _unidade === unidadeId,
       is_gestor_principal: ehGestorPrincipalDaLoja(
         { is_gestor_principal: u.is_gestor_principal, unidade_id: _unidade },
         unidadeId,

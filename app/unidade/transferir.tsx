@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,17 +20,14 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
-import { ehGestorPrincipalDaLoja } from '@/lib/gestor/equipeDaLoja';
+import {
+  carregarEquipeDaLoja,
+  ehGestorPrincipalDaLoja,
+  type MembroDaEquipe,
+} from '@/lib/gestor/equipeDaLoja';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { StyleSheet, type Theme } from '@/utils/styles';
-
-interface GestorElegivel {
-  id: string;
-  nome: string;
-  email: string;
-  created_at: string;
-}
 
 export default function TransferirGestaoScreen() {
   const router = useRouter();
@@ -52,7 +49,8 @@ export default function TransferirGestaoScreen() {
   const { showWarning, showSuccess, showError, AlertDialog } = useAlert();
   const { isDesktop } = useResponsive();
   const pageMeta = getGestorPageMeta('transferirUnidade');
-  const [gestores, setGestores] = useState<GestorElegivel[]>([]);
+  const [gestores, setGestores] = useState<MembroDaEquipe[]>([]);
+  const requisicaoRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [selectedGestor, setSelectedGestor] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -67,6 +65,9 @@ export default function TransferirGestaoScreen() {
   const isGestorPrincipal = ehGestorPrincipalDaLoja(userData, unidadeAtiva);
 
   const loadGestoresElegiveis = useCallback(async () => {
+    // Resposta velha não sobrescreve a atual: com a troca de loja no meio da
+    // carga, a lista da loja anterior chegava por último e vencia.
+    const requisicao = ++requisicaoRef.current;
     const unidadeId = isGestorPrincipal ? unidadeAtiva : null;
     if (!unidadeId) {
       setGestores([]);
@@ -76,24 +77,27 @@ export default function TransferirGestaoScreen() {
 
     try {
       setLoading(true);
-      // Buscar apenas gestores ativos, excluindo o gestor principal atual
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('id, nome, email, created_at')
-        .eq('unidade_id', unidadeId)
-        .eq('papel', 'gestor')
-        .eq('ativo', true)
-        .eq('is_gestor_principal', false)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      setGestores(data || []);
+      // Mesma fonte da tela Equipe. Destino que a RPC aceita: gestor ativo
+      // (vínculo e pessoa) com a loja no slot legado, que não seja o principal.
+      const equipe = await carregarEquipeDaLoja(unidadeId);
+      if (requisicao !== requisicaoRef.current) return;
+      setGestores(
+        equipe
+          .filter(
+            (m) =>
+              m.papel === 'gestor' &&
+              m.ativo &&
+              !m.is_gestor_principal &&
+              m.slot_na_loja,
+          )
+          .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      );
     } catch (error) {
+      if (requisicao !== requisicaoRef.current) return;
       logger.error('Erro ao carregar gestores', error);
       showToast('Erro ao carregar gestores', 'error', 4000);
     } finally {
-      setLoading(false);
+      if (requisicao === requisicaoRef.current) setLoading(false);
     }
   }, [showToast, isGestorPrincipal, unidadeAtiva]);
 
