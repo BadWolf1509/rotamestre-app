@@ -563,8 +563,9 @@ export async function processarFilaAcoesParada({
     return false;
   };
 
+  // Fora do `try` para o `finally` saber se a rodada parou esperando rede.
+  let esperarRede = false;
   try {
-    let esperarRede = false;
     do {
       rodarDeNovo = false;
       const minhas = (await lerFilaAcoesParada()).filter(
@@ -588,7 +589,14 @@ export async function processarFilaAcoesParada({
     return { enviadas, descartadas, restantes };
   } finally {
     processando = false;
+    // Pedido que chegou depois do laço (durante `avancarProxima` ou a releitura
+    // final) marcou `rodarDeNovo` e ninguém o consumiria: reagenda uma rodada.
+    // Não reagenda se a rodada parou esperando rede (o gatilho é a volta dela)
+    // e zera a marca, então só um pedido novo gera outra rodada: sem laço.
+    const reagendar = rodarDeNovo && !esperarRede;
+    rodarDeNovo = false;
     avisarOuvintes();
+    if (reagendar) void sincronizarFilaAcoesParada();
   }
 }
 
@@ -691,6 +699,7 @@ export const portaParadasSupabase: PortaParadas = {
  */
 export function _resetFilaAcoesParada(): void {
   processando = false;
+  rodarDeNovo = false;
   emSerie = criarSerie();
   ouvintes.clear();
 }
