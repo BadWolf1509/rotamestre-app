@@ -64,7 +64,8 @@ jobs:
       - name: Chamar a Edge Function remind-routes
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: scripts/chamar-edge.sh remind-routes '{routes_found, reminders_sent}'
+        run: |
+          scripts/chamar-edge.sh remind-routes '{routes_found, reminders_sent}'
 
   # Job para aviso FINAL às 20:00 (23:00 UTC) - 2h antes da expiração
   final-warning-routes:
@@ -83,7 +84,8 @@ jobs:
       - name: Chamar a Edge Function remind-routes
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: scripts/chamar-edge.sh remind-routes '{routes_found, reminders_sent}' '{"urgency": "final"}'
+        run: |
+          scripts/chamar-edge.sh remind-routes '{routes_found, reminders_sent}' '{"urgency": "final"}'
 
   # Job para expiração das 22:00 (01:00 UTC)
   expire-routes:
@@ -102,7 +104,8 @@ jobs:
       - name: Chamar a Edge Function expire-routes
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: scripts/chamar-edge.sh expire-routes '{expired_count, notifications_sent, localizacoes_apagadas}'
+        run: |
+          scripts/chamar-edge.sh expire-routes '{expired_count, notifications_sent, localizacoes_apagadas}'
 
   # Cron que falha em silêncio é lembrete/expiração que não aconteceu: o job
   # vermelho fica numa aba que ninguém abre. Este passo transforma a falha em
