@@ -594,10 +594,15 @@ export function useDashboardData(
         setIncidentesAbertos(incidentes);
 
         // Sem KPIs (desktop): só os derivados da lista, que não custam consulta.
+        // Os de semana/mês não foram medidos: indisponíveis (null), nunca 0.
         if (!kpisResult) {
           if (listaVigente()) {
             setKpis((anteriores) => ({
               ...anteriores,
+              rotasSemana: null,
+              rotasMes: null,
+              tempoMedioMinutos: null,
+              motoristaDestaque: null,
               ...kpisDaLista(rotasComDetalhes),
             }));
           }

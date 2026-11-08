@@ -252,6 +252,35 @@ describe('useDashboardData — KPI que falha', () => {
     expect(result.current.kpis.rotasSemana).not.toBeNull();
   });
 
+  it('sem KPIs carregados (comKpis false): semana, mês, tempo e destaque são null, não 0', async () => {
+    const { result } = renderHook(() =>
+      useDashboardData({ filters: {}, comKpis: false }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.rotasSemana).toBeNull();
+    expect(result.current.kpis.rotasMes).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    expect(result.current.kpis.motoristaDestaque).toBeNull();
+  });
+
+  it('comKpis false→true com a consulta do mês falhando: continua null, não volta a 0', async () => {
+    mockKpiComErro = 'mes';
+    const { result, rerender } = renderHook(
+      ({ comKpis }: { comKpis: boolean }) =>
+        useDashboardData({ filters: {}, comKpis }),
+      { initialProps: { comKpis: false } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ comKpis: true });
+
+    await waitFor(() => expect(result.current.kpis.rotasSemana).not.toBeNull());
+    expect(result.current.kpis.rotasMes).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    expect(result.current.kpis.motoristaDestaque).toBeNull();
+  });
+
   it('motorista_id com embed escondido pela RLS não vira "Sem motorista"', async () => {
     mockTabelas.rotas = [
       { ...rota('oculta', hoje), usuarios: null },
