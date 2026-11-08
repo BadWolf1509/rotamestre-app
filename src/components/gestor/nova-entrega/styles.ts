@@ -106,6 +106,7 @@ export const novaEntregaStyles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.gray300,
+    backgroundColor: theme.colors.background,
     alignItems: 'center',
     minHeight: 48,
     justifyContent: 'center',
@@ -122,7 +123,7 @@ export const novaEntregaStyles = StyleSheet.create((theme: Theme) => ({
   radioText: {
     fontSize: theme.typography.base,
     fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray700,
+    color: theme.colors.textSecondary,
   },
   radioTextDesktop: {
     fontSize: theme.desktop.input.fontSize,
@@ -133,15 +134,13 @@ export const novaEntregaStyles = StyleSheet.create((theme: Theme) => ({
   radioIcon: {
     marginRight: theme.spacing.xs,
   },
-  radioButtonRetirada: {
-    borderColor: theme.colors.warning,
-  },
   radioButtonRetiradaActive: {
     backgroundColor: theme.colors.warning,
     borderColor: theme.colors.warning,
   },
-  radioTextRetirada: {
-    color: theme.colors.warning,
+  // Branco sobre warning dá 2,15:1; o texto escuro passa de 4,5:1 nos dois temas
+  radioTextRetiradaActive: {
+    color: theme.colors.onWarning,
   },
   // Vínculo section
   vinculoSection: {

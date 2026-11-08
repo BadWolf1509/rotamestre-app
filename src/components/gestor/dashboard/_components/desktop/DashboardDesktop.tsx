@@ -1,22 +1,14 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { View, TouchableOpacity, RefreshControl } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { View, RefreshControl } from 'react-native';
 
-import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import {
-  Button,
-  DesktopPageLayout,
-  Dialog,
-  Text,
-  Toast,
-} from '@/design-system';
+import { DesktopPageLayout, Dialog, EmptyState, Toast } from '@/design-system';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
-import { formatarDecimal } from '@/lib/formatNumber';
 import {
   excluirRota,
   ExclusaoRotaError,
@@ -24,10 +16,10 @@ import {
   textoConfirmacaoExclusao,
 } from '@/lib/gestor/excluirRota';
 import { logger } from '@/lib/logger';
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
-import { RotasTable } from './RotasTable';
-import { StatsCard } from '../shared/StatsCard';
+import { ListaDeRotasDoDia } from './ListaDeRotasDoDia';
+import { ResumoDoDia } from './ResumoDoDia';
 
 import type { DashboardData } from '../../_hooks/useDashboardData';
 
@@ -44,8 +36,6 @@ interface DashboardDesktopProps extends DashboardData {
  */
 export function DashboardDesktop({
   stats,
-  todayStats, // ✅ Stats de hoje (ignora filtros)
-  kpis: _kpis, // ✅ KPIs avançados
   rotas,
   loading,
   refreshing,
@@ -57,7 +47,6 @@ export function DashboardDesktop({
   filters,
   onFiltersChange,
 }: DashboardDesktopProps) {
-  const { theme } = useUnistyles();
   const router = useRouter();
 
   const pageMeta = getGestorPageMeta('inicio');
@@ -104,7 +93,7 @@ export function DashboardDesktop({
     paradasCount: rotaParaExcluir?.total_paradas,
   });
 
-  // Memoize delete handler para evitar re-render do RotasTable
+  // Memoize delete handler para evitar re-render da lista de rotas
   const handleDeleteRota = useCallback(
     (rotaId: string) => {
       const rota = rotas.find((r) => r.id === rotaId);
@@ -174,6 +163,30 @@ export function DashboardDesktop({
     [router],
   );
 
+  // Sem período escolhido, a Início mostra as rotas de hoje; com ele, o
+  // vazio não pode dizer "hoje".
+  const comFiltroDePeriodo = Boolean(filters.dataInicio || filters.dataFim);
+
+  const irParaNovaRota = useCallback(() => {
+    router.push('/gestor/nova-entrega');
+  }, [router]);
+
+  const abrirIncidentes = useCallback(() => {
+    router.push('/gestor/incidentes');
+  }, [router]);
+
+  const acoesDoCabecalho = useMemo(
+    () => [
+      {
+        label: 'Nova rota',
+        icon: 'add',
+        variant: 'primary',
+        onPress: irParaNovaRota,
+      },
+    ],
+    [irParaNovaRota],
+  );
+
   // Memoize toast dismiss
   const handleToastDismiss = useCallback(() => {
     setToast((prev) => ({ ...prev, visible: false }));
@@ -185,6 +198,7 @@ export function DashboardDesktop({
         title={pageMeta.title}
         subtitle={unidadeNome || pageMeta.subtitle}
         breadcrumbs={pageMeta.breadcrumbs}
+        actions={acoesDoCabecalho}
         userMenuTrigger={userMenuTrigger}
         userMenuItems={userMenuItems}
         loading={loading}
@@ -203,79 +217,11 @@ export function DashboardDesktop({
             />
           ) : null}
 
-          <View style={styles.statsRow} testID="gestor-dashboard-stats">
-            <AnimatedListItem index={0} style={styles.statCard}>
-              <StatsCard
-                value={todayStats.totalHoje}
-                label="Total Hoje"
-                backgroundColor={theme.colors.primaryDark}
-              />
-            </AnimatedListItem>
-            <AnimatedListItem index={1} style={styles.statCard}>
-              <StatsCard
-                value={stats.emAndamento}
-                label="Em Andamento"
-                backgroundColor={theme.colors.secondary}
-              />
-            </AnimatedListItem>
-            <AnimatedListItem index={2} style={styles.statCard}>
-              <StatsCard
-                value={stats.concluidas}
-                label="Concluídas"
-                backgroundColor={theme.colors.kpiConcluidas}
-              />
-            </AnimatedListItem>
-            <AnimatedListItem index={3} style={styles.statCard}>
-              <StatsCard
-                value={formatarDecimal(stats.distanciaTotal)}
-                label="km Total"
-                backgroundColor={theme.colors.kpiDistancia}
-              />
-            </AnimatedListItem>
-            <AnimatedListItem index={4} style={styles.statCard}>
-              <TouchableOpacity
-                onPress={() => router.push('/gestor/incidentes')}
-                activeOpacity={0.8}
-              >
-                <StatsCard
-                  value={
-                    stats.incidentesAbertos === null
-                      ? '—'
-                      : stats.incidentesAbertos || 0
-                  }
-                  label="Incidentes Abertos"
-                  backgroundColor={theme.colors.kpiIncidentes}
-                />
-              </TouchableOpacity>
-            </AnimatedListItem>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-            <View style={styles.actionsRow}>
-              <Button
-                title="Nova Rota de Entrega"
-                icon="add-circle"
-                variant="primary"
-                onPress={() => router.push('/gestor/nova-entrega')}
-                style={styles.actionButton}
-              />
-              <Button
-                title="Gerenciar Motoristas"
-                icon="people"
-                variant="outline"
-                onPress={() => router.push('/gestor/motoristas')}
-                style={styles.actionButton}
-              />
-              <Button
-                title="Gestão de Rotas"
-                icon="clipboard"
-                variant="outline"
-                onPress={() => router.push('/gestor/gestao-rotas')}
-                style={styles.actionButton}
-              />
-            </View>
-          </View>
+          <ResumoDoDia
+            rotas={rotas}
+            incidentesAbertos={stats.incidentesAbertos ?? null}
+            onAbrirIncidentes={abrirIncidentes}
+          />
 
           <View style={styles.filtersSection}>
             <RouteFilters
@@ -286,11 +232,33 @@ export function DashboardDesktop({
             />
           </View>
 
-          <RotasTable
-            rotas={rotas}
-            onViewDetails={handleViewDetails}
-            onDelete={handleDeleteRota}
-          />
+          {rotas.length === 0 ? (
+            <View testID="rotas-table">
+              <EmptyState
+                icon="map-outline"
+                title={
+                  comFiltroDePeriodo
+                    ? 'Nenhuma rota no período'
+                    : 'Nenhuma rota cadastrada hoje'
+                }
+                description={
+                  comFiltroDePeriodo
+                    ? 'Ajuste os filtros ou crie uma nova rota'
+                    : 'Crie a primeira rota de entrega do dia'
+                }
+                actionLabel="Criar rota"
+                onActionPress={irParaNovaRota}
+                compact
+                style={styles.emptyState}
+              />
+            </View>
+          ) : (
+            <ListaDeRotasDoDia
+              rotas={rotas}
+              onAbrirRota={handleViewDetails}
+              onExcluirRota={handleDeleteRota}
+            />
+          )}
         </View>
       </DesktopPageLayout>
 
@@ -325,31 +293,13 @@ const styles = StyleSheet.create((theme: Theme) => ({
     marginHorizontal: 'auto',
     width: '100%',
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-    marginBottom: theme.spacing['2xl'],
-  },
-  statCard: {
-    flex: 1,
-  },
-  section: {
-    marginBottom: theme.spacing['2xl'],
-  },
-  sectionTitle: {
-    fontSize: theme.typography.lg,
-    fontFamily: theme.typography.fontSansSemiBold,
-    color: theme.colors.gray900,
+  filtersSection: {
     marginBottom: theme.spacing.lg,
   },
-  filtersSection: {
-    marginBottom: theme.spacing['2xl'],
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-  },
-  actionButton: {
-    flex: 1,
+  emptyState: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.gray200,
   },
 }));

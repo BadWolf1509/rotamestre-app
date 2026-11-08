@@ -142,12 +142,20 @@ const mockTheme = {
     gray100: '#f3f4f6',
     gray50: '#f9fafb',
     primary: '#1e5aa8',
+    background: '#f9fafb',
+    text: '#1f2937',
+    textSecondary: '#4b5563',
     primaryDark: '#164178',
     primaryBg: '#e6ecfb',
     secondary: '#f7a02a',
     success: '#22c55e',
     error: '#ef4444',
     warning: '#f59e0b',
+    onWarning: '#111827',
+    warningText: '#b45309',
+    successDark: '#047857',
+    errorText: '#b91c1c',
+    infoText: '#1d4ed8',
     info: '#3b82f6',
     overlay: 'rgba(0, 0, 0, 0.5)',
     whatsapp: '#25D366',
@@ -184,6 +192,7 @@ const mockTheme = {
     fontSans: 'System',
     fontSansSemiBold: 'System',
     fontSansBold: 'System',
+    fontDisplay: 'Viga',
   },
   spacing: {
     // Escala numerica (grade de 4px) — o codigo de producao usa
@@ -755,3 +764,13 @@ jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock
 // detectores por mocks. Necessário desde que o ReanimatedSwipeable entrou no
 // design system (antes, só telas com mock próprio carregavam o RNGH).
 require('react-native-gesture-handler/jestSetup');
+
+// O mock de View do preset do RN tem `measureInWindow` que nunca responde. O
+// MenuDeAcoes só desenha a lista quando a medida da abertura responde (sem
+// pisca); aqui ela responde na hora, com tudo em zero. Quem precisa controlar
+// a resposta mocka a View no próprio teste (MenuDeAcoes.ancora.test.tsx).
+jest
+  .requireActual('@react-native/jest-preset/jest/MockNativeMethods')
+  .default.measureInWindow.mockImplementation((responder) =>
+    responder?.(0, 0, 0, 0),
+  );

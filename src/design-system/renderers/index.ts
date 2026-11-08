@@ -4,9 +4,4 @@
  * Reusable render components for common DataTable column types.
  */
 
-export {
-  DistanceCell,
-  ProgressCell,
-  StatusCell,
-  UserCell,
-} from './DataTableRenderers';
+export { StatusCell } from './DataTableRenderers';

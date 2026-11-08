@@ -76,7 +76,7 @@ test.describe('Gestor Route Creation E2E Tests', () => {
 
       // Os dois rádios expõem accessibilityLabel, que na web vira aria-label —
       // âncora estável, ao contrário de `getByText('Entrega')`, que também casa
-      // o título "Nova Rota de Entrega" no cabeçalho da página.
+      // o título "Nova rota de entrega" no cabeçalho da página.
       await expect(page.getByLabel('Selecionar tipo entrega')).toBeVisible({
         timeout: 15000,
       });
@@ -141,8 +141,12 @@ test.describe('Gestor Route Creation E2E Tests', () => {
     test('should navigate to nova-entrega from dashboard', async ({ page }) => {
       await gestorPage.gotoInicio();
 
-      // A ação rápida do painel precisa existir e levar à criação de rota.
-      const novaEntregaLink = page.getByText('Nova Rota de Entrega').first();
+      // A ação de criar rota precisa existir e levar à criação: "Nova rota"
+      // no cabeçalho do desktop, "Nova rota de entrega" nas ações rápidas do
+      // mobile.
+      const novaEntregaLink = page
+        .getByRole('button', { name: /^Nova rota( de entrega)?$/ })
+        .first();
       await expect(novaEntregaLink).toBeVisible({ timeout: 15000 });
       await novaEntregaLink.click();
 

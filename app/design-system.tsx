@@ -2554,11 +2554,13 @@ const themeName = UnistylesRuntime.themeName;`}
             <StatusBadge
               label="Ativo"
               color={theme.colors.success}
+              textColor={theme.colors.successDark}
               variant="soft"
             />
             <StatusBadge
               label="Pausado"
               color={theme.colors.warning}
+              textColor={theme.colors.warningText}
               variant="soft"
             />
             <StatusBadge
@@ -2566,7 +2568,12 @@ const themeName = UnistylesRuntime.themeName;`}
               color={theme.colors.error}
               variant="solid"
             />
-            <StatusBadge label="Info" color={theme.colors.info} size="sm" />
+            <StatusBadge
+              label="Info"
+              color={theme.colors.info}
+              textColor={theme.colors.infoText}
+              size="sm"
+            />
           </View>
 
           <Text style={styles.groupTitle}>FilterChip</Text>

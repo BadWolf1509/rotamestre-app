@@ -13,11 +13,15 @@ import { Page, Locator, expect } from '@playwright/test';
 export class GestorPage {
   readonly page: Page;
 
-  /** Usado pelo `visual-critical.e2e.ts` (cartão "Total hoje" do painel). */
+  /**
+   * Usado pelo `visual-critical.e2e.ts`: o bloco `gestor-dashboard-stats`, que
+   * existe nos dois layouts (resumo do dia no desktop, cartões no mobile). Era
+   * o texto "Total hoje", que saiu do desktop.
+   */
   readonly dashboardReady: Locator;
 
   // Sinais de tela pronta
-  /** Bloco de métricas do painel — `DashboardDesktop` e `DashboardMobile`. */
+  /** Bloco de métricas do painel — `ResumoDoDia` (desktop) e `DashboardMobile`. */
   readonly inicioPronto: Locator;
   /** Rádio do tipo da parada — formulário compartilhado pelos dois layouts. */
   readonly novaEntregaPronta: Locator;
@@ -44,7 +48,7 @@ export class GestorPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.dashboardReady = page.getByText(/total hoje/i);
+    this.dashboardReady = page.getByTestId('gestor-dashboard-stats');
 
     this.inicioPronto = page.getByTestId('gestor-dashboard-stats');
     this.novaEntregaPronta = page.getByLabel('Selecionar tipo entrega');

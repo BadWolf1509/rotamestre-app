@@ -1,4 +1,4 @@
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import React from 'react';
 
 import { DashboardDesktop } from '../DashboardDesktop';
@@ -11,44 +11,8 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-// Mock supabase
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          eq: jest.fn(() => ({
-            order: jest.fn(() => Promise.resolve({ data: [], error: null })),
-          })),
-        })),
-      })),
-      delete: jest.fn(() => ({
-        eq: jest.fn(() => Promise.resolve({ error: null })),
-      })),
-    })),
-    auth: {
-      getSession: jest.fn(() =>
-        Promise.resolve({ data: { session: null }, error: null }),
-      ),
-      onAuthStateChange: jest.fn(() => ({
-        data: { subscription: { unsubscribe: jest.fn() } },
-      })),
-    },
-  },
-}));
-
-// Loja ativa: o estado mora no UnidadeAtivaProvider da raiz (useMotoristas lê).
-jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({
-    unidadeAtiva: null,
-    unidadeAtivaData: null,
-    vinculacoes: [],
-    temMultiplasUnidades: false,
-    papelNaUnidadeAtiva: null,
-    loading: false,
-    trocarUnidade: jest.fn(),
-    refresh: jest.fn(),
-  }),
+jest.mock('@/hooks/useMotoristas', () => ({
+  useMotoristas: () => ({ motoristas: [] }),
 }));
 
 // Mock useDesktopHeaderMenu
@@ -68,10 +32,33 @@ jest.mock('@/constants/gestorPageMeta', () => ({
   }),
 }));
 
-// Mock styles
-// Mock DesktopPageLayout
+// DesktopPageLayout: só o conteúdo e as ações do cabeçalho (o resto — seletor
+// de loja, sino — tem dependências próprias que não interessam aqui).
 jest.mock('@/components/desktop/DesktopPageLayout', () => ({
-  DesktopPageLayout: ({ children }: any) => children,
+  DesktopPageLayout: ({
+    children,
+    actions,
+  }: {
+    children: React.ReactNode;
+    actions?: { label: string; onPress: () => void }[];
+  }) => {
+    const { Text, TouchableOpacity, View } = require('react-native');
+    return (
+      <View>
+        {(actions ?? []).map((a) => (
+          <TouchableOpacity
+            key={a.label}
+            accessibilityRole="button"
+            accessibilityLabel={a.label}
+            onPress={a.onPress}
+          >
+            <Text>{a.label}</Text>
+          </TouchableOpacity>
+        ))}
+        {children}
+      </View>
+    );
+  },
 }));
 
 // Mock RouteFilters
@@ -89,78 +76,53 @@ jest.mock('@/components/Dialog', () => ({
   Dialog: () => null,
 }));
 
-// Mock RotasTable
-jest.mock('../RotasTable', () => ({
-  RotasTable: ({ rotas, onView, onDelete }: any) => {
-    const { Text, TouchableOpacity, View } = require('react-native');
-    return (
-      <View testID="rotas-table">
-        {rotas.map((rota: any) => (
-          <View key={rota.id} testID={`rota-row-${rota.id}`}>
-            <Text>{rota.motorista_nome}</Text>
-            <TouchableOpacity
-              testID={`view-${rota.id}`}
-              onPress={() => onView?.(rota.id)}
-            >
-              <Text>Ver</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID={`delete-${rota.id}`}
-              onPress={() => onDelete?.(rota.id)}
-            >
-              <Text>Excluir</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-    );
-  },
-}));
-
-// Mock StatsCard
-jest.mock('../../shared/StatsCard', () => ({
-  StatsCard: ({ value, label }: any) => {
-    const { Text, View } = require('react-native');
-    return (
-      <View testID={`stats-${label}`}>
-        <Text>{value}</Text>
-        <Text>{label}</Text>
-      </View>
-    );
-  },
-}));
-
 describe('DashboardDesktop', () => {
   const defaultProps = {
     stats: {
-      total: 10,
-      emAndamento: 3,
-      concluidas: 5,
-      pendentes: 2,
+      total: 2,
+      emAndamento: 1,
+      concluidas: 0,
       distanciaTotal: 150.5,
       incidentesAbertos: 2,
     },
     todayStats: {
       totalHoje: 8,
     },
+    kpis: {},
     rotas: [
       {
         id: 'rota-1',
+        data: '2026-11-07',
         motorista_nome: 'João Silva',
+        motorista_id: 'm1',
         status: 'em_andamento',
         total_paradas: 5,
         paradas_concluidas: 2,
+        distancia_total: 100.5,
+        paradas_status: [
+          'concluida',
+          'concluida',
+          'em_andamento',
+          'pendente',
+          'pendente',
+        ],
       },
       {
         id: 'rota-2',
+        data: '2026-11-07',
         motorista_nome: 'Maria Santos',
+        motorista_id: 'm2',
         status: 'pendente',
         total_paradas: 3,
         paradas_concluidas: 0,
+        distancia_total: 50,
+        paradas_status: ['pendente', 'pendente', 'pendente'],
       },
     ],
     loading: false,
     refreshing: false,
+    erroCarga: null,
+    dadosDe: null,
     onRefresh: jest.fn(),
     userData: {
       id: 'user-1',
@@ -169,110 +131,114 @@ describe('DashboardDesktop', () => {
     },
     filters: {},
     onFiltersChange: jest.fn(),
-  };
+  } as unknown as React.ComponentProps<typeof DashboardDesktop>;
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('Rendering', () => {
-    it('deve renderizar stats cards', () => {
-      const { getByTestId } = render(<DashboardDesktop {...defaultProps} />);
-
-      expect(getByTestId('stats-Total Hoje')).toBeTruthy();
-      expect(getByTestId('stats-Em Andamento')).toBeTruthy();
-      expect(getByTestId('stats-Concluídas')).toBeTruthy();
-      expect(getByTestId('stats-km Total')).toBeTruthy();
-    });
-
-    it('deve renderizar tabela de rotas', () => {
-      const { getByTestId } = render(<DashboardDesktop {...defaultProps} />);
-
-      expect(getByTestId('rotas-table')).toBeTruthy();
-    });
-
-    it('deve renderizar linhas de rotas', () => {
-      const { getByTestId } = render(<DashboardDesktop {...defaultProps} />);
-
-      expect(getByTestId('rota-row-rota-1')).toBeTruthy();
-      expect(getByTestId('rota-row-rota-2')).toBeTruthy();
-    });
-  });
-
-  describe('Stats values', () => {
-    it('deve mostrar valor total hoje', () => {
-      const { getByText } = render(<DashboardDesktop {...defaultProps} />);
-
-      expect(getByText('8')).toBeTruthy();
-    });
-
-    it('deve mostrar valor em andamento', () => {
-      const { getByText } = render(<DashboardDesktop {...defaultProps} />);
-
-      expect(getByText('3')).toBeTruthy();
-    });
-
-    it('deve mostrar valor concluídas', () => {
-      const { getByText } = render(<DashboardDesktop {...defaultProps} />);
-
-      expect(getByText('5')).toBeTruthy();
-    });
-
-    it('mostra a distância com vírgula, não com ponto', () => {
-      // App em pt-BR: `toFixed` cru devolve "150.5". O PR #375 migrou 32
-      // pontos de exibição para `formatarDecimal` e deixou justamente o
-      // card do dashboard — a primeira tela que o gestor vê.
-      const { getByText, queryByText } = render(
+  describe('Resumo do dia', () => {
+    it('troca os cartões de número por uma frase', () => {
+      const { getByTestId, queryByText } = render(
         <DashboardDesktop {...defaultProps} />,
       );
 
-      expect(getByText('150,5')).toBeTruthy();
-      expect(queryByText('150.5')).toBeNull();
+      expect(getByTestId('gestor-dashboard-stats')).toBeTruthy();
+      expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
+        '1 rota em andamento, 1 pendente — 2 de 8 paradas feitas, 150,5 km',
+      );
+      expect(queryByText('Total Hoje')).toBeNull();
+      expect(queryByText('Ações Rápidas')).toBeNull();
+      expect(queryByText('Nova rota de entrega')).toBeNull();
     });
-  });
 
-  describe('Navigation', () => {
-    it('deve ter botao Ver na tabela', () => {
+    it('a distância sai com vírgula, não com ponto', () => {
       const { getByTestId } = render(<DashboardDesktop {...defaultProps} />);
 
-      expect(getByTestId('view-rota-1')).toBeTruthy();
-    });
-  });
-
-  describe('Empty state', () => {
-    it('deve renderizar sem rotas', () => {
-      const { getByTestId } = render(
-        <DashboardDesktop {...defaultProps} rotas={[]} />,
+      expect(getByTestId('gestor-dashboard-resumo')).not.toHaveTextContent(
+        /150\.5/,
       );
-
-      expect(getByTestId('rotas-table')).toBeTruthy();
     });
-  });
 
-  describe('Filters callback', () => {
-    it('deve ter onFiltersChange como função', () => {
-      render(<DashboardDesktop {...defaultProps} />);
+    it('os incidentes abertos levam aos incidentes', () => {
+      const { getByRole } = render(<DashboardDesktop {...defaultProps} />);
 
-      expect(typeof defaultProps.onFiltersChange).toBe('function');
+      fireEvent.press(getByRole('link', { name: '2 incidentes abertos' }));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/incidentes');
     });
-  });
 
-  describe('Refresh callback', () => {
-    it('deve ter onRefresh como função', () => {
-      render(<DashboardDesktop {...defaultProps} />);
-
-      expect(typeof defaultProps.onRefresh).toBe('function');
-    });
-  });
-  describe('Incidentes indisponíveis', () => {
-    it('contagem nula aparece como "—", não 0', () => {
-      const { getByTestId } = render(
+    it('contagem de incidentes nula não vira 0', () => {
+      const { getByText, queryByText } = render(
         <DashboardDesktop
-          {...(defaultProps as any)}
+          {...defaultProps}
           stats={{ ...defaultProps.stats, incidentesAbertos: null }}
         />,
       );
-      expect(getByTestId('stats-Incidentes Abertos')).toHaveTextContent(/—/);
+
+      expect(getByText('Incidentes indisponíveis')).toBeTruthy();
+      expect(queryByText(/0 incidentes/)).toBeNull();
+    });
+  });
+
+  describe('Cabeçalho', () => {
+    it('"Nova rota" leva à criação de rota', () => {
+      const { getByRole } = render(<DashboardDesktop {...defaultProps} />);
+
+      fireEvent.press(getByRole('button', { name: 'Nova rota' }));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
+    });
+  });
+
+  describe('Rotas do dia', () => {
+    it('uma linha por rota, com a linha de paradas', () => {
+      const { getByTestId, getAllByLabelText } = render(
+        <DashboardDesktop {...defaultProps} />,
+      );
+
+      expect(getByTestId('rotas-table')).toBeTruthy();
+      expect(getByTestId('rota-dia-rota-1')).toBeTruthy();
+      expect(getByTestId('rota-dia-rota-2')).toBeTruthy();
+      expect(getAllByLabelText(/^Parada \d+, /)).toHaveLength(8);
+    });
+
+    it('tocar na linha abre o mapa da rota', () => {
+      const { getByTestId } = render(<DashboardDesktop {...defaultProps} />);
+
+      fireEvent.press(getByTestId('rota-dia-rota-1'));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/mapa-rota?id=rota-1');
+    });
+  });
+
+  describe('Sem rotas', () => {
+    it('mostra o estado vazio com "Criar rota"', () => {
+      const { getByText, getByRole } = render(
+        <DashboardDesktop {...defaultProps} rotas={[]} />,
+      );
+
+      expect(getByText('Nenhuma rota cadastrada hoje')).toBeTruthy();
+      fireEvent.press(getByRole('button', { name: 'Criar rota' }));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
+    });
+
+    it('com filtro de período o vazio fala do período, sem "hoje", e mantém "Criar rota"', () => {
+      const { getByTestId, getByRole, queryByText } = render(
+        <DashboardDesktop
+          {...defaultProps}
+          rotas={[]}
+          filters={{
+            dataInicio: new Date(2026, 10, 1),
+            dataFim: new Date(2026, 10, 5),
+          }}
+        />,
+      );
+
+      // O ResumoDoDia acima também diz "Nenhuma rota no período".
+      const vazio = within(getByTestId('rotas-table'));
+      expect(vazio.getByText('Nenhuma rota no período')).toBeTruthy();
+      expect(queryByText('Nenhuma rota cadastrada hoje')).toBeNull();
+      expect(queryByText(/do dia/)).toBeNull();
+      fireEvent.press(getByRole('button', { name: 'Criar rota' }));
+      expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });
   });
 
@@ -281,7 +247,7 @@ describe('DashboardDesktop', () => {
       const onRefresh = jest.fn();
       const { getByText } = render(
         <DashboardDesktop
-          {...(defaultProps as any)}
+          {...defaultProps}
           onRefresh={onRefresh}
           erroCarga="Não foi possível carregar o painel."
           dadosDe={null}

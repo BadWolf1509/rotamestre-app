@@ -3,6 +3,8 @@
  * Labels de status em Portugues (PT-BR)
  */
 
+import { ROUTE_STATUS_CONFIG } from '@/constants/statusConfig';
+
 import {
   RotaStatus,
   ROTA_STATUS_LABELS,
@@ -26,10 +28,18 @@ describe('statusLabels', () => {
   describe('ROTA_STATUS_LABELS', () => {
     it('deve conter todos os status de rota com labels corretos', () => {
       expect(ROTA_STATUS_LABELS.pendente).toBe('Pendente');
-      expect(ROTA_STATUS_LABELS.em_andamento).toBe('Em Andamento');
+      expect(ROTA_STATUS_LABELS.em_andamento).toBe('Em andamento');
       expect(ROTA_STATUS_LABELS.concluida).toBe('Concluída');
       expect(ROTA_STATUS_LABELS.cancelada).toBe('Cancelada');
-      expect(ROTA_STATUS_LABELS.nao_executada).toBe('Não Executada');
+      expect(ROTA_STATUS_LABELS.nao_executada).toBe('Não executada');
+    });
+
+    it('cada label é o mesmo de ROUTE_STATUS_CONFIG (grafia única)', () => {
+      (Object.keys(ROTA_STATUS_LABELS) as RotaStatus[]).forEach((status) => {
+        expect(ROTA_STATUS_LABELS[status]).toBe(
+          ROUTE_STATUS_CONFIG[status].label,
+        );
+      });
     });
 
     it('deve ter exatamente 5 status de rota', () => {
@@ -49,7 +59,7 @@ describe('statusLabels', () => {
     });
 
     it('deve retornar label correto para status em_andamento', () => {
-      expect(getRotaStatusLabel('em_andamento')).toBe('Em Andamento');
+      expect(getRotaStatusLabel('em_andamento')).toBe('Em andamento');
     });
 
     it('deve retornar label correto para status concluida', () => {
@@ -61,7 +71,7 @@ describe('statusLabels', () => {
     });
 
     it('deve retornar label correto para status nao_executada', () => {
-      expect(getRotaStatusLabel('nao_executada')).toBe('Não Executada');
+      expect(getRotaStatusLabel('nao_executada')).toBe('Não executada');
     });
 
     it('deve retornar o proprio valor para status desconhecido', () => {
@@ -78,7 +88,9 @@ describe('statusLabels', () => {
     });
 
     it('deve retornar valor original para status com espacos', () => {
-      expect(getRotaStatusLabel('status com espacos')).toBe('status com espacos');
+      expect(getRotaStatusLabel('status com espacos')).toBe(
+        'status com espacos',
+      );
     });
 
     it('deve retornar valor original para status em maiusculas', () => {
@@ -239,11 +251,15 @@ describe('statusLabels', () => {
 
     describe('com status desconhecido', () => {
       it('deve retornar o proprio valor quando rota ativa', () => {
-        expect(getParadaContextLabel('status_desconhecido', true)).toBe('status_desconhecido');
+        expect(getParadaContextLabel('status_desconhecido', true)).toBe(
+          'status_desconhecido',
+        );
       });
 
       it('deve retornar o proprio valor quando rota inativa', () => {
-        expect(getParadaContextLabel('status_desconhecido', false)).toBe('status_desconhecido');
+        expect(getParadaContextLabel('status_desconhecido', false)).toBe(
+          'status_desconhecido',
+        );
       });
     });
 
@@ -299,7 +315,7 @@ describe('statusLabels', () => {
     });
 
     it('deve retornar label de rota para status em_andamento', () => {
-      expect(getFiltroStatusLabel('em_andamento')).toBe('Em Andamento');
+      expect(getFiltroStatusLabel('em_andamento')).toBe('Em andamento');
     });
 
     it('deve retornar label de rota para status concluida', () => {
@@ -311,12 +327,12 @@ describe('statusLabels', () => {
     });
 
     it('deve retornar label de rota para status nao_executada', () => {
-      expect(getFiltroStatusLabel('nao_executada')).toBe('Não Executada');
+      expect(getFiltroStatusLabel('nao_executada')).toBe('Não executada');
     });
 
     it('deve funcionar com tipo FiltroStatus explicitamente tipado', () => {
       const status: FiltroStatus = 'em_andamento';
-      expect(getFiltroStatusLabel(status)).toBe('Em Andamento');
+      expect(getFiltroStatusLabel(status)).toBe('Em andamento');
     });
 
     it('deve retornar o proprio valor para status desconhecido (fallback)', () => {
@@ -400,15 +416,21 @@ describe('statusLabels', () => {
 
   describe('edge cases', () => {
     it('getRotaStatusLabel com undefined deve retornar undefined', () => {
-      expect(getRotaStatusLabel(undefined as unknown as string)).toBe(undefined);
+      expect(getRotaStatusLabel(undefined as unknown as string)).toBe(
+        undefined,
+      );
     });
 
     it('getParadaStatusLabel com undefined deve retornar undefined', () => {
-      expect(getParadaStatusLabel(undefined as unknown as string)).toBe(undefined);
+      expect(getParadaStatusLabel(undefined as unknown as string)).toBe(
+        undefined,
+      );
     });
 
     it('getParadaContextLabel com undefined status deve retornar undefined', () => {
-      expect(getParadaContextLabel(undefined as unknown as string, true)).toBe(undefined);
+      expect(getParadaContextLabel(undefined as unknown as string, true)).toBe(
+        undefined,
+      );
     });
 
     it('getRotaStatusLabel com null deve retornar null', () => {

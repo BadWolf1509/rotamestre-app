@@ -2,6 +2,7 @@
  * Constants and label factories for incidents
  */
 
+import { corDeTextoDoStatus } from '@/constants/statusConfig';
 import type { Theme } from '@/utils/styles';
 
 import type { CategoriaLabel, StatusLabel } from './types';
@@ -9,7 +10,9 @@ import type { CategoriaLabel, StatusLabel } from './types';
 /**
  * Create category labels based on theme
  */
-export function createCategoriaLabels(theme: Theme): Record<string, CategoriaLabel> {
+export function createCategoriaLabels(
+  theme: Theme,
+): Record<string, CategoriaLabel> {
   return {
     accident: {
       label: 'Acidente/Incidente',
@@ -45,14 +48,33 @@ export function createCategoriaLabels(theme: Theme): Record<string, CategoriaLab
 }
 
 /**
- * Create status labels based on theme
+ * Create status labels based on theme. `textColor` é o tom do texto sobre o
+ * fundo do selo soft (>= 4,5:1); o "Fechado" mantém a borda gray500 e escreve
+ * em gray600.
  */
 export function createStatusLabels(theme: Theme): Record<string, StatusLabel> {
+  const { colors } = theme;
   return {
-    aberto: { label: 'Aberto', color: theme.colors.error },
-    em_analise: { label: 'Em Análise', color: theme.colors.warning },
-    resolvido: { label: 'Resolvido', color: theme.colors.success },
-    fechado: { label: 'Fechado', color: theme.colors.gray500 },
+    aberto: {
+      label: 'Aberto',
+      color: colors.error,
+      textColor: corDeTextoDoStatus('error', colors),
+    },
+    em_analise: {
+      label: 'Em análise',
+      color: colors.warning,
+      textColor: corDeTextoDoStatus('warning', colors),
+    },
+    resolvido: {
+      label: 'Resolvido',
+      color: colors.success,
+      textColor: corDeTextoDoStatus('success', colors),
+    },
+    fechado: {
+      label: 'Fechado',
+      color: colors.gray500,
+      textColor: corDeTextoDoStatus('gray600', colors),
+    },
   };
 }
 

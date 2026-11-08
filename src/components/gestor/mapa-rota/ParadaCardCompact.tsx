@@ -8,6 +8,11 @@ import * as Linking from 'expo-linking';
 import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 
+import { StatusBadge } from '@/components/StatusBadge';
+import {
+  STOP_STATUS_CONFIG,
+  corDeTextoDoStatus,
+} from '@/constants/statusConfig';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
 import { telefoneInternacional } from '@/lib/phone';
@@ -65,32 +70,11 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
       setExpanded((prev) => !prev);
     }, [onPress, parada.id]);
 
-    const statusConfig = {
-      concluida: {
-        name: 'checkmark-circle' as const,
-        color: theme.colors.success,
-        label: 'OK',
-      },
-      pendente: {
-        name: 'time' as const,
-        color: theme.colors.warning,
-        label: 'Pend',
-      },
-      em_andamento: {
-        name: 'navigate' as const,
-        color: theme.colors.info,
-        label: 'Em rota',
-      },
-      pulada: {
-        name: 'close-circle' as const,
-        color: theme.colors.gray500,
-        label: 'Pulada',
-      },
-    };
-
+    // Rótulo, ícone e cor do status vêm da config central (nada de abreviação)
     const status =
-      statusConfig[parada.status as keyof typeof statusConfig] ||
-      statusConfig.pendente;
+      STOP_STATUS_CONFIG[parada.status as keyof typeof STOP_STATUS_CONFIG] ||
+      STOP_STATUS_CONFIG.pendente;
+    const statusColor = theme.colors[status.colorKey];
     const hasPhoto = !!fotoUrl && !imageError;
     const showPhotoPlaceholder = parada.status === 'concluida' && !hasPhoto;
     const tipoIcon = parada.tipo === 'entrega' ? 'cube' : 'swap-horizontal';
@@ -105,8 +89,15 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
           style={styles.cardContent}
         >
           {/* Badge de ordem com cor do status */}
-          <View style={[styles.orderBadge, { backgroundColor: status.color }]}>
-            <Text style={styles.orderText}>{parada.ordem}</Text>
+          <View style={[styles.orderBadge, { backgroundColor: statusColor }]}>
+            <Text
+              style={[
+                styles.orderText,
+                status.colorKey === 'warning' && styles.orderTextSobreWarning,
+              ]}
+            >
+              {parada.ordem}
+            </Text>
           </View>
 
           {/* Conteúdo principal - Endereço completo */}
@@ -127,12 +118,16 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
           </View>
 
           {/* Status */}
-          <View style={styles.statusContainer}>
-            <Ionicons name={status.name} size={16} color={status.color} />
-            <Text style={[styles.statusText, { color: status.color }]}>
-              {status.label}
-            </Text>
-          </View>
+          <StatusBadge
+            label={status.label}
+            color={statusColor}
+            textColor={corDeTextoDoStatus(status.colorKey, theme.colors)}
+            variant="soft"
+            size="sm"
+            icon={status.icon}
+            testID="parada-status-badge"
+            containerStyle={styles.statusBadge}
+          />
 
           {/* Chevron para expandir */}
           <Ionicons
@@ -384,6 +379,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs + 1,
     fontWeight: '700',
   },
+  // Branco sobre warning fica abaixo de 4,5:1
+  orderTextSobreWarning: {
+    color: theme.colors.onWarning,
+  },
   mainContent: {
     flex: 1,
     gap: theme.spacing['0.5'],
@@ -400,14 +399,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontWeight: '600',
     color: theme.colors.gray900,
   },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing['0.5'],
-  },
-  statusText: {
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
+  statusBadge: {
+    // O badge tem alignSelf flex-start; aqui ele centraliza na linha do cartão
+    alignSelf: 'center',
   },
   row2: {
     flexDirection: 'row',

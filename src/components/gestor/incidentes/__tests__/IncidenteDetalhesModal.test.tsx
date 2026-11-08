@@ -28,16 +28,22 @@ jest.mock('@/design-system', () => {
       children,
       title,
       onClose,
+      primaryButton,
+      secondaryButton,
     }: {
       visible: boolean;
       children: React.ReactNode;
       title: string;
       onClose: () => void;
+      primaryButton?: { text: string };
+      secondaryButton?: { text: string };
     }) => {
       if (!visible) return null;
       return (
         <View testID="desktop-modal">
           <Text testID="modal-title">{title}</Text>
+          <Text>{primaryButton?.text}</Text>
+          <Text>{secondaryButton?.text}</Text>
           <TouchableOpacity testID="close-button" onPress={onClose}>
             <Text>Close</Text>
           </TouchableOpacity>
@@ -139,6 +145,13 @@ describe('IncidenteDetalhesModal', () => {
       loading: false,
       error: false,
     });
+  });
+
+  it('os botões do modal têm maiúscula só na primeira palavra', () => {
+    const { getByText } = render(<IncidenteDetalhesModal {...defaultProps} />);
+
+    expect(getByText('Alterar status')).toBeTruthy();
+    expect(getByText('Remarcar entrega')).toBeTruthy();
   });
 
   describe('motorista excluído (motorista_id NULL)', () => {

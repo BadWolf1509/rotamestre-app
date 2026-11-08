@@ -3,23 +3,23 @@
  * Extracted from app/gestor/incidentes.tsx for maintainability.
  */
 
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from '@expo/vector-icons';
 import {
   View,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-} from "react-native";
+} from 'react-native';
 
-import { Text } from "@/components/Text";
-import { DesktopModal, StatusBadge } from "@/design-system";
+import { Text } from '@/components/Text';
+import { DesktopModal, StatusBadge } from '@/design-system';
 import type {
   CategoriaLabel,
   Incidente,
   StatusLabel,
-} from "@/hooks/incidentes-gestor/types";
-import { styles } from "@/styles/gestor/incidentes.styles";
-import { useUnistyles } from "@/utils/styles";
+} from '@/hooks/incidentes-gestor/types';
+import { styles } from '@/styles/gestor/incidentes.styles';
+import { useUnistyles } from '@/utils/styles';
 
 interface HistoricoMotoristaModalProps {
   visible: boolean;
@@ -49,10 +49,10 @@ export function HistoricoMotoristaModal({
   if (!motoristaSelecionado) return null;
 
   const resumoAbertos = incidentesMotorista.filter(
-    (i) => i.status === "aberto" || i.status === "em_analise",
+    (i) => i.status === 'aberto' || i.status === 'em_analise',
   ).length;
   const resumoResolvidos = incidentesMotorista.filter(
-    (i) => i.status === "resolvido" || i.status === "fechado",
+    (i) => i.status === 'resolvido' || i.status === 'fechado',
   ).length;
 
   return (
@@ -91,7 +91,7 @@ export function HistoricoMotoristaModal({
                     {resumoAbertos}
                   </Text>
                   <Text style={styles.historicoResumoLabel}>
-                    {resumoAbertos === 1 ? "aberto" : "abertos"}
+                    {resumoAbertos === 1 ? 'aberto' : 'abertos'}
                   </Text>
                 </View>
                 <Text style={styles.historicoResumoDivider}>·</Text>
@@ -105,7 +105,7 @@ export function HistoricoMotoristaModal({
                     {resumoResolvidos}
                   </Text>
                   <Text style={styles.historicoResumoLabel}>
-                    {resumoResolvidos === 1 ? "resolvido" : "resolvidos"}
+                    {resumoResolvidos === 1 ? 'resolvido' : 'resolvidos'}
                   </Text>
                 </View>
                 <Text style={styles.historicoResumoDivider}>·</Text>
@@ -155,6 +155,7 @@ export function HistoricoMotoristaModal({
                           </View>
                           <StatusBadge
                             color={st.color}
+                            textColor={st.textColor}
                             label={st.label}
                             variant="soft"
                             size="sm"

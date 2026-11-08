@@ -27,9 +27,11 @@
       "warningBg": "#fef3c7",
       "error": "#ef4444",
       "errorDark": "#dc2626",
+      "errorText": "#b91c1c",
       "errorBg": "#fee2e2",
       "info": "#3b82f6",
       "infoBg": "#dbeafe",
+      "infoText": "#1d4ed8",
       "white": "#ffffff",
       "black": "#000000",
       "gray50": "#f9fafb",
@@ -64,6 +66,7 @@
       "green800": "#166534",
       "warningLight": "#fef3c7",
       "warningDark": "#d97706",
+      "onWarning": "#111827",
       "errorLight": "#fee2e2",
       "successLight": "#d1fae5",
       "whatsapp": "#25D366",
@@ -355,7 +358,7 @@
     },
     "pageLayout": {
       "contentPadding": 32,
-      "headerTitleFontSize": 24,
+      "headerTitleFontSize": 28,
       "headerSubtitleFontSize": 14,
       "breadcrumbFontSize": 13
     },

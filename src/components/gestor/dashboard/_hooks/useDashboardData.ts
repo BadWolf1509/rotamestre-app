@@ -9,6 +9,7 @@ import { dadosDeTesteDoInicio } from '@/lib/gestor/dadosDeTeste';
 import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { logger } from '@/lib/logger';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import type { StatusParada } from '@/types/rota';
 import type { Usuario } from '@/types/usuario';
 
 export interface Stats {
@@ -49,6 +50,11 @@ export interface RotaResumo {
   total_paradas: number;
   paradas_concluidas: number;
   distancia_total: number;
+  /**
+   * Estado de cada parada real (sem partida e chegada), na ordem de
+   * `paradas.ordem`. Alimenta a linha de paradas da Início desktop.
+   */
+  paradas_status: StatusParada[];
 }
 
 export interface DashboardData {
@@ -92,7 +98,13 @@ interface LinhaRota {
   concluida_em?: string | null;
   distancia_total?: number | null;
   usuarios?: EmbedNome;
-  paradas?: { status: string; is_checkpoint?: boolean | null }[] | null;
+  paradas?:
+    | {
+        status: string;
+        is_checkpoint?: boolean | null;
+        ordem?: number | null;
+      }[]
+    | null;
 }
 
 /**
@@ -186,10 +198,11 @@ function processarRotasComParadas(
   nomesForaDaLoja: Map<string, string>,
 ): RotaResumo[] {
   return rotasData.map((rota) => {
-    // Filtra apenas paradas reais (checkpoints, não base)
-    const paradasReais = (rota.paradas || []).filter(
-      (parada) => parada.is_checkpoint !== false,
-    );
+    // Filtra apenas paradas reais (checkpoints, não base), na ordem da rota.
+    // O embed do PostgREST não garante ordem: ordena aqui por `ordem`.
+    const paradasReais = (rota.paradas || [])
+      .filter((parada) => parada.is_checkpoint !== false)
+      .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 
     return {
       id: rota.id,
@@ -205,6 +218,8 @@ function processarRotasComParadas(
       paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida')
         .length,
       distancia_total: rota.distancia_total || 0,
+      // O CHECK de `paradas.status` só aceita os 4 de StatusParada.
+      paradas_status: paradasReais.map((p) => p.status as StatusParada),
     };
   });
 }
@@ -277,7 +292,7 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
       distancia_total,
       motorista_id,
       usuarios!motorista_id(nome),
-      paradas(id, status, is_checkpoint)
+      paradas(id, status, is_checkpoint, ordem)
     `,
     )
     .eq('unidade_id', f.unidadeId);

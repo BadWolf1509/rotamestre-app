@@ -29,11 +29,7 @@ export interface Incidente {
  * Filter by status
  */
 export type FiltroStatus =
-  | 'todos'
-  | 'aberto'
-  | 'em_analise'
-  | 'resolvido'
-  | 'fechado';
+  'todos' | 'aberto' | 'em_analise' | 'resolvido' | 'fechado';
 
 /**
  * Filter by category
@@ -62,6 +58,8 @@ export interface CategoriaLabel {
 export interface StatusLabel {
   label: string;
   color: string;
+  /** Texto do selo soft, com 4,5:1 sobre o fundo dele. */
+  textColor: string;
 }
 
 /**

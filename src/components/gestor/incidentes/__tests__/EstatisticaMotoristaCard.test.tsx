@@ -61,4 +61,25 @@ describe('EstatisticaMotoristaCard', () => {
     expect(queryByRole('button')).toBeNull();
     expect(onVerHistorico).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [
+      { total: 1, abertos: 1, resolvidos: 0 },
+      '1 incidente (1 aberto, 0 resolvidos)',
+    ],
+    [
+      { total: 3, abertos: 2, resolvidos: 1 },
+      '3 incidentes (2 abertos, 1 resolvido)',
+    ],
+  ])('concorda o plural (%o)', (numeros, frase) => {
+    const { getByText } = render(
+      <EstatisticaMotoristaCard
+        stat={stat(numeros)}
+        index={0}
+        onVerHistorico={jest.fn()}
+      />,
+    );
+
+    expect(getByText(frase)).toBeTruthy();
+  });
 });

@@ -41,7 +41,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
   test.describe('View Delivery Proofs', () => {
     /**
      * "should access route details with photo proofs" saiu: era exatamente o
-     * mesmo caminho de `dashboard-reports.e2e.ts` › "Ver Detalhes leva ao mapa
+     * mesmo caminho de `dashboard-reports.e2e.ts` › "Ver detalhes leva ao mapa
      * da rota", com a mesma não-asserção. Lá ele afirma.
      */
     test('os detalhes da rota abrem o mapa com o painel do trajeto', async ({
@@ -52,7 +52,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
         timeout: 15000,
       });
 
-      await page.getByText('Ver Detalhes').first().click();
+      await page.getByText('Ver detalhes').first().click();
 
       // É nesta tela que a foto de comprovação aparece para o gestor. Antes
       // conferia-se o comprimento da página; agora exige-se a tela montada.
@@ -76,7 +76,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
       // A conta demo tem rota em andamento junto das concluídas: é isso que
       // torna o filtro falsificável. Sem essa linha antes, filtrar não provaria
       // nada.
-      await expect(tabela.getByText('Em Andamento').first()).toBeVisible();
+      await expect(tabela.getByText('Em andamento').first()).toBeVisible();
 
       // Rotas concluídas são as que podem ter comprovante. O teste anterior
       // clicava no filtro e conferia o tamanho da página — passava igual se o
@@ -86,7 +86,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
         .first()
         .click();
 
-      await expect(tabela.getByText('Em Andamento')).toHaveCount(0, {
+      await expect(tabela.getByText('Em andamento')).toHaveCount(0, {
         timeout: 15000,
       });
       await expect(tabela.getByText('Concluída').first()).toBeVisible();

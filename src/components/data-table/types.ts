@@ -6,7 +6,6 @@ import type { IconName } from '@/types/icons';
 
 import type React from 'react';
 
-
 /**
  * Base type for DataTable items - allows any object type
  * Using 'object' constraint for flexibility with TypeScript interfaces
@@ -21,8 +20,18 @@ export interface DataTableColumn<T = DataTableItem> {
   key: string;
   /** Header label */
   label: string;
-  /** Column width (desktop only) - ex: 100, '20%', 'auto' */
+  /**
+   * Largura-base da coluna (só desktop), ex.: 100, '20%'. Número: a coluna
+   * parte dessa largura e cresce ou encolhe na mesma proporção das outras
+   * (`flexGrow`/`flexShrink: width`) para caber no cartão.
+   */
   width?: number | string;
+  /**
+   * Até onde a coluna encolhe (só desktop, com `width` numérico). Sem ele,
+   * ela não encolhe abaixo de `width`. Abaixo da soma dos mínimos, a tabela
+   * rola na horizontal.
+   */
+  minWidth?: number;
   /** Custom render function */
   render?: (item: T) => React.ReactNode;
   /** Enable sorting? */
@@ -41,7 +50,7 @@ export interface DataTableColumn<T = DataTableItem> {
  */
 export function getColumnDisplayValue(
   item: DataTableItem,
-  key: string
+  key: string,
 ): string | number | null | undefined {
   // Safe type assertion - item is always an object from DataTable
   const record = item as Record<string, unknown>;
@@ -64,8 +73,16 @@ export interface DataTableAction<T = DataTableItem> {
   onPress: (item: T) => void;
   /** Button color */
   color?: string;
-  /** Action type */
+  /**
+   * Action type. No desktop, `danger` não fica na linha: vai para o menu
+   * "Mais ações" (⋯). O mobile continua mostrando todas como botão.
+   */
   type?: 'primary' | 'secondary' | 'danger';
+  /**
+   * No desktop, manda a ação para o menu "Mais ações" (⋯) mesmo sem ser
+   * `danger`, para a coluna de ações caber. O mobile não muda.
+   */
+  emMenu?: boolean;
 }
 
 /**
@@ -78,6 +95,11 @@ export interface DataTableProps<T extends DataTableItem = DataTableItem> {
   columns: DataTableColumn<T>[];
   /** Row actions */
   actions?: DataTableAction<T>[];
+  /**
+   * Toque/clique na linha (só desktop). As ações da linha e o menu "⋯"
+   * interrompem a propagação, então não disparam este callback.
+   */
+  onRowPress?: (item: T) => void;
   /** Function to get unique key for each item */
   keyExtractor: (item: T) => string;
   /** Table title (optional) */

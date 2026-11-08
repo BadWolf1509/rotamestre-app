@@ -1,7 +1,18 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import {
+  render,
+  fireEvent,
+  renderHook,
+  screen,
+} from '@testing-library/react-native';
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { useUnistyles } from '@/utils/styles';
+
+import {
+  larguraDaColunaDeAcoes,
+  larguraMinimaDaTabela,
+} from '../data-table/larguras';
 import { DataTable, DataTableColumn, DataTableAction } from '../DataTable';
 
 // Mock useResponsive hook
@@ -155,6 +166,40 @@ describe('DataTable Component', () => {
   });
 
   describe('Estado de Loading', () => {
+    // Estilos de todas as Views da árvore, achatados.
+    const estilosDasViews = () =>
+      screen
+        .UNSAFE_getAllByType(View)
+        .map((v) => StyleSheet.flatten(v.props.style) ?? {});
+
+    it('o skeleton desktop usa a mesma largura das colunas e das ações da tabela', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={[
+            { key: 'name', label: 'Nome', width: 240 },
+            { key: 'status', label: 'Status', width: 150 },
+          ]}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          isLoading
+          skeletonRows={2}
+        />,
+      );
+
+      const estilos = estilosDasViews();
+      // Cabeçalho + 2 linhas: 3 células de cada coluna e da coluna de ações.
+      expect(
+        estilos.filter((e) => e.width === 240 && e.flexGrow === 240),
+      ).toHaveLength(3);
+      expect(
+        estilos.filter((e) => e.width === 150 && e.flexGrow === 150),
+      ).toHaveLength(3);
+      // 1 botão na linha (130) + menu "⋯" (48), como na tabela carregada.
+      const acoes = larguraDaColunaDeAcoes(sampleActions).flexBasis;
+      expect(estilos.filter((e) => e.flexBasis === acoes)).toHaveLength(3);
+    });
+
     it('deve renderizar skeleton quando isLoading=true', () => {
       const { root } = render(
         <DataTable
@@ -219,10 +264,42 @@ describe('DataTable Component', () => {
       );
 
       const editButtons = getAllByText('Editar');
-      const deleteButtons = getAllByText('Excluir');
 
       expect(editButtons.length).toBe(3); // 3 items
-      expect(deleteButtons.length).toBe(3);
+    });
+
+    it('a ação danger sai da linha e vai para o menu "Mais ações"', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />,
+      );
+
+      expect(screen.queryByText('Excluir')).toBeNull();
+      const menus = screen.getAllByLabelText('Mais ações');
+      expect(menus).toHaveLength(3);
+
+      fireEvent.press(menus[1]);
+      fireEvent.press(screen.getByRole('menuitem', { name: 'Excluir' }));
+
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[1]);
+    });
+
+    it('sem ação danger não há menu "Mais ações"', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={[sampleActions[0]]}
+        />,
+      );
+
+      expect(screen.queryByLabelText('Mais ações')).toBeNull();
     });
 
     it('deve renderizar header "Ações" quando há ações', () => {
@@ -236,6 +313,30 @@ describe('DataTable Component', () => {
       );
 
       expect(getByText('Ações')).toBeTruthy();
+    });
+
+    it('o cabeçalho "Ações" alinha à direita, como as células', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />,
+      );
+
+      // Sobe do texto até a célula: o primeiro ancestral com flexBasis.
+      let celula: ReturnType<typeof screen.getByText> | null =
+        screen.getByText('Ações');
+      while (
+        celula &&
+        StyleSheet.flatten(celula.props.style)?.flexBasis === undefined
+      ) {
+        celula = celula.parent;
+      }
+      expect(StyleSheet.flatten(celula?.props.style).justifyContent).toBe(
+        'flex-end',
+      );
     });
 
     it('deve chamar callback ao clicar em ação', () => {
@@ -267,7 +368,248 @@ describe('DataTable Component', () => {
       // Ionicons são renderizados como elementos React, não como texto
       // Apenas verificamos que as ações foram renderizadas corretamente
       expect(getAllByText('Editar').length).toBeGreaterThan(0);
-      expect(getAllByText('Excluir').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Linha clicável (onRowPress)', () => {
+    const rotuloDaLinha = /^Nome: João Silva/;
+
+    it('sem onRowPress a linha não é botão nem Pressable (não vira parada de Tab)', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const linha = screen.getByLabelText(rotuloDaLinha);
+      expect(linha.props.accessibilityRole).toBeUndefined();
+      expect(linha.props.onClick).toBeUndefined();
+      expect(linha.props.onResponderRelease).toBeUndefined();
+    });
+
+    it('com onRowPress a linha é botão e diz que abre o detalhe', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={jest.fn()}
+        />,
+      );
+
+      const linha = screen.getByLabelText(rotuloDaLinha);
+      expect(linha.props.accessibilityRole).toBe('button');
+      expect(linha.props.accessibilityHint).toBe('Abre o detalhe');
+    });
+
+    it('tocar na linha chama onRowPress(item)', () => {
+      const onRowPress = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getByText('Maria Santos'));
+
+      expect(onRowPress).toHaveBeenCalledTimes(1);
+      expect(onRowPress).toHaveBeenCalledWith(sampleData[1]);
+    });
+
+    it('tocar numa ação da linha chama só a ação', () => {
+      const onRowPress = jest.fn();
+      const stopPropagation = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getAllByText('Editar')[0], { stopPropagation });
+
+      expect(mockEdit).toHaveBeenCalledWith(sampleData[0]);
+      expect(onRowPress).not.toHaveBeenCalled();
+      // No web, o clique sobe pelo DOM até a linha: a ação o interrompe.
+      expect(stopPropagation).toHaveBeenCalledTimes(1);
+    });
+
+    it('abrir o menu e escolher a ação danger não chama onRowPress', () => {
+      const onRowPress = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getAllByLabelText('Mais ações')[0]);
+      fireEvent.press(screen.getByRole('menuitem', { name: 'Excluir' }));
+
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[0]);
+      expect(onRowPress).not.toHaveBeenCalled();
+    });
+
+    it('clique no espaço da lista do menu (fora de um item) não chega à linha', () => {
+      const onRowPress = jest.fn();
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+          onRowPress={onRowPress}
+        />,
+      );
+
+      fireEvent.press(screen.getAllByLabelText('Mais ações')[0]);
+      fireEvent.press(screen.UNSAFE_getByProps({ accessibilityRole: 'menu' }));
+
+      expect(onRowPress).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Largura e texto das células (desktop)', () => {
+    const colunasComMinimo: DataTableColumn<SampleItem>[] = [
+      { key: 'name', label: 'Nome', width: 240, minWidth: 140 },
+      { key: 'status', label: 'Status', width: 150 },
+    ];
+
+    it('a coluna encolhe até o minWidth dela', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunasComMinimo}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      let no: ReturnType<typeof screen.getByText> | null =
+        screen.getByText('João Silva');
+      while (no && StyleSheet.flatten(no.props.style)?.flexGrow === undefined) {
+        no = no.parent;
+      }
+      const estilo = StyleSheet.flatten(no?.props.style);
+      expect(estilo.flexShrink).toBe(240);
+      expect(estilo.minWidth).toBe(140);
+    });
+
+    it('a rolagem horizontal só começa abaixo da soma dos mínimos', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunasComMinimo}
+          keyExtractor={(item) => item.id}
+          actions={sampleActions}
+        />,
+      );
+
+      const rolagem = screen.UNSAFE_getByProps({ horizontal: true });
+      const conteudo = StyleSheet.flatten(rolagem.props.contentContainerStyle);
+      expect(conteudo.minWidth).toBe(
+        larguraMinimaDaTabela(colunasComMinimo, sampleActions),
+      );
+      expect(conteudo.flexShrink).toBe(1);
+    });
+
+    it('ação emMenu sai da linha e vai para o menu "Mais ações"', () => {
+      render(
+        <DataTable
+          data={[sampleData[0]]}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={[
+            { label: 'Editar', onPress: mockEdit, type: 'primary' },
+            { label: 'Desativar', onPress: mockDelete, emMenu: true },
+          ]}
+        />,
+      );
+
+      expect(screen.queryByText('Desativar')).toBeNull();
+      fireEvent.press(screen.getByLabelText('Mais ações'));
+      fireEvent.press(screen.getByRole('menuitem', { name: 'Desativar' }));
+      expect(mockDelete).toHaveBeenCalledWith(sampleData[0]);
+    });
+
+    it('nome de 60 caracteres fica numa linha, com o texto inteiro no accessibilityLabel', () => {
+      const nomeLongo =
+        'Maximiliano Bartholomeu de Albuquerque Cavalcanti Figueiredo';
+      expect(nomeLongo).toHaveLength(60);
+      render(
+        <DataTable
+          data={[{ id: '9', name: nomeLongo, email: 'x@y.z', status: 'ativo' }]}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const texto = screen.getByText(nomeLongo);
+      expect(texto.props.numberOfLines).toBe(1);
+      expect(texto.props.accessibilityLabel).toBe(nomeLongo);
+    });
+
+    it('a coluna cresce na proporção da largura-base (width e flexGrow, sem flexBasis)', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={[
+            { key: 'name', label: 'Nome', width: 240 },
+            { key: 'status', label: 'Status', width: 150 },
+          ]}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      // Sobe do texto até a célula: o primeiro ancestral com flexGrow.
+      let no: ReturnType<typeof screen.getByText> | null =
+        screen.getByText('João Silva');
+      while (no && StyleSheet.flatten(no.props.style)?.flexGrow === undefined) {
+        no = no.parent;
+      }
+      const estilo = StyleSheet.flatten(no?.props.style);
+      // `width`, não `flexBasis`: dentro do ScrollView horizontal, o
+      // max-content do item flex vem do conteúdo, e um nome longo em nowrap
+      // alargaria a tabela inteira em vez de ganhar reticências.
+      expect(estilo.flexGrow).toBe(240);
+      expect(estilo.width).toBe(240);
+      expect(estilo.flexBasis).toBeUndefined();
+    });
+
+    it('cabeçalho com 13 px em gray600 semibold e célula com 14 px', () => {
+      const { result } = renderHook(() => useUnistyles());
+      const { theme } = result.current;
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const cabecalho = StyleSheet.flatten(
+        screen.getByText('Nome').props.style,
+      );
+      expect(cabecalho.fontSize).toBe(13);
+      expect(cabecalho.color).toBe(theme.colors.gray600);
+      expect(cabecalho.fontFamily).toBe(theme.typography.fontSansSemiBold);
+
+      const celula = StyleSheet.flatten(
+        screen.getByText('João Silva').props.style,
+      );
+      expect(celula.fontSize).toBe(14);
     });
   });
 

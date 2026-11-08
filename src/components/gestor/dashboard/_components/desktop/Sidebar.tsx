@@ -106,7 +106,7 @@ export function Sidebar({ onNavigate, userData }: SidebarProps) {
       {/* Logo / Brand */}
       <View style={styles.header}>
         <Image source={LogoHorizontal} style={styles.logoImage as ImageStyle} />
-        <Text style={styles.brandSubtitle}>Painel do Gestor</Text>
+        <Text style={styles.brandSubtitle}>Painel do gestor</Text>
       </View>
 
       {/* Navigation */}
@@ -169,10 +169,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     resizeMode: 'contain',
   },
   brandSubtitle: {
-    fontSize: theme.typography.xs,
+    fontSize: 13,
     color: theme.colors.gray500,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
   scrollView: {
     flex: 1,
@@ -192,7 +190,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   navItemActive: {
     backgroundColor: theme.colors.primaryBg,
     borderLeftWidth: 3,
-    borderLeftColor: theme.colors.secondary,
+    borderLeftColor: theme.colors.primary,
   },
   navLabel: {
     fontSize: theme.typography.sm,

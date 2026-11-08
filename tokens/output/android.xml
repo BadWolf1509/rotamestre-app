@@ -25,9 +25,11 @@
   <color name="color_warning_bg">#fef3c7</color>
   <color name="color_error">#ef4444</color>
   <color name="color_error_dark">#dc2626</color>
+  <color name="color_error_text">#b91c1c</color>
   <color name="color_error_bg">#fee2e2</color>
   <color name="color_info">#3b82f6</color>
   <color name="color_info_bg">#dbeafe</color>
+  <color name="color_info_text">#1d4ed8</color>
   <color name="color_white">#ffffff</color>
   <color name="color_black">#000000</color>
   <color name="color_gray50">#f9fafb</color>
@@ -60,6 +62,7 @@
   <color name="color_green800">#166534</color>
   <color name="color_warning_light">#fef3c7</color>
   <color name="color_warning_dark">#d97706</color>
+  <color name="color_on_warning">#111827</color>
   <color name="color_error_light">#fee2e2</color>
   <color name="color_success_light">#d1fae5</color>
   <color name="color_whatsapp">#25D366</color>

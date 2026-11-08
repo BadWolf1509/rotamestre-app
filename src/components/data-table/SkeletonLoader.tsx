@@ -3,10 +3,11 @@
  */
 
 import { memo } from 'react';
-import { View, Text, DimensionValue } from 'react-native';
+import { View, Text } from 'react-native';
 
 import { ShimmerBox } from '@/components/ShimmerBox';
 
+import { larguraDaColuna, larguraDaColunaDeAcoes } from './larguras';
 import { dataTableStyles as styles } from './styles';
 
 import type { DataTableColumn, DataTableAction } from './types';
@@ -64,7 +65,8 @@ interface SkeletonDesktopProps<T> {
 }
 
 /**
- * Desktop skeleton (table-based)
+ * Desktop skeleton (table-based). Colunas e coluna de ações com as larguras
+ * da tabela real (`larguras.ts`): nada salta quando os dados chegam.
  */
 export function SkeletonDesktop<T>({
   rows,
@@ -73,6 +75,9 @@ export function SkeletonDesktop<T>({
   title,
   testID,
 }: SkeletonDesktopProps<T>) {
+  const temAcoes = !!actions && actions.length > 0;
+  const estiloColunaAcoes = larguraDaColunaDeAcoes(actions);
+
   return (
     <View style={styles.container} testID={testID}>
       {title && <Text style={styles.title}>{title}</Text>}
@@ -84,22 +89,14 @@ export function SkeletonDesktop<T>({
               key={column.key}
               style={[
                 styles.tableHeaderCell,
-                {
-                  width: (column.width || 'auto') as DimensionValue,
-                  minWidth: 100,
-                },
+                larguraDaColuna(column.width, column.minWidth),
               ]}
             >
               <SkeletonBox />
             </View>
           ))}
-          {actions && actions.length > 0 && (
-            <View
-              style={[
-                styles.tableHeaderCell,
-                { width: actions.length * 100, minWidth: 180 },
-              ]}
-            >
+          {temAcoes && (
+            <View style={[styles.tableHeaderCell, estiloColunaAcoes]}>
               <SkeletonBox />
             </View>
           )}
@@ -116,22 +113,14 @@ export function SkeletonDesktop<T>({
                 key={column.key}
                 style={[
                   styles.tableCell,
-                  {
-                    width: (column.width || 'auto') as DimensionValue,
-                    minWidth: 100,
-                  },
+                  larguraDaColuna(column.width, column.minWidth),
                 ]}
               >
                 <SkeletonBox />
               </View>
             ))}
-            {actions && actions.length > 0 && (
-              <View
-                style={[
-                  styles.tableCell,
-                  { width: actions.length * 100, minWidth: 180 },
-                ]}
-              >
+            {temAcoes && (
+              <View style={[styles.tableCell, estiloColunaAcoes]}>
                 <SkeletonBox />
               </View>
             )}

@@ -110,7 +110,7 @@ test.describe('Gestor Team Management E2E Tests', () => {
     }) => {
       await gestorPage.gotoMotoristas();
 
-      await page.getByText('Adicionar Motorista').first().click();
+      await page.getByText('Adicionar motorista').first().click();
 
       for (const placeholder of [
         /Digite o nome completo/i,
@@ -176,7 +176,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
       // 'Todas' no body casaria com qualquer outra tela. Os quatro chips
       // precisam estar lá.
       const filtros = page.getByRole('radiogroup');
-      for (const nome of ['Todas', 'Pendente', 'Em Andamento', 'Concluída']) {
+      for (const nome of ['Todas', 'Pendente', 'Em andamento', 'Concluída']) {
         await expect(
           filtros.getByRole('button', { name: nome, exact: true }),
         ).toBeVisible({ timeout: 15000 });
@@ -193,9 +193,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
         .first();
       await expect(busca).toBeVisible({ timeout: 15000 });
 
-      const contador = page
-        .getByText(/\d+\s*rota\(s\)\s*encontrada\(s\)/i)
-        .first();
+      const contador = page.getByText(/\d+\s*rotas?\s*encontradas?/i).first();
       await expect(contador).toBeVisible();
       const antes = await contador.textContent();
 

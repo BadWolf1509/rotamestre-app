@@ -123,6 +123,16 @@ describe('ParadasListAndActions', () => {
     mockUseResponsive.mockReturnValue({ isDesktop: false });
   });
 
+  it('o rótulo de "Revisar rota" concorda o plural das paradas', () => {
+    const { getByLabelText, rerender } = render(
+      <ParadasListAndActions {...baseProps} paradas={[baseParadas[0]]} />,
+    );
+    expect(getByLabelText('Revisar rota com 1 parada')).toBeTruthy();
+
+    rerender(<ParadasListAndActions {...baseProps} />);
+    expect(getByLabelText('Revisar rota com 2 paradas')).toBeTruthy();
+  });
+
   it('oferece caminho para cadastrar a sede quando a unidade não tem coordenadas', () => {
     // Mesmo beco do seletor de motorista, e pior: o gestor monta a rota inteira
     // e só descobre no submit, num toast de 5 segundos, que a unidade não tem

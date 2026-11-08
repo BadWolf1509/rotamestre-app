@@ -6,7 +6,7 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import * as Linking from 'expo-linking';
 import React from 'react';
-import { Image } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
 import { ParadaCardCompact } from '../ParadaCardCompact';
 
@@ -37,10 +37,26 @@ jest.mock('@/utils/styles', () => {
       gray900: '#111827',
       infoBg: '#dbeafe',
       warningBg: '#fef3c7',
+      warningText: '#b45309',
+      onWarning: '#111827',
+      infoText: '#1d4ed8',
+      successDark: '#047857',
+      errorText: '#b91c1c',
     },
     spacing: { xs: 4, sm: 8, md: 12, lg: 16 },
-    typography: { fontSize: { xs: 12, sm: 14, base: 16 } },
+    typography: {
+      fontSize: { xs: 12, sm: 14, base: 16 },
+      fontSansSemiBold: 'System-SemiBold',
+    },
     borderRadius: { sm: 8, md: 10, full: 9999 },
+    components: {
+      badge: {
+        size: {
+          small: { paddingHorizontal: 6, paddingVertical: 2 },
+          medium: { paddingHorizontal: 10, paddingVertical: 4 },
+        },
+      },
+    },
   };
 
   return {
@@ -102,13 +118,47 @@ describe('ParadaCardCompact', () => {
 
   describe('Renderização', () => {
     it('deve renderizar o card compacto com informações básicas', () => {
-      const { getByText, getByTestId } = render(
+      const { getByText, getByTestId, queryByText } = render(
         <ParadaCardCompact {...defaultProps} />,
       );
 
       expect(getByText('1')).toBeTruthy(); // ordem
       expect(getByTestId('icon-cube')).toBeTruthy();
-      expect(getByText('Pend')).toBeTruthy(); // status abreviado
+      expect(getByText('Pendente')).toBeTruthy();
+      expect(queryByText('Pend')).toBeNull();
+    });
+
+    it('o badge de status fica centralizado na linha, não no topo', () => {
+      const { getByTestId } = render(<ParadaCardCompact {...defaultProps} />);
+
+      const estilo = StyleSheet.flatten(
+        getByTestId('parada-status-badge').props.style,
+      );
+      expect(estilo.alignSelf).toBe('center');
+    });
+
+    it('pendente: texto do selo em warningText e número da ordem em onWarning', () => {
+      const { getByText } = render(<ParadaCardCompact {...defaultProps} />);
+
+      expect(StyleSheet.flatten(getByText('Pendente').props.style).color).toBe(
+        '#b45309',
+      );
+      expect(StyleSheet.flatten(getByText('1').props.style).color).toBe(
+        '#111827',
+      );
+    });
+
+    it('em andamento: texto do selo em infoText', () => {
+      const { getByText } = render(
+        <ParadaCardCompact
+          {...defaultProps}
+          parada={{ ...mockParada, status: 'em_andamento' }}
+        />,
+      );
+
+      expect(
+        StyleSheet.flatten(getByText('Em andamento').props.style).color,
+      ).toBe('#1d4ed8');
     });
 
     it('deve truncar endereço longo', () => {
@@ -141,7 +191,7 @@ describe('ParadaCardCompact', () => {
       expect(getByTestId('icon-swap-horizontal')).toBeTruthy();
     });
 
-    it('deve exibir status OK para paradas concluídas', () => {
+    it('deve exibir status Concluída para paradas concluídas', () => {
       const onEdit = jest.fn();
       const onRemove = jest.fn();
       const paradaConcluida = { ...mockParada, status: 'concluida' };
@@ -156,6 +206,9 @@ describe('ParadaCardCompact', () => {
         />,
       );
 
+      expect(getByText('Concluída')).toBeTruthy();
+      expect(queryByText('OK')).toBeNull();
+
       // Expandir
       fireEvent.press(getByText(/Rua das Flores/));
 
@@ -164,13 +217,14 @@ describe('ParadaCardCompact', () => {
       expect(queryByText('Remover')).toBeNull();
     });
 
-    it('deve exibir status "Em rota" para paradas em andamento', () => {
+    it('deve exibir status "Em andamento" para paradas em andamento', () => {
       const paradaEmAndamento = { ...mockParada, status: 'em_andamento' };
-      const { getByText } = render(
+      const { getByText, queryByText } = render(
         <ParadaCardCompact {...defaultProps} parada={paradaEmAndamento} />,
       );
 
-      expect(getByText('Em rota')).toBeTruthy();
+      expect(getByText('Em andamento')).toBeTruthy();
+      expect(queryByText('Em rota')).toBeNull();
     });
   });
 

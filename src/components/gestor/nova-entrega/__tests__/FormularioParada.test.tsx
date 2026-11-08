@@ -7,8 +7,11 @@ import {
 } from '@testing-library/react-native';
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { StyleSheet } from 'react-native';
 
 import { paradaSchema } from '@/hooks/useNovaEntrega';
+import { defaultTheme } from '@/utils/styles';
+import { darkTheme, defaultTheme as lightTheme } from '@/utils/styles.base';
 
 import { FormularioParada } from '../FormularioParada';
 
@@ -152,4 +155,74 @@ describe('FormularioParada — erro de endereço', () => {
 
     await waitFor(() => expect(screen.getByText('Validado')).toBeTruthy());
   });
+});
+
+describe('FormularioParada — seletor de tipo', () => {
+  it('com Entrega ativa, Retirada fica neutra e Entrega marcada', () => {
+    render(<Harness />);
+    const entrega = screen.getByRole('radio', {
+      name: 'Selecionar tipo entrega',
+    });
+    const retirada = screen.getByRole('radio', {
+      name: 'Selecionar tipo retirada',
+    });
+
+    expect(entrega.props.accessibilityState.checked).toBe(true);
+    expect(retirada.props.accessibilityState.checked).toBe(false);
+
+    const estilo = StyleSheet.flatten(retirada.props.style);
+    expect(estilo.borderColor).toBe(defaultTheme.colors.gray300);
+    expect(estilo.backgroundColor).toBe(defaultTheme.colors.background);
+    expect(StyleSheet.flatten(entrega.props.style).backgroundColor).toBe(
+      defaultTheme.colors.primary,
+    );
+  });
+
+  it('ao escolher Retirada, ela ganha o fundo warning', () => {
+    render(<Harness />);
+    fireEvent.press(screen.getByText('Retirada'));
+    const retirada = screen.getByRole('radio', {
+      name: 'Selecionar tipo retirada',
+    });
+    expect(retirada.props.accessibilityState.checked).toBe(true);
+    expect(StyleSheet.flatten(retirada.props.style).backgroundColor).toBe(
+      defaultTheme.colors.warning,
+    );
+  });
+});
+
+describe('FormularioParada — contraste da Retirada selecionada', () => {
+  const luminancia = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contraste = (a: string, b: string) => {
+    const [l1, l2] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+    return (l1 + 0.05) / (l2 + 0.05);
+  };
+
+  it('o texto do botão ativo tem pelo menos 4,5:1 sobre o fundo warning', () => {
+    render(<Harness />);
+    fireEvent.press(screen.getByText('Retirada'));
+    const cor = StyleSheet.flatten(screen.getByText('Retirada').props.style)
+      .color as string;
+    expect(cor).toBe(defaultTheme.colors.onWarning);
+    expect(contraste(cor, defaultTheme.colors.warning)).toBeGreaterThanOrEqual(
+      4.5,
+    );
+  });
+
+  it.each([
+    ['claro', lightTheme],
+    ['escuro', darkTheme],
+  ])(
+    'token onWarning no tema %s passa de 4,5:1 sobre warning',
+    (_nome, tema) => {
+      const valor = contraste(tema.colors.onWarning, tema.colors.warning);
+      expect(valor).toBeGreaterThanOrEqual(4.5);
+    },
+  );
 });

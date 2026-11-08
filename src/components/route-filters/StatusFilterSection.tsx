@@ -4,10 +4,12 @@
  * Filter by route status (pendente, em_andamento, concluida, cancelada).
  */
 
-import React, { useMemo } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import React from 'react';
+import { View, Text } from 'react-native';
 
-import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+import { FilterChip } from '@/components/FilterChip';
+import { ROUTE_STATUS_CONFIG } from '@/constants/statusConfig';
+import { StyleSheet, type Theme } from '@/utils/styles';
 
 import type { RouteFiltersState, StatusOption } from './types';
 
@@ -16,18 +18,19 @@ interface StatusFilterSectionProps {
   onStatusChange: (status: RouteFiltersState['status']) => void;
 }
 
-export function StatusFilterSection({ status, onStatusChange }: StatusFilterSectionProps) {
-  const { theme } = useUnistyles();
-  const { warning, info, success, error } = theme.colors;
+// Os rótulos vêm da config central; "Todos" é o único que não é status.
+const STATUS_OPTIONS: StatusOption[] = [
+  { value: null, label: 'Todos' },
+  { value: 'pendente', label: ROUTE_STATUS_CONFIG.pendente.label },
+  { value: 'em_andamento', label: ROUTE_STATUS_CONFIG.em_andamento.label },
+  { value: 'concluida', label: ROUTE_STATUS_CONFIG.concluida.label },
+  { value: 'cancelada', label: ROUTE_STATUS_CONFIG.cancelada.label },
+];
 
-  const statusOptions = useMemo<StatusOption[]>(() => [
-    { value: null, label: 'Todos', color: undefined },
-    { value: 'pendente', label: 'Pendente', color: warning },
-    { value: 'em_andamento', label: 'Em Andamento', color: info },
-    { value: 'concluida', label: 'Concluída', color: success },
-    { value: 'cancelada', label: 'Cancelada', color: error },
-  ], [warning, info, success, error]);
-
+export function StatusFilterSection({
+  status,
+  onStatusChange,
+}: StatusFilterSectionProps) {
   const handleStatusChange = (newStatus: RouteFiltersState['status']) => {
     const toggledStatus = status === newStatus ? null : newStatus;
     onStatusChange(toggledStatus);
@@ -37,29 +40,15 @@ export function StatusFilterSection({ status, onStatusChange }: StatusFilterSect
     <View style={styles.filterSection}>
       <Text style={styles.sectionTitle}>Status</Text>
       <View style={styles.statusGrid}>
-        {statusOptions.map((option) => (
-          <Pressable
+        {STATUS_OPTIONS.map((option) => (
+          <FilterChip
             key={option.value || 'all'}
             testID={`filter-status-${option.value || 'all'}`}
-            style={[
-              styles.statusOption,
-              status === option.value && styles.statusOptionActive,
-              option.color && { borderColor: option.color },
-              status === option.value &&
-                option.color && { backgroundColor: `${option.color}15` },
-            ]}
+            label={option.label}
+            selected={(status ?? null) === option.value}
+            size="compact"
             onPress={() => handleStatusChange(option.value)}
-          >
-            <Text
-              style={[
-                styles.statusOptionText,
-                status === option.value && styles.statusOptionTextActive,
-                status === option.value && option.color && { color: option.color },
-              ]}
-            >
-              {option.label}
-            </Text>
-          </Pressable>
+          />
         ))}
       </View>
     </View>
@@ -80,27 +69,5 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
-  },
-  statusOption: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.white,
-  },
-  statusOptionActive: {
-    backgroundColor: theme.colors.primaryBg,
-    borderColor: theme.colors.primary,
-    borderWidth: 2,
-  },
-  statusOptionText: {
-    fontSize: theme.typography.fontSize.sm - 1,
-    color: theme.colors.gray500,
-    fontFamily: theme.typography.fontSansMedium,
-  },
-  statusOptionTextActive: {
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fontSansSemiBold,
   },
 }));

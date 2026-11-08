@@ -13,8 +13,13 @@ import type {
 } from '@/components/gestor/dashboard/_hooks/useDashboardData';
 import type { RotaHistorico } from '@/hooks/gestao-rotas/types';
 import { toLocalISODate, getTodayISO } from '@/lib/dateUtils';
+import type { StatusParada } from '@/types/rota';
 
 const DIA_MS = 86400000;
+
+function repetir(status: StatusParada, vezes: number): StatusParada[] {
+  return Array.from({ length: vezes }, () => status);
+}
 
 export interface DadosDeTesteDoInicio {
   rotas: RotaResumo[];
@@ -36,6 +41,11 @@ export function dadosDeTesteDoInicio(): DadosDeTesteDoInicio {
         total_paradas: 10,
         paradas_concluidas: 4,
         distancia_total: 15.5,
+        paradas_status: [
+          ...repetir('concluida', 4),
+          'em_andamento',
+          ...repetir('pendente', 5),
+        ],
       },
       {
         id: 'rota-2',
@@ -46,6 +56,7 @@ export function dadosDeTesteDoInicio(): DadosDeTesteDoInicio {
         total_paradas: 8,
         paradas_concluidas: 8,
         distancia_total: 12.0,
+        paradas_status: repetir('concluida', 8),
       },
       {
         id: 'rota-3',
@@ -56,6 +67,7 @@ export function dadosDeTesteDoInicio(): DadosDeTesteDoInicio {
         total_paradas: 5,
         paradas_concluidas: 0,
         distancia_total: 8.2,
+        paradas_status: repetir('pendente', 5),
       },
     ],
     stats: {

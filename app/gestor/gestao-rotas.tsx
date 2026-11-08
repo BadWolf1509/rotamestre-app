@@ -32,7 +32,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { coresPorStatusDaRota } from '@/constants/statusConfig';
+import {
+  corDeTextoDoStatus,
+  coresPorStatusDaRota,
+  getStatusColorKey,
+  getStatusIcon,
+} from '@/constants/statusConfig';
 import {
   DataTable,
   type DataTableAction,
@@ -60,6 +65,7 @@ import { useToast } from '@/hooks/useToast';
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { textoMostrando } from '@/lib/gestor/consultaRotas';
+import { plural } from '@/lib/plural';
 import { styles } from '@/styles/gestor/gestao-rotas.styles';
 import { useUnistyles } from '@/utils/styles';
 
@@ -150,6 +156,8 @@ export default function GestaoRotas() {
       key: 'data',
       label: 'Data',
       width: 100,
+      // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
+      minWidth: 95,
       sortable: true,
       render: (rota) => (
         <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>
@@ -159,18 +167,29 @@ export default function GestaoRotas() {
       key: 'motorista',
       label: 'Motorista',
       width: 180,
+      minWidth: 130,
       noWrap: true,
       sortable: true,
-      render: (rota) => (
-        <Text style={styles.tableCellText}>
-          {rota.motorista_nome || 'Sem motorista'}
-        </Text>
-      ),
+      render: (rota) => {
+        // Uma linha, com reticências; o nome inteiro fica no rótulo acessível.
+        const nome = rota.motorista_nome || 'Sem motorista';
+        return (
+          <Text
+            style={styles.tableCellText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            accessibilityLabel={nome}
+          >
+            {nome}
+          </Text>
+        );
+      },
     },
     {
       key: 'paradas',
       label: 'Paradas',
       width: 80,
+      minWidth: 70,
       align: 'center',
       render: (rota) => (
         <Text
@@ -182,6 +201,7 @@ export default function GestaoRotas() {
       key: 'distancia',
       label: 'Distância',
       width: 90,
+      minWidth: 80,
       align: 'right',
       desktopOnly: true,
       render: (rota) => (
@@ -196,6 +216,7 @@ export default function GestaoRotas() {
       key: 'iniciada_em',
       label: 'Iniciada',
       width: 120,
+      minWidth: 100,
       desktopOnly: true,
       render: (rota) => (
         <Text style={styles.tableCellText}>
@@ -207,6 +228,7 @@ export default function GestaoRotas() {
       key: 'concluida_em',
       label: 'Concluída',
       width: 120,
+      minWidth: 100,
       desktopOnly: true,
       render: (rota) => (
         <Text style={styles.tableCellText}>
@@ -217,7 +239,10 @@ export default function GestaoRotas() {
     {
       key: 'status',
       label: 'Status',
-      width: 110,
+      // 150: o rótulo mais longo, "Não executada" (ROUTE_STATUS_CONFIG, o
+      // mesmo de getStatusLabel), com ícone, sem reticências e com folga.
+      width: 150,
+      minWidth: 140,
       sortable: true,
       render: (rota) => {
         if (!rota.status) {
@@ -227,8 +252,13 @@ export default function GestaoRotas() {
           <StatusBadge
             label={getStatusLabel(rota.status)}
             color={getStatusColor(rota.status)}
-            variant="solid"
+            textColor={corDeTextoDoStatus(
+              getStatusColorKey(rota.status),
+              theme.colors,
+            )}
+            variant="soft"
             size="sm"
+            icon={getStatusIcon(rota.status)}
           />
         );
       },
@@ -237,13 +267,14 @@ export default function GestaoRotas() {
 
   const actions: DataTableAction<RotaHistorico>[] = [
     {
-      label: 'Ver Detalhes',
+      label: 'Ver detalhes',
       icon: 'eye-outline',
       type: 'secondary',
       onPress: verDetalhes,
     },
     {
-      label: 'Excluir',
+      // No desktop, `danger` vai para o menu "Mais ações" da linha.
+      label: 'Excluir rota',
       icon: 'trash-outline',
       type: 'danger',
       onPress: excluirRota,
@@ -262,7 +293,7 @@ export default function GestaoRotas() {
   const pendentesCount =
     contagens?.pendentes ??
     rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
-  const subtituloFiltros = `${formatarDecimal(totalRotas, 0)} rota(s) encontrada(s)`;
+  const subtituloFiltros = `${plural(totalRotas, 'rota encontrada', 'rotas encontradas')}`;
 
   // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
   // Função chamada no JSX (não componente declarado no render).
@@ -403,7 +434,7 @@ export default function GestaoRotas() {
           accessibilityRole="button"
           accessibilityLabel="Criar nova rota"
         >
-          <Text style={styles.cardHeaderButtonPrimaryText}>Nova Rota</Text>
+          <Text style={styles.cardHeaderButtonPrimaryText}>Nova rota</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -486,6 +517,7 @@ export default function GestaoRotas() {
                 data={rotasFiltradas}
                 columns={columns}
                 actions={actions}
+                onRowPress={verDetalhes}
                 keyExtractor={(rota) => rota.id}
                 itemsPerPage={20}
                 pagination
@@ -655,7 +687,7 @@ export default function GestaoRotas() {
                       : 'Crie sua primeira rota de entrega'
                   }
                   actionLabel={
-                    filtroStatus === 'todas' ? 'Criar Nova Rota' : undefined
+                    filtroStatus === 'todas' ? 'Criar nova rota' : undefined
                   }
                   onActionPress={
                     filtroStatus === 'todas'

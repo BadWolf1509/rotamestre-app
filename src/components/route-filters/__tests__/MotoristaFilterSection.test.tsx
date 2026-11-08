@@ -27,7 +27,7 @@ describe('MotoristaFilterSection', () => {
         motoristaId={null}
         motoristas={[]}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
     expect(toJSON()).toBeNull();
   });
@@ -38,7 +38,7 @@ describe('MotoristaFilterSection', () => {
         motoristaId={null}
         motoristas={mockMotoristas}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
     expect(screen.getByText('Motorista')).toBeTruthy();
   });
@@ -49,7 +49,7 @@ describe('MotoristaFilterSection', () => {
         motoristaId={null}
         motoristas={mockMotoristas}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
     expect(screen.getByText('Todos')).toBeTruthy();
   });
@@ -60,7 +60,7 @@ describe('MotoristaFilterSection', () => {
         motoristaId={null}
         motoristas={mockMotoristas}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
 
     expect(screen.getByText('João Silva')).toBeTruthy();
@@ -74,7 +74,7 @@ describe('MotoristaFilterSection', () => {
         motoristaId={null}
         motoristas={mockMotoristas}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
 
     fireEvent.press(screen.getByTestId('filter-motorista-driver-1'));
@@ -87,7 +87,7 @@ describe('MotoristaFilterSection', () => {
         motoristaId="driver-1"
         motoristas={mockMotoristas}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
 
     fireEvent.press(screen.getByTestId('filter-motorista-driver-1'));
@@ -100,10 +100,46 @@ describe('MotoristaFilterSection', () => {
         motoristaId="driver-1"
         motoristas={mockMotoristas}
         onMotoristaChange={mockOnMotoristaChange}
-      />
+      />,
     );
 
     fireEvent.press(screen.getByText('Todos'));
     expect(mockOnMotoristaChange).toHaveBeenCalledWith(null);
+  });
+  it('motoristas são chips (FilterChip) que marcam o escolhido', () => {
+    render(
+      <MotoristaFilterSection
+        motoristaId="driver-2"
+        motoristas={mockMotoristas}
+        onMotoristaChange={mockOnMotoristaChange}
+      />,
+    );
+
+    const escolhido = screen.getByRole('button', { name: 'Maria Santos' });
+    expect(escolhido.props.accessibilityState).toEqual(
+      expect.objectContaining({ selected: true }),
+    );
+    expect(
+      screen.getByRole('button', { name: 'João Silva' }).props
+        .accessibilityState,
+    ).toEqual(expect.objectContaining({ selected: false }));
+    expect(
+      screen.getByRole('button', { name: 'Todos' }).props.accessibilityState,
+    ).toEqual(expect.objectContaining({ selected: false }));
+  });
+
+  it('os chips ficam lado a lado e quebram linha', () => {
+    render(
+      <MotoristaFilterSection
+        motoristaId={null}
+        motoristas={mockMotoristas}
+        onMotoristaChange={mockOnMotoristaChange}
+      />,
+    );
+
+    expect(screen.getByTestId('filter-motorista-lista')).toHaveStyle({
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    });
   });
 });

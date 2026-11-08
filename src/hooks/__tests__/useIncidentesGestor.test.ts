@@ -133,9 +133,11 @@ const mockTheme: Theme = {
     warningBg: '#FEF3C7',
     error: '#EF4444',
     errorDark: '#DC2626',
+    errorText: '#B91C1C',
     errorBg: '#FEE2E2',
     info: '#3B82F6',
     infoBg: '#DBEAFE',
+    infoText: '#1D4ED8',
     white: '#FFFFFF',
     black: '#000000',
     gray50: '#F9FAFB',
@@ -701,18 +703,22 @@ describe('useIncidentesGestor', () => {
       expect(result.current.statusLabels.aberto).toEqual({
         label: 'Aberto',
         color: mockTheme.colors.error,
+        textColor: mockTheme.colors.errorText,
       });
       expect(result.current.statusLabels.em_analise).toEqual({
-        label: 'Em Análise',
+        label: 'Em análise',
         color: mockTheme.colors.warning,
+        textColor: mockTheme.colors.warningText,
       });
       expect(result.current.statusLabels.resolvido).toEqual({
         label: 'Resolvido',
         color: mockTheme.colors.success,
+        textColor: mockTheme.colors.successDark,
       });
       expect(result.current.statusLabels.fechado).toEqual({
         label: 'Fechado',
         color: mockTheme.colors.gray500,
+        textColor: mockTheme.colors.gray600,
       });
     });
   });

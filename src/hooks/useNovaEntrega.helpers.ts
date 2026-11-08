@@ -8,6 +8,7 @@ import type {
   RouteDraftValidation,
 } from '@/components/gestor/nova-entrega/types';
 import { distanciaMetrosEntre } from '@/lib/geo/distancia';
+import { plural } from '@/lib/plural';
 import { MAX_ROUTE_STOPS } from '@/lib/routeOptimization';
 import { supabase } from '@/lib/supabase';
 import { gerarUuid } from '@/lib/uuid';
@@ -392,7 +393,7 @@ export function validarRascunhoRota({
   );
   if (sanidadeGeografica.paradasDistantes.length > 0) {
     avisos.push(
-      `${sanidadeGeografica.paradasDistantes.length} parada(s) estão a mais de ${DISTANCIA_AVISO_KM} km da base.`,
+      `${plural(sanidadeGeografica.paradasDistantes.length, 'parada está', 'paradas estão')} a mais de ${DISTANCIA_AVISO_KM} km da base.`,
     );
   }
 

@@ -28,7 +28,7 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
   });
 
   test.describe('Dashboard Overview', () => {
-    test('exibe o bloco de métricas com os indicadores do dia', async ({
+    test('exibe o resumo do dia numa frase, no lugar dos cartões', async ({
       page,
     }) => {
       await gestorPage.gotoInicio();
@@ -36,33 +36,32 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
       const stats = page.getByTestId('gestor-dashboard-stats');
       await expect(stats).toBeVisible({ timeout: 15000 });
 
-      // Os rótulos do bloco. Antes bastava a palavra "Rota" aparecer em
-      // qualquer lugar do body — o próprio menu lateral já satisfazia isso.
-      for (const rotulo of [
-        'Total Hoje',
-        'Em Andamento',
-        'Concluídas',
-        'km Total',
-      ]) {
-        await expect(stats.getByText(rotulo, { exact: false })).toBeVisible();
-      }
+      // Desktop (o projeto chromium): o resumo é uma frase — "3 rotas em
+      // andamento, 2 pendentes — 12 de 40 paradas feitas, 48,5 km" — ou, sem
+      // rota, "Nenhuma rota no período". Os cartões de número saíram.
+      const resumo = stats.getByTestId('gestor-dashboard-resumo');
+      await expect(resumo).toBeVisible();
+      await expect(resumo).toHaveText(
+        /^(\d+ rotas? .+ — \d+ de \d+ paradas? feitas?, \d+,\d km|Nenhuma rota no período)$/,
+      );
+      await expect(stats.getByText('Total Hoje')).toHaveCount(0);
     });
 
-    test('cada indicador do painel traz um número, não só o rótulo', async ({
+    test('o resumo traz os números do dia, com vírgula decimal', async ({
       page,
     }) => {
       await gestorPage.gotoInicio();
 
-      const stats = page.getByTestId('gestor-dashboard-stats');
-      await expect(stats).toBeVisible({ timeout: 15000 });
+      const resumo = page.getByTestId('gestor-dashboard-resumo');
+      await expect(resumo).toBeVisible({ timeout: 15000 });
 
-      // A versão anterior aceitava qualquer dígito em qualquer lugar da página
-      // — o "2026" do rodapé passava. Aqui o número tem de estar DENTRO do
-      // bloco de métricas, que é onde ele significa alguma coisa.
-      const texto = (await stats.innerText()).replace(/\s+/g, ' ');
-      expect(texto).toMatch(/\d/);
-      // "km Total" sai de formatarDecimal: em pt-BR o separador é vírgula.
-      expect(texto).toMatch(/\d+,\d+/);
+      // O número tem de estar DENTRO do resumo, onde ele significa alguma
+      // coisa. A distância sai de formatarDecimal: em pt-BR, vírgula.
+      const texto = (await resumo.innerText()).replace(/\s+/g, ' ');
+      if (texto !== 'Nenhuma rota no período') {
+        expect(texto).toMatch(/\d+ de \d+ paradas? feitas?/);
+        expect(texto).toMatch(/\d+,\d km$/);
+      }
     });
 
     test('a tabela de rotas do painel renderiza', async ({ page }) => {
@@ -74,29 +73,20 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
   });
 
   test.describe('Quick Actions from Dashboard', () => {
-    test('oferece as ações rápidas de rota e de motoristas', async ({
+    test('o cabeçalho oferece "Nova rota" e leva à criação', async ({
       page,
     }) => {
       await gestorPage.gotoInicio();
 
-      await expect(page.getByText('Nova Rota de Entrega').first()).toBeVisible({
-        timeout: 15000,
+      // As "Ações Rápidas" saíram do desktop: a ação de criar rota ficou no
+      // cabeçalho da página (as outras duas estão no menu lateral).
+      const novaRota = page.getByRole('button', {
+        name: 'Nova rota',
+        exact: true,
       });
-      await expect(
-        page.getByText('Gerenciar Motoristas').first(),
-      ).toBeVisible();
-    });
-
-    test('should navigate to route creation from dashboard', async ({
-      page,
-    }) => {
-      await gestorPage.gotoInicio();
-
-      // "Nova Rota de Entrega" é a primeira ação rápida do painel (o teste
-      // acima já exige que ela exista); aqui ela precisa levar à criação.
-      const createRouteButton = page.getByText('Nova Rota de Entrega').first();
-      await expect(createRouteButton).toBeVisible({ timeout: 15000 });
-      await createRouteButton.click();
+      await expect(novaRota).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText('Ações Rápidas')).toHaveCount(0);
+      await novaRota.click();
 
       await gestorPage.expectOnNovaEntrega();
     });
@@ -133,9 +123,9 @@ test.describe('Reports and Export E2E Tests', () => {
     }) => {
       await gestorPage.gotoGestaoRotas();
 
-      // "6 rota(s) encontrada(s)" — o número é o que o filtro devolveu.
+      // "6 rotas encontradas" — o número é o que o filtro devolveu.
       await expect(
-        page.getByText(/\d+\s*rota\(s\)\s*encontrada\(s\)/i).first(),
+        page.getByText(/\d+\s*rotas?\s*encontradas?/i).first(),
       ).toBeVisible({
         timeout: 15000,
       });
@@ -168,13 +158,13 @@ test.describe('Reports and Export E2E Tests', () => {
   });
 
   test.describe('Route Details Report', () => {
-    test('"Ver Detalhes" leva ao mapa da rota', async ({ page }) => {
+    test('"Ver detalhes" leva ao mapa da rota', async ({ page }) => {
       await gestorPage.gotoGestaoRotas();
       await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
         timeout: 15000,
       });
 
-      await page.getByText('Ver Detalhes').first().click();
+      await page.getByText('Ver detalhes').first().click();
 
       await expect(page).toHaveURL(/mapa-rota/, { timeout: 15000 });
     });
@@ -191,26 +181,48 @@ test.describe('Real-time Tracking E2E Tests', () => {
   });
 
   test.describe('Live Route Tracking', () => {
-    test('o painel destaca as rotas em andamento', async ({ page }) => {
+    test('o resumo fala das rotas em andamento quando há alguma', async ({
+      page,
+    }) => {
       await gestorPage.gotoInicio();
 
-      const stats = page.getByTestId('gestor-dashboard-stats');
-      await expect(stats).toBeVisible({ timeout: 15000 });
-      await expect(
-        stats.getByText('Em Andamento', { exact: false }),
-      ).toBeVisible();
+      const resumo = page.getByTestId('gestor-dashboard-resumo');
+      await expect(resumo).toBeVisible({ timeout: 15000 });
+
+      // Status com zero rota sai da frase: o resumo diz "em andamento" se, e
+      // só se, alguma linha da lista estiver em andamento.
+      const lista = page.getByTestId('rotas-table');
+      await expect(lista).toBeVisible();
+      const emAndamentoNaLista = await lista
+        .getByText('Em andamento', { exact: true })
+        .count();
+      if (emAndamentoNaLista > 0) {
+        await expect(resumo).toContainText('em andamento');
+      } else {
+        await expect(resumo).not.toContainText('em andamento');
+      }
     });
 
-    test('o filtro "Em Andamento" do painel é acionável', async ({ page }) => {
+    test('o filtro "Em andamento" do painel é acionável', async ({ page }) => {
       await gestorPage.gotoInicio();
 
-      // O filtro tem testID próprio; antes o teste procurava o texto
-      // "em andamento", que também é rótulo de métrica e de status na tabela —
-      // pegava o primeiro que aparecesse.
+      // A barra de filtros começa recolhida: abre pelo botão "Filtros".
+      const abrir = page.getByTestId('route-filters-toggle');
+      await expect(abrir).toBeVisible({ timeout: 15000 });
+      await expect(page.getByTestId('route-filters-resumo')).toContainText(
+        'Todos os status',
+      );
+      await abrir.click();
+
+      // O filtro tem testID próprio; o texto "em andamento" também está no
+      // resumo e no status das linhas.
       const filtro = page.getByTestId('filter-status-em_andamento');
       await expect(filtro).toBeVisible({ timeout: 15000 });
       await filtro.click();
 
+      await expect(page.getByTestId('route-filters-resumo')).toContainText(
+        'Em andamento',
+      );
       await expect(page.getByTestId('rotas-table')).toBeVisible({
         timeout: 15000,
       });
@@ -226,7 +238,7 @@ test.describe('Real-time Tracking E2E Tests', () => {
 
       // Ação de linha da tabela, com o rótulo exato (antes um regex solto
       // /ver.*detalhes|mapa|detalhes/ pegava o primeiro texto que casasse).
-      await page.getByText('Ver Detalhes').first().click();
+      await page.getByText('Ver detalhes').first().click();
 
       await expect(page).toHaveURL(/mapa-rota/, { timeout: 15000 });
     });
@@ -266,7 +278,7 @@ test.describe('Performance Analytics E2E Tests', () => {
       await expect(
         page.getByText('Ativos', { exact: false }).first(),
       ).toBeVisible();
-      await expect(page.getByText('Adicionar Motorista').first()).toBeVisible();
+      await expect(page.getByText('Adicionar motorista').first()).toBeVisible();
 
       for (const coluna of ['Nome', 'Status']) {
         await expect(

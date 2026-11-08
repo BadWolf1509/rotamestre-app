@@ -36,7 +36,6 @@ import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { styles } from '@/styles/gestor/incidentes.styles';
-import { withOpacity } from '@/utils/color';
 import { useUnistyles } from '@/utils/styles';
 
 export default function IncidentesScreen() {
@@ -146,6 +145,10 @@ export default function IncidentesScreen() {
         key: 'created_at',
         label: 'Data/Hora',
         width: 140,
+        // Mínimos: a soma com as ações e o recuo fica em 875 px (a janela de
+        // 1280 dá ~910 ao cartão); data, categoria e local quebram em duas
+        // linhas antes de cortar, e o motorista fica em uma, com reticências.
+        minWidth: 110,
         render: (item) => (
           <Text style={styles.tableCellText}>
             {formatDate(item.created_at)}
@@ -156,20 +159,26 @@ export default function IncidentesScreen() {
         key: 'motorista_nome',
         label: 'Motorista',
         width: 220,
+        minWidth: 120,
         render: (item) => (
-          <Text style={styles.tableCellText}>{item.motorista_nome}</Text>
+          <Text style={styles.tableCellText} numberOfLines={1}>
+            {item.motorista_nome}
+          </Text>
         ),
       },
       {
         key: 'categoria',
         label: 'Categoria',
         width: 180,
+        minWidth: 100,
         render: (item) => {
           const cat = categoriaLabels[item.categoria];
           return (
             <View style={styles.categoriaContainer}>
               <Ionicons name={cat.icon} size={16} color={cat.color} />
-              <Text style={[styles.tableCellText, { marginLeft: 6 }]}>
+              <Text
+                style={[styles.tableCellText, { marginLeft: 6, flexShrink: 1 }]}
+              >
                 {cat.label}
               </Text>
             </View>
@@ -180,6 +189,7 @@ export default function IncidentesScreen() {
         key: 'endereco',
         label: 'Local',
         width: 280,
+        minWidth: 110,
         render: (item) => (
           <Text style={styles.tableCellText} numberOfLines={2}>
             {item.endereco}
@@ -190,11 +200,13 @@ export default function IncidentesScreen() {
         key: 'status',
         label: 'Status',
         width: 120,
+        minWidth: 110,
         render: (item) => {
           const st = statusLabels[item.status];
           return (
             <StatusBadge
               color={st.color}
+              textColor={st.textColor}
               label={st.label}
               variant="soft"
               size="sm"
@@ -207,13 +219,13 @@ export default function IncidentesScreen() {
     const actions: DataTableAction<Incidente>[] = [
       {
         icon: 'eye-outline',
-        label: 'Ver Detalhes',
+        label: 'Ver detalhes',
         type: 'secondary',
         onPress: handleVerDetalhes,
       },
       {
         icon: 'create-outline',
-        label: 'Alterar Status',
+        label: 'Alterar status',
         type: 'primary',
         onPress: handleAlterarStatus,
       },
@@ -232,45 +244,31 @@ export default function IncidentesScreen() {
       >
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.error, 0.15) },
-            ]}
-          >
-            <Text style={[styles.resumoValue, { color: theme.colors.error }]}>
+          <View style={styles.resumoCard}>
+            <Text
+              style={[styles.resumoValue, { color: theme.colors.errorText }]}
+            >
               {resumoGeral.abertos}
             </Text>
             <Text style={styles.resumoLabel}>Abertos</Text>
           </View>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.warning, 0.15) },
-            ]}
-          >
-            <Text style={[styles.resumoValue, { color: theme.colors.warning }]}>
+          <View style={styles.resumoCard}>
+            <Text
+              style={[styles.resumoValue, { color: theme.colors.warningText }]}
+            >
               {resumoGeral.emAnalise}
             </Text>
-            <Text style={styles.resumoLabel}>Em Análise</Text>
+            <Text style={styles.resumoLabel}>Em análise</Text>
           </View>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.success, 0.15) },
-            ]}
-          >
-            <Text style={[styles.resumoValue, { color: theme.colors.success }]}>
+          <View style={styles.resumoCard}>
+            <Text
+              style={[styles.resumoValue, { color: theme.colors.successDark }]}
+            >
               {resumoGeral.resolvidos}
             </Text>
             <Text style={styles.resumoLabel}>Resolvidos</Text>
           </View>
-          <View
-            style={[
-              styles.resumoCard,
-              { backgroundColor: withOpacity(theme.colors.gray400, 0.15) },
-            ]}
-          >
+          <View style={styles.resumoCard}>
             <Text style={[styles.resumoValue, { color: theme.colors.gray600 }]}>
               {resumoGeral.total}
             </Text>
@@ -414,6 +412,7 @@ export default function IncidentesScreen() {
                 </View>
                 <StatusBadge
                   color={st.color}
+                  textColor={st.textColor}
                   label={st.label}
                   variant="soft"
                   size="sm"
@@ -446,7 +445,7 @@ export default function IncidentesScreen() {
                   size={16}
                   color={theme.colors.primary}
                 />
-                <Text style={styles.mobileActionText}>Alterar Status</Text>
+                <Text style={styles.mobileActionText}>Alterar status</Text>
               </TouchableOpacity>
             </MobileCard>
           );

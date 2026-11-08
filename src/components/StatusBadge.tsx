@@ -1,11 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import {
-  Text,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native';
+import { Text, View, type TextStyle, type ViewStyle } from 'react-native';
 
+import { OPACIDADE_FUNDO_STATUS_SOFT } from '@/constants/statusConfig';
+import type { IconName } from '@/types/icons';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
@@ -15,8 +13,16 @@ type StatusBadgeSize = 'sm' | 'md';
 interface StatusBadgeProps {
   label: string;
   color: string;
+  /**
+   * Cor do texto e do ícone na variante soft. Para status, passe
+   * `corDeTextoDoStatus(colorKey, theme.colors)`: a própria `color` sobre o
+   * fundo do selo não chega a 4,5:1. Sem ela, o texto usa `color`.
+   */
+  textColor?: string;
   variant?: StatusBadgeVariant;
   size?: StatusBadgeSize;
+  /** Ícone à esquerda do texto, na cor do texto. */
+  icon?: IconName;
   containerStyle?: ViewStyle;
   labelStyle?: TextStyle;
   testID?: string;
@@ -25,16 +31,22 @@ interface StatusBadgeProps {
 function StatusBadgeComponent({
   label,
   color,
+  textColor: textColorSoft,
   variant = 'soft',
   size = 'md',
+  icon,
   containerStyle,
   labelStyle,
   testID,
 }: StatusBadgeProps) {
   const { theme } = useUnistyles();
   const isSmall = size === 'sm';
-  const backgroundColor = variant === 'solid' ? color : withOpacity(color, 0.15);
-  const textColor = variant === 'solid' ? theme.colors.white : color;
+  const backgroundColor =
+    variant === 'solid'
+      ? color
+      : withOpacity(color, OPACIDADE_FUNDO_STATUS_SOFT);
+  const textColor =
+    variant === 'solid' ? theme.colors.white : (textColorSoft ?? color);
 
   return (
     <View
@@ -46,7 +58,11 @@ function StatusBadgeComponent({
         containerStyle,
       ]}
     >
+      {icon ? (
+        <Ionicons name={icon} size={isSmall ? 13 : 14} color={textColor} />
+      ) : null}
       <Text
+        numberOfLines={1}
         style={[
           styles.text,
           isSmall && styles.textSmall,
@@ -71,6 +87,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     borderRadius: theme.borderRadius.sm, // Align with Badge component
     borderWidth: 1,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
   },
   small: {
     // Use consistent small size tokens
@@ -78,10 +97,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     paddingVertical: theme.components.badge.size.small.paddingVertical,
   },
   text: {
-    fontSize: theme.typography.fontSize.xs,
+    fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontSansSemiBold,
   },
   textSmall: {
-    fontSize: theme.typography.fontSize.xs, // Min readable (was 11)
+    // Piso de 13 px para dado no desktop do gestor
+    fontSize: 13,
   },
 }));

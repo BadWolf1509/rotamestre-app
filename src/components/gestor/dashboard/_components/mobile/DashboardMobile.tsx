@@ -20,6 +20,7 @@ import { Text } from '@/design-system';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { plural } from '@/lib/plural';
 import { withOpacity } from '@/utils/color';
 import { getGreeting } from '@/utils/motivationalMessages';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
@@ -316,7 +317,11 @@ export function DashboardMobile({
                       color={theme.colors.successDark}
                     />
                     <Text style={styles.destaqueBadgeText}>
-                      {kpis.motoristaDestaque.rotasConcluidas} rotas concluídas
+                      {plural(
+                        kpis.motoristaDestaque.rotasConcluidas,
+                        'rota concluída',
+                        'rotas concluídas',
+                      )}
                     </Text>
                   </View>
                 </View>
@@ -340,7 +345,7 @@ export function DashboardMobile({
               style={styles.quickActionCard}
               onPress={handleNovaEntregaPress}
               accessibilityRole="button"
-              accessibilityLabel="Nova Rota de Entrega"
+              accessibilityLabel="Nova rota de entrega"
             >
               <View
                 style={[
@@ -354,14 +359,14 @@ export function DashboardMobile({
                   color={theme.colors.primary}
                 />
               </View>
-              <Text style={styles.quickActionLabel}>Nova Rota</Text>
+              <Text style={styles.quickActionLabel}>Nova rota</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.quickActionCard}
               onPress={handleMotoristasPress}
               accessibilityRole="button"
-              accessibilityLabel="Gerenciar Motoristas"
+              accessibilityLabel="Gerenciar motoristas"
             >
               <View
                 style={[
@@ -443,7 +448,7 @@ export function DashboardMobile({
             icon="map-outline"
             title="Nenhuma rota cadastrada hoje"
             description="Crie sua primeira rota de entrega para começar"
-            actionLabel="Nova Rota de Entrega"
+            actionLabel="Nova rota de entrega"
             onActionPress={handleNovaEntregaPress}
           />
         </View>

@@ -9,6 +9,7 @@
 
 import type { IconName } from '@/types/icons';
 import type { StatusParada, StatusRota } from '@/types/rota';
+import type { Theme } from '@/utils/styles.types';
 
 /**
  * Route status types used throughout the app
@@ -25,6 +26,40 @@ export type StopStatusType = StatusParada;
  */
 export type StatusColorKey =
   'warning' | 'info' | 'success' | 'error' | 'gray600';
+
+/**
+ * Opacidade do fundo do selo soft (cor do status sobre o cartão). Os tons de
+ * `corDeTextoDoStatus` passam de 4,5:1 sobre esse fundo nos dois temas.
+ */
+export const OPACIDADE_FUNDO_STATUS_SOFT = 0.1;
+
+type CoresDeTextoDoStatus = Pick<
+  Theme['colors'],
+  'warningText' | 'infoText' | 'successDark' | 'errorText' | 'gray600'
+>;
+
+/**
+ * Cor do texto (e do ícone) de um status sobre o fundo claro do selo soft.
+ * A cor do próprio status sobre ela mesma a 10–15% fica entre 1,9 e 3,1:1;
+ * estes tons passam de 4,5:1 no tema claro e no escuro.
+ */
+export function corDeTextoDoStatus(
+  colorKey: StatusColorKey,
+  colors: CoresDeTextoDoStatus,
+): string {
+  switch (colorKey) {
+    case 'warning':
+      return colors.warningText;
+    case 'info':
+      return colors.infoText;
+    case 'success':
+      return colors.successDark;
+    case 'error':
+      return colors.errorText;
+    case 'gray600':
+      return colors.gray600;
+  }
+}
 
 /**
  * Status configuration with label, color key, and icon

@@ -150,8 +150,12 @@ test.describe('Critical Flows - Authenticated @visual @auth', () => {
     await loginAsGestor();
     await page.goto(e2eUrl('/gestor/mapa-rota'));
     await page.waitForLoadState('networkidle');
+    // Texto exato e só o visível: a Início fica montada por baixo da pilha
+    // (âncora do gestor) e também diz "Nenhuma rota…", escondida — o `.first()`
+    // de /nenhuma rota/ pegava essa e esperava os 20 s até falhar no mobile.
     await page
-      .getByText(/nenhuma rota/i)
+      .getByText(/nenhuma rota selecionada/i)
+      .filter({ visible: true })
       .first()
       .waitFor();
     await expect(page).toHaveScreenshot('visual-gestor-mapa-rota-empty.png', {

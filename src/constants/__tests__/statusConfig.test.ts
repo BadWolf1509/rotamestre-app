@@ -1,8 +1,13 @@
+import { comporSobre, contraste } from '@/test-utils/contraste';
 import { STATUS_PARADA } from '@/types/rota';
+import { darkTheme, defaultTheme as lightTheme } from '@/utils/styles.base';
 
 import {
+  OPACIDADE_FUNDO_STATUS_SOFT,
   ROUTE_STATUS_CONFIG,
   STOP_STATUS_CONFIG,
+  type StatusColorKey,
+  corDeTextoDoStatus,
   coresPorStatusDaRota,
   getStatusColorKey,
   rotuloDoStatus,
@@ -59,3 +64,54 @@ it('STOP_STATUS_CONFIG tem exatamente STATUS_PARADA', () =>
   expect(Object.keys(STOP_STATUS_CONFIG).sort()).toEqual(
     [...STATUS_PARADA].sort(),
   ));
+
+describe('corDeTextoDoStatus — contraste do selo soft', () => {
+  const temas = [
+    ['claro', lightTheme],
+    ['escuro', darkTheme],
+  ] as const;
+  const chaves: StatusColorKey[] = [
+    'warning',
+    'info',
+    'success',
+    'error',
+    'gray600',
+  ];
+
+  // O selo fica sobre cartão ou superfície; mede contra o pior dos dois.
+  it.each(
+    temas.flatMap(([nome, tema]) =>
+      chaves.map((chave) => [nome, chave, tema] as const),
+    ),
+  )(
+    'tema %s, %s: texto com pelo menos 4,5:1 sobre o fundo do selo',
+    (_nome, chave, tema) => {
+      const texto = corDeTextoDoStatus(chave, tema.colors);
+      const piores = [tema.colors.surface, tema.colors.card].map((base) =>
+        contraste(
+          texto,
+          comporSobre(tema.colors[chave], base, OPACIDADE_FUNDO_STATUS_SOFT),
+        ),
+      );
+      expect(Math.min(...piores)).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it('usa os tons de texto do tema, não a cor do status', () => {
+    expect(corDeTextoDoStatus('warning', lightTheme.colors)).toBe(
+      lightTheme.colors.warningText,
+    );
+    expect(corDeTextoDoStatus('info', lightTheme.colors)).toBe(
+      lightTheme.colors.infoText,
+    );
+    expect(corDeTextoDoStatus('success', lightTheme.colors)).toBe(
+      lightTheme.colors.successDark,
+    );
+    expect(corDeTextoDoStatus('error', lightTheme.colors)).toBe(
+      lightTheme.colors.errorText,
+    );
+    expect(corDeTextoDoStatus('gray600', lightTheme.colors)).toBe(
+      lightTheme.colors.gray600,
+    );
+  });
+});

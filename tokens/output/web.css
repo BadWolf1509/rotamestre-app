@@ -26,9 +26,11 @@
   --color-warning-bg: #fef3c7;
   --color-error: #ef4444;
   --color-error-dark: #dc2626;
+  --color-error-text: #b91c1c;
   --color-error-bg: #fee2e2;
   --color-info: #3b82f6;
   --color-info-bg: #dbeafe;
+  --color-info-text: #1d4ed8;
   --color-white: #ffffff;
   --color-black: #000000;
   --color-gray50: #f9fafb;
@@ -63,6 +65,7 @@
   --color-green800: #166534;
   --color-warning-light: #fef3c7;
   --color-warning-dark: #d97706;
+  --color-on-warning: #111827;
   --color-error-light: #fee2e2;
   --color-success-light: #d1fae5;
   --color-whatsapp: #25D366;

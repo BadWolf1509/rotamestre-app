@@ -16,6 +16,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MotoristaAvatar } from '@/components/gestor/motoristas/MotoristaAvatar';
 import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
+import { corDeTextoDoStatus } from '@/constants/statusConfig';
 import {
   DataTable,
   type DataTableAction,
@@ -303,6 +304,8 @@ export default function MotoristasGestor() {
       key: 'avatar',
       label: '',
       width: 60,
+      // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
+      minWidth: 56,
       render: (motorista) => (
         <MotoristaAvatar fotoUrl={motorista.foto_url} nome={motorista.nome} />
       ),
@@ -311,6 +314,7 @@ export default function MotoristasGestor() {
       key: 'nome',
       label: 'Nome',
       width: 200,
+      minWidth: 130,
       sortable: true,
       noWrap: true,
       render: (motorista) => (
@@ -321,6 +325,7 @@ export default function MotoristasGestor() {
       key: 'email',
       label: 'E-mail',
       width: 260,
+      minWidth: 160,
       noWrap: true,
       render: (motorista) => (
         <Text style={styles.tableCellText}>{motorista.email}</Text>
@@ -330,6 +335,7 @@ export default function MotoristasGestor() {
       key: 'telefone',
       label: 'Telefone',
       width: 130,
+      minWidth: 130,
       render: (motorista) => (
         <Text style={styles.tableCellText}>{motorista.telefone || '-'}</Text>
       ),
@@ -338,6 +344,7 @@ export default function MotoristasGestor() {
       key: 'created_at',
       label: 'Cadastrado em',
       width: 130,
+      minWidth: 100,
       desktopOnly: true,
       render: (motorista) => (
         <Text style={styles.tableCellText}>
@@ -349,9 +356,14 @@ export default function MotoristasGestor() {
       key: 'ativo',
       label: 'Status',
       width: 100,
+      minWidth: 90,
       render: (motorista) => (
         <StatusBadge
-          color={motorista.ativo ? theme.colors.success : theme.colors.error}
+          color={motorista.ativo ? theme.colors.success : theme.colors.gray600}
+          textColor={corDeTextoDoStatus(
+            motorista.ativo ? 'success' : 'gray600',
+            theme.colors,
+          )}
           label={motorista.ativo ? 'Ativo' : 'Inativo'}
           variant="soft"
         />
@@ -361,7 +373,7 @@ export default function MotoristasGestor() {
 
   const actions: DataTableAction<MotoristaDetalhado>[] = [
     {
-      label: 'Ver Perfil',
+      label: 'Ver perfil',
       icon: 'person-outline',
       type: 'secondary',
       onPress: (motorista) => {
@@ -380,6 +392,8 @@ export default function MotoristasGestor() {
       icon: (motorista) =>
         motorista.ativo ? 'close-circle-outline' : 'checkmark-circle-outline',
       type: 'secondary',
+      // No desktop vai ao menu "⋯": três botões não cabiam sem rolar.
+      emMenu: true,
       onPress: toggleAtivo,
     },
   ];
@@ -417,7 +431,7 @@ export default function MotoristasGestor() {
           size={18}
           color={theme.colors.white}
         />
-        <Text style={styles.cardAddButtonText}>Adicionar Motorista</Text>
+        <Text style={styles.cardAddButtonText}>Adicionar motorista</Text>
       </TouchableOpacity>
     </View>
   ) : undefined;

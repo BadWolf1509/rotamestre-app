@@ -77,14 +77,14 @@ export function IncidenteDetalhesModal({
       title="Detalhes do Incidente"
       maxWidth={600}
       primaryButton={{
-        text: 'Alterar Status',
+        text: 'Alterar status',
         onPress: () => {
           onClose();
           setTimeout(() => onAlterarStatus(incidente), 300);
         },
       }}
       secondaryButton={{
-        text: 'Remarcar Entrega',
+        text: 'Remarcar entrega',
         onPress: () => onRemarcarEntrega(incidente),
       }}
     >
@@ -112,6 +112,7 @@ export function IncidenteDetalhesModal({
           </View>
           <StatusBadge
             color={st.color}
+            textColor={st.textColor}
             label={st.label}
             variant="soft"
             size="sm"

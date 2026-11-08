@@ -9,6 +9,7 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import { ROTULO_NUNCA_ENTROU } from '@/lib/motorista/confirmarMotoristaNuncaEntrou';
+import { plural } from '@/lib/plural';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { MotoristaResumo } from './types';
@@ -54,7 +55,7 @@ export const MotoristaSeletor = memo(function MotoristaSeletor({
       )}
       {motoristas.length === 0 ? (
         // Beco sem saída do gestor novo: a unidade recém-criada não tem
-        // motorista, mas "Nova Rota de Entrega" é a primeira ação do dashboard.
+        // motorista, mas "Nova rota de entrega" é a primeira ação do dashboard.
         // Sem esta saída dá para preencher paradas, geocodificar e otimizar, e
         // só descobrir no fim que a rota não pode ser concluída.
         <View style={styles.emptyState}>
@@ -127,12 +128,20 @@ export const MotoristaSeletor = memo(function MotoristaSeletor({
                 )}
                 <View style={styles.workloadBadge}>
                   <Text style={styles.workloadText}>
-                    {motorista.rotasPendentes ?? 0} rota(s) pendente(s)
+                    {plural(
+                      motorista.rotasPendentes ?? 0,
+                      'rota pendente',
+                      'rotas pendentes',
+                    )}
                   </Text>
                 </View>
                 <View style={styles.workloadBadge}>
                   <Text style={styles.workloadText}>
-                    {motorista.paradasPendentes ?? 0} parada(s)
+                    {plural(
+                      motorista.paradasPendentes ?? 0,
+                      'parada',
+                      'paradas',
+                    )}
                   </Text>
                 </View>
               </View>

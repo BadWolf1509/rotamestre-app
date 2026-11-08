@@ -170,7 +170,7 @@ export function DesktopPageLayout({
                     <Ionicons
                       name="chevron-forward"
                       size={14}
-                      color={theme.colors.gray400}
+                      color={theme.colors.gray500}
                       style={styles.breadcrumbSeparator}
                     />
                   )}
@@ -398,14 +398,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   title: {
     fontSize: theme.components.pageLayout.headerTitleFontSize,
-    fontWeight: '700',
-    color: theme.colors.gray900,
-    letterSpacing: -0.5,
+    // Viga só existe no peso 400: negrito aqui seria sintetizado pelo navegador
+    fontFamily: theme.typography.fontDisplay,
+    color: theme.colors.text,
   },
   subtitle: {
     marginTop: theme.spacing.xs,
     fontSize: theme.components.pageLayout.headerSubtitleFontSize,
-    color: theme.colors.gray500,
+    color: theme.colors.textSecondary,
     lineHeight: 20,
   },
   headerRight: {
