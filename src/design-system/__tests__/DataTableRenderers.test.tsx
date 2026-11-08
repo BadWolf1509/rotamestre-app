@@ -41,7 +41,8 @@ jest.mock('@/utils/styles', () => ({
   type: { Theme: {} },
 }));
 
-// Mock StatusBadge
+// Mock StatusBadge: ícone e variante vão como props do mock (não no
+// accessibilityLabel, que é texto para o leitor de tela).
 jest.mock('@/components/StatusBadge', () => ({
   StatusBadge: ({
     label,
@@ -58,7 +59,8 @@ jest.mock('@/components/StatusBadge', () => ({
     return (
       <Text
         testID="status-badge"
-        accessibilityLabel={`${icon}|${variant}`}
+        icone={icon}
+        variante={variant}
         style={{ color: textColor }}
       >
         {label}
@@ -114,9 +116,10 @@ describe('StatusCell', () => {
     );
 
     expect(getByText(ROUTE_STATUS_CONFIG.nao_executada.label)).toBeTruthy();
-    expect(getByTestId('status-badge').props.accessibilityLabel).toBe(
-      `${ROUTE_STATUS_CONFIG.nao_executada.icon}|soft`,
-    );
+    expect(getByTestId('status-badge').props).toMatchObject({
+      icone: ROUTE_STATUS_CONFIG.nao_executada.icon,
+      variante: 'soft',
+    });
   });
 
   it.each([
@@ -133,9 +136,10 @@ describe('StatusCell', () => {
   it('deve usar a config de paradas para pulada', () => {
     const { getByTestId } = render(<StatusCell status="pulada" />);
 
-    expect(getByTestId('status-badge').props.accessibilityLabel).toBe(
-      `${STOP_STATUS_CONFIG.pulada.icon}|soft`,
-    );
+    expect(getByTestId('status-badge').props).toMatchObject({
+      icone: STOP_STATUS_CONFIG.pulada.icon,
+      variante: 'soft',
+    });
   });
 
   it('deve renderizar status badge para pulada', () => {
