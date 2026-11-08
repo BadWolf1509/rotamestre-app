@@ -382,7 +382,7 @@ export function useDashboardData(
   const filtroStatus = filters?.status ?? null;
   const filtroMotoristaId = filters?.motoristaId ?? null;
   const { userData } = useUser();
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const { unidadeAtiva, loading: lojaCarregando } = useUnidadeAtiva();
   const unidadeId = unidadeAtiva;
 
   // Estados
@@ -794,7 +794,9 @@ export function useDashboardData(
     todayStats,
     kpis,
     rotas,
-    loading,
+    // Sem loja resolvida ainda, a lista vazia não é resposta: o vazio
+    // ("Nenhuma rota cadastrada hoje") pintava antes da carga começar.
+    loading: loading || lojaCarregando,
     refreshing,
     erroCarga,
     dadosDe,

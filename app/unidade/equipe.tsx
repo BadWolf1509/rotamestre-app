@@ -45,7 +45,7 @@ export default function EquipeScreen() {
   const { userData, loading: userLoading } = useUser();
   // A loja ABERTA (como no resto do app), não o `usuarios.unidade_id`
   // legado — gestor de várias lojas via a equipe de outra.
-  const { unidadeAtiva } = useUnidadeAtiva();
+  const { unidadeAtiva, loading: lojaCarregando } = useUnidadeAtiva();
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
@@ -64,7 +64,9 @@ export default function EquipeScreen() {
     'todos' | 'gestor' | 'motorista'
   >('todos');
   const isDesktopView = isDesktop;
-  const isLoading = userLoading || loading;
+  // Sem loja resolvida ainda, "sem dados" não é resposta: a tela pintava
+  // o vazio (ou um bloqueio) antes de a carga começar.
+  const isLoading = userLoading || loading || lojaCarregando;
   // `loading` troca a tela inteira pelo spinner (MobileLoading no mobile,
   // DesktopPageLayout no desktop). Por isso ele vale só para a carga inicial:
   // a recarga depois de ativar/desativar um membro precisa manter a lista na

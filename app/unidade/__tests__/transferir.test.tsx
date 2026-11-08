@@ -66,13 +66,14 @@ jest.mock('@/hooks/useUser', () => ({
 // Loja aberta no seletor (B-DB-2): a tela segue ela, não a coluna legada
 // usuarios.unidade_id.
 let mockUnidadeAtiva: string | null = 'unidade-1';
+let mockLojaCarregando = false;
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
   useUnidadeAtiva: () => ({
     unidadeAtiva: mockUnidadeAtiva,
     unidadeAtivaData: mockUnidadeAtiva
       ? { id: mockUnidadeAtiva, nome: `Loja ${mockUnidadeAtiva}` }
       : null,
-    loading: false,
+    loading: mockLojaCarregando,
   }),
 }));
 
@@ -127,6 +128,7 @@ describe('TransferirGestaoScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUnidadeAtiva = 'unidade-1';
+    mockLojaCarregando = false;
     mockUseUser.mockReturnValue({ userData: GESTOR_PRINCIPAL, loading: false });
     (mockSupabase.from as jest.Mock).mockImplementation(() =>
       usuariosQueryBuilder(),
@@ -263,5 +265,18 @@ describe('TransferirGestaoScreen', () => {
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockShowSuccess).not.toHaveBeenCalled();
     expect(mockShowError).not.toHaveBeenCalled();
+  });
+
+  it('com a loja ativa ainda carregando, mostra o carregamento e não o bloqueio', () => {
+    // Sem loja resolvida, o principal parecia não ser principal desta loja e
+    // a tela afirmava "Apenas o gestor principal..." antes de a loja chegar.
+    mockUnidadeAtiva = null;
+    mockLojaCarregando = true;
+    render(<TransferirGestaoScreen />);
+
+    expect(screen.getByText('Carregando gestores...')).toBeTruthy();
+    expect(
+      screen.queryByText('Apenas o gestor principal pode transferir a gestão.'),
+    ).toBeNull();
   });
 });

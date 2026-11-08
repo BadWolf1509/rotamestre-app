@@ -72,8 +72,13 @@ const GESTORES = [
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({ userData: mockUsuario, loading: false }),
 }));
+let mockLoja: string | null = 'loja-ativa';
+let mockLojaCarregando = false;
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: 'loja-ativa', loading: false }),
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockLoja,
+    loading: mockLojaCarregando,
+  }),
 }));
 
 // Caminho mobile: é onde o `if (isLoading)` troca a tela inteira pelo
@@ -133,6 +138,8 @@ describe('EquipeScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCargas = 0;
+    mockLoja = 'loja-ativa';
+    mockLojaCarregando = false;
     mockResolverSegundaCarga = null;
     mockUsuario = GESTOR_PRINCIPAL;
     MOTORISTAS = [{ ...MOTORISTAS[0], ativo: true }];
@@ -153,6 +160,26 @@ describe('EquipeScreen', () => {
       'unidade_id',
       'loja-legada',
     );
+  });
+
+  it('com a loja ativa ainda carregando, mostra o carregamento e não a equipe vazia', () => {
+    // Sem loja resolvida, a tela desligava o loading e pintava "Nenhum
+    // membro na equipe" antes de a carga começar (visto na Início, 08/11).
+    mockLoja = null;
+    mockLojaCarregando = true;
+    render(<EquipeScreen />);
+
+    expect(screen.getByText('Carregando equipe...')).toBeTruthy();
+    expect(screen.queryByTestId('equipe-vazia')).toBeNull();
+  });
+
+  it('sem loja de fato (carregamento terminou), não fica preso no carregamento', async () => {
+    mockLoja = null;
+    mockLojaCarregando = false;
+    render(<EquipeScreen />);
+
+    expect(await screen.findByTestId('equipe-vazia')).toBeTruthy();
+    expect(screen.queryByText('Carregando equipe...')).toBeNull();
   });
 
   it('busca sem resultado mostra o estado vazio padrão, com orientação', async () => {

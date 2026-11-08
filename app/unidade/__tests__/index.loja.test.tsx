@@ -16,12 +16,13 @@ import React from 'react';
 
 import UnidadeScreen from '../index';
 
-let mockUnidadeAtiva = 'loja-a';
+let mockUnidadeAtiva: string | null = 'loja-a';
+let mockLojaCarregando = false;
 const mockRecarregarLojas = jest.fn();
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
   useUnidadeAtiva: () => ({
     unidadeAtiva: mockUnidadeAtiva,
-    loading: false,
+    loading: mockLojaCarregando,
     refresh: mockRecarregarLojas,
   }),
 }));
@@ -88,9 +89,21 @@ jest.mock('@/lib/supabase', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockUnidadeAtiva = 'loja-a';
+  mockLojaCarregando = false;
 });
 
 describe('Minha Unidade — troca de loja', () => {
+  it('com a loja ativa ainda carregando, mostra o carregamento e não a tela sem dados', () => {
+    // Sem loja resolvida, a tela desligava o loading e abria vazia antes de
+    // a carga começar (o mesmo defeito visto na Início em 08/11).
+    mockUnidadeAtiva = null;
+    mockLojaCarregando = true;
+    render(<UnidadeScreen />);
+
+    expect(screen.getByText('Carregando...')).toBeTruthy();
+    expect(screen.queryByText('✏️ Editar Informações')).toBeNull();
+  });
+
   it('a resposta atrasada da loja anterior não sobrescreve a loja nova', async () => {
     let soltarA: (v: unknown) => void = () => {};
     mockRespostas['loja-a'] = new Promise((r) => {

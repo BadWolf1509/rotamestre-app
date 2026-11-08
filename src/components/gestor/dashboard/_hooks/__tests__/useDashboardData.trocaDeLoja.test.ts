@@ -13,6 +13,7 @@ import { getTodayISO } from '@/lib/dateUtils';
 import { useDashboardData } from '../useDashboardData';
 
 let mockLoja: string | null = 'loja-a';
+let mockLojaCarregando = false;
 // Lojas cuja consulta de `rotas` fica pendente até o teste liberar.
 const mockSeguradas: Record<
   string,
@@ -27,7 +28,10 @@ jest.mock('@/hooks/useRealtimeRoutes', () => ({
   useRealtimeRoutes: jest.fn(),
 }));
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
-  useUnidadeAtiva: () => ({ unidadeAtiva: mockLoja }),
+  useUnidadeAtiva: () => ({
+    unidadeAtiva: mockLoja,
+    loading: mockLojaCarregando,
+  }),
 }));
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
@@ -102,6 +106,7 @@ jest.mock('@/lib/supabase', () => ({
 
 beforeEach(() => {
   mockLoja = 'loja-a';
+  mockLojaCarregando = false;
   mockLojasComErro.clear();
   for (const k of Object.keys(mockSeguradas)) delete mockSeguradas[k];
 });
@@ -184,6 +189,38 @@ describe('useDashboardData — troca de loja', () => {
     // A última carga boa foi da loja A: não pode virar "dados de HH:MM" da B.
     expect(result.current.dadosDe).toBeNull();
     expect(result.current.kpis.rotasMes).toBe(0);
+    expect(result.current.rotas).toEqual([]);
+  });
+});
+
+describe('useDashboardData — loja ativa ainda carregando', () => {
+  // Em produção (08/11/2026) a Início abriu com "Nenhuma rota no período" e
+  // "Nenhuma rota cadastrada hoje" numa loja com rota: sem loja resolvida, o
+  // hook zerava a lista e desligava o `loading`, e a tela pintava o vazio
+  // como se fosse a resposta.
+  it('fica em carregamento, não em vazio, enquanto a loja ativa não chegou', async () => {
+    mockLoja = null;
+    mockLojaCarregando = true;
+    const { result, rerender } = renderHook(() => useDashboardData());
+
+    // Dá tempo à carga "sem loja" de rodar e desligar o próprio loading.
+    await act(async () => {});
+    expect(result.current.loading).toBe(true);
+
+    mockLoja = 'loja-a';
+    mockLojaCarregando = false;
+    rerender({});
+
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('sem loja de fato (carregamento terminou), mostra o vazio', async () => {
+    mockLoja = null;
+    mockLojaCarregando = false;
+    const { result } = renderHook(() => useDashboardData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.rotas).toEqual([]);
   });
 });

@@ -38,7 +38,11 @@ export default function TransferirGestaoScreen() {
   const { userData, loading: userLoading } = useUser();
   // Loja aberta no seletor (B-DB-2), não a coluna legada usuarios.unidade_id:
   // com a loja B aberta, a tela mostrava a equipe e chamava a RPC da A.
-  const { unidadeAtiva, unidadeAtivaData } = useUnidadeAtiva();
+  const {
+    unidadeAtiva,
+    unidadeAtivaData,
+    loading: lojaCarregando,
+  } = useUnidadeAtiva();
   const nomeDaLoja = unidadeAtivaData?.nome;
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
@@ -55,7 +59,9 @@ export default function TransferirGestaoScreen() {
   const [confirmationText, setConfirmationText] = useState('');
   const [transferring, setTransferring] = useState(false);
   const isDesktopView = isDesktop;
-  const isLoading = userLoading || loading;
+  // Sem loja resolvida ainda, "sem dados" não é resposta: a tela pintava
+  // o vazio (ou um bloqueio) antes de a carga começar.
+  const isLoading = userLoading || loading || lojaCarregando;
   // Principal DESTA loja: o flag vale no slot legado, e a RPC só aceita o
   // principal da própria loja (ver ehGestorPrincipalDaLoja).
   const isGestorPrincipal = ehGestorPrincipalDaLoja(userData, unidadeAtiva);
@@ -146,8 +152,9 @@ export default function TransferirGestaoScreen() {
     }
   }
 
-  // Verificar se é gestor principal
-  if (!isGestorPrincipal) {
+  // Verificar se é gestor principal — só depois de usuário e loja
+  // resolvidos: antes disso o principal parece não ser principal desta loja.
+  if (!isGestorPrincipal && !isLoading) {
     return (
       <ErrorBoundary>
         <View style={styles.container}>
@@ -155,9 +162,7 @@ export default function TransferirGestaoScreen() {
             <View style={styles.headerContent}>
               <View>
                 <Text style={styles.headerTitle}>Transferir Gestão</Text>
-                <Text style={styles.headerSubtitle}>
-                  {nomeDaLoja}
-                </Text>
+                <Text style={styles.headerSubtitle}>{nomeDaLoja}</Text>
               </View>
             </View>
           </View>
@@ -356,9 +361,7 @@ export default function TransferirGestaoScreen() {
             <View style={styles.headerContent}>
               <View>
                 <Text style={styles.headerTitle}>Transferir Gestão</Text>
-                <Text style={styles.headerSubtitle}>
-                  {nomeDaLoja}
-                </Text>
+                <Text style={styles.headerSubtitle}>{nomeDaLoja}</Text>
               </View>
             </View>
           </View>
