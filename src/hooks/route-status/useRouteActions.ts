@@ -44,9 +44,10 @@ interface UseRouteActionsOptions {
 
 /**
  * A rota já está em andamento com este motorista? Devolve o `iniciada_em`
- * (a hora real do início) ou null. Só para o rastreamento partir da hora
- * certa quando a RPC responde `ja_iniciada`; falha de leitura devolve null e
- * quem chama usa a hora de agora.
+ * (a hora real do início, gravada pelo servidor) ou null. Só para o
+ * rastreamento partir da hora certa quando a RPC responde `iniciada` ou
+ * `ja_iniciada`; falha de leitura devolve null e quem chama usa a hora de
+ * agora.
  */
 async function lerInicioProprio(
   rotaId: string,
@@ -135,20 +136,20 @@ export function useRouteActions({
 
       // `ja_iniciada`: resposta perdida, toque duplo ou outro aparelho — a
       // rota já está em andamento com este motorista e a RPC completou o que
-      // faltava. Segue como iniciada, com o rastreamento a partir da hora
-      // real do início.
-      const now =
-        (resultado === 'ja_iniciada'
-          ? await lerInicioProprio(route.id, motoristaId)
-          : null) ?? new Date().toISOString();
+      // faltava. Segue como iniciada. Nos dois casos o rastreamento parte do
+      // `iniciada_em` gravado pelo servidor (now() do banco), não do relógio
+      // do aparelho; sem conseguir relê-lo, usa a hora de agora.
 
       // 2. Iniciar rastreamento de localização em background (apenas mobile)
       if (Platform.OS !== 'web') {
+        const inicio =
+          (await lerInicioProprio(route.id, motoristaId)) ??
+          new Date().toISOString();
         await requestAndStartTracking({
           rotaId: route.id,
           motoristaId,
           motoristaNome: motoristaNome || 'Motorista',
-          startedAt: now,
+          startedAt: inicio,
         });
       }
 

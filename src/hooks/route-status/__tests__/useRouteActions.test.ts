@@ -208,6 +208,14 @@ describe('startRoute', () => {
 
   it('iniciada: liga o rastreamento (mobile) e recarrega a rota', async () => {
     (Platform as any).OS = 'android';
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: {
+        status: 'em_andamento',
+        motorista_id: 'user-1',
+        iniciada_em: '2026-11-08T13:00:00.000Z',
+      },
+      error: null,
+    });
     const { startRoute, loadActiveRoute } = setup({
       paradas: [makeParada()],
       userData: { id: 'user-1', nome: 'Carlos' },
@@ -220,12 +228,28 @@ describe('startRoute', () => {
         rotaId: 'route-1',
         motoristaId: 'user-1',
         motoristaNome: 'Carlos',
-        startedAt: expect.any(String),
+        // `iniciada_em` é o now() do servidor: o rastreamento parte dele, não
+        // do relógio do aparelho.
+        startedAt: '2026-11-08T13:00:00.000Z',
       }),
     );
     expect(loadActiveRoute).toHaveBeenCalledTimes(1);
-    // Iniciada agora: não precisa reler a hora do início.
-    expect(mockSelectMaybeSingle).not.toHaveBeenCalled();
+  });
+
+  it('iniciada com a releitura falhando: segue com a hora de agora', async () => {
+    (Platform as any).OS = 'android';
+    mockSelectMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'falha' },
+    });
+    const { startRoute, loadActiveRoute } = setup({ paradas: [makeParada()] });
+
+    await expect(startRoute()).resolves.toBeUndefined();
+
+    expect(requestAndStartTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ startedAt: expect.any(String) }),
+    );
+    expect(loadActiveRoute).toHaveBeenCalledTimes(1);
   });
 
   it('does not call requestAndStartTracking on web', async () => {
