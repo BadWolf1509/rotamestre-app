@@ -4,6 +4,8 @@
  * consumia: a ação só subia no próximo gatilho. O `finally` agora reagenda
  * uma sincronização, uma vez, e nunca quando a rodada parou esperando rede.
  */
+import { lerJsonParaExibir } from '@/lib/leituraLocal';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
 import {
@@ -26,6 +28,12 @@ jest.mock('@react-native-async-storage/async-storage', () => {
       mapa.delete(k);
     }),
   };
+});
+
+// Passa direto para a leitura real; o teste da rodada reagendada a faz rejeitar.
+jest.mock('@/lib/leituraLocal', () => {
+  const real = jest.requireActual('@/lib/leituraLocal');
+  return { ...real, lerJsonParaExibir: jest.fn(real.lerJsonParaExibir) };
 });
 
 jest.mock('@/lib/logger', () => ({
@@ -141,5 +149,43 @@ describe('processarFilaAcoesParada: pedido que chega depois do laço de envio', 
 
     expect(supabase.auth.getSession).not.toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('rejeição na leitura da rodada reagendada é logada, sem unhandled rejection', async () => {
+    await enfileirarAcaoParada(acao('p1'));
+    let liberar: () => void = () => undefined;
+    const porta = portaAberta(
+      () =>
+        new Promise<void>((r) => {
+          liberar = r;
+        }),
+    );
+    const naoTratadas: unknown[] = [];
+    const ouvinte = (e: unknown) => naoTratadas.push(e);
+    process.on('unhandledRejection', ouvinte);
+
+    const primeira = processarFilaAcoesParada({
+      usuarioAtual: 'mot-1',
+      porta,
+    });
+    await esperar();
+    await enfileirarAcaoParada(acao('p2', 'pular'));
+    await processarFilaAcoesParada({ usuarioAtual: 'mot-1', porta });
+
+    // A releitura final da rodada passa; a 1ª leitura da rodada reagendada falha.
+    const real = jest.requireActual('@/lib/leituraLocal');
+    (lerJsonParaExibir as jest.Mock)
+      .mockImplementationOnce(real.lerJsonParaExibir)
+      .mockRejectedValueOnce(new Error('storage indisponível'));
+    liberar();
+    await primeira;
+    await esperar(50);
+    process.off('unhandledRejection', ouvinte);
+
+    expect(naoTratadas).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[FilaParada] Falha ao reagendar o envio',
+      expect.any(Error),
+    );
   });
 });

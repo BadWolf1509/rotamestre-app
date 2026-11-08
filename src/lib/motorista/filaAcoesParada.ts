@@ -596,7 +596,16 @@ export async function processarFilaAcoesParada({
     const reagendar = rodarDeNovo && !esperarRede;
     rodarDeNovo = false;
     avisarOuvintes();
-    if (reagendar) void sincronizarFilaAcoesParada();
+    // Hoje o único chamador (`solicitarEnvioFila`, em `src/lib/offline.ts`) já
+    // serializa os envios, então este reagendamento é preventivo. A rodada extra
+    // NÃO passa pelo envio de fotos de `solicitarEnvioFila` (só a fila de ações).
+    // A 1ª leitura da fila fica fora do `try` de lá: sem o `catch`, uma rejeição
+    // viraria unhandled rejection.
+    if (reagendar) {
+      void sincronizarFilaAcoesParada().catch((e) =>
+        logger.warn('[FilaParada] Falha ao reagendar o envio', e),
+      );
+    }
   }
 }
 
