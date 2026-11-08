@@ -1,5 +1,6 @@
 /**
- * Balão do checkpoint (PARTIDA/CHEGADA) selecionado no mapa nativo.
+ * Balão do pino da unidade (sede, ou partida/chegada) selecionado no mapa
+ * nativo. Título e ícone vêm de `ESPEC_DO_PONTO` (`pontosDaUnidade`).
  *
  * Fora do <Marker>, como o ParadaCallout: dentro dele o "Copiar endereço"
  * não recebia toque no Android.
@@ -10,39 +11,37 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
 import { mapMobileStyles as styles } from '@/components/map/mobile/styles';
+import {
+  ESPEC_DO_PONTO,
+  type PontoComCoordenada,
+  type PontoDaUnidade,
+} from '@/components/map/pontosDaUnidade';
 import { useUnistyles } from '@/utils/styles';
 
 interface CheckpointCalloutProps {
-  /** 0 = PARTIDA, 1+ = CHEGADA */
-  index: number;
-  endereco: string;
+  ponto: PontoDaUnidade<PontoComCoordenada>;
   unidadeNome?: string;
   onCopyAddress: (endereco: string) => void;
 }
 
 export function CheckpointCallout({
-  index,
-  endereco,
+  ponto,
   unidadeNome,
   onCopyAddress,
 }: CheckpointCalloutProps) {
   const { theme } = useUnistyles();
-  const isPartida = index === 0;
+  const espec = ESPEC_DO_PONTO[ponto.tipo];
+  const { endereco } = ponto.ponto;
 
   return (
     <View style={styles.checkpointCalloutContainer}>
       <View style={styles.checkpointCalloutHeader}>
         <View style={styles.checkpointIconBadge}>
-          <Ionicons
-            name={isPartida ? 'flag' : 'home'}
-            size={12}
-            color={theme.colors.white}
-          />
+          <Ionicons name={espec.ionicon} size={12} color={theme.colors.white} />
         </View>
-        <Text style={styles.checkpointCalloutTitle}>
-          {isPartida ? 'PARTIDA' : 'CHEGADA'}
-        </Text>
+        <Text style={styles.checkpointCalloutTitle}>{espec.titulo}</Text>
       </View>
+      <Text style={styles.checkpointCalloutSubtitulo}>{espec.subtitulo}</Text>
       {unidadeNome && (
         <Text style={styles.checkpointCalloutUnidade}>{unidadeNome}</Text>
       )}

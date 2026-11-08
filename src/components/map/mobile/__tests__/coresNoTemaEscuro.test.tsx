@@ -18,9 +18,10 @@ import {
   CORES_DE_STATUS_SOBRE_O_MAPA,
   CORES_SOBRE_O_MAPA,
 } from '@/components/map/coresSobreOMapa';
+import { PinoDaUnidade } from '@/components/map/PinoDaUnidade';
+import { pontosDaUnidade } from '@/components/map/pontosDaUnidade';
 import { darkTheme } from '@/utils/styles.base';
 
-import { CheckpointMarker } from '../markers/CheckpointMarker';
 import { ParadaMarker } from '../markers/ParadaMarker';
 import { mapMobileStyles } from '../styles';
 
@@ -68,14 +69,30 @@ describe('mapa nativo do gestor no tema escuro', () => {
     );
   });
 
-  it('checkpoint: fundo, borda e ícone da paleta clara', () => {
+  it('pino da sede: fundo, borda e ícone da paleta clara', () => {
+    const [sede] = pontosDaUnidade([
+      {
+        id: 'p0',
+        ordem: 0,
+        latitude: -7.1,
+        longitude: -34.8,
+        endereco: 'Rua B, 2',
+      },
+      {
+        id: 'c9',
+        ordem: 9,
+        latitude: -7.1,
+        longitude: -34.8,
+        endereco: 'Rua B, 2',
+      },
+    ]);
     const { getByLabelText, UNSAFE_getByType } = render(
-      <CheckpointMarker index={0} endereco="Rua B, 2" />,
+      <PinoDaUnidade ponto={sede} tamanho={28} />,
     );
     const pino = StyleSheet.flatten(
-      getByLabelText(/PARTIDA/).props.style,
+      getByLabelText(/Sede da unidade/).props.style,
     ) as Record<string, unknown>;
-    expect(pino.backgroundColor).toBe(CORES_SOBRE_O_MAPA.marca);
+    expect(pino.backgroundColor).toBe(CORES_SOBRE_O_MAPA.sede);
     expect(pino.borderColor).toBe(CORES_SOBRE_O_MAPA.branco);
     expect(pino.shadowColor).toBe(CORES_SOBRE_O_MAPA.sombra);
     expect(UNSAFE_getByType('Ionicons' as never).props.color).toBe(
