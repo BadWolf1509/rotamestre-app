@@ -49,7 +49,7 @@ jobs:
         # com a raiz em 4.25.2 o npm instalava uma segunda cópia aninhada do
         # módulo nativo (PRs #421 e #423).
         #
-        # Informativo (continue-on-error), no mesmo espírito do audit acima: um
+        # Informativo (continue-on-error), no mesmo espírito do audit abaixo: um
         # patch recém-publicado pela Expo deixaria todo PR vermelho até alguém
         # rodar `expo install --fix`, bloqueando trabalho não relacionado. O
         # resultado vai para o summary do job, então fica visível mesmo quando
@@ -180,7 +180,13 @@ jobs:
         run: npx patch-package --error-on-fail
 
       - name: Build web
-        run: npm run build:web
+        # --ignore-scripts pula só o gancho `prebuild:web` (tsc --noEmit): o
+        # tipo já é checado pelo job `TypeScript & Linting` (quality.yml), e o
+        # gancho fica no package.json porque Vercel e EAS passam por ele. Num
+        # `npm run`, a flag NÃO impede o corpo do script, só os pre/post. Foi
+        # preferida a chamar o corpo direto (duplicaria a cadeia de 5 comandos
+        # do package.json nos três jobs que buildam a web).
+        run: npm run build:web --ignore-scripts
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}

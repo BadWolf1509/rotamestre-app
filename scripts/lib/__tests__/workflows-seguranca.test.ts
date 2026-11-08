@@ -13,6 +13,11 @@ import { join } from 'path';
 
 const pasta = join(__dirname, '..', '..', '..', '.github', 'workflows');
 const ler = (nome: string) => readFileSync(join(pasta, nome), 'utf8');
+const lerAcao = (nome: string) =>
+  readFileSync(
+    join(pasta, '..', 'actions', nome, 'action.yml'),
+    'utf8',
+  ).replace(/\r\n/g, '\n');
 
 describe.each(['test.yml', 'quality.yml', 'expire-routes.yml'])(
   '%s',
@@ -49,6 +54,7 @@ describe('expire-routes.yml', () => {
 // O `if:` tem de ficar no JOB, para o check aparecer "Skipped" na lista do PR.
 describe('test.yml: e2e autenticado pulado de forma visível', () => {
   const fonte = ler('test.yml').replace(/\r\n/g, '\n');
+  const acao = lerAcao('setup-playwright-web');
   // Corpo do job `e2e-auth` (até o próximo job de topo, indentação de 2 espaços).
   const bloco =
     (fonte.match(/^ {2}e2e-auth:\n([\s\S]*?)(?=^ {2}[\w-]+:\n|(?![\s\S]))/m) ??
@@ -98,9 +104,15 @@ describe('test.yml: e2e autenticado pulado de forma visível', () => {
     expect(semComentarios).not.toMatch(/\|\|\s*true/);
     // Prazo em cada um dos 4 jobs (indentação de job); passos podem ter o seu.
     expect((fonte.match(/^ {4}timeout-minutes:/gm) ?? []).length).toBe(4);
+    // O worker do MapLibre sai de test.yml e mora na composite action, usada
+    // pelos dois jobs de Playwright (L8-6); sem ela o mapa web trava.
     expect(
-      (fonte.match(/copy-maplibre-worker\.cjs/g) ?? []).length,
-    ).toBeGreaterThanOrEqual(2);
+      (
+        fonte.match(/uses:\s*\.\/\.github\/actions\/setup-playwright-web/g) ??
+        []
+      ).length,
+    ).toBe(2);
+    expect(acao).toContain('copy-maplibre-worker.cjs');
     const update =
       fonte.split('name: Update visual regression snapshots')[1] ?? '';
     expect(update).toContain("VISUAL_REGRESSION: '1'");
@@ -121,12 +133,71 @@ describe.each([
   it('toda linha `uses:` usa SHA de 40 hex e comentário com a versão completa', () => {
     const linhas = ler(nome)
       .split('\n')
-      .filter((l) => /^\s*(-\s+)?uses:/.test(l));
+      .filter((l) => /^\s*(-\s+)?uses:/.test(l))
+      // composite action do próprio repositório: caminho local, sem SHA
+      .filter((l) => !/uses:\s*\.\/\.github\/actions\//.test(l));
     for (const linha of linhas) {
       expect(linha).toMatch(
         /uses:\s*[\w.-]+\/[\w./-]+@[0-9a-f]{40}\s+#\s*v\d+\.\d+\.\d+/,
       );
     }
+  });
+});
+
+describe('composite actions: actions de terceiros fixadas por SHA', () => {
+  it('setup-playwright-web só usa actions com SHA de 40 hex e versão no comentário', () => {
+    const linhas = lerAcao('setup-playwright-web')
+      .split('\n')
+      .filter((l) => /^\s*(-\s+)?uses:/.test(l));
+    expect(linhas.length).toBeGreaterThan(0);
+    for (const linha of linhas) {
+      expect(linha).toMatch(
+        /uses:\s*[\w.-]+\/[\w./-]+@[0-9a-f]{40}\s+#\s*v\d+\.\d+\.\d+/,
+      );
+    }
+  });
+
+  it('todo step com run declara o shell (exigência das composite actions)', () => {
+    const passos = lerAcao('setup-playwright-web')
+      .split(/^ {4}- name:/m)
+      .slice(1);
+    expect(passos.length).toBeGreaterThan(0);
+    for (const passo of passos) {
+      if (/^ {6}run:/m.test(passo)) {
+        expect(passo).toMatch(/^ {6}shell: bash$/m);
+      }
+    }
+  });
+});
+
+// L8-7: o gancho prebuild:web (tsc --noEmit) fica no package.json porque
+// Vercel e EAS passam por ele. No CI, quem builda a web já tem o tipo checado
+// por outro job (quality.yml), então --ignore-scripts pula só o gancho: o npm
+// ainda roda o corpo de build:web.
+describe('build:web no CI não repete o tsc do gancho', () => {
+  it('o gancho prebuild:web continua no package.json', () => {
+    const pacote = JSON.parse(
+      readFileSync(join(pasta, '..', '..', 'package.json'), 'utf8'),
+    ) as { scripts: Record<string, string> };
+    expect(pacote.scripts['prebuild:web']).toBe('tsc --noEmit');
+  });
+
+  it.each(['test.yml', 'quality.yml'])(
+    '%s: todo npm run build:web leva --ignore-scripts',
+    (nome) => {
+      const comandos = ler(nome)
+        .split(/\r?\n/)
+        .filter((l) => !l.trim().startsWith('#'))
+        .filter((l) => /npm run build:web/.test(l));
+      expect(comandos.length).toBeGreaterThan(0);
+      for (const c of comandos) {
+        expect(c).toMatch(/npm run build:web --ignore-scripts\s*$/);
+      }
+    },
+  );
+
+  it('o job que roda o tsc de fato continua existindo (quality.yml)', () => {
+    expect(ler('quality.yml')).toContain('npm run type-check');
   });
 });
 
