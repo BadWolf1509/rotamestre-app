@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IncidentReportWizard } from '@/components/IncidentReportWizard';
 import { AvisoBateriaRestrita } from '@/components/motorista/home/AvisoBateriaRestrita';
 import { AvisoRastreamentoSegundoPlano } from '@/components/motorista/home/AvisoRastreamentoSegundoPlano';
+import { AvisosDaFilaDeIncidentes } from '@/components/motorista/home/AvisosDaFilaDeIncidentes';
 import { AvisosDaFilaDeParadas } from '@/components/motorista/home/AvisosDaFilaDeParadas';
 import { MainCard } from '@/components/motorista/home/MainCard';
 import { calculateSuccessRate } from '@/components/motorista/home/MainCard/MainCard.utils';
@@ -549,6 +550,9 @@ function MotoristaInicioContent() {
         {/* Concluir/pular feitos sem internet: o que falta subir e o que o
             servidor recusou por conflito (filaAcoesParada.ts) */}
         <AvisosDaFilaDeParadas />
+
+        {/* Incidentes reportados sem internet (filaIncidentes.ts) */}
+        <AvisosDaFilaDeIncidentes motoristaId={userData?.id} />
 
         {avisoDeLocalizacaoVisivel && (
           <AlertInline

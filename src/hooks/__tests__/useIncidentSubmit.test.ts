@@ -4,7 +4,10 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 
-import { useIncidentSubmit } from '../useIncidentSubmit';
+import {
+  useIncidentSubmit,
+  type IncidentSubmitResult,
+} from '../useIncidentSubmit';
 
 // Mock storage service
 const mockUploadIncidentPhoto = jest.fn();
@@ -62,72 +65,120 @@ jest.mock('@/lib/semRede', () => ({
   semRedeConfirmada: (...a: unknown[]) => mockSemRede(...a),
 }));
 
+const mockEnfileirar = jest.fn();
+jest.mock('@/lib/motorista/filaIncidentes', () => ({
+  enfileirarIncidente: (...a: unknown[]) => mockEnfileirar(...a),
+}));
+
 describe('useIncidentSubmit', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSemRede.mockResolvedValue(false);
+    mockEnfileirar.mockResolvedValue(undefined);
     mockUploadIncidentPhoto.mockResolvedValue('https://storage.com/photo.jpg');
     mockSingle.mockResolvedValue({ data: { id: 'incident-123' }, error: null });
   });
 
   describe('sem internet', () => {
-    it('com a falta de rede confirmada, falha na hora com mensagem clara e não tenta nada', async () => {
+    it('com a falta de rede confirmada, guarda o reporte no aparelho e diz que será enviado', async () => {
       mockSemRede.mockResolvedValue(true);
       const { result } = renderHook(() => useIncidentSubmit());
 
-      let r: { success: boolean; error?: string } | undefined;
+      let r: IncidentSubmitResult | undefined;
       await act(async () => {
         r = await result.current.submit({
           category: 'accident',
           description: 'Pneu furado',
           photoUri: 'file://photo.jpg',
+          paradaId: 'parada-1',
+          rotaId: 'rota-1',
           motoristaId: 'motorista-123',
         });
       });
 
-      expect(r!.success).toBe(false);
-      expect(r!.error).toMatch(/^Sem internet/);
+      expect(r!.success).toBe(true);
+      expect(r!.enfileirado).toBe(true);
+      // Nada de rede: nem foto, nem insert, nem Photon
       expect(mockUploadIncidentPhoto).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
+      expect(mockEnfileirar).toHaveBeenCalledTimes(1);
+      const guardado = mockEnfileirar.mock.calls[0][0];
+      expect(guardado).toMatchObject({
+        motoristaId: 'motorista-123',
+        rotaId: 'rota-1',
+        paradaId: 'parada-1',
+        categoria: 'accident',
+        descricao: 'Pneu furado',
+        fotoLocal: 'file://photo.jpg',
+        endereco: 'Localização não informada',
+        tentativas: 0,
+      });
+      expect(guardado.id).toMatch(/^[0-9a-f-]{36}$/);
       // Pedido do motorista: só o NetInfo desconectado vale; a queda
       // observada há segundos não impede de tentar
       expect(mockSemRede).toHaveBeenCalledWith({ ignorarQuedaObservada: true });
     });
 
-    it('a falha de rede do insert chega em português, sem o erro técnico', async () => {
+    it('se nem guardar no aparelho der, o motorista sabe que o reporte NÃO ficou salvo', async () => {
+      mockSemRede.mockResolvedValue(true);
+      mockEnfileirar.mockRejectedValueOnce(new Error('disco cheio'));
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      let r: IncidentSubmitResult | undefined;
+      await act(async () => {
+        r = await result.current.submit({
+          category: 'accident',
+          description: 'Pneu furado',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(r!.success).toBe(false);
+      expect(r!.error).toMatch(/não foi salvo/);
+    });
+
+    it('a rede falha no insert: vai para a fila com o MESMO id, sem pedir ao motorista para conferir', async () => {
       mockSingle.mockResolvedValue({
         data: null,
         error: { message: 'TypeError: Network request failed', code: '' },
       });
       const { result } = renderHook(() => useIncidentSubmit());
 
-      let r: { success: boolean; error?: string } | undefined;
+      let r: IncidentSubmitResult | undefined;
       await act(async () => {
         r = await result.current.submit({
           category: 'accident',
           description: 'Pneu furado',
           endereco: 'Rua A',
+          photoUri: 'file://photo.jpg',
           motoristaId: 'motorista-123',
         });
       });
 
-      expect(r!.success).toBe(false);
-      // O INSERT pode ter gravado com a resposta perdida: não afirma que não
-      expect(r!.error).toMatch(/pode não ter sido enviado/);
-      expect(r!.error).toMatch(/antes de reenviar/);
-      expect(r!.error).not.toMatch(/TypeError/);
+      expect(r!.success).toBe(true);
+      expect(r!.enfileirado).toBe(true);
+      // O insert pode ter gravado: a fila reenvia com o mesmo id e a chave
+      // primária impede a segunda linha.
+      const idDoInsert = mockInsert.mock.calls[0][0].id;
+      expect(idDoInsert).toMatch(/^[0-9a-f-]{36}$/);
+      const guardado = mockEnfileirar.mock.calls[0][0];
+      expect(guardado.id).toBe(idDoInsert);
+      // A foto já subiu: vai o path, não a foto de novo
+      expect(guardado.fotoPath).toBe('https://storage.com/photo.jpg');
+      expect(guardado.fotoLocal).toBeUndefined();
     });
 
-    it('o insert não é repetido: a repetição gravaria o incidente duas vezes', async () => {
+    it('o insert não é repetido na hora: 5xx vai para a fila, que reenvia sem duplicar', async () => {
       // 5xx de gateway depois do commit: a resposta se perde, a linha não
       mockSingle.mockResolvedValue({
         data: null,
-        error: { message: 'upstream', code: '503' },
+        error: { message: 'upstream', status: 503 },
       });
       const { result } = renderHook(() => useIncidentSubmit());
 
+      let r: IncidentSubmitResult | undefined;
       await act(async () => {
-        await result.current.submit({
+        r = await result.current.submit({
           category: 'accident',
           description: 'Pneu furado',
           endereco: 'Rua A',
@@ -136,6 +187,28 @@ describe('useIncidentSubmit', () => {
       });
 
       expect(mockInsert).toHaveBeenCalledTimes(1);
+      expect(r!.enfileirado).toBe(true);
+    });
+
+    it('recusa definitiva do banco não vai para a fila: o erro chega ao motorista', async () => {
+      mockSingle.mockResolvedValue({
+        data: null,
+        error: { message: 'violates check constraint', code: '23514' },
+      });
+      const { result } = renderHook(() => useIncidentSubmit());
+
+      let r: IncidentSubmitResult | undefined;
+      await act(async () => {
+        r = await result.current.submit({
+          category: 'accident',
+          description: 'Pneu furado',
+          endereco: 'Rua A',
+          motoristaId: 'motorista-123',
+        });
+      });
+
+      expect(r!.success).toBe(false);
+      expect(mockEnfileirar).not.toHaveBeenCalled();
     });
   });
 
@@ -209,7 +282,7 @@ describe('useIncidentSubmit', () => {
     it('deve retornar erro quando falha no banco', async () => {
       mockSingle.mockResolvedValueOnce({
         data: null,
-        error: { message: 'Database error' },
+        error: { message: 'Database error', code: '23514' },
       });
 
       const { result } = renderHook(() => useIncidentSubmit());
@@ -314,10 +387,10 @@ describe('useIncidentSubmit', () => {
     it('deve resetar o estado', async () => {
       const { result } = renderHook(() => useIncidentSubmit());
 
-      // Simular um erro
+      // Simular uma recusa definitiva (erro sem código iria para a fila)
       mockSingle.mockResolvedValueOnce({
         data: null,
-        error: { message: 'Error' },
+        error: { message: 'Error', code: '23514' },
       });
 
       await act(async () => {

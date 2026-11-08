@@ -66,6 +66,13 @@ interface IncidentReportWizardProps {
   endereco?: string;
 }
 
+/**
+ * Sem rede, o reporte vai para a fila do aparelho (`filaIncidentes.ts`) e sobe
+ * sozinho pelo envio da fila (`solicitarEnvioFila`): não precisa refazer.
+ */
+const MENSAGEM_INCIDENTE_NA_FILA =
+  'Sem internet: o reporte ficou salvo no aparelho e será enviado quando a conexão voltar.';
+
 const STEPS: Step[] = [
   { id: 'category', title: 'Tipo de Problema' },
   { id: 'photo', title: 'Foto (Opcional)' },
@@ -108,6 +115,8 @@ function IncidentReportWizardComponent({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   // Registrado sem a foto (upload falhou nas tentativas): o sucesso avisa.
   const [fotoPerdida, setFotoPerdida] = useState(false);
+  // Sem rede: ficou na fila do aparelho (filaIncidentes.ts); o sucesso diz.
+  const [enfileirado, setEnfileirado] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -369,6 +378,7 @@ function IncidentReportWizardComponent({
 
     if (result.success) {
       setFotoPerdida(result.fotoPerdida === true);
+      setEnfileirado(result.enfileirado === true);
       setShowSuccessModal(true);
     } else {
       setErrorMessage(
@@ -563,12 +573,8 @@ function IncidentReportWizardComponent({
       <Dialog
         visible={showSuccessModal}
         variant="alert"
-        title="Incidente Reportado"
-        message={
-          fotoPerdida
-            ? 'Problema registrado, mas a foto não foi enviada.'
-            : 'O problema foi registrado e será analisado pela gestão.'
-        }
+        title={enfileirado ? 'Reporte guardado' : 'Incidente Reportado'}
+        message={mensagemDeSucesso(enfileirado, fotoPerdida)}
         confirmText="OK"
         type="info"
         onConfirm={handleSuccessConfirm}
@@ -587,6 +593,14 @@ function IncidentReportWizardComponent({
       {AlertDialog}
     </>
   );
+}
+
+/** Texto do sucesso: na fila do aparelho, sem a foto, ou registrado. */
+function mensagemDeSucesso(enfileirado: boolean, fotoPerdida: boolean) {
+  if (enfileirado) return MENSAGEM_INCIDENTE_NA_FILA;
+  return fotoPerdida
+    ? 'Problema registrado, mas a foto não foi enviada.'
+    : 'O problema foi registrado e será analisado pela gestão.';
 }
 
 // Memoizar componente para evitar re-renders desnecessários

@@ -6,6 +6,8 @@
  * - Obtenção de geolocalização
  * - Inserção no banco de dados
  * - Criação de logs
+ * - Sem rede (ou sem resposta do INSERT): o reporte vai para a fila do
+ *   aparelho (`src/lib/motorista/filaIncidentes.ts`) e sobe sozinho depois
  *
  * @example
  * ```tsx
@@ -31,23 +33,24 @@ import * as Location from 'expo-location';
 import { useState, useCallback } from 'react';
 
 import { logger } from '@/lib/logger';
+import { ehErroDefinitivo } from '@/lib/motorista/filaAcoesParada';
+import {
+  enfileirarIncidente,
+  type IncidenteNaFila,
+} from '@/lib/motorista/filaIncidentes';
 import { pedirPermissao } from '@/lib/permissoes';
 import { photonService } from '@/lib/photon';
 import { createIncidente, logIncidenteAction } from '@/lib/queries';
 import type { IncidenteCategoria } from '@/lib/queries';
 import { semRedeConfirmada } from '@/lib/semRede';
 import { storageService } from '@/lib/storage';
+import { gerarUuid } from '@/lib/uuid';
 
-/** Incidente não tem fila offline: o motorista tenta de novo com sinal. */
-export const MENSAGEM_SEM_INTERNET =
-  'Sem internet: o reporte não foi enviado. Tente de novo quando o sinal voltar.';
+/** Nem a fila do aparelho aceitou: o motorista precisa refazer. */
+export const MENSAGEM_NAO_GUARDOU =
+  'Sem internet, e o reporte não foi salvo no aparelho. Tente de novo quando o sinal voltar.';
 
-/**
- * A rede falhou no INSERT: ele pode ter gravado e só a resposta se perdido.
- * O motorista não tem tela de incidentes; quem confirma é o gestor.
- */
-export const MENSAGEM_SEM_RESPOSTA =
-  'Sem resposta do servidor: o reporte pode não ter sido enviado. Confirme com o gestor antes de reenviar, para não registrar duas vezes.';
+const ENDERECO_NAO_INFORMADO = 'Localização não informada';
 
 // Configuração de retry
 const UPLOAD_MAX_RETRIES = 3;
@@ -72,6 +75,11 @@ export interface IncidentSubmitResult {
    * registrado SEM ela. Quem chama deve avisar o motorista.
    */
   fotoPerdida?: boolean;
+  /**
+   * Sem rede: o reporte ficou na fila do aparelho e sobe sozinho quando a
+   * conexão voltar. Quem chama avisa o motorista.
+   */
+  enfileirado?: boolean;
 }
 
 export interface UseIncidentSubmitReturn {
@@ -190,19 +198,54 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
       setUploadProgress(0);
       setUploadRetryCount(0);
 
+      // Nasce aqui e vai como `incidentes.id`: se o INSERT gravar e a
+      // resposta se perder, a fila reenvia com o mesmo id e a chave primária
+      // impede a segunda linha.
+      const incidenteId = gerarUuid();
+      const paraFila = (
+        extra: Pick<IncidenteNaFila, 'endereco' | 'fotoLocal' | 'fotoPath'>,
+      ): IncidenteNaFila => ({
+        id: incidenteId,
+        motoristaId: data.motoristaId,
+        rotaId: data.rotaId || null,
+        paradaId: data.paradaId || null,
+        categoria: data.category as IncidenteCategoria,
+        descricao: data.description,
+        em: new Date().toISOString(),
+        tentativas: 0,
+        ...extra,
+      });
+      /** Guarda na fila do aparelho; se nem isso der, o erro diz que não salvou. */
+      const enfileirar = async (
+        item: IncidenteNaFila,
+      ): Promise<IncidentSubmitResult> => {
+        try {
+          await enfileirarIncidente(item);
+        } catch (erroFila) {
+          logger.error('Falha ao guardar o incidente no aparelho', erroFila);
+          throw new Error(MENSAGEM_NAO_GUARDOU);
+        }
+        return { success: true, incidentId: incidenteId, enfileirado: true };
+      };
+
       try {
         // Sem rede confirmada (modo avião, ou Wi-Fi sem internet já
-        // observado): falha agora, em vez de esperar posição, Photon, três
-        // uploads e o insert desistirem um a um. O wizard guarda o rascunho.
-        // É pedido do motorista: só o NetInfo desconectado (modo avião)
-        // impede a tentativa; a queda observada há segundos, não.
+        // observado): guarda na fila agora, em vez de esperar posição,
+        // Photon, três uploads e o insert desistirem um a um. É pedido do
+        // motorista: só o NetInfo desconectado (modo avião) leva direto à
+        // fila; a queda observada há segundos, não.
         if (await semRedeConfirmada({ ignorarQuedaObservada: true })) {
-          throw new Error(MENSAGEM_SEM_INTERNET);
+          return await enfileirar(
+            paraFila({
+              endereco: data.endereco || ENDERECO_NAO_INFORMADO,
+              fotoLocal: data.photoUri || undefined,
+            }),
+          );
         }
 
         let uploadedPhotoUrl = '';
         let fotoPerdida = false;
-        let finalEndereco = data.endereco || 'Localização não informada';
+        let finalEndereco = data.endereco || ENDERECO_NAO_INFORMADO;
 
         // 1. Tentar obter geolocalização se não tiver endereço
         if (!data.endereco) {
@@ -238,6 +281,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
         // 3. Criar registro no banco usando query centralizada
         const result = await createIncidente({
+          id: incidenteId,
           rota_id: data.rotaId || null,
           parada_id: data.paradaId || null,
           motorista_id: data.motoristaId,
@@ -249,8 +293,19 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
         });
 
         if (!result.success) {
-          if (result.error.type === 'network') {
-            throw new Error(MENSAGEM_SEM_RESPOSTA);
+          // Rede, timeout, 5xx, sessão: o INSERT pode ter gravado. Vai para a
+          // fila com o MESMO id — o reenvio é idempotente pela chave primária.
+          // Só a recusa definitiva do banco chega ao motorista como erro.
+          const original = result.error.originalError ?? result.error;
+          if (!ehErroDefinitivo(original)) {
+            return await enfileirar(
+              paraFila({
+                endereco: finalEndereco,
+                fotoPath: uploadedPhotoUrl || undefined,
+                // Foto que não subiu agora vai junto, para subir com a fila.
+                fotoLocal: uploadedPhotoUrl ? undefined : data.photoUri,
+              }),
+            );
           }
           throw new Error(`Erro ao salvar incidente: ${result.error.message}`);
         }

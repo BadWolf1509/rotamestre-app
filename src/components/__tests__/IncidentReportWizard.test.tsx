@@ -425,5 +425,27 @@ describe('IncidentReportWizard', () => {
       });
       expect(screen.queryByText(/a foto não foi enviada/)).toBeNull();
     });
+
+    it('sem internet, o reporte guardado no aparelho diz que será enviado quando a conexão voltar', async () => {
+      mockSubmitIncident.mockResolvedValue({
+        success: true,
+        incidentId: 'inc-1',
+        enfileirado: true,
+      });
+
+      await enviarReporte();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/será enviado quando a conexão voltar/),
+        ).toBeTruthy();
+      });
+      expect(screen.getByText('Reporte guardado')).toBeTruthy();
+      expect(
+        screen.queryByText(
+          'O problema foi registrado e será analisado pela gestão.',
+        ),
+      ).toBeNull();
+    });
   });
 });

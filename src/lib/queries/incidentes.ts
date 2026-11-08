@@ -74,6 +74,11 @@ export interface IncidenteWithRelations {
  * Incidente insert data
  */
 export interface IncidenteInsert {
+  /**
+   * Gerado no aparelho: o mesmo id vai para a fila offline se a resposta do
+   * INSERT se perder, e a chave primária impede a segunda linha.
+   */
+  id?: string;
   motorista_id: string;
   categoria: IncidenteCategoria;
   descricao: string;
