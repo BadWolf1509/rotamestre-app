@@ -46,8 +46,6 @@ export interface DataTableColumn<T = DataTableItem> {
   align?: 'left' | 'center' | 'right';
   /** Show only on desktop? */
   desktopOnly?: boolean;
-  /** Prevent line wrap and apply ellipsis */
-  noWrap?: boolean;
 }
 
 /**

@@ -160,6 +160,8 @@ export default function GestaoRotas() {
         // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
         minWidth: 95,
         sortable: true,
+        // Sem rótulo, a linha (e o botão que abre o detalhe) leria o ISO cru.
+        rotulo: (rota) => formatDateBR(rota.data),
         render: (rota) => (
           <Text style={styles.tableCellText}>{formatDateBR(rota.data)}</Text>
         ),
@@ -169,7 +171,6 @@ export default function GestaoRotas() {
         label: 'Motorista',
         width: 180,
         minWidth: 130,
-        noWrap: true,
         sortable: true,
         rotulo: (rota) => rota.motorista_nome || 'Sem motorista',
         render: (rota) => {
@@ -253,6 +254,11 @@ export default function GestaoRotas() {
         width: 150,
         minWidth: 140,
         sortable: true,
+        // O mesmo texto do selo, não o valor do banco ("nao_executada").
+        rotulo: (rota) =>
+          rota.status
+            ? propsDoStatusBadge(rota.status, theme.colors).label
+            : '-',
         render: (rota) => {
           if (!rota.status) {
             return <Text style={styles.tableCellText}>-</Text>;
@@ -312,7 +318,11 @@ export default function GestaoRotas() {
   const pendentesCount =
     contagens?.pendentes ??
     rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
-  const subtituloFiltros = `${plural(totalRotas, 'rota encontrada', 'rotas encontradas')}`;
+  const subtituloFiltros = plural(
+    totalRotas,
+    'rota encontrada',
+    'rotas encontradas',
+  );
 
   // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
   // Função chamada no JSX (não componente declarado no render).

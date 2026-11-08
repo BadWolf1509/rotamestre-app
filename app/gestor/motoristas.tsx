@@ -317,9 +317,16 @@ export default function MotoristasGestor() {
       width: 200,
       minWidth: 130,
       sortable: true,
-      noWrap: true,
+      // Uma linha, com reticências; o nome inteiro fica no rótulo acessível.
       render: (motorista) => (
-        <Text style={styles.tableCellText}>{motorista.nome}</Text>
+        <Text
+          style={styles.tableCellText}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={motorista.nome}
+        >
+          {motorista.nome}
+        </Text>
       ),
     },
     {
@@ -327,9 +334,15 @@ export default function MotoristasGestor() {
       label: 'E-mail',
       width: 260,
       minWidth: 160,
-      noWrap: true,
       render: (motorista) => (
-        <Text style={styles.tableCellText}>{motorista.email}</Text>
+        <Text
+          style={styles.tableCellText}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={motorista.email}
+        >
+          {motorista.email}
+        </Text>
       ),
     },
     {

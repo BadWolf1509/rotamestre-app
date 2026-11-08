@@ -126,3 +126,15 @@ it('"Ver perfil" e "Adicionar motorista" com maiúscula só na primeira palavra'
   expect(screen.getAllByText('Ver perfil').length).toBeGreaterThan(0);
   expect(screen.getByText('Adicionar motorista')).toBeTruthy();
 });
+
+it('nome e e-mail ficam numa linha, com o texto inteiro no accessibilityLabel', async () => {
+  render(<MotoristasGestor />);
+  await screen.findByText('Ativo');
+
+  // `noWrap` na coluna não fazia nada: quem trunca é o `Text` do render.
+  for (const texto of ['Ana', 'ana@exemplo.com']) {
+    const celula = screen.getByText(texto);
+    expect(celula.props.numberOfLines).toBe(1);
+    expect(celula.props.accessibilityLabel).toBe(texto);
+  }
+});

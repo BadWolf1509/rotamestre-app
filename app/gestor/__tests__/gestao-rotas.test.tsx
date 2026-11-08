@@ -297,6 +297,33 @@ describe('GestaoRotas (desktop)', () => {
     ).toBeLessThanOrEqual(950);
   });
 
+  it('a linha se lê com a data em pt-BR e o rótulo do status, não o valor cru do banco', () => {
+    mockEstadoHook = {
+      rotasFiltradas: [
+        { ...rotasFalsas(1)[0], data: '2026-11-08', status: 'nao_executada' },
+      ],
+      total: 1,
+    };
+    render(<GestaoRotas />);
+
+    // O botão que abre o detalhe leva o nome da 1ª coluna (a data).
+    expect(
+      screen.getByRole('button', { name: 'Abrir 08/11/2026' }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Abrir 2026-11-08' }),
+    ).toBeNull();
+
+    // A linha clicável não é acessível por si (a parada de Tab é o botão);
+    // o rótulo dela é o que o leitor anuncia ao entrar no grupo.
+    const linha = screen.getByLabelText(/^Data: /);
+    expect(linha.props.accessibilityLabel).toContain('Data: 08/11/2026');
+    expect(linha.props.accessibilityLabel).toContain('Status: Não executada');
+    expect(linha.props.accessibilityLabel).not.toMatch(
+      /2026-11-08|nao_executada/,
+    );
+  });
+
   it('o nome longo do motorista fica numa linha, com o nome inteiro no accessibilityLabel', () => {
     const nome = 'Maximiliano Bartholomeu de Albuquerque Cavalcanti Figueiredo';
     mockEstadoHook = {
