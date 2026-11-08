@@ -58,11 +58,21 @@ async function readPointer(key: string): Promise<Ponteiro | null> {
 }
 
 /**
+ * Teto da sonda de blocos. A sessão ocupa poucos blocos; o teto só existe
+ * para a sonda terminar se toda leitura do cofre lançar.
+ */
+const TETO_SONDA = 32;
+
+/**
  * Apaga os blocos de uma geração, inclusive os órfãos de uma gravação que
  * falhou antes de trocar o ponteiro (o cofre não lista chaves, então a
  * extensão é sondada). Os blocos são gravados em sequência, sempre do 0 em
  * diante, e apagados do último para o primeiro: o que sobra de uma operação
  * interrompida é sempre um prefixo contíguo, que a sonda encontra.
+ *
+ * Bloco cuja leitura lança (o Keystore não o decifra) conta como existente
+ * e é apagado às cegas: parar a sonda nele deixaria para trás os blocos
+ * seguintes, que nenhuma sonda posterior alcançaria.
  */
 async function apagarGeracao(
   key: string,
@@ -70,26 +80,65 @@ async function apagarGeracao(
   conhecidos = 0,
 ): Promise<void> {
   let total = conhecidos;
-  while (
-    (await SecureStore.getItemAsync(chunkKey(key, geracao, total))) !== null
-  ) {
+  let erroDeLeitura: unknown = null;
+  while (total < TETO_SONDA) {
+    let existe: boolean;
+    try {
+      existe =
+        (await SecureStore.getItemAsync(chunkKey(key, geracao, total))) !==
+        null;
+    } catch (error) {
+      erroDeLeitura = error;
+      existe = true;
+    }
+    if (!existe) break;
     total += 1;
+  }
+  if (erroDeLeitura !== null) {
+    logger.warn(
+      '[secureAuthStorage] Bloco ilegível na limpeza; apagado sem leitura',
+      erroDeLeitura,
+    );
   }
   for (let index = total - 1; index >= 0; index -= 1) {
     await SecureStore.deleteItemAsync(chunkKey(key, geracao, index));
   }
 }
 
+/**
+ * Limpeza que não pode derrubar a operação: só o ponteiro confirma o que
+ * vale, e bloco que ele não referencia é sobra, apagada na próxima vez.
+ */
+async function limparSemFalhar(
+  key: string,
+  geracao: Geracao,
+  conhecidos: number,
+  motivo: string,
+): Promise<void> {
+  try {
+    await apagarGeracao(key, geracao, conhecidos);
+  } catch (error) {
+    logger.warn(`[secureAuthStorage] ${motivo}`, error);
+  }
+}
+
 async function removeSecureValue(key: string): Promise<void> {
-  const ponteiro = await readPointer(key);
+  let ponteiro: Ponteiro | null = null;
+  try {
+    ponteiro = await readPointer(key);
+  } catch (error) {
+    // Ponteiro ilegível: a sonda de cada geração acha os blocos sozinha.
+    logger.warn('[secureAuthStorage] Ponteiro ilegível no logout', error);
+  }
   // O ponteiro sai primeiro: a partir daqui a leitura já devolve null, e
   // uma falha no meio da limpeza não deixa sessão meio apagada legível.
   await SecureStore.deleteItemAsync(metadataKey(key));
   for (const geracao of GERACOES) {
-    await apagarGeracao(
+    await limparSemFalhar(
       key,
       geracao,
       ponteiro?.geracao === geracao ? ponteiro.blocos : 0,
+      'Limpeza dos blocos no logout falhou',
     );
   }
 }
@@ -104,8 +153,15 @@ async function writeSecureValue(key: string, value: string): Promise<void> {
   );
 
   // A geração de destino não é a vigente: pode ter sobra de uma gravação que
-  // falhou, e mexer nela não afeta o que a leitura devolve.
-  await apagarGeracao(key, destino);
+  // falhou, e mexer nela não afeta o que a leitura devolve. Sobra que não
+  // sair agora é sobrescrita pelos blocos novos ou fica além deles, onde o
+  // ponteiro não alcança.
+  await limparSemFalhar(
+    key,
+    destino,
+    0,
+    'Limpeza da geração de destino falhou',
+  );
   for (const [index, chunk] of chunks.entries()) {
     await SecureStore.setItemAsync(chunkKey(key, destino, index), chunk);
   }
@@ -118,18 +174,15 @@ async function writeSecureValue(key: string, value: string): Promise<void> {
 
   // A nova já vale; o resto é limpeza. Falha aqui deixa só blocos que o
   // ponteiro não referencia, apagados na próxima gravação ou no logout.
-  try {
-    for (const geracao of GERACOES) {
-      if (geracao !== destino) {
-        await apagarGeracao(
-          key,
-          geracao,
-          atual?.geracao === geracao ? atual.blocos : 0,
-        );
-      }
+  for (const geracao of GERACOES) {
+    if (geracao !== destino) {
+      await limparSemFalhar(
+        key,
+        geracao,
+        atual?.geracao === geracao ? atual.blocos : 0,
+        'Limpeza da sessão anterior falhou',
+      );
     }
-  } catch (error) {
-    logger.warn('[secureAuthStorage] Limpeza da sessão anterior falhou', error);
   }
 }
 

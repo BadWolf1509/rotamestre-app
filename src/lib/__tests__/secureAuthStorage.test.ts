@@ -27,17 +27,36 @@ function mockContarEscrita() {
   }
 }
 
+/**
+ * Chaves cuja leitura lança, como o `DecryptException` do expo-secure-store
+ * quando o Keystore não abre o bloco. Regravar ou apagar a chave a conserta.
+ */
+const mockIlegiveis = new Set<string>();
+
 jest.mock('expo-secure-store', () => ({
-  getItemAsync: jest.fn(async (chave: string) => mockCofre.get(chave) ?? null),
+  getItemAsync: jest.fn(async (chave: string) => {
+    if (mockIlegiveis.has(chave)) {
+      throw new Error('falha simulada ao decifrar');
+    }
+    return mockCofre.get(chave) ?? null;
+  }),
   setItemAsync: jest.fn(async (chave: string, valor: string) => {
     mockContarEscrita();
+    mockIlegiveis.delete(chave);
     mockCofre.set(chave, valor);
   }),
   deleteItemAsync: jest.fn(async (chave: string) => {
     mockContarEscrita();
+    mockIlegiveis.delete(chave);
     mockCofre.delete(chave);
   }),
 }));
+
+/** Planta um bloco que existe no cofre mas não pode ser lido. */
+function plantarIlegivel(chave: string) {
+  mockCofre.set(chave, 'ilegivel');
+  mockIlegiveis.add(chave);
+}
 
 const CHAVE = 'sb-sessao';
 const META = `${CHAVE}.secure.meta`;
@@ -89,6 +108,7 @@ async function contarEscritas(
 describe('secureAuthStorage', () => {
   beforeEach(() => {
     mockCofre.clear();
+    mockIlegiveis.clear();
     mockFalharNaEscrita = null;
     mockEscritas = 0;
     jest.clearAllMocks();
@@ -367,5 +387,53 @@ describe('secureAuthStorage', () => {
 
     expect(chavesDoCofre()).toEqual([]);
     expect(await secureAuthStorage.getItem(CHAVE)).toBeNull();
+  });
+  describe('bloco sem uso ilegível (a leitura dele lança)', () => {
+    it('setItem resolve e a leitura seguinte devolve o valor novo, sem sobra', async () => {
+      // Vigente na geração a; os ilegíveis são sobra na geração de destino.
+      await secureAuthStorage.setItem(CHAVE, 'anterior');
+      plantarIlegivel(`${CHAVE}.secure.b.0`);
+      plantarIlegivel(`${CHAVE}.secure.b.1`);
+      mockCofre.set(`${CHAVE}.secure.b.2`, 'sobra');
+
+      await expect(
+        secureAuthStorage.setItem(CHAVE, 'nova'),
+      ).resolves.toBeUndefined();
+
+      expect(await secureAuthStorage.getItem(CHAVE)).toBe('nova');
+      // Bloco da nova + ponteiro: as sobras, legíveis ou não, saíram.
+      expect(chavesDoCofre()).toHaveLength(2);
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('removeItem resolve e apaga o ponteiro e os blocos', async () => {
+      await secureAuthStorage.setItem(CHAVE, 'P'.repeat(TAMANHO_BLOCO * 2));
+      plantarIlegivel(`${CHAVE}.secure.b.0`);
+      plantarIlegivel(`${CHAVE}.secure.0`);
+
+      await expect(
+        secureAuthStorage.removeItem(CHAVE),
+      ).resolves.toBeUndefined();
+
+      expect(mockCofre.has(META)).toBe(false);
+      expect(chavesDoCofre()).toEqual([]);
+      expect(await secureAuthStorage.getItem(CHAVE)).toBeNull();
+    });
+
+    it('falha ao apagar um bloco no removeItem não rejeita: o ponteiro já saiu', async () => {
+      await secureAuthStorage.setItem(CHAVE, 'Q'.repeat(TAMANHO_BLOCO * 2));
+      // 1ª remoção = ponteiro; a 2ª é um bloco.
+      mockEscritas = 0;
+      mockFalharNaEscrita = 2;
+
+      await expect(
+        secureAuthStorage.removeItem(CHAVE),
+      ).resolves.toBeUndefined();
+
+      mockFalharNaEscrita = null;
+      expect(mockCofre.has(META)).toBe(false);
+      expect(await secureAuthStorage.getItem(CHAVE)).toBeNull();
+      expect(logger.warn).toHaveBeenCalled();
+    });
   });
 });
