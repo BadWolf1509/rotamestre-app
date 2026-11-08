@@ -12,19 +12,16 @@ const PARES: [string, number, number, number, number][] = [
   ['mesmo ponto', -23.5505, -46.6333, -23.5505, -46.6333],
 ];
 
-describe('paridade das cópias com a fonte única', () => {
-  it.each(PARES)('calculateHaversineDistance: %s', (_n, a, b, c, d) => {
-    expect(calculateHaversineDistance(a, b, c, d)).toBeCloseTo(
-      distanciaMetrosEntre(a, b, c, d),
-      9,
-    );
+describe('cópias e alias da fonte única', () => {
+  // As duas são alias da fonte única: a identidade é a garantia. Comparar o
+  // resultado numérico seria tautológico e não pegaria uma cópia que voltasse
+  // a divergir com a mesma resposta nos pares de teste.
+  it('calculateHaversineDistance é a própria fonte única', () => {
+    expect(calculateHaversineDistance).toBe(distanciaMetrosEntre);
   });
 
-  it.each(PARES)('calculateDistance (routeGeometry): %s', (_n, a, b, c, d) => {
-    expect(calculateDistance(a, b, c, d)).toBeCloseTo(
-      distanciaMetrosEntre(a, b, c, d),
-      9,
-    );
+  it('calculateDistance (routeGeometry) é a própria fonte única', () => {
+    expect(calculateDistance).toBe(distanciaMetrosEntre);
   });
 
   it.each(PARES)('distanceInMeters: %s', (_n, a, b, c, d) => {
