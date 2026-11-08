@@ -12,7 +12,11 @@ import {
 } from 'react-native';
 
 import { useResponsive } from '@/hooks/useResponsive';
-import { geocodingService, UnifiedPlaceSuggestion } from '@/lib/geocoding';
+import {
+  geocodingService,
+  type DadosDeEnderecoDaSugestao,
+  type UnifiedPlaceSuggestion,
+} from '@/lib/geocoding';
 import { logger } from '@/lib/logger';
 import { gerarUuid } from '@/lib/uuid';
 import type { Coordenadas } from '@/types/endereco';
@@ -28,11 +32,14 @@ interface AddressAutocompleteProps {
    * @param address - Endereço formatado
    * @param placeId - ID único (formato: osm_N12345 ou osm_W12345)
    * @param coordinates - Coordenadas do local (Photon retorna automaticamente)
+   * @param dadosDoEndereco - Cidade/UF/CEP que a própria sugestão trouxe
+   *   (Photon); só vem quando a sugestão sabe algum deles
    */
   onSelectAddress: (
     address: string,
     placeId: string,
     coordinates?: Coordenadas,
+    dadosDoEndereco?: DadosDeEnderecoDaSugestao,
   ) => void;
   placeholder?: string;
   error?: string;
@@ -285,10 +292,21 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
 
       // Se já tem coordenadas, usar diretamente
       if (suggestion.coordinates) {
+        const dadosDoEndereco: DadosDeEnderecoDaSugestao = {
+          cidade: suggestion.cidade,
+          estado: suggestion.estado,
+          cep: suggestion.cep,
+        };
+        const trouxeDados = Boolean(
+          dadosDoEndereco.cidade ||
+          dadosDoEndereco.estado ||
+          dadosDoEndereco.cep,
+        );
         onSelectAddress(
           finalAddress,
           suggestion.place_id,
           suggestion.coordinates,
+          trouxeDados ? dadosDoEndereco : undefined,
         );
         setSuggestions([]);
         setShowSuggestions(false);

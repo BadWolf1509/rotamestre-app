@@ -22,14 +22,12 @@ const PUSH_TOKEN_KEY = '@rotamestre:push_token';
 interface NotificationSettings {
   routeReminder: boolean;
   offlineAlert: boolean;
-  routeComplete: boolean;
   reminderTime: string; // HH:mm format
 }
 
 const defaultSettings: NotificationSettings = {
   routeReminder: true,
   offlineAlert: true,
-  routeComplete: true,
   reminderTime: '08:00',
 };
 
@@ -87,24 +85,6 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 }
 
 /**
- * Salva configurações de notificação
- */
-export async function saveNotificationSettings(
-  settings: Partial<NotificationSettings>,
-): Promise<void> {
-  try {
-    const current = await getNotificationSettings();
-    const updated = { ...current, ...settings };
-    await AsyncStorage.setItem(
-      NOTIFICATION_SETTINGS_KEY,
-      JSON.stringify(updated),
-    );
-  } catch (error) {
-    logger.error('[Notifications] Erro ao salvar configurações', error);
-  }
-}
-
-/**
  * Envia notificação local imediata
  */
 export async function sendLocalNotification(
@@ -132,23 +112,6 @@ export async function sendLocalNotification(
     logger.error('[Notifications] Erro ao enviar notificação', error);
     return null;
   }
-}
-
-/**
- * Notificação de rota concluída
- */
-export async function notifyRouteComplete(
-  totalParadas: number,
-  tempoTotal: string,
-): Promise<void> {
-  const settings = await getNotificationSettings();
-  if (!settings.routeComplete) return;
-
-  await sendLocalNotification(
-    'Rota Concluída!',
-    `Parabéns! Você completou ${totalParadas} entregas em ${tempoTotal}.`,
-    { type: 'route_complete' },
-  );
 }
 
 /**
@@ -262,15 +225,6 @@ export async function cancelRouteReminder(): Promise<void> {
   } catch (error) {
     logger.error('[Notifications] Erro ao cancelar lembrete', error);
   }
-}
-
-/**
- * Listener para notificações recebidas (app em foreground)
- */
-export function addNotificationReceivedListener(
-  callback: (notification: Notifications.Notification) => void,
-): Notifications.EventSubscription {
-  return Notifications.addNotificationReceivedListener(callback);
 }
 
 /**
@@ -682,34 +636,3 @@ export async function initializePushNotifications(
 
   await registerPushToken(userId);
 }
-
-// Export service object
-export const notificationService = {
-  // Permissões e configurações
-  requestPermissions: requestNotificationPermissions,
-  getSettings: getNotificationSettings,
-  saveSettings: saveNotificationSettings,
-
-  // Notificações locais
-  send: sendLocalNotification,
-  notifyRouteComplete,
-  notifyOfflineMode,
-  notifySyncComplete,
-
-  // Lembretes
-  scheduleRouteReminder,
-  cancelRouteReminder,
-
-  // Listeners
-  addReceivedListener: addNotificationReceivedListener,
-  addResponseListener: addNotificationResponseListener,
-
-  // Inicialização
-  initialize: initializeNotifications,
-
-  // Push notifications
-  getExpoPushToken,
-  registerPushToken,
-  unregisterPushToken,
-  initializePush: initializePushNotifications,
-};

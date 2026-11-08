@@ -30,6 +30,11 @@ import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { nomeEstadoParaUF } from '@/lib/estados';
 import {
+  completarEnderecoDaSugestao,
+  ehPlaceIdDoGoogle,
+  type DadosDeEnderecoDaSugestao,
+} from '@/lib/geocoding';
+import {
   carregarEquipeDaLoja,
   ehGestorPrincipalDaLoja,
   resumoDaEquipe,
@@ -300,6 +305,7 @@ export default function UnidadeScreen() {
     address: string,
     placeId?: string,
     coords?: { latitude: number; longitude: number },
+    dadosDoEndereco?: DadosDeEnderecoDaSugestao,
   ) {
     setSedeEndereco(address);
     if (coords) {
@@ -307,14 +313,30 @@ export default function UnidadeScreen() {
       setSedeLongitude(coords.longitude);
     }
 
-    // Sugestões do ViaCEP entram na mesma lista, mas com place_id sintético
-    // no formato `cep_58068504` (src/lib/viacep.ts:176) — o Places não sabe
-    // resolver isso. Sair aqui evita uma ida à Edge Function que só voltaria
-    // vazia.
-    if (!placeId || placeId.startsWith('cep_')) return;
+    if (!placeId) return;
 
     try {
-      const detalhes = await googlePlacesService.getPlaceDetails(placeId);
+      let detalhes: {
+        logradouro?: string;
+        numero?: string;
+        cidade?: string;
+        estado?: string;
+        cep?: string;
+      } | null;
+      if (ehPlaceIdDoGoogle(placeId)) {
+        detalhes = await googlePlacesService.getPlaceDetails(placeId);
+      } else if (placeId.startsWith('osm_')) {
+        // Sugestão do Photon (fallback do Google): o details do Google não a
+        // resolve e só gastaria a cota. Cidade, UF e CEP vêm da própria
+        // sugestão, completados pelo ViaCEP quando faltam cidade/UF; sem CEP,
+        // os campos ficam como estão para o gestor preencher.
+        detalhes = await completarEnderecoDaSugestao(dadosDoEndereco);
+      } else {
+        // Sugestões do ViaCEP entram na mesma lista, mas com place_id
+        // sintético `cep_58068504` (src/lib/viacep.ts) — o Places não sabe
+        // resolver isso.
+        return;
+      }
       if (!detalhes) return;
 
       const logradouro = [detalhes.logradouro, detalhes.numero]
