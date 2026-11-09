@@ -13,6 +13,10 @@ import {
   sincronizarFilaAcoesParada,
 } from './motorista/filaAcoesParada';
 import {
+  lerFilaIncidentes,
+  sincronizarFilaIncidentes,
+} from './motorista/filaIncidentes';
+import {
   notifyEnviosDescartados,
   notifySyncComplete,
   notifyOfflineMode,
@@ -491,19 +495,21 @@ export function _resetProcessingLocks(): void {
 }
 
 // ============================================================================
-// ENVIO DO QUE FICOU NO APARELHO (fotos + ações de parada)
+// ENVIO DO QUE FICOU NO APARELHO (fotos + ações de parada + incidentes)
 // ============================================================================
 
 let envioEmCurso: Promise<{
   fotos: number;
   acoes: number;
   descartadas: number;
+  incidentes: number;
 }> | null = null;
 let pedirEnvioDeNovo = false;
 
 /**
  * Ponto ÚNICO de envio do que ficou guardado no aparelho: fotos de
- * comprovante PRIMEIRO, depois as ações de parada (concluir/pular). A foto
+ * comprovante PRIMEIRO, depois as ações de parada (concluir/pular) e, por
+ * último, os incidentes reportados sem rede (`filaIncidentes.ts`). A foto
  * não depende do destino da ação: mesmo com a conclusão descartada ela sobe
  * (ligada na parada ou registrada em `logs`, `subirFotoDaFilaOffline`).
  *
@@ -522,6 +528,8 @@ export function solicitarEnvioFila(): Promise<{
   acoes: number;
   /** Ações de parada que o servidor recusou por conflito nesta rodada. */
   descartadas: number;
+  /** Incidentes guardados sem rede que subiram nesta rodada. */
+  incidentes: number;
 }> {
   if (envioEmCurso) {
     pedirEnvioDeNovo = true;
@@ -531,6 +539,7 @@ export function solicitarEnvioFila(): Promise<{
     let fotos = 0;
     let acoes = 0;
     let descartadas = 0;
+    let incidentes = 0;
     try {
       do {
         pedirEnvioDeNovo = false;
@@ -542,13 +551,18 @@ export function solicitarEnvioFila(): Promise<{
         const r = await sincronizarFilaAcoesParada();
         acoes += r.enviadas;
         descartadas += r.descartadas?.length ?? 0;
+        // Depois das ações: o incidente de uma parada chega ao gestor junto
+        // com (ou depois de) a decisão sobre ela. O descarte de incidente não
+        // entra em `descartadas`, que a notificação conta como "registro de
+        // parada"; o aviso dele fica na Início (`AvisosDaFilaDeIncidentes`).
+        incidentes += (await sincronizarFilaIncidentes()).enviados;
       } while (pedirEnvioDeNovo);
     } catch (error) {
       logger.warn('[Offline] Falha ao enviar o que ficou no aparelho', error);
     } finally {
       envioEmCurso = null;
     }
-    return { fotos, acoes, descartadas };
+    return { fotos, acoes, descartadas, incidentes };
   })();
   return envioEmCurso;
 }
@@ -562,9 +576,12 @@ async function notificarResultadoDoEnvio(r: {
   fotos: number;
   acoes: number;
   descartadas?: number;
+  incidentes?: number;
 }): Promise<void> {
-  if (r.fotos > 0 || r.acoes > 0) {
-    await notifySyncComplete(r.acoes, r.fotos);
+  // Incidente enviado conta como ação na frase "Sincronização concluída".
+  const acoes = r.acoes + (r.incidentes ?? 0);
+  if (r.fotos > 0 || acoes > 0) {
+    await notifySyncComplete(acoes, r.fotos);
   }
   const descartadas = r.descartadas ?? 0;
   if (descartadas > 0 && AppState.currentState !== 'active') {
@@ -576,16 +593,22 @@ async function notificarResultadoDoEnvio(r: {
 let hasNotifiedOffline = false;
 
 /**
- * Concluir/pular guardados sem rede por quem está no aparelho. Mesmo critério
- * das fotos (`getPendingPhotosCount`): a fila só sobe com a sessão do dono,
- * então ação de outra conta não é "pendente" para esta pessoa.
+ * Concluir/pular e incidentes guardados sem rede por quem está no aparelho.
+ * Mesmo critério das fotos (`getPendingPhotosCount`): a fila só sobe com a
+ * sessão do dono, então item de outra conta não é "pendente" para esta pessoa.
  */
 async function contarAcoesParadaPendentes(): Promise<number> {
   try {
     const dono = await donoConhecido();
     if (!dono) return 0;
-    return (await lerFilaAcoesParada()).filter((a) => a.motoristaId === dono)
-      .length;
+    const acoes = (await lerFilaAcoesParada()).filter(
+      (a) => a.motoristaId === dono,
+    ).length;
+    // Incidentes guardados sem rede também são "algo pendente".
+    const incidentes = (await lerFilaIncidentes()).filter(
+      (i) => i.motoristaId === dono,
+    ).length;
+    return acoes + incidentes;
   } catch (error) {
     logger.warn('[Offline] Falha ao contar ações de parada pendentes', error);
     return 0;

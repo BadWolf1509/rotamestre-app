@@ -66,7 +66,7 @@ export function useDrawerLogout({
         if (!pendencias || !temPendencias(pendencias)) return;
         setLogoutMessage(mensagemDeSaida(pendencias));
         setComPendencias(true);
-        // O envio da fila manda ações e fotos; posições, não
+        // O envio da fila manda ações, fotos e incidentes; posições, não
         if (!temEnvioParaTentar(pendencias)) return;
         solicitarEnvioFila().catch((erro) =>
           logger.warn('[Logout] Falha ao tentar enviar a fila', erro),
