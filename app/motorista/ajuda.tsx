@@ -31,31 +31,31 @@ const FAQ_ITEMS: FAQItem[] = [
     id: '1',
     question: 'Como iniciar uma rota?',
     answer:
-      'Na tela inicial, você verá suas rotas atribuídas. Toque em "Iniciar Rota" para começar. Certifique-se de que seu GPS está ativado para melhor navegação.',
+      'Na aba "Início" aparece a sua rota do dia (se houver mais de uma, aparece um selo como "+1"). Toque em "Iniciar Rota", no fim da tela. O GPS precisa estar ligado: sem ele o botão não funciona. Para iniciar a rota é preciso internet.',
   },
   {
     id: '2',
     question: 'Como marcar uma parada como concluída?',
     answer:
-      'Quando chegar na parada, deslize o card para a DIREITA para concluí-la. Você pode ser solicitado a tirar uma foto como comprovante. Alternativamente, toque no card para expandir e ver mais opções.',
+      'Toque em "Concluir" no cartão da parada, na "Início" ou na aba "Paradas". Você também pode deslizar o cartão para a direita e tocar em "Concluir". Depois aparece a tela "Foto de Comprovante": tire a foto, toque em "Enviar Foto" e confirme em "Concluir". Se não puder tirar a foto, use "Continuar sem foto".',
   },
   {
     id: '3',
     question: 'Como tirar foto de comprovante?',
     answer:
-      'Ao concluir uma parada, toque no ícone da câmera. Você pode tirar uma nova foto ou escolher uma da galeria. A foto é enviada automaticamente e anexada à parada.',
+      'Na tela "Foto de Comprovante", toque em "Adicionar Foto do Comprovante" e escolha "Tirar Foto" ou "Escolher da Galeria". Confira a foto, toque em "Enviar Foto" e confirme em "Concluir". Sem internet, a foto fica guardada no celular e é enviada quando o sinal voltar.',
   },
   {
     id: '4',
     question: 'O que fazer se não conseguir entregar?',
     answer:
-      'Se não for possível completar uma entrega, deslize o card para a ESQUERDA para pular a parada. Será solicitado um motivo. O gestor será notificado e poderá reprogramar a entrega.',
+      'Toque em "Pular" no cartão da parada (ou deslize o cartão para a esquerda e toque em "Pular"). Escolha o motivo: Cliente ausente, Recusou receber/entregar, Endereço incorreto, Acesso bloqueado, Renovação de contrato ou Outro motivo. Em "Outro motivo", escreva pelo menos 10 letras. O gestor recebe um aviso. Se pulou por engano, toque em "Retomar Parada" na aba "Paradas".',
   },
   {
     id: '5',
     question: 'O que fazer em caso de emergência?',
     answer:
-      'Use a opção "SOS / Emergência" no menu lateral. Você pode contatar seu gestor, ligar para serviços de emergência (190, 192, 193) e enviar sua localização.',
+      'No menu lateral, toque em "SOS / Emergência". Ali você liga para o gestor, chama o WhatsApp dele ou liga para a Polícia (190), o SAMU (192) e os Bombeiros (193). O botão "ACIONAR SOS" avisa o gestor e envia a sua localização, se o GPS estiver ligado. Sem internet o aviso não sai: ligue pelos botões.',
   },
   {
     id: '6',
@@ -67,33 +67,33 @@ const FAQ_ITEMS: FAQItem[] = [
     id: '7',
     question: 'Como ver meu histórico de rotas?',
     answer:
-      'Na barra inferior, toque em "Histórico" para ver todas as suas rotas anteriores com os detalhes e os horários de cada entrega.',
+      'Na barra inferior, toque em "Histórico" para ver todas as suas rotas anteriores. Toque numa rota para ver o horário de início e de conclusão, o tempo total, a distância e quantas paradas foram feitas. Use os filtros de período e de situação para encontrar uma rota.',
   },
   {
     id: '8',
     question: 'O app funciona offline?',
     answer:
-      'Sim, em parte. Sem rede, você ainda conclui e pula paradas: o que você registrou (inclusive a foto) fica guardado no aparelho e sobe sozinho quando a internet voltar, e a tela Início mostra um aviso enquanto houver algo pendente. Para carregar a rota e receber novidades do gestor, é preciso conexão — por isso recomendamos manter o 4G/WiFi ativo.',
+      'Em parte. Sem internet você ainda conclui e pula paradas e reporta problemas: o que você registrou (inclusive a foto) fica guardado no aparelho e sobe sozinho quando a internet voltar, e a tela Início mostra um aviso enquanto houver algo pendente. Para iniciar e finalizar a rota, carregar a rota e receber novidades do gestor é preciso internet. O botão "ACIONAR SOS" também precisa de internet; sem ela, ligue pelos botões da tela de emergência.',
   },
   {
     id: '9',
     question: 'Quais são os modos de navegação?',
     answer:
       'São dois:\n\n' +
-      '• Mapa do app: na tela inicial, toque em "Navegar". Abre um mapa em tela cheia com a distância até a parada e os botões "Pular", "Abrir no GPS" (ou só o nome do seu app, como "Waze") e "Concluir". Quando você chega, o app avisa — mas a parada só é concluída quando você toca em "Concluir" e envia a foto. Depois disso, a navegação segue para a próxima parada.\n\n' +
-      '• App externo (Waze, Google Maps ou Apple Maps): toque no botão com o nome do seu app (por exemplo, "Waze") dentro do mapa do app, ou em "Como Chegar" ao expandir uma parada na aba "Paradas". As instruções curva a curva vêm desse app.',
+      '• Mapa do app: na "Início", toque em "Navegar". Abre um mapa em tela cheia com a distância e o tempo até a parada e os botões "Pular", "Concluir" e o do seu app de navegação (como "Waze", "Google Maps" ou "Abrir no GPS"). Quando você chega, o app avisa, mas a parada só é concluída quando você toca em "Concluir". Depois, a navegação segue para a próxima parada.\n\n' +
+      '• App externo (Waze ou Google Maps; no iPhone, também o Apple Maps): toque no botão com o nome do seu app dentro do mapa do app, ou em "Como Chegar" no cartão da parada, na aba "Paradas". As instruções curva a curva vêm desse app.',
   },
   {
     id: '10',
     question: 'Por que o "Navegar" abriu o mapa do app e não o Waze?',
     answer:
-      'O que o botão "Navegar" abre depende do ajuste "Navegar com", em Configurações (no menu lateral). "Mapa do RotaMestre" (o padrão) abre o mapa do app, que avisa quando você chega e mantém a tela acesa. "Waze / Google Maps" abre direto o seu app de navegação, com instruções por voz. Nos dois casos, a parada só é concluída quando você toca em "Concluir" e envia a foto.',
+      'Depende do ajuste "Navegar com", em Configurações (menu lateral) > "Navegação". "Mapa do RotaMestre" (o padrão) abre o mapa do app, que avisa quando você chega e mantém a tela acesa. "Waze / Google Maps" abre direto o app escolhido em "App de Navegação", com instruções por voz. Nos dois casos, a parada só é concluída quando você toca em "Concluir".',
   },
   {
     id: '11',
     question: 'O que são os badges na lista de paradas?',
     answer:
-      'Os badges indicam o tipo (Entrega/Retirada) e status (Pendente, Concluída, Pulada) de cada parada. Cores verdes indicam conclusão, amarelo pendente e vermelho pulada.',
+      'Cada parada mostra o tipo ("Entrega" ou "Retirada") e a situação: "Pendente" (amarelo), "Em rota" (azul), "Concluída" (verde) e "Pulada" (vermelho).',
   },
 ];
 
