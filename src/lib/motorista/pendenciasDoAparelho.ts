@@ -16,12 +16,15 @@ import { logger } from '@/lib/logger';
 import { getPendingPhotosCount } from '@/lib/offline';
 
 import { lerFilaAcoesParada } from './filaAcoesParada';
+import { lerFilaIncidentes } from './filaIncidentes';
 import { CHAVE_FILA_POSICOES } from './filaPosicoes';
 
 export interface PendenciasDaConta {
   acoes: number;
   fotos: number;
   posicoes: number;
+  /** Incidentes reportados sem rede (`filaIncidentes.ts`). */
+  incidentes: number;
 }
 
 async function contarSemFalhar(
@@ -39,7 +42,7 @@ async function contarSemFalhar(
 export async function contarPendenciasDaConta(
   userId: string,
 ): Promise<PendenciasDaConta> {
-  const [acoes, fotos, posicoes] = await Promise.all([
+  const [acoes, fotos, posicoes, incidentes] = await Promise.all([
     contarSemFalhar('ações', async () => {
       const fila = await lerFilaAcoesParada();
       return fila.filter((a) => a.motoristaId === userId).length;
@@ -56,8 +59,12 @@ export async function contarPendenciasDaConta(
         ? registro.posicoes.length
         : 0;
     }),
+    contarSemFalhar('incidentes', async () => {
+      const fila = await lerFilaIncidentes();
+      return fila.filter((i) => i.motoristaId === userId).length;
+    }),
   ]);
-  return { acoes, fotos, posicoes };
+  return { acoes, fotos, posicoes, incidentes };
 }
 
 export const MENSAGEM_SAIDA_PADRAO = 'Deseja realmente encerrar sua sessão?';
@@ -67,12 +74,18 @@ function plural(n: number, singular: string, pluralTexto: string): string {
 }
 
 export function temPendencias(p: PendenciasDaConta): boolean {
-  return p.acoes + p.fotos + p.posicoes > 0;
+  return p.acoes + p.fotos + p.posicoes + p.incidentes > 0;
 }
 
-/** Há o que o envio da fila (ações e fotos) possa mandar agora. */
+/** Há o que o envio da fila (ações, fotos e incidentes) possa mandar agora. */
 export function temEnvioParaTentar(p: PendenciasDaConta): boolean {
-  return p.acoes + p.fotos > 0;
+  return p.acoes + p.fotos + p.incidentes > 0;
+}
+
+/** "a", "a e b", "a, b e c". */
+function emLista(itens: string[]): string {
+  if (itens.length <= 1) return itens.join('');
+  return `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`;
 }
 
 /** Texto do diálogo de saída. Sem pendência, a pergunta de sempre. */
@@ -87,9 +100,14 @@ export function mensagemDeSaida(p: PendenciasDaConta): string {
     );
   }
   if (p.fotos > 0) guardadas.push(plural(p.fotos, 'foto', 'fotos'));
+  if (p.incidentes > 0) {
+    guardadas.push(
+      plural(p.incidentes, 'reporte de problema', 'reportes de problema'),
+    );
+  }
   if (guardadas.length > 0) {
     partes.push(
-      `Ainda não foram enviados: ${guardadas.join(' e ')}. Se sair, ficam guardados e só sobem quando você entrar de novo neste aparelho, com esta conta.`,
+      `Ainda não foram enviados: ${emLista(guardadas)}. Se sair, ficam guardados e só sobem quando você entrar de novo neste aparelho, com esta conta.`,
     );
   }
   if (p.posicoes > 0) {
@@ -97,7 +115,7 @@ export function mensagemDeSaida(p: PendenciasDaConta): string {
       'O trajeto registrado sem sinal ainda não foi enviado e será apagado ao sair.',
     );
   }
-  // `solicitarEnvioFila` manda ações e fotos, não posições
+  // `solicitarEnvioFila` manda ações, fotos e incidentes, não posições
   partes.push(
     temEnvioParaTentar(p)
       ? 'O app já está tentando enviar. Deseja sair mesmo assim?'

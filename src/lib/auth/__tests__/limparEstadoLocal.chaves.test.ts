@@ -9,7 +9,11 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { extname, join } from 'path';
 
-import { CHAVES_DA_CONTA, PREFIXOS_DA_CONTA } from '../limparEstadoLocal';
+import {
+  CHAVES_DA_CONTA,
+  CHAVES_PENDENCIAS_POR_CONTA,
+  PREFIXOS_DA_CONTA,
+} from '../limparEstadoLocal';
 
 const CHAVES_LEGADAS = ['@rotamestre:offline_data'];
 
@@ -39,6 +43,13 @@ describe('limparEstadoLocal: as chaves ainda existem na origem', () => {
     ...PREFIXOS_DA_CONTA,
   ])('%s', (chave) => {
     const aspas = [`'${chave}'`, `"${chave}"`, `'${chave}`, `"${chave}`];
+    expect(fontes.some((f) => aspas.some((a) => f.includes(a)))).toBe(true);
+  });
+});
+
+describe('exclusão de conta: as chaves de pendências por conta ainda existem na origem', () => {
+  it.each([...CHAVES_PENDENCIAS_POR_CONTA])('%s', (chave) => {
+    const aspas = [`'${chave}'`, `"${chave}"`];
     expect(fontes.some((f) => aspas.some((a) => f.includes(a)))).toBe(true);
   });
 });

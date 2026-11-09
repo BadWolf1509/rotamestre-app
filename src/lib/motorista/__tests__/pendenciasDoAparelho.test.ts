@@ -61,12 +61,20 @@ describe('contarPendenciasDaConta', () => {
         estourou: false,
       }),
     );
+    mapa.set(
+      '@rotamestre:fila_incidentes',
+      JSON.stringify([
+        { id: 'i1', motoristaId: 'm1' },
+        { id: 'i2', motoristaId: 'outra' },
+      ]),
+    );
     mockFotos.mockResolvedValue(1);
 
     await expect(contarPendenciasDaConta('m1')).resolves.toEqual({
       acoes: 2,
       fotos: 1,
       posicoes: 3,
+      incidentes: 1,
     });
   });
 
@@ -81,35 +89,57 @@ describe('contarPendenciasDaConta', () => {
       acoes: 0,
       fotos: 0,
       posicoes: 0,
+      incidentes: 0,
     });
   });
 });
 
 describe('mensagemDeSaida', () => {
   it('sem pendência: a pergunta de sempre', () => {
-    expect(mensagemDeSaida({ acoes: 0, fotos: 0, posicoes: 0 })).toBe(
-      'Deseja realmente encerrar sua sessão?',
-    );
+    expect(
+      mensagemDeSaida({ acoes: 0, fotos: 0, posicoes: 0, incidentes: 0 }),
+    ).toBe('Deseja realmente encerrar sua sessão?');
   });
 
   it('com entregas e fotos: diz quantas e quando sobem', () => {
-    const m = mensagemDeSaida({ acoes: 2, fotos: 1, posicoes: 0 });
+    const m = mensagemDeSaida({
+      acoes: 2,
+      fotos: 1,
+      posicoes: 0,
+      incidentes: 0,
+    });
     expect(m).toContain('2 registros de parada');
     expect(m).toContain('1 foto');
     expect(m).toContain('quando você entrar de novo neste aparelho');
   });
 
   it('só posições: avisa que o trajeto sem sinal se perde', () => {
-    const m = mensagemDeSaida({ acoes: 0, fotos: 0, posicoes: 5 });
+    const m = mensagemDeSaida({
+      acoes: 0,
+      fotos: 0,
+      posicoes: 5,
+      incidentes: 0,
+    });
     expect(m).toContain('trajeto');
     expect(m).not.toContain('quando você entrar de novo');
     // O envio da fila não manda posições: não promete o que não faz
     expect(m).not.toContain('tentando enviar');
   });
 
+  it('com incidente guardado: diz que ele ainda não foi enviado e que o app tenta', () => {
+    const m = mensagemDeSaida({
+      acoes: 0,
+      fotos: 0,
+      posicoes: 0,
+      incidentes: 1,
+    });
+    expect(m).toContain('1 reporte de problema');
+    expect(m).toContain('tentando enviar');
+  });
+
   it('com ações ou fotos: diz que o app já está tentando enviar', () => {
-    expect(mensagemDeSaida({ acoes: 0, fotos: 1, posicoes: 0 })).toContain(
-      'tentando enviar',
-    );
+    expect(
+      mensagemDeSaida({ acoes: 0, fotos: 1, posicoes: 0, incidentes: 0 }),
+    ).toContain('tentando enviar');
   });
 });

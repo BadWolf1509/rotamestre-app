@@ -28,7 +28,12 @@ jest.mock('@/lib/offline', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockContar.mockResolvedValue({ acoes: 0, fotos: 0, posicoes: 0 });
+  mockContar.mockResolvedValue({
+    acoes: 0,
+    fotos: 0,
+    posicoes: 0,
+    incidentes: 0,
+  });
 });
 
 describe('useDrawerLogout — saída', () => {
@@ -69,7 +74,12 @@ describe('useDrawerLogout — aviso de pendências', () => {
   });
 
   it('com entregas na fila: avisa quantas e tenta enviar', async () => {
-    mockContar.mockResolvedValue({ acoes: 3, fotos: 2, posicoes: 0 });
+    mockContar.mockResolvedValue({
+      acoes: 3,
+      fotos: 2,
+      posicoes: 0,
+      incidentes: 0,
+    });
     const { result } = renderHook(() =>
       useDrawerLogout({ onClose: jest.fn(), motoristaId: 'm1' }),
     );
@@ -109,13 +119,18 @@ describe('useDrawerLogout — aviso de pendências', () => {
     expect(authService.signOut).not.toHaveBeenCalled();
 
     await act(async () => {
-      terminar({ acoes: 0, fotos: 0, posicoes: 0 });
+      terminar({ acoes: 0, fotos: 0, posicoes: 0, incidentes: 0 });
     });
     expect(result.current.contandoPendencias).toBe(false);
   });
 
   it('só trajeto pendente: avisa, mas não dispara o envio (ele não manda posições)', async () => {
-    mockContar.mockResolvedValue({ acoes: 0, fotos: 0, posicoes: 4 });
+    mockContar.mockResolvedValue({
+      acoes: 0,
+      fotos: 0,
+      posicoes: 4,
+      incidentes: 0,
+    });
     const { result } = renderHook(() =>
       useDrawerLogout({ onClose: jest.fn(), motoristaId: 'm1' }),
     );

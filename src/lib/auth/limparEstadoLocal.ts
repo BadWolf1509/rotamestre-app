@@ -84,14 +84,30 @@ export async function limparEstadoLocalDoUsuario(): Promise<void> {
 const CHAVE_FILA_ACOES = '@rotamestre:fila_acoes_parada'; // src/lib/motorista/filaAcoesParada.ts
 const CHAVE_DESCARTES_ACOES = '@rotamestre:fila_acoes_parada_descartes'; // idem
 const CHAVE_INDICE_FOTOS = '@rotamestre:offline_photos_index'; // src/lib/offline.ts
+const CHAVE_FILA_INCIDENTES = '@rotamestre:fila_incidentes'; // src/lib/motorista/filaIncidentes.ts
+const CHAVE_DESCARTES_INCIDENTES = '@rotamestre:fila_incidentes_descartes'; // idem
+
+/**
+ * Chaves que misturam pendências de várias contas (a exclusão tira só as de
+ * quem sai). Conferidas contra a origem por `limparEstadoLocal.chaves.test.ts`.
+ */
+export const CHAVES_PENDENCIAS_POR_CONTA = [
+  CHAVE_FILA_ACOES,
+  CHAVE_DESCARTES_ACOES,
+  CHAVE_INDICE_FOTOS,
+  CHAVE_FILA_INCIDENTES,
+  CHAVE_DESCARTES_INCIDENTES,
+] as const;
 
 type ComDono = { motoristaId?: string };
 type FotoComDono = { userId?: string; semDono?: boolean; localPath?: string };
+type IncidenteComDono = ComDono & { fotoLocal?: string };
 
 /**
  * Excluir a conta apaga tudo do aparelho, MENOS as pendências de OUTRAS
- * contas: concluir/pular feitos sem rede (e seus avisos) e as fotos de
- * comprovante que ainda não subiram. Elas sobem quando a dona entrar; um
+ * contas: concluir/pular feitos sem rede (e seus avisos), as fotos de
+ * comprovante que ainda não subiram e os incidentes reportados sem rede (e
+ * seus avisos). Elas sobem quando a dona entrar; um
  * `AsyncStorage.clear()` cru as perderia sem aviso.
  *
  * Fotos: as de quem sai são apagadas de vez — índice E arquivo (a conta não
@@ -104,7 +120,7 @@ type FotoComDono = { userId?: string; semDono?: boolean; localPath?: string };
  * comprovante alheio.
  *
  * POR QUE GUARDAR E REGRAVAR (e não apagar chave a chave): o resto do
- * aparelho deve mesmo sumir numa exclusão; só estas três chaves misturam
+ * aparelho deve mesmo sumir numa exclusão; só estas chaves misturam
  * dados de várias contas, e é só delas que se tira o que é de quem sai.
  */
 export async function limparAparelhoAoExcluirConta(
@@ -135,6 +151,16 @@ export async function limparAparelhoAoExcluirConta(
   const todasAsFotos = await lerLista<FotoComDono>(CHAVE_INDICE_FOTOS);
   const fotos = todasAsFotos?.filter((f) => !deQuemSai(f.userId));
   const fotosDeQuemSai = todasAsFotos?.filter((f) => deQuemSai(f.userId)) ?? [];
+  const todosIncidentes = await lerLista<IncidenteComDono>(
+    CHAVE_FILA_INCIDENTES,
+  );
+  const incidentes = todosIncidentes?.filter((i) => !deQuemSai(i.motoristaId));
+  const fotosDeIncidenteDeQuemSai = (todosIncidentes ?? [])
+    .filter((i) => deQuemSai(i.motoristaId))
+    .map((i) => i.fotoLocal);
+  const descartesIncidentes = (
+    await lerLista<{ incidente?: IncidenteComDono }>(CHAVE_DESCARTES_INCIDENTES)
+  )?.filter((d) => !deQuemSai(d.incidente?.motoristaId));
 
   // Com uma chave ilegível, apaga todas as OUTRAS (multiRemove) em vez do
   // `clear()`. Alternativa descartada: lançar antes de limpar — a conta já
@@ -159,6 +185,8 @@ export async function limparAparelhoAoExcluirConta(
     [CHAVE_FILA_ACOES, acoes],
     [CHAVE_DESCARTES_ACOES, descartes],
     [CHAVE_INDICE_FOTOS, fotos],
+    [CHAVE_FILA_INCIDENTES, incidentes],
+    [CHAVE_DESCARTES_INCIDENTES, descartesIncidentes],
   ];
   for (const [chave, lista] of guardar) {
     if (lista && lista.length > 0) {
@@ -167,10 +195,14 @@ export async function limparAparelhoAoExcluirConta(
   }
 
   if (Platform.OS === 'web') return; // web não guarda arquivo de foto
-  for (const f of fotosDeQuemSai) {
-    if (!f.localPath) continue;
+  const arquivos = [
+    ...fotosDeQuemSai.map((f) => f.localPath),
+    ...fotosDeIncidenteDeQuemSai,
+  ];
+  for (const caminho of arquivos) {
+    if (!caminho) continue;
     try {
-      await FileSystem.deleteAsync(f.localPath, { idempotent: true });
+      await FileSystem.deleteAsync(caminho, { idempotent: true });
     } catch (error) {
       // Não crítico: a conta já foi excluída; sobra um arquivo órfão.
       logger.warn('[ExcluirConta] Falha ao apagar foto local', error);
