@@ -342,6 +342,25 @@ module.exports = [
     },
   },
   {
+    // Promessa solta (type-aware): só em lib, hooks e services. O type-aware custa tempo de
+    // lint, então não vale para o repositório todo; testes ficam de fora (o tsconfig os exclui).
+    files: ['src/lib/**/*.{ts,tsx}', 'src/hooks/**/*.{ts,tsx}', 'src/services/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
+    languageOptions: {
+      parser: typescriptParser,
+      parserOptions: {
+        project: path.join(__dirname, 'tsconfig.json'),
+        tsconfigRootDir: __dirname,
+        ecmaVersion: 2021,
+        sourceType: 'module',
+        ecmaFeatures: { jsx: true },
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+    },
+  },
+  {
     files: ['__mocks__/**/*.{ts,tsx,js,jsx}', 'jest.mocks/**/*.{js,ts}'],
     languageOptions: {
       globals: {
