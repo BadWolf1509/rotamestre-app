@@ -10,6 +10,8 @@ import {
   corDeTextoDoStatus,
   coresPorStatusDaRota,
   getStatusColorKey,
+  propsDoStatusBadge,
+  propsDoStatusBadgeDaParada,
   rotuloDoStatus,
 } from '../statusConfig';
 
@@ -112,6 +114,65 @@ describe('corDeTextoDoStatus — contraste do selo soft', () => {
     );
     expect(corDeTextoDoStatus('gray600', lightTheme.colors)).toBe(
       lightTheme.colors.gray600,
+    );
+  });
+});
+
+describe('propsDoStatusBadge', () => {
+  const cores = lightTheme.colors;
+
+  it.each([
+    ['pendente', 'warning', 'warningText', 'hourglass-outline', 'Pendente'],
+    ['em_andamento', 'info', 'infoText', 'time-outline', 'Em andamento'],
+    ['concluida', 'success', 'successDark', 'checkmark-circle', 'Concluída'],
+    ['cancelada', 'error', 'errorText', 'close-circle', 'Cancelada'],
+    ['nao_executada', 'error', 'errorText', 'alert-circle', 'Não executada'],
+  ] as const)(
+    '%s → cor do tema, texto com contraste, ícone e rótulo',
+    (status, corChave, textoChave, icone, rotulo) => {
+      expect(propsDoStatusBadge(status, cores)).toEqual({
+        color: cores[corChave],
+        textColor: cores[textoChave],
+        icon: icone,
+        label: rotulo,
+      });
+    },
+  );
+
+  it('status de parada que não é de rota (pulada) usa a config da parada', () => {
+    expect(propsDoStatusBadge('pulada', cores)).toEqual({
+      color: cores.warning,
+      textColor: cores.warningText,
+      icon: 'play-skip-forward',
+      label: 'Pulada',
+    });
+  });
+
+  it('status desconhecido cai no neutro de informação, sem quebrar', () => {
+    expect(propsDoStatusBadge('status_novo', cores)).toEqual({
+      color: cores.info,
+      textColor: cores.infoText,
+      icon: 'help-circle-outline',
+      label: 'status novo',
+    });
+  });
+});
+
+describe('propsDoStatusBadgeDaParada', () => {
+  const cores = lightTheme.colors;
+
+  it('usa o ícone da parada, não o da rota, no mesmo status', () => {
+    expect(propsDoStatusBadgeDaParada('pendente', cores).icon).toBe(
+      'ellipse-outline',
+    );
+    expect(propsDoStatusBadgeDaParada('em_andamento', cores).icon).toBe(
+      'navigate-circle',
+    );
+  });
+
+  it('status desconhecido cai em pendente', () => {
+    expect(propsDoStatusBadgeDaParada('xyz', cores)).toEqual(
+      propsDoStatusBadgeDaParada('pendente', cores),
     );
   });
 });

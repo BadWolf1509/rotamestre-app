@@ -21,14 +21,7 @@
 import React from 'react';
 
 import { StatusBadge } from '@/components/StatusBadge';
-import {
-  ROUTE_STATUS_CONFIG,
-  STOP_STATUS_CONFIG,
-  type RouteStatusType,
-  type StatusConfig,
-  type StopStatusType,
-  corDeTextoDoStatus,
-} from '@/constants/statusConfig';
+import { propsDoStatusBadge } from '@/constants/statusConfig';
 import { useUnistyles } from '@/utils/styles';
 
 // ============================================
@@ -50,32 +43,20 @@ interface StatusCellProps {
   label?: string;
 }
 
-/**
- * Rótulo, cor e ícone vêm da config central (ROUTE_STATUS_CONFIG para rota,
- * STOP_STATUS_CONFIG para parada). Status desconhecido cai no texto cru, em
- * cor neutra de informação.
- */
-function configDoStatus(status: string): StatusConfig | undefined {
-  return (
-    ROUTE_STATUS_CONFIG[status as RouteStatusType] ??
-    STOP_STATUS_CONFIG[status as StopStatusType]
-  );
-}
-
 export function StatusCell({ status, label }: StatusCellProps) {
   const { theme } = useUnistyles();
-  const config = configDoStatus(status);
-  const displayLabel = label || config?.label || status;
-  const colorKey = config?.colorKey ?? 'info';
+  // Rótulo, cor, contraste e ícone vêm da config central; status
+  // desconhecido cai no neutro de informação, com o texto cru.
+  const selo = propsDoStatusBadge(status, theme.colors);
 
   return (
     <StatusBadge
-      label={displayLabel}
-      color={theme.colors[colorKey]}
-      textColor={corDeTextoDoStatus(colorKey, theme.colors)}
+      label={label || selo.label}
+      color={selo.color}
+      textColor={selo.textColor}
       variant="soft"
       size="sm"
-      icon={config?.icon}
+      icon={selo.icon}
     />
   );
 }

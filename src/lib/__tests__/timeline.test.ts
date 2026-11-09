@@ -295,6 +295,16 @@ describe('timeline', () => {
       });
     });
 
+    it('rota_criada com 1 parada e 1 vínculo usa o singular', () => {
+      const result = mapLogToTimelineEvent({
+        id,
+        evento: 'rota_criada',
+        timestamp: ts,
+        detalhes: { total_paradas: 1, tem_vinculos: true, total_vinculos: 1 },
+      });
+      expect(result?.description).toBe('Rota criada com 1 parada • 1 vínculo');
+    });
+
     it('should map rota_criada without vinculos', () => {
       const result = mapLogToTimelineEvent({
         id,
@@ -446,6 +456,11 @@ describe('timeline', () => {
         icon: 'document-text',
         colorKey: 'blue',
       });
+    });
+    it('rota_finalizada com 1 concluída e 1 pulada usa o singular', () => {
+      expect(
+        map('rota_finalizada', { paradas_concluidas: 1, paradas_puladas: 1 }),
+      ).toMatchObject({ description: '1 concluída, 1 pulada' });
     });
     it('ROTA_FINALIZADA sem detalhes: resumo com zeros', () => {
       expect(map('ROTA_FINALIZADA', null)).toMatchObject({

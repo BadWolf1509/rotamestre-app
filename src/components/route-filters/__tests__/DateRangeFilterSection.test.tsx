@@ -38,7 +38,7 @@ describe('DateRangeFilterSection', () => {
         dataInicio={null}
         dataFim={null}
         onDateRangeChange={mockOnDateRangeChange}
-      />
+      />,
     );
     expect(screen.getByText('Período')).toBeTruthy();
   });
@@ -56,11 +56,11 @@ describe('DateRangeFilterSection', () => {
           dataInicio={null}
           dataFim={null}
           onDateRangeChange={mockOnDateRangeChange}
-        />
+        />,
       );
 
       expect(screen.getByTestId('filter-date-range')).toBeTruthy();
-      expect(screen.getByText('Selecionar Período')).toBeTruthy();
+      expect(screen.getByText('Selecionar período')).toBeTruthy();
     });
 
     it('shows formatted date range when dates are provided', () => {
@@ -72,7 +72,7 @@ describe('DateRangeFilterSection', () => {
           dataInicio={startDate}
           dataFim={endDate}
           onDateRangeChange={mockOnDateRangeChange}
-        />
+        />,
       );
 
       // Should show the range label format
@@ -86,7 +86,7 @@ describe('DateRangeFilterSection', () => {
           dataInicio={null}
           dataFim={null}
           onDateRangeChange={mockOnDateRangeChange}
-        />
+        />,
       );
 
       fireEvent.press(screen.getByTestId('filter-date-range'));
@@ -110,7 +110,7 @@ describe('DateRangeFilterSection', () => {
           dataInicio={null}
           dataFim={null}
           onDateRangeChange={mockOnDateRangeChange}
-        />
+        />,
       );
 
       // Should have "até" separator on mobile
@@ -128,7 +128,7 @@ describe('DateRangeFilterSection', () => {
           dataInicio={startDate}
           dataFim={endDate}
           onDateRangeChange={mockOnDateRangeChange}
-        />
+        />,
       );
 
       // Should not have "Selecionar" text when dates are provided

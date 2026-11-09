@@ -1,27 +1,48 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { View, RefreshControl } from 'react-native';
 
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
-import { DesktopPageLayout, Dialog, EmptyState, Toast } from '@/design-system';
+import { DesktopPageLayout, EmptyState, Toast } from '@/design-system';
+import { useExclusaoDeRota } from '@/hooks/gestao-rotas/useExclusaoDeRota';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
-import {
-  excluirRota,
-  ExclusaoRotaError,
-  MENSAGEM_ROTA_EM_ANDAMENTO,
-  textoConfirmacaoExclusao,
-} from '@/lib/gestor/excluirRota';
-import { logger } from '@/lib/logger';
+import { useToast } from '@/hooks/useToast';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import { ListaDeRotasDoDia } from './ListaDeRotasDoDia';
 import { ResumoDoDia } from './ResumoDoDia';
 
 import type { DashboardData } from '../../_hooks/useDashboardData';
+
+/**
+ * O que a Início diz sem rota, no vazio e no resumo (a mesma frase nos dois).
+ * Sem período a lista é a de hoje; com ele, não se fala em "hoje". Com filtro
+ * de status ou motorista, o dia pode ter rota que o filtro esconde: nada de
+ * "crie a primeira rota".
+ */
+function textosDoVazio(filters: RouteFiltersType): {
+  titulo: string;
+  descricao: string;
+} {
+  const ajusteOsFiltros = 'Ajuste os filtros ou crie uma nova rota';
+  if (filters.dataInicio || filters.dataFim) {
+    return { titulo: 'Nenhuma rota no período', descricao: ajusteOsFiltros };
+  }
+  if (filters.status || filters.motoristaId) {
+    return {
+      titulo: 'Nenhuma rota hoje com esses filtros',
+      descricao: ajusteOsFiltros,
+    };
+  }
+  return {
+    titulo: 'Nenhuma rota cadastrada hoje',
+    descricao: 'Crie a primeira rota de entrega do dia',
+  };
+}
 
 interface DashboardDesktopProps extends DashboardData {
   /** Nome da loja ATIVA (seletor), não a do perfil. */
@@ -54,106 +75,27 @@ export function DashboardDesktop({
   // ✅ Usar hook com cache para motoristas (evita recarregar a cada navegação)
   const { motoristas } = useMotoristas();
 
-  // Estado para modal de confirmação
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [rotaToDelete, setRotaToDelete] = useState<string | null>(null);
-
-  // Estado para toast de feedback
-  const [toast, setToast] = useState<{
-    visible: boolean;
-    message: string;
-    type: 'success' | 'error' | 'info';
-  }>({
-    visible: false,
-    message: '',
-    type: 'info',
-  });
-
-  // Memoize showToast para evitar recriação
-  const showToast = useCallback(
-    (message: string, type: 'success' | 'error' | 'info') => {
-      setToast({ visible: true, message, type });
-    },
-    [],
-  );
-
   const { userMenuTrigger, userMenuItems, logoutModal } = useDesktopHeaderMenu({
     userName: userData?.nome,
     userImageUrl: userData?.foto_url,
   });
 
-  // Rota escolhida para excluir (o status vem da lista; `excluirRota`
-  // reconsulta antes de apagar).
-  const rotaParaExcluir = rotaToDelete
-    ? rotas.find((r) => r.id === rotaToDelete)
-    : undefined;
-  const confirmacao = textoConfirmacaoExclusao({
-    status: rotaParaExcluir?.status,
-    motoristaNome: rotaParaExcluir?.motorista_nome,
-    paradasCount: rotaParaExcluir?.total_paradas,
+  // O Toast é da página (useToast é estado por instância); o fluxo de
+  // exclusão (diálogo + toasts) é o mesmo da Gestão de Rotas.
+  const { toast, showToast, hideToast } = useToast();
+  const { pedirExclusao, dialogo } = useExclusaoDeRota({
+    showToast,
+    usuarioId: userData?.id,
+    aoExcluir: onRefresh,
   });
 
-  // Memoize delete handler para evitar re-render da lista de rotas
   const handleDeleteRota = useCallback(
     (rotaId: string) => {
       const rota = rotas.find((r) => r.id === rotaId);
-      // Atalho de UX: a lista já sabe que está em andamento. `excluirRota`
-      // reconsulta o status; a trava no banco é o gatilho da Migration 41.
-      if (rota?.status === 'em_andamento') {
-        showToast(MENSAGEM_ROTA_EM_ANDAMENTO, 'error');
-        return;
-      }
-      setRotaToDelete(rotaId);
-      setShowConfirmModal(true);
+      if (rota) pedirExclusao(rota);
     },
-    [rotas, showToast],
+    [rotas, pedirExclusao],
   );
-
-  // Memoize execute delete
-  const executeDelete = useCallback(
-    async (rotaId: string) => {
-      if (!userData?.id) {
-        showToast('Erro de autenticação. Faça login novamente.', 'error');
-        return;
-      }
-      const rota = rotas.find((r) => r.id === rotaId);
-      try {
-        await excluirRota({
-          rotaId,
-          usuarioId: userData.id,
-          motoristaNome: rota?.motorista_nome,
-          paradasCount: rota?.total_paradas,
-        });
-
-        showToast('Rota excluída com sucesso', 'success');
-        onRefresh();
-      } catch (error) {
-        if (error instanceof ExclusaoRotaError) {
-          showToast(error.message, 'error');
-          onRefresh();
-          return;
-        }
-        logger.error('Erro ao excluir rota:', error);
-        showToast('Erro ao excluir a rota', 'error');
-      }
-    },
-    [showToast, onRefresh, rotas, userData?.id],
-  );
-
-  // Memoize confirm handler
-  const handleConfirmDelete = useCallback(() => {
-    setShowConfirmModal(false);
-    if (rotaToDelete) {
-      executeDelete(rotaToDelete);
-      setRotaToDelete(null);
-    }
-  }, [rotaToDelete, executeDelete]);
-
-  // Memoize cancel handler
-  const handleCancelDelete = useCallback(() => {
-    setShowConfirmModal(false);
-    setRotaToDelete(null);
-  }, []);
 
   // Memoize view details handler
   const handleViewDetails = useCallback(
@@ -163,9 +105,7 @@ export function DashboardDesktop({
     [router],
   );
 
-  // Sem período escolhido, a Início mostra as rotas de hoje; com ele, o
-  // vazio não pode dizer "hoje".
-  const comFiltroDePeriodo = Boolean(filters.dataInicio || filters.dataFim);
+  const vazio = textosDoVazio(filters);
 
   const irParaNovaRota = useCallback(() => {
     router.push('/gestor/nova-entrega');
@@ -186,11 +126,6 @@ export function DashboardDesktop({
     ],
     [irParaNovaRota],
   );
-
-  // Memoize toast dismiss
-  const handleToastDismiss = useCallback(() => {
-    setToast((prev) => ({ ...prev, visible: false }));
-  }, []);
 
   return (
     <>
@@ -219,6 +154,7 @@ export function DashboardDesktop({
 
           <ResumoDoDia
             rotas={rotas}
+            textoSemRotas={vazio.titulo}
             incidentesAbertos={stats.incidentesAbertos ?? null}
             onAbrirIncidentes={abrirIncidentes}
           />
@@ -236,16 +172,8 @@ export function DashboardDesktop({
             <View testID="rotas-table">
               <EmptyState
                 icon="map-outline"
-                title={
-                  comFiltroDePeriodo
-                    ? 'Nenhuma rota no período'
-                    : 'Nenhuma rota cadastrada hoje'
-                }
-                description={
-                  comFiltroDePeriodo
-                    ? 'Ajuste os filtros ou crie uma nova rota'
-                    : 'Crie a primeira rota de entrega do dia'
-                }
+                title={vazio.titulo}
+                description={vazio.descricao}
                 actionLabel="Criar rota"
                 onActionPress={irParaNovaRota}
                 compact
@@ -262,24 +190,9 @@ export function DashboardDesktop({
         </View>
       </DesktopPageLayout>
 
-      <Dialog
-        visible={showConfirmModal}
-        variant="confirm"
-        title={confirmacao.titulo}
-        message={confirmacao.mensagem}
-        confirmText="Excluir"
-        cancelText="Cancelar"
-        type="danger"
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-      />
+      {dialogo}
 
-      <Toast
-        visible={toast.visible}
-        message={toast.message}
-        type={toast.type}
-        onDismiss={handleToastDismiss}
-      />
+      <Toast {...toast} onDismiss={hideToast} />
       {logoutModal}
     </>
   );

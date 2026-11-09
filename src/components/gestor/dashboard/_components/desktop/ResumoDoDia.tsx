@@ -20,6 +20,8 @@ import type { RotaResumo } from '../../_hooks/useDashboardData';
 
 interface ResumoDoDiaProps {
   rotas: RotaResumo[];
+  /** A frase sem rota; a Início passa a mesma do estado vazio ao lado. */
+  textoSemRotas: string;
   /** null = a contagem falhou (indisponível). */
   incidentesAbertos: number | null;
   onAbrirIncidentes: () => void;
@@ -34,8 +36,8 @@ const PARTES_DE_STATUS: [RouteStatusType, string, string][] = [
   ['nao_executada', 'não executada', 'não executadas'],
 ];
 
-function fraseDoResumo(rotas: RotaResumo[]): string {
-  if (rotas.length === 0) return 'Nenhuma rota no período';
+function fraseDoResumo(rotas: RotaResumo[], textoSemRotas: string): string {
+  if (rotas.length === 0) return textoSemRotas;
 
   const partes: string[] = [];
   for (const [status, singular, pluralForma] of PARTES_DE_STATUS) {
@@ -50,9 +52,14 @@ function fraseDoResumo(rotas: RotaResumo[]): string {
   }
   if (partes.length === 0) partes.push(plural(rotas.length, 'rota', 'rotas'));
 
-  const total = rotas.reduce((soma, r) => soma + r.total_paradas, 0);
-  const feitas = rotas.reduce((soma, r) => soma + r.paradas_concluidas, 0);
-  const km = rotas.reduce((soma, r) => soma + r.distancia_total, 0);
+  // Rota cancelada ou não executada não vai mais ser feita: suas paradas
+  // saem do total e do feito (senão o dia parece atrasado para sempre).
+  const rotasDoDia = rotas.filter(
+    (r) => r.status !== 'cancelada' && r.status !== 'nao_executada',
+  );
+  const total = rotasDoDia.reduce((soma, r) => soma + r.total_paradas, 0);
+  const feitas = rotasDoDia.reduce((soma, r) => soma + r.paradas_concluidas, 0);
+  const km = rotasDoDia.reduce((soma, r) => soma + r.distancia_total, 0);
 
   return `${partes.join(', ')} — ${feitas} de ${plural(
     total,
@@ -63,6 +70,7 @@ function fraseDoResumo(rotas: RotaResumo[]): string {
 
 export function ResumoDoDia({
   rotas,
+  textoSemRotas,
   incidentesAbertos,
   onAbrirIncidentes,
 }: ResumoDoDiaProps) {
@@ -74,7 +82,7 @@ export function ResumoDoDia({
   return (
     <View style={styles.container} testID="gestor-dashboard-stats">
       <Text style={styles.frase} testID="gestor-dashboard-resumo">
-        {fraseDoResumo(rotas)}
+        {fraseDoResumo(rotas, textoSemRotas)}
       </Text>
       {textoIncidentes ? (
         <Pressable

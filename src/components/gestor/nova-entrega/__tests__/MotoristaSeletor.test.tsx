@@ -89,6 +89,40 @@ describe('MotoristaSeletor', () => {
     expect(onSelectMotorista).toHaveBeenCalledWith('m1');
   });
 
+  it('a carga do motorista concorda no singular e no plural', () => {
+    const motoristas = [
+      {
+        id: 'm1',
+        nome: 'Joao',
+        email: 'joao@teste.com',
+        ativo: true,
+        rotasPendentes: 1,
+        paradasPendentes: 1,
+      },
+      {
+        id: 'm2',
+        nome: 'Maria',
+        email: 'maria@teste.com',
+        ativo: true,
+        rotasPendentes: 2,
+        paradasPendentes: 0,
+      },
+    ];
+
+    const { getByText } = render(
+      <MotoristaSeletor
+        motoristas={motoristas}
+        motoristaSelecionado={null}
+        onSelectMotorista={jest.fn()}
+      />,
+    );
+
+    expect(getByText('1 rota pendente')).toBeTruthy();
+    expect(getByText('1 parada')).toBeTruthy();
+    expect(getByText('2 rotas pendentes')).toBeTruthy();
+    expect(getByText('0 paradas')).toBeTruthy();
+  });
+
   it('mostra o selo "Nunca entrou no app" só para quem nunca entrou', () => {
     const { getAllByText } = render(
       <MotoristaSeletor

@@ -15,7 +15,6 @@ import {
   renderHook,
   screen,
 } from '@testing-library/react-native';
-import React from 'react';
 import { StyleSheet } from 'react-native';
 
 import { larguraMinimaDaTabela } from '@/components/data-table/larguras';
@@ -73,10 +72,6 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
   FILTRO_STATUS_OPTIONS: ['todas', 'pendente'],
   useGestaoRotas: (opcoes: { statusColorMap?: Record<string, string> }) => {
     mockOpcoesDoHook = opcoes;
-    // Estado real: "Excluir rota" abre o Dialog como o hook de verdade faz.
-    const [confirmando, setConfirmando] = jest
-      .requireActual('react')
-      .useState(false);
     return {
       rotasFiltradas: [],
       loading: false,
@@ -84,21 +79,10 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
       dadosDe: null,
       filtroStatus: 'todas',
       searchQuery: '',
-      showConfirmModal: confirmando,
-      confirmacaoExclusao: {
-        titulo: 'Excluir rota?',
-        mensagem: 'A rota de Ana será excluída.',
-      },
       userData: { id: 'g1' },
       setFiltroStatus: jest.fn(),
       setSearchQuery: jest.fn(),
       verDetalhes: mockVerDetalhes,
-      excluirRota: (rota: unknown) => {
-        mockExcluirRota(rota);
-        setConfirmando(true);
-      },
-      handleConfirmDelete: jest.fn(),
-      handleCancelDelete: () => setConfirmando(false),
       exportarParaCSV: mockExportarCSV,
       exportarParaXLSX: mockExportarXLSX,
       loadRotas: mockLoadRotas,
@@ -112,6 +96,27 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
       getStatusColor: () => 'x',
       handleSort: jest.fn(),
       ...mockEstadoHook,
+    };
+  },
+}));
+// A página é dona do fluxo de exclusão: "Excluir rota" abre o diálogo, como o
+// hook de verdade faz (aqui um stub com estado real).
+jest.mock('@/hooks/gestao-rotas/useExclusaoDeRota', () => ({
+  useExclusaoDeRota: () => {
+    const React = jest.requireActual('react');
+    const { Text } = jest.requireActual('react-native');
+    const [aberto, setAberto] = React.useState(false);
+    return {
+      pedirExclusao: (rota: unknown) => {
+        mockExcluirRota(rota);
+        setAberto(true);
+      },
+      dialogo: aberto ? (
+        <>
+          <Text>Excluir rota?</Text>
+          <Text>A rota de Ana será excluída.</Text>
+        </>
+      ) : null,
     };
   },
 }));
@@ -273,7 +278,7 @@ describe('GestaoRotas (desktop)', () => {
     render(<GestaoRotas />);
 
     const estilo = StyleSheet.flatten(
-      screen.getByText('nao_executada').props.style,
+      screen.getByText('Não executada').props.style,
     );
     expect(estilo.color).toBe(colors.errorText);
   });
@@ -290,6 +295,33 @@ describe('GestaoRotas (desktop)', () => {
     expect(
       larguraMinimaDaTabela(mockColunasDaTabela, mockAcoesDaTabela),
     ).toBeLessThanOrEqual(950);
+  });
+
+  it('a linha se lê com a data em pt-BR e o rótulo do status, não o valor cru do banco', () => {
+    mockEstadoHook = {
+      rotasFiltradas: [
+        { ...rotasFalsas(1)[0], data: '2026-11-08', status: 'nao_executada' },
+      ],
+      total: 1,
+    };
+    render(<GestaoRotas />);
+
+    // O botão que abre o detalhe leva o nome da 1ª coluna (a data).
+    expect(
+      screen.getByRole('button', { name: 'Abrir 08/11/2026' }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Abrir 2026-11-08' }),
+    ).toBeNull();
+
+    // A linha clicável não é acessível por si (a parada de Tab é o botão);
+    // o rótulo dela é o que o leitor anuncia ao entrar no grupo.
+    const linha = screen.getByLabelText(/^Data: /);
+    expect(linha.props.accessibilityLabel).toContain('Data: 08/11/2026');
+    expect(linha.props.accessibilityLabel).toContain('Status: Não executada');
+    expect(linha.props.accessibilityLabel).not.toMatch(
+      /2026-11-08|nao_executada/,
+    );
   });
 
   it('o nome longo do motorista fica numa linha, com o nome inteiro no accessibilityLabel', () => {

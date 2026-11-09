@@ -123,6 +123,19 @@ describe('carregarEquipeDaLoja', () => {
     expect(principal).toEqual({ 'g-daqui': true, 'g-de-outra': false });
   });
 
+  it('marca se a loja é o slot legado do gestor (o que a RPC de transferência exige)', async () => {
+    mockGestores = [
+      gestor('g-slot', { unidade_id: 'loja-a' }),
+      gestor('g-fora', { unidade_id: 'loja-b' }),
+    ];
+    mockRpc.mockResolvedValue({ data: [motorista('m1', true)], error: null });
+
+    const membros = await carregarEquipeDaLoja('loja-a');
+    const slot = Object.fromEntries(membros.map((m) => [m.id, m.slot_na_loja]));
+
+    expect(slot).toEqual({ 'g-slot': true, 'g-fora': false, m1: false });
+  });
+
   it('erro de qualquer das duas consultas sobe (a tela mostra o toast)', async () => {
     mockRpc.mockResolvedValue({ data: null, error: new Error('rpc') });
     await expect(carregarEquipeDaLoja('loja-a')).rejects.toThrow('rpc');

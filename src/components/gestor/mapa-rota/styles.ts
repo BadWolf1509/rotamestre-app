@@ -117,8 +117,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   paradaMetaLabel: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   paradaMetaValue: {
     fontSize: theme.typography.fontSize.sm - 1,
@@ -271,8 +269,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   resumoDesktopLabel: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   resumoUpdated: {
     marginTop: theme.spacing.lg,
@@ -302,8 +298,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
   baseInfoLabel: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.gray500,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   baseInfoValue: {
     fontSize: theme.typography.fontSize.sm,

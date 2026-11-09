@@ -114,6 +114,42 @@ describe('LinhaDeParadas', () => {
       expect(getByText('+16')).toBeTruthy();
     });
 
+    it('a largura medida no "Sem paradas" vale quando as paradas chegam', () => {
+      const { getByTestId, getAllByLabelText, rerender } = render(
+        <LinhaDeParadas paradas={[]} testID="linha" />,
+      );
+      fireEvent(getByTestId('linha'), 'layout', medir(90));
+
+      // A largura não muda, então o layout não dispara de novo.
+      rerender(
+        <LinhaDeParadas
+          paradas={Array.from({ length: 10 }, () => 'pendente')}
+          testID="linha"
+        />,
+      );
+
+      expect(getAllByLabelText(/^Parada \d+, /).length).toBeLessThanOrEqual(4);
+    });
+
+    it('a reserva do "+N" cresce com os dígitos: "+138" não corta', () => {
+      const paradas: StatusParada[] = Array.from(
+        { length: 150 },
+        () => 'pendente',
+      );
+      const { getByTestId, getAllByLabelText, getByText } = render(
+        <LinhaDeParadas paradas={paradas} maximo={200} testID="linha" />,
+      );
+
+      fireEvent(getByTestId('linha'), 'layout', medir(200));
+
+      // 13 px semibold: ~9 px por caractere; "+138" (4) + gap de 8 = 44 px.
+      // Com a reserva fixa de "+99" (34 px) cabiam 12 pontos e o "+138"
+      // passava da linha; com 44 px, 11 (11×10 + 10×4 = 150 ≤ 156).
+      const pontos = getAllByLabelText(/^Parada \d+, /).length;
+      expect(pontos).toBe(11);
+      expect(getByText(`+${150 - pontos}`)).toBeTruthy();
+    });
+
     it('quando todas cabem, não há "+N"', () => {
       const paradas: StatusParada[] = Array.from(
         { length: 5 },

@@ -32,6 +32,7 @@ describe('ResumoDoDia', () => {
             distancia_total: 12.4,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -84,6 +85,7 @@ describe('ResumoDoDia', () => {
             distancia_total: 0,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -118,6 +120,7 @@ describe('ResumoDoDia', () => {
             distancia_total: 0,
           }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -134,6 +137,7 @@ describe('ResumoDoDia', () => {
         rotas={[
           rota({ status: 'pendente', total_paradas: 1, distancia_total: 1 }),
         ]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -144,11 +148,73 @@ describe('ResumoDoDia', () => {
     );
   });
 
+  // G8-8: a parada de uma rota cancelada ou não executada não vai mais ser
+  // feita; contá-la no denominador (e no feito) faria o dia parecer atrasado.
+  it('paradas de rota cancelada ou não executada ficam fora do total e do feito', () => {
+    const { getByTestId } = render(
+      <ResumoDoDia
+        rotas={[
+          rota({
+            id: 'a',
+            status: 'concluida',
+            total_paradas: 4,
+            paradas_concluidas: 4,
+          }),
+          rota({
+            id: 'b',
+            status: 'em_andamento',
+            total_paradas: 3,
+            paradas_concluidas: 1,
+          }),
+          rota({
+            id: 'c',
+            status: 'cancelada',
+            total_paradas: 5,
+            paradas_concluidas: 2,
+          }),
+          rota({
+            id: 'd',
+            status: 'nao_executada',
+            total_paradas: 2,
+            paradas_concluidas: 0,
+          }),
+        ]}
+        textoSemRotas="Nenhuma rota no período"
+        incidentesAbertos={0}
+        onAbrirIncidentes={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
+      /— 5 de 7 paradas feitas,/,
+    );
+  });
+
+  it('a distância usa o mesmo recorte: rota cancelada ou não executada não soma km', () => {
+    const { getByTestId } = render(
+      <ResumoDoDia
+        rotas={[
+          rota({ id: 'a', status: 'concluida', distancia_total: 10 }),
+          rota({ id: 'b', status: 'cancelada', distancia_total: 30 }),
+          rota({ id: 'c', status: 'nao_executada', distancia_total: 5 }),
+        ]}
+        textoSemRotas="Nenhuma rota"
+        incidentesAbertos={0}
+        onAbrirIncidentes={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
+      /, 10,0 km$/,
+    );
+  });
+
   it('com incidentes abertos, o trecho é pressionável e leva aos incidentes', () => {
     const onAbrirIncidentes = jest.fn();
     const { getByRole } = render(
       <ResumoDoDia
         rotas={[rota({ status: 'pendente', total_paradas: 2 })]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={2}
         onAbrirIncidentes={onAbrirIncidentes}
       />,
@@ -162,6 +228,7 @@ describe('ResumoDoDia', () => {
     const { getByText } = render(
       <ResumoDoDia
         rotas={[]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={1}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -174,6 +241,7 @@ describe('ResumoDoDia', () => {
     const { getByText, queryByRole } = render(
       <ResumoDoDia
         rotas={[]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={null}
         onAbrirIncidentes={jest.fn()}
       />,
@@ -187,6 +255,7 @@ describe('ResumoDoDia', () => {
     const { getByTestId } = render(
       <ResumoDoDia
         rotas={[]}
+        textoSemRotas="Nenhuma rota no período"
         incidentesAbertos={0}
         onAbrirIncidentes={jest.fn()}
       />,

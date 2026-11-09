@@ -2,7 +2,12 @@
  * Route Filters Utils - Tests
  */
 
-import { getPresetDates, formatDate, getRangeLabel, countActiveFilters } from '../utils';
+import {
+  getPresetDates,
+  formatDate,
+  getRangeLabel,
+  countActiveFilters,
+} from '../utils';
 
 import type { RouteFiltersState } from '../types';
 
@@ -31,7 +36,8 @@ describe('route-filters/utils', () => {
       const result = getPresetDates('ultima_semana');
       expect(result).not.toBeNull();
       const daysDiff = Math.round(
-        (result!.endDate.getTime() - result!.startDate.getTime()) / (1000 * 60 * 60 * 24)
+        (result!.endDate.getTime() - result!.startDate.getTime()) /
+          (1000 * 60 * 60 * 24),
       );
       expect(daysDiff).toBe(7);
     });
@@ -40,7 +46,8 @@ describe('route-filters/utils', () => {
       const result = getPresetDates('ultimo_mes');
       expect(result).not.toBeNull();
       const daysDiff = Math.round(
-        (result!.endDate.getTime() - result!.startDate.getTime()) / (1000 * 60 * 60 * 24)
+        (result!.endDate.getTime() - result!.startDate.getTime()) /
+          (1000 * 60 * 60 * 24),
       );
       expect(daysDiff).toBe(30);
     });
@@ -94,9 +101,9 @@ describe('route-filters/utils', () => {
       expect(label).toContain('Até');
     });
 
-    it('returns "Selecionar Período" when no dates', () => {
-      expect(getRangeLabel(null, null)).toBe('Selecionar Período');
-      expect(getRangeLabel(undefined, undefined)).toBe('Selecionar Período');
+    it('returns "Selecionar período" when no dates', () => {
+      expect(getRangeLabel(null, null)).toBe('Selecionar período');
+      expect(getRangeLabel(undefined, undefined)).toBe('Selecionar período');
     });
   });
 

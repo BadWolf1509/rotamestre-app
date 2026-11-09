@@ -8,6 +8,7 @@
  */
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import { Platform } from 'react-native';
 
 import {
   bancoFalso,
@@ -114,7 +115,15 @@ function renderizar() {
   return { ...render(<DashboardDesktop {...props} />), props };
 }
 
+// O layout desktop é da web: a confirmação é o Dialog (no nativo o hook usa
+// Alert.alert).
+const plataformaOriginal = Platform.OS;
+afterAll(() => {
+  Platform.OS = plataformaOriginal;
+});
+
 beforeEach(() => {
+  Platform.OS = 'web';
   resetarBancoFalso([
     {
       id: 'r-and',

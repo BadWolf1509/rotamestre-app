@@ -231,45 +231,6 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray500,
     marginTop: 2,
   },
-  rotaStatusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.lg,
-  },
-  rotaStatusConcluida: {
-    backgroundColor: theme.colors.successBg,
-  },
-  rotaStatusEmAndamento: {
-    backgroundColor: theme.colors.infoBg,
-  },
-  rotaStatusPendente: {
-    backgroundColor: theme.colors.warningBg,
-  },
-  rotaStatusNaoExecutada: {
-    backgroundColor: theme.colors.errorBg,
-  },
-  rotaStatusCancelada: {
-    backgroundColor: theme.colors.gray100,
-  },
-  rotaStatusText: {
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: '600',
-  },
-  rotaStatusTextConcluida: {
-    color: theme.colors.success,
-  },
-  rotaStatusTextEmAndamento: {
-    color: theme.colors.info,
-  },
-  rotaStatusTextPendente: {
-    color: theme.colors.warning,
-  },
-  rotaStatusTextNaoExecutada: {
-    color: theme.colors.error,
-  },
-  rotaStatusTextCancelada: {
-    color: theme.colors.gray600,
-  },
   emptyRotas: {
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.lg,

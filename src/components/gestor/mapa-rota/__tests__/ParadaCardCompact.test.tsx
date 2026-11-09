@@ -8,6 +8,8 @@ import * as Linking from 'expo-linking';
 import React from 'react';
 import { Image, StyleSheet } from 'react-native';
 
+import { contraste } from '@/test-utils/contraste';
+
 import { ParadaCardCompact } from '../ParadaCardCompact';
 
 import type { Parada } from '../types';
@@ -147,6 +149,25 @@ describe('ParadaCardCompact', () => {
         '#111827',
       );
     });
+
+    it.each(['pendente', 'em_andamento', 'concluida', 'pulada'] as const)(
+      '%s: o número da ordem passa de 4,5:1 sobre o círculo',
+      (statusDaParada) => {
+        const { getByText } = render(
+          <ParadaCardCompact
+            {...defaultProps}
+            parada={{ ...mockParada, status: statusDaParada }}
+          />,
+        );
+
+        const numero = getByText('1');
+        const circulo = StyleSheet.flatten(numero.parent?.parent?.props.style);
+        const corDoNumero = StyleSheet.flatten(numero.props.style).color;
+        expect(
+          contraste(corDoNumero as string, circulo.backgroundColor as string),
+        ).toBeGreaterThanOrEqual(4.5);
+      },
+    );
 
     it('em andamento: texto do selo em infoText', () => {
       const { getByText } = render(

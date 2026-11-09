@@ -61,7 +61,7 @@ export interface ExcluirRotaParams {
   usuarioId: string;
   /** Só para o log: o nome some junto com a rota. */
   motoristaNome?: string | null;
-  paradasCount?: number;
+  paradasCount?: number | null;
 }
 
 export async function excluirRota({

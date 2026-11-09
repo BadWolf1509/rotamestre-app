@@ -3,6 +3,7 @@ import {
   fireEvent,
   renderHook,
   screen,
+  within,
 } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -371,6 +372,55 @@ describe('DataTable Component', () => {
     });
   });
 
+  describe('Rótulo acessível da linha (desktop)', () => {
+    it('coluna com render e chave que não é campo não vira "undefined" no rótulo', () => {
+      const colunas: DataTableColumn<SampleItem>[] = [
+        { key: 'name', label: 'Nome' },
+        {
+          key: 'motorista',
+          label: 'Motorista',
+          render: (item) => <Text>{`Mot. de ${item.name}`}</Text>,
+        },
+      ];
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunas}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      const linha = screen.getByLabelText(/^Nome: João Silva/);
+      expect(linha.props.accessibilityLabel).not.toContain('undefined');
+      expect(linha.props.accessibilityLabel).toBe('Nome: João Silva');
+    });
+
+    it('usa `rotulo` da coluna quando dado', () => {
+      const colunas: DataTableColumn<SampleItem>[] = [
+        { key: 'name', label: 'Nome' },
+        {
+          key: 'motorista',
+          label: 'Motorista',
+          render: (item) => <Text>{`Mot. de ${item.name}`}</Text>,
+          rotulo: (item) => `motorista ${item.name}`,
+        },
+      ];
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunas}
+          keyExtractor={(item) => item.id}
+        />,
+      );
+
+      expect(
+        screen.getByLabelText(
+          'Nome: João Silva, Motorista: motorista João Silva',
+        ),
+      ).toBeTruthy();
+    });
+  });
+
   describe('Linha clicável (onRowPress)', () => {
     const rotuloDaLinha = /^Nome: João Silva/;
 
@@ -389,7 +439,7 @@ describe('DataTable Component', () => {
       expect(linha.props.onResponderRelease).toBeUndefined();
     });
 
-    it('com onRowPress a linha é botão e diz que abre o detalhe', () => {
+    it('com onRowPress a linha é grupo (não botão) e só o nome é o botão que abre o detalhe', () => {
       render(
         <DataTable
           data={sampleData}
@@ -400,8 +450,60 @@ describe('DataTable Component', () => {
       );
 
       const linha = screen.getByLabelText(rotuloDaLinha);
-      expect(linha.props.accessibilityRole).toBe('button');
-      expect(linha.props.accessibilityHint).toBe('Abre o detalhe');
+      expect(linha.props.accessibilityRole).not.toBe('button');
+      expect(linha.props.role).toBe('group');
+      const abrir = screen.getByRole('button', {
+        name: 'Abrir João Silva',
+      });
+      expect(abrir.props.accessibilityHint).toBe('Abre o detalhe');
+    });
+
+    it('coluna só de avatar (sem texto) não vira o botão do nome: vale a 1ª com texto', () => {
+      const colunas: DataTableColumn<SampleItem>[] = [
+        { key: 'avatar', label: '', rotulo: () => '', render: () => <View /> },
+        { key: 'name', label: 'Nome' },
+      ];
+      render(
+        <DataTable
+          data={sampleData}
+          columns={colunas}
+          keyExtractor={(item) => item.id}
+          onRowPress={jest.fn()}
+        />,
+      );
+
+      expect(screen.getByLabelText('Nome: João Silva')).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Abrir João Silva' }),
+      ).toBeTruthy();
+    });
+
+    it('nenhum botão fica dentro de outro botão (nome, ações e menu da linha)', () => {
+      render(
+        <DataTable
+          data={sampleData}
+          columns={sampleColumns}
+          keyExtractor={(item) => item.id}
+          actions={[
+            ...sampleActions,
+            { label: 'Excluir', type: 'danger', onPress: jest.fn() },
+          ]}
+          onRowPress={jest.fn()}
+        />,
+      );
+
+      const botoes = screen.getAllByRole('button');
+      expect(botoes.length).toBeGreaterThan(0);
+      botoes.forEach((botao) => {
+        const internos = within(botao)
+          .queryAllByRole('button')
+          .filter((interno) => interno !== botao);
+        expect(internos).toHaveLength(0);
+      });
+      // O "Mais ações" segue alcançável pelo leitor de tela.
+      expect(screen.getAllByRole('button', { name: 'Mais ações' }).length).toBe(
+        sampleData.length,
+      );
     });
 
     it('tocar na linha chama onRowPress(item)', () => {

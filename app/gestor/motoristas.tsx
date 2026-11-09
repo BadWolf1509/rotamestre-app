@@ -306,6 +306,7 @@ export default function MotoristasGestor() {
       width: 60,
       // Mínimos: a tabela cabe em 950 px (janela de 1280) sem rolar.
       minWidth: 56,
+      rotulo: () => '',
       render: (motorista) => (
         <MotoristaAvatar fotoUrl={motorista.foto_url} nome={motorista.nome} />
       ),
@@ -316,9 +317,16 @@ export default function MotoristasGestor() {
       width: 200,
       minWidth: 130,
       sortable: true,
-      noWrap: true,
+      // Uma linha, com reticências; o nome inteiro fica no rótulo acessível.
       render: (motorista) => (
-        <Text style={styles.tableCellText}>{motorista.nome}</Text>
+        <Text
+          style={styles.tableCellText}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={motorista.nome}
+        >
+          {motorista.nome}
+        </Text>
       ),
     },
     {
@@ -326,9 +334,15 @@ export default function MotoristasGestor() {
       label: 'E-mail',
       width: 260,
       minWidth: 160,
-      noWrap: true,
       render: (motorista) => (
-        <Text style={styles.tableCellText}>{motorista.email}</Text>
+        <Text
+          style={styles.tableCellText}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={motorista.email}
+        >
+          {motorista.email}
+        </Text>
       ),
     },
     {
@@ -346,6 +360,8 @@ export default function MotoristasGestor() {
       width: 130,
       minWidth: 100,
       desktopOnly: true,
+      rotulo: (motorista) =>
+        new Date(motorista.created_at).toLocaleDateString('pt-BR'),
       render: (motorista) => (
         <Text style={styles.tableCellText}>
           {new Date(motorista.created_at).toLocaleDateString('pt-BR')}
@@ -357,6 +373,7 @@ export default function MotoristasGestor() {
       label: 'Status',
       width: 100,
       minWidth: 90,
+      rotulo: (motorista) => (motorista.ativo ? 'Ativo' : 'Inativo'),
       render: (motorista) => (
         <StatusBadge
           color={motorista.ativo ? theme.colors.success : theme.colors.gray600}

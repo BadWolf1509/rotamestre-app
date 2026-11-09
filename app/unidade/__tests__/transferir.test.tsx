@@ -1,4 +1,5 @@
 import {
+  act,
   render,
   screen,
   fireEvent,
@@ -6,6 +7,7 @@ import {
 } from '@testing-library/react-native';
 
 import { getErrorMessage } from '@/lib/errorMapping';
+import type { MembroDaEquipe } from '@/lib/gestor/equipeDaLoja';
 import { supabase } from '@/lib/supabase';
 
 import TransferirGestaoScreen from '../transferir';
@@ -44,14 +46,32 @@ const GESTOR_PRINCIPAL = {
 
 // Alvo da transferência, devolvido por loadGestoresElegiveis(). O id precisa
 // bater com o p_novo_gestor_id esperado pela RPC no teste de caminho feliz.
-const GESTORES_ELEGIVEIS = [
-  {
-    id: 'gestor-2',
-    nome: 'Gestor Dois',
-    email: 'gestor.dois@exemplo.com',
-    created_at: '2026-08-01T00:00:00Z',
-  },
-];
+const membro = (
+  id: string,
+  nome: string,
+  extra: Partial<MembroDaEquipe> = {},
+): MembroDaEquipe => ({
+  id,
+  nome,
+  email: `${id}@exemplo.com`,
+  papel: 'gestor',
+  is_gestor_principal: false,
+  ativo: true,
+  slot_na_loja: true,
+  created_at: '2026-08-01T00:00:00Z',
+  foto_url: null,
+  ...extra,
+});
+
+const GESTORES_ELEGIVEIS = [membro('gestor-2', 'Gestor Dois')];
+
+// A equipe vem de carregarEquipeDaLoja (fonte única da Equipe); a tela só
+// filtra quem a RPC aceita como destinatário.
+const mockCarregarEquipe = jest.fn();
+jest.mock('@/lib/gestor/equipeDaLoja', () => ({
+  ...jest.requireActual('@/lib/gestor/equipeDaLoja'),
+  carregarEquipeDaLoja: (...args: unknown[]) => mockCarregarEquipe(...args),
+}));
 
 // jest.fn() em vez do valor fixo direto: o teste do portão (abaixo) precisa
 // sobrescrever is_gestor_principal para false só naquele caso, sem afetar os
@@ -98,30 +118,6 @@ jest.mock('@/hooks/useResponsive', () => ({
 
 const mockSupabase = supabase as jest.Mocked<typeof supabase>;
 
-// loadGestoresElegiveis encadeia select().eq().eq().eq().eq().order() —
-// mockReturnThis() em select/eq deixa o número de encadeamentos livre para
-// mudar sem quebrar o teste (mesmo padrão de app/unidade/__tests__/index.test.tsx).
-//
-// `update` também precisa responder: antes da Task 5, handleConfirmTransfer
-// ainda chama supabase.from('usuarios').update(...).eq(...) diretamente (duas
-// vezes). Sem um mock funcional aqui, essa chamada quebraria com "update is
-// not a function", e o catch acabaria chamando showError por um motivo que
-// nada tem a ver com a RPC — um RED que passa pela razão errada. Resolvendo
-// com sucesso, o código antigo segue até showSuccess, e o teste falha (RED)
-// pelo motivo certo: a RPC nunca foi consultada.
-function usuariosQueryBuilder() {
-  return {
-    select: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    order: jest
-      .fn()
-      .mockResolvedValue({ data: GESTORES_ELEGIVEIS, error: null }),
-    update: jest.fn().mockReturnValue({
-      eq: jest.fn().mockResolvedValue({ error: null }),
-    }),
-  };
-}
-
 const mockRpc = jest.fn();
 
 describe('TransferirGestaoScreen', () => {
@@ -130,9 +126,7 @@ describe('TransferirGestaoScreen', () => {
     mockUnidadeAtiva = 'unidade-1';
     mockLojaCarregando = false;
     mockUseUser.mockReturnValue({ userData: GESTOR_PRINCIPAL, loading: false });
-    (mockSupabase.from as jest.Mock).mockImplementation(() =>
-      usuariosQueryBuilder(),
-    );
+    mockCarregarEquipe.mockResolvedValue(GESTORES_ELEGIVEIS);
     mockSupabase.rpc = mockRpc;
   });
 
@@ -230,23 +224,70 @@ describe('TransferirGestaoScreen', () => {
         'Apenas o gestor principal pode transferir a gestão.',
       ),
     ).toBeTruthy();
-    expect(mockSupabase.from).not.toHaveBeenCalled();
+    expect(mockCarregarEquipe).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('lista os gestores da loja aberta no seletor', async () => {
-    const consultas: ReturnType<typeof usuariosQueryBuilder>[] = [];
-    (mockSupabase.from as jest.Mock).mockImplementation(() => {
-      const q = usuariosQueryBuilder();
-      consultas.push(q);
-      return q;
-    });
-
+  it('lista os gestores da loja aberta no seletor, pela equipe da loja', async () => {
     render(<TransferirGestaoScreen />);
     await screen.findByText('Gestor Dois');
 
-    expect(consultas[0].eq).toHaveBeenCalledWith('unidade_id', 'unidade-1');
+    expect(mockCarregarEquipe).toHaveBeenCalledWith('unidade-1');
     expect(screen.getByText('Loja unidade-1')).toBeTruthy();
+  });
+
+  it('oferece só gestor ativo, que não é o principal e que a RPC aceita', async () => {
+    mockCarregarEquipe.mockResolvedValue([
+      membro('g-ok', 'Gestor Elegivel'),
+      membro('m-1', 'Motorista Um', { papel: 'motorista' }),
+      membro('g-inativo', 'Gestor Inativo', { ativo: false }),
+      membro('g-principal', 'Gestor Principal', { is_gestor_principal: true }),
+      // Vínculo ativo na loja, mas o slot legado aponta para outra: a RPC
+      // recusaria ("precisa ser gestor ativo desta unidade").
+      membro('g-outro-slot', 'Gestor Outro Slot', { slot_na_loja: false }),
+    ]);
+
+    render(<TransferirGestaoScreen />);
+    await screen.findByText('Gestor Elegivel');
+
+    expect(screen.queryByText('Motorista Um')).toBeNull();
+    expect(screen.queryByText('Gestor Inativo')).toBeNull();
+    expect(screen.queryByText('Gestor Principal')).toBeNull();
+    expect(screen.queryByText('Gestor Outro Slot')).toBeNull();
+  });
+
+  it('com duas cargas em voo (loja A depois B), a que chega por último não vence: vale a da loja aberta', async () => {
+    const resolvers: Record<string, (v: MembroDaEquipe[]) => void> = {};
+    mockCarregarEquipe.mockImplementation(
+      (loja: string) =>
+        new Promise<MembroDaEquipe[]>((resolve) => {
+          resolvers[loja] = resolve;
+        }),
+    );
+    // O mesmo usuário é principal nas duas lojas para o teste (o slot legado
+    // é um só; o que se prova aqui é a ordem de chegada das respostas).
+    mockUseUser.mockReturnValue({ userData: GESTOR_PRINCIPAL, loading: false });
+    mockUnidadeAtiva = 'unidade-1';
+    const { rerender } = render(<TransferirGestaoScreen />);
+    await waitFor(() => expect(resolvers['unidade-1']).toBeDefined());
+
+    mockUseUser.mockReturnValue({
+      userData: { ...GESTOR_PRINCIPAL, unidade_id: 'unidade-2' },
+      loading: false,
+    });
+    mockUnidadeAtiva = 'unidade-2';
+    rerender(<TransferirGestaoScreen />);
+    await waitFor(() => expect(resolvers['unidade-2']).toBeDefined());
+
+    await act(async () => {
+      resolvers['unidade-2']([membro('gestor-b', 'Gestor da B')]);
+    });
+    await act(async () => {
+      resolvers['unidade-1']([membro('gestor-a', 'Gestor da A')]);
+    });
+
+    expect(await screen.findByText('Gestor da B')).toBeTruthy();
+    expect(screen.queryByText('Gestor da A')).toBeNull();
   });
 
   it('bloqueia quem não é gestor principal, sem chamar a RPC ou os alertas', async () => {

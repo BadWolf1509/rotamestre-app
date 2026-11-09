@@ -36,11 +36,19 @@ const TAMANHO_PONTO = 10;
 /** Espaço entre os pontos (`theme.spacing.xs`). */
 const GAP_PONTOS = 4;
 const PASSO = TAMANHO_PONTO + GAP_PONTOS;
+/** Gap da linha entre os pontos e o "+N" (`theme.spacing.sm`). */
+const GAP_DO_MAIS = 8;
+/** Um caractere do "+N" a 13 px semibold ("+99" mede ~26 px), com folga. */
+const LARGURA_POR_CARACTERE_DO_MAIS = 9;
+
 /**
- * Reserva para o "+N": até "+99" a 13 px semibold (~26 px) mais o gap da
- * linha (`theme.spacing.sm`, 8 px).
+ * Reserva para o "+N", pelos dígitos do total (o "+N" nunca tem mais dígitos
+ * que ele): uma reserva fixa de "+99" deixava "+138" passar da linha.
  */
-const LARGURA_DO_MAIS = 34;
+function larguraDoMais(total: number): number {
+  const caracteres = String(total).length + 1;
+  return GAP_DO_MAIS + caracteres * LARGURA_POR_CARACTERE_DO_MAIS;
+}
 
 /** Quantos pontos cabem em `largura` (o último ponto não tem gap depois). */
 function pontosQueCabem(largura: number): number {
@@ -58,7 +66,11 @@ function pontosVisiveis(
 ): number {
   if (largura === null) return Math.min(total, maximo);
   if (total <= maximo && total <= pontosQueCabem(largura)) return total;
-  return Math.min(maximo, total, pontosQueCabem(largura - LARGURA_DO_MAIS));
+  return Math.min(
+    maximo,
+    total,
+    pontosQueCabem(largura - larguraDoMais(total)),
+  );
 }
 
 /** "Parada 3, em andamento": o rótulo da config, em minúsculas. */
@@ -92,8 +104,10 @@ export function LinhaDeParadas({
   };
 
   if (paradas.length === 0) {
+    // Mede aqui também: quando as paradas chegam com a mesma largura, o
+    // layout não dispara de novo, e a linha desenharia `maximo` pontos.
     return (
-      <View testID={testID} style={styles.linha}>
+      <View testID={testID} style={styles.linha} onLayout={medir}>
         <Text style={styles.semParadas}>Sem paradas</Text>
       </View>
     );

@@ -11,7 +11,8 @@ import { View, Text, TouchableOpacity, Image, Platform } from 'react-native';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
   STOP_STATUS_CONFIG,
-  corDeTextoDoStatus,
+  propsDoStatusBadgeDaParada,
+  type StatusColorKey,
 } from '@/constants/statusConfig';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { podeAlterarParada } from '@/lib/gestor/paradaEditavel';
@@ -20,6 +21,13 @@ import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import type { Parada } from './types';
+
+/** Cores de status claras demais para o número branco do círculo da ordem. */
+const COR_CLARA_DO_CIRCULO: ReadonlySet<StatusColorKey> = new Set([
+  'warning',
+  'success',
+  'info',
+]);
 
 interface ParadaCardCompactProps {
   parada: Parada;
@@ -74,7 +82,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
     const status =
       STOP_STATUS_CONFIG[parada.status as keyof typeof STOP_STATUS_CONFIG] ||
       STOP_STATUS_CONFIG.pendente;
-    const statusColor = theme.colors[status.colorKey];
+    const selo = propsDoStatusBadgeDaParada(parada.status, theme.colors);
+    const statusColor = selo.color;
     const hasPhoto = !!fotoUrl && !imageError;
     const showPhotoPlaceholder = parada.status === 'concluida' && !hasPhoto;
     const tipoIcon = parada.tipo === 'entrega' ? 'cube' : 'swap-horizontal';
@@ -93,7 +102,8 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
             <Text
               style={[
                 styles.orderText,
-                status.colorKey === 'warning' && styles.orderTextSobreWarning,
+                COR_CLARA_DO_CIRCULO.has(status.colorKey) &&
+                  styles.orderTextSobreCorClara,
               ]}
             >
               {parada.ordem}
@@ -119,12 +129,12 @@ export const ParadaCardCompact = React.memo<ParadaCardCompactProps>(
 
           {/* Status */}
           <StatusBadge
-            label={status.label}
-            color={statusColor}
-            textColor={corDeTextoDoStatus(status.colorKey, theme.colors)}
+            label={selo.label}
+            color={selo.color}
+            textColor={selo.textColor}
             variant="soft"
             size="sm"
-            icon={status.icon}
+            icon={selo.icon}
             testID="parada-status-badge"
             containerStyle={styles.statusBadge}
           />
@@ -379,8 +389,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs + 1,
     fontWeight: '700',
   },
-  // Branco sobre warning fica abaixo de 4,5:1
-  orderTextSobreWarning: {
+  // Branco sobre warning, success e info fica abaixo de 4,5:1 (2,1 a 3,7:1
+  // no tema claro, e o escuro clareia essas cores): número escuro.
+  orderTextSobreCorClara: {
     color: theme.colors.onWarning,
   },
   mainContent: {

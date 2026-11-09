@@ -22,6 +22,13 @@ import {
   type TimelineEventMapped,
 } from '@/lib/utils';
 
+// Linhas dos `select` abaixo, no formato que cada mapeador aceita. O cliente
+// não tem tipos gerados; o tipo local no `forEach` substitui o antigo `any`.
+// (`.returns<…>()` ficaria depois do `limit`/`range` e tira a cadeia dos mocks.)
+type LinhaDeLog = Parameters<typeof mapLogToTimelineEvent>[0];
+type LinhaDeParada = Parameters<typeof mapParadaToTimelineEvent>[0];
+type LinhaDeIncidente = Parameters<typeof mapIncidenteToTimelineEvent>[0];
+
 interface TimelineCachePayload {
   events: TimelineEventMapped[];
   hasMore: boolean;
@@ -105,15 +112,15 @@ async function fetchTimelinePage1(
     );
 
   const events: TimelineEventMapped[] = [];
-  logsRes.data?.forEach((log: any) => {
+  logsRes.data?.forEach((log: LinhaDeLog) => {
     const mapped = mapLogToTimelineEvent(log);
     if (mapped) events.push(mapped);
   });
-  paradasRes.data?.forEach((parada: any) => {
+  paradasRes.data?.forEach((parada: LinhaDeParada) => {
     const mapped = mapParadaToTimelineEvent(parada);
     if (mapped) events.push(mapped);
   });
-  incidentesRes.data?.forEach((incidente: any) => {
+  incidentesRes.data?.forEach((incidente: LinhaDeIncidente) => {
     events.push(mapIncidenteToTimelineEvent(incidente));
   });
 
@@ -195,7 +202,7 @@ export function useTimelineData(
 
       const page = logsRes ?? [];
       const mapped: TimelineEventMapped[] = [];
-      page.forEach((log: any) => {
+      page.forEach((log: LinhaDeLog) => {
         const m = mapLogToTimelineEvent(log);
         if (m) mapped.push(m);
       });

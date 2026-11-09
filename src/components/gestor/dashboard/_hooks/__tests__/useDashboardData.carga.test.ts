@@ -252,6 +252,35 @@ describe('useDashboardData — KPI que falha', () => {
     expect(result.current.kpis.rotasSemana).not.toBeNull();
   });
 
+  it('sem KPIs carregados (comKpis false): semana, mês, tempo e destaque são null, não 0', async () => {
+    const { result } = renderHook(() =>
+      useDashboardData({ filters: {}, comKpis: false }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.kpis.rotasSemana).toBeNull();
+    expect(result.current.kpis.rotasMes).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    expect(result.current.kpis.motoristaDestaque).toBeNull();
+  });
+
+  it('comKpis false→true com a consulta do mês falhando: continua null, não volta a 0', async () => {
+    mockKpiComErro = 'mes';
+    const { result, rerender } = renderHook(
+      ({ comKpis }: { comKpis: boolean }) =>
+        useDashboardData({ filters: {}, comKpis }),
+      { initialProps: { comKpis: false } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender({ comKpis: true });
+
+    await waitFor(() => expect(result.current.kpis.rotasSemana).not.toBeNull());
+    expect(result.current.kpis.rotasMes).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    expect(result.current.kpis.motoristaDestaque).toBeNull();
+  });
+
   it('motorista_id com embed escondido pela RLS não vira "Sem motorista"', async () => {
     mockTabelas.rotas = [
       { ...rota('oculta', hoje), usuarios: null },
@@ -618,5 +647,67 @@ describe('useDashboardData — estados das paradas (linha de paradas)', () => {
     await waitFor(() => expect(result.current.rotas).toHaveLength(1));
     expect(result.current.rotas[0].paradas_status).toEqual([]);
     expect(result.current.rotas[0].total_paradas).toBe(0);
+  });
+});
+
+// G8-1: o desktop não mostra KPIs de semana/mês nem o total de hoje, então
+// `comKpis: false` não paga essas consultas (as duas de `rotas` com
+// `iniciada_em`, a contagem HEAD de hoje e a RPC de nomes do destaque).
+describe('useDashboardData — comKpis', () => {
+  const consultasDeKpi = () =>
+    mockConsultas.filter(
+      (c) => c.tabela === 'rotas' && c.colunas.includes('iniciada_em'),
+    ).length;
+  const contagensDeHoje = () =>
+    mockConsultas.filter(
+      (c) => c.tabela === 'rotas' && c.head && c.colunas === 'id',
+    ).length;
+
+  it('false: só lista e incidentes; sem KPIs, sem total de hoje, sem RPC de nomes', async () => {
+    mockTabelas.rotas = [
+      { ...rota('c1', hoje, 'concluida'), motorista_id: 'm9', usuarios: null },
+    ];
+    const { result } = renderHook(() => useDashboardData({ comKpis: false }));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.rotas).toHaveLength(1);
+    expect(result.current.stats.incidentesAbertos).toBe(2);
+    expect(consultasDeKpi()).toBe(0);
+    expect(contagensDeHoje()).toBe(0);
+    // A RPC que a lista usa (motorista fora da loja) roda uma vez; a do
+    // destaque do mês não: nenhuma chamada além da da lista.
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    // Derivados da lista continuam.
+    expect(result.current.kpis.totalParadas).toBe(0);
+  });
+
+  it('true (padrão) busca os KPIs; mudar de false para true recarrega com eles', async () => {
+    const { result, rerender } = renderHook(
+      ({ comKpis }: { comKpis: boolean }) => useDashboardData({ comKpis }),
+      { initialProps: { comKpis: false } },
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(consultasDeKpi()).toBe(0);
+
+    rerender({ comKpis: true });
+
+    await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
+    expect(consultasDeKpi()).toBe(2);
+    expect(result.current.todayStats.totalHoje).toBe(2);
+  });
+
+  it('evento de realtime com comKpis false não consulta o total de hoje', async () => {
+    const { result } = renderHook(() => useDashboardData({ comKpis: false }));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+
+    const chamadas = (
+      jest.requireMock('@/hooks/useRealtimeRoutes')
+        .useRealtimeRoutes as jest.Mock
+    ).mock.calls;
+    await act(async () => {
+      await chamadas[chamadas.length - 1][0].onRouteUpdate();
+    });
+
+    expect(contagensDeHoje()).toBe(0);
   });
 });

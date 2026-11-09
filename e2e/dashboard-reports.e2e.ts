@@ -38,11 +38,12 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
 
       // Desktop (o projeto chromium): o resumo é uma frase — "3 rotas em
       // andamento, 2 pendentes — 12 de 40 paradas feitas, 48,5 km" — ou, sem
-      // rota, "Nenhuma rota no período". Os cartões de número saíram.
+      // rota, a frase do vazio ("Nenhuma rota cadastrada hoje", sem filtro).
+      // Os cartões de número saíram.
       const resumo = stats.getByTestId('gestor-dashboard-resumo');
       await expect(resumo).toBeVisible();
       await expect(resumo).toHaveText(
-        /^(\d+ rotas? .+ — \d+ de \d+ paradas? feitas?, \d+,\d km|Nenhuma rota no período)$/,
+        /^(\d+ rotas? .+ — \d+ de \d+ paradas? feitas?, \d+,\d km|Nenhuma rota cadastrada hoje)$/,
       );
       await expect(stats.getByText('Total Hoje')).toHaveCount(0);
     });
@@ -58,7 +59,7 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
       // O número tem de estar DENTRO do resumo, onde ele significa alguma
       // coisa. A distância sai de formatarDecimal: em pt-BR, vírgula.
       const texto = (await resumo.innerText()).replace(/\s+/g, ' ');
-      if (texto !== 'Nenhuma rota no período') {
+      if (texto !== 'Nenhuma rota cadastrada hoje') {
         expect(texto).toMatch(/\d+ de \d+ paradas? feitas?/);
         expect(texto).toMatch(/\d+,\d km$/);
       }

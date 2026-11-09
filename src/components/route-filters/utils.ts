@@ -9,7 +9,9 @@ import type { PeriodPreset, RouteFiltersState } from './types';
 /**
  * Calculate date range for a preset period
  */
-export const getPresetDates = (preset: PeriodPreset): { startDate: Date; endDate: Date } | null => {
+export const getPresetDates = (
+  preset: PeriodPreset,
+): { startDate: Date; endDate: Date } | null => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -44,13 +46,20 @@ export const getPresetDates = (preset: PeriodPreset): { startDate: Date; endDate
  */
 export const formatDate = (date: Date | null | undefined): string => {
   if (!date) return 'Selecionar';
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 };
 
 /**
  * Get label for date range
  */
-export const getRangeLabel = (dataInicio: Date | null | undefined, dataFim: Date | null | undefined): string => {
+export const getRangeLabel = (
+  dataInicio: Date | null | undefined,
+  dataFim: Date | null | undefined,
+): string => {
   if (dataInicio && dataFim) {
     return `${formatDate(dataInicio)} - ${formatDate(dataFim)}`;
   }
@@ -60,7 +69,7 @@ export const getRangeLabel = (dataInicio: Date | null | undefined, dataFim: Date
   if (dataFim) {
     return `Até ${formatDate(dataFim)}`;
   }
-  return 'Selecionar Período';
+  return 'Selecionar período';
 };
 
 /**
