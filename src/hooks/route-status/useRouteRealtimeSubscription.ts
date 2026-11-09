@@ -58,9 +58,25 @@ export function useRouteRealtimeSubscription({
     loadRef.current = loadActiveRoute;
   }, [loadActiveRoute]);
 
+  // Recarga disparada por evento/timer, sem espera: a falha vira log em vez de
+  // rejeição sem dono (o `loadActiveRoute` vem de fora e não promete tratar o erro).
+  const recarregar = () => {
+    loadRef
+      .current()
+      .catch((error) =>
+        logger.warn('[Realtime] Falha ao recarregar a rota ativa', error),
+      );
+  };
+
   // Token: o refresh só atualiza a autenticação do socket.
   useEffect(() => {
-    if (accessToken) supabase.realtime.setAuth(accessToken);
+    if (accessToken) {
+      supabase.realtime
+        .setAuth(accessToken)
+        .catch((error) =>
+          logger.warn('[Realtime] Erro ao reautenticar o socket', error),
+        );
+    }
   }, [accessToken]);
   const hasToken = !!accessToken;
 
@@ -69,7 +85,7 @@ export function useRouteRealtimeSubscription({
   useEffect(() => {
     if (!motoristaId) return;
     const sub = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active') loadRef.current();
+      if (estado === 'active') recarregar();
     });
     return () => sub.remove();
   }, [motoristaId]);
@@ -81,7 +97,7 @@ export function useRouteRealtimeSubscription({
   useEffect(() => {
     if (!rotaId) return;
     const intervalo = setInterval(() => {
-      loadRef.current();
+      recarregar();
     }, REVALIDACAO_COM_ROTA_MS);
     return () => clearInterval(intervalo);
   }, [rotaId]);
@@ -101,7 +117,7 @@ export function useRouteRealtimeSubscription({
         clearTimeout(debounceTimer.current);
       }
       debounceTimer.current = setTimeout(() => {
-        loadRef.current();
+        recarregar();
       }, 500);
     };
 
@@ -123,10 +139,12 @@ export function useRouteRealtimeSubscription({
           // `unidades`, então o aviso do web não cita a loja.
           if (Platform.OS === 'web') {
             notifyNewRouteWeb();
-            playNotificationSound();
+            // Feedback sem espera; a função já engole a própria falha.
+            void playNotificationSound();
           } else {
-            warningHaptic();
-            playNotificationSound();
+            // Feedback sem espera; a função já engole a própria falha.
+            void warningHaptic();
+            void playNotificationSound();
           }
 
           debouncedReload();
@@ -172,7 +190,7 @@ export function useRouteRealtimeSubscription({
         // Reconectou depois de erro: os eventos do intervalo se perderam.
         if (houveErroRef.current) {
           houveErroRef.current = false;
-          loadRef.current();
+          recarregar();
         }
         logger.info('[RouteStatus] Realtime conectado com sucesso');
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -197,7 +215,7 @@ export function useRouteRealtimeSubscription({
           );
           // Fallback: recarregar dados manualmente a cada 30s
           pollIntervalRef.current = setInterval(() => {
-            loadRef.current();
+            recarregar();
           }, 30000);
         }
       }
@@ -211,7 +229,8 @@ export function useRouteRealtimeSubscription({
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
-      supabase.removeChannel(channel);
+      // Limpeza no desmonte, sem espera: não há o que fazer com o resultado.
+      void supabase.removeChannel(channel);
     };
   }, [motoristaId, rotaId, hasToken]);
 }

@@ -58,7 +58,7 @@ jest.mock('../../lib/supabase', () => ({
       signOut: jest.fn().mockResolvedValue({}),
     },
     realtime: {
-      setAuth: jest.fn(),
+      setAuth: jest.fn().mockResolvedValue(undefined),
     },
   },
   isSupabaseConfigured: true,

@@ -85,12 +85,20 @@ export function useSignedUrl(
     let active = true;
     setLoading(true);
     setError(false);
-    resolvePath(path, expiresIn).then((resolved) => {
-      if (!active) return;
-      setUrl(resolved);
-      setError(resolved === null);
-      setLoading(false);
-    });
+    resolvePath(path, expiresIn)
+      .then((resolved) => {
+        if (!active) return;
+        setUrl(resolved);
+        setError(resolved === null);
+        setLoading(false);
+      })
+      .catch(() => {
+        // `resolvePath` absorve a falha hoje; se um dia rejeitar, a foto vira erro.
+        if (!active) return;
+        setUrl(null);
+        setError(true);
+        setLoading(false);
+      });
     return () => {
       active = false;
     };

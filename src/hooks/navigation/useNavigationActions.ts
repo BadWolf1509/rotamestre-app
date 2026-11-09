@@ -8,6 +8,7 @@
 import { useCallback } from 'react';
 
 import type { ParadaData } from '@/context/RouteStatusContext';
+import { logger } from '@/lib/logger';
 import { rotuloTipoParada } from '@/lib/motorista/rotuloTipoParada';
 import { abrirNavegacao } from '@/lib/navigation';
 import type { IconName } from '@/types/icons';
@@ -45,7 +46,12 @@ export function useNavigationActions({
       latitude: currentStop.latitude,
       longitude: currentStop.longitude,
       endereco: currentStop.endereco,
-    });
+    }).catch((error) =>
+      logger.warn(
+        '[useNavigationActions] Falha ao abrir o app de navegação',
+        error,
+      ),
+    );
   }, [currentStop]);
 
   const handleCompleteStop = useCallback(async () => {

@@ -14,6 +14,7 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import {
   lerRascunhoIncidente,
   limparRascunhoIncidente,
@@ -82,6 +83,8 @@ export function useRestaurarRascunhoIncidente<P extends { id: string }>(
       aoRestaurarRef.current(parada);
     };
 
-    restaurar();
+    restaurar().catch((error) =>
+      logger.warn('[RestaurarRascunhoIncidente] Falha ao restaurar', error),
+    );
   }, [rota, paradas]);
 }

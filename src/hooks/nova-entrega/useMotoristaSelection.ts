@@ -135,7 +135,8 @@ export function useMotoristaSelection(
 
   useEffect(() => {
     setMotoristaSelecionado('');
-    loadMotoristas();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadMotoristas();
   }, [loadMotoristas]);
 
   return {

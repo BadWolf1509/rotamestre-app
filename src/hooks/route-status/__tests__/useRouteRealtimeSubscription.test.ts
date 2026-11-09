@@ -66,7 +66,9 @@ beforeEach(() => {
   (supabase.channel as jest.Mock) = jest.fn(() => mockChannel);
   (supabase.removeChannel as jest.Mock) = jest.fn();
   // supabase.realtime is undefined in auto-mock — create it as a plain object
-  (supabase as any).realtime = { setAuth: jest.fn() };
+  (supabase as any).realtime = {
+    setAuth: jest.fn().mockResolvedValue(undefined),
+  };
 });
 
 afterEach(() => {

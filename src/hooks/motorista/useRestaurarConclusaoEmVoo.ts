@@ -13,6 +13,7 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
+import { logger } from '@/lib/logger';
 import {
   lerConclusaoEmVoo,
   limparConclusaoEmVoo,
@@ -101,6 +102,8 @@ export function useRestaurarConclusaoEmVoo<
       aoRestaurarRef.current(parada);
     };
 
-    restaurar();
+    restaurar().catch((error) =>
+      logger.warn('[RestaurarConclusaoEmVoo] Falha ao restaurar', error),
+    );
   }, [rota, paradas]);
 }

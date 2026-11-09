@@ -143,7 +143,8 @@ export function useEnderecoUnidade(
   }, [onError, unidadeAtivaData]);
 
   useEffect(() => {
-    loadEnderecoUnidade();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadEnderecoUnidade();
   }, [loadEnderecoUnidade, unidadeAtivaData]);
 
   return {

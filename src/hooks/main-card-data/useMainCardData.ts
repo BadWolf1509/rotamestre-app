@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
+
 import { useExpiredRoute } from './useExpiredRoute';
 import { useLastRoute } from './useLastRoute';
 import { useMotoristaStats } from './useMotoristaStats';
@@ -24,11 +26,16 @@ export function useMainCardData({
   const [isLoading, setIsLoading] = useState(false);
 
   // Compose sub-hooks
-  const { stats, loadYesterdayStats, loadTodayStats } = useMotoristaStats(motoristaId);
+  const { stats, loadYesterdayStats, loadTodayStats } =
+    useMotoristaStats(motoristaId);
   const { streak, loadStreak } = useMotoristaStreak(motoristaId);
   const { lastRoute, loadLastRoute } = useLastRoute(motoristaId);
-  const { expiredRoute, expiredRouteDismissed, loadExpiredRoute, dismissExpiredRoute } =
-    useExpiredRoute(motoristaId);
+  const {
+    expiredRoute,
+    expiredRouteDismissed,
+    loadExpiredRoute,
+    dismissExpiredRoute,
+  } = useExpiredRoute(motoristaId);
 
   /**
    * Combined refresh function that loads all data in parallel
@@ -48,15 +55,25 @@ export function useMainCardData({
     } finally {
       setIsLoading(false);
     }
-  }, [loadYesterdayStats, loadTodayStats, loadStreak, loadLastRoute, loadExpiredRoute, motoristaId]);
+  }, [
+    loadYesterdayStats,
+    loadTodayStats,
+    loadStreak,
+    loadLastRoute,
+    loadExpiredRoute,
+    motoristaId,
+  ]);
 
   // Load data based on state
   useEffect(() => {
     if (state === 'no-route' && motoristaId) {
-      refresh();
+      refresh().catch((error) =>
+        logger.warn('[useMainCardData] Falha ao carregar o cartão', error),
+      );
     } else if (state === 'completed' && motoristaId) {
       // Also load streak when completed
-      loadStreak();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void loadStreak();
     }
   }, [state, motoristaId, refresh, loadStreak]);
 
