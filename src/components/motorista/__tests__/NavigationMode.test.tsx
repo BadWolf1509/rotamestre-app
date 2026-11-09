@@ -49,7 +49,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 // Mock navigation lib
 jest.mock('@/lib/navigation', () => ({
-  abrirNavegacao: jest.fn(),
+  abrirNavegacao: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Mock LocationTrackingService
