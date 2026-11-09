@@ -145,7 +145,12 @@ export function useDriverLocationBroadcast({
         logger.warn('[LocationBroadcast] Permissão de localização negada');
       }
       setTemPermissaoDeLocalizacao(resultado.concedida);
-    })();
+    })().catch((error) =>
+      logger.warn(
+        '[LocationBroadcast] Falha ao pedir a permissão de localização',
+        error,
+      ),
+    );
 
     return () => {
       cancelado = true;
@@ -176,7 +181,7 @@ export function useDriverLocationBroadcast({
   // tem a corrida que o useLocationWatcher resolve — fica como estava.
   useEffect(() => {
     // Cleanup anterior
-    const cleanup = async () => {
+    const cleanup = () => {
       if (watchSubscriptionRef.current) {
         watchSubscriptionRef.current.remove();
         watchSubscriptionRef.current = null;
@@ -190,7 +195,7 @@ export function useDriverLocationBroadcast({
     }
 
     // Iniciar tracking
-    const startTracking = async () => {
+    const startTracking = () => {
       // Web não suporta expo-location da mesma forma
       if (Platform.OS === 'web') {
         // Para web, usar geolocation API nativa se disponível
@@ -198,7 +203,8 @@ export function useDriverLocationBroadcast({
           const watchId = navigator.geolocation.watchPosition(
             (position) => {
               if (isActiveRef.current) {
-                broadcastLocation({
+                // Disparo proposital: o envio trata o próprio erro (try/catch com log) e o callback do GPS é síncrono.
+                void broadcastLocation({
                   coords: {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,

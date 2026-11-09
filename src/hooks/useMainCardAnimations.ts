@@ -59,7 +59,8 @@ export function useMainCardAnimations({
       setCelebrationTriggered(true);
 
       // Haptic feedback
-      successHaptic();
+      // Feedback sem espera; a função já engole a própria falha.
+      void successHaptic();
 
       // Animate checkmark
       Animated.parallel([

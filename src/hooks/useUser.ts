@@ -511,7 +511,8 @@ export function useUser() {
   // Carregar dados quando userId ou authLoading mudar
   useEffect(() => {
     mountedRef.current = true;
-    loadUserData();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadUserData();
 
     return () => {
       mountedRef.current = false;
@@ -521,7 +522,8 @@ export function useUser() {
   // Invalidar cache quando logout
   useEffect(() => {
     if (!userId && userData) {
-      clearCache(CACHE_KEYS.USER_DATA(userData.id));
+      // Disparo proposital: `clearCache` trata o próprio erro (log e segue).
+      void clearCache(CACHE_KEYS.USER_DATA(userData.id));
     }
   }, [userId, userData]);
 
@@ -557,7 +559,8 @@ export function useUser() {
   useEffect(() => {
     const unsubscribe = onProfileUpdate(() => {
       logger.info('[useUser] Perfil atualizado, recarregando dados...');
-      loadUserData(true);
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void loadUserData(true);
     });
     return unsubscribe;
   }, [loadUserData]);
