@@ -31,61 +31,61 @@ const FAQ_ITEMS: FAQItem[] = [
     id: '1',
     question: 'Como criar rotas otimizadas?',
     answer:
-      'Acesse "Nova Entrega" no menu e adicione os endereços usando o autocomplete. Use "Otimizar melhor percurso" quando quiser que o sistema proponha a menor rota; se preferir uma ordem operacional específica, mantenha a ordem manual. Antes da criação, uma revisão mostra base, motorista, data, distância, alertas e a sequência final.',
+      'Abra "Nova Rota" no menu e adicione os endereços pelo autocomplete. Toque em "Otimizar melhor percurso" para o sistema propor a menor rota, ou arraste as paradas se preferir a sua ordem. Antes de criar, "Revisar e Criar Rota" mostra base, motorista, data, distância (quando calculada), alertas e a sequência das paradas.',
   },
   {
     id: '2',
     question: 'Como atribuir uma rota a um motorista?',
     answer:
-      'Ao criar uma nova rota, selecione o motorista no campo "Motorista Responsável". Você também pode editar rotas existentes para alterar o motorista atribuído. O motorista receberá uma notificação automática.',
+      'Em "Nova Rota", escolha o motorista em "Selecionar Motorista". Para mudar o motorista de uma rota que ainda não começou, abra a rota em "Gestão de Rotas" > "Ver detalhes" e toque em "Trocar" (no celular, "Trocar motorista"). O novo motorista recebe uma notificação automática.',
   },
   {
     id: '3',
     question: 'Como gerenciar motoristas?',
     answer:
-      'Acesse "Motoristas" no menu para ver sua equipe. Você pode adicionar novos motoristas, editar informações, ativar/desativar contas e ver o histórico de rotas de cada um. Para adicionar, use o botão "+" no canto superior.',
+      'Abra "Motoristas" no menu para ver a equipe. Use "Adicionar motorista" (no celular, "+ Novo Motorista") para cadastrar, "Editar" para mudar nome e telefone, e o menu "⋯" para ativar ou desativar o motorista na sua loja. Em "Ver perfil" aparecem as rotas recentes dele.',
   },
   {
     id: '4',
     question: 'Como analisar relatórios e métricas?',
     answer:
-      'O Dashboard mostra métricas em tempo real: rotas do dia, entregas concluídas, taxa de sucesso e tempo médio. Acesse "Gestão de Rotas" para histórico detalhado e use o botão "Exportar" para baixar relatórios em CSV.',
+      'A tela "Início" mostra o resumo do dia, atualizado em tempo real: rotas por situação e paradas feitas. No celular, ela mostra também taxa de sucesso, tempo médio e as rotas da semana e do mês. Em "Gestão de Rotas" fica o histórico, que você pode exportar em CSV ou Excel (XLSX).',
   },
   {
     id: '5',
     question: 'Como resolver incidentes?',
     answer:
-      'Quando um motorista reporta um incidente, você recebe uma notificação. Acesse "Incidentes" no menu para ver detalhes, fotos e localização. Você pode adicionar comentários, resolver o incidente ou escalar para suporte.',
+      'Quando um motorista reporta um incidente, você recebe uma notificação. Abra "Incidentes" e toque em "Ver detalhes" para ver motorista, endereço, rota, descrição e foto. Use "Alterar status" para marcar como Em análise, Resolvido ou Fechado e deixar uma observação.',
   },
   {
     id: '6',
     question: 'Como acompanhar uma rota em tempo real?',
     answer:
-      'Toque em qualquer rota ativa para ver o mapa com a posição do motorista em tempo real. Você verá quais paradas foram concluídas, o progresso da rota e estimativa de conclusão.',
+      'Em "Gestão de Rotas", toque na rota ou em "Ver detalhes" para abrir o mapa. Com a rota em andamento, o mapa mostra a posição do motorista, enquanto o celular dele estiver enviando a localização. Você também vê quantas paradas estão concluídas, pendentes e puladas.',
   },
   {
     id: '7',
     question: 'Como editar uma rota em andamento?',
     answer:
-      'Abra a rota no mapa e toque no ícone de edição. Você pode adicionar novas paradas, remover paradas ou reordenar a sequência. O motorista será notificado automaticamente sobre alterações.',
+      'No mapa da rota, use "+ Parada" para adicionar e "Reordenar" para mudar a sequência (no celular, "Adicionar parada" e "Reordenar"). Em cada parada pendente há "Editar" e "Remover". Paradas já iniciadas, concluídas ou puladas não mudam. O motorista recebe uma notificação a cada alteração.',
   },
   {
     id: '8',
     question: 'Como ver fotos de comprovante de entrega?',
     answer:
-      'Acesse o histórico da rota e toque em uma parada concluída. A foto de comprovante (se existir) será exibida junto com horário de conclusão e assinatura do destinatário.',
+      'Em "Gestão de Rotas", toque em "Ver detalhes". Na parada concluída aparece a miniatura da foto; toque em "Ver foto" para ampliar. Sem comprovante, aparece "Sem foto registrada". O horário de conclusão fica na "Timeline" da rota.',
   },
   {
     id: '9',
     question: 'O que fazer se um motorista não conseguir entregar?',
     answer:
-      'Quando o motorista pula uma parada, você recebe uma notificação com o motivo. Você pode reagendar a entrega criando uma nova rota ou adicionando a parada a uma rota existente.',
+      'Quando o motorista pula uma parada, você recebe uma notificação com o endereço. O motivo que ele informou aparece na parada, no mapa da rota. Para tentar de novo, adicione a parada à rota com "+ Parada" ou crie uma "Nova Rota". Se a rota inteira ficou "Não executada", use "Reativar".',
   },
   {
     id: '10',
     question: 'Como exportar dados para Excel?',
     answer:
-      'Na tela de Gestão de Rotas, aplique os filtros desejados e toque em "Exportar CSV". O arquivo será baixado automaticamente (web) ou você poderá compartilhar (mobile).',
+      'Em "Gestão de Rotas", filtre por status ou pela busca e toque em "Exportar". Escolha "Exportar CSV" ou "Exportar Excel (XLSX)" (no celular, "CSV" ou "Excel (XLSX)"). No computador o arquivo é baixado; no celular, abre o compartilhamento.',
   },
 ];
 
@@ -220,26 +220,8 @@ export default function AjudaGestorScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Links Úteis</Text>
           <View style={styles.linksList}>
-            <TouchableOpacity
-              style={styles.linkItem}
-              onPress={() =>
-                Linking.openURL('https://rotamestre.tec.br/central-de-ajuda')
-              }
-            >
-              <Text style={styles.linkIcon}>📚</Text>
-              <Text style={styles.linkLabel}>Central de Ajuda</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.linkItem}
-              onPress={() =>
-                Linking.openURL('https://rotamestre.tec.br/tutoriais')
-              }
-            >
-              <Text style={styles.linkIcon}>🎬</Text>
-              <Text style={styles.linkLabel}>Tutoriais em Vídeo</Text>
-            </TouchableOpacity>
-
+            {/* "Central de Ajuda" e "Tutoriais em Vídeo" saíram em 08/11/2026:
+                as duas páginas davam 404. Voltam quando existirem. */}
             <TouchableOpacity
               style={styles.linkItem}
               onPress={() =>
