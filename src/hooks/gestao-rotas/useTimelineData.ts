@@ -299,7 +299,8 @@ export function useTimelineData(
         jaInscreveu = true;
       });
     return () => {
-      supabase.removeChannel(channel);
+      // Limpeza no desmonte, sem espera: não há o que fazer com o resultado.
+      void supabase.removeChannel(channel);
     };
   }, [rotaId, realtime, refresh, agendarRevalidacao]);
 

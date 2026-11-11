@@ -146,7 +146,8 @@ export function useDistanceCalculation({
 
     // Iniciar debounce
     debounceTimerRef.current = setTimeout(() => {
-      calcularDistanciaReal(currentRequestId);
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void calcularDistanciaReal(currentRequestId);
     }, DEBOUNCE_DELAY_MS);
 
     // Cleanup

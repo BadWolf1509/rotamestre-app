@@ -212,7 +212,8 @@ export function useMilestones(
   }, [motoristaId, enabled]);
 
   useEffect(() => {
-    loadMilestoneData();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadMilestoneData();
   }, [loadMilestoneData]);
 
   return data;

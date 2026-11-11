@@ -269,7 +269,8 @@ export function useNovaEntregaDraft({
       }
     }
 
-    restoreDraft();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void restoreDraft();
     return () => {
       cancelled = true;
     };

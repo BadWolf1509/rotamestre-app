@@ -5,12 +5,12 @@
  * Permite identificar quais eventos são "novos" para o usuário.
  */
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useState, useEffect, useCallback } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState, useEffect, useCallback } from 'react';
 
-import { logger } from "@/lib/logger";
+import { logger } from '@/lib/logger';
 
-const STORAGE_KEY_PREFIX = "@timeline_last_seen_";
+const STORAGE_KEY_PREFIX = '@timeline_last_seen_';
 
 interface UseTimelineLastSeenResult {
   /** Timestamp do último evento visto (ISO string) */
@@ -57,14 +57,15 @@ export function useTimelineLastSeen(
           setLastSeenTimestamp(stored);
         }
       } catch (error) {
-        logger.error("[useTimelineLastSeen] Erro ao carregar:", error);
+        logger.error('[useTimelineLastSeen] Erro ao carregar:', error);
       } finally {
         setLoading(false);
       }
     }
 
     if (rotaId) {
-      loadLastSeen();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void loadLastSeen();
     } else {
       setLoading(false);
     }
@@ -107,7 +108,7 @@ export function useTimelineLastSeen(
           setLastSeenTimestamp(timestamp);
         }
       } catch (error) {
-        logger.error("[useTimelineLastSeen] Erro ao salvar:", error);
+        logger.error('[useTimelineLastSeen] Erro ao salvar:', error);
       }
     },
     [storageKey, lastSeenTimestamp],
@@ -166,7 +167,7 @@ export async function clearTimelineLastSeen(rotaId: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(`${STORAGE_KEY_PREFIX}${rotaId}`);
   } catch (error) {
-    logger.error("[clearTimelineLastSeen] Erro:", error);
+    logger.error('[clearTimelineLastSeen] Erro:', error);
   }
 }
 
@@ -184,6 +185,6 @@ export async function clearAllTimelineLastSeen(): Promise<void> {
       await Promise.all(timelineKeys.map((k) => AsyncStorage.removeItem(k)));
     }
   } catch (error) {
-    logger.error("[clearAllTimelineLastSeen] Erro:", error);
+    logger.error('[clearAllTimelineLastSeen] Erro:', error);
   }
 }

@@ -20,13 +20,17 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { logger } from '@/lib/logger';
-import { cancelRouteReminder, scheduleRouteReminder } from '@/lib/notifications';
+import {
+  cancelRouteReminder,
+  scheduleRouteReminder,
+} from '@/lib/notifications';
 
 export function useLembreteDiario(papel: 'motorista' | 'gestor' | null): void {
   useEffect(() => {
     if (!papel || Platform.OS === 'web') return;
     let cancelado = false;
-    (async () => {
+    // Disparo proposital, sem espera: o corpo todo está num try/catch com log.
+    void (async () => {
       try {
         if (papel === 'gestor') {
           await cancelRouteReminder();

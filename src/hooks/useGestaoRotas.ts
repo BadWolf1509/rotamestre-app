@@ -352,7 +352,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
   // Load routes on mount, unit change and filter change
   useEffect(() => {
-    loadRotas();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadRotas();
   }, [loadRotas]);
 
   // Saída da tela: cancela carga, "carregar mais" e exportação.
@@ -370,7 +371,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   useRealtimeRoutes({
     enabled: !!unidadeAtiva,
     onRouteUpdate: () => {
-      loadRotas();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void loadRotas();
     },
   });
 

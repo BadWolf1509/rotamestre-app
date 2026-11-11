@@ -88,16 +88,35 @@ if (isSupabaseConfigured) {
   // Isso garante que o token seja configurado ANTES de qualquer hook tentar subscrever
   supabase.auth.onAuthStateChange((_event, session) => {
     if (session?.access_token) {
-      supabase.realtime.setAuth(session.access_token);
+      supabase.realtime
+        .setAuth(session.access_token)
+        .catch((error) =>
+          logger.warn(
+            '[Supabase] Erro ao configurar o token do realtime',
+            error,
+          ),
+        );
     }
   });
 
   // ✅ Também configurar token inicial se já houver sessão armazenada
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session?.access_token) {
-      supabase.realtime.setAuth(session.access_token);
-    }
-  });
+  supabase.auth
+    .getSession()
+    .then(({ data: { session } }) => {
+      if (session?.access_token) {
+        supabase.realtime
+          .setAuth(session.access_token)
+          .catch((error) =>
+            logger.warn(
+              '[Supabase] Erro ao configurar o token do realtime',
+              error,
+            ),
+          );
+      }
+    })
+    .catch((error) =>
+      logger.warn('[Supabase] Erro ao ler a sessão inicial', error),
+    );
 } else {
   // Dummy placeholder URL for E2E/CI environments
   // This prevents the "supabaseUrl is required" error from crashing the app

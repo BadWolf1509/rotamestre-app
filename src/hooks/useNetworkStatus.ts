@@ -1,7 +1,13 @@
-import NetInfo, { NetInfoState, NetInfoStateType } from '@react-native-community/netinfo';
+import NetInfo, {
+  NetInfoState,
+  NetInfoStateType,
+} from '@react-native-community/netinfo';
 import { useEffect, useState, useCallback } from 'react';
 
-export type ConnectionType = 'wifi' | 'cellular' | 'ethernet' | 'none' | 'unknown';
+import { logger } from '@/lib/logger';
+
+export type ConnectionType =
+  'wifi' | 'cellular' | 'ethernet' | 'none' | 'unknown';
 
 export interface NetworkStatus {
   isConnected: boolean;
@@ -39,41 +45,48 @@ export function useNetworkStatus(): NetworkStatus {
     details: null,
   });
 
-  const parseNetInfoState = useCallback((state: NetInfoState): NetworkStatus => {
-    let connectionType: ConnectionType;
+  const parseNetInfoState = useCallback(
+    (state: NetInfoState): NetworkStatus => {
+      let connectionType: ConnectionType;
 
-    switch (state.type) {
-      case NetInfoStateType.wifi:
-        connectionType = 'wifi';
-        break;
-      case NetInfoStateType.cellular:
-        connectionType = 'cellular';
-        break;
-      case NetInfoStateType.ethernet:
-        connectionType = 'ethernet';
-        break;
-      case NetInfoStateType.none:
-        connectionType = 'none';
-        break;
-      default:
-        connectionType = 'unknown';
-    }
+      switch (state.type) {
+        case NetInfoStateType.wifi:
+          connectionType = 'wifi';
+          break;
+        case NetInfoStateType.cellular:
+          connectionType = 'cellular';
+          break;
+        case NetInfoStateType.ethernet:
+          connectionType = 'ethernet';
+          break;
+        case NetInfoStateType.none:
+          connectionType = 'none';
+          break;
+        default:
+          connectionType = 'unknown';
+      }
 
-    return {
-      isConnected: state.isConnected ?? false,
-      isInternetReachable: state.isInternetReachable,
-      connectionType,
-      isWifi: state.type === NetInfoStateType.wifi,
-      isCellular: state.type === NetInfoStateType.cellular,
-      details: state,
-    };
-  }, []);
+      return {
+        isConnected: state.isConnected ?? false,
+        isInternetReachable: state.isInternetReachable,
+        connectionType,
+        isWifi: state.type === NetInfoStateType.wifi,
+        isCellular: state.type === NetInfoStateType.cellular,
+        details: state,
+      };
+    },
+    [],
+  );
 
   useEffect(() => {
     // Obter status inicial
-    NetInfo.fetch().then((state) => {
-      setNetworkStatus(parseNetInfoState(state));
-    });
+    NetInfo.fetch()
+      .then((state) => {
+        setNetworkStatus(parseNetInfoState(state));
+      })
+      .catch((error) =>
+        logger.warn('[useNetworkStatus] Falha ao ler o status inicial', error),
+      );
 
     // Escutar mudanças de conectividade
     const unsubscribe = NetInfo.addEventListener((state) => {

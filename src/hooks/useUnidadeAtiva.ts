@@ -87,12 +87,11 @@ function mesmoConteudo(
   if (!a || !b) return false;
   const chavesA = Object.keys(a);
   if (chavesA.length !== Object.keys(b).length) return false;
-  return chavesA.every(
-    (chave) =>
-      Object.is(
-        (a as Record<string, unknown>)[chave],
-        (b as Record<string, unknown>)[chave],
-      ),
+  return chavesA.every((chave) =>
+    Object.is(
+      (a as Record<string, unknown>)[chave],
+      (b as Record<string, unknown>)[chave],
+    ),
   );
 }
 
@@ -101,7 +100,11 @@ const UnidadeAtivaContext = createContext<UseUnidadeAtivaReturn | null>(null);
 /** Dono do estado da loja ativa. Montado uma vez, na raiz (`app/_layout.tsx`). */
 export function UnidadeAtivaProvider({ children }: { children: ReactNode }) {
   const valor = useEstadoUnidadeAtiva();
-  return createElement(UnidadeAtivaContext.Provider, { value: valor }, children);
+  return createElement(
+    UnidadeAtivaContext.Provider,
+    { value: valor },
+    children,
+  );
 }
 
 /** Loja ativa compartilhada. Exige o `UnidadeAtivaProvider` acima. */
@@ -140,7 +143,10 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
   const loadVinculacoes = useCallback(async () => {
     const minha = ++requisicaoRef.current;
     const vigente = () => minha === requisicaoRef.current;
-    const aplicar = (unidadeAtiva: string | null, vinculacoes: UsuarioUnidade[]) => {
+    const aplicar = (
+      unidadeAtiva: string | null,
+      vinculacoes: UsuarioUnidade[],
+    ) => {
       if (vigente()) setEstado({ dono: userId, unidadeAtiva, vinculacoes });
     };
 
@@ -158,31 +164,33 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
         const mockUnidadeId = 'mock-unidade-id';
         const isGestor = papel === 'gestor';
 
-        const mockVinculacoes: UsuarioUnidade[] = [{
-          id: 'vinculo-mock-1',
-          usuario_id: userId,
-          unidade_id: mockUnidadeId,
-          papel: isGestor ? 'gestor' : 'motorista',
-          is_principal: true,
-          ativo: true,
-          created_at: new Date().toISOString(),
-          unidades: {
-            id: mockUnidadeId,
-            nome: 'Unidade Teste',
-            cidade: 'São Paulo',
-            endereco: 'Rua Teste, 123',
-            telefone: '11999999999',
-            email: 'teste@unidade.com',
-            ativa: true,
+        const mockVinculacoes: UsuarioUnidade[] = [
+          {
+            id: 'vinculo-mock-1',
+            usuario_id: userId,
+            unidade_id: mockUnidadeId,
+            papel: isGestor ? 'gestor' : 'motorista',
+            is_principal: true,
+            ativo: true,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            sede_latitude: -23.5505,
-            sede_longitude: -46.6333,
-            sede_endereco: 'Rua Teste, 123 - São Paulo',
-            uf: 'SP',
-            cep: '01310-100'
-          } as UnidadeComSede
-        }];
+            unidades: {
+              id: mockUnidadeId,
+              nome: 'Unidade Teste',
+              cidade: 'São Paulo',
+              endereco: 'Rua Teste, 123',
+              telefone: '11999999999',
+              email: 'teste@unidade.com',
+              ativa: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              sede_latitude: -23.5505,
+              sede_longitude: -46.6333,
+              sede_endereco: 'Rua Teste, 123 - São Paulo',
+              uf: 'SP',
+              cep: '01310-100',
+            } as UnidadeComSede,
+          },
+        ];
 
         aplicar(mockUnidadeId, mockVinculacoes);
         return;
@@ -199,7 +207,8 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
 
       const { data, error } = await supabase
         .from('usuario_unidades')
-        .select(`
+        .select(
+          `
           id,
           usuario_id,
           unidade_id,
@@ -208,7 +217,8 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
           ativo,
           created_at,
           unidades(${SELECT_UNIDADE_APP})
-        `)
+        `,
+        )
         .eq('usuario_id', userId)
         .eq('ativo', true)
         .order('created_at', { ascending: true })
@@ -223,7 +233,9 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
 
       const vinculacoesNormalizadas = (data || []).map((vinculo) => ({
         ...vinculo,
-        unidades: Array.isArray(vinculo.unidades) ? vinculo.unidades[0] : vinculo.unidades,
+        unidades: Array.isArray(vinculo.unidades)
+          ? vinculo.unidades[0]
+          : vinculo.unidades,
       }));
 
       // Determinar unidade ativa
@@ -233,7 +245,7 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
 
         // Verificar se a unidade armazenada ainda é válida
         const unidadeValida = vinculacoesNormalizadas.find(
-          (v) => v.unidade_id === storedUnidadeId
+          (v) => v.unidade_id === storedUnidadeId,
         );
 
         if (unidadeValida) {
@@ -275,50 +287,61 @@ function useEstadoUnidadeAtiva(): UseUnidadeAtivaReturn {
   const loading = carregando || (!!userId && !daConta);
 
   // Trocar de unidade ativa
-  const trocarUnidade = useCallback(async (unidadeId: string) => {
-    if (!userId) return;
+  const trocarUnidade = useCallback(
+    async (unidadeId: string) => {
+      if (!userId) return;
 
-    // Verificar se o usuário tem acesso a essa unidade
-    const temAcesso = vinculacoes.some(v => v.unidade_id === unidadeId);
-    if (!temAcesso) {
-      logger.error('[UnidadeAtiva] Usuário não tem acesso a essa unidade');
-      return;
-    }
-
-    try {
-      // Salvar no AsyncStorage
-      await AsyncStorage.setItem(STORAGE_KEY, unidadeId);
-
-      // Atualizar o cache no banco (usuarios.unidade_id)
-      const { error } = await supabase
-        .from('usuarios')
-        .update({ unidade_id: unidadeId })
-        .eq('id', userId);
-
-      if (error) {
-        logger.error('[UnidadeAtiva] Erro ao atualizar unidade ativa no banco:', error);
+      // Verificar se o usuário tem acesso a essa unidade
+      const temAcesso = vinculacoes.some((v) => v.unidade_id === unidadeId);
+      if (!temAcesso) {
+        logger.error('[UnidadeAtiva] Usuário não tem acesso a essa unidade');
+        return;
       }
 
-      // Atualizar estado compartilhado: vale em todas as telas.
-      setEstado((anterior) =>
-        anterior.dono === userId ? { ...anterior, unidadeAtiva: unidadeId } : anterior,
-      );
+      try {
+        // Salvar no AsyncStorage
+        await AsyncStorage.setItem(STORAGE_KEY, unidadeId);
 
-      // O perfil guarda a loja (`usuarios.unidade_id`): todas as instâncias
-      // de useUser recarregam, numa consulta só (busca compartilhada).
-      emitProfileUpdate();
-    } catch (error) {
-      logger.error('[UnidadeAtiva] Erro ao trocar unidade:', error);
-    }
-  }, [userId, vinculacoes]);
+        // Atualizar o cache no banco (usuarios.unidade_id)
+        const { error } = await supabase
+          .from('usuarios')
+          .update({ unidade_id: unidadeId })
+          .eq('id', userId);
+
+        if (error) {
+          logger.error(
+            '[UnidadeAtiva] Erro ao atualizar unidade ativa no banco:',
+            error,
+          );
+        }
+
+        // Atualizar estado compartilhado: vale em todas as telas.
+        setEstado((anterior) =>
+          anterior.dono === userId
+            ? { ...anterior, unidadeAtiva: unidadeId }
+            : anterior,
+        );
+
+        // O perfil guarda a loja (`usuarios.unidade_id`): todas as instâncias
+        // de useUser recarregam, numa consulta só (busca compartilhada).
+        emitProfileUpdate();
+      } catch (error) {
+        logger.error('[UnidadeAtiva] Erro ao trocar unidade:', error);
+      }
+    },
+    [userId, vinculacoes],
+  );
 
   // Carregar vinculações quando a conta mudar
   useEffect(() => {
-    loadVinculacoes();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadVinculacoes();
   }, [loadVinculacoes]);
 
   // Derivar dados da unidade ativa
-  const vinculacaoAtiva = vinculacoes.find(v => v.unidade_id === unidadeAtiva);
+  const vinculacaoAtiva = vinculacoes.find(
+    (v) => v.unidade_id === unidadeAtiva,
+  );
   // A loja do perfil (fallback sem vinculação) chega como objeto novo a cada
   // busca fresca do perfil, mesmo igual. Quem a tem em dependência de efeito
   // (`nova-entrega/useEnderecoUnidade`, que começa zerando o endereço)

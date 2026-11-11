@@ -1,5 +1,6 @@
 import { Linking, Platform } from 'react-native';
 
+import { logger } from '../logger';
 import {
   abrirConfiguracoesDoApp,
   oferecerSaidaParaConfiguracoes,
@@ -9,7 +10,10 @@ import {
 
 jest.mock('react-native', () => ({
   Platform: { OS: 'android' },
-  Linking: { openURL: jest.fn(), openSettings: jest.fn() },
+  Linking: {
+    openURL: jest.fn().mockResolvedValue(true),
+    openSettings: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 const COPY: CopyDePermissao = {
@@ -103,6 +107,21 @@ describe('abrirConfiguracoesDoApp', () => {
     const agiu = abrirConfiguracoesDoApp();
     expect(Linking.openURL).toHaveBeenCalledWith('app-settings:');
     expect(agiu).toBe(true);
+  });
+
+  it('loga em vez de deixar a promessa solta quando o sistema recusa abrir as configurações', async () => {
+    (Platform as { OS: string }).OS = 'android';
+    const falha = new Error('sem configurações');
+    (Linking.openSettings as jest.Mock).mockRejectedValueOnce(falha);
+    const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+    abrirConfiguracoesDoApp();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(aviso).toHaveBeenCalledWith(
+      expect.stringContaining('configurações do app'),
+      falha,
+    );
+    aviso.mockRestore();
   });
 
   it('não faz nada na web e avisa quem chamou, em vez de um retorno indistinguível de sucesso', () => {

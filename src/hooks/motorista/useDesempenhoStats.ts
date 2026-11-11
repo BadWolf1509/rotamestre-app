@@ -109,12 +109,14 @@ export function useDesempenhoStats(
 
   useEffect(() => {
     setLoading(true);
-    loadStats();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadStats();
   }, [loadStats]);
 
   const refresh = useCallback(() => {
     setRefreshing(true);
-    loadStats();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadStats();
   }, [loadStats]);
 
   return {

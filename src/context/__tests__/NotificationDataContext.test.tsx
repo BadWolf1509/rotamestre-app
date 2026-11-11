@@ -17,27 +17,41 @@ jest.mock('@/lib/supabase', () => ({
       subscribe: jest.fn(),
     })),
     removeChannel: jest.fn(),
-    realtime: { setAuth: jest.fn() },
+    realtime: { setAuth: jest.fn().mockResolvedValue(undefined) },
   },
 }));
 jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ session: null }) }));
 jest.mock('@/hooks/useUser', () => ({ useUser: () => ({ userData: null }) }));
 jest.mock('@/lib/logger', () => ({
-  logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  },
 }));
-jest.mock('@/utils/browserNotification', () => ({ notifyGenericWeb: jest.fn() }));
+jest.mock('@/utils/browserNotification', () => ({
+  notifyGenericWeb: jest.fn(),
+}));
 jest.mock('@/utils/haptics', () => ({ warningHaptic: jest.fn() }));
-jest.mock('@/utils/notificationSound', () => ({ playNotificationSound: jest.fn() }));
-jest.mock('@/utils/toast', () => ({ toast: { info: jest.fn(), error: jest.fn() } }));
+jest.mock('@/utils/notificationSound', () => ({
+  playNotificationSound: jest.fn(),
+}));
+jest.mock('@/utils/toast', () => ({
+  toast: { info: jest.fn(), error: jest.fn() },
+}));
 
-import { useNotificationData, NotificationDataProvider } from '../NotificationDataContext';
+import {
+  useNotificationData,
+  NotificationDataProvider,
+} from '../NotificationDataContext';
 
 describe('NotificationDataContext', () => {
   it('throws when useNotificationData is used outside provider', () => {
     const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     expect(() => renderHook(() => useNotificationData())).toThrow(
-      'useNotificationData must be used within NotificationDataProvider'
+      'useNotificationData must be used within NotificationDataProvider',
     );
 
     spy.mockRestore();
@@ -66,7 +80,7 @@ describe('NotificationDataContext', () => {
     const { getByText } = render(
       <NotificationDataProvider>
         <Text>Child Content</Text>
-      </NotificationDataProvider>
+      </NotificationDataProvider>,
     );
 
     expect(getByText('Child Content')).toBeTruthy();

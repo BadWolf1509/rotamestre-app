@@ -130,15 +130,20 @@ export function useAuth() {
     }
 
     // Get initial session
-    lerSessaoComPrazo().then(async (estado) => {
-      if (await aplicarSessao(estado)) {
-        lastUserId.current = estado.session?.user?.id ?? null;
-      }
-      setLoading(false);
+    lerSessaoComPrazo()
+      .then(async (estado) => {
+        if (await aplicarSessao(estado)) {
+          lastUserId.current = estado.session?.user?.id ?? null;
+        }
+        setLoading(false);
 
-      // ✅ Limpar cache expirado na inicialização
-      cleanExpiredCache();
-    });
+        // ✅ Limpar cache expirado na inicialização
+        // Disparo proposital: a varredura do cache trata o próprio erro (log e segue).
+        void cleanExpiredCache();
+      })
+      .catch((erro) =>
+        logger.warn('[useAuth] Falha ao ler a sessão inicial', erro),
+      );
 
     // Listen for auth changes
     // Nota: O token do Realtime é sincronizado automaticamente em supabase.ts

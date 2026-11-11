@@ -42,7 +42,7 @@ jest.mock('@/lib/supabase', () => ({
             })),
           })),
           eq: jest.fn(() => ({
-            data: mockNotificacoesData.filter(n => !n.lida),
+            data: mockNotificacoesData.filter((n) => !n.lida),
             error: null,
           })),
         })),
@@ -61,7 +61,7 @@ jest.mock('@/lib/supabase', () => ({
     })),
     removeChannel: jest.fn(),
     realtime: {
-      setAuth: jest.fn(),
+      setAuth: jest.fn().mockResolvedValue(undefined),
     },
   },
 }));
@@ -233,7 +233,7 @@ describe('useNotifications', () => {
     await expect(
       act(async () => {
         await result.current.marcarComoLida('1');
-      })
+      }),
     ).resolves.not.toThrow();
 
     // Estado deve permanecer estável após erro
@@ -252,7 +252,7 @@ describe('useNotifications', () => {
     await expect(
       act(async () => {
         await result.current.marcarTodasComoLidas();
-      })
+      }),
     ).resolves.not.toThrow();
 
     // Estado deve permanecer estável após erro

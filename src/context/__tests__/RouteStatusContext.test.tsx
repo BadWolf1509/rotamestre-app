@@ -197,7 +197,7 @@ jest.mock('@/lib/supabase', () => {
         })),
       },
       realtime: {
-        setAuth: jest.fn(),
+        setAuth: jest.fn().mockResolvedValue(undefined),
       },
     },
   };

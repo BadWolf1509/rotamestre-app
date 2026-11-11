@@ -103,7 +103,8 @@ export function useResumoRota(rotaIdParam?: string): UseResumoRotaResult {
   }, [userData?.id, carregandoUsuario, rotaIdParam]);
 
   useEffect(() => {
-    loadRota();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadRota();
   }, [loadRota]);
 
   return {

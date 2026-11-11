@@ -17,6 +17,8 @@
  */
 import { Linking, Platform } from 'react-native';
 
+import { logger } from './logger';
+
 export interface ResultadoPermissao {
   concedida: boolean;
   /** `canAskAgain`: `false` significa que o diálogo do sistema não aparece mais. */
@@ -66,10 +68,20 @@ export const REMEDIO_CADEADO_WEB =
 
 export function abrirConfiguracoesDoApp(): boolean {
   if (Platform.OS === 'ios') {
-    Linking.openURL('app-settings:');
+    Linking.openURL('app-settings:').catch((error) =>
+      logger.warn(
+        '[permissoes] Não foi possível abrir as configurações do app',
+        error,
+      ),
+    );
     return true;
   } else if (Platform.OS === 'android') {
-    Linking.openSettings();
+    Linking.openSettings().catch((error) =>
+      logger.warn(
+        '[permissoes] Não foi possível abrir as configurações do app',
+        error,
+      ),
+    );
     return true;
   }
   // Web: não existem configurações de app para abrir.
