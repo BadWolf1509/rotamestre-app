@@ -7,7 +7,7 @@
  * `new Date('AAAA-MM-DD')` (meia-noite UTC) nem o dia tirado de um ISO em UTC.
  * "Hoje" é o dia local (`getTodayISO`); o banco nunca o calcula.
  */
-import { formatDateBR, getTodayISO } from '@/lib/dateUtils';
+import { getTodayISO } from '@/lib/dateUtils';
 
 export type AtalhoPeriodo =
   | 'hoje'
@@ -106,7 +106,10 @@ function mesInteiro(ano: number, mes: number): IntervaloDatas {
   };
 }
 
-/** Intervalo fechado do período; `todo` é `{ de: null, ate: null }`. */
+/**
+ * Intervalo fechado do período; `todo` é `{ de: null, ate: null }`.
+ * `hojeISO` inválido (só por chamada errada) devolve o mesmo que `todo`.
+ */
 export function resolverPeriodo(
   p: Periodo,
   hojeISO: string = getTodayISO(),
@@ -159,9 +162,11 @@ function textoDatas(de: string, ate: string, hojeISO: string): string {
   const anoCorrente = hojeISO.slice(0, 4);
   const comAno =
     de.slice(0, 4) !== anoCorrente || ate.slice(0, 4) !== anoCorrente;
+  // Montado da string, sem Date: `toLocaleDateString` no Hermes sem ICU
+  // devolveria en-US calado.
   const formatar = (iso: string): string => {
-    const completa = formatDateBR(iso);
-    return comAno ? completa : completa.slice(0, 5);
+    const [aaaa, mm, dd] = iso.split('-');
+    return comAno ? `${dd}/${mm}/${aaaa}` : `${dd}/${mm}`;
   };
   return de === ate ? formatar(de) : `${formatar(de)} a ${formatar(ate)}`;
 }

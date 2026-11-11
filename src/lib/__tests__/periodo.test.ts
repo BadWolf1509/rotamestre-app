@@ -1,8 +1,7 @@
-// Fixa o fuso ANTES de qualquer Date. Se o runtime não obedecer, a
-// pré-condição abaixo derruba os casos dependentes de fuso, em vez de passarem
-// vazios.
-process.env.TZ = 'America/Sao_Paulo';
-
+// O fuso NÃO é fixado aqui: `process.env.TZ` dentro do Jest não é confiável.
+// O CI roda a suíte com `TZ: America/Sao_Paulo` (test.yml, guardado por
+// `fuso-do-ci.test.ts`). Os casos dependentes de fuso rodam quando o processo
+// está em São Paulo e se pulam fora dele; no CI a pré-condição exige o fuso.
 import {
   ATALHOS_PERIODO,
   PERIODO_PADRAO,
@@ -109,6 +108,12 @@ describe('cortarEmHoje', () => {
     ).toBeNull();
   });
 
+  it('começa hoje: não é cortado fora', () => {
+    expect(
+      cortarEmHoje({ de: '2026-11-10', ate: '2026-11-30' }, '2026-11-10'),
+    ).toEqual({ de: '2026-11-10', ate: '2026-11-10' });
+  });
+
   it('todo o período: { de: null, ate: hoje }', () => {
     expect(cortarEmHoje({ de: null, ate: null }, '2026-11-10')).toEqual({
       de: null,
@@ -158,6 +163,33 @@ describe('textoPeriodo', () => {
       ),
     ).toBe('Personalizado (01/10 a 15/10)');
   });
+
+  it('personalizado cruzando anos mostra o ano nas duas pontas', () => {
+    expect(
+      textoPeriodo(
+        { tipo: 'personalizado', de: '2025-12-20', ate: '2026-01-05' },
+        undefined,
+        '2026-11-10',
+      ),
+    ).toBe('Personalizado (20/12/2025 a 05/01/2026)');
+  });
+
+  it('não depende de toLocaleDateString (Hermes sem ICU devolve en-US)', () => {
+    const espiao = jest
+      .spyOn(Date.prototype, 'toLocaleDateString')
+      .mockReturnValue('11/01/2026');
+    try {
+      expect(textoPeriodo({ tipo: 'este_mes' }, undefined, '2026-11-10')).toBe(
+        'Este mês (01/11 a 30/11)',
+      );
+      expect(
+        textoPeriodo({ tipo: 'mes_passado' }, undefined, '2026-01-15'),
+      ).toBe('Mês passado (01/12/2025 a 31/12/2025)');
+      expect(espiao).not.toHaveBeenCalled();
+    } finally {
+      espiao.mockRestore();
+    }
+  });
 });
 
 describe('lerPeriodo', () => {
@@ -191,6 +223,9 @@ describe('lerPeriodo', () => {
       }),
     ).toBeNull();
     expect(lerPeriodo({ tipo: 'personalizado', de: '2026-11-01' })).toBeNull();
+    expect(
+      lerPeriodo({ tipo: 'personalizado', de: '2026-1-1', ate: '2026-11-01' }),
+    ).toBeNull();
     expect(lerPeriodo('texto')).toBeNull();
     expect(lerPeriodo(null)).toBeNull();
     expect(lerPeriodo(undefined)).toBeNull();
@@ -213,21 +248,32 @@ describe('constantes', () => {
   });
 });
 
-describe('fuso America/Sao_Paulo', () => {
-  it('pré-condição: o runtime obedeceu ao TZ do arquivo', () => {
-    expect(new Date(2026, 10, 10).getTimezoneOffset()).toBe(180);
-  });
+const noCI = process.env.CI === 'true';
+const emSP = new Date(2026, 10, 10).getTimezoneOffset() === 180;
 
-  it('limitesEmInstante: meia-noite local de de e do dia seguinte a ate', () => {
-    expect(limitesEmInstante({ de: '2026-11-10', ate: '2026-11-10' })).toEqual({
-      desde: '2026-11-10T03:00:00.000Z',
-      antesDe: '2026-11-11T03:00:00.000Z',
-    });
-    expect(limitesEmInstante({ de: null, ate: null })).toEqual({
-      desde: null,
-      antesDe: null,
-    });
-  });
+describe('fuso America/Sao_Paulo', () => {
+  (noCI ? it : it.skip)(
+    'pré-condição: no CI o processo está em America/Sao_Paulo',
+    () => {
+      expect(new Date(2026, 10, 10).getTimezoneOffset()).toBe(180);
+    },
+  );
+
+  (emSP ? it : it.skip)(
+    'limitesEmInstante: meia-noite local de de e do dia seguinte a ate',
+    () => {
+      expect(
+        limitesEmInstante({ de: '2026-11-10', ate: '2026-11-10' }),
+      ).toEqual({
+        desde: '2026-11-10T03:00:00.000Z',
+        antesDe: '2026-11-11T03:00:00.000Z',
+      });
+      expect(limitesEmInstante({ de: null, ate: null })).toEqual({
+        desde: null,
+        antesDe: null,
+      });
+    },
+  );
 
   describe('às 21:30 locais do último dia do mês (já é dia 1 em UTC)', () => {
     beforeEach(() => {
@@ -236,16 +282,18 @@ describe('fuso America/Sao_Paulo', () => {
     });
     afterEach(() => jest.useRealTimers());
 
-    it('este mês continua novembro e hoje continua 30/11', () => {
-      expect(new Date(2026, 10, 10).getTimezoneOffset()).toBe(180);
-      expect(resolverPeriodo({ tipo: 'este_mes' })).toEqual({
-        de: '2026-11-01',
-        ate: '2026-11-30',
-      });
-      expect(resolverPeriodo({ tipo: 'hoje' })).toEqual({
-        de: '2026-11-30',
-        ate: '2026-11-30',
-      });
-    });
+    (emSP ? it : it.skip)(
+      'este mês continua novembro e hoje continua 30/11',
+      () => {
+        expect(resolverPeriodo({ tipo: 'este_mes' })).toEqual({
+          de: '2026-11-01',
+          ate: '2026-11-30',
+        });
+        expect(resolverPeriodo({ tipo: 'hoje' })).toEqual({
+          de: '2026-11-30',
+          ate: '2026-11-30',
+        });
+      },
+    );
   });
 });
