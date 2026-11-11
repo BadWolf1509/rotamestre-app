@@ -3937,9 +3937,9 @@ loja, motorista desativado, catálogo. Rollback colável.
 
 ---
 
-### ⏳ Migration 90: desempenho por período (`p_de`/`p_ate`) e índices de loja + data
+### ✅ Migration 90: desempenho por período (`p_de`/`p_ate`) e índices de loja + data
 
-**Arquivo:** `20261110120000_periodo_desempenho.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261110120000_periodo_desempenho.sql` · **✅ aplicada em 10/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo (`RETURNING`). **Sonda medida:** 9/9 OK com o corpo na mesma execução (antes de aplicar, desfeita) e 9/9 OK depois; a API responde 42501 sem login nas três formas de chamada (`resumo_desempenho_motorista` antiga e nova, `desempenho_motorista_na_loja`). As cópias `pg_temp` das versões anteriores que a sonda usa foram conferidas por md5 contra as funções vivas. Revisão de RLS: APPROVE.
 Aplicar como `postgres`, com a sonda antes (corpo sem BEGIN/COMMIT + sonda numa
 execução só) e depois, **antes** de mesclar o app que manda `p_de`/`p_ate` (sem
 a migration, essa chamada recebe PGRST202). O app publicado não é afetado: as
