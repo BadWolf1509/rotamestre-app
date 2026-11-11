@@ -101,7 +101,7 @@ COMMIT;
      migration under **its own timestamp**, not the filename's — see the drift
      section in `database/MIGRATIONS.md`.
    - `supabase db push` is only safe while the history has no pending files;
-     run `npx supabase migration list` first and confirm nothing shows as local
+     run `npx supabase migration list --remote` (na CLI 3.0, sem a flag lê o banco local) first and confirm nothing shows as local
      without a remote row.
    - Do **not** paste into the Dashboard SQL Editor: it applies the DDL without
      recording anything, which is what produced the historical drift.

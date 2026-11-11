@@ -146,5 +146,5 @@ Installed in `.claude/`:
 ---
 
 **Operational status:** see `docs/PROJECT_CONTEXT.md`. Read current versions from `package.json`, migration state from
-`npx supabase migration list`, and distribution state from EAS/Play Console.
+`npx supabase migration list --remote`, and distribution state from EAS/Play Console.
 Do not maintain another release snapshot in this architecture guide.

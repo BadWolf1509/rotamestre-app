@@ -53,13 +53,13 @@ npm run build:web
 
 Atalhos adicionais:
 
-| Comando                        | Uso                                 |
-| ------------------------------ | ----------------------------------- |
-| `npm run validate`             | type-check, lint e Jest             |
-| `npm run test:e2e`             | testes E2E com Playwright           |
-| `npm run test:visual`          | regressão visual                    |
-| `npm run verify:design-system` | validação dos tokens visuais        |
-| `npx supabase migration list`  | compara migrations locais e remotas |
+| Comando                                | Uso                                 |
+| -------------------------------------- | ----------------------------------- |
+| `npm run validate`                     | type-check, lint e Jest             |
+| `npm run test:e2e`                     | testes E2E com Playwright           |
+| `npm run test:visual`                  | regressão visual                    |
+| `npm run verify:design-system`         | validação dos tokens visuais        |
+| `npx supabase migration list --remote` | compara migrations locais e remotas |
 
 Antes de release Android, siga
 [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md); não gere um

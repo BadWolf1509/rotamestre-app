@@ -50,7 +50,7 @@ Never relevant for RLS policies, indexes, or triggers — those don't affect typ
 The repo has `supabase` in `devDependencies`, so use npx (no global install needed):
 
 ```bash
-npx supabase gen types typescript --project-id xezslsyxjivunmhhyxtd --schema public > src/types/database.ts
+npx supabase gen types typescript --remote=xezslsyxjivunmhhyxtd --schema public > src/types/database.ts
 ```
 
 If you need types for `auth`, `storage`, or other schemas, append `--schema auth` etc. and merge into a single file.

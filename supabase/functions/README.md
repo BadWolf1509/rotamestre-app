@@ -22,7 +22,7 @@ chamador (o roteamento é OSRM) e proxies abertos da chave Google.
 ## Deploy
 
 ```bash
-npx supabase functions deploy <fn> --no-verify-jwt --project-ref xezslsyxjivunmhhyxtd
+npx supabase functions deploy <fn> --no-verify-jwt --remote=xezslsyxjivunmhhyxtd
 ```
 
 O `--no-verify-jwt` é redundante com o `config.toml`, mas não custa. Para fora,
