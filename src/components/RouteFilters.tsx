@@ -9,49 +9,53 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
 
+import { SeletorPeriodo } from '@/components/periodo';
 import { ROUTE_STATUS_CONFIG } from '@/constants/statusConfig';
+import { ROTULO_PERIODO, textoPeriodo, type Periodo } from '@/lib/periodo';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
-  DateRangeFilterSection,
   MotoristaFilterSection,
   StatusFilterSection,
   countActiveFilters,
   type RouteFiltersProps,
   type RouteFiltersState,
-  type PeriodPreset,
 } from './route-filters';
-import { formatDate, getPresetDates } from './route-filters/utils';
 
 import type { Motorista } from './route-filters/types';
 
-// Re-export types for backwards compatibility
-export type { PeriodPreset, RouteFiltersState };
-export { getPresetDates };
+export type { RouteFiltersState };
 
 /**
  * Resumo dos filtros ativos para a barra recolhida do desktop: status,
- * período e motorista, nessa ordem ("Todos os status, hoje, todos os
- * motoristas"). Sem data, a Início lista as rotas de hoje.
+ * período e motorista, nessa ordem ("Todos os status, este mês, todos os
+ * motoristas").
  */
 function resumoDosFiltros(
   filters: RouteFiltersState,
+  periodo: Periodo,
   motoristas: Motorista[],
 ): string {
   const status = filters.status
     ? ROUTE_STATUS_CONFIG[filters.status].label
     : 'Todos os status';
-  return `${status}, ${periodoNaFrase(filters)}, ${motoristaNaFrase(filters, motoristas)}`;
+  return `${status}, ${periodoNoResumo(periodo)}, ${motoristaNaFrase(filters, motoristas)}`;
 }
 
-/** Período no meio da frase do resumo: em minúscula, "hoje" sem data. */
-function periodoNaFrase({ dataInicio, dataFim }: RouteFiltersState): string {
-  if (dataInicio && dataFim) {
-    return `${formatDate(dataInicio)} - ${formatDate(dataFim)}`;
+/**
+ * Período no meio da frase do resumo: o rótulo do atalho em minúscula, sem as
+ * datas (o seletor, aberto, as mostra), e as datas no personalizado.
+ */
+function periodoNoResumo(periodo: Periodo): string {
+  if (periodo.tipo !== 'personalizado') {
+    return ROTULO_PERIODO[periodo.tipo].toLowerCase();
   }
-  if (dataInicio) return `a partir de ${formatDate(dataInicio)}`;
-  if (dataFim) return `até ${formatDate(dataFim)}`;
-  return 'hoje';
+  // "Personalizado (01/10 a 15/10)" → "01/10 a 15/10": as datas vêm do mesmo
+  // `textoPeriodo` do seletor (ano só quando não é o corrente).
+  return textoPeriodo(periodo).slice(
+    ROTULO_PERIODO.personalizado.length + 2,
+    -1,
+  );
 }
 
 function motoristaNaFrase(
@@ -67,6 +71,8 @@ function motoristaNaFrase(
 export function RouteFilters({
   filters,
   onFiltersChange,
+  periodo,
+  onPeriodoChange,
   motoristas = [],
   variant = 'desktop',
 }: RouteFiltersProps) {
@@ -81,30 +87,20 @@ export function RouteFilters({
     onFiltersChange({ ...filters, status });
   };
 
-  const handleDateRangeChange = (
-    dataInicio: Date | null,
-    dataFim: Date | null,
-  ) => {
-    onFiltersChange({ ...filters, dataInicio, dataFim });
-  };
-
   const handleMotoristaChange = (motoristaId: string | null) => {
     onFiltersChange({ ...filters, motoristaId });
   };
 
+  // O período não entra: ele não conta como filtro ativo e tem seu seletor.
   const clearFilters = () => {
-    onFiltersChange({
-      status: null,
-      dataInicio: null,
-      dataFim: null,
-      motoristaId: null,
-    });
+    onFiltersChange({ status: null, motoristaId: null });
   };
 
   // Função de render, NUNCA componente declarado aqui dentro: usado como JSX (`<X />`),
   // cada re-render do pai daria um tipo novo ao React e remontaria a subárvore,
-  // zerando os estados internos do DateRangeFilterSection (calendário, intervalo
-  // em seleção) no meio da interação — sem erro no console. Ver CLAUDE.md.
+  // zerando os estados internos das seções (o seletor de período aberto, o
+  // personalizado em edição) no meio da interação — sem erro no console. Ver
+  // CLAUDE.md.
   const renderFilterContent = () => (
     <ScrollView style={styles.filterContainer}>
       <StatusFilterSection
@@ -112,11 +108,14 @@ export function RouteFilters({
         onStatusChange={handleStatusChange}
       />
 
-      <DateRangeFilterSection
-        dataInicio={filters.dataInicio}
-        dataFim={filters.dataFim}
-        onDateRangeChange={handleDateRangeChange}
-      />
+      <View style={styles.periodoSection}>
+        <Text style={styles.periodoTitle}>Período</Text>
+        <SeletorPeriodo
+          valor={periodo}
+          aoMudar={onPeriodoChange}
+          testID="filtro-periodo"
+        />
+      </View>
 
       <MotoristaFilterSection
         motoristaId={filters.motoristaId}
@@ -174,7 +173,7 @@ export function RouteFilters({
             style={styles.desktopResumo}
             numberOfLines={1}
           >
-            {resumoDosFiltros(filters, motoristas)}
+            {resumoDosFiltros(filters, periodo, motoristas)}
           </Text>
         </View>
         {aberto ? renderFilterContent() : null}
@@ -296,6 +295,16 @@ const styles = StyleSheet.create((theme: Theme) => ({
   filterContainer: {
     flex: 1,
     padding: theme.spacing.lg,
+  },
+  periodoSection: {
+    marginBottom: theme.spacing['2xl'],
+    alignItems: 'flex-start',
+  },
+  periodoTitle: {
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSansSemiBold,
+    color: theme.colors.gray600,
+    marginBottom: theme.spacing.md,
   },
   clearFiltersButton: {
     flexDirection: 'row',

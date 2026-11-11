@@ -6,6 +6,12 @@ import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 
 import { DashboardMobile } from '../DashboardMobile';
 
+// "Hoje" fixo: os textos do período ("este mês (01/11 a 30/11)") são exatos.
+jest.mock('@/lib/dateUtils', () => ({
+  ...jest.requireActual('@/lib/dateUtils'),
+  getTodayISO: () => '2026-11-10',
+}));
+
 // Mock expo-router
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -161,6 +167,9 @@ describe('DashboardMobile', () => {
     unidadeNome: 'WJX Locações',
     filters: {},
     onFiltersChange: jest.fn(),
+    periodo: { tipo: 'este_mes' } as const,
+    onPeriodoChange: jest.fn(),
+    listaCortada: false,
   };
 
   beforeEach(() => {
@@ -291,9 +300,11 @@ describe('DashboardMobile', () => {
       );
 
       expect(getByTestId('empty-state')).toBeTruthy();
-      expect(getByText('Nenhuma rota cadastrada hoje')).toBeTruthy();
       expect(
-        getByText('Crie sua primeira rota de entrega para começar'),
+        getByText('Nenhuma rota em este mês (01/11 a 30/11)'),
+      ).toBeTruthy();
+      expect(
+        getByText('Escolha outro período ou crie uma nova rota'),
       ).toBeTruthy();
     });
 
@@ -358,10 +369,30 @@ describe('DashboardMobile', () => {
       expect(getByText('Ações Rápidas')).toBeTruthy();
     });
 
-    it('deve mostrar seção Rotas de Hoje', () => {
-      const { getByText } = render(<DashboardMobile {...defaultProps} />);
+    it('a seção de rotas diz o período, não "de Hoje"', () => {
+      const { getByText, getByTestId, queryByText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
 
-      expect(getByText('Rotas de Hoje')).toBeTruthy();
+      expect(getByText('Rotas')).toBeTruthy();
+      expect(getByTestId('secao-rotas-periodo')).toHaveTextContent(
+        'Este mês (01/11 a 30/11)',
+      );
+      expect(queryByText('Rotas de Hoje')).toBeNull();
+    });
+
+    it('com a lista cortada ("Todo o período"), avisa que mostra só as 500 mais recentes', () => {
+      const { getByTestId } = render(
+        <DashboardMobile
+          {...defaultProps}
+          periodo={{ tipo: 'todo' }}
+          listaCortada
+        />,
+      );
+
+      expect(getByTestId('aviso-lista-cortada')).toHaveTextContent(
+        'Mostrando as 500 rotas mais recentes. Escolha um período para ver as demais.',
+      );
     });
   });
 

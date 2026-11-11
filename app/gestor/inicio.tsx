@@ -5,8 +5,10 @@ import { DashboardDesktop } from '@/components/gestor/dashboard/_components/desk
 import { DashboardMobile } from '@/components/gestor/dashboard/_components/mobile/DashboardMobile';
 import { useDashboardData } from '@/components/gestor/dashboard/_hooks/useDashboardData';
 import type { RouteFiltersState as RouteFilters } from '@/components/RouteFilters';
+import { usePeriodoLembrado } from '@/hooks/usePeriodoLembrado';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
+import { resolverPeriodo } from '@/lib/periodo';
 
 /**
  * Página inicial do gestor
@@ -16,10 +18,12 @@ export default function GestorInicio() {
   const { isDesktop } = useResponsive();
   const [filters, setFilters] = useState<RouteFilters>({
     status: null,
-    dataInicio: null,
-    dataFim: null,
     motoristaId: null,
   });
+  // Período lembrado no aparelho (padrão "Este mês"). Não é da loja: trocar de
+  // loja não mexe nele.
+  const { periodo, definirPeriodo, carregado } =
+    usePeriodoLembrado('inicio_gestor');
 
   // O motorista filtrado é de UMA loja: com a loja trocada pelo seletor, o id
   // dele não existe na nova e o painel mostraria "nenhuma rota". Ajuste
@@ -39,6 +43,8 @@ export default function GestorInicio() {
   const dashboardData = useDashboardData({
     // KPIs da semana/mês e o total de hoje só o mobile mostra.
     comKpis: !isDesktop,
+    // Antes de `carregado`, o período é o padrão, não o lembrado: não consulta.
+    periodo: carregado ? resolverPeriodo(periodo) : null,
     filters:
       lojaDosFiltros !== unidadeAtiva
         ? { ...filters, motoristaId: null }
@@ -54,6 +60,8 @@ export default function GestorInicio() {
           unidadeNome={unidadeAtivaData?.nome}
           filters={filters}
           onFiltersChange={setFilters}
+          periodo={periodo}
+          onPeriodoChange={definirPeriodo}
         />
       </ErrorBoundary>
     );
@@ -66,6 +74,8 @@ export default function GestorInicio() {
         unidadeNome={unidadeAtivaData?.nome}
         filters={filters}
         onFiltersChange={setFilters}
+        periodo={periodo}
+        onPeriodoChange={definirPeriodo}
       />
     </ErrorBoundary>
   );

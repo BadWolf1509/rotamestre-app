@@ -1,10 +1,12 @@
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 import { Platform } from 'react-native';
-import DateTimePickerModal from 'react-native-ui-datepicker';
 
-import { RouteFilters, getPresetDates } from '@/components/RouteFilters';
+import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState } from '@/components/RouteFilters';
+import type { Periodo } from '@/lib/periodo';
+
+const ESTE_MES: Periodo = { tipo: 'este_mes' };
 
 // Contador de montagens da seção de status: o prefixo `mock` é o que permite
 // referenciá-lo de dentro da factory do jest.mock. O wrapper é transparente
@@ -38,6 +40,7 @@ function renderAberto(ui: React.ReactElement) {
 
 describe('RouteFilters Component', () => {
   const mockOnFiltersChange = jest.fn();
+  const mockOnPeriodoChange = jest.fn();
   const mockMotoristas = [
     { id: 'motorista-1', nome: 'João Silva' },
     { id: 'motorista-2', nome: 'Maria Santos' },
@@ -45,8 +48,6 @@ describe('RouteFilters Component', () => {
 
   const defaultFilters: RouteFiltersState = {
     status: null,
-    dataInicio: null,
-    dataFim: null,
     motoristaId: null,
   };
 
@@ -56,62 +57,24 @@ describe('RouteFilters Component', () => {
     (Platform as any).OS = 'web';
   });
 
-  describe('Helpers', () => {
-    it('deve calcular datas padrao dos presets', () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const hoje = getPresetDates('hoje');
-      expect(hoje?.startDate.toDateString()).toBe(today.toDateString());
-      expect(hoje?.endDate.toDateString()).toBe(today.toDateString());
-
-      const ultimaSemana = getPresetDates('ultima_semana');
-      expect(ultimaSemana?.endDate.toDateString()).toBe(today.toDateString());
-      expect(ultimaSemana?.startDate.getTime()).toBeLessThan(
-        ultimaSemana!.endDate.getTime(),
-      );
-
-      const ultimoMes = getPresetDates('ultimo_mes');
-      expect(ultimoMes?.endDate.toDateString()).toBe(today.toDateString());
-      expect(ultimoMes?.startDate.getTime()).toBeLessThan(
-        ultimoMes!.endDate.getTime(),
-      );
-
-      const esteMes = getPresetDates('este_mes');
-      expect(esteMes?.startDate.getDate()).toBe(1);
-      expect(esteMes?.endDate.toDateString()).toBe(today.toDateString());
-    });
-  });
-
   describe('Desktop Variant', () => {
-    it('deve aplicar intervalo de data no fluxo web', () => {
-      (Platform as any).OS = 'web';
-      const start = new Date('2025-02-01');
-      const end = new Date('2025-02-05');
-
-      const { getByTestId, getByText, UNSAFE_getByType } = renderAberto(
+    it('escolher um atalho no seletor de período chama onPeriodoChange (não mexe nos filtros)', () => {
+      const { getByTestId } = renderAberto(
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
       );
 
-      fireEvent.press(getByTestId('filter-date-range'));
+      fireEvent.press(getByTestId('filtro-periodo'));
+      fireEvent.press(getByTestId('filtro-periodo-item-mes_passado'));
 
-      const datePicker = UNSAFE_getByType(DateTimePickerModal);
-      act(() => {
-        datePicker.props.onChange({ startDate: start, endDate: end });
-      });
-
-      fireEvent.press(getByText('Aplicar'));
-
-      expect(mockOnFiltersChange).toHaveBeenCalledWith({
-        ...defaultFilters,
-        dataInicio: start,
-        dataFim: end,
-      });
+      expect(mockOnPeriodoChange).toHaveBeenCalledWith({ tipo: 'mes_passado' });
+      expect(mockOnFiltersChange).not.toHaveBeenCalled();
     });
 
     it('deve renderizar todos os campos de filtro', () => {
@@ -119,6 +82,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -134,6 +99,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -158,6 +125,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={filtersWithStatus}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -177,6 +146,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -201,6 +172,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={filtersWithMotorista}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -215,11 +188,9 @@ describe('RouteFilters Component', () => {
       });
     });
 
-    it('deve limpar todos os filtros ao clicar em "Limpar Filtros"', () => {
+    it('"Limpar Filtros" limpa status e motorista, e o período fica', () => {
       const filtersWithData: RouteFiltersState = {
         status: 'em_andamento',
-        dataInicio: new Date('2025-01-01'),
-        dataFim: new Date('2025-01-31'),
         motoristaId: 'motorista-1',
       };
 
@@ -227,16 +198,17 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={filtersWithData}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
       );
 
-      // O botão mostra "Limpar Filtros (4)" porque há 4 filtros ativos
-      const clearButton = getByText(/Limpar Filtros/);
-      fireEvent.press(clearButton);
+      fireEvent.press(getByText('Limpar Filtros (2)'));
 
       expect(mockOnFiltersChange).toHaveBeenCalledWith(defaultFilters);
+      expect(mockOnPeriodoChange).not.toHaveBeenCalled();
     });
   });
 
@@ -246,6 +218,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -258,6 +232,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={{ ...defaultFilters }}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -265,93 +241,10 @@ describe('RouteFilters Component', () => {
 
       // Regressão da causa raiz: com `FilterContent` declarado como componente
       // dentro do render, cada re-render dava um TIPO novo ao React e
-      // remontava a subárvore inteira — o DateRangeFilterSection perdia os 6
-      // estados internos (calendário aberto, intervalo em seleção) no meio da
-      // interação, sem erro no console.
+      // remontava a subárvore inteira — as seções (e o seletor de período
+      // aberto) perdiam o estado interno no meio da interação, sem erro no
+      // console.
       expect(mockMontagensStatusSection.total).toBe(montagensIniciais);
-    });
-
-    it('deve aplicar filtro de data programaticamente', () => {
-      const { rerender } = renderAberto(
-        <RouteFilters
-          filters={defaultFilters}
-          onFiltersChange={mockOnFiltersChange}
-          motoristas={mockMotoristas}
-          variant="desktop"
-        />,
-      );
-
-      // Simular aplicação de filtro de data externamente
-      const newFilters: RouteFiltersState = {
-        ...defaultFilters,
-        dataInicio: new Date('2025-01-15'),
-      };
-
-      rerender(
-        <RouteFilters
-          filters={newFilters}
-          onFiltersChange={mockOnFiltersChange}
-          motoristas={mockMotoristas}
-          variant="desktop"
-        />,
-      );
-
-      // Verificar que o componente aceita o novo filtro
-      expect(newFilters.dataInicio).toBeTruthy();
-    });
-
-    it('deve aplicar período completo (dataInicio + dataFim)', () => {
-      const filtersWithPeriod: RouteFiltersState = {
-        ...defaultFilters,
-        dataInicio: new Date('2025-01-01'),
-        dataFim: new Date('2025-01-31'),
-      };
-
-      renderAberto(
-        <RouteFilters
-          filters={filtersWithPeriod}
-          onFiltersChange={mockOnFiltersChange}
-          motoristas={mockMotoristas}
-          variant="desktop"
-        />,
-      );
-
-      // Verificar que ambas as datas estão definidas
-      expect(filtersWithPeriod.dataInicio).toBeTruthy();
-      expect(filtersWithPeriod.dataFim).toBeTruthy();
-    });
-
-    it('deve limpar filtro de data ao definir como null', () => {
-      const filtersWithDate: RouteFiltersState = {
-        ...defaultFilters,
-        dataInicio: new Date('2025-01-15'),
-      };
-
-      const { rerender } = renderAberto(
-        <RouteFilters
-          filters={filtersWithDate}
-          onFiltersChange={mockOnFiltersChange}
-          motoristas={mockMotoristas}
-          variant="desktop"
-        />,
-      );
-
-      // Simular limpeza de filtro
-      const clearedFilters: RouteFiltersState = {
-        ...filtersWithDate,
-        dataInicio: null,
-      };
-
-      rerender(
-        <RouteFilters
-          filters={clearedFilters}
-          onFiltersChange={mockOnFiltersChange}
-          motoristas={mockMotoristas}
-          variant="desktop"
-        />,
-      );
-
-      expect(clearedFilters.dataInicio).toBeNull();
     });
   });
 
@@ -361,6 +254,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="mobile"
         />,
@@ -374,6 +269,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="mobile"
         />,
@@ -391,8 +288,6 @@ describe('RouteFilters Component', () => {
     it('deve mostrar badge com contagem quando filtros ativos', () => {
       const filtersWithData: RouteFiltersState = {
         status: 'em_andamento',
-        dataInicio: new Date('2025-01-01'),
-        dataFim: null,
         motoristaId: null,
       };
 
@@ -400,13 +295,15 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={filtersWithData}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
       );
 
-      // Badge deve mostrar "2" (status + dataInicio)
-      expect(getByText('2')).toBeTruthy();
+      // O período não conta: sempre há um (o padrão é "Este mês").
+      expect(getByText('1')).toBeTruthy();
     });
 
     it('não deve mostrar badge quando nenhum filtro ativo', () => {
@@ -414,6 +311,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={defaultFilters}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -425,8 +324,6 @@ describe('RouteFilters Component', () => {
     it('deve contar todos os filtros ativos corretamente', () => {
       const filtersWithAllActive: RouteFiltersState = {
         status: 'em_andamento',
-        dataInicio: new Date('2025-01-01'),
-        dataFim: new Date('2025-01-31'),
         motoristaId: 'motorista-1',
       };
 
@@ -434,46 +331,22 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={filtersWithAllActive}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
       );
 
-      // Badge deve mostrar "4" (status + dataInicio + dataFim + motoristaId)
-      expect(getByText('4')).toBeTruthy();
+      // Badge deve mostrar "2" (status + motoristaId)
+      expect(getByText('2')).toBeTruthy();
     });
   });
 
   describe('Multiple Filters', () => {
-    it('deve aplicar múltiplos filtros simultaneamente', () => {
-      const multipleFilters: RouteFiltersState = {
-        status: 'em_andamento',
-        dataInicio: new Date('2025-01-01'),
-        dataFim: new Date('2025-01-31'),
-        motoristaId: 'motorista-1',
-      };
-
-      renderAberto(
-        <RouteFilters
-          filters={multipleFilters}
-          onFiltersChange={mockOnFiltersChange}
-          motoristas={mockMotoristas}
-          variant="desktop"
-        />,
-      );
-
-      // Verificar que todos os filtros estão aplicados
-      expect(multipleFilters.status).toBe('em_andamento');
-      expect(multipleFilters.dataInicio).toBeTruthy();
-      expect(multipleFilters.dataFim).toBeTruthy();
-      expect(multipleFilters.motoristaId).toBe('motorista-1');
-    });
-
     it('deve limpar filtros individuais mantendo os outros', () => {
       const filtersWithMultiple: RouteFiltersState = {
         status: 'em_andamento',
-        dataInicio: new Date('2025-01-01'),
-        dataFim: new Date('2025-01-31'),
         motoristaId: 'motorista-1',
       };
 
@@ -481,6 +354,8 @@ describe('RouteFilters Component', () => {
         <RouteFilters
           filters={filtersWithMultiple}
           onFiltersChange={mockOnFiltersChange}
+          periodo={ESTE_MES}
+          onPeriodoChange={mockOnPeriodoChange}
           motoristas={mockMotoristas}
           variant="desktop"
         />,
@@ -492,8 +367,6 @@ describe('RouteFilters Component', () => {
 
       expect(mockOnFiltersChange).toHaveBeenCalledWith({
         status: null, // Limpo
-        dataInicio: filtersWithMultiple.dataInicio, // Mantido
-        dataFim: filtersWithMultiple.dataFim, // Mantido
         motoristaId: filtersWithMultiple.motoristaId, // Mantido
       });
     });

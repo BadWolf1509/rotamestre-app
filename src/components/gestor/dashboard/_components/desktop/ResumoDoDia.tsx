@@ -1,5 +1,5 @@
 /**
- * ResumoDoDia — "como está o dia" numa frase, no topo da Início desktop.
+ * ResumoDoDia — "como está o período" numa frase, no topo da Início desktop.
  *
  * "3 rotas em andamento, 2 pendentes, 1 concluída — 12 de 40 paradas feitas,
  * 48,5 km". Status com zero rota sai da frase; a concordância é do `plural`.

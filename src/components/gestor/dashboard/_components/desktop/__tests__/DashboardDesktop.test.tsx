@@ -3,6 +3,12 @@ import React from 'react';
 
 import { DashboardDesktop } from '../DashboardDesktop';
 
+// "Hoje" fixo: os textos do período ("este mês (01/11 a 30/11)") são exatos.
+jest.mock('@/lib/dateUtils', () => ({
+  ...jest.requireActual('@/lib/dateUtils'),
+  getTodayISO: () => '2026-11-10',
+}));
+
 // Mock expo-router
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -131,6 +137,9 @@ describe('DashboardDesktop', () => {
     },
     filters: {},
     onFiltersChange: jest.fn(),
+    periodo: { tipo: 'este_mes' },
+    onPeriodoChange: jest.fn(),
+    listaCortada: false,
   } as unknown as React.ComponentProps<typeof DashboardDesktop>;
 
   beforeEach(() => {
@@ -218,21 +227,23 @@ describe('DashboardDesktop', () => {
       // O ResumoDoDia acima diz a mesma frase.
       expect(
         within(getByTestId('rotas-table')).getByText(
-          'Nenhuma rota cadastrada hoje',
+          'Nenhuma rota em este mês (01/11 a 30/11)',
         ),
       ).toBeTruthy();
       fireEvent.press(getByRole('button', { name: 'Criar rota' }));
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
     });
 
-    it('sem filtro, o resumo diz o mesmo que o vazio ("hoje"), não "no período"', () => {
+    it('sem filtro, o resumo diz o mesmo que o vazio (o período), sem "hoje"', () => {
       const { getByTestId } = render(
         <DashboardDesktop {...defaultProps} rotas={[]} />,
       );
 
       const resumo = getByTestId('gestor-dashboard-resumo');
-      expect(resumo).toHaveTextContent('Nenhuma rota cadastrada hoje');
-      expect(resumo).not.toHaveTextContent(/no período/);
+      expect(resumo).toHaveTextContent(
+        'Nenhuma rota em este mês (01/11 a 30/11)',
+      );
+      expect(resumo).not.toHaveTextContent(/hoje/);
     });
 
     it('com filtro só de status ou motorista, o vazio fala dos filtros, não de criar a primeira rota', () => {
@@ -245,38 +256,58 @@ describe('DashboardDesktop', () => {
       );
 
       const vazio = within(getByTestId('rotas-table'));
-      expect(
-        vazio.getByText('Nenhuma rota hoje com esses filtros'),
-      ).toBeTruthy();
+      const titulo =
+        'Nenhuma rota em este mês (01/11 a 30/11) com esses filtros';
+      expect(vazio.getByText(titulo)).toBeTruthy();
       expect(
         vazio.getByText('Ajuste os filtros ou crie uma nova rota'),
       ).toBeTruthy();
-      expect(queryByText('Nenhuma rota cadastrada hoje')).toBeNull();
       expect(queryByText(/primeira rota/)).toBeNull();
-      expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(
-        'Nenhuma rota hoje com esses filtros',
-      );
+      expect(getByTestId('gestor-dashboard-resumo')).toHaveTextContent(titulo);
     });
 
-    it('com filtro de período o vazio fala do período, sem "hoje", e mantém "Criar rota"', () => {
+    it('com outro período, o vazio fala dele e mantém "Criar rota"', () => {
       const { getByTestId, getByRole, queryByText } = render(
         <DashboardDesktop
           {...defaultProps}
           rotas={[]}
-          filters={{
-            dataInicio: new Date(2026, 10, 1),
-            dataFim: new Date(2026, 10, 5),
+          periodo={{
+            tipo: 'personalizado',
+            de: '2026-11-01',
+            ate: '2026-11-05',
           }}
         />,
       );
 
-      // O ResumoDoDia acima também diz "Nenhuma rota no período".
       const vazio = within(getByTestId('rotas-table'));
-      expect(vazio.getByText('Nenhuma rota no período')).toBeTruthy();
-      expect(queryByText('Nenhuma rota cadastrada hoje')).toBeNull();
+      expect(
+        vazio.getByText('Nenhuma rota em personalizado (01/11 a 05/11)'),
+      ).toBeTruthy();
       expect(queryByText(/do dia/)).toBeNull();
       fireEvent.press(getByRole('button', { name: 'Criar rota' }));
       expect(mockPush).toHaveBeenCalledWith('/gestor/nova-entrega');
+    });
+  });
+
+  describe('Lista cortada ("Todo o período")', () => {
+    it('com a lista cortada, avisa que mostra só as 500 mais recentes', () => {
+      const { getByTestId } = render(
+        <DashboardDesktop
+          {...defaultProps}
+          periodo={{ tipo: 'todo' }}
+          listaCortada
+        />,
+      );
+
+      expect(getByTestId('aviso-lista-cortada')).toHaveTextContent(
+        'Mostrando as 500 rotas mais recentes. Escolha um período para ver as demais.',
+      );
+    });
+
+    it('sem corte, não há aviso', () => {
+      const { queryByTestId } = render(<DashboardDesktop {...defaultProps} />);
+
+      expect(queryByTestId('aviso-lista-cortada')).toBeNull();
     });
   });
 

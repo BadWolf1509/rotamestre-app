@@ -1,27 +1,30 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 
+import type { Periodo } from '@/lib/periodo';
+
 import { RouteFilters } from '../RouteFilters';
 
-// Mock DateTimePicker
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 
-// Mock DateTimePickerModal
 jest.mock('react-native-ui-datepicker', () => ({
   __esModule: true,
   default: () => null,
   useDefaultStyles: () => ({}),
 }));
 
-// Mock Ionicons
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: 'Ionicons',
 }));
+
+const ESTE_MES: Periodo = { tipo: 'este_mes' };
 
 describe('RouteFilters', () => {
   const defaultProps = {
     filters: {},
     onFiltersChange: jest.fn(),
+    periodo: ESTE_MES,
+    onPeriodoChange: jest.fn(),
   };
 
   beforeEach(() => {
@@ -34,131 +37,9 @@ describe('RouteFilters', () => {
       expect(toJSON()).toBeTruthy();
     });
 
-    it('deve renderizar variante desktop', () => {
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} variant="desktop" />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
     it('deve renderizar variante mobile', () => {
       const { toJSON } = render(
         <RouteFilters {...defaultProps} variant="mobile" />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve renderizar com motoristas', () => {
-      const motoristas = [
-        { id: 'mot-1', nome: 'Motorista 1' },
-        { id: 'mot-2', nome: 'Motorista 2' },
-      ];
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} motoristas={motoristas} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-  });
-
-  describe('Filters', () => {
-    it('deve aceitar filtro de status', () => {
-      const filters = { status: 'em_andamento' as const };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve aceitar filtro de dataInicio', () => {
-      const filters = { dataInicio: new Date('2025-01-01') };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve aceitar filtro de dataFim', () => {
-      const filters = { dataFim: new Date('2025-01-31') };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve aceitar filtro de motoristaId', () => {
-      const filters = { motoristaId: 'motorista-1' };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve aceitar todos os filtros', () => {
-      const filters = {
-        status: 'concluida' as const,
-        dataInicio: new Date('2025-01-01'),
-        dataFim: new Date('2025-01-31'),
-        motoristaId: 'mot-1',
-      };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-  });
-
-  describe('Callbacks', () => {
-    it('deve ter onFiltersChange como funcao', () => {
-      const onFiltersChange = jest.fn();
-
-      render(
-        <RouteFilters {...defaultProps} onFiltersChange={onFiltersChange} />,
-      );
-
-      expect(typeof onFiltersChange).toBe('function');
-    });
-  });
-
-  describe('Status options', () => {
-    it('deve renderizar sem status selecionado', () => {
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={{ status: null }} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve renderizar com status pendente', () => {
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={{ status: 'pendente' }} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve renderizar com status concluida', () => {
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={{ status: 'concluida' }} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve renderizar com status cancelada', () => {
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={{ status: 'cancelada' }} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-  });
-
-  describe('Empty states', () => {
-    it('deve renderizar com filtros vazios', () => {
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={{}} />,
       );
       expect(toJSON()).toBeTruthy();
     });
@@ -171,43 +52,6 @@ describe('RouteFilters', () => {
     });
   });
 
-  describe('Date handling', () => {
-    it('deve aceitar datas nulas', () => {
-      const filters = {
-        dataInicio: null,
-        dataFim: null,
-      };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve aceitar data de inicio sem data fim', () => {
-      const filters = {
-        dataInicio: new Date('2025-01-01'),
-        dataFim: null,
-      };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-
-    it('deve aceitar data fim sem data inicio', () => {
-      const filters = {
-        dataInicio: null,
-        dataFim: new Date('2025-01-31'),
-      };
-
-      const { toJSON } = render(
-        <RouteFilters {...defaultProps} filters={filters} />,
-      );
-      expect(toJSON()).toBeTruthy();
-    });
-  });
   describe('Desktop recolhido', () => {
     const motoristas = [
       { id: 'mot-1', nome: 'Ana Souza' },
@@ -232,7 +76,7 @@ describe('RouteFilters', () => {
       expect(queryByText('Motorista')).toBeNull();
     });
 
-    it('tocar em "Filtros" mostra as seções', () => {
+    it('tocar em "Filtros" mostra as seções, com o seletor de período', () => {
       const { getByTestId, getByText } = render(
         <RouteFilters
           {...defaultProps}
@@ -249,9 +93,12 @@ describe('RouteFilters', () => {
       expect(getByText('Status')).toBeTruthy();
       expect(getByText('Período')).toBeTruthy();
       expect(getByText('Motorista')).toBeTruthy();
+      expect(getByTestId('filtro-periodo')).toBeTruthy();
+      // O "Selecionar período" antigo saiu.
+      expect(() => getByTestId('filter-date-range')).toThrow();
     });
 
-    it('sem filtro, o resumo diz o padrão', () => {
+    it('sem filtro, o resumo diz o padrão: "este mês" em minúscula, sem datas', () => {
       const { getByTestId } = render(
         <RouteFilters
           {...defaultProps}
@@ -261,7 +108,7 @@ describe('RouteFilters', () => {
       );
 
       expect(getByTestId('route-filters-resumo')).toHaveTextContent(
-        'Todos os status, hoje, todos os motoristas',
+        'Todos os status, este mês, todos os motoristas',
       );
     });
 
@@ -272,33 +119,35 @@ describe('RouteFilters', () => {
           motoristas={motoristas}
           variant="desktop"
           filters={{ status: 'em_andamento', motoristaId: 'mot-2' }}
+          periodo={{ tipo: 'semana_passada' }}
         />,
       );
 
       expect(getByTestId('route-filters-resumo')).toHaveTextContent(
-        'Em andamento, hoje, Bia Lima',
+        'Em andamento, semana passada, Bia Lima',
       );
     });
 
-    it.each([
-      [{ dataInicio: new Date(2026, 10, 1) }, 'a partir de 01/11/2026'],
-      [{ dataFim: new Date(2026, 10, 5) }, 'até 05/11/2026'],
-    ])(
-      'no meio da frase, o período fica em minúscula (%o)',
-      (datas, trecho) => {
-        const { getByTestId } = render(
-          <RouteFilters
-            {...defaultProps}
-            motoristas={motoristas}
-            variant="desktop"
-            filters={datas}
-          />,
-        );
+    it.each<[Periodo, string]>([
+      [{ tipo: 'todo' }, 'todo o período'],
+      [{ tipo: 'hoje' }, 'hoje'],
+      [
+        { tipo: 'personalizado', de: '2020-10-01', ate: '2020-10-15' },
+        '01/10/2020 a 15/10/2020',
+      ],
+    ])('o período no resumo (%o)', (periodo, trecho) => {
+      const { getByTestId } = render(
+        <RouteFilters
+          {...defaultProps}
+          motoristas={motoristas}
+          variant="desktop"
+          periodo={periodo}
+        />,
+      );
 
-        expect(getByTestId('route-filters-resumo')).toHaveTextContent(
-          `Todos os status, ${trecho}, todos os motoristas`,
-        );
-      },
-    );
+      expect(getByTestId('route-filters-resumo')).toHaveTextContent(
+        `Todos os status, ${trecho}, todos os motoristas`,
+      );
+    });
   });
 });

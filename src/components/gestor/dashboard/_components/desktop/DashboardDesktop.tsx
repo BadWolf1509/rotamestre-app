@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { View, RefreshControl } from 'react-native';
+import { View, RefreshControl, Text } from 'react-native';
 
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
 import { RouteFilters } from '@/components/RouteFilters';
@@ -11,44 +11,22 @@ import { useExclusaoDeRota } from '@/hooks/gestao-rotas/useExclusaoDeRota';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { useToast } from '@/hooks/useToast';
+import type { Periodo } from '@/lib/periodo';
 import { StyleSheet, type Theme } from '@/utils/styles';
 
 import { ListaDeRotasDoDia } from './ListaDeRotasDoDia';
 import { ResumoDoDia } from './ResumoDoDia';
+import { AVISO_LISTA_CORTADA, textosDoVazio } from '../shared/textosDoPeriodo';
 
 import type { DashboardData } from '../../_hooks/useDashboardData';
-
-/**
- * O que a Início diz sem rota, no vazio e no resumo (a mesma frase nos dois).
- * Sem período a lista é a de hoje; com ele, não se fala em "hoje". Com filtro
- * de status ou motorista, o dia pode ter rota que o filtro esconde: nada de
- * "crie a primeira rota".
- */
-function textosDoVazio(filters: RouteFiltersType): {
-  titulo: string;
-  descricao: string;
-} {
-  const ajusteOsFiltros = 'Ajuste os filtros ou crie uma nova rota';
-  if (filters.dataInicio || filters.dataFim) {
-    return { titulo: 'Nenhuma rota no período', descricao: ajusteOsFiltros };
-  }
-  if (filters.status || filters.motoristaId) {
-    return {
-      titulo: 'Nenhuma rota hoje com esses filtros',
-      descricao: ajusteOsFiltros,
-    };
-  }
-  return {
-    titulo: 'Nenhuma rota cadastrada hoje',
-    descricao: 'Crie a primeira rota de entrega do dia',
-  };
-}
 
 interface DashboardDesktopProps extends DashboardData {
   /** Nome da loja ATIVA (seletor), não a do perfil. */
   unidadeNome?: string | null;
   filters: RouteFiltersType;
   onFiltersChange: (filters: RouteFiltersType) => void;
+  periodo: Periodo;
+  onPeriodoChange: (periodo: Periodo) => void;
 }
 
 /**
@@ -58,6 +36,7 @@ interface DashboardDesktopProps extends DashboardData {
 export function DashboardDesktop({
   stats,
   rotas,
+  listaCortada,
   loading,
   refreshing,
   erroCarga,
@@ -67,6 +46,8 @@ export function DashboardDesktop({
   userData, // Receber userData como prop ao invés de usar useUser
   filters,
   onFiltersChange,
+  periodo,
+  onPeriodoChange,
 }: DashboardDesktopProps) {
   const router = useRouter();
 
@@ -105,7 +86,7 @@ export function DashboardDesktop({
     [router],
   );
 
-  const vazio = textosDoVazio(filters);
+  const vazio = textosDoVazio(periodo, filters);
 
   const irParaNovaRota = useCallback(() => {
     router.push('/gestor/nova-entrega');
@@ -163,10 +144,18 @@ export function DashboardDesktop({
             <RouteFilters
               filters={filters}
               onFiltersChange={onFiltersChange}
+              periodo={periodo}
+              onPeriodoChange={onPeriodoChange}
               motoristas={motoristas}
               variant="desktop"
             />
           </View>
+
+          {listaCortada ? (
+            <Text testID="aviso-lista-cortada" style={styles.avisoListaCortada}>
+              {AVISO_LISTA_CORTADA}
+            </Text>
+          ) : null}
 
           {rotas.length === 0 ? (
             <View testID="rotas-table">
@@ -208,6 +197,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   filtersSection: {
     marginBottom: theme.spacing.lg,
+  },
+  avisoListaCortada: {
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray600,
+    marginBottom: theme.spacing.md,
   },
   emptyState: {
     backgroundColor: theme.colors.surface,

@@ -8,6 +8,7 @@ import { nomeMotoristaDaRota } from '@/lib/gestor/consultaRotas';
 import { dadosDeTesteDoInicio } from '@/lib/gestor/dadosDeTeste';
 import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { logger } from '@/lib/logger';
+import { resolverPeriodo, type IntervaloDatas } from '@/lib/periodo';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { StatusParada } from '@/types/rota';
 import type { Usuario } from '@/types/usuario';
@@ -62,6 +63,11 @@ export interface DashboardData {
   todayStats: TodayStats;
   kpis: KPIs;
   rotas: RotaResumo[];
+  /**
+   * A lista sem início ("Todo o período") bateu no limite
+   * (`LIMITE_ROTAS_SEM_INICIO`): a tela avisa que mostra só as mais recentes.
+   */
+  listaCortada: boolean;
   loading: boolean;
   refreshing: boolean;
   /** Erro da última carga (null = ok). */
@@ -73,10 +79,13 @@ export interface DashboardData {
 }
 
 export interface UseDashboardDataOptions {
+  /**
+   * Intervalo do período escolhido (`resolverPeriodo`). `null` = o período
+   * lembrado ainda não carregou: nada é consultado e a tela segue carregando.
+   */
+  periodo: IntervaloDatas | null;
   filters?: {
     status?: string | null;
-    dataInicio?: Date | null;
-    dataFim?: Date | null;
     motoristaId?: string | null;
   };
   /**
@@ -111,16 +120,6 @@ interface LinhaRota {
         ordem?: number | null;
       }[]
     | null;
-}
-
-/**
- * Valida e formata uma data para string ISO (YYYY-MM-DD)
- */
-function formatDateToISO(date: Date | null | undefined): string | null {
-  if (!date) return null;
-  const parsed = new Date(date);
-  if (isNaN(parsed.getTime())) return null;
-  return toLocalISODate(parsed);
 }
 
 /**
@@ -259,14 +258,19 @@ function kpisDaLista(
 }
 
 /**
- * Janela máxima de um período aberto (só `dataInicio`), em dias à frente do
- * início efetivo. Alternativa comparada: limite de linhas + aviso "mostrando
- * as N mais recentes". Ficou o teto de data porque (a) a consulta carrega as
- * paradas embutidas e o custo cresce com as rotas futuras, (b) corte por linhas
- * esconderia rotas de forma arbitrária e exigiria estado/aviso novo na tela, e
- * (c) rota agendada com mais de 60 dias é rara; quem precisa informa `dataFim`.
+ * Janela máxima à frente de hoje quando o período não tem fim. Todo atalho e o
+ * personalizado têm fim, então isso só vale para "Todo o período". A consulta
+ * carrega as paradas embutidas e o custo cresce com as rotas futuras; rota
+ * agendada com mais de 60 dias é rara, e quem precisa escolhe um período.
  */
 const JANELA_PERIODO_ABERTO_DIAS = 60;
+
+/**
+ * Teto de linhas da lista sem início ("Todo o período"), da mais recente para
+ * trás. Sem ele, o teto de 1.000 linhas do PostgREST cortaria a lista calado;
+ * com ele, a tela avisa (`listaCortada`).
+ */
+export const LIMITE_ROTAS_SEM_INICIO = 500;
 
 function tetoDoPeriodoAberto(inicio: string): string {
   const base = parseLocalDate(inicio) ?? new Date();
@@ -276,17 +280,23 @@ function tetoDoPeriodoAberto(inicio: string): string {
 
 interface FiltrosDaLista {
   unidadeId: string;
-  dataInicioStr: string | null;
-  dataFimStr: string | null;
+  de: string | null;
+  ate: string | null;
   filtroStatus: string | null;
   filtroMotoristaId: string | null;
+}
+
+interface ListaDoPeriodo {
+  rotas: RotaResumo[];
+  /** Havia mais rotas que `LIMITE_ROTAS_SEM_INICIO` (só sem início). */
+  cortada: boolean;
 }
 
 /**
  * Rotas do período/filtro COM paradas numa query só (JOIN). Com
  * `buscarTotalHoje`, é o que muda com um evento de rota/parada.
  */
-async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
+async function buscarLista(f: FiltrosDaLista): Promise<ListaDoPeriodo> {
   const hoje = getTodayISO();
   let query = supabase
     .from('rotas')
@@ -303,29 +313,30 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
     )
     .eq('unidade_id', f.unidadeId);
 
-  // Aplicar filtros de data
-  if (!f.dataInicioStr && !f.dataFimStr) {
-    // Por padrão, só as rotas de HOJE. Era `gte(hoje)` sem limite
-    // superior: "hoje" incluía as rotas já agendadas para amanhã.
-    query = query.eq('data', hoje);
-  } else {
-    const inicio = f.dataInicioStr ?? hoje;
-    query = query.gte('data', inicio);
-    // Sem dataFim a consulta não tinha teto; a partir de hoje (ou do início,
-    // se for futuro) vale a janela fixa.
-    const fim =
-      f.dataFimStr ?? tetoDoPeriodoAberto(inicio > hoje ? inicio : hoje);
-    query = query.lte('data', fim);
-  }
+  // Intervalo fechado em `data` (coluna `date`: comparação de texto
+  // 'AAAA-MM-DD', sem `new Date`). Sem fim ("Todo o período"), vale a janela
+  // fixa a partir de hoje (ou do início, se for futuro).
+  if (f.de) query = query.gte('data', f.de);
+  const inicioDoTeto = f.de && f.de > hoje ? f.de : hoje;
+  query = query.lte('data', f.ate ?? tetoDoPeriodoAberto(inicioDoTeto));
   if (f.filtroStatus) query = query.eq('status', f.filtroStatus);
   if (f.filtroMotoristaId) {
     query = query.eq('motorista_id', f.filtroMotoristaId);
   }
-  query = query.order('created_at', { ascending: false });
+  // Índice `idx_rotas_unidade_data_id` (Migration 90).
+  query = query
+    .order('data', { ascending: false })
+    .order('id', { ascending: false });
+  // Sem início, a lista não tem fim para trás: limite com aviso. Pede uma a
+  // mais para saber se havia mais (exatamente 500 não é "cortada").
+  const semInicio = f.de === null;
+  if (semInicio) query = query.limit(LIMITE_ROTAS_SEM_INICIO + 1);
 
   const { data: rotasData, error: rotasError } = await query;
   if (rotasError) throw rotasError;
-  const linhas = rotasData || [];
+  const todas = rotasData || [];
+  const cortada = semInicio && todas.length > LIMITE_ROTAS_SEM_INICIO;
+  const linhas = cortada ? todas.slice(0, LIMITE_ROTAS_SEM_INICIO) : todas;
   // Só as rotas com o motorista escondido pela RLS vão à RPC (em geral,
   // nenhuma: sem chamada). Erro dela não derruba a lista (Map vazio).
   const nomesForaDaLoja = await buscarNomesForaDaLoja(
@@ -335,7 +346,10 @@ async function buscarLista(f: FiltrosDaLista): Promise<RotaResumo[]> {
       nomeVisivel: nomeDoEmbed(r.usuarios),
     })),
   );
-  return processarRotasComParadas(linhas, nomesForaDaLoja);
+  return {
+    rotas: processarRotasComParadas(linhas, nomesForaDaLoja),
+    cortada,
+  };
 }
 
 /** Rotas de hoje da loja (ignora os filtros). null = a consulta falhou. */
@@ -371,14 +385,16 @@ const KPIS_VAZIO: KPIs = {
  * Usado tanto na versão mobile quanto desktop
  */
 export function useDashboardData(
-  options: UseDashboardDataOptions = {},
+  options: UseDashboardDataOptions,
 ): DashboardData {
-  const { filters, comKpis = true } = options;
-  // Filtros por VALOR (primitivos), não pela identidade do objeto: quem
-  // chama com `{ status }` literal criaria um objeto novo a cada render, e
-  // como toda carga nova agora roda, isso viraria recarga em laço.
-  const dataInicioStr = formatDateToISO(filters?.dataInicio);
-  const dataFimStr = formatDateToISO(filters?.dataFim);
+  const { periodo, filters, comKpis = true } = options;
+  // Filtros e período por VALOR (primitivos), não pela identidade do objeto:
+  // quem chama com `{ status }` literal (ou com o intervalo resolvido a cada
+  // render) criaria um objeto novo a cada render, e como toda carga nova
+  // roda, isso viraria recarga em laço.
+  const periodoPronto = periodo !== null;
+  const de = periodo?.de ?? null;
+  const ate = periodo?.ate ?? null;
   const filtroStatus = filters?.status ?? null;
   const filtroMotoristaId = filters?.motoristaId ?? null;
   const { userData } = useUser();
@@ -391,6 +407,7 @@ export function useDashboardData(
   const [todayStats, setTodayStats] = useState<TodayStats>(HOJE_VAZIO);
   const [kpis, setKpis] = useState<KPIs>(KPIS_VAZIO);
   const [rotas, setRotas] = useState<RotaResumo[]>([]);
+  const [listaCortada, setListaCortada] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [erroCarga, setErroCarga] = useState<string | null>(null);
@@ -426,7 +443,8 @@ export function useDashboardData(
   // ============================================================================
   const fetchDashboardData = useCallback(
     async (isRefresh = false) => {
-      if (!mountedRef.current) return;
+      // Período lembrado ainda carregando: consultar agora seria pelo padrão.
+      if (!mountedRef.current || !periodoPronto) return;
 
       const minhaLista = ++requisicaoListaRef.current;
       const minhaCompleta = ++requisicaoCompletaRef.current;
@@ -450,6 +468,7 @@ export function useDashboardData(
         setTodayStats(HOJE_VAZIO);
         setKpis(KPIS_VAZIO);
         setRotas([]);
+        setListaCortada(false);
         setErroCarga(null);
         setDadosDe(null);
       };
@@ -495,6 +514,7 @@ export function useDashboardData(
 
           const teste = dadosDeTesteDoInicio();
           setRotas(teste.rotas);
+          setListaCortada(false);
           setIncidentesAbertos(teste.stats.incidentesAbertos ?? 0);
           setTodayStats(teste.todayStats);
           setKpis(teste.kpis);
@@ -508,8 +528,8 @@ export function useDashboardData(
         // incidentes e KPIs de semana/mês (só na carga completa).
         const listaPromise = buscarLista({
           unidadeId,
-          dataInicioStr,
-          dataFimStr,
+          de,
+          ate,
           filtroStatus,
           filtroMotoristaId,
         });
@@ -545,12 +565,14 @@ export function useDashboardData(
 
         // =====================================================================
         // BUSCAR KPIS (semana e mês) - só na carga completa (inicial, filtro,
-        // refresh manual); eventos de realtime não refazem (DP-7)
+        // refresh manual); eventos de realtime não refazem (DP-7). Fixos,
+        // independentes do período escolhido: a semana começa na segunda, e
+        // os dois vão só até hoje (não contam o futuro).
         // =====================================================================
-        const agora = new Date();
-        const inicioSemana = new Date(agora);
-        inicioSemana.setDate(agora.getDate() - agora.getDay());
-        const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+        const inicioSemana =
+          resolverPeriodo({ tipo: 'esta_semana' }, hoje).de ?? hoje;
+        const inicioMes =
+          resolverPeriodo({ tipo: 'este_mes' }, hoje).de ?? hoje;
 
         const kpisPromise = comKpis
           ? Promise.all([
@@ -560,7 +582,7 @@ export function useDashboardData(
                   'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
                 )
                 .eq('unidade_id', unidadeId)
-                .gte('data', toLocalISODate(inicioSemana))
+                .gte('data', inicioSemana)
                 .lte('data', hoje),
               supabase
                 .from('rotas')
@@ -568,16 +590,19 @@ export function useDashboardData(
                   'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
                 )
                 .eq('unidade_id', unidadeId)
-                .gte('data', toLocalISODate(inicioMes))
+                .gte('data', inicioMes)
                 .lte('data', hoje),
             ])
           : null;
 
         // Executar queries em paralelo
         // A lista aparece assim que chega, sem esperar o resto.
-        const rotasComDetalhes = await listaPromise;
+        const { rotas: rotasComDetalhes, cortada } = await listaPromise;
         // Um evento depois desta carga já trouxe lista mais nova: ela fica.
-        if (listaVigente()) setRotas(rotasComDetalhes);
+        if (listaVigente()) {
+          setRotas(rotasComDetalhes);
+          setListaCortada(cortada);
+        }
         if (!vigente()) return;
 
         const [totalHoje, incidentes, kpisResult] = await Promise.all([
@@ -685,8 +710,9 @@ export function useDashboardData(
     },
     [
       unidadeId,
-      dataInicioStr,
-      dataFimStr,
+      periodoPronto,
+      de,
+      ate,
       filtroStatus,
       filtroMotoristaId,
       comKpis,
@@ -717,7 +743,14 @@ export function useDashboardData(
   // lista). Antes cada evento rodava as 5 consultas, inclusive as de KPI da
   // semana e do mês — as mais pesadas, e que um evento quase não muda (DP-7).
   const carregarAoVivo = useCallback(async () => {
-    if (!mountedRef.current || !unidadeId || !isSupabaseConfigured) return;
+    if (
+      !mountedRef.current ||
+      !periodoPronto ||
+      !unidadeId ||
+      !isSupabaseConfigured
+    ) {
+      return;
+    }
     const minhaLista = ++requisicaoListaRef.current;
     const vigente = () =>
       mountedRef.current && minhaLista === requisicaoListaRef.current;
@@ -725,17 +758,21 @@ export function useDashboardData(
       const [lista, totalHoje] = await Promise.all([
         buscarLista({
           unidadeId,
-          dataInicioStr,
-          dataFimStr,
+          de,
+          ate,
           filtroStatus,
           filtroMotoristaId,
         }),
         comKpis ? buscarTotalHoje(unidadeId) : Promise.resolve(null),
       ]);
       if (!vigente()) return;
-      setRotas(lista);
+      setRotas(lista.rotas);
+      setListaCortada(lista.cortada);
       if (totalHoje !== null) setTodayStats({ totalHoje });
-      setKpis((anteriores) => ({ ...anteriores, ...kpisDaLista(lista) }));
+      setKpis((anteriores) => ({
+        ...anteriores,
+        ...kpisDaLista(lista.rotas),
+      }));
       // Só apaga o erro que um evento causou: o da carga completa (KPIs,
       // incidentes) continua até ela dar certo.
       if (erroDoVivoRef.current) {
@@ -754,8 +791,9 @@ export function useDashboardData(
     }
   }, [
     unidadeId,
-    dataInicioStr,
-    dataFimStr,
+    periodoPronto,
+    de,
+    ate,
     filtroStatus,
     filtroMotoristaId,
     comKpis,
@@ -801,9 +839,10 @@ export function useDashboardData(
     todayStats,
     kpis,
     rotas,
-    // Sem loja resolvida ainda, a lista vazia não é resposta: o vazio
-    // ("Nenhuma rota cadastrada hoje") pintava antes da carga começar.
-    loading: loading || lojaCarregando,
+    listaCortada,
+    // Sem loja ou sem período resolvido ainda, a lista vazia não é resposta:
+    // o vazio ("Nenhuma rota em ...") pintava antes da carga começar.
+    loading: loading || lojaCarregando || !periodoPronto,
     refreshing,
     erroCarga,
     dadosDe,

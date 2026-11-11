@@ -1,6 +1,6 @@
 /**
  * Estilos e ícones do calendário de intervalo (react-native-ui-datepicker),
- * comuns a `PainelPersonalizado` e a `route-filters/DateRangeFilterSection`.
+ * usados pelo `PainelPersonalizado` (seletor de período).
  */
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
