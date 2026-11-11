@@ -7,9 +7,11 @@ import { resolverPeriodo } from '@/lib/periodo';
 import { chavePeriodo, usePeriodoLembrado } from '../usePeriodoLembrado';
 
 let mockUsuarioId: string | undefined = 'u1';
+let mockCarregandoUsuario = false;
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({
     userData: mockUsuarioId ? { id: mockUsuarioId } : null,
+    loading: mockCarregandoUsuario,
   }),
 }));
 
@@ -24,6 +26,7 @@ const setItem = AsyncStorage.setItem as jest.Mock;
 beforeEach(() => {
   armazem.clear();
   mockUsuarioId = 'u1';
+  mockCarregandoUsuario = false;
   jest.clearAllMocks();
   getItem.mockImplementation(async (k: string) => armazem.get(k) ?? null);
   setItem.mockImplementation(async (k: string, v: string) => {
@@ -184,5 +187,78 @@ describe('usePeriodoLembrado', () => {
     act(() => result.current.definirPeriodo({ tipo: 'ontem' }));
     await waitFor(() => expect(logger.warn).toHaveBeenCalled());
     expect(result.current.periodo).toEqual({ tipo: 'ontem' });
+  });
+
+  it('carregado é false enquanto o usuário carrega e vira true com o período lembrado', async () => {
+    armazem.set(
+      chavePeriodo('gestao_rotas', 'u1'),
+      JSON.stringify({ tipo: 'hoje' }),
+    );
+    mockUsuarioId = undefined;
+    mockCarregandoUsuario = true;
+    const hook = renderHook(() => usePeriodoLembrado('gestao_rotas'));
+    await act(async () => {});
+    expect(hook.result.current.carregado).toBe(false);
+    expect(getItem).not.toHaveBeenCalled();
+
+    mockUsuarioId = 'u1';
+    mockCarregandoUsuario = false;
+    hook.rerender({});
+    await waitFor(() => expect(hook.result.current.carregado).toBe(true));
+    expect(hook.result.current.periodo).toEqual({ tipo: 'hoje' });
+  });
+
+  it('usuário definitivamente ausente: padrão e carregado', async () => {
+    mockUsuarioId = undefined;
+    mockCarregandoUsuario = false;
+    const { result } = await montar();
+    expect(result.current.periodo).toEqual({ tipo: 'este_mes' });
+  });
+
+  it('escolha feita antes da leitura terminar não é sobrescrita pela leitura tardia', async () => {
+    armazem.set(
+      chavePeriodo('gestao_rotas', 'u1'),
+      JSON.stringify({ tipo: 'hoje' }),
+    );
+    let liberar: (v: string | null) => void = () => {};
+    getItem.mockImplementationOnce(
+      () => new Promise<string | null>((r) => (liberar = r)),
+    );
+    const { result } = renderHook(() => usePeriodoLembrado('gestao_rotas'));
+    act(() => result.current.definirPeriodo({ tipo: 'ontem' }));
+    await act(async () => {
+      liberar(JSON.stringify({ tipo: 'hoje' }));
+    });
+    expect(result.current.periodo).toEqual({ tipo: 'ontem' });
+    expect(result.current.carregado).toBe(true);
+  });
+
+  it('troca de usuário por rerender não expõe o período do anterior', async () => {
+    armazem.set(
+      chavePeriodo('gestao_rotas', 'u1'),
+      JSON.stringify({ tipo: 'ontem' }),
+    );
+    const vistos: { periodo: unknown; carregado: boolean }[] = [];
+    const hook = renderHook(() => {
+      const r = usePeriodoLembrado('gestao_rotas');
+      vistos.push({ periodo: r.periodo, carregado: r.carregado });
+      return r;
+    });
+    await waitFor(() => expect(hook.result.current.carregado).toBe(true));
+    expect(hook.result.current.periodo).toEqual({ tipo: 'ontem' });
+
+    vistos.length = 0;
+    mockUsuarioId = 'u2';
+    hook.rerender({});
+    await waitFor(() => expect(hook.result.current.carregado).toBe(true));
+    expect(hook.result.current.periodo).toEqual({ tipo: 'este_mes' });
+    // Nenhum render pronto (carregado) trouxe o período de u1.
+    expect(
+      vistos.filter(
+        (v) => v.carregado && (v.periodo as { tipo: string }).tipo === 'ontem',
+      ),
+    ).toEqual([]);
+    // O primeiro render após a troca já não está pronto.
+    expect(vistos[0].carregado).toBe(false);
   });
 });
