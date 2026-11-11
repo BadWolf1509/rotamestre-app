@@ -3937,6 +3937,54 @@ loja, motorista desativado, catálogo. Rollback colável.
 
 ---
 
+### ⏳ Migration 90: desempenho por período (`p_de`/`p_ate`) e índices de loja + data
+
+**Arquivo:** `20261110120000_periodo_desempenho.sql` · **⏳ não aplicada.**
+Aplicar como `postgres`, com a sonda antes (corpo sem BEGIN/COMMIT + sonda numa
+execução só) e depois, **antes** de mesclar o app que manda `p_de`/`p_ate` (sem
+a migration, essa chamada recebe PGRST202). O app publicado não é afetado: as
+chamadas `resumo_desempenho_motorista(p_motorista_id, p_dias)` e
+`desempenho_motorista_na_loja(p_motorista_id, p_unidade_id)` respondem igual.
+
+**O que faz.** Filtros por período (spec `2026-11-10-filtros-por-periodo`):
+
+- `desempenho_motorista_na_loja(p_motorista_id uuid, p_unidade_id uuid, p_de
+date DEFAULT NULL, p_ate date DEFAULT NULL) RETURNS jsonb`: o corpo da
+  Migration 89 com `(p_de IS NULL OR r.data >= p_de) AND (p_ate IS NULL OR
+r.data <= p_ate)`. Recusa SEM_PERMISSAO, fórmulas e ACL iguais;
+- `resumo_desempenho_motorista(p_motorista_id uuid, p_dias integer DEFAULT
+NULL, p_de date DEFAULT NULL, p_ate date DEFAULT NULL)`: se `p_de` ou `p_ate`
+  vier, o período fechado vale e `p_dias` é ignorado; senão, o `p_dias` de
+  sempre. Retorno: a mesma TABLE mais `tempo_medio_minutos numeric` — a
+  fórmula do cabeçalho do Histórico (`useHistoricoMetrics`): média de
+  `concluida_em - iniciada_em` das rotas de qualquer status com as duas marcas
+  e diferença > 0 e < 1440 min, sem arredondar, NULL sem rota com tempo.
+  42501 e visibilidade (a de `rotas_select`) iguais;
+- índices `idx_rotas_unidade_data_id (unidade_id, data DESC, id DESC)` e
+  `idx_incidentes_unidade_created_id (unidade_id, created_at DESC, id DESC)`.
+
+DROP das assinaturas antigas e CREATE das novas na mesma transação; as duas
+seguem DEFINER, STABLE, `search_path` vazio, dono `postgres`, EXECUTE de
+`authenticated`/`service_role`, sem PUBLIC/anon.
+
+**Alternativas.** Assinatura: DROP + CREATE com defaults (escolhida: a chamada
+antiga casa pelos defaults) × sobrecarga de 4 argumentos ao lado da antiga
+(ambígua com defaults: 42725/PGRST203). `p_dias` com período: o período vence
+(escolhida) × recusar a combinação. Tempo médio: a fórmula do Histórico
+(escolhida: é o número que o cabeçalho já mostra) × a da view (só concluídas).
+
+**Verificação.** Guarda estática
+`database/__tests__/migration90-periodo-desempenho.test.ts`; sonda
+`database/sondas/20261110120000_sonda_migration90.sql` (9 casos, desfeita pelo
+RAISE, com as versões anteriores recriadas em `pg_temp` para comparar):
+chamada antiga do resumo igual à anterior (GA e motorista; 7, 0, 30, NULL;
+posicional e nomeada; negativo 22023), novembro só com novembro, período
+vencendo `p_dias`, tempo médio, `na_loja` sem período igual à anterior, com
+período recortando, SEM_PERMISSAO e 42501, índices, catálogo. Rollback colável
+(restaura corpos e ACLs das Migrations 55 e 89).
+
+---
+
 ### Acoplamento: frase do motorista indisponível (banco x app)
 
 A frase `Motorista indisponível para a unidade selecionada.` (P0001 de
