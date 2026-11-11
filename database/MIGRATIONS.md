@@ -3725,14 +3725,16 @@ colável (DROP da função e da tabela).
 
 ---
 
-### ⏳ Migration 85: Places — teto de details, sessão ausente e limpeza global
+### ✅ Migration 85: Places — teto de details, sessão ausente e limpeza global
 
-**Arquivo:** `20261108120000_places_teto_e_limpeza.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261108120000_places_teto_e_limpeza.sql` · **✅ aplicada em 08/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo (`RETURNING`). **Sonda medida:** 7/7 OK com o corpo na mesma execução (antes de aplicar, desfeita) e 7/7 OK depois.
 Aplicar como `postgres`, rodar a sonda e só então publicar as Edge Functions
 `google-places-autocomplete`, `google-place-details`, `criar-motorista` e
 `expire-routes`. A ordem inversa não quebra: a função publicada antes trata o
 false antigo como esgotada (como hoje) e o null novo como indisponível; a
-`expire-routes` sem a RPC só registra o erro no log.
+`expire-routes` sem a RPC só registra o erro no log. **Feito nessa ordem em
+08/11:** as quatro funções publicadas depois da sonda, com `--no-verify-jwt`
+(igual ao que estava), e todas respondem 401 sem login.
 
 **O que faz.** Achados B8-1, B8-4 e B8-5 da varredura de 08/11.
 
@@ -3771,9 +3773,9 @@ API sem EXECUTE na limpeza, catálogo. Guarda nova
 
 ---
 
-### ⏳ Migration 86: aviso ao motorista ao cancelar e ao reativar a rota
+### ✅ Migration 86: aviso ao motorista ao cancelar e ao reativar a rota
 
-**Arquivo:** `20261108121000_aviso_cancelar_reativar.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261108121000_aviso_cancelar_reativar.sql` · **✅ aplicada em 08/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo (`RETURNING`). **Sonda medida:** 10/10 OK com o corpo na mesma execução (antes de aplicar, desfeita) e 10/10 OK depois.
 Aplicar como `postgres` e rodar a sonda. Não exige publicar Edge Function nem
 versão nova do app: os dois tipos já estão na lista de push da
 `send-push-notification` e no app (ícone, cor, destino do toque).
@@ -3820,9 +3822,9 @@ motorista_indisponivel na reativação não avisam, catálogo. Rollback colável
 
 ---
 
-### ⏳ Migration 87: `resolvido_em` do incidente mantido pelo banco
+### ✅ Migration 87: `resolvido_em` do incidente mantido pelo banco
 
-**Arquivo:** `20261108122000_incidentes_resolvido_em.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261108122000_incidentes_resolvido_em.sql` · **✅ aplicada em 08/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo (`RETURNING`). **Sonda medida:** 8/8 OK com o corpo na mesma execução (antes de aplicar, desfeita) e 8/8 OK depois.
 Aplicar como `postgres` e rodar a sonda. Não exige versão nova do app.
 
 **O que faz.** Pendência 30(i). Gatilho `trg_incidentes_resolvido_em`
@@ -3853,9 +3855,9 @@ data segue sem data, catálogo. Rollback colável.
 
 ---
 
-### ⏳ Migration 88: iniciar a rota numa RPC transacional (`iniciar_rota`)
+### ✅ Migration 88: iniciar a rota numa RPC transacional (`iniciar_rota`)
 
-**Arquivo:** `20261108123000_iniciar_rota_rpc.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261108123000_iniciar_rota_rpc.sql` · **✅ aplicada em 08/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo (`RETURNING`). **Sonda medida:** 7/7 OK com o corpo na mesma execução (antes de aplicar, desfeita) e 7/7 OK depois.
 Aplicar como `postgres` e rodar a sonda **antes** de mesclar o app que chama a
 RPC (o app novo não tem caminho alternativo para a RPC ausente). O app
 publicado segue com as três escritas e não é afetado.
@@ -3896,9 +3898,9 @@ sessão), rota só com partida e chegada, catálogo. Rollback colável.
 
 ---
 
-### ⏳ Migration 89: desempenho do motorista por loja (`desempenho_motorista_na_loja`)
+### ✅ Migration 89: desempenho do motorista por loja (`desempenho_motorista_na_loja`)
 
-**Arquivo:** `20261108124000_desempenho_motorista_por_loja.sql` · **⏳ não aplicada.**
+**Arquivo:** `20261108124000_desempenho_motorista_por_loja.sql` · **✅ aplicada em 08/11/2026** pelo CLI (`db query --linked`), registrada com a versão do arquivo (`RETURNING`). **Sonda medida:** 7/7 OK com o corpo na mesma execução (antes de aplicar, desfeita) e 7/7 OK depois.
 Aplicar como `postgres` e rodar a sonda **antes** de mesclar o app que chama a
 RPC (o app novo não lê mais a view). O app publicado segue lendo a
 `vw_performance_motoristas` e não é afetado.
