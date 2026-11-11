@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
+import { Modal } from 'react-native';
 
 import type { Periodo } from '@/lib/periodo';
 
@@ -88,6 +89,29 @@ describe('SeletorPeriodo', () => {
     fireEvent.press(screen.getByTestId('seletor-periodo-item-mes_passado'));
     expect(aoMudar).toHaveBeenCalledWith({ tipo: 'mes_passado' });
     expect(screen.queryByTestId('seletor-periodo-item-hoje')).toBeNull();
+  });
+
+  it('Todo o período chama aoMudar', () => {
+    const aoMudar = montar({ tipo: 'este_mes' });
+    fireEvent.press(screen.getByTestId('seletor-periodo'));
+    fireEvent.press(screen.getByTestId('seletor-periodo-item-todo'));
+    expect(aoMudar).toHaveBeenCalledWith({ tipo: 'todo' });
+  });
+
+  it('toque fora fecha sem mudar', () => {
+    const aoMudar = montar({ tipo: 'este_mes' });
+    fireEvent.press(screen.getByTestId('seletor-periodo'));
+    fireEvent.press(screen.getByTestId('seletor-periodo-fora'));
+    expect(screen.queryByTestId('seletor-periodo-item-hoje')).toBeNull();
+    expect(aoMudar).not.toHaveBeenCalled();
+  });
+
+  it('Esc (onRequestClose) fecha sem mudar', () => {
+    const aoMudar = montar({ tipo: 'este_mes' });
+    fireEvent.press(screen.getByTestId('seletor-periodo'));
+    fireEvent(screen.UNSAFE_getByType(Modal), 'requestClose');
+    expect(screen.queryByTestId('seletor-periodo-item-hoje')).toBeNull();
+    expect(aoMudar).not.toHaveBeenCalled();
   });
 
   it('no computador abre o menu com os mesmos itens', () => {

@@ -9,10 +9,12 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
-import DateRangePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
+import DateRangePicker from 'react-native-ui-datepicker';
 
 import { parseLocalDate, toLocalISODate } from '@/lib/dateUtils';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+import { useCalendario } from './calendario';
 
 export interface PainelPersonalizadoProps {
   de: string | null;
@@ -44,21 +46,11 @@ export function PainelPersonalizado({
   const [de, setDe] = useState<string | null>(deInicial);
   const [ate, setAte] = useState<string | null>(ateInicial);
   const [escolhendo, setEscolhendo] = useState<'de' | 'ate' | null>(null);
-  const defaultStyles = useDefaultStyles('light');
 
   const valido = de !== null && ate !== null && de <= ate;
 
-  const calendarStyles = {
-    ...defaultStyles,
-    headerText: { color: theme.colors.gray900, fontWeight: '600' as const },
-    monthText: { color: theme.colors.gray900, fontWeight: '700' as const },
-    weekDaysText: { color: theme.colors.gray800, fontWeight: '600' as const },
-    dayText: { color: theme.colors.gray900, fontWeight: '500' as const },
-    range_fill: { backgroundColor: theme.colors.primaryBg },
-    range_start: { backgroundColor: theme.colors.primary },
-    range_end: { backgroundColor: theme.colors.primary },
-    selected: { backgroundColor: theme.colors.primary },
-  };
+  const { styles: calendarStyles, components: calendarComponents } =
+    useCalendario();
 
   const renderCalendario = () => (
     <DateRangePicker
@@ -70,6 +62,7 @@ export function PainelPersonalizado({
         setAte(p.endDate instanceof Date ? toLocalISODate(p.endDate) : null);
       }}
       styles={calendarStyles}
+      components={calendarComponents}
       locale="pt-BR"
     />
   );

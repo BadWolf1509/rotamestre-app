@@ -2,10 +2,26 @@
  * Seletor de período (controlado). Botão com o texto do período; abaixo de
  * 1024 px abre uma folha (Modal), a partir de 1024 px um menu ancorado ao
  * botão. A tela guarda o valor (`usePeriodoLembrado`): este componente não.
+ *
+ * O menu desktop segue o `MenuDeAcoes` (`src/components/data-table`): Modal
+ * transparente, medida do botão por `measureInWindow` (resposta de abertura
+ * antiga é descartada), invisível até a medida e o `onLayout` do próprio menu
+ * chegarem, abre para cima quando não cabe embaixo, fica dentro da janela na
+ * horizontal e fecha se a janela mudar de tamanho.
  */
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
+  type ViewInstance,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useResponsive } from '@/hooks/useResponsive';
 import {
@@ -39,9 +55,17 @@ const ITENS: readonly ItemMenu[] = [
 ];
 
 interface Ancora {
+  /** Topo do menu quando ele abre abaixo do botão. */
   top: number;
   left: number;
+  /** Topo do botão: a borda de baixo do menu quando ele abre para cima. */
+  topoDoBotao: number;
 }
+
+/** Sem `measureInWindow`: canto superior esquerdo. */
+const SEM_MEDIDA = 'sem-medida';
+const DISTANCIA_DO_BOTAO = 4;
+const MARGEM_DA_JANELA = 8;
 
 export function SeletorPeriodo({
   valor,
@@ -51,32 +75,69 @@ export function SeletorPeriodo({
 }: SeletorPeriodoProps) {
   const { theme } = useUnistyles();
   const { isDesktop } = useResponsive();
+  const insets = useSafeAreaInsets();
+  const { width: larguraJanela, height: alturaJanela } = useWindowDimensions();
+  const botaoRef = useRef<ViewInstance>(null);
   const [aberto, setAberto] = useState(false);
   const [personalizando, setPersonalizando] = useState(false);
-  const [ancora, setAncora] = useState<Ancora | null>(null);
-  const botaoRef = useRef<React.ComponentRef<typeof Pressable>>(null);
+  // null = medida da abertura atual ainda não chegou: o menu não aparece.
+  const [ancora, setAncora] = useState<Ancora | typeof SEM_MEDIDA | null>(null);
+  // Tamanho do menu aberto (onLayout); null = ainda não medido.
+  const [tamanhoMenu, setTamanhoMenu] = useState<{
+    largura: number;
+    altura: number;
+  } | null>(null);
+  // Conta as aberturas: a resposta da medida só vale para a que a pediu.
+  const aberturaRef = useRef(0);
 
   const intervalo = cortarEmHoje
     ? cortarIntervaloEmHoje(resolverPeriodo(valor))
     : null;
   const texto = textoPeriodo(valor, intervalo ?? undefined);
 
-  const fechar = () => {
+  const fechar = useCallback(() => {
+    aberturaRef.current += 1;
     setAberto(false);
     setPersonalizando(false);
-  };
+    setAncora(null);
+    setTamanhoMenu(null);
+  }, []);
+
+  // Janela mudou de tamanho com o menu aberto: fecha (a âncora era da janela
+  // de antes). A 1ª execução, na montagem, só guarda o tamanho.
+  const janelaRef = useRef({ larguraJanela, alturaJanela });
+  useEffect(() => {
+    const antes = janelaRef.current;
+    janelaRef.current = { larguraJanela, alturaJanela };
+    if (
+      antes.larguraJanela !== larguraJanela ||
+      antes.alturaJanela !== alturaJanela
+    ) {
+      fechar();
+    }
+  }, [larguraJanela, alturaJanela, fechar]);
 
   const abrir = () => {
+    aberturaRef.current += 1;
+    const abertura = aberturaRef.current;
     setPersonalizando(false);
-    const ref = botaoRef.current;
-    if (isDesktop && ref && typeof ref.measureInWindow === 'function') {
-      ref.measureInWindow((x, y, _w, h) =>
-        setAncora({ top: y + h + 4, left: x }),
-      );
-    } else {
-      setAncora(null);
-    }
+    setAncora(null);
+    setTamanhoMenu(null);
     setAberto(true);
+    if (!isDesktop) return;
+    const medir = botaoRef.current?.measureInWindow;
+    if (!medir) {
+      setAncora(SEM_MEDIDA);
+      return;
+    }
+    medir.call(botaoRef.current, (x, y, _largura, altura) => {
+      if (aberturaRef.current !== abertura) return;
+      setAncora({
+        top: y + altura + DISTANCIA_DO_BOTAO,
+        left: x,
+        topoDoBotao: y,
+      });
+    });
   };
 
   const escolher = (item: ItemMenu) => {
@@ -88,13 +149,43 @@ export function SeletorPeriodo({
     fechar();
   };
 
+  const medirMenu = (evento: LayoutChangeEvent) => {
+    const { width, height } = evento.nativeEvent.layout;
+    setTamanhoMenu({ largura: width, altura: height });
+  };
+
+  /** Abaixo do botão; para cima se não couber embaixo; dentro da janela. */
+  const estiloDaPosicao = (posicao: Ancora) => {
+    if (tamanhoMenu === null) {
+      return { top: posicao.top, left: posicao.left, opacity: 0 };
+    }
+    const { largura, altura } = tamanhoMenu;
+    const acimaDoBotao = posicao.topoDoBotao - DISTANCIA_DO_BOTAO - altura;
+    const naoCabeEmbaixo =
+      posicao.top + altura > alturaJanela - MARGEM_DA_JANELA;
+    const topo =
+      naoCabeEmbaixo && acimaDoBotao >= MARGEM_DA_JANELA
+        ? acimaDoBotao
+        : posicao.top;
+    return {
+      top: Math.max(
+        MARGEM_DA_JANELA,
+        Math.min(topo, alturaJanela - altura - MARGEM_DA_JANELA),
+      ),
+      left: Math.max(
+        MARGEM_DA_JANELA,
+        Math.min(posicao.left, larguraJanela - largura - MARGEM_DA_JANELA),
+      ),
+    };
+  };
+
   const renderItem = (item: ItemMenu) => {
     const selecionado = valor.tipo === item;
     return (
       <Pressable
         key={item}
         testID={`${testID}-item-${item}`}
-        accessibilityRole="button"
+        accessibilityRole={isDesktop ? 'menuitem' : 'button'}
         accessibilityState={{ selected: selecionado }}
         style={[styles.item, selecionado && styles.itemSelecionado]}
         onPress={() => escolher(item)}
@@ -124,30 +215,45 @@ export function SeletorPeriodo({
         }}
       />
     ) : (
-      <View>{ITENS.map(renderItem)}</View>
+      <View
+        accessibilityRole={isDesktop ? 'menu' : undefined}
+        accessibilityLabel="Período"
+      >
+        {ITENS.map(renderItem)}
+      </View>
     );
 
-  const renderFolhaOuMenu = () =>
-    isDesktop ? (
-      <View
-        style={[
-          styles.menu,
-          personalizando && styles.menuLargo,
-          ancora
-            ? { top: ancora.top, left: ancora.left }
-            : styles.menuSemAncora,
-        ]}
-      >
+  const renderMenu = (posicao: Ancora | typeof SEM_MEDIDA) => (
+    <View
+      onLayout={medirMenu}
+      style={[
+        styles.menu,
+        personalizando && styles.menuLargo,
+        posicao === SEM_MEDIDA
+          ? styles.menuSemAncora
+          : estiloDaPosicao(posicao),
+      ]}
+    >
+      {renderConteudo()}
+    </View>
+  );
+
+  const renderFolha = () => (
+    <View
+      style={[
+        styles.folha,
+        { paddingBottom: theme.spacing.lg + insets.bottom },
+      ]}
+    >
+      <ScrollView keyboardShouldPersistTaps="handled" bounces={false}>
         {renderConteudo()}
-      </View>
-    ) : (
-      <View style={styles.folha}>{renderConteudo()}</View>
-    );
+      </ScrollView>
+    </View>
+  );
 
   return (
-    <View>
+    <View ref={botaoRef} collapsable={false}>
       <Pressable
-        ref={botaoRef}
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`Período: ${texto}`}
@@ -174,11 +280,15 @@ export function SeletorPeriodo({
       >
         <View style={isDesktop ? styles.fundoMenu : styles.fundoFolha}>
           <Pressable
+            testID={`${testID}-fora`}
             style={styles.fechadorDeFundo}
-            accessibilityLabel="Fechar"
             onPress={fechar}
+            accessible={false}
+            // RNW: o Pressable emite tabIndex 0; sem -1 a trava de foco do
+            // Modal focaria este fundo invisível.
+            tabIndex={-1}
           />
-          {renderFolhaOuMenu()}
+          {isDesktop ? (ancora ? renderMenu(ancora) : null) : renderFolha()}
         </View>
       </Modal>
     </View>
@@ -214,7 +324,8 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.white,
     borderTopLeftRadius: theme.borderRadius.lg,
     borderTopRightRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
     maxHeight: '85%',
   },
   menu: {
