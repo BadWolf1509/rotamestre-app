@@ -84,6 +84,10 @@ export default function MotoristaPerfil() {
     null,
   );
   const [carregandoPerformance, setCarregandoPerformance] = useState(false);
+  // Pull-to-refresh: `recarga` refaz a performance; `recarregandoDados` cobre a
+  // carga do motorista e das rotas. O spinner só desliga quando as duas acabam.
+  const [recarga, setRecarga] = useState(0);
+  const [recarregandoDados, setRecarregandoDados] = useState(false);
   const [rotasRecentes, setRotasRecentes] = useState<RotaRecente[]>([]);
   const [showToggleModal, setShowToggleModal] = useState(false);
 
@@ -208,6 +212,7 @@ export default function MotoristaPerfil() {
     periodoVazio,
     de,
     ate,
+    recarga,
     showToast,
   ]);
 
@@ -224,9 +229,17 @@ export default function MotoristaPerfil() {
   // Pull to refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setRecarregandoDados(true);
+    setRecarga((n) => n + 1);
     await loadData();
-    setRefreshing(false);
+    setRecarregandoDados(false);
   }, [loadData]);
+
+  useEffect(() => {
+    if (refreshing && !recarregandoDados && !carregandoPerformance) {
+      setRefreshing(false);
+    }
+  }, [refreshing, recarregandoDados, carregandoPerformance]);
 
   // Toggle active status
   const handleToggleStatus = useCallback(async () => {

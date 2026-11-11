@@ -2,8 +2,9 @@
  * Perfil do motorista: o período dos indicadores (fim cortado em hoje) e a
  * ordem das rotas recentes (data desc, id desc).
  */
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
+import { RefreshControl } from 'react-native';
 
 import MotoristaPerfil from '../motorista-perfil';
 
@@ -123,5 +124,22 @@ it('Rotas recentes ordena por data desc e depois id desc', async () => {
       ['data', { ascending: false }],
       ['id', { ascending: false }],
     ]),
+  );
+});
+
+it('puxar para atualizar busca a performance de novo e o spinner desliga', async () => {
+  render(<MotoristaPerfil />);
+  await screen.findByText('João Silva');
+  await waitFor(() => expect(buscar()).toHaveBeenCalledTimes(1));
+
+  await act(async () => {
+    screen.UNSAFE_getByType(RefreshControl).props.onRefresh();
+  });
+
+  await waitFor(() => expect(buscar()).toHaveBeenCalledTimes(2));
+  await waitFor(() =>
+    expect(screen.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
+      false,
+    ),
   );
 });

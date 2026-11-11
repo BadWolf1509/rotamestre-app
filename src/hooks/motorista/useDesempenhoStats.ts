@@ -63,7 +63,7 @@ export function useDesempenhoStats(
   const textoDoPeriodo = textoPeriodo(periodo, intervalo ?? undefined);
   const [error, setError] = useState<string | null>(null);
 
-  // Só a carga mais recente escreve: a troca rápida 7d/30d/todos deixa
+  // Só a carga mais recente escreve: a troca rápida de período deixa
   // respostas em voo, e a mais lenta (a velha) chegava por último.
   const requisicaoRef = useRef(0);
 
@@ -72,7 +72,10 @@ export function useDesempenhoStats(
     const vigente = () => minha === requisicaoRef.current;
 
     // Período lembrado ainda lendo do aparelho: o padrão provisório não vale.
-    if (!carregado) return;
+    if (!carregado) {
+      setRefreshing(false);
+      return;
+    }
 
     if (!userId || periodoVazio) {
       setStats(null);
