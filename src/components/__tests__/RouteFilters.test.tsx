@@ -52,6 +52,24 @@ describe('RouteFilters', () => {
     });
   });
 
+  describe('Mobile', () => {
+    it('sem periodo (o celular escolhe fora do modal), o modal não tem a seção Período', () => {
+      const { getByTestId, getByText, queryByText, queryByTestId } = render(
+        <RouteFilters
+          filters={{}}
+          onFiltersChange={jest.fn()}
+          variant="mobile"
+        />,
+      );
+
+      fireEvent.press(getByTestId('filter-floating-button'));
+
+      expect(getByText('Status')).toBeTruthy();
+      expect(queryByText('Período')).toBeNull();
+      expect(queryByTestId('filtro-periodo')).toBeNull();
+    });
+  });
+
   describe('Desktop recolhido', () => {
     const motoristas = [
       { id: 'mot-1', nome: 'Ana Souza' },
@@ -135,6 +153,9 @@ describe('RouteFilters', () => {
         { tipo: 'personalizado', de: '2020-10-01', ate: '2020-10-15' },
         '01/10/2020 a 15/10/2020',
       ],
+      // Intervalo incompleto (só por chamada errada): o rótulo, nunca
+      // "Todos os status, , todos os motoristas".
+      [{ tipo: 'personalizado', de: '', ate: '' }, 'personalizado'],
     ])('o período no resumo (%o)', (periodo, trecho) => {
       const { getByTestId } = render(
         <RouteFilters

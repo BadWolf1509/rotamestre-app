@@ -28,7 +28,7 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
   });
 
   test.describe('Dashboard Overview', () => {
-    test('exibe o resumo do dia numa frase, no lugar dos cartões', async ({
+    test('exibe o resumo do período numa frase, no lugar dos cartões', async ({
       page,
     }) => {
       await gestorPage.gotoInicio();
@@ -44,12 +44,12 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
       const resumo = stats.getByTestId('gestor-dashboard-resumo');
       await expect(resumo).toBeVisible();
       await expect(resumo).toHaveText(
-        /^(\d+ rotas? .+ — \d+ de \d+ paradas? feitas?, \d+,\d km|Nenhuma rota em .+)$/,
+        /^(\d+ rotas? .+ — \d+ de \d+ paradas? feitas?, \d+,\d km|Nenhuma rota em este mês \(\d{2}\/\d{2} a \d{2}\/\d{2}\))$/,
       );
       await expect(stats.getByText('Total Hoje')).toHaveCount(0);
     });
 
-    test('o resumo traz os números do dia, com vírgula decimal', async ({
+    test('o resumo traz os números do período, com vírgula decimal', async ({
       page,
     }) => {
       await gestorPage.gotoInicio();
@@ -60,7 +60,12 @@ test.describe('Gestor Dashboard Metrics E2E Tests', () => {
       // O número tem de estar DENTRO do resumo, onde ele significa alguma
       // coisa. A distância sai de formatarDecimal: em pt-BR, vírgula.
       const texto = (await resumo.innerText()).replace(/\s+/g, ' ');
-      if (!texto.startsWith('Nenhuma rota em ')) {
+      // O e2e abre no período padrão: o vazio é o de "este mês", em minúscula.
+      if (
+        !/^Nenhuma rota em este mês \(\d{2}\/\d{2} a \d{2}\/\d{2}\)$/.test(
+          texto,
+        )
+      ) {
         expect(texto).toMatch(/\d+ de \d+ paradas? feitas?/);
         expect(texto).toMatch(/\d+,\d km$/);
       }

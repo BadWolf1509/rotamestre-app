@@ -290,7 +290,7 @@ describe('DashboardDesktop', () => {
   });
 
   describe('Lista cortada ("Todo o período")', () => {
-    it('com a lista cortada, avisa que mostra só as 500 mais recentes', () => {
+    it('com a lista cortada, avisa que mostra as primeiras 500, da data mais nova para a mais antiga', () => {
       const { getByTestId } = render(
         <DashboardDesktop
           {...defaultProps}
@@ -300,7 +300,7 @@ describe('DashboardDesktop', () => {
       );
 
       expect(getByTestId('aviso-lista-cortada')).toHaveTextContent(
-        'Mostrando as 500 rotas mais recentes. Escolha um período para ver as demais.',
+        'Mostrando as primeiras 500 rotas, da data mais nova para a mais antiga. Escolha um período para ver as demais.',
       );
     });
 

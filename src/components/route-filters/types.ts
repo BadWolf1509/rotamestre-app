@@ -20,9 +20,13 @@ export interface Motorista {
 export interface RouteFiltersProps {
   filters: RouteFiltersState;
   onFiltersChange: (filters: RouteFiltersState) => void;
-  /** Período escolhido (o seletor no lugar do antigo "Selecionar período"). */
-  periodo: Periodo;
-  onPeriodoChange: (periodo: Periodo) => void;
+  /**
+   * Período escolhido (o seletor no lugar do antigo "Selecionar período").
+   * Sem ele, a seção some: o celular escolhe o período fora do modal, para
+   * não abrir um Modal dentro do outro.
+   */
+  periodo?: Periodo;
+  onPeriodoChange?: (periodo: Periodo) => void;
   motoristas?: Motorista[];
   variant?: 'desktop' | 'mobile';
 }

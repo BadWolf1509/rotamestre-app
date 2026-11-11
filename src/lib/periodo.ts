@@ -171,6 +171,20 @@ function textoDatas(de: string, ate: string, hojeISO: string): string {
   return de === ate ? formatar(de) : `${formatar(de)} a ${formatar(ate)}`;
 }
 
+/**
+ * Só as datas do intervalo: "01/10 a 15/10", "10/11" quando as pontas são
+ * iguais, com o ano quando alguma ponta sai do ano corrente. `''` quando
+ * falta alguma ponta ("Todo o período").
+ */
+export function textoDatasPeriodo(
+  intervalo: IntervaloDatas,
+  hojeISO: string = getTodayISO(),
+): string {
+  const { de, ate } = intervalo;
+  if (!de || !ate) return '';
+  return textoDatas(de, ate, hojeISO);
+}
+
 /** "Este mês (01/11 a 30/11)"; usa `intervalo` quando a tela já o cortou. */
 export function textoPeriodo(
   p: Periodo,
@@ -179,9 +193,11 @@ export function textoPeriodo(
 ): string {
   const rotulo = ROTULO_PERIODO[p.tipo];
   if (p.tipo === 'todo') return rotulo;
-  const { de, ate } = intervalo ?? resolverPeriodo(p, hojeISO);
-  if (!de || !ate) return rotulo;
-  return `${rotulo} (${textoDatas(de, ate, hojeISO)})`;
+  const datas = textoDatasPeriodo(
+    intervalo ?? resolverPeriodo(p, hojeISO),
+    hojeISO,
+  );
+  return datas ? `${rotulo} (${datas})` : rotulo;
 }
 
 /**

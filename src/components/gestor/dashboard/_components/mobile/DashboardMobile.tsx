@@ -14,13 +14,14 @@ import {
 import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { EmptyState } from '@/components/EmptyState';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
+import { SeletorPeriodo } from '@/components/periodo';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { Text } from '@/design-system';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { formatarDecimal } from '@/lib/formatNumber';
-import { textoPeriodo, type Periodo } from '@/lib/periodo';
+import type { Periodo } from '@/lib/periodo';
 import { plural } from '@/lib/plural';
 import { withOpacity } from '@/utils/color';
 import { getGreeting } from '@/utils/motivationalMessages';
@@ -83,8 +84,6 @@ export function DashboardMobile({
   // DERIVED DATA
   // ============================================================================
 
-  // Strings (não o objeto `periodo`, que muda de identidade): deps dos memos.
-  const textoDoPeriodo = textoPeriodo(periodo);
   const { titulo: tituloVazio, descricao: descricaoVazio } = textosDoVazio(
     periodo,
     filters,
@@ -428,13 +427,16 @@ export function DashboardMobile({
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionTitleAccent} />
             <Text style={styles.sectionTitle}>Rotas</Text>
-            <Text
-              testID="secao-rotas-periodo"
-              style={styles.sectionPeriodo}
-              numberOfLines={1}
-            >
-              {textoDoPeriodo}
-            </Text>
+            {/* O período se escolhe aqui, fora do modal de filtros: um
+                Modal dentro do pageSheet dos filtros arriscava ficar órfão
+                no iOS ao arrastar o pai. */}
+            <View style={styles.sectionPeriodo}>
+              <SeletorPeriodo
+                valor={periodo}
+                aoMudar={onPeriodoChange}
+                testID="secao-rotas-periodo"
+              />
+            </View>
           </View>
           {listaCortada ? (
             <Text testID="aviso-lista-cortada" style={styles.avisoListaCortada}>
@@ -461,7 +463,8 @@ export function DashboardMobile({
       erroCarga,
       dadosDe,
       onRefresh,
-      textoDoPeriodo,
+      periodo,
+      onPeriodoChange,
       listaCortada,
     ],
   );
@@ -536,8 +539,6 @@ export function DashboardMobile({
       <RouteFilters
         filters={filters}
         onFiltersChange={onFiltersChange}
-        periodo={periodo}
-        onPeriodoChange={onPeriodoChange}
         motoristas={motoristas}
         variant="mobile"
       />
@@ -655,9 +656,6 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   sectionPeriodo: {
     flexShrink: 1,
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontSans,
-    color: theme.colors.gray600,
   },
   avisoListaCortada: {
     fontSize: theme.typography.fontSize.sm,

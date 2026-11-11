@@ -381,7 +381,19 @@ describe('DashboardMobile', () => {
       expect(queryByText('Rotas de Hoje')).toBeNull();
     });
 
-    it('com a lista cortada ("Todo o período"), avisa que mostra só as 500 mais recentes', () => {
+    it('o período se escolhe ali mesmo, fora do modal de filtros', () => {
+      const onPeriodoChange = jest.fn();
+      const { getByTestId } = render(
+        <DashboardMobile {...defaultProps} onPeriodoChange={onPeriodoChange} />,
+      );
+
+      fireEvent.press(getByTestId('secao-rotas-periodo'));
+      fireEvent.press(getByTestId('secao-rotas-periodo-item-mes_passado'));
+
+      expect(onPeriodoChange).toHaveBeenCalledWith({ tipo: 'mes_passado' });
+    });
+
+    it('com a lista cortada ("Todo o período"), avisa que mostra as primeiras 500, da data mais nova para a mais antiga', () => {
       const { getByTestId } = render(
         <DashboardMobile
           {...defaultProps}
@@ -391,7 +403,7 @@ describe('DashboardMobile', () => {
       );
 
       expect(getByTestId('aviso-lista-cortada')).toHaveTextContent(
-        'Mostrando as 500 rotas mais recentes. Escolha um período para ver as demais.',
+        'Mostrando as primeiras 500 rotas, da data mais nova para a mais antiga. Escolha um período para ver as demais.',
       );
     });
   });

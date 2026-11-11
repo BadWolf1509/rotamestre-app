@@ -13,6 +13,8 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { StatusParada } from '@/types/rota';
 import type { Usuario } from '@/types/usuario';
 
+import { LIMITE_ROTAS_SEM_INICIO } from '../limiteDaLista';
+
 export interface Stats {
   total: number;
   emAndamento: number;
@@ -265,13 +267,6 @@ function kpisDaLista(
  */
 const JANELA_PERIODO_ABERTO_DIAS = 60;
 
-/**
- * Teto de linhas da lista sem início ("Todo o período"), da mais recente para
- * trás. Sem ele, o teto de 1.000 linhas do PostgREST cortaria a lista calado;
- * com ele, a tela avisa (`listaCortada`).
- */
-export const LIMITE_ROTAS_SEM_INICIO = 500;
-
 function tetoDoPeriodoAberto(inicio: string): string {
   const base = parseLocalDate(inicio) ?? new Date();
   base.setDate(base.getDate() + JANELA_PERIODO_ABERTO_DIAS);
@@ -323,9 +318,12 @@ async function buscarLista(f: FiltrosDaLista): Promise<ListaDoPeriodo> {
   if (f.filtroMotoristaId) {
     query = query.eq('motorista_id', f.filtroMotoristaId);
   }
-  // Índice `idx_rotas_unidade_data_id` (Migration 90).
+  // Data mais nova primeiro e, no mesmo dia, a rota criada por último (como
+  // era antes do período); `id` só desempata. O índice
+  // `idx_rotas_unidade_data_id` (Migration 90) cobre a data.
   query = query
     .order('data', { ascending: false })
+    .order('created_at', { ascending: false })
     .order('id', { ascending: false });
   // Sem início, a lista não tem fim para trás: limite com aviso. Pede uma a
   // mais para saber se havia mais (exatamente 500 não é "cortada").

@@ -41,8 +41,8 @@ describe('textosDoVazio', () => {
   });
 });
 
-it('o aviso de lista cortada fala das 500 mais recentes', () => {
+it('o aviso de lista cortada diz exatamente quais 500 aparecem', () => {
   expect(AVISO_LISTA_CORTADA).toBe(
-    'Mostrando as 500 rotas mais recentes. Escolha um período para ver as demais.',
+    'Mostrando as primeiras 500 rotas, da data mais nova para a mais antiga. Escolha um período para ver as demais.',
   );
 });

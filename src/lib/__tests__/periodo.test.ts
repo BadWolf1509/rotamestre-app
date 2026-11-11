@@ -10,6 +10,7 @@ import {
   lerPeriodo,
   limitesEmInstante,
   resolverPeriodo,
+  textoDatasPeriodo,
   textoPeriodo,
 } from '../periodo';
 
@@ -189,6 +190,36 @@ describe('textoPeriodo', () => {
     } finally {
       espiao.mockRestore();
     }
+  });
+});
+
+describe('textoDatasPeriodo', () => {
+  it('as duas pontas, sem ano no ano corrente', () => {
+    expect(
+      textoDatasPeriodo({ de: '2026-10-01', ate: '2026-10-15' }, '2026-11-10'),
+    ).toBe('01/10 a 15/10');
+  });
+
+  it('um dia só quando as pontas são iguais', () => {
+    expect(
+      textoDatasPeriodo({ de: '2026-11-10', ate: '2026-11-10' }, '2026-11-10'),
+    ).toBe('10/11');
+  });
+
+  it('com o ano quando alguma ponta sai do ano corrente', () => {
+    expect(
+      textoDatasPeriodo({ de: '2025-12-20', ate: '2026-01-05' }, '2026-11-10'),
+    ).toBe('20/12/2025 a 05/01/2026');
+  });
+
+  it('vazio quando falta alguma ponta', () => {
+    expect(textoDatasPeriodo({ de: null, ate: null }, '2026-11-10')).toBe('');
+    expect(
+      textoDatasPeriodo({ de: '2026-11-01', ate: null }, '2026-11-10'),
+    ).toBe('');
+    expect(textoDatasPeriodo({ de: '', ate: '2026-11-01' }, '2026-11-10')).toBe(
+      '',
+    );
   });
 });
 

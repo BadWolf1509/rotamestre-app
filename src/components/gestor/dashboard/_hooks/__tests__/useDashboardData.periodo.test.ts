@@ -8,7 +8,8 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { resolverPeriodo } from '@/lib/periodo';
 
-import { LIMITE_ROTAS_SEM_INICIO, useDashboardData } from '../useDashboardData';
+import { LIMITE_ROTAS_SEM_INICIO } from '../../limiteDaLista';
+import { useDashboardData } from '../useDashboardData';
 
 jest.mock('@/lib/dateUtils', () => ({
   ...jest.requireActual('@/lib/dateUtils'),
@@ -114,7 +115,7 @@ beforeEach(() => {
 });
 
 describe('useDashboardData — período', () => {
-  it('a lista de "Este mês" consulta de 01/11 a 30/11, por data e id decrescentes, sem limite', async () => {
+  it('a lista de "Este mês" consulta de 01/11 a 30/11, por data, criação e id decrescentes, sem limite', async () => {
     const { result } = renderHook(() =>
       useDashboardData({ periodo: resolverPeriodo({ tipo: 'este_mes' }) }),
     );
@@ -124,6 +125,7 @@ describe('useDashboardData — período', () => {
     expect(chamadasDe(lista(), 'lte')).toEqual([['data', '2026-11-30']]);
     expect(chamadasDe(lista(), 'order')).toEqual([
       ['data', { ascending: false }],
+      ['created_at', { ascending: false }],
       ['id', { ascending: false }],
     ]);
     expect(chamadasDe(lista(), 'limit')).toEqual([]);
@@ -153,6 +155,7 @@ describe('useDashboardData — período', () => {
     expect(chamadasDe(lista(), 'lte')).toEqual([['data', '2027-01-09']]);
     expect(chamadasDe(lista(), 'order')).toEqual([
       ['data', { ascending: false }],
+      ['created_at', { ascending: false }],
       ['id', { ascending: false }],
     ]);
     expect(chamadasDe(lista(), 'limit')).toEqual([

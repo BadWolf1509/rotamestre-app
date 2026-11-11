@@ -5,7 +5,7 @@
  */
 import { textoPeriodo, type Periodo } from '@/lib/periodo';
 
-import { LIMITE_ROTAS_SEM_INICIO } from '../../_hooks/useDashboardData';
+import { LIMITE_ROTAS_SEM_INICIO } from '../../limiteDaLista';
 
 /**
  * O texto do período no meio de uma frase: inicial minúscula ("Nenhuma rota
@@ -40,4 +40,4 @@ export function textosDoVazio(
 }
 
 /** A lista de "Todo o período" bateu no limite (`listaCortada`). */
-export const AVISO_LISTA_CORTADA = `Mostrando as ${LIMITE_ROTAS_SEM_INICIO} rotas mais recentes. Escolha um período para ver as demais.`;
+export const AVISO_LISTA_CORTADA = `Mostrando as primeiras ${LIMITE_ROTAS_SEM_INICIO} rotas, da data mais nova para a mais antiga. Escolha um período para ver as demais.`;

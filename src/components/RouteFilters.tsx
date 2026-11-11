@@ -11,7 +11,7 @@ import { View, Text, Pressable, Modal, ScrollView } from 'react-native';
 
 import { SeletorPeriodo } from '@/components/periodo';
 import { ROUTE_STATUS_CONFIG } from '@/constants/statusConfig';
-import { ROTULO_PERIODO, textoPeriodo, type Periodo } from '@/lib/periodo';
+import { ROTULO_PERIODO, textoDatasPeriodo, type Periodo } from '@/lib/periodo';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import {
@@ -33,13 +33,19 @@ export type { RouteFiltersState };
  */
 function resumoDosFiltros(
   filters: RouteFiltersState,
-  periodo: Periodo,
+  periodo: Periodo | undefined,
   motoristas: Motorista[],
 ): string {
   const status = filters.status
     ? ROUTE_STATUS_CONFIG[filters.status].label
     : 'Todos os status';
-  return `${status}, ${periodoNoResumo(periodo)}, ${motoristaNaFrase(filters, motoristas)}`;
+  return [
+    status,
+    periodo ? periodoNoResumo(periodo) : null,
+    motoristaNaFrase(filters, motoristas),
+  ]
+    .filter(Boolean)
+    .join(', ');
 }
 
 /**
@@ -47,15 +53,11 @@ function resumoDosFiltros(
  * datas (o seletor, aberto, as mostra), e as datas no personalizado.
  */
 function periodoNoResumo(periodo: Periodo): string {
-  if (periodo.tipo !== 'personalizado') {
-    return ROTULO_PERIODO[periodo.tipo].toLowerCase();
-  }
-  // "Personalizado (01/10 a 15/10)" → "01/10 a 15/10": as datas vêm do mesmo
-  // `textoPeriodo` do seletor (ano só quando não é o corrente).
-  return textoPeriodo(periodo).slice(
-    ROTULO_PERIODO.personalizado.length + 2,
-    -1,
-  );
+  const rotulo = ROTULO_PERIODO[periodo.tipo].toLowerCase();
+  if (periodo.tipo !== 'personalizado') return rotulo;
+  // Intervalo incompleto (só por chamada errada) devolve '': cai no rótulo,
+  // nunca "Todos os status, , todos os motoristas".
+  return textoDatasPeriodo(periodo) || rotulo;
 }
 
 function motoristaNaFrase(
@@ -108,14 +110,16 @@ export function RouteFilters({
         onStatusChange={handleStatusChange}
       />
 
-      <View style={styles.periodoSection}>
-        <Text style={styles.periodoTitle}>Período</Text>
-        <SeletorPeriodo
-          valor={periodo}
-          aoMudar={onPeriodoChange}
-          testID="filtro-periodo"
-        />
-      </View>
+      {periodo && onPeriodoChange ? (
+        <View style={styles.periodoSection}>
+          <Text style={styles.periodoTitle}>Período</Text>
+          <SeletorPeriodo
+            valor={periodo}
+            aoMudar={onPeriodoChange}
+            testID="filtro-periodo"
+          />
+        </View>
+      ) : null}
 
       <MotoristaFilterSection
         motoristaId={filters.motoristaId}
