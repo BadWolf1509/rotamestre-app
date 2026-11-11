@@ -10,6 +10,7 @@ import Incidentes from '../incidentes';
 
 const mockVer = jest.fn();
 const mockDefinirPeriodo = jest.fn();
+const mockSetFiltroStatus = jest.fn();
 let mockEstado: Record<string, unknown> = {};
 let mockIsDesktop = false;
 
@@ -41,7 +42,7 @@ jest.mock('@/hooks/useIncidentesGestor', () => {
       verPendentesAnteriores: mockVer,
       filtroStatus: 'todos',
       filtroCategoria: 'todos',
-      setFiltroStatus: jest.fn(),
+      setFiltroStatus: mockSetFiltroStatus,
       setFiltroCategoria: jest.fn(),
       incidenteSelecionado: null,
       showDetalhesModal: false,
@@ -152,6 +153,28 @@ describe.each([
     });
   },
 );
+
+describe('celular: filtro de status ativo (sem chips)', () => {
+  it('com status "pendentes" mostra a indicação e "Limpar" volta a todos', () => {
+    mockEstado = { filtroStatus: 'pendentes' };
+    render(<Incidentes />);
+    expect(screen.getByText('Mostrando: Pendentes')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('incidentes-filtro-status-limpar'));
+    expect(mockSetFiltroStatus).toHaveBeenCalledWith('todos');
+  });
+
+  it('com status "todos" não há indicação', () => {
+    render(<Incidentes />);
+    expect(screen.queryByTestId('incidentes-filtro-status')).toBeNull();
+  });
+
+  it('no desktop os chips já mostram o status: sem a indicação', () => {
+    mockIsDesktop = true;
+    mockEstado = { filtroStatus: 'pendentes' };
+    render(<Incidentes />);
+    expect(screen.queryByTestId('incidentes-filtro-status')).toBeNull();
+  });
+});
 
 it('o vazio diz o período, em minúsculas, no meio da frase', () => {
   render(<Incidentes />);

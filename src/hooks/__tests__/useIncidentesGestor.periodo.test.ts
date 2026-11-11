@@ -19,10 +19,16 @@ import { defaultTheme } from '@/utils/styles.base';
 
 import { useIncidentesGestor } from '../useIncidentesGestor';
 
+const mockConsultas = jest.fn();
 let mockCliente: ReturnType<typeof criarPostgrestFalso>['cliente'];
 
 jest.mock('@/lib/supabase', () => ({
-  supabase: { from: (t: string) => mockCliente.from(t) },
+  supabase: {
+    from: (t: string) => {
+      mockConsultas(t);
+      return mockCliente.from(t);
+    },
+  },
   isSupabaseConfigured: true,
 }));
 jest.mock('@/hooks/useUser', () => ({
@@ -37,6 +43,18 @@ jest.mock('../useUnidadeAtiva', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }));
+
+let mockCarregado = true;
+jest.mock('@/hooks/usePeriodoLembrado', () => {
+  const real = jest.requireActual('@/hooks/usePeriodoLembrado');
+  return {
+    ...real,
+    usePeriodoLembrado: (...args: unknown[]) => {
+      const r = real.usePeriodoLembrado(...args);
+      return mockCarregado ? r : { ...r, carregado: false };
+    },
+  };
+});
 
 const noSP = new Date(2026, 10, 10).getTimezoneOffset() === 180;
 
@@ -74,6 +92,7 @@ function periodoLembrado(valor: object | null) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCarregado = true;
   (AsyncStorage.getItem as jest.Mock).mockImplementation(
     async (k: string) => armazem.get(k) ?? null,
   );
@@ -84,9 +103,12 @@ beforeEach(() => {
   );
 });
 
+// Estável: um jest.fn() novo a cada render refaria a carga em laço.
+const mockShowToast = jest.fn();
+
 const renderizar = () =>
   renderHook(() =>
-    useIncidentesGestor(defaultTheme as never, { showToast: jest.fn() }),
+    useIncidentesGestor(defaultTheme as never, { showToast: mockShowToast }),
   );
 
 const NOVEMBRO = { tipo: 'personalizado', de: '2026-11-01', ate: '2026-11-30' };
@@ -203,7 +225,24 @@ describe('useIncidentesGestor — período', () => {
     const { result } = renderizar();
     await waitFor(() => expect(result.current.total).toBe(1));
 
+    const antes = mockConsultas.mock.calls.length;
     act(() => result.current.definirPeriodo({ tipo: 'todo' }));
     await waitFor(() => expect(result.current.total).toBe(2));
+    // Lista + contagem de pendentes só com `de`: "todo" não tem, então a
+    // troca custa uma consulta da lista (e nenhuma repetida em laço).
+    expect(mockConsultas.mock.calls.length - antes).toBe(1);
+  });
+
+  it('antes de carregado o período lembrado, não consulta nada', async () => {
+    mockCarregado = false;
+    mockCliente = criarPostgrestFalso({
+      incidentes: [inc('a', '2026-10-05T12:00:00.000Z', 'aberto')],
+    }).cliente;
+    periodoLembrado(NOVEMBRO);
+    renderizar();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(mockConsultas).not.toHaveBeenCalled();
   });
 });

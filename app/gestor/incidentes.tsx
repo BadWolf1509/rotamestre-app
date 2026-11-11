@@ -150,6 +150,27 @@ export default function IncidentesScreen() {
         aoMudar={definirPeriodo}
         testID="incidentes-periodo"
       />
+      {/* Celular não tem os chips de status: mostra o filtro ativo (o "Ver"
+          liga "Pendentes") e deixa limpar. */}
+      {!isDesktop && filtroStatus !== 'todos' ? (
+        <View style={styles.avisoPendentes} testID="incidentes-filtro-status">
+          <Text style={styles.avisoPendentesTexto}>
+            {`Mostrando: ${
+              filtroStatus === 'pendentes'
+                ? 'Pendentes'
+                : statusLabels[filtroStatus].label
+            }`}
+          </Text>
+          <TouchableOpacity
+            testID="incidentes-filtro-status-limpar"
+            onPress={() => setFiltroStatus('todos')}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar filtro de status"
+          >
+            <Text style={styles.mobileActionText}>Limpar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {pendentesAntesDoPeriodo > 0 ? (
         <View style={styles.avisoPendentes} testID="incidentes-aviso-pendentes">
           <Text style={styles.avisoPendentesTexto}>
