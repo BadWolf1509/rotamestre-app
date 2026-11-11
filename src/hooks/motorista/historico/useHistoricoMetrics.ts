@@ -1,79 +1,100 @@
 /**
- * Hook to compute historico metrics from route data
+ * Cabeçalho do Histórico: números do PERÍODO, somados no servidor.
+ *
+ * Vêm de `resumo_desempenho_motorista` (`buscarResumoDesempenho` com
+ * `intervalo`), sem corte em hoje, e não da lista baixada: a lista é uma
+ * página de 50. O cabeçalho segue só o período, não o chip de status.
+ *
+ * "{n} este mês" é o mês corrente em qualquer período: com "Este mês" reusa o
+ * total do resumo; nos outros, uma consulta à parte.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { parseLocalDate } from '@/lib/dateUtils';
+import { logger } from '@/lib/logger';
+import { buscarResumoDesempenho } from '@/lib/motorista/resumoDesempenho';
+import { resolverPeriodo } from '@/lib/periodo';
 
-import type { Metricas, RotaHistorico } from './types';
+import type { Metricas } from './types';
 
-const emptyMetrics: Metricas = {
-  rotasTotais: 0,
-  rotasConcluidas: 0,
-  rotasMes: 0,
-  paradasTotais: 0,
-  paradasConcluidas: 0,
-  distanciaTotal: 0,
-  tempoMedioMinutos: 0,
-  taxaSucesso: 0,
-};
+interface Entrada {
+  /** Período lembrado lido e usuário conhecido. */
+  habilitado: boolean;
+  motoristaId: string | undefined;
+  de: string | null;
+  ate: string | null;
+  /** O filtro é "Este mês": o total do resumo já é o do mês. */
+  ehEsteMes: boolean;
+}
 
-export function useHistoricoMetrics(rotas: RotaHistorico[]): Metricas {
-  return useMemo((): Metricas => {
-    if (rotas.length === 0) return emptyMetrics;
+interface Retorno {
+  metricas: Metricas | null;
+  carregando: boolean;
+  recarregar: () => void;
+}
 
-    const agora = new Date();
-    const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+export function useHistoricoMetrics({
+  habilitado,
+  motoristaId,
+  de,
+  ate,
+  ehEsteMes,
+}: Entrada): Retorno {
+  const [metricas, setMetricas] = useState<Metricas | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [recarga, setRecarga] = useState(0);
+  // Só a consulta mais recente escreve: trocar de período rápido deixa
+  // respostas em voo, e a velha chegando por último sobrescreveria a nova.
+  const requisicaoRef = useRef(0);
 
-    let totalParadas = 0;
-    let paradasConcluidas = 0;
-    let distanciaTotal = 0;
-    let tempoTotalMinutos = 0;
-    let rotasComTempo = 0;
-    let rotasMes = 0;
-    let rotasConcluidas = 0;
+  useEffect(() => {
+    const minha = ++requisicaoRef.current;
+    const vigente = () => minha === requisicaoRef.current;
+    if (!habilitado) return;
+    if (!motoristaId) {
+      setMetricas(null);
+      setCarregando(false);
+      return;
+    }
 
-    rotas.forEach((rota) => {
-      totalParadas += rota.paradas_count || 0;
-      paradasConcluidas += rota.paradas_concluidas || 0;
-      distanciaTotal += rota.distancia_total || 0;
-
-      if (rota.status === 'concluida') {
-        rotasConcluidas++;
+    setCarregando(true);
+    const buscar = async () => {
+      try {
+        const [resumo, doMes] = await Promise.all([
+          buscarResumoDesempenho(motoristaId, { intervalo: { de, ate } }),
+          ehEsteMes
+            ? Promise.resolve(null)
+            : buscarResumoDesempenho(motoristaId, {
+                intervalo: resolverPeriodo({ tipo: 'este_mes' }),
+              }),
+        ]);
+        if (!vigente()) return;
+        const taxaSucesso =
+          resumo.totalParadas > 0
+            ? Math.round((resumo.paradasConcluidas / resumo.totalParadas) * 100)
+            : 0;
+        setMetricas({
+          rotasTotais: resumo.totalRotas,
+          rotasConcluidas: resumo.rotasConcluidas,
+          rotasMes: (doMes ?? resumo).totalRotas,
+          paradasTotais: resumo.totalParadas,
+          paradasConcluidas: resumo.paradasConcluidas,
+          distanciaTotal: Math.round(resumo.distanciaTotal * 10) / 10,
+          tempoMedioMinutos: Math.round(resumo.tempoMedioMinutos ?? 0),
+          taxaSucesso,
+        });
+      } catch (error) {
+        logger.error('Erro ao carregar o cabeçalho do histórico', error);
+        if (vigente()) setMetricas(null);
+      } finally {
+        if (vigente()) setCarregando(false);
       }
-
-      const dataRota = parseLocalDate(rota.data);
-      if (dataRota && dataRota >= inicioMes) {
-        rotasMes++;
-      }
-
-      if (rota.iniciada_em && rota.concluida_em) {
-        const inicio = new Date(rota.iniciada_em);
-        const fim = new Date(rota.concluida_em);
-        const diffMinutos = (fim.getTime() - inicio.getTime()) / (1000 * 60);
-        if (diffMinutos > 0 && diffMinutos < 1440) {
-          tempoTotalMinutos += diffMinutos;
-          rotasComTempo++;
-        }
-      }
-    });
-
-    const taxaSucesso =
-      totalParadas > 0 ? Math.round((paradasConcluidas / totalParadas) * 100) : 0;
-
-    const tempoMedioMinutos =
-      rotasComTempo > 0 ? Math.round(tempoTotalMinutos / rotasComTempo) : 0;
-
-    return {
-      rotasTotais: rotas.length,
-      rotasConcluidas,
-      rotasMes,
-      paradasTotais: totalParadas,
-      paradasConcluidas,
-      distanciaTotal: Math.round(distanciaTotal * 10) / 10,
-      tempoMedioMinutos,
-      taxaSucesso,
     };
-  }, [rotas]);
+    // Disparo proposital, sem espera: o carregador trata o próprio erro.
+    void buscar();
+  }, [habilitado, motoristaId, de, ate, ehEsteMes, recarga]);
+
+  const recarregar = useCallback(() => setRecarga((n) => n + 1), []);
+
+  return { metricas, carregando, recarregar };
 }

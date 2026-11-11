@@ -2,8 +2,13 @@
  * Types for Historico screen data and filters
  */
 
-export type FiltroStatus = 'todos' | 'concluida' | 'pendente' | 'em_andamento' | 'cancelada' | 'nao_executada';
-export type FiltroPeriodo = 'todos' | 'hoje' | 'semana' | 'mes';
+export type FiltroStatus =
+  | 'todos'
+  | 'concluida'
+  | 'pendente'
+  | 'em_andamento'
+  | 'cancelada'
+  | 'nao_executada';
 
 export interface RotaHistorico {
   id: string;
@@ -19,9 +24,11 @@ export interface RotaHistorico {
   paradas_concluidas?: number;
 }
 
+/** Cabeçalho do período (vem do resumo do banco, não da lista baixada). */
 export interface Metricas {
   rotasTotais: number;
   rotasConcluidas: number;
+  /** Rotas do mês corrente, qualquer que seja o período escolhido. */
   rotasMes: number;
   paradasTotais: number;
   paradasConcluidas: number;

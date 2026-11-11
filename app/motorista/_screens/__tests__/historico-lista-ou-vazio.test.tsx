@@ -6,36 +6,55 @@
  * (`historicoList.or(historicoEmpty)`) caía no modo estrito com 2 elementos.
  * Agora o vazio é desenhado no lugar da lista, como em Paradas e Motoristas.
  */
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
 
 import HistoricoMotorista from '../historico';
 
 let mockRotas: unknown[] = [];
-let mockFiltradas: unknown[] | null = null;
+let mockStatus = 'todos';
+let mockPeriodo: { tipo: string } = { tipo: 'este_mes' };
+let mockTemMais = false;
+const mockCarregarMais = jest.fn();
+jest.mock('@/hooks/useUser', () => ({
+  useUser: () => ({ userData: { id: 'm1' }, loading: false }),
+}));
+jest.mock('@/components/periodo', () => ({ SeletorPeriodo: () => null }));
 jest.mock('@/hooks/motorista/historico', () => ({
   useHistoricoData: () => ({
     rotas: mockRotas,
+    total: mockRotas.length,
+    temMais: mockTemMais,
     loading: false,
+    carregandoMais: false,
     refreshing: false,
     onRefresh: jest.fn(),
+    carregarMais: mockCarregarMais,
     AlertDialog: null,
   }),
   useHistoricoMetrics: () => ({
-    totalRotas: mockRotas.length,
-    rotasConcluidas: 0,
-    totalParadas: 0,
-    paradasConcluidas: 0,
-    distanciaTotal: 0,
-    tempoMedio: 0,
-    taxaSucesso: 0,
+    metricas: {
+      rotasTotais: mockRotas.length,
+      rotasConcluidas: 0,
+      rotasMes: 0,
+      paradasTotais: 0,
+      paradasConcluidas: 0,
+      distanciaTotal: 0,
+      tempoMedioMinutos: 0,
+      taxaSucesso: 0,
+    },
+    carregando: false,
+    recarregar: jest.fn(),
   }),
-  useHistoricoFilters: (rotas: unknown[]) => ({
-    filtroStatus: 'todos',
+  useHistoricoFilters: () => ({
+    filtroStatus: mockStatus,
     setFiltroStatus: jest.fn(),
-    filtroPeriodo: 'todos',
-    setFiltroPeriodo: jest.fn(),
-    rotasFiltradas: mockFiltradas ?? rotas,
+    periodo: mockPeriodo,
+    definirPeriodo: jest.fn(),
+    carregado: true,
+    de: '2026-11-01',
+    ate: '2026-11-30',
+    textoDoPeriodo: 'Este mês (01/11 a 30/11)',
   }),
   formatarTempo: () => '0min',
 }));
@@ -50,7 +69,10 @@ jest.mock('@/components/motorista/historico/RotaHistoricoCard', () => {
 
 describe('Histórico: lista ou vazio, nunca os dois', () => {
   beforeEach(() => {
-    mockFiltradas = null;
+    mockStatus = 'todos';
+    mockPeriodo = { tipo: 'todo' };
+    mockTemMais = false;
+    mockCarregarMais.mockClear();
   });
 
   it('sem rotas: só o vazio', () => {
@@ -61,15 +83,31 @@ describe('Histórico: lista ou vazio, nunca os dois', () => {
     expect(screen.getByText('Nenhuma rota registrada')).toBeTruthy();
   });
 
-  it('com rotas, mas nenhuma no filtro: o vazio fala do filtro, não de rotas futuras', () => {
-    mockRotas = [{ id: 'r1', data: '2026-11-01', status: 'concluida' }];
-    mockFiltradas = [];
+  it('nenhuma rota no status escolhido: o vazio fala do filtro, não de rotas futuras', () => {
+    mockRotas = [];
+    mockStatus = 'cancelada';
     render(<HistoricoMotorista />);
     expect(screen.getByTestId('motorista-historico-empty')).toBeTruthy();
     expect(screen.getByText('Nenhuma rota com esse filtro')).toBeTruthy();
     expect(
       screen.queryByText('Suas rotas aparecerão aqui após serem criadas'),
     ).toBeNull();
+  });
+
+  it('nenhuma rota no período: o vazio fala do período', () => {
+    mockRotas = [];
+    mockPeriodo = { tipo: 'este_mes' };
+    render(<HistoricoMotorista />);
+    expect(screen.getByText('Nenhuma rota neste período')).toBeTruthy();
+    expect(screen.getByText('Este mês (01/11 a 30/11)')).toBeTruthy();
+  });
+
+  it('com mais páginas: "Carregar mais" pede a seguinte', () => {
+    mockRotas = [{ id: 'r1', data: '2026-11-01', status: 'concluida' }];
+    mockTemMais = true;
+    render(<HistoricoMotorista />);
+    fireEvent.press(screen.getByTestId('motorista-historico-carregar-mais'));
+    expect(mockCarregarMais).toHaveBeenCalledTimes(1);
   });
 
   it('com rotas: só a lista', () => {
