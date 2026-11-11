@@ -8,7 +8,17 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
-**11/11/2026 — Supabase CLI 3.0:** Dependabot #754, #755, #758 e #757 mesclados; #768 ajustou o `config.toml`; comandos de produção do CLI agora levam `--remote` (docs atualizadas).
+## 1.16.0 (3060) e Dependabot (11/11/2026, #754–#760, #766–#770)
+
+**Mesclados:** #766 (Início), #767 (Perfil do motorista, Meu Desempenho, Histórico), Dependabot #754, #755, #756 (Nitro 0.37.2), #757 (Supabase CLI 3.0), #758, #759 (Unistyles 3.8.1), #760 (`@hookform/resolvers` 7); #768 (`config.toml`: `[inbucket]` → `[local_smtp]`, que o CLI 2.122 já lia), #769 (docs: comandos de produção do CLI com `--remote`) e #770 (bump 1.16.0/3060). O #759 entrou com o CI do rebase ainda pendente — o CI da `main` naquele merge foi o portão (verde).
+
+**Play:** build pelo Actions (`.aab` com SHA-256 igual ao do log, upload key de 16/06/2026), submit à interna de uma worktree na tag da release (o checkout principal estava em Expo 57, e o `eas submit` roda `expo config` local), notas de 423 caracteres; alpha promovida no mesmo dia, depois do aparelho.
+
+**Notas (pt-BR):** "Novidade: filtro por período. • Gestor: Início, Gestão de Rotas, Incidentes e Perfil do motorista ganham o seletor (Hoje, Esta semana, Este mês, Personalizado e outros). O padrão é "Este mês", e cada tela lembra a última escolha. • Exportação de rotas usa o período escolhido. • Incidentes avisa os pendentes de antes do período. • Motorista: Histórico e Meu Desempenho por período. • Atualizações internas de estabilidade."
+
+**Validado no moto g15 (3060 pela Play):** gestor — Início no celular (seletor fora do modal, Personalizado, cancelar a data no Android deixa vazio, faixa do topo no período, período lembrado por tela), Gestão de Rotas, mapa da rota, formulário com zod (erro no campo, nada gravado), Incidentes (aviso, "Ver" → "Todo o período" + "Pendentes", "Limpar"), tema escuro alternado seis vezes sem travar (1,5% de quadros lentos), Nitro carregado, partida a frio em 743 ms; motorista — Histórico (resumo do período, "— média" sem dado, filtro de status), Meu Desempenho (fim cortado em hoje). Zero crash. Não exercitado: rotação. **Armadilha do aparelho:** o balão de chat de outro app rouba toques no canto direito; leia a árvore (`uiautomator dump`) antes de chamar de defeito.
+
+**Ajustes pequenos achados no aparelho:** a seção "Desempenho" da Início misturava recortes fixos e do período, e o vazio da busca da Gestão de Rotas convidava a criar rota — ver o PR de textos seguinte.
 
 ## Filtros por período (10–11/11/2026)
 
@@ -16,9 +26,9 @@ Spec e plano em `docs/superpowers/` (`2026-11-10-filtros-por-periodo`): uma regr
 
 **Na `main`:** #761 (Migration 90) e #762 (base). **Banco:** Migration 90 (`20261110120000_periodo_desempenho.sql`) aplicada pelo CLI em 10/11 — `desempenho_motorista_na_loja(p_motorista_id, p_unidade_id, p_de, p_ate)`, `resumo_desempenho_motorista(p_motorista_id, p_dias, p_de, p_ate)` (com `p_de`/`p_ate` o `p_dias` é ignorado; a coluna nova `tempo_medio_minutos`; a chamada antiga `(uuid, int)` responde igual) e os índices `idx_rotas_unidade_data_id` e `idx_incidentes_unidade_created_id`. **Protocolo:** sonda 9/9 com o corpo na mesma execução (antes de aplicar, desfeita) e 9/9 depois; registrada com a versão do arquivo; a API responde 42501 sem login nas três formas de chamada; as cópias `pg_temp` da sonda foram conferidas por md5 contra as funções vivas; revisão de RLS APPROVE. **Base (#762):** `src/lib/periodo.ts` (Hoje, Ontem, Esta semana, Semana passada, Este mês, Mês passado, Personalizado, Todo o período; semana de segunda a domingo, intervalo fechado, texto "Este mês (01/11 a 30/11)" montado da string, sem `toLocaleDateString`), `usePeriodoLembrado` (chave `@rotamestre:periodo:<tela>:<usuarioId>`, nunca expõe o período de outra tela ou conta) e `SeletorPeriodo` (folha no celular, menu ancorado no computador), com `PainelPersonalizado` e `calendario.tsx`.
 
-**Em PR:** #763 (Gestão de Rotas e exportação: período no banco, inclusive no cursor, nas contagens e na exportação; "N rotas no período"; o nome do arquivo leva o período; busca só por motorista; cache por período; os e2e escolhem "Todo o período") e #764 (Incidentes: lista, cartões e contagens por `created_at` no período; aviso "N incidentes pendentes de antes do período" com "Ver", que leva a "Todo o período" com o chip "Pendentes"; no celular, "Mostrando: … · Limpar"). **Em revisão:** grupo D, Início (`feat/periodo-inicio`: padrão "Este mês", teto de 500 rotas em "Todo o período" com aviso, seletor ao lado de "Rotas" no celular, "Esta Semana" de segunda até hoje) e grupo F, desempenho (`feat/periodo-desempenho`: Perfil do motorista e Meu Desempenho com o fim cortado em hoje e vazio sem números em período futuro; Histórico com período e status no banco e páginas de 50).
+**Mesclados depois:** #763 (Gestão de Rotas e exportação: período no banco, inclusive no cursor, nas contagens e na exportação; "N rotas no período"; o nome do arquivo leva o período; busca só por motorista; cache por período; os e2e escolhem "Todo o período") e #764 (Incidentes: lista, cartões e contagens por `created_at` no período; aviso "N incidentes pendentes de antes do período" com "Ver", que leva a "Todo o período" com o chip "Pendentes"; no celular, "Mostrando: … · Limpar"). #766, Início (`feat/periodo-inicio`: padrão "Este mês", teto de 500 rotas em "Todo o período" com aviso, seletor ao lado de "Rotas" no celular, "Esta Semana" de segunda até hoje) e #767, desempenho ( Perfil do motorista e Meu Desempenho com o fim cortado em hoje e vazio sem números em período futuro; Histórico com período e status no banco e páginas de 50).
 
-**Falta:** validação no navegador (login do gestor) e no aparelho (3060); ver a pendência 37.
+**Validado:** no navegador com o login do gestor (Gestão de Rotas, Incidentes, Perfil, Início) e no aparelho na 3060 (entrada acima).
 
 ## Execução das varreduras de 08/11/2026 (#745–#752)
 
