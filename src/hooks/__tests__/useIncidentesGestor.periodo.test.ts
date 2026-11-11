@@ -233,6 +233,34 @@ describe('useIncidentesGestor — período', () => {
     expect(mockConsultas.mock.calls.length - antes).toBe(1);
   });
 
+  it('lista que falha no período novo zera o aviso do anterior', async () => {
+    mockCliente = criarPostgrestFalso({
+      incidentes: [inc('a', '2026-09-05T12:00:00.000Z', 'aberto')],
+    }).cliente;
+    periodoLembrado(NOVEMBRO);
+    const { result } = renderizar();
+    await waitFor(() => expect(result.current.pendentesAntesDoPeriodo).toBe(1));
+
+    mockCliente = {
+      from: () => {
+        throw new Error('rede');
+      },
+    } as unknown as typeof mockCliente;
+    act(() =>
+      result.current.definirPeriodo({
+        tipo: 'personalizado',
+        de: '2026-10-01',
+        ate: '2026-10-31',
+      }),
+    );
+
+    await waitFor(() => expect(result.current.pendentesAntesDoPeriodo).toBe(0));
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Erro ao carregar incidentes',
+      'error',
+    );
+  });
+
   it('antes de carregado o período lembrado, não consulta nada', async () => {
     mockCarregado = false;
     mockCliente = criarPostgrestFalso({

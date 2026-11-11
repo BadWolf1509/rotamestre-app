@@ -70,7 +70,7 @@ export interface UseIncidentesGestorOptions {
 export interface UseIncidentesGestorReturn {
   // Data
   incidentes: Incidente[];
-  /** Quantos incidentes casam com os filtros na loja inteira. */
+  /** Quantos incidentes casam com os filtros (loja e período). */
   total: number | null;
   /** Há incidentes além dos carregados. */
   temMais: boolean;
@@ -296,6 +296,8 @@ export function useIncidentesGestor(
     } catch (error) {
       if (geracao !== geracaoRef.current) return;
       logger.error('Erro ao buscar incidentes:', error);
+      // O aviso era do período anterior: sem lista nova, ele some.
+      setPendentesAntesDoPeriodo(0);
       showToast('Erro ao carregar incidentes', 'error');
     } finally {
       if (geracao === geracaoRef.current) {
@@ -360,7 +362,7 @@ export function useIncidentesGestor(
   }, [filtros, temMais, unidadeNome, showToast]);
 
   // Top 5 motoristas: dos incidentes carregados (a tela avisa quando há
-  // mais). Os cartões de resumo vêm das contagens da loja inteira.
+  // mais). Os cartões de resumo vêm das contagens da loja no período.
   const { estatisticasMotorista, resumoGeral: resumoCarregados } =
     useIncidentesStats({ incidentes });
   const resumoGeral = useMemo<ResumoGeral>(

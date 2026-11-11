@@ -449,8 +449,15 @@ export default function IncidentesScreen() {
   // ============================================
 
   const renderMobile = () => {
+    // Seletor e filtro ativo ficam montados durante a carga: só a lista
+    // vira "carregando".
     if (loading) {
-      return <MobileLoading />;
+      return (
+        <View style={styles.mobileContainer}>
+          {renderPeriodo()}
+          <MobileLoading />
+        </View>
+      );
     }
 
     if (incidentes.length === 0) {

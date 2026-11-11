@@ -176,6 +176,13 @@ describe('celular: filtro de status ativo (sem chips)', () => {
   });
 });
 
+it('celular: durante a carga o seletor e o filtro ativo continuam montados', () => {
+  mockEstado = { loading: true, filtroStatus: 'pendentes' };
+  render(<Incidentes />);
+  expect(screen.getByTestId('incidentes-periodo')).toBeTruthy();
+  expect(screen.getByText('Mostrando: Pendentes')).toBeTruthy();
+});
+
 it('o vazio diz o período, em minúsculas, no meio da frase', () => {
   render(<Incidentes />);
   expect(screen.getByText(/Não há incidentes em este mês \(/)).toBeTruthy();
