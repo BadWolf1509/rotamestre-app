@@ -5,9 +5,10 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
-import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
+import { formatDateBR, formatDateTimeBR, getTodayISO } from '@/lib/dateUtils';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { logger } from '@/lib/logger';
+import type { IntervaloDatas } from '@/lib/periodo';
 import { ROTA_STATUS_LABELS, type FiltroStatus } from '@/lib/statusLabels';
 import { showError, showSuccess, showWarning } from '@/utils/errorHandling';
 
@@ -19,6 +20,26 @@ interface ExportOptions {
   rotas: RotaHistorico[];
   filtroStatus: FiltroStatus;
   userId?: string;
+  /** Período filtrado: entra no nome do arquivo. */
+  periodo?: IntervaloDatas;
+}
+
+/**
+ * Nome do arquivo exportado. Com período (as duas pontas), o intervalo no
+ * nome (`gestao-rotas-01-11-2026_a_30-11-2026.csv`); sem período ("Todo o
+ * período"), o dia da exportação. `hojeISO` só existe para os testes.
+ */
+export function nomeArquivoExportacao(
+  intervalo: IntervaloDatas,
+  extensao: 'csv' | 'xlsx',
+  hojeISO: string = getTodayISO(),
+): string {
+  const dia = (iso: string) => formatDateBR(iso).replace(/\//g, '-');
+  const sufixo =
+    intervalo.de && intervalo.ate
+      ? `${dia(intervalo.de)}_a_${dia(intervalo.ate)}`
+      : dia(hojeISO);
+  return `gestao-rotas-${sufixo}.${extensao}`;
 }
 
 /**
@@ -29,6 +50,7 @@ export async function exportRotasToCSV({
   rotas,
   filtroStatus,
   userId,
+  periodo = { de: null, ate: null },
 }: ExportOptions): Promise<void> {
   try {
     if (rotas.length === 0) {
@@ -37,10 +59,7 @@ export async function exportRotasToCSV({
     }
 
     const csvContent = buildCSVContent(rotas);
-    const dataAtual = new Date()
-      .toLocaleDateString('pt-BR')
-      .replace(/\//g, '-');
-    const nomeArquivo = `gestao-rotas-${dataAtual}.csv`;
+    const nomeArquivo = nomeArquivoExportacao(periodo, 'csv');
 
     if (Platform.OS === 'web') {
       downloadCSVWeb(csvContent, nomeArquivo);

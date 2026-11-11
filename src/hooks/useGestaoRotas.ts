@@ -4,7 +4,8 @@
  * Encapsula toda a lógica de estado e ações:
  * - Carregamento paginado no servidor ("carregar mais", 100 por vez), com o
  *   total da loja para a tela avisar quando a lista não mostra tudo
- * - Filtro de status e busca aplicados no servidor (cobrem todas as rotas)
+ * - Filtro de status, período e busca (só por motorista) aplicados no servidor
+ *   (cobrem todas as rotas)
  * - Exportação para CSV e XLSX de TODAS as rotas do filtro, com progresso
  * - Atualização em tempo real
  * - Cache local para melhor UX (stale-while-revalidate)
@@ -26,6 +27,7 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { usePeriodoLembrado } from '@/hooks/usePeriodoLembrado';
 import { useRealtimeRoutes } from '@/hooks/useRealtimeRoutes';
 import type { ShowToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
@@ -41,6 +43,7 @@ import {
 } from '@/lib/gestor/consultaRotas';
 import { rotasDeTesteDaGestao } from '@/lib/gestor/dadosDeTeste';
 import { logger } from '@/lib/logger';
+import { resolverPeriodo } from '@/lib/periodo';
 import {
   classifyError,
   isPostgrestAbortShape,
@@ -176,19 +179,40 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     handleSort,
   } = useRotasFiltering({ rotas });
 
+  // Período lembrado no aparelho (padrão: este mês). Só se consulta depois de
+  // `carregado`: antes disso o período é o padrão, não o que a pessoa escolheu.
+  const { periodo, definirPeriodo, carregado } =
+    usePeriodoLembrado('gestao_rotas');
+  const intervalo = resolverPeriodo(periodo);
+  const periodoDe = intervalo.de;
+  const periodoAte = intervalo.ate;
+
   const filtros = useMemo<FiltrosRotas | null>(
     () =>
-      unidadeAtiva
+      unidadeAtiva && carregado
         ? {
             unidadeId: unidadeAtiva,
             status: filtroStatus,
             busca: buscaAplicada,
+            periodo: { de: periodoDe, ate: periodoAte },
           }
         : null,
-    [unidadeAtiva, filtroStatus, buscaAplicada],
+    [
+      unidadeAtiva,
+      carregado,
+      filtroStatus,
+      buscaAplicada,
+      periodoDe,
+      periodoAte,
+    ],
   );
-  // Só a visão sem filtro vai para o cache (é a que abre a tela).
-  const visaoPadrao = filtroStatus === 'todas' && !buscaAplicada.trim();
+  // Só a visão sem filtro (inclusive sem período) vai para o cache: é o que
+  // ele guarda, e uma lista de outro período não pode abrir a tela.
+  const visaoPadrao =
+    filtroStatus === 'todas' &&
+    !buscaAplicada.trim() &&
+    periodoDe === null &&
+    periodoAte === null;
 
   // ============================================
   // DATA LOADING
@@ -407,6 +431,7 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
           rotas: rotasFiltradas,
           filtroStatus,
           userId: userData?.id,
+          periodo: { de: periodoDe, ate: periodoAte },
         });
         return;
       }
@@ -432,10 +457,17 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
         });
         if (controller.signal.aborted) return;
 
+        // Período sem rota: nada de arquivo vazio, só o aviso.
+        if (todas.length === 0) {
+          showToast('Nenhuma rota no período', 'info', 5000);
+          return;
+        }
+
         await gerar({
           rotas: ordenarRotas(todas, sortColumn, sortDirection),
           filtroStatus,
           userId: userData?.id,
+          periodo: { de: periodoDe, ate: periodoAte },
         });
 
         if (totalDaBusca !== null && totalDaBusca > todas.length) {
@@ -461,6 +493,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       filtros,
       rotasFiltradas,
       filtroStatus,
+      periodoDe,
+      periodoAte,
       userData?.id,
       sortColumn,
       sortDirection,
@@ -504,10 +538,12 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
     dadosDe,
     filtroStatus,
     searchQuery,
+    periodo,
     userData,
 
     // State Setters
     setFiltroStatus,
+    definirPeriodo,
     setSearchQuery,
 
     // Sorting

@@ -6,12 +6,13 @@
  * antiga, o filtro mentia a contagem e o CSV/XLSX saía com só 100 linhas,
  * tudo sem aviso. Agora:
  *
- * - **Busca e filtro vão ao servidor** (`interpretarBusca`): texto busca o
- *   nome do motorista (`ilike` escapado, embed com `!inner` para recortar a
- *   rota); texto que é pedaço de "sem motorista" — o que a lista mostra na
- *   rota sem motorista — também traz essas rotas (ver `CONDICAO_SEM_MOTORISTA`); `dd/mm/aaaa`, `dd/mm`, `mm/aaaa` e `aaaa` viram filtro na coluna
- *   `data` (`in`/intervalo). `rotas.data` é `date`: nada aqui passa por
- *   `new Date()`, as datas são montadas como texto `AAAA-MM-DD`.
+ * - **Busca, status e período vão ao servidor** (`interpretarBusca`): a busca
+ *   é só por nome de motorista (`ilike` escapado, embed com `!inner` para
+ *   recortar a rota); texto que é pedaço de "sem motorista" — o que a lista
+ *   mostra na rota sem motorista — também traz essas rotas (ver
+ *   `CONDICAO_SEM_MOTORISTA`). O período (`FiltrosRotas.periodo`) é um
+ *   intervalo fechado na coluna `data`. `rotas.data` é `date`: nada aqui passa
+ *   por `new Date()`, as datas chegam como texto `AAAA-MM-DD`.
  * - **Paginação estável por cursor**: `data desc, id desc`, e a página
  *   seguinte começa depois da última linha (keyset). OFFSET repetia ou pulava
  *   rota quando outra era criada ou excluída entre um clique e outro.
@@ -26,6 +27,7 @@ import type { RotaHistorico } from '@/hooks/gestao-rotas/types';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { buscarNomesForaDaLoja } from '@/lib/gestor/nomesMotoristasForaDaLoja';
 import { contarParadasDasRotas } from '@/lib/paradas/contarParadasDasRotas';
+import type { IntervaloDatas } from '@/lib/periodo';
 import { escaparIlike, filtroKeysetDesc } from '@/lib/queries/paginacao';
 import type { FiltroStatus, RotaStatus } from '@/lib/statusLabels';
 import { supabase } from '@/lib/supabase';
@@ -46,9 +48,6 @@ const MAX_LINHAS_POR_REQUISICAO = 1000;
  * rotas em 24/10/2026. Acima do teto exporta as mais recentes e avisa.
  */
 export const TETO_EXPORTACAO_ROTAS = 10_000;
-
-/** Primeiro ano procurado quando a busca é `dd/mm` sem ano. */
-export const ANO_INICIAL_BUSCA = 2024;
 
 const COLUNAS =
   'id, data, status, distancia_total, iniciada_em, concluida_em, motorista_id';
@@ -100,6 +99,8 @@ export interface FiltrosRotas {
   status: FiltroStatus;
   /** Texto como o gestor digitou (já com debounce). */
   busca: string;
+  /** Intervalo fechado em `rotas.data`; `null` na ponta = sem limite ali. */
+  periodo: IntervaloDatas;
 }
 
 export interface CursorRotas {
@@ -114,78 +115,16 @@ export type BuscaRotas =
       padrao: string;
       /** O texto é pedaço de "sem motorista": traz também as sem motorista. */
       incluiSemMotorista: boolean;
-    }
-  | { tipo: 'datas'; datas: string[] }
-  /** `de` inclusivo, `ate` exclusivo. */
-  | { tipo: 'intervalo'; de: string; ate: string }
-  /** Data que não existe (31/02): nada a buscar. */
-  | { tipo: 'impossivel' };
-
-function bissexto(ano: number): boolean {
-  return (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0;
-}
-
-function diasNoMes(ano: number, mes: number): number {
-  if (mes === 2) return bissexto(ano) ? 29 : 28;
-  return [4, 6, 9, 11].includes(mes) ? 30 : 31;
-}
-
-const doisDigitos = (n: number) => String(n).padStart(2, '0');
-
-function dataISO(ano: number, mes: number, dia: number): string | null {
-  if (mes < 1 || mes > 12 || dia < 1 || dia > diasNoMes(ano, mes)) return null;
-  return `${ano}-${doisDigitos(mes)}-${doisDigitos(dia)}`;
-}
-
-function inicioDoMes(ano: number, mes: number): string {
-  return `${ano}-${doisDigitos(mes)}-01`;
-}
+    };
 
 /**
- * O que o gestor digitou → filtro no servidor. `anoAtual` limita a janela do
- * `dd/mm` (de `ANO_INICIAL_BUSCA` até o ano que vem, para rota agendada).
+ * O que o gestor digitou → filtro no servidor. A busca é só por nome de
+ * motorista: data (`05/10/2026`) é texto como qualquer outro, e quem filtra
+ * por dia é o período.
  */
-export function interpretarBusca(termo: string, anoAtual: number): BuscaRotas {
+export function interpretarBusca(termo: string): BuscaRotas {
   const t = termo.trim();
   if (!t) return { tipo: 'nenhuma' };
-
-  let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) {
-    const iso = dataISO(Number(m[3]), Number(m[2]), Number(m[1]));
-    return iso ? { tipo: 'datas', datas: [iso] } : { tipo: 'impossivel' };
-  }
-
-  m = t.match(/^(\d{1,2})\/(\d{4})$/);
-  if (m) {
-    const mes = Number(m[1]);
-    const ano = Number(m[2]);
-    if (mes < 1 || mes > 12) return { tipo: 'impossivel' };
-    return {
-      tipo: 'intervalo',
-      de: inicioDoMes(ano, mes),
-      ate: mes === 12 ? inicioDoMes(ano + 1, 1) : inicioDoMes(ano, mes + 1),
-    };
-  }
-
-  m = t.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (m) {
-    const datas: string[] = [];
-    for (let ano = ANO_INICIAL_BUSCA; ano <= anoAtual + 1; ano++) {
-      const iso = dataISO(ano, Number(m[2]), Number(m[1]));
-      if (iso) datas.push(iso);
-    }
-    return datas.length ? { tipo: 'datas', datas } : { tipo: 'impossivel' };
-  }
-
-  if (/^\d{4}$/.test(t)) {
-    const ano = Number(t);
-    return {
-      tipo: 'intervalo',
-      de: inicioDoMes(ano, 1),
-      ate: inicioDoMes(ano + 1, 1),
-    };
-  }
-
   return {
     tipo: 'nome',
     padrao: `%${escaparIlike(t)}%`,
@@ -196,11 +135,6 @@ export function interpretarBusca(termo: string, anoAtual: number): BuscaRotas {
 /** Filtro da página seguinte (`data desc, id desc`). */
 export function filtroDepoisDoCursor(cursor: CursorRotas): string {
   return filtroKeysetDesc('data', cursor.data, cursor.id, FORMATO_DATA);
-}
-
-function anoAtual(): number {
-  // Só o ano, para a janela do `dd/mm`; o fuso não muda o resultado útil.
-  return new Date().getFullYear();
 }
 
 function selectPara(busca: BuscaRotas, colunas: string): string {
@@ -237,19 +171,10 @@ function aplicarFiltros(
   if (ous.length === 1) q = q.or(ous[0]);
   if (ous.length > 1) q = q.or(`and(${ous.map((o) => `or(${o})`).join(',')})`);
   if (filtros.status !== 'todas') q = q.eq('status', filtros.status);
-  switch (busca.tipo) {
-    case 'nome':
-      q = q.ilike('usuarios.nome', busca.padrao);
-      break;
-    case 'datas':
-      q = q.in('data', busca.datas);
-      break;
-    case 'intervalo':
-      q = q.gte('data', busca.de).lt('data', busca.ate);
-      break;
-    default:
-      break;
-  }
+  // Período: intervalo fechado em `data` (coluna `date`); ponta nula = sem limite.
+  if (filtros.periodo.de) q = q.gte('data', filtros.periodo.de);
+  if (filtros.periodo.ate) q = q.lte('data', filtros.periodo.ate);
+  if (busca.tipo === 'nome') q = q.ilike('usuarios.nome', busca.padrao);
   return q;
 }
 
@@ -380,10 +305,7 @@ export async function buscarRotas({
   signal?: AbortSignal;
   aoProgredir?: (carregadas: number, total: number | null) => void;
 }): Promise<{ rotas: RotaHistorico[]; total: number | null }> {
-  const busca = interpretarBusca(filtros.busca, anoAtual());
-  if (busca.tipo === 'impossivel') {
-    return { rotas: [], total: contar ? 0 : null };
-  }
+  const busca = interpretarBusca(filtros.busca);
 
   const rotas: RotaHistorico[] = [];
   let total: number | null = null;
@@ -425,7 +347,7 @@ export interface ContagemPorStatus {
 }
 
 /**
- * Concluídas e pendentes de TODAS as rotas que casam com a busca (os
+ * Concluídas e pendentes de TODAS as rotas que casam com a busca e o período (os
  * números do cabeçalho), por `HEAD` com `count=exact`: contar só as rotas
  * carregadas na lista mostraria 100 como se fosse a loja inteira.
  */
@@ -433,10 +355,9 @@ export async function contarRotasPorStatus(
   filtros: FiltrosRotas,
   signal?: AbortSignal,
 ): Promise<ContagemPorStatus> {
-  const busca = interpretarBusca(filtros.busca, anoAtual());
+  const busca = interpretarBusca(filtros.busca);
 
   const contar = async (status: RotaStatus): Promise<number> => {
-    if (busca.tipo === 'impossivel') return 0;
     if (filtros.status !== 'todas' && filtros.status !== status) return 0;
     let consulta = aplicarFiltros(
       consultaDeRotas(selectPara(busca, 'id'), { count: 'exact', head: true }),

@@ -61,6 +61,7 @@ jest.mock('@/design-system', () => {
 const mockExportarCSV = jest.fn();
 const mockExportarXLSX = jest.fn();
 const mockLoadRotas = jest.fn();
+const mockDefinirPeriodo = jest.fn();
 const mockCarregarMais = jest.fn();
 let mockEstadoHook: Record<string, unknown> = {};
 let mockOpcoesDoHook: { statusColorMap?: Record<string, string> } = {};
@@ -79,6 +80,8 @@ jest.mock('@/hooks/useGestaoRotas', () => ({
       dadosDe: null,
       filtroStatus: 'todas',
       searchQuery: '',
+      periodo: { tipo: 'este_mes' },
+      definirPeriodo: mockDefinirPeriodo,
       userData: { id: 'g1' },
       setFiltroStatus: jest.fn(),
       setSearchQuery: jest.fn(),
@@ -194,9 +197,33 @@ describe('GestaoRotas (mobile/tablet)', () => {
     render(<GestaoRotas />);
 
     expect(screen.getByText(/Mostrando 100 de 437 rotas/)).toBeTruthy();
-    expect(screen.getByText(/437 rotas encontradas/)).toBeTruthy();
+    expect(screen.getByText(/437 rotas no período/)).toBeTruthy();
     fireEvent.press(screen.getByTestId('gestao-rotas-carregar-mais'));
     expect(mockCarregarMais).toHaveBeenCalledTimes(1);
+  });
+
+  it('o período aparece ao lado dos chips de status, com "Este mês" por padrão', () => {
+    render(<GestaoRotas />);
+
+    expect(screen.getByTestId('gestao-rotas-periodo')).toBeTruthy();
+    expect(screen.getByText(/^Este mês \(/)).toBeTruthy();
+    expect(screen.getByPlaceholderText('Buscar por motorista')).toBeTruthy();
+  });
+
+  it('o total diz "N rotas no período", no singular com 1; "Todo o período" mantém o texto de antes', () => {
+    mockEstadoHook = { rotasFiltradas: rotasFalsas(1), total: 1 };
+    const { unmount } = render(<GestaoRotas />);
+    expect(screen.getByText('1 rota no período')).toBeTruthy();
+    unmount();
+
+    mockEstadoHook = {
+      rotasFiltradas: rotasFalsas(2),
+      total: 2,
+      periodo: { tipo: 'todo' },
+    };
+    render(<GestaoRotas />);
+    expect(screen.getByText('2 rotas encontradas')).toBeTruthy();
+    expect(screen.queryByText(/no período/)).toBeNull();
   });
 
   it('com todas as rotas na lista não há aviso nem "Carregar mais"', () => {
@@ -232,6 +259,14 @@ describe('GestaoRotas (desktop)', () => {
   beforeEach(() => {
     mockEhDesktop = true;
     mockEstadoHook = { rotasFiltradas: rotasFalsas(2), total: 2 };
+  });
+
+  it('o seletor de período fica no cartão de filtros, com "Este mês" por padrão', () => {
+    render(<GestaoRotas />);
+
+    expect(screen.getByTestId('gestao-rotas-periodo')).toBeTruthy();
+    expect(screen.getByText(/^Este mês \(/)).toBeTruthy();
+    expect(screen.getByText('2 rotas no período')).toBeTruthy();
   });
 
   it('tocar na linha abre a rota, a mesma navegação de "Ver detalhes"', () => {
@@ -362,14 +397,14 @@ it('o total de rotas encontradas usa a concordância certa', () => {
   comMarcador();
   render(<GestaoRotas />);
 
-  expect(screen.getByText('2345 rotas encontradas')).toBeTruthy();
+  expect(screen.getByText('2345 rotas no período')).toBeTruthy();
 });
 
-it('com uma rota o subtítulo diz "1 rota encontrada"', () => {
+it('com uma rota o subtítulo diz "1 rota no período"', () => {
   mockEstadoHook = { rotasFiltradas: rotasFalsas(1), total: 1 };
   render(<GestaoRotas />);
 
-  expect(screen.getByText('1 rota encontrada')).toBeTruthy();
+  expect(screen.getByText('1 rota no período')).toBeTruthy();
 });
 
 function rotasFalsas(n: number) {

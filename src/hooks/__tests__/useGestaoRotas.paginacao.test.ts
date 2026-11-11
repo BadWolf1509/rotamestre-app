@@ -44,6 +44,16 @@ jest.mock('../useUnidadeAtiva', () => ({
 jest.mock('../useUser', () => ({
   useUser: () => ({ userData: { id: 'g1', nome: 'Gestor' } }),
 }));
+// Período da tela: estado real (o `definirPeriodo` precisa refazer a consulta),
+// mas sem disco. Os dados de teste são de 2024: o padrão aqui é "Todo o
+// período" (o padrão de produção, este mês, está no teste do hook de período).
+jest.mock('../usePeriodoLembrado', () => ({
+  usePeriodoLembrado: () => {
+    const React = jest.requireActual('react');
+    const [periodo, definirPeriodo] = React.useState({ tipo: 'todo' });
+    return { periodo, definirPeriodo, carregado: true };
+  },
+}));
 jest.mock('../useRealtimeRoutes', () => ({ useRealtimeRoutes: jest.fn() }));
 jest.mock('../useDebounce', () => ({ useDebounce: (v: unknown) => v }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
@@ -220,15 +230,43 @@ describe('useGestaoRotas — mais de 100 rotas', () => {
     const { result } = renderHook(() => useGestaoRotas(opcoes));
     await waitFor(() => expect(result.current.rotas).toHaveLength(100));
 
+    act(() => result.current.setSearchQuery('bruno'));
+
+    await waitFor(() => expect(result.current.total).toBe(218));
+    expect(
+      result.current.rotasFiltradas.every((r) => r.motorista_nome === 'Bruno'),
+    ).toBe(true);
+  });
+
+  it('data na busca não filtra mais por dia: é texto do nome do motorista', async () => {
+    montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+
     act(() => result.current.setSearchQuery('01/01/2024'));
 
-    await waitFor(() =>
-      expect(result.current.rotasFiltradas.map((r) => r.id).sort()).toEqual([
-        'r00000',
-        'r00001',
-      ]),
+    await waitFor(() => expect(result.current.total).toBe(0));
+  });
+
+  it('período vai ao servidor, vale para a contagem e volta à primeira página', async () => {
+    montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+
+    act(() =>
+      result.current.definirPeriodo({
+        tipo: 'personalizado',
+        de: '2024-01-01',
+        ate: '2024-01-01',
+      }),
     );
-    expect(result.current.total).toBe(2);
+
+    await waitFor(() => expect(result.current.total).toBe(2));
+    expect(result.current.rotasFiltradas.map((r) => r.id).sort()).toEqual([
+      'r00000',
+      'r00001',
+    ]);
+    expect(result.current.contagens).toEqual({ concluidas: 1, pendentes: 1 });
   });
 
   it('filtro de status vai ao servidor e volta à primeira página', async () => {
@@ -309,6 +347,57 @@ describe('useGestaoRotas — mais de 100 rotas', () => {
     expect(linhas).toHaveLength(218);
     expect(linhas.every((l) => l.includes('"Bruno"'))).toBe(true);
     expect(linhas[0].startsWith('"01/01/2024"')).toBe(true);
+  });
+
+  it('exporta só o período, com o intervalo no nome do arquivo', async () => {
+    montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+    act(() =>
+      result.current.definirPeriodo({
+        tipo: 'personalizado',
+        de: '2024-01-02',
+        ate: '2024-01-03',
+      }),
+    );
+    await waitFor(() => expect(result.current.total).toBe(4));
+
+    await act(async () => {
+      await result.current.exportarParaCSV();
+    });
+
+    expect(linhasDoCSV()).toHaveLength(4);
+    const chamadas = (FileSystem.writeAsStringAsync as jest.Mock).mock.calls;
+    expect(chamadas[chamadas.length - 1][0]).toBe(
+      '/docs/gestao-rotas-02-01-2024_a_03-01-2024.csv',
+    );
+  });
+
+  it('período sem rota: não gera arquivo e avisa "Nenhuma rota no período"', async () => {
+    montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+    act(() =>
+      result.current.definirPeriodo({
+        tipo: 'personalizado',
+        de: '2030-01-01',
+        ate: '2030-01-31',
+      }),
+    );
+    await waitFor(() => expect(result.current.total).toBe(0));
+
+    await act(async () => {
+      await result.current.exportarParaCSV();
+      await result.current.exportarParaXLSX();
+    });
+
+    expect(FileSystem.writeAsStringAsync).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'Nenhuma rota no período',
+      'info',
+      expect.any(Number),
+    );
+    expect(mockShowToast).toHaveBeenCalledTimes(2);
   });
 
   it('acima do teto exporta as mais recentes e avisa quantas ficaram de fora', async () => {

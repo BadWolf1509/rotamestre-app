@@ -31,6 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
+import { SeletorPeriodo } from '@/components/periodo';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
   coresPorStatusDaRota,
@@ -103,8 +104,10 @@ export default function GestaoRotas() {
     loadRotas,
     filtroStatus,
     searchQuery,
+    periodo,
     userData,
     setFiltroStatus,
+    definirPeriodo,
     setSearchQuery,
     verDetalhes,
     exportarParaCSV,
@@ -318,11 +321,17 @@ export default function GestaoRotas() {
   const pendentesCount =
     contagens?.pendentes ??
     rotasFiltradas.filter((rota) => rota.status === 'pendente').length;
-  const subtituloFiltros = plural(
-    totalRotas,
-    'rota encontrada',
-    'rotas encontradas',
-  );
+  // "Todo o período" mantém o texto de antes; com período, o número é o do
+  // período (o `count=exact` da consulta já filtrada).
+  const subtituloFiltros =
+    periodo.tipo === 'todo'
+      ? plural(totalRotas, 'rota encontrada', 'rotas encontradas')
+      : plural(totalRotas, 'rota no período', 'rotas no período');
+  const dicaSemRotas =
+    filtroStatus !== 'todas' || periodo.tipo !== 'todo'
+      ? 'Tente alterar os filtros ou o período'
+      : 'Crie sua primeira rota de entrega';
+  const podeCriarRota = filtroStatus === 'todas' && periodo.tipo === 'todo';
 
   // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
   // Função chamada no JSX (não componente declarado no render).
@@ -499,12 +508,12 @@ export default function GestaoRotas() {
                   styles.searchInput,
                   isDesktop && styles.searchInputDesktop,
                 ]}
-                placeholder="Buscar por motorista ou data..."
+                placeholder="Buscar por motorista"
                 placeholderTextColor={theme.colors.gray400}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 accessibilityLabel="Buscar rotas"
-                accessibilityHint="Digite o nome do motorista ou data para filtrar"
+                accessibilityHint="Digite o nome do motorista para filtrar"
               />
             </View>
 
@@ -512,24 +521,34 @@ export default function GestaoRotas() {
             <Text style={styles.filtrosLabel} accessibilityRole="header">
               Filtrar por Status:
             </Text>
-            <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
-              {FILTRO_STATUS_OPTIONS.map((status) => {
-                const label =
-                  status === 'todas' ? 'Todas' : getStatusLabel(status);
-                const isSelected = filtroStatus === status;
-                return (
-                  <FilterChip
-                    key={status}
-                    label={label}
-                    selected={isSelected}
-                    size="compact"
-                    onPress={() => setFiltroStatus(status)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: isSelected }}
-                    accessibilityLabel={`Filtrar por ${label}`}
-                  />
-                );
-              })}
+            <View style={styles.filtrosLinha}>
+              <View
+                style={styles.filtrosButtons}
+                accessibilityRole="radiogroup"
+              >
+                {FILTRO_STATUS_OPTIONS.map((status) => {
+                  const label =
+                    status === 'todas' ? 'Todas' : getStatusLabel(status);
+                  const isSelected = filtroStatus === status;
+                  return (
+                    <FilterChip
+                      key={status}
+                      label={label}
+                      selected={isSelected}
+                      size="compact"
+                      onPress={() => setFiltroStatus(status)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isSelected }}
+                      accessibilityLabel={`Filtrar por ${label}`}
+                    />
+                  );
+                })}
+              </View>
+              <SeletorPeriodo
+                testID="gestao-rotas-periodo"
+                valor={periodo}
+                aoMudar={definirPeriodo}
+              />
             </View>
           </DesktopCard>
 
@@ -561,9 +580,7 @@ export default function GestaoRotas() {
                         Nenhuma rota encontrada
                       </Text>
                       <Text style={styles.emptyStateSubtitle}>
-                        {filtroStatus !== 'todas'
-                          ? 'Tente alterar os filtros'
-                          : 'Crie sua primeira rota de entrega'}
+                        {dicaSemRotas}
                       </Text>
                     </View>
                   )
@@ -619,36 +636,46 @@ export default function GestaoRotas() {
                   styles.searchInput,
                   isDesktop && styles.searchInputDesktop,
                 ]}
-                placeholder="Buscar por motorista ou data..."
+                placeholder="Buscar por motorista"
                 placeholderTextColor={theme.colors.gray400}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 accessibilityLabel="Buscar rotas"
-                accessibilityHint="Digite o nome do motorista ou data para filtrar"
+                accessibilityHint="Digite o nome do motorista para filtrar"
               />
             </View>
 
             <Text style={styles.filtrosLabel} accessibilityRole="header">
               Filtrar por Status:
             </Text>
-            <View style={styles.filtrosButtons} accessibilityRole="radiogroup">
-              {FILTRO_STATUS_OPTIONS.map((status) => {
-                const label =
-                  status === 'todas' ? 'Todas' : getStatusLabel(status);
-                const isSelected = filtroStatus === status;
-                return (
-                  <FilterChip
-                    key={status}
-                    label={label}
-                    selected={isSelected}
-                    size="regular"
-                    onPress={() => setFiltroStatus(status)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: isSelected }}
-                    accessibilityLabel={`Filtrar por ${label}`}
-                  />
-                );
-              })}
+            <View style={styles.filtrosLinha}>
+              <View
+                style={styles.filtrosButtons}
+                accessibilityRole="radiogroup"
+              >
+                {FILTRO_STATUS_OPTIONS.map((status) => {
+                  const label =
+                    status === 'todas' ? 'Todas' : getStatusLabel(status);
+                  const isSelected = filtroStatus === status;
+                  return (
+                    <FilterChip
+                      key={status}
+                      label={label}
+                      selected={isSelected}
+                      size="regular"
+                      onPress={() => setFiltroStatus(status)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isSelected }}
+                      accessibilityLabel={`Filtrar por ${label}`}
+                    />
+                  );
+                })}
+              </View>
+              <SeletorPeriodo
+                testID="gestao-rotas-periodo"
+                valor={periodo}
+                aoMudar={definirPeriodo}
+              />
             </View>
 
             {/* Botões de Ação */}
@@ -700,16 +727,10 @@ export default function GestaoRotas() {
                   compact
                   emoji="📋"
                   title="Nenhuma rota encontrada"
-                  description={
-                    filtroStatus !== 'todas'
-                      ? 'Tente alterar os filtros'
-                      : 'Crie sua primeira rota de entrega'
-                  }
-                  actionLabel={
-                    filtroStatus === 'todas' ? 'Criar nova rota' : undefined
-                  }
+                  description={dicaSemRotas}
+                  actionLabel={podeCriarRota ? 'Criar nova rota' : undefined}
                   onActionPress={
-                    filtroStatus === 'todas'
+                    podeCriarRota
                       ? () => router.push('/gestor/nova-entrega')
                       : undefined
                   }
