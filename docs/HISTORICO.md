@@ -8,6 +8,8 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+**11/11/2026 — Supabase CLI 3.0:** Dependabot #754, #755, #758 e #757 mesclados; #768 ajustou o `config.toml`; comandos de produção do CLI agora levam `--remote` (docs atualizadas).
+
 ## Filtros por período (10–11/11/2026)
 
 Spec e plano em `docs/superpowers/` (`2026-11-10-filtros-por-periodo`): uma regra de período só para o app inteiro. Pendência 37 do `PROJECT_CONTEXT`.

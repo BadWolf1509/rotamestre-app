@@ -9,7 +9,7 @@
 1. Antes de criar SQL, confira o projeto vinculado e o histórico remoto:
 
    ```bash
-   npx supabase migration list
+   npx supabase migration list --remote
    ```
 
 2. Crie a migration com timestamp `YYYYMMDDhhmmss` em
@@ -68,7 +68,7 @@ tabela de preços e RPCs de analytics, **todas com `REVOKE` de `anon`/
 o **projeto do painel admin**, que compartilha este Postgres. Não há arquivo a
 recuperar; não trate como mistério nem como schema faltando.
 
-### ⚠️ `supabase db push` não é seguro aqui sem reparo prévio
+### ⚠️ `supabase db push` não é seguro aqui sem reparo prévio (na CLI 3.0, comandos de produção levam `--remote`)
 
 Sem reparar o histórico, o push tenta rodar 4 arquivos que já estão aplicados.
 O primeiro deles (`20260207000000_add_motivo_skip`) **abortava o push inteiro**
@@ -78,13 +78,13 @@ continua pendente.
 Caminho seguro, **somente metadado, sem DDL**:
 
 ```bash
-npx supabase migration repair --status applied 20260207000000
-npx supabase migration repair --status applied 20260624033812
-npx supabase migration repair --status applied 20260703120000
-npx supabase migration repair --status applied 20260804235500
+npx supabase migration repair --status applied 20260207000000 --remote
+npx supabase migration repair --status applied 20260624033812 --remote
+npx supabase migration repair --status applied 20260703120000 --remote
+npx supabase migration repair --status applied 20260804235500 --remote
 ```
 
-Rode `npx supabase migration list` antes e depois para conferir. Enquanto o
+Rode `npx supabase migration list --remote` antes e depois para conferir. Enquanto o
 reparo não for feito, **prefira aplicar migrations pelo MCP `apply_migration`**
 (ciente de que ele registra sob timestamp próprio) em vez de `db push`.
 
