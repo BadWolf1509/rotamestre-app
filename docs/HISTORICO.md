@@ -8,6 +8,10 @@
 > documento de entrada, lidas em toda sessão para servir a consultas raras.
 > Onde este arquivo divergir do `PROJECT_CONTEXT` ou do código, **o código vence**.
 
+## Pendência 36 no aparelho (11/11/2026, 3060)
+
+No moto g15, com a 1.16.0 da Play: **fila offline de incidentes** — reporte feito em modo avião mostrou "Reporte guardado"; o banco tinha 0 registros; com a rede de volta, 1 registro em ~19 s, sem duplicata, `created_at` na hora do envio (36c); ao resolver pelo app do gestor, o gatilho da Migration 87 preencheu `resolvido_em`. **B-11:** rota de teste criada para amanhã pelo web do gestor (push "🚗 Nova rota atribuída!") e cancelada (push "Rota cancelada pelo gestor", com a data); a reativação vale só para `nao_executada` e não foi exercitada, para não tocar na rota do e2e. **Sessão atômica:** motorista → Sair → gestor sem fechar o app, sem travar. **U8-1:** com uma parada selecionada, tocar na sede troca o balão para o da sede. **U8-3:** sem deslocamento visível em zoom alto (não conclusivo sem um marcador de referência). Sobram M-3 e U-4. Achados: "1 ação sincronizadas" na notificação; cancelamento gravado com tipo `rota_nao_executada`.
+
 ## 1.16.0 (3060) e Dependabot (11/11/2026, #754–#760, #766–#770)
 
 **Mesclados:** #766 (Início), #767 (Perfil do motorista, Meu Desempenho, Histórico), Dependabot #754, #755, #756 (Nitro 0.37.2), #757 (Supabase CLI 3.0), #758, #759 (Unistyles 3.8.1), #760 (`@hookform/resolvers` 7); #768 (`config.toml`: `[inbucket]` → `[local_smtp]`, que o CLI 2.122 já lia), #769 (docs: comandos de produção do CLI com `--remote`) e #770 (bump 1.16.0/3060). O #759 entrou com o CI do rebase ainda pendente — o CI da `main` naquele merge foi o portão (verde).
