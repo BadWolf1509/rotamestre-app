@@ -16,7 +16,8 @@ export function calcularTempoTotal(rota: RotaHistorico): string | null {
 }
 
 /** Format minutes into human-readable time string */
-export function formatarTempo(minutos: number): string {
+export function formatarTempo(minutos: number | null): string {
+  if (minutos === null) return '—';
   if (minutos === 0) return '-';
   const horas = Math.floor(minutos / 60);
   const mins = minutos % 60;

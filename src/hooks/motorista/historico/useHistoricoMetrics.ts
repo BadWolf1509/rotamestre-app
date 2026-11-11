@@ -92,7 +92,10 @@ export function useHistoricoMetrics({
           paradasTotais: resumo.totalParadas,
           paradasConcluidas: resumo.paradasConcluidas,
           distanciaTotal: Math.round(resumo.distanciaTotal * 10) / 10,
-          tempoMedioMinutos: Math.round(resumo.tempoMedioMinutos ?? 0),
+          tempoMedioMinutos:
+            resumo.tempoMedioMinutos === null
+              ? null
+              : Math.round(resumo.tempoMedioMinutos),
           taxaSucesso,
         });
       } catch (error) {

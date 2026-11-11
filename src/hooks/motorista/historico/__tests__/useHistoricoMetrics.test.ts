@@ -96,13 +96,13 @@ it('fora de "Este mês" o {n} este mês vem de uma consulta à parte', async () 
   expect(result.current.metricas?.rotasMes).toBe(7);
 });
 
-it('sem paradas: taxa 0 e tempo médio 0 (sem dividir por zero)', async () => {
+it('sem paradas: taxa 0 e tempo médio nulo (sem dividir por zero)', async () => {
   mockBuscar.mockResolvedValue(resumo());
   const { result } = renderHook(() => useHistoricoMetrics(base));
   await waitFor(() => expect(result.current.carregando).toBe(false));
   expect(result.current.metricas).toMatchObject({
     taxaSucesso: 0,
-    tempoMedioMinutos: 0,
+    tempoMedioMinutos: null,
   });
 });
 

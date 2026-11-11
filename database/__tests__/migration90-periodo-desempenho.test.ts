@@ -142,15 +142,10 @@ describe('Migration 90: resumo_desempenho_motorista', () => {
     );
   });
 
-  it('tempo médio = fórmula do Histórico (qualquer status, 0 < diferença < 1440 min)', () => {
+  it('tempo médio = qualquer status, 0 < diferença < 1440 min)', () => {
     expect(corpoResumo).toMatch(
       /avg\(extract\(epoch FROM rv\.fim - rv\.ini\) \/ 60\) FILTER \(\s+WHERE rv\.ini IS NOT NULL\s+AND rv\.fim IS NOT NULL\s+AND rv\.fim > rv\.ini\s+AND rv\.fim - rv\.ini < interval '1440 minutes'\s+\)/,
     );
-    // A fórmula do app que o banco replica.
-    const hook = ler(
-      `${__dirname}/../../src/hooks/motorista/historico/useHistoricoMetrics.ts`,
-    );
-    expect(hook).toContain('diffMinutos > 0 && diffMinutos < 1440');
   });
 
   it('partida e chegada seguem fora das paradas', () => {

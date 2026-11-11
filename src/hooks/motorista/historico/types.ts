@@ -33,6 +33,7 @@ export interface Metricas {
   paradasTotais: number;
   paradasConcluidas: number;
   distanciaTotal: number;
-  tempoMedioMinutos: number;
+  /** null = sem base de tempo no período. */
+  tempoMedioMinutos: number | null;
   taxaSucesso: number;
 }

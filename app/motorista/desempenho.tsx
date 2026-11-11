@@ -219,7 +219,7 @@ export default function DesempenhoScreen() {
                 <>
                   <Text style={styles.motivationalIcon}>🚀</Text>
                   <Text style={styles.motivationalText}>
-                    Comece sua primeira rota e acompanhe seu desempenho!
+                    Nenhuma rota neste período
                   </Text>
                 </>
               ) : (

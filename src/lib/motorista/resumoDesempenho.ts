@@ -35,7 +35,7 @@ export interface ResumoDesempenho {
   paradasPuladas: number;
   /** Paradas concluídas dentro de rotas concluídas (base dos marcos). */
   entregasEmRotasConcluidas: number;
-  /** Média da duração das rotas concluídas, em minutos; null sem base. */
+  /** Média da duração das rotas (qualquer status com início e fim, entre 0 e 24 h), em minutos; null sem base. */
   tempoMedioMinutos: number | null;
 }
 
