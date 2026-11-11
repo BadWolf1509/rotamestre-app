@@ -76,6 +76,10 @@ it('pede a performance do motorista na loja aberta', async () => {
       'motorista-1',
       'João Silva',
       'loja-ativa',
+      expect.objectContaining({
+        de: expect.any(String),
+        ate: expect.any(String),
+      }),
     ),
   );
 });

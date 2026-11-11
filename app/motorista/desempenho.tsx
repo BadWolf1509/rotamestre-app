@@ -1,25 +1,14 @@
 import { useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, ScrollView, RefreshControl } from 'react-native';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { SeletorPeriodo } from '@/components/periodo';
 import { MobileCard, MobileLoading } from '@/design-system';
-import { useDesempenhoStats, type Periodo } from '@/hooks/motorista/useDesempenhoStats';
+import { useDesempenhoStats } from '@/hooks/motorista/useDesempenhoStats';
 import { useAlert } from '@/hooks/useAlert';
 import { useUser } from '@/hooks/useUser';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { StyleSheet, type Theme, useUnistyles } from '@/utils/styles';
-
-const PERIODOS: { value: Periodo; label: string }[] = [
-  { value: '7d', label: '7 dias' },
-  { value: '30d', label: '30 dias' },
-  { value: 'all', label: 'Total' },
-];
 
 export default function DesempenhoScreen() {
   const { theme } = useUnistyles();
@@ -31,7 +20,9 @@ export default function DesempenhoScreen() {
     loading,
     refreshing,
     periodo,
-    setPeriodo,
+    definirPeriodo,
+    textoDoPeriodo,
+    periodoVazio,
     refresh,
     error,
   } = useDesempenhoStats(userData?.id);
@@ -43,10 +34,6 @@ export default function DesempenhoScreen() {
     }
   }, [error, showError]);
 
-  if (loading) {
-    return <MobileLoading message="Carregando estatísticas..." />;
-  }
-
   return (
     <ErrorBoundary>
       <ScrollView
@@ -55,30 +42,31 @@ export default function DesempenhoScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
         }
       >
-        {/* Seletor de Período */}
+        {/* Seletor de Período: fica montado durante a carga, para o menu não
+            fechar sozinho ao trocar o período. */}
         <View style={styles.periodoContainer}>
-          {PERIODOS.map((p) => (
-            <TouchableOpacity
-              key={p.value}
-              style={[
-                styles.periodoButton,
-                periodo === p.value && styles.periodoButtonActive,
-              ]}
-              onPress={() => setPeriodo(p.value)}
-            >
-              <Text
-                style={[
-                  styles.periodoText,
-                  periodo === p.value && styles.periodoTextActive,
-                ]}
-              >
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          <SeletorPeriodo
+            valor={periodo}
+            aoMudar={definirPeriodo}
+            cortarEmHoje
+            testID="seletor-periodo-desempenho"
+          />
         </View>
 
-        {stats ? (
+        {loading ? (
+          <MobileLoading
+            message="Carregando estatísticas..."
+            fullScreen={false}
+          />
+        ) : periodoVazio ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>📊</Text>
+            <Text style={styles.emptyTitle}>Nenhuma rota neste período</Text>
+            <Text style={styles.emptySubtitle}>
+              {textoDoPeriodo} ainda não começou.
+            </Text>
+          </View>
+        ) : stats ? (
           <>
             {/* Card Principal - Taxa de Sucesso */}
             <View style={styles.mainStatCard}>
@@ -95,7 +83,12 @@ export default function DesempenhoScreen() {
             <MobileCard title="Estatísticas de Rotas">
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.primary + '20' }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.primary + '20' },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>🗺️</Text>
                   </View>
                   <Text style={styles.statValue}>{stats.totalRotas}</Text>
@@ -103,7 +96,12 @@ export default function DesempenhoScreen() {
                 </View>
 
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.success + '20' }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.success + '20' },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>✓</Text>
                   </View>
                   <Text style={styles.statValue}>{stats.rotasConcluidas}</Text>
@@ -111,7 +109,12 @@ export default function DesempenhoScreen() {
                 </View>
 
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.error + '20' }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.error + '20' },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>✕</Text>
                   </View>
                   <Text style={styles.statValue}>{stats.rotasCanceladas}</Text>
@@ -119,10 +122,17 @@ export default function DesempenhoScreen() {
                 </View>
 
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.blue100 }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.blue100 },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>📏</Text>
                   </View>
-                  <Text style={styles.statValue}>{formatarDecimal(stats.totalKm, 0)}</Text>
+                  <Text style={styles.statValue}>
+                    {formatarDecimal(stats.totalKm, 0)}
+                  </Text>
                   <Text style={styles.statLabel}>Km rodados</Text>
                 </View>
               </View>
@@ -132,7 +142,12 @@ export default function DesempenhoScreen() {
             <MobileCard title="Estatísticas de Paradas">
               <View style={styles.statsGrid}>
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.gray100 }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.gray100 },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>📍</Text>
                   </View>
                   <Text style={styles.statValue}>{stats.totalParadas}</Text>
@@ -140,15 +155,27 @@ export default function DesempenhoScreen() {
                 </View>
 
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.green100 }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.green100 },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>✓</Text>
                   </View>
-                  <Text style={styles.statValue}>{stats.paradasConcluidas}</Text>
+                  <Text style={styles.statValue}>
+                    {stats.paradasConcluidas}
+                  </Text>
                   <Text style={styles.statLabel}>Concluídas</Text>
                 </View>
 
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.yellow100 }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.yellow100 },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>⊘</Text>
                   </View>
                   <Text style={styles.statValue}>{stats.paradasPuladas}</Text>
@@ -156,10 +183,17 @@ export default function DesempenhoScreen() {
                 </View>
 
                 <View style={styles.statItem}>
-                  <View style={[styles.statIcon, { backgroundColor: theme.colors.purple + '20' }]}>
+                  <View
+                    style={[
+                      styles.statIcon,
+                      { backgroundColor: theme.colors.purple + '20' },
+                    ]}
+                  >
                     <Text style={styles.statIconText}>📊</Text>
                   </View>
-                  <Text style={styles.statValue}>{stats.mediaParadasPorRota}</Text>
+                  <Text style={styles.statValue}>
+                    {stats.mediaParadasPorRota}
+                  </Text>
                   <Text style={styles.statLabel}>Média/Rota</Text>
                 </View>
               </View>
@@ -170,22 +204,30 @@ export default function DesempenhoScreen() {
               {stats.taxaSucesso >= 90 ? (
                 <>
                   <Text style={styles.motivationalIcon}>🏆</Text>
-                  <Text style={styles.motivationalText}>Excelente desempenho! Continue assim!</Text>
+                  <Text style={styles.motivationalText}>
+                    Excelente desempenho! Continue assim!
+                  </Text>
                 </>
               ) : stats.taxaSucesso >= 70 ? (
                 <>
                   <Text style={styles.motivationalIcon}>💪</Text>
-                  <Text style={styles.motivationalText}>Bom trabalho! Você está no caminho certo.</Text>
+                  <Text style={styles.motivationalText}>
+                    Bom trabalho! Você está no caminho certo.
+                  </Text>
                 </>
               ) : stats.totalRotas === 0 ? (
                 <>
                   <Text style={styles.motivationalIcon}>🚀</Text>
-                  <Text style={styles.motivationalText}>Comece sua primeira rota e acompanhe seu desempenho!</Text>
+                  <Text style={styles.motivationalText}>
+                    Nenhuma rota neste período
+                  </Text>
                 </>
               ) : (
                 <>
                   <Text style={styles.motivationalIcon}>📈</Text>
-                  <Text style={styles.motivationalText}>Há espaço para melhorar. Vamos em frente!</Text>
+                  <Text style={styles.motivationalText}>
+                    Há espaço para melhorar. Vamos em frente!
+                  </Text>
                 </>
               )}
             </View>
@@ -213,31 +255,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     backgroundColor: theme.colors.gray50,
   },
   periodoContainer: {
-    flexDirection: 'row',
     padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  periodoButton: {
-    flex: 1,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    alignItems: 'center',
-  },
-  periodoButtonActive: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  periodoText: {
-    fontSize: theme.typography.sm,
-    fontFamily: theme.typography.fontSansMedium,
-    color: theme.colors.gray600,
-  },
-  periodoTextActive: {
-    color: theme.colors.white,
   },
   mainStatCard: {
     backgroundColor: theme.colors.white,

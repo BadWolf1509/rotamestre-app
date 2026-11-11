@@ -8,9 +8,13 @@
  * gestor ativo da loja; recusa (`code`), erro, resposta fora do formato ou
  * loja ainda não carregada viram "sem dados" — zeros e taxa nula, que a tela
  * mostra como "—", nunca um número inventado. Sem fallback para a view.
+ *
+ * Período: `p_de`/`p_ate` (Migration 90) sobre `rotas.data`, fechado nos dois
+ * extremos; `null` em um deles deixa aquele lado aberto.
  */
 import type { MotoristaPerformance } from '@/components/gestor/motorista-perfil/types';
 import { logger } from '@/lib/logger';
+import type { IntervaloDatas } from '@/lib/periodo';
 import { supabase } from '@/lib/supabase';
 
 function semDados(
@@ -55,6 +59,7 @@ export async function buscarPerformanceMotorista(
   motoristaId: string,
   nome: string,
   unidadeId: string | null,
+  intervalo: IntervaloDatas,
 ): Promise<MotoristaPerformance> {
   // Sem loja aberta não há escopo: não consulta (fail-closed).
   if (!unidadeId) return semDados(motoristaId, nome, unidadeId);
@@ -62,6 +67,9 @@ export async function buscarPerformanceMotorista(
   const { data, error } = await supabase.rpc('desempenho_motorista_na_loja', {
     p_motorista_id: motoristaId,
     p_unidade_id: unidadeId,
+    // O app já corta o fim em hoje (`cortarEmHoje`): a RPC não calcula "hoje".
+    p_de: intervalo.de,
+    p_ate: intervalo.ate,
   });
 
   if (error) {

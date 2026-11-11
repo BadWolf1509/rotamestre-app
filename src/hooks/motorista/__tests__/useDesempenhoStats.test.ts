@@ -19,6 +19,24 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+// Hoje fixo: 2026-11-10 (terça). O período vem de um estado local, sem disco.
+jest.mock('@/lib/dateUtils', () => ({
+  ...jest.requireActual('@/lib/dateUtils'),
+  getTodayISO: () => '2026-11-10',
+}));
+
+let mockCarregado = true;
+let mockPeriodoInicial: unknown = { tipo: 'este_mes' };
+jest.mock('@/hooks/usePeriodoLembrado', () => {
+  const { useState } = require('react');
+  return {
+    usePeriodoLembrado: () => {
+      const [periodo, definirPeriodo] = useState(mockPeriodoInicial);
+      return { periodo, definirPeriodo, carregado: mockCarregado };
+    },
+  };
+});
+
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), warn: jest.fn(), info: jest.fn() },
 }));
@@ -46,6 +64,8 @@ const rpcDevolve = (over: Record<string, unknown> = {}) =>
 describe('useDesempenhoStats', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCarregado = true;
+    mockPeriodoInicial = { tipo: 'este_mes' };
   });
 
   it('sem userId não chama nada e fica sem stats', async () => {
@@ -55,15 +75,18 @@ describe('useDesempenhoStats', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
-  it('o padrão é 30 dias e vai à RPC com o motorista', async () => {
+  it('o padrão é Este mês, cortado em hoje, e vai à RPC sem p_dias', async () => {
     rpcDevolve();
     const { result } = renderHook(() => useDesempenhoStats('m1'));
-    expect(result.current.periodo).toBe('30d');
+    expect(result.current.periodo).toEqual({ tipo: 'este_mes' });
     await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenCalledWith('resumo_desempenho_motorista', {
       p_motorista_id: 'm1',
-      p_dias: 30,
+      p_de: '2026-11-01',
+      p_ate: '2026-11-10',
     });
+    expect(result.current.textoDoPeriodo).toBe('Este mês (01/11 a 10/11)');
     // Nenhuma consulta de lista: os totais vêm prontos.
     expect(mockFrom).not.toHaveBeenCalled();
   });
@@ -107,23 +130,56 @@ describe('useDesempenhoStats', () => {
   });
 
   it.each([
-    // 30d é o padrão, coberto acima.
-    ['7d', 7],
-    ['all', null],
-  ] as const)('o período %s vira p_dias = %s', async (periodo, dias) => {
+    // Este mês é o padrão, coberto acima.
+    [{ tipo: 'hoje' }, '2026-11-10', '2026-11-10'],
+    [{ tipo: 'esta_semana' }, '2026-11-09', '2026-11-10'],
+    [{ tipo: 'mes_passado' }, '2026-10-01', '2026-10-31'],
+    [{ tipo: 'todo' }, null, '2026-11-10'],
+    [
+      { tipo: 'personalizado', de: '2026-10-20', ate: '2026-12-31' },
+      '2026-10-20',
+      '2026-11-10',
+    ],
+  ] as const)('o período %j vira p_de=%s e p_ate=%s', async (p, de, ate) => {
     rpcDevolve();
     const { result } = renderHook(() => useDesempenhoStats('m1'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     mockRpc.mockClear();
 
-    act(() => result.current.setPeriodo(periodo));
+    act(() => result.current.definirPeriodo(p));
 
     await waitFor(() =>
       expect(mockRpc).toHaveBeenCalledWith('resumo_desempenho_motorista', {
         p_motorista_id: 'm1',
-        p_dias: dias,
+        p_de: de,
+        p_ate: ate,
       }),
     );
+    expect(mockRpc.mock.calls[0][1]).not.toHaveProperty('p_dias');
+  });
+
+  it('período que começa depois de hoje não consulta e mostra o vazio', async () => {
+    mockPeriodoInicial = {
+      tipo: 'personalizado',
+      de: '2026-11-20',
+      ate: '2026-11-25',
+    };
+    const { result } = renderHook(() => useDesempenhoStats('m1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(result.current.periodoVazio).toBe(true);
+    expect(result.current.stats).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
+  it('enquanto o período lembrado não carregou, não consulta', async () => {
+    mockCarregado = false;
+    const { result } = renderHook(() => useDesempenhoStats('m1'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(result.current.loading).toBe(true);
   });
 
   it('erro da RPC vira a mensagem da tela e limpa no próximo sucesso', async () => {
@@ -156,7 +212,8 @@ describe('useDesempenhoStats', () => {
     await waitFor(() => expect(result.current.stats?.totalRotas).toBe(5));
     expect(mockRpc).toHaveBeenLastCalledWith('resumo_desempenho_motorista', {
       p_motorista_id: 'm2',
-      p_dias: 30,
+      p_de: '2026-11-01',
+      p_ate: '2026-11-10',
     });
 
     rerender({ id: undefined });
@@ -164,7 +221,7 @@ describe('useDesempenhoStats', () => {
   });
 
   it('resposta velha chegando por último não sobrescreve a do período atual (M-2)', async () => {
-    // 1ª chamada (30d, da montagem) fica pendente; a 2ª (7d) responde antes.
+    // 1ª chamada (Este mês, da montagem) fica pendente; a 2ª (Hoje) responde antes.
     let soltarVelha: (v: unknown) => void = () => {};
     const velha = new Promise((resolve) => {
       soltarVelha = resolve;
@@ -176,7 +233,7 @@ describe('useDesempenhoStats', () => {
     });
 
     const { result } = renderHook(() => useDesempenhoStats('m1'));
-    act(() => result.current.setPeriodo('7d'));
+    act(() => result.current.definirPeriodo({ tipo: 'hoje' }));
     await waitFor(() => expect(result.current.stats?.totalRotas).toBe(7));
 
     await act(async () => {
@@ -200,7 +257,7 @@ describe('useDesempenhoStats', () => {
     });
 
     const { result } = renderHook(() => useDesempenhoStats('m1'));
-    act(() => result.current.setPeriodo('7d'));
+    act(() => result.current.definirPeriodo({ tipo: 'hoje' }));
     await waitFor(() => expect(result.current.stats?.totalRotas).toBe(7));
 
     await act(async () => {

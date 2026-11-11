@@ -161,7 +161,7 @@ test.describe('Motorista Drawer Menu E2E Tests', () => {
         timeout: 30000,
       });
 
-      const periodOption = page.getByText(/7 dias|30 dias/i).first();
+      const periodOption = page.getByTestId('seletor-periodo-desempenho');
       await expect(periodOption).toBeVisible({ timeout: 30000 });
     });
   });

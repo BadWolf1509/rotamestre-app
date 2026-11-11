@@ -72,7 +72,7 @@ export function useMilestones(
       // 1. Total de entregas (paradas concluídas, sem partida/chegada, de
       // rotas concluídas), somado no servidor (Migration 55). Antes ia por
       // `.in('rota_id', <todas as rotas concluídas>)`: 390 ids ≈ 14 KB de URL.
-      const resumo = await buscarResumoDesempenho(motoristaId, null);
+      const resumo = await buscarResumoDesempenho(motoristaId, { dias: null });
       const totalEntregas = resumo.entregasEmRotasConcluidas;
       const totalRotas = resumo.rotasConcluidas;
 

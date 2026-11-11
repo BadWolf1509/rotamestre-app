@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   FlatList,
   TouchableOpacity,
@@ -11,6 +12,7 @@ import {
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RotaHistoricoCard } from '@/components/motorista/historico/RotaHistoricoCard';
 import { RotaCardSkeleton } from '@/components/motorista/RotaCardSkeleton';
+import { SeletorPeriodo } from '@/components/periodo';
 import { Text } from '@/design-system';
 import {
   useHistoricoData,
@@ -19,22 +21,58 @@ import {
   formatarTempo,
   type RotaHistorico,
 } from '@/hooks/motorista/historico';
+import { useUser } from '@/hooks/useUser';
 import { formatarDecimal } from '@/lib/formatNumber';
 import { withOpacity } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 export default function HistoricoMotorista() {
   const { theme } = useUnistyles();
-  const { rotas, loading, refreshing, onRefresh, AlertDialog } =
-    useHistoricoData();
-  const metricas = useHistoricoMetrics(rotas);
+  const { userData } = useUser();
   const {
     filtroStatus,
     setFiltroStatus,
-    filtroPeriodo,
-    setFiltroPeriodo,
-    rotasFiltradas,
-  } = useHistoricoFilters(rotas);
+    periodo,
+    definirPeriodo,
+    carregado,
+    de,
+    ate,
+    textoDoPeriodo,
+  } = useHistoricoFilters();
+  const {
+    rotas,
+    total,
+    temMais,
+    loading,
+    carregandoMais,
+    refreshing,
+    onRefresh,
+    carregarMais,
+    AlertDialog,
+  } = useHistoricoData({ carregado, de, ate, status: filtroStatus });
+  const {
+    metricas,
+    carregando: carregandoMetricas,
+    indisponivel: resumoIndisponivel,
+    recarregar: recarregarMetricas,
+  } = useHistoricoMetrics({
+    habilitado: carregado,
+    motoristaId: userData?.id,
+    de,
+    ate,
+    ehEsteMes: periodo.tipo === 'este_mes',
+  });
+
+  const onRefreshTudo = useCallback(() => {
+    onRefresh();
+    recarregarMetricas();
+  }, [onRefresh, recarregarMetricas]);
+
+  // Y de "Mostrando X de Y": com status "Todos", o total do resumo do período;
+  // com um status escolhido, o count da própria consulta.
+  const totalDaLista =
+    filtroStatus === 'todos' && metricas ? metricas.rotasTotais : total;
+  const filtrado = filtroStatus !== 'todos' || periodo.tipo !== 'todo';
   const [expandedRotaId, setExpandedRotaId] = useState<string | null>(null);
 
   const toggleExpand = useCallback((rotaId: string) => {
@@ -75,68 +113,59 @@ export default function HistoricoMotorista() {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.headerCompact}>
-          <Text style={styles.headerTitle}>Carregando...</Text>
-        </View>
-        <View style={styles.listContainer}>
-          <RotaCardSkeleton />
-          <RotaCardSkeleton />
-          <RotaCardSkeleton />
-        </View>
-      </View>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <View style={styles.container}>
         {/* Header Compacto */}
         <View style={styles.headerCompact}>
           <Text style={styles.headerTitle}>
-            {rotas.length} {rotas.length === 1 ? 'rota' : 'rotas'}
+            {metricas
+              ? `${metricas.rotasTotais} ${metricas.rotasTotais === 1 ? 'rota' : 'rotas'}`
+              : carregandoMetricas
+                ? 'Carregando...'
+                : 'Rotas'}
           </Text>
+          <Text style={styles.statsSecondaryText}>{textoDoPeriodo}</Text>
 
-          <View style={styles.statsInline}>
-            <Text style={styles.statsInlineText}>
-              {metricas.rotasMes} este mês ·{' '}
-              <Text style={{ color: theme.colors.success }}>
-                {metricas.rotasConcluidas}✓
-              </Text>{' '}
-              ·{' '}
-              <Text style={{ color: theme.colors.purple600 }}>
-                {metricas.taxaSucesso}%
-              </Text>{' '}
-              · {formatarTempo(metricas.tempoMedioMinutos)} média
+          {resumoIndisponivel && (
+            <Text style={styles.statsSecondaryText}>
+              Resumo indisponível — puxe para atualizar
             </Text>
-          </View>
+          )}
 
-          <Text style={styles.statsSecondaryText}>
-            📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas ·
-            🚗 {formatarDecimal(metricas.distanciaTotal)} km
-          </Text>
+          {metricas && (
+            <>
+              <View style={styles.statsInline}>
+                <Text style={styles.statsInlineText}>
+                  {metricas.rotasMes} este mês ·{' '}
+                  <Text style={{ color: theme.colors.success }}>
+                    {metricas.rotasConcluidas}✓
+                  </Text>{' '}
+                  ·{' '}
+                  <Text style={{ color: theme.colors.purple600 }}>
+                    {metricas.taxaSucesso}%
+                  </Text>{' '}
+                  · {formatarTempo(metricas.tempoMedioMinutos)} média
+                </Text>
+              </View>
+
+              <Text style={styles.statsSecondaryText}>
+                📍 {metricas.paradasConcluidas}/{metricas.paradasTotais} paradas
+                · 🚗 {formatarDecimal(metricas.distanciaTotal)} km
+              </Text>
+            </>
+          )}
         </View>
 
         {/* Filtros */}
         <View style={styles.filtersContainer}>
           <View style={styles.filterGroup}>
             <Text style={styles.filterGroupLabel}>Período:</Text>
-            <View style={styles.filterButtons}>
-              {renderFilterButton('Todos', filtroPeriodo === 'todos', () =>
-                setFiltroPeriodo('todos'),
-              )}
-              {renderFilterButton('Hoje', filtroPeriodo === 'hoje', () =>
-                setFiltroPeriodo('hoje'),
-              )}
-              {renderFilterButton('Semana', filtroPeriodo === 'semana', () =>
-                setFiltroPeriodo('semana'),
-              )}
-              {renderFilterButton('Mês', filtroPeriodo === 'mes', () =>
-                setFiltroPeriodo('mes'),
-              )}
-            </View>
+            <SeletorPeriodo
+              valor={periodo}
+              aoMudar={definirPeriodo}
+              testID="seletor-periodo-historico"
+            />
           </View>
 
           <View style={styles.filterGroup}>
@@ -166,9 +195,9 @@ export default function HistoricoMotorista() {
             </View>
           </View>
 
-          {(filtroStatus !== 'todos' || filtroPeriodo !== 'todos') && (
+          {!loading && rotas.length > 0 && rotas.length < totalDaLista && (
             <Text style={styles.filterResultCount}>
-              Mostrando {rotasFiltradas.length} de {rotas.length} rotas
+              Mostrando {rotas.length} de {totalDaLista} rotas
             </Text>
           )}
         </View>
@@ -176,14 +205,20 @@ export default function HistoricoMotorista() {
         {/* Lista de Rotas, ou o vazio no lugar dela. Não como ListEmptyComponent:
           ali o vazio ficava DENTRO da lista, e as duas âncoras (lista e vazio)
           apareciam juntas — o e2e as trata como exclusivas. */}
-        {rotasFiltradas.length === 0 ? (
+        {loading ? (
+          <View style={styles.listContainer}>
+            <RotaCardSkeleton />
+            <RotaCardSkeleton />
+            <RotaCardSkeleton />
+          </View>
+        ) : rotas.length === 0 ? (
           <ScrollView
             testID="motorista-historico-empty"
             contentContainerStyle={styles.listContainer}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={onRefresh}
+                onRefresh={onRefreshTudo}
                 colors={[theme.colors.primary]}
               />
             }
@@ -192,12 +227,14 @@ export default function HistoricoMotorista() {
               <Text style={styles.emptyTitle}>📋</Text>
               {/* Com rotas e nenhuma no filtro, o vazio fala do filtro. */}
               <Text style={styles.emptyText}>
-                {rotas.length > 0
+                {filtroStatus !== 'todos'
                   ? 'Nenhuma rota com esse filtro'
-                  : 'Nenhuma rota registrada'}
+                  : filtrado
+                    ? 'Nenhuma rota neste período'
+                    : 'Nenhuma rota registrada'}
               </Text>
               <Text style={styles.emptySubtext}>
-                {rotas.length > 0
+                {filtrado
                   ? 'Troque o período ou o status para ver as outras rotas'
                   : 'Suas rotas aparecerão aqui após serem criadas'}
               </Text>
@@ -206,7 +243,7 @@ export default function HistoricoMotorista() {
         ) : (
           <FlatList
             testID="motorista-historico-list"
-            data={rotasFiltradas}
+            data={rotas}
             keyExtractor={(item) => item.id}
             renderItem={renderRota}
             contentContainerStyle={styles.listContainer}
@@ -215,10 +252,28 @@ export default function HistoricoMotorista() {
             windowSize={5}
             removeClippedSubviews={Platform.OS === 'android'}
             ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+            ListFooterComponent={
+              carregandoMais ? (
+                <ActivityIndicator
+                  style={styles.carregarMais}
+                  color={theme.colors.primary}
+                />
+              ) : temMais ? (
+                <TouchableOpacity
+                  style={styles.carregarMais}
+                  onPress={carregarMais}
+                  accessibilityRole="button"
+                  accessibilityLabel="Carregar mais rotas"
+                  testID="motorista-historico-carregar-mais"
+                >
+                  <Text style={styles.carregarMaisTexto}>Carregar mais</Text>
+                </TouchableOpacity>
+              ) : undefined
+            }
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
-                onRefresh={onRefresh}
+                onRefresh={onRefreshTudo}
                 colors={[theme.colors.primary]}
               />
             }
@@ -312,6 +367,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   listContainer: {
     padding: theme.spacing.md,
+  },
+  carregarMais: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+  },
+  carregarMaisTexto: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.primary,
+    fontFamily: theme.typography.fontSansSemiBold,
   },
   itemSeparator: {
     height: theme.spacing.sm,

@@ -1,66 +1,47 @@
 /**
- * Hook to manage filter state and computed filtered routes
+ * Filtros do Histórico: o período (lembrado no aparelho) e o status.
+ *
+ * Os dois vão ao banco (`useHistoricoData`); aqui não se filtra lista alguma.
+ * `de`/`ate` saem como strings: o objeto do intervalo muda de identidade a
+ * cada render e, nas dependências de efeito, refaria a consulta em laço.
+ * O Histórico é lista: o período vai inteiro, sem corte em hoje.
  */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
-import { parseLocalDate } from '@/lib/dateUtils';
+import { usePeriodoLembrado } from '@/hooks/usePeriodoLembrado';
+import { resolverPeriodo, textoPeriodo, type Periodo } from '@/lib/periodo';
 
-import type { FiltroPeriodo, FiltroStatus, RotaHistorico } from './types';
+import type { FiltroStatus } from './types';
 
 interface UseHistoricoFiltersReturn {
   filtroStatus: FiltroStatus;
   setFiltroStatus: (f: FiltroStatus) => void;
-  filtroPeriodo: FiltroPeriodo;
-  setFiltroPeriodo: (f: FiltroPeriodo) => void;
-  rotasFiltradas: RotaHistorico[];
+  periodo: Periodo;
+  definirPeriodo: (p: Periodo) => void;
+  /** O período lembrado já foi lido do aparelho: só então se consulta. */
+  carregado: boolean;
+  de: string | null;
+  ate: string | null;
+  /** "Este mês (01/11 a 30/11)". */
+  textoDoPeriodo: string;
 }
 
-export function useHistoricoFilters(rotas: RotaHistorico[]): UseHistoricoFiltersReturn {
+export function useHistoricoFilters(): UseHistoricoFiltersReturn {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos');
-  const [filtroPeriodo, setFiltroPeriodo] = useState<FiltroPeriodo>('todos');
-
-  const rotasFiltradas = useMemo(() => {
-    let resultado = [...rotas];
-
-    if (filtroStatus !== 'todos') {
-      resultado = resultado.filter((r) => r.status === filtroStatus);
-    }
-
-    if (filtroPeriodo !== 'todos') {
-      const agora = new Date();
-      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-
-      resultado = resultado.filter((r) => {
-        const dataRota = parseLocalDate(r.data);
-        if (!dataRota) return false;
-
-        switch (filtroPeriodo) {
-          case 'hoje':
-            return dataRota >= hoje;
-          case 'semana': {
-            const inicioSemana = new Date(hoje);
-            inicioSemana.setDate(hoje.getDate() - hoje.getDay());
-            return dataRota >= inicioSemana;
-          }
-          case 'mes': {
-            const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-            return dataRota >= inicioMes;
-          }
-          default:
-            return true;
-        }
-      });
-    }
-
-    return resultado;
-  }, [rotas, filtroStatus, filtroPeriodo]);
+  const { periodo, definirPeriodo, carregado } = usePeriodoLembrado(
+    'historico_motorista',
+  );
+  const intervalo = resolverPeriodo(periodo);
 
   return {
     filtroStatus,
     setFiltroStatus,
-    filtroPeriodo,
-    setFiltroPeriodo,
-    rotasFiltradas,
+    periodo,
+    definirPeriodo,
+    carregado,
+    de: intervalo.de,
+    ate: intervalo.ate,
+    textoDoPeriodo: textoPeriodo(periodo, intervalo),
   };
 }

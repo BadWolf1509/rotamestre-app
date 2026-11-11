@@ -23,6 +23,8 @@ jest.mock('@/lib/logger', () => ({
   },
 }));
 
+const NOVEMBRO = { de: '2026-11-01', ate: '2026-11-10' };
+
 const DA_LOJA = {
   success: true,
   total_rotas: 4,
@@ -44,11 +46,18 @@ describe('buscarPerformanceMotorista', () => {
   it('pede à RPC os números do motorista na loja aberta', async () => {
     mockRpc.mockResolvedValue({ data: DA_LOJA, error: null });
 
-    const perf = await buscarPerformanceMotorista('m1', 'Ana', 'loja-a');
+    const perf = await buscarPerformanceMotorista(
+      'm1',
+      'Ana',
+      'loja-a',
+      NOVEMBRO,
+    );
 
     expect(mockRpc).toHaveBeenCalledWith('desempenho_motorista_na_loja', {
       p_motorista_id: 'm1',
       p_unidade_id: 'loja-a',
+      p_de: '2026-11-01',
+      p_ate: '2026-11-10',
     });
     expect(perf).toEqual({
       id: 'm1',
@@ -66,6 +75,22 @@ describe('buscarPerformanceMotorista', () => {
     });
   });
 
+  it('Todo o período manda p_de e p_ate nulos (lados abertos)', async () => {
+    mockRpc.mockResolvedValue({ data: DA_LOJA, error: null });
+
+    await buscarPerformanceMotorista('m1', 'Ana', 'loja-a', {
+      de: null,
+      ate: '2026-11-10',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('desempenho_motorista_na_loja', {
+      p_motorista_id: 'm1',
+      p_unidade_id: 'loja-a',
+      p_de: null,
+      p_ate: '2026-11-10',
+    });
+  });
+
   it('sem rota concluída: distância e tempo nulos', async () => {
     mockRpc.mockResolvedValue({
       data: {
@@ -80,7 +105,12 @@ describe('buscarPerformanceMotorista', () => {
       error: null,
     });
 
-    const perf = await buscarPerformanceMotorista('m1', 'Ana', 'loja-a');
+    const perf = await buscarPerformanceMotorista(
+      'm1',
+      'Ana',
+      'loja-a',
+      NOVEMBRO,
+    );
 
     expect(perf.distancia_total_km).toBeNull();
     expect(perf.tempo_medio_minutos).toBeNull();
@@ -88,7 +118,7 @@ describe('buscarPerformanceMotorista', () => {
   });
 
   it('loja ainda não carregada: não consulta e devolve sem dados', async () => {
-    const perf = await buscarPerformanceMotorista('m1', 'Ana', null);
+    const perf = await buscarPerformanceMotorista('m1', 'Ana', null, NOVEMBRO);
 
     expect(mockRpc).not.toHaveBeenCalled();
     expect(perf).toMatchObject({
@@ -104,7 +134,12 @@ describe('buscarPerformanceMotorista', () => {
       error: null,
     });
 
-    const perf = await buscarPerformanceMotorista('m1', 'Ana', 'loja-b');
+    const perf = await buscarPerformanceMotorista(
+      'm1',
+      'Ana',
+      'loja-b',
+      NOVEMBRO,
+    );
 
     expect(perf).toMatchObject({ total_rotas: 0, taxa_execucao: null });
     expect(mockWarn).toHaveBeenCalledWith(
@@ -117,7 +152,12 @@ describe('buscarPerformanceMotorista', () => {
     const erro = { message: 'falhou' };
     mockRpc.mockResolvedValue({ data: null, error: erro });
 
-    const perf = await buscarPerformanceMotorista('m1', 'Ana', 'loja-a');
+    const perf = await buscarPerformanceMotorista(
+      'm1',
+      'Ana',
+      'loja-a',
+      NOVEMBRO,
+    );
 
     expect(perf).toMatchObject({ total_rotas: 0, taxa_execucao: null });
     expect(mockWarn).toHaveBeenCalledWith(
@@ -129,7 +169,12 @@ describe('buscarPerformanceMotorista', () => {
   it('resposta fora do formato: sem dados, nunca número inventado', async () => {
     mockRpc.mockResolvedValue({ data: 'inesperado', error: null });
 
-    const perf = await buscarPerformanceMotorista('m1', 'Ana', 'loja-a');
+    const perf = await buscarPerformanceMotorista(
+      'm1',
+      'Ana',
+      'loja-a',
+      NOVEMBRO,
+    );
 
     expect(perf).toMatchObject({ total_rotas: 0, taxa_execucao: null });
     // Registra só o tipo do que veio, nunca a resposta inteira.
