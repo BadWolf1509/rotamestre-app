@@ -595,7 +595,7 @@ describe('useGestaoRotas', () => {
       expect(chamouRotas('in', 'data', ['2026-01-02'])).toBe(false);
     });
 
-    it('período vira gte/lte na coluna data; o padrão é o da tela (este mês)', async () => {
+    it('período vira gte/lte na coluna data; o hook usa o padrão do período lembrado', async () => {
       const { result } = await montarHook();
       expect(mockUsePeriodoLembrado).toHaveBeenCalledWith('gestao_rotas');
       expect(chamouRotas('gte', 'data', expect.anything())).toBe(false);

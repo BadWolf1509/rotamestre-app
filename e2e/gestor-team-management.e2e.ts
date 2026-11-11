@@ -186,7 +186,7 @@ test.describe('Gestão Rotas E2E Tests', () => {
     test('a busca de rotas filtra a contagem de resultados', async ({
       page,
     }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
 
       const busca = page.getByPlaceholder(/Buscar por motorista/i).first();
       await expect(busca).toBeVisible({ timeout: 15000 });

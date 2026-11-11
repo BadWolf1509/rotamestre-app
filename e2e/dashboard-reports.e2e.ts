@@ -107,7 +107,7 @@ test.describe('Reports and Export E2E Tests', () => {
     test('resume as rotas em registradas, concluídas e pendentes', async ({
       page,
     }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
       await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
         timeout: 15000,
       });
@@ -160,7 +160,7 @@ test.describe('Reports and Export E2E Tests', () => {
 
   test.describe('Route Details Report', () => {
     test('"Ver detalhes" leva ao mapa da rota', async ({ page }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
       await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
         timeout: 15000,
       });
@@ -232,7 +232,7 @@ test.describe('Real-time Tracking E2E Tests', () => {
 
   test.describe('Route Map View', () => {
     test('should access map view for route tracking', async ({ page }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
       await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
         timeout: 15000,
       });
@@ -297,7 +297,7 @@ test.describe('Performance Analytics E2E Tests', () => {
      * nome passa a dizer isso.
      */
     test('a tabela de rotas traz distância em pt-BR', async ({ page }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
 
       const tabela = page.getByTestId('gestao-rotas-table');
       await expect(tabela).toBeVisible({ timeout: 15000 });
@@ -314,7 +314,7 @@ test.describe('Performance Analytics E2E Tests', () => {
     test('a tabela de rotas traz início e conclusão com data e hora', async ({
       page,
     }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
 
       const tabela = page.getByTestId('gestao-rotas-table');
       await expect(tabela).toBeVisible({ timeout: 15000 });

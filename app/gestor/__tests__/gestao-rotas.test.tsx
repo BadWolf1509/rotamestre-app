@@ -269,6 +269,22 @@ describe('GestaoRotas (desktop)', () => {
     expect(screen.getByText('2 rotas no período')).toBeTruthy();
   });
 
+  it('o cabeçalho diz "Rotas no período" com período; em "Todo o período", "Rotas registradas"', () => {
+    const { unmount } = render(<GestaoRotas />);
+    expect(screen.getByText('Rotas no período')).toBeTruthy();
+    expect(screen.queryByText('Rotas registradas')).toBeNull();
+    unmount();
+
+    mockEstadoHook = {
+      rotasFiltradas: rotasFalsas(2),
+      total: 2,
+      periodo: { tipo: 'todo' },
+    };
+    render(<GestaoRotas />);
+    expect(screen.getByText('Rotas registradas')).toBeTruthy();
+    expect(screen.queryByText('Rotas no período')).toBeNull();
+  });
+
   it('tocar na linha abre a rota, a mesma navegação de "Ver detalhes"', () => {
     render(<GestaoRotas />);
 

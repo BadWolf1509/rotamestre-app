@@ -379,7 +379,9 @@ export default function GestaoRotas() {
         <Text style={styles.headerStatValue}>
           {formatarDecimal(totalRotas, 0)}
         </Text>
-        <Text style={styles.headerStatLabel}>Rotas registradas</Text>
+        <Text style={styles.headerStatLabel}>
+          {periodo.tipo === 'todo' ? 'Rotas registradas' : 'Rotas no período'}
+        </Text>
       </View>
       <View style={styles.headerStat}>
         <Text style={[styles.headerStatValue, styles.headerStatValueSuccess]}>
