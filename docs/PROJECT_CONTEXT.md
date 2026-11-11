@@ -529,9 +529,12 @@ app.rotamestre.tec.br ── Expo Web / React Native
 3. Confirmar entrega de push nos artefatos instalados pelas lojas.
 4. Planejar o aviso aos usuários do app antigo sem interromper o backend
    compartilhado.
-5. Próximo passo (pendência 36): validar no aparelho, na 3060 já instalada,
-   os itens das varreduras de 08/11 (fila de incidentes, B-11, sessão atômica,
-   M-3, U-4).
+5. Próximo passo (pendência 36, achado do M-3): a fila offline também envia
+   no `TOKEN_REFRESHED` (agendado fora do callback do `onAuthStateChange`), com
+   teste; hoje, com o token vencido, a volta da rede não envia e a ação espera o
+   app voltar ao primeiro plano. **Próxima versão nativa leva:** essa correção e
+   o #772 (cartões de "Desempenho" da Início com as paradas do período; vazio
+   da busca sem convite de criar rota) — no aparelho, repetir o roteiro do M-3.
 
 ## Roteiro para a próxima sessão
 
