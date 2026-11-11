@@ -3,17 +3,12 @@
  */
 
 import {
-  DateRangeFilterSection,
   MotoristaFilterSection,
   StatusFilterSection,
-  getPresetDates,
-  formatDate,
-  getRangeLabel,
   countActiveFilters,
 } from '../index';
 
 import type {
-  PeriodPreset,
   RouteFiltersState,
   RouteFiltersProps,
   Motorista,
@@ -22,11 +17,6 @@ import type {
 
 describe('route-filters/index', () => {
   describe('component exports', () => {
-    it('exports DateRangeFilterSection', () => {
-      expect(DateRangeFilterSection).toBeDefined();
-      expect(typeof DateRangeFilterSection).toBe('function');
-    });
-
     it('exports MotoristaFilterSection', () => {
       expect(MotoristaFilterSection).toBeDefined();
       expect(typeof MotoristaFilterSection).toBe('function');
@@ -39,21 +29,6 @@ describe('route-filters/index', () => {
   });
 
   describe('utility exports', () => {
-    it('exports getPresetDates', () => {
-      expect(getPresetDates).toBeDefined();
-      expect(typeof getPresetDates).toBe('function');
-    });
-
-    it('exports formatDate', () => {
-      expect(formatDate).toBeDefined();
-      expect(typeof formatDate).toBe('function');
-    });
-
-    it('exports getRangeLabel', () => {
-      expect(getRangeLabel).toBeDefined();
-      expect(typeof getRangeLabel).toBe('function');
-    });
-
     it('exports countActiveFilters', () => {
       expect(countActiveFilters).toBeDefined();
       expect(typeof countActiveFilters).toBe('function');
@@ -62,10 +37,6 @@ describe('route-filters/index', () => {
 
   describe('type exports', () => {
     it('exports types that can be used correctly', () => {
-      // Type assertions to verify exports work
-      const preset: PeriodPreset = 'hoje';
-      expect(preset).toBe('hoje');
-
       const filters: RouteFiltersState = { status: 'pendente' };
       expect(filters.status).toBe('pendente');
 
@@ -78,7 +49,6 @@ describe('route-filters/index', () => {
       };
       expect(statusOption.label).toBe('Concluída');
 
-      // Type guard check for RouteFiltersProps
       const props: Partial<RouteFiltersProps> = {
         variant: 'desktop',
       };

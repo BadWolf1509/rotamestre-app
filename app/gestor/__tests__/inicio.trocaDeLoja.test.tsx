@@ -15,7 +15,20 @@ let mockFiltros: {
   status?: string | null;
 } = {};
 let mockMudarFiltros: (f: unknown) => void = () => {};
+let mockPeriodoDaTela: unknown;
 const mockUseDashboardData = jest.fn();
+let mockPeriodoLembrado: {
+  periodo: { tipo: string; de?: string; ate?: string };
+  carregado: boolean;
+} = { periodo: { tipo: 'este_mes' }, carregado: true };
+const mockDefinirPeriodo = jest.fn();
+
+jest.mock('@/hooks/usePeriodoLembrado', () => ({
+  usePeriodoLembrado: (tela: string) => {
+    if (tela !== 'inicio_gestor') throw new Error(`tela ${tela}`);
+    return { ...mockPeriodoLembrado, definirPeriodo: mockDefinirPeriodo };
+  },
+}));
 
 jest.mock('@/hooks/useUnidadeAtiva', () => ({
   useUnidadeAtiva: () => ({
@@ -39,8 +52,10 @@ jest.mock(
       filters: typeof mockFiltros;
       onFiltersChange: (f: unknown) => void;
       unidadeNome?: string | null;
+      periodo: unknown;
     }) => {
       mockSubtitulo = props.unidadeNome;
+      mockPeriodoDaTela = props.periodo;
       mockFiltros = props.filters;
       mockMudarFiltros = props.onFiltersChange;
       return null;
@@ -57,7 +72,47 @@ beforeEach(() => {
   mockNomeLoja = 'Loja A';
   mockSubtitulo = undefined;
   mockFiltros = {};
+  mockPeriodoDaTela = undefined;
+  mockPeriodoLembrado = {
+    periodo: {
+      tipo: 'personalizado',
+      de: '2026-10-01',
+      ate: '2026-10-15',
+    },
+    carregado: true,
+  };
   mockUseDashboardData.mockClear();
+});
+
+describe('GestorInicio — período', () => {
+  it('passa à carga o intervalo do período lembrado, e à tela o período', () => {
+    render(<GestorInicio />);
+
+    const [opcoes] = mockUseDashboardData.mock.calls.at(-1)!;
+    expect(opcoes.periodo).toEqual({ de: '2026-10-01', ate: '2026-10-15' });
+    expect(mockPeriodoDaTela).toEqual(mockPeriodoLembrado.periodo);
+  });
+
+  it('antes de o período lembrado carregar, a carga recebe null (não consulta pelo padrão)', () => {
+    mockPeriodoLembrado = { periodo: { tipo: 'este_mes' }, carregado: false };
+    render(<GestorInicio />);
+
+    for (const [opcoes] of mockUseDashboardData.mock.calls) {
+      expect(opcoes.periodo).toBeNull();
+    }
+  });
+
+  it('trocar de loja mantém o período', () => {
+    const { rerender } = render(<GestorInicio />);
+    mockUseDashboardData.mockClear();
+
+    mockLoja = 'loja-b';
+    rerender(<GestorInicio />);
+
+    for (const [opcoes] of mockUseDashboardData.mock.calls) {
+      expect(opcoes.periodo).toEqual({ de: '2026-10-01', ate: '2026-10-15' });
+    }
+  });
 });
 
 describe('GestorInicio — troca de loja', () => {
@@ -78,8 +133,6 @@ describe('GestorInicio — troca de loja', () => {
     act(() => {
       mockMudarFiltros({
         status: 'pendente',
-        dataInicio: null,
-        dataFim: null,
         motoristaId: 'ana',
       });
     });
@@ -97,8 +150,6 @@ describe('GestorInicio — troca de loja', () => {
     act(() => {
       mockMudarFiltros({
         status: null,
-        dataInicio: null,
-        dataFim: null,
         motoristaId: 'ana',
       });
     });
@@ -118,8 +169,6 @@ describe('GestorInicio — troca de loja', () => {
     act(() => {
       mockMudarFiltros({
         status: null,
-        dataInicio: null,
-        dataFim: null,
         motoristaId: 'ana',
       });
     });

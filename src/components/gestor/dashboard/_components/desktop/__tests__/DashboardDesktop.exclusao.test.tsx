@@ -111,6 +111,9 @@ function renderizar() {
     userData: { id: 'g1', nome: 'Gestor' },
     filters: {},
     onFiltersChange: jest.fn(),
+    periodo: { tipo: 'este_mes' },
+    onPeriodoChange: jest.fn(),
+    listaCortada: false,
   } as unknown as React.ComponentProps<typeof DashboardDesktop>;
   return { ...render(<DashboardDesktop {...props} />), props };
 }

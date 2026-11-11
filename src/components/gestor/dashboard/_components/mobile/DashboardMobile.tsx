@@ -14,12 +14,14 @@ import {
 import { AnimatedListItem } from '@/components/AnimatedListItem';
 import { EmptyState } from '@/components/EmptyState';
 import { AvisoErroCarga } from '@/components/gestor/AvisoErroCarga';
+import { SeletorPeriodo } from '@/components/periodo';
 import { RouteFilters } from '@/components/RouteFilters';
 import type { RouteFiltersState as RouteFiltersType } from '@/components/RouteFilters';
 import { Text } from '@/design-system';
 import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 import { useMotoristas } from '@/hooks/useMotoristas';
 import { formatarDecimal } from '@/lib/formatNumber';
+import type { Periodo } from '@/lib/periodo';
 import { plural } from '@/lib/plural';
 import { withOpacity } from '@/utils/color';
 import { getGreeting } from '@/utils/motivationalMessages';
@@ -27,6 +29,7 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 import { RotaCard } from '../shared/RotaCard';
 import { StatsCard } from '../shared/StatsCard';
+import { AVISO_LISTA_CORTADA, textosDoVazio } from '../shared/textosDoPeriodo';
 
 import type { DashboardData, RotaResumo } from '../../_hooks/useDashboardData';
 
@@ -35,6 +38,8 @@ interface DashboardMobileProps extends DashboardData {
   unidadeNome?: string | null;
   filters: RouteFiltersType;
   onFiltersChange: (filters: RouteFiltersType) => void;
+  periodo: Periodo;
+  onPeriodoChange: (periodo: Periodo) => void;
 }
 
 // ============================================================================
@@ -53,9 +58,9 @@ function formatTempo(minutos: number | null): string {
  */
 export function DashboardMobile({
   stats,
-  todayStats,
   kpis,
   rotas,
+  listaCortada,
   loading,
   refreshing,
   erroCarga,
@@ -65,6 +70,8 @@ export function DashboardMobile({
   userData,
   filters,
   onFiltersChange,
+  periodo,
+  onPeriodoChange,
 }: DashboardMobileProps) {
   const { theme } = useUnistyles();
   const router = useRouter();
@@ -75,6 +82,11 @@ export function DashboardMobile({
   // ============================================================================
   // DERIVED DATA
   // ============================================================================
+
+  const { titulo: tituloVazio, descricao: descricaoVazio } = textosDoVazio(
+    periodo,
+    filters,
+  );
 
   const firstName = userData?.nome?.split(' ')[0] || '';
   const avatarInitial = firstName.charAt(0).toUpperCase();
@@ -200,14 +212,14 @@ export function DashboardMobile({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.statsStrip}
           testID="gestor-dashboard-stats"
-          accessibilityLabel="Estatísticas do dia"
+          accessibilityLabel="Estatísticas do período"
           accessibilityHint="Deslize para ver mais estatísticas"
         >
           <AnimatedListItem index={0}>
             <View style={styles.statsStripCard}>
               <StatsCard
-                value={todayStats.totalHoje}
-                label="Total Hoje"
+                value={stats.total}
+                label="Total no período"
                 backgroundColor={theme.colors.primaryDark}
                 icon="car-outline"
               />
@@ -270,7 +282,7 @@ export function DashboardMobile({
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionTitleAccent} />
-            <Text style={styles.sectionTitle}>Performance do Mês</Text>
+            <Text style={styles.sectionTitle}>Desempenho</Text>
           </View>
 
           <View style={styles.kpisGrid}>
@@ -413,8 +425,23 @@ export function DashboardMobile({
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionTitleAccent} />
-            <Text style={styles.sectionTitle}>Rotas de Hoje</Text>
+            <Text style={styles.sectionTitle}>Rotas</Text>
+            {/* O período se escolhe aqui, fora do modal de filtros: um
+                Modal dentro do pageSheet dos filtros arriscava ficar órfão
+                no iOS ao arrastar o pai. */}
+            <View style={styles.sectionPeriodo}>
+              <SeletorPeriodo
+                valor={periodo}
+                aoMudar={onPeriodoChange}
+                testID="secao-rotas-periodo"
+              />
+            </View>
           </View>
+          {listaCortada ? (
+            <Text testID="aviso-lista-cortada" style={styles.avisoListaCortada}>
+              {AVISO_LISTA_CORTADA}
+            </Text>
+          ) : null}
         </View>
       </>
     ),
@@ -423,7 +450,6 @@ export function DashboardMobile({
       avatarUrl,
       avatarInitial,
       firstName,
-      todayStats,
       stats,
       kpis,
       kpiConfig,
@@ -435,6 +461,9 @@ export function DashboardMobile({
       erroCarga,
       dadosDe,
       onRefresh,
+      periodo,
+      onPeriodoChange,
+      listaCortada,
     ],
   );
 
@@ -446,14 +475,14 @@ export function DashboardMobile({
         <View style={styles.emptyStateContainer}>
           <EmptyState
             icon="map-outline"
-            title="Nenhuma rota cadastrada hoje"
-            description="Crie sua primeira rota de entrega para começar"
+            title={tituloVazio}
+            description={descricaoVazio}
             actionLabel="Nova rota de entrega"
             onActionPress={handleNovaEntregaPress}
           />
         </View>
       ),
-    [handleNovaEntregaPress, erroCarga],
+    [handleNovaEntregaPress, erroCarga, tituloVazio, descricaoVazio],
   );
 
   // Footer com espaço extra para o FAB não cobrir conteúdo
@@ -501,7 +530,7 @@ export function DashboardMobile({
         extraData={rotas.length}
         // Acessibilidade
         accessible={true}
-        accessibilityLabel="Lista de rotas do dia"
+        accessibilityLabel="Lista de rotas do período"
       />
 
       {/* Floating Filter Button */}
@@ -622,6 +651,15 @@ const styles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.lg,
     fontFamily: theme.typography.fontSansSemiBold,
     color: theme.colors.gray900,
+  },
+  sectionPeriodo: {
+    flexShrink: 1,
+  },
+  avisoListaCortada: {
+    fontSize: theme.typography.fontSize.sm,
+    fontFamily: theme.typography.fontSans,
+    color: theme.colors.gray600,
+    marginBottom: theme.spacing.md,
   },
   quickActionsGrid: {
     flexDirection: 'row',

@@ -12,6 +12,8 @@ import { getTodayISO } from '@/lib/dateUtils';
 
 import { useDashboardData } from '../useDashboardData';
 
+const SO_HOJE = { de: getTodayISO(), ate: getTodayISO() };
+
 let mockLoja: string | null = 'loja-a';
 let mockLojaCarregando = false;
 // Lojas cuja consulta de `rotas` fica pendente até o teste liberar.
@@ -113,7 +115,9 @@ beforeEach(() => {
 
 describe('useDashboardData — troca de loja', () => {
   it('não mostra a lista da loja anterior enquanto a nova carrega', async () => {
-    const { result, rerender } = renderHook(() => useDashboardData());
+    const { result, rerender } = renderHook(() =>
+      useDashboardData({ periodo: SO_HOJE }),
+    );
     await waitFor(() => expect(result.current.rotas).toHaveLength(2));
     expect(result.current.loading).toBe(false);
 
@@ -138,7 +142,9 @@ describe('useDashboardData — troca de loja', () => {
   });
 
   it('carga da loja nova falhando não oferece os dados da anterior como "dados de HH:MM"', async () => {
-    const { result, rerender } = renderHook(() => useDashboardData());
+    const { result, rerender } = renderHook(() =>
+      useDashboardData({ periodo: SO_HOJE }),
+    );
     await waitFor(() => expect(result.current.rotas).toHaveLength(2));
 
     mockLojasComErro.add('loja-b');
@@ -153,7 +159,9 @@ describe('useDashboardData — troca de loja', () => {
 
   it('resposta da loja anterior chegando depois da troca não entra no estado', async () => {
     segurar('loja-a');
-    const { result, rerender } = renderHook(() => useDashboardData());
+    const { result, rerender } = renderHook(() =>
+      useDashboardData({ periodo: SO_HOJE }),
+    );
 
     mockLoja = 'loja-b';
     rerender({});
@@ -168,7 +176,9 @@ describe('useDashboardData — troca de loja', () => {
   });
 
   it('loja A → sem loja → loja B falhando: nada de A sobrevive (KPIs, "dados de HH:MM")', async () => {
-    const { result, rerender } = renderHook(() => useDashboardData());
+    const { result, rerender } = renderHook(() =>
+      useDashboardData({ periodo: SO_HOJE }),
+    );
     await waitFor(() => expect(result.current.rotas).toHaveLength(2));
     await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
 
@@ -201,7 +211,9 @@ describe('useDashboardData — loja ativa ainda carregando', () => {
   it('fica em carregamento, não em vazio, enquanto a loja ativa não chegou', async () => {
     mockLoja = null;
     mockLojaCarregando = true;
-    const { result, rerender } = renderHook(() => useDashboardData());
+    const { result, rerender } = renderHook(() =>
+      useDashboardData({ periodo: SO_HOJE }),
+    );
 
     // Dá tempo à carga "sem loja" de rodar e desligar o próprio loading.
     await act(async () => {});
@@ -218,7 +230,7 @@ describe('useDashboardData — loja ativa ainda carregando', () => {
   it('sem loja de fato (carregamento terminou), mostra o vazio', async () => {
     mockLoja = null;
     mockLojaCarregando = false;
-    const { result } = renderHook(() => useDashboardData());
+    const { result } = renderHook(() => useDashboardData({ periodo: SO_HOJE }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.rotas).toEqual([]);

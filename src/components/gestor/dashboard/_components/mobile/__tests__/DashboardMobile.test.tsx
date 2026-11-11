@@ -6,6 +6,12 @@ import { useSignedUrl } from '@/hooks/storage/useSignedUrl';
 
 import { DashboardMobile } from '../DashboardMobile';
 
+// "Hoje" fixo: os textos do período ("este mês (01/11 a 30/11)") são exatos.
+jest.mock('@/lib/dateUtils', () => ({
+  ...jest.requireActual('@/lib/dateUtils'),
+  getTodayISO: () => '2026-11-10',
+}));
+
 // Mock expo-router
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -161,6 +167,9 @@ describe('DashboardMobile', () => {
     unidadeNome: 'WJX Locações',
     filters: {},
     onFiltersChange: jest.fn(),
+    periodo: { tipo: 'este_mes' } as const,
+    onPeriodoChange: jest.fn(),
+    listaCortada: false,
   };
 
   beforeEach(() => {
@@ -199,10 +208,29 @@ describe('DashboardMobile', () => {
     it('deve renderizar stats cards', () => {
       const { getByTestId } = render(<DashboardMobile {...defaultProps} />);
 
-      expect(getByTestId('stats-Total Hoje')).toBeTruthy();
+      expect(getByTestId('stats-Total no período')).toBeTruthy();
       expect(getByTestId('stats-Em Andamento')).toBeTruthy();
       expect(getByTestId('stats-Concluídas')).toBeTruthy();
       expect(getByTestId('stats-km Total')).toBeTruthy();
+    });
+
+    it('a faixa de números segue o período: total vem da lista, não do "hoje"', () => {
+      const { getByTestId, queryByText, getByLabelText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
+
+      // stats.total (10) é a lista do período; todayStats.totalHoje (8) não entra.
+      expect(getByTestId('stats-Total no período')).toHaveTextContent(
+        /^10Total no período$/,
+      );
+      expect(queryByText('Total Hoje')).toBeNull();
+      expect(getByLabelText('Estatísticas do período')).toBeTruthy();
+    });
+
+    it('o título da seção de desempenho não diz "do Mês" (a taxa segue o período)', () => {
+      const { queryByText } = render(<DashboardMobile {...defaultProps} />);
+
+      expect(queryByText('Performance do Mês')).toBeNull();
     });
 
     it('KPI indisponível (null) aparece como "—", não como 0 nem "--"', () => {
@@ -291,9 +319,11 @@ describe('DashboardMobile', () => {
       );
 
       expect(getByTestId('empty-state')).toBeTruthy();
-      expect(getByText('Nenhuma rota cadastrada hoje')).toBeTruthy();
       expect(
-        getByText('Crie sua primeira rota de entrega para começar'),
+        getByText('Nenhuma rota em este mês (01/11 a 30/11)'),
+      ).toBeTruthy();
+      expect(
+        getByText('Escolha outro período ou crie uma nova rota'),
       ).toBeTruthy();
     });
 
@@ -358,18 +388,53 @@ describe('DashboardMobile', () => {
       expect(getByText('Ações Rápidas')).toBeTruthy();
     });
 
-    it('deve mostrar seção Rotas de Hoje', () => {
-      const { getByText } = render(<DashboardMobile {...defaultProps} />);
+    it('a seção de rotas diz o período, não "de Hoje"', () => {
+      const { getByText, getByTestId, queryByText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
 
-      expect(getByText('Rotas de Hoje')).toBeTruthy();
+      expect(getByText('Rotas')).toBeTruthy();
+      expect(getByTestId('secao-rotas-periodo')).toHaveTextContent(
+        'Este mês (01/11 a 30/11)',
+      );
+      expect(queryByText('Rotas de Hoje')).toBeNull();
+    });
+
+    it('o período se escolhe ali mesmo, fora do modal de filtros', () => {
+      const onPeriodoChange = jest.fn();
+      const { getByTestId } = render(
+        <DashboardMobile {...defaultProps} onPeriodoChange={onPeriodoChange} />,
+      );
+
+      fireEvent.press(getByTestId('secao-rotas-periodo'));
+      fireEvent.press(getByTestId('secao-rotas-periodo-item-mes_passado'));
+
+      expect(onPeriodoChange).toHaveBeenCalledWith({ tipo: 'mes_passado' });
+    });
+
+    it('com a lista cortada ("Todo o período"), avisa que mostra as primeiras 500, da data mais nova para a mais antiga', () => {
+      const { getByTestId } = render(
+        <DashboardMobile
+          {...defaultProps}
+          periodo={{ tipo: 'todo' }}
+          listaCortada
+        />,
+      );
+
+      expect(getByTestId('aviso-lista-cortada')).toHaveTextContent(
+        'Mostrando as primeiras 500 rotas, da data mais nova para a mais antiga. Escolha um período para ver as demais.',
+      );
     });
   });
 
   describe('Stats values', () => {
-    it('deve mostrar valor total hoje', () => {
-      const { getByText } = render(<DashboardMobile {...defaultProps} />);
+    it('deve mostrar o total do período (stats.total), não o de hoje', () => {
+      const { getByText, queryByText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
 
-      expect(getByText('8')).toBeTruthy(); // todayStats.totalHoje
+      expect(getByText('10')).toBeTruthy(); // stats.total
+      expect(queryByText('8')).toBeNull(); // todayStats.totalHoje
     });
 
     it('deve mostrar valor em andamento', () => {

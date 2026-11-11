@@ -2,6 +2,8 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 
 import { useDashboardData } from '../useDashboardData';
 
+const PERIODO = { de: '2026-11-01', ate: '2026-11-30' };
+
 // Mock useUser
 jest.mock('@/hooks/useUser', () => ({
   useUser: () => ({
@@ -63,7 +65,9 @@ describe('useDashboardData', () => {
 
   describe('Initial state', () => {
     it('deve retornar estado inicial correto', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       // Initial stats should be zeros
       expect(result.current.stats.total).toBe(0);
@@ -74,13 +78,17 @@ describe('useDashboardData', () => {
     });
 
     it('deve ter funcao onRefresh', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(typeof result.current.onRefresh).toBe('function');
     });
 
     it('deve ter userData do useUser', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(result.current.userData).toBeDefined();
       expect(result.current.userData.id).toBe('user-1');
@@ -89,20 +97,23 @@ describe('useDashboardData', () => {
 
   describe('Data loading', () => {
     it('deve chamar supabase quando unidadeId existe', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       // Hook should initialize with stats object
       expect(result.current.stats).toBeDefined();
     });
 
     it('deve aceitar filtros opcionais', () => {
-      const filters = {
-        dataInicio: '2025-01-01',
-        dataFim: '2025-01-31',
-        status: 'em_andamento' as const,
-      };
+      const filters = { status: 'em_andamento' as const };
 
-      const { result } = renderHook(() => useDashboardData({ filters }));
+      const { result } = renderHook(() =>
+        useDashboardData({
+          periodo: { de: '2025-01-01', ate: '2025-01-31' },
+          filters,
+        }),
+      );
 
       expect(result.current.stats).toBeDefined();
     });
@@ -110,7 +121,9 @@ describe('useDashboardData', () => {
 
   describe('Stats structure', () => {
     it('deve ter estrutura de stats correta', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(result.current.stats).toHaveProperty('total');
       expect(result.current.stats).toHaveProperty('emAndamento');
@@ -119,7 +132,9 @@ describe('useDashboardData', () => {
     });
 
     it('deve ter estrutura de todayStats correta', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(result.current.todayStats).toHaveProperty('totalHoje');
     });
@@ -127,20 +142,26 @@ describe('useDashboardData', () => {
 
   describe('Return values', () => {
     it('deve retornar loading boolean', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(typeof result.current.loading).toBe('boolean');
     });
 
     it('deve retornar refreshing boolean', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(typeof result.current.refreshing).toBe('boolean');
       expect(result.current.refreshing).toBe(false);
     });
 
     it('deve retornar rotas array', () => {
-      const { result } = renderHook(() => useDashboardData());
+      const { result } = renderHook(() =>
+        useDashboardData({ periodo: PERIODO }),
+      );
 
       expect(Array.isArray(result.current.rotas)).toBe(true);
     });
@@ -149,7 +170,7 @@ describe('useDashboardData', () => {
   describe('Recarga por troca de filtro', () => {
     it('não volta a exibir a carga inicial ao trocar de filtro', async () => {
       const { result, rerender } = renderHook(
-        ({ filters }) => useDashboardData({ filters }),
+        ({ filters }) => useDashboardData({ periodo: PERIODO, filters }),
         { initialProps: { filters: { status: null } as any } },
       );
 
@@ -169,7 +190,7 @@ describe('useDashboardData', () => {
 
     it('sinaliza a recarga por filtro em refreshing', async () => {
       const { result, rerender } = renderHook(
-        ({ filters }) => useDashboardData({ filters }),
+        ({ filters }) => useDashboardData({ periodo: PERIODO, filters }),
         { initialProps: { filters: { status: null } as any } },
       );
 
@@ -185,21 +206,9 @@ describe('useDashboardData', () => {
   });
 
   describe('Filters', () => {
-    it('deve aceitar filtro de dataInicio', () => {
+    it('deve aceitar "Todo o período" (sem datas)', () => {
       const { result } = renderHook(() =>
-        useDashboardData({
-          filters: { dataInicio: '2025-01-01' },
-        }),
-      );
-
-      expect(result.current.stats).toBeDefined();
-    });
-
-    it('deve aceitar filtro de dataFim', () => {
-      const { result } = renderHook(() =>
-        useDashboardData({
-          filters: { dataFim: '2025-01-31' },
-        }),
+        useDashboardData({ periodo: { de: null, ate: null } }),
       );
 
       expect(result.current.stats).toBeDefined();
@@ -208,6 +217,7 @@ describe('useDashboardData', () => {
     it('deve aceitar filtro de status', () => {
       const { result } = renderHook(() =>
         useDashboardData({
+          periodo: PERIODO,
           filters: { status: 'concluida' },
         }),
       );
@@ -218,6 +228,7 @@ describe('useDashboardData', () => {
     it('deve aceitar filtro de motoristaId', () => {
       const { result } = renderHook(() =>
         useDashboardData({
+          periodo: PERIODO,
           filters: { motoristaId: 'motorista-1' },
         }),
       );
@@ -228,6 +239,7 @@ describe('useDashboardData', () => {
     it('deve lidar com filtros vazios', () => {
       const { result } = renderHook(() =>
         useDashboardData({
+          periodo: PERIODO,
           filters: {},
         }),
       );
