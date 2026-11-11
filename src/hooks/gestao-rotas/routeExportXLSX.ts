@@ -12,6 +12,7 @@ import { Platform } from 'react-native';
 
 import { formatDateBR, formatDateTimeBR } from '@/lib/dateUtils';
 import { logger } from '@/lib/logger';
+import type { IntervaloDatas } from '@/lib/periodo';
 import { ROTA_STATUS_LABELS, type FiltroStatus } from '@/lib/statusLabels';
 import { showError, showSuccess, showWarning } from '@/utils/errorHandling';
 
@@ -21,6 +22,7 @@ import {
   carregarBiblioteca,
 } from './carregarBiblioteca';
 import { compartilharArquivo, registrarExportacao } from './exportacao';
+import { nomeArquivoExportacao } from './routeExport';
 
 import type { RotaHistorico } from './types';
 
@@ -34,6 +36,8 @@ interface ExportOptions {
   rotas: RotaHistorico[];
   filtroStatus: FiltroStatus;
   userId?: string;
+  /** Período filtrado: entra no nome do arquivo. */
+  periodo?: IntervaloDatas;
 }
 
 /**
@@ -44,6 +48,7 @@ export async function exportRotasToXLSX({
   rotas,
   filtroStatus,
   userId,
+  periodo = { de: null, ate: null },
 }: ExportOptions): Promise<void> {
   try {
     if (rotas.length === 0) {
@@ -62,10 +67,7 @@ export async function exportRotasToXLSX({
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     XLSX.utils.book_append_sheet(wb, ws, 'Rotas');
 
-    const dataAtual = new Date()
-      .toLocaleDateString('pt-BR')
-      .replace(/\//g, '-');
-    const nomeArquivo = `gestao-rotas-${dataAtual}.xlsx`;
+    const nomeArquivo = nomeArquivoExportacao(periodo, 'xlsx');
 
     if (Platform.OS === 'web') {
       downloadXLSXWeb(XLSX, wb, nomeArquivo);

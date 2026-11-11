@@ -4,7 +4,7 @@
 
 import { Platform } from 'react-native';
 
-import { exportRotasToCSV } from '../routeExport';
+import { exportRotasToCSV, nomeArquivoExportacao } from '../routeExport';
 
 import type { RotaHistorico } from '../types';
 
@@ -58,6 +58,30 @@ const mockRota: RotaHistorico = {
   paradas_count: 10,
   paradas_concluidas: 10,
 };
+
+describe('nomeArquivoExportacao', () => {
+  it('com período, o intervalo vai no nome', () => {
+    expect(
+      nomeArquivoExportacao({ de: '2026-11-01', ate: '2026-11-30' }, 'csv'),
+    ).toBe('gestao-rotas-01-11-2026_a_30-11-2026.csv');
+    expect(
+      nomeArquivoExportacao(
+        { de: '2026-11-10', ate: '2026-11-10' },
+        'xlsx',
+        '2026-11-11',
+      ),
+    ).toBe('gestao-rotas-10-11-2026_a_10-11-2026.xlsx');
+  });
+
+  it('sem período ("Todo o período"), o nome é o de hoje', () => {
+    expect(
+      nomeArquivoExportacao({ de: null, ate: null }, 'csv', '2026-11-11'),
+    ).toBe('gestao-rotas-11-11-2026.csv');
+    expect(
+      nomeArquivoExportacao({ de: null, ate: null }, 'xlsx', '2026-03-05'),
+    ).toBe('gestao-rotas-05-03-2026.xlsx');
+  });
+});
 
 describe('routeExport', () => {
   beforeEach(() => {
@@ -210,9 +234,12 @@ describe('routeExport', () => {
 
         // Número negativo puro não forma fórmula: o apóstrofo o viraria texto
         // e a coluna deixaria de somar.
-        it.each(['-3', '-3,5'])('número negativo %j segue sem apóstrofo', async (valor) => {
-          expect(await exportarComNome(valor)).toContain(`;"${valor}";`);
-        });
+        it.each(['-3', '-3,5'])(
+          'número negativo %j segue sem apóstrofo',
+          async (valor) => {
+            expect(await exportarComNome(valor)).toContain(`;"${valor}";`);
+          },
+        );
 
         it('o marcador "-" (sem distância) segue como está', async () => {
           ((global as any).Blob as jest.Mock).mockClear();

@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback } from 'react';
 
 import { logger } from '@/lib/logger';
+import type { IntervaloDatas } from '@/lib/periodo';
 
 import type { RotaHistorico, CachedRotas } from './types';
 
@@ -13,6 +14,8 @@ const CACHE_KEY_PREFIX = 'gestao_rotas_cache_';
 
 interface UseRotasCacheOptions {
   unidadeId: string | null;
+  /** Período da lista: cada período tem a sua chave (padrão: todo). */
+  periodo?: IntervaloDatas;
 }
 
 interface UseRotasCacheResult {
@@ -28,10 +31,15 @@ interface UseRotasCacheResult {
  */
 export function useRotasCache({
   unidadeId,
+  periodo,
 }: UseRotasCacheOptions): UseRotasCacheResult {
+  // As strings, não o objeto: a identidade dele muda a cada render.
+  const de = periodo?.de ?? null;
+  const ate = periodo?.ate ?? null;
   const getCacheKey = useCallback(() => {
-    return `${CACHE_KEY_PREFIX}${unidadeId}`;
-  }, [unidadeId]);
+    const sufixo = de && ate ? `${de}_${ate}` : 'todo';
+    return `${CACHE_KEY_PREFIX}${unidadeId}_${sufixo}`;
+  }, [unidadeId, de, ate]);
 
   const loadFromCache = useCallback(async (): Promise<CachedRotas | null> => {
     try {

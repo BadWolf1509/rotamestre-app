@@ -74,52 +74,28 @@ const filtros = (f: Partial<FiltrosRotas> = {}): FiltrosRotas => ({
   unidadeId: 'u1',
   status: 'todas',
   busca: '',
+  periodo: { de: null, ate: null },
   ...f,
 });
 
 describe('interpretarBusca', () => {
   it('texto vira busca por nome do motorista, com curingas escapados', () => {
-    expect(interpretarBusca('ana', 2026)).toEqual({
+    expect(interpretarBusca('ana')).toEqual({
       tipo: 'nome',
       padrao: '%ana%',
       incluiSemMotorista: false,
     });
-    expect(interpretarBusca('  ', 2026)).toEqual({ tipo: 'nenhuma' });
+    expect(interpretarBusca('  ')).toEqual({ tipo: 'nenhuma' });
   });
 
-  it('dd/mm/aaaa é a data exata; data inexistente não acha nada', () => {
-    expect(interpretarBusca('5/3/2026', 2026)).toEqual({
-      tipo: 'datas',
-      datas: ['2026-03-05'],
-    });
-    expect(interpretarBusca('31/02/2026', 2026)).toEqual({
-      tipo: 'impossivel',
-    });
-  });
-
-  it('dd/mm é o dia em qualquer ano da janela; 29/02 só nos bissextos', () => {
-    expect(interpretarBusca('02/01', 2026)).toEqual({
-      tipo: 'datas',
-      datas: ['2024-01-02', '2025-01-02', '2026-01-02', '2027-01-02'],
-    });
-    expect(interpretarBusca('29/02', 2026)).toEqual({
-      tipo: 'datas',
-      datas: ['2024-02-29'],
-    });
-  });
-
-  it('mm/aaaa é o mês; aaaa é o ano (intervalo semiaberto)', () => {
-    expect(interpretarBusca('12/2025', 2026)).toEqual({
-      tipo: 'intervalo',
-      de: '2025-12-01',
-      ate: '2026-01-01',
-    });
-    expect(interpretarBusca('2025', 2026)).toEqual({
-      tipo: 'intervalo',
-      de: '2025-01-01',
-      ate: '2026-01-01',
-    });
-    expect(interpretarBusca('13/2025', 2026)).toEqual({ tipo: 'impossivel' });
+  it('data não é mais reconhecida: vira busca por texto', () => {
+    for (const termo of ['05/10/2026', '02/01', '12/2025', '2025']) {
+      expect(interpretarBusca(termo)).toEqual({
+        tipo: 'nome',
+        padrao: `%${termo}%`,
+        incluiSemMotorista: false,
+      });
+    }
   });
 });
 
@@ -385,29 +361,70 @@ describe('buscarRotas', () => {
     });
   });
 
-  it('busca por data vai ao servidor', async () => {
-    montar(rotas(800));
+  it('período vai ao servidor como intervalo fechado em data (gte/lte)', async () => {
+    const falso = montar(rotas(800));
 
-    const { rotas: doDia } = await buscarRotas({
-      filtros: filtros({ busca: '02/01/2024' }),
+    const { rotas: doPeriodo, total } = await buscarRotas({
+      filtros: filtros({ periodo: { de: '2024-01-02', ate: '2024-01-03' } }),
       quantidade: 100,
       contar: true,
     });
 
-    expect(doDia.map((r) => r.id).sort()).toEqual(['r00002', 'r00003']);
+    // 2 rotas por dia: os dois extremos entram.
+    expect(doPeriodo.map((r) => r.id).sort()).toEqual([
+      'r00002',
+      'r00003',
+      'r00004',
+      'r00005',
+    ]);
+    expect(total).toBe(4);
+    const filtrosData = falso.requisicoes
+      .find((r) => r.tabela === 'rotas')
+      ?.url.searchParams.getAll('data');
+    expect(filtrosData).toEqual(['gte.2024-01-02', 'lte.2024-01-03']);
   });
 
-  it('busca impossível não consulta e volta vazia', async () => {
+  it('período sem pontas não filtra por data; ponta nula é ignorada', async () => {
     const falso = montar(rotas(10));
 
-    const r = await buscarRotas({
-      filtros: filtros({ busca: '31/02/2026' }),
+    await buscarRotas({ filtros: filtros(), quantidade: 100 });
+    await buscarRotas({
+      filtros: filtros({ periodo: { de: null, ate: '2024-01-02' } }),
       quantidade: 100,
-      contar: true,
     });
 
-    expect(r).toEqual({ rotas: [], total: 0 });
-    expect(falso.requisicoes).toHaveLength(0);
+    const requisicoesDeRotas = falso.requisicoes.filter(
+      (r) => r.tabela === 'rotas',
+    );
+    const dataDe = (i: number) =>
+      requisicoesDeRotas[i].url.searchParams.getAll('data');
+    expect(dataDe(0)).toEqual([]);
+    expect(dataDe(1)).toEqual(['lte.2024-01-02']);
+  });
+
+  it('o cursor e a página seguinte respeitam o período', async () => {
+    montar(rotas(40)); // 2024-01-01 .. 2024-01-20, 2 por dia
+    const periodo = { de: '2024-01-05', ate: '2024-01-10' };
+
+    const p1 = await buscarRotas({
+      filtros: filtros({ periodo }),
+      quantidade: 5,
+      contar: true,
+    });
+    const ultima = p1.rotas[p1.rotas.length - 1];
+    const p2 = await buscarRotas({
+      filtros: filtros({ periodo }),
+      quantidade: 100,
+      cursor: { data: ultima.data, id: ultima.id },
+    });
+
+    expect(p1.total).toBe(12);
+    expect(p2.rotas).toHaveLength(7);
+    expect(
+      [...p1.rotas, ...p2.rotas].every(
+        (r) => r.data >= periodo.de && r.data <= periodo.ate,
+      ),
+    ).toBe(true);
   });
 
   it('conta as paradas das rotas devolvidas (sem partida/chegada)', async () => {
@@ -432,6 +449,16 @@ describe('buscarRotas', () => {
 });
 
 describe('contarRotasPorStatus', () => {
+  it('conta só as rotas do período', async () => {
+    montar(rotas(40));
+
+    const c = await contarRotasPorStatus(
+      filtros({ periodo: { de: '2024-01-05', ate: '2024-01-10' } }),
+    );
+
+    expect(c.concluidas + c.pendentes).toBe(12);
+  });
+
   it('conta concluídas e pendentes de toda a loja, com a mesma busca', async () => {
     montar(rotas(437));
 

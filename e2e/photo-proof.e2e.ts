@@ -47,7 +47,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
     test('os detalhes da rota abrem o mapa com o painel do trajeto', async ({
       page,
     }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
       await expect(page.getByTestId('gestao-rotas-table')).toBeVisible({
         timeout: 15000,
       });
@@ -68,7 +68,7 @@ test.describe('Gestor Photo Viewing E2E Tests', () => {
     test('o filtro de concluídas tira as rotas em andamento da tabela', async ({
       page,
     }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
 
       const tabela = page.getByTestId('gestao-rotas-table');
       await expect(tabela).toBeVisible({ timeout: 15000 });

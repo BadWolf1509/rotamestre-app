@@ -28,6 +28,19 @@ jest.mock('../useUser');
 jest.mock('../useToast');
 jest.mock('../useDebounce');
 jest.mock('../useRealtimeRoutes');
+// Período da tela: estado real (o `definirPeriodo` precisa refazer a consulta),
+// mas sem disco. Os dados de teste são antigos: o padrão aqui é "Todo o
+// período", que também é a visão que vai para o cache.
+const mockUsePeriodoLembrado = jest.fn();
+jest.mock('../usePeriodoLembrado', () => ({
+  usePeriodoLembrado: (...args: unknown[]) => {
+    mockUsePeriodoLembrado(...args);
+    const React = jest.requireActual('react');
+    const [periodo, definirPeriodo] = React.useState({ tipo: 'todo' });
+    return { periodo, definirPeriodo, carregado: true };
+  },
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     push: jest.fn(),
@@ -193,6 +206,7 @@ function cadeiaRotas(linhas: Record<string, unknown>[], erro: unknown) {
     'eq',
     'in',
     'gte',
+    'lte',
     'lt',
     'ilike',
     'or',
@@ -566,7 +580,7 @@ describe('useGestaoRotas', () => {
       ).toBe(true);
     });
 
-    it('busca por data vira filtro na coluna data', async () => {
+    it('data na busca não vira filtro na coluna data: é texto do nome', async () => {
       const { result } = await montarHook();
 
       act(() => {
@@ -574,7 +588,29 @@ describe('useGestaoRotas', () => {
       });
 
       await waitFor(() => {
-        expect(chamouRotas('in', 'data', ['2026-01-02'])).toBe(true);
+        expect(chamouRotas('ilike', 'usuarios.nome', '%02/01/2026%')).toBe(
+          true,
+        );
+      });
+      expect(chamouRotas('in', 'data', ['2026-01-02'])).toBe(false);
+    });
+
+    it('período vira gte/lte na coluna data; o hook usa o padrão do período lembrado', async () => {
+      const { result } = await montarHook();
+      expect(mockUsePeriodoLembrado).toHaveBeenCalledWith('gestao_rotas');
+      expect(chamouRotas('gte', 'data', expect.anything())).toBe(false);
+
+      act(() => {
+        result.current.definirPeriodo({
+          tipo: 'personalizado',
+          de: '2026-01-01',
+          ate: '2026-01-31',
+        });
+      });
+
+      await waitFor(() => {
+        expect(chamouRotas('gte', 'data', '2026-01-01')).toBe(true);
+        expect(chamouRotas('lte', 'data', '2026-01-31')).toBe(true);
       });
     });
 
@@ -611,11 +647,14 @@ describe('useGestaoRotas', () => {
         await result.current.exportarParaCSV();
       });
 
-      const { showWarning } = require('@/utils/errorHandling');
-      expect(showWarning).toHaveBeenCalledWith(
-        'Atenção',
-        'Não há rotas para exportar',
+      // Sem rota: nada de arquivo vazio, só o aviso da página (período "todo").
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Nenhuma rota com estes filtros',
+        'info',
+        expect.any(Number),
       );
+      const { showWarning } = require('@/utils/errorHandling');
+      expect(showWarning).not.toHaveBeenCalled();
     });
 
     it('deve exportar CSV corretamente no web', async () => {
@@ -849,11 +888,14 @@ describe('useGestaoRotas', () => {
         await result.current.exportarParaXLSX();
       });
 
-      const { showWarning } = require('@/utils/errorHandling');
-      expect(showWarning).toHaveBeenCalledWith(
-        'Atenção',
-        'Não há rotas para exportar',
+      // Sem rota: nada de arquivo vazio, só o aviso da página (período "todo").
+      expect(mockShowToast).toHaveBeenCalledWith(
+        'Nenhuma rota com estes filtros',
+        'info',
+        expect.any(Number),
       );
+      const { showWarning } = require('@/utils/errorHandling');
+      expect(showWarning).not.toHaveBeenCalled();
     });
   });
 

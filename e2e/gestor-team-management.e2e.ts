@@ -186,18 +186,18 @@ test.describe('Gestão Rotas E2E Tests', () => {
     test('a busca de rotas filtra a contagem de resultados', async ({
       page,
     }) => {
-      await gestorPage.gotoGestaoRotas();
+      await gestorPage.gotoGestaoRotasTodoPeriodo();
 
-      const busca = page
-        .getByPlaceholder(/Buscar por motorista ou data/i)
-        .first();
+      const busca = page.getByPlaceholder(/Buscar por motorista/i).first();
       await expect(busca).toBeVisible({ timeout: 15000 });
 
-      const contador = page.getByText(/\d+\s*rotas?\s*encontradas?/i).first();
+      const contador = page
+        .getByText(/\d+\s*rotas?\s*(encontradas?|no período)/i)
+        .first();
       await expect(contador).toBeVisible();
       const antes = await contador.textContent();
 
-      // Termo que nenhum motorista ou data satisfaz: a contagem tem de cair.
+      // Termo que nenhum motorista satisfaz: a contagem tem de cair.
       // A versão anterior só olhava se a variável existia e depois conferia o
       // tamanho da página — nunca chegou a digitar nada.
       await busca.fill('zzzzzzzz-nao-existe');

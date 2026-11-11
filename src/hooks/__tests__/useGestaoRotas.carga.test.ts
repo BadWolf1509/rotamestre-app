@@ -39,6 +39,17 @@ jest.mock('../useUser', () => ({
   useUser: () => ({ userData: { id: 'g1', nome: 'Gestor' } }),
 }));
 jest.mock('../useRealtimeRoutes', () => ({ useRealtimeRoutes: jest.fn() }));
+// Período da tela: estado real (o `definirPeriodo` precisa refazer a consulta),
+// mas sem disco. Os dados de teste são antigos: o padrão aqui é "Todo o
+// período", que também é a visão que vai para o cache.
+jest.mock('../usePeriodoLembrado', () => ({
+  usePeriodoLembrado: () => {
+    const React = jest.requireActual('react');
+    const [periodo, definirPeriodo] = React.useState({ tipo: 'todo' });
+    return { periodo, definirPeriodo, carregado: true };
+  },
+}));
+
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },

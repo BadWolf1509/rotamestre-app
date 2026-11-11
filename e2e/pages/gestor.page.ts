@@ -82,6 +82,21 @@ export class GestorPage {
     await expect(this.gestaoRotasPronta).toBeVisible({ timeout: 30000 });
   }
 
+  /**
+   * Gestão de Rotas em "Todo o período". O padrão da tela é "Este mês", e a
+   * loja demo (compartilhada com produção) pode não ter rota no mês corrente:
+   * o teste que precisa de linhas escolhe pelo seletor, sem gravar a chave do
+   * período no armazenamento (o formato é da tela).
+   */
+  async gotoGestaoRotasTodoPeriodo() {
+    await this.gotoGestaoRotas();
+    await this.page.getByTestId('gestao-rotas-periodo').click();
+    await this.page.getByTestId('gestao-rotas-periodo-item-todo').click();
+    await expect(this.page.getByLabel('Período: Todo o período')).toBeVisible({
+      timeout: 15000,
+    });
+  }
+
   async gotoMotoristas() {
     await this.page.goto('/gestor/motoristas?e2e=true', {
       waitUntil: 'domcontentloaded',

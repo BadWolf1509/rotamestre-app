@@ -46,6 +46,12 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.gray700,
     marginBottom: theme.spacing.lg,
   },
+  filtrosLinha: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
   filtrosButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
