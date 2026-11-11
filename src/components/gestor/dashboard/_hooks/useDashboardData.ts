@@ -29,13 +29,9 @@ export interface TodayStats {
 }
 
 export interface KPIs {
-  /** null = indisponível (a consulta falhou); a tela mostra "—", nunca 0. */
-  rotasSemana: number | null;
-  /** null = indisponível (a consulta do mês falhou). */
-  rotasMes: number | null;
   taxaSucesso: number;
-  /** null = indisponível (a consulta do mês falhou). */
-  tempoMedioMinutos: number | null;
+  /** Das rotas concluídas da lista do período; 0 = nenhuma com horários. */
+  tempoMedioMinutos: number;
   totalParadas: number;
   paradasConcluidas: number;
   motoristaDestaque: {
@@ -53,6 +49,8 @@ export interface RotaResumo {
   total_paradas: number;
   paradas_concluidas: number;
   distancia_total: number;
+  iniciada_em?: string | null;
+  concluida_em?: string | null;
   /**
    * Estado de cada parada real (sem partida e chegada), na ordem de
    * `paradas.ordem`. Alimenta a linha de paradas da Início desktop.
@@ -225,6 +223,8 @@ function processarRotasComParadas(
       paradas_concluidas: paradasReais.filter((p) => p.status === 'concluida')
         .length,
       distancia_total: rota.distancia_total || 0,
+      iniciada_em: rota.iniciada_em ?? null,
+      concluida_em: rota.concluida_em ?? null,
       // O CHECK de `paradas.status` só aceita os 4 de StatusParada.
       paradas_status: paradasReais.map((p) => p.status as StatusParada),
     };
@@ -241,14 +241,17 @@ function nomeDoEmbed(embed: EmbedNome): string | null {
 }
 
 /**
- * Paradas e taxa de sucesso: derivados da lista, acompanham cada evento. Rota
+ * Paradas, taxa de sucesso e tempo médio: derivados da lista, acompanham cada evento. Rota
  * de data futura (período que passa de hoje) ainda não tem parada concluída e
  * puxaria a taxa para baixo: fica fora da conta. Compara `AAAA-MM-DD` como
  * texto, sem passar a coluna `date` por `new Date`.
  */
 function kpisDaLista(
   todas: RotaResumo[],
-): Pick<KPIs, 'totalParadas' | 'paradasConcluidas' | 'taxaSucesso'> {
+): Pick<
+  KPIs,
+  'totalParadas' | 'paradasConcluidas' | 'taxaSucesso' | 'tempoMedioMinutos'
+> {
   const hojeISO = getTodayISO();
   const rotas = todas.filter((r) => r.data <= hojeISO);
   const totalParadas = rotas.reduce((sum, r) => sum + r.total_paradas, 0);
@@ -263,6 +266,7 @@ function kpisDaLista(
       totalParadas > 0
         ? Math.round((paradasConcluidas / totalParadas) * 100)
         : 0,
+    tempoMedioMinutos: calcularTempoMedio(rotas),
   };
 }
 
@@ -308,6 +312,8 @@ async function buscarLista(f: FiltrosDaLista): Promise<ListaDoPeriodo> {
       data,
       status,
       distancia_total,
+      iniciada_em,
+      concluida_em,
       motorista_id,
       usuarios!motorista_id(nome),
       paradas(id, status, is_checkpoint, ordem)
@@ -372,8 +378,6 @@ async function buscarTotalHoje(unidadeId: string): Promise<number | null> {
 // compartilhados só como valor inicial/reset — nunca mutados.
 const HOJE_VAZIO: TodayStats = { totalHoje: 0 };
 const KPIS_VAZIO: KPIs = {
-  rotasSemana: 0,
-  rotasMes: 0,
   taxaSucesso: 0,
   tempoMedioMinutos: 0,
   totalParadas: 0,
@@ -569,35 +573,21 @@ export function useDashboardData(
         })();
 
         // =====================================================================
-        // BUSCAR KPIS (semana e mês) - só na carga completa (inicial, filtro,
-        // refresh manual); eventos de realtime não refazem (DP-7). Fixos,
-        // independentes do período escolhido: a semana começa na segunda, e
-        // os dois vão só até hoje (não contam o futuro).
+        // BUSCAR o mês, só para o motorista destaque (fixo, independe do
+        // período) - só na carga completa (inicial, filtro, refresh manual);
+        // eventos de realtime não refazem (DP-7). Vai só até hoje. Os cartões
+        // de Desempenho (paradas, taxa, tempo médio) saem da lista do período.
         // =====================================================================
-        const inicioSemana =
-          resolverPeriodo({ tipo: 'esta_semana' }, hoje).de ?? hoje;
         const inicioMes =
           resolverPeriodo({ tipo: 'este_mes' }, hoje).de ?? hoje;
 
         const kpisPromise = comKpis
-          ? Promise.all([
-              supabase
-                .from('rotas')
-                .select(
-                  'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
-                )
-                .eq('unidade_id', unidadeId)
-                .gte('data', inicioSemana)
-                .lte('data', hoje),
-              supabase
-                .from('rotas')
-                .select(
-                  'id, status, iniciada_em, concluida_em, motorista_id, usuarios!motorista_id(nome)',
-                )
-                .eq('unidade_id', unidadeId)
-                .gte('data', inicioMes)
-                .lte('data', hoje),
-            ])
+          ? supabase
+              .from('rotas')
+              .select('id, status, motorista_id, usuarios!motorista_id(nome)')
+              .eq('unidade_id', unidadeId)
+              .gte('data', inicioMes)
+              .lte('data', hoje)
           : null;
 
         // Executar queries em paralelo
@@ -624,33 +614,21 @@ export function useDashboardData(
         setIncidentesAbertos(incidentes);
 
         // Sem KPIs (desktop): só os derivados da lista, que não custam consulta.
-        // Os de semana/mês não foram medidos: indisponíveis (null), nunca 0.
+        // O destaque do mês não foi medido: null.
         if (!kpisResult) {
           if (listaVigente()) {
             setKpis((anteriores) => ({
               ...anteriores,
-              rotasSemana: null,
-              rotasMes: null,
-              tempoMedioMinutos: null,
               motoristaDestaque: null,
               ...kpisDaLista(rotasComDetalhes),
             }));
           }
         } else {
-          // KPIs
-          const [kpiSemana, kpiMes] = kpisResult;
-          // Erro vira INDISPONÍVEL (null), nunca 0: "0 rotas" seria falso.
-          // Mesmo modelo de `incidentesAbertos`.
-          if (kpiSemana.error) {
-            logger.warn(
-              '[Dashboard] KPI da semana indisponível',
-              kpiSemana.error,
-            );
-          }
+          // Erro vira INDISPONÍVEL (null): sem destaque, nunca um destaque falso.
+          const kpiMes = kpisResult;
           if (kpiMes.error) {
             logger.warn('[Dashboard] KPI do mês indisponível', kpiMes.error);
           }
-          const rotasSemanaData = kpiSemana.error ? null : kpiSemana.data || [];
           const rotasMesData = kpiMes.error ? null : kpiMes.data || [];
 
           // Só as concluídas sem nome visível vão à RPC (em geral, nenhuma:
@@ -671,11 +649,6 @@ export function useDashboardData(
 
           const listaEhDestaCarga = listaVigente();
           setKpis((anteriores) => ({
-            rotasSemana: rotasSemanaData ? rotasSemanaData.length : null,
-            rotasMes: rotasMesData ? rotasMesData.length : null,
-            tempoMedioMinutos: rotasMesData
-              ? calcularTempoMedio(rotasMesData)
-              : null,
             motoristaDestaque: rotasMesData
               ? encontrarMotoristaDestaque(rotasMesData, nomesDestaque)
               : null,
@@ -687,6 +660,7 @@ export function useDashboardData(
                   totalParadas: anteriores.totalParadas,
                   paradasConcluidas: anteriores.paradasConcluidas,
                   taxaSucesso: anteriores.taxaSucesso,
+                  tempoMedioMinutos: anteriores.tempoMedioMinutos,
                 }),
           }));
         }

@@ -144,11 +144,10 @@ describe('DashboardMobile', () => {
       totalHoje: 8,
     },
     kpis: {
-      rotasMes: 45,
-      kmMes: 1250.5,
+      totalParadas: 120,
+      paradasConcluidas: 98,
       tempoMedioMinutos: 135,
       taxaSucesso: 98.5,
-      rotasSemana: 12,
     },
     rotas: [
       { id: 'rota-1', motorista_nome: 'João Silva', status: 'em_andamento' },
@@ -233,23 +232,31 @@ describe('DashboardMobile', () => {
       expect(queryByText('Performance do Mês')).toBeNull();
     });
 
-    it('KPI indisponível (null) aparece como "—", não como 0 nem "--"', () => {
-      const props = {
-        ...defaultProps,
-        kpis: {
-          ...defaultProps.kpis,
-          rotasMes: null,
-          rotasSemana: null,
-          tempoMedioMinutos: null,
-        },
-      };
-      const { getAllByText, queryByText } = render(
-        <DashboardMobile {...(props as any)} />,
+    it('os quatro cartões de Desempenho são das paradas do período', () => {
+      const { getByText, queryByText } = render(
+        <DashboardMobile {...(defaultProps as any)} />,
       );
 
-      // Rotas no Mês, Tempo Médio e Esta Semana
-      expect(getAllByText('—').length).toBeGreaterThanOrEqual(3);
-      expect(queryByText('0')).toBeNull();
+      expect(getByText('Paradas no período')).toBeTruthy();
+      expect(getByText('120')).toBeTruthy();
+      expect(getByText('Taxa Sucesso')).toBeTruthy();
+      expect(getByText('Tempo Médio')).toBeTruthy();
+      expect(getByText('2h 15m')).toBeTruthy();
+      expect(getByText('Paradas concluídas')).toBeTruthy();
+      expect(getByText('98')).toBeTruthy();
+      expect(queryByText('Rotas no Mês')).toBeNull();
+      expect(queryByText('Esta Semana')).toBeNull();
+    });
+
+    it('sem tempo médio no período: "--", não 0', () => {
+      const { getByText } = render(
+        <DashboardMobile
+          {...(defaultProps as any)}
+          kpis={{ ...defaultProps.kpis, tempoMedioMinutos: 0 }}
+        />,
+      );
+
+      expect(getByText('--')).toBeTruthy();
     });
 
     it.each([

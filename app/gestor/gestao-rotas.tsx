@@ -327,11 +327,16 @@ export default function GestaoRotas() {
     periodo.tipo === 'todo'
       ? plural(totalRotas, 'rota encontrada', 'rotas encontradas')
       : plural(totalRotas, 'rota no período', 'rotas no período');
-  const dicaSemRotas =
-    filtroStatus !== 'todas' || periodo.tipo !== 'todo'
+  // Com busca ou status ativo, a lista vazia é efeito do filtro: sem convite
+  // de criar rota. Só o período (sem busca nem status) mantém o texto de antes.
+  const temBuscaOuStatus =
+    searchQuery.trim() !== '' || filtroStatus !== 'todas';
+  const dicaSemRotas = temBuscaOuStatus
+    ? 'Ajuste a busca ou o período.'
+    : periodo.tipo !== 'todo'
       ? 'Tente alterar os filtros ou o período'
       : 'Crie sua primeira rota de entrega';
-  const podeCriarRota = filtroStatus === 'todas' && periodo.tipo === 'todo';
+  const podeCriarRota = !temBuscaOuStatus && periodo.tipo === 'todo';
 
   // Abaixo da tabela: quantas a lista mostra de quantas, e a próxima página.
   // Função chamada no JSX (não componente declarado no render).

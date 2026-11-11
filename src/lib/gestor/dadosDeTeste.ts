@@ -79,8 +79,6 @@ export function dadosDeTesteDoInicio(): DadosDeTesteDoInicio {
     },
     todayStats: { totalHoje: 3 },
     kpis: {
-      rotasSemana: 15,
-      rotasMes: 45,
       taxaSucesso: 95,
       tempoMedioMinutos: 45,
       totalParadas: 150,

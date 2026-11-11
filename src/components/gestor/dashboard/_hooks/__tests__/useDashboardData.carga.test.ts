@@ -41,9 +41,18 @@ let mockFalharRotas = false;
 const mockTabelasComErro = new Set<string>();
 // Registro de cada consulta (tabela + colunas pedidas).
 const mockConsultas: { tabela: string; colunas: string; head: boolean }[] = [];
-// Qual consulta de KPI (a 1ª é a da semana, a 2ª a do mês) devolve erro.
-let mockKpiComErro: 'semana' | 'mes' | null = null;
-let mockKpiContador = 0;
+// A consulta do mês (só o motorista destaque) devolve erro?
+let mockKpiComErro: 'mes' | null = null;
+
+/** Consulta do mês: rotas sem paradas embutidas e sem HEAD. */
+const ehConsultaDoMes = (tabela: string, cols?: string, head?: boolean) =>
+  tabela === 'rotas' &&
+  !head &&
+  (cols ?? '').includes('motorista_id') &&
+  !(cols ?? '').includes('paradas(');
+const consultasDeMes = () =>
+  mockConsultas.filter((c) => ehConsultaDoMes(c.tabela, c.colunas, c.head))
+    .length;
 
 function mockValor(linha: Linha, coluna: string): unknown {
   return coluna
@@ -55,13 +64,11 @@ function mockQuery(tabela: string) {
   const filtros: ((l: Linha) => boolean)[] = [];
   let contar = false;
   let statusFiltrado: string | null = null;
-  let kpiDesta: 'semana' | 'mes' | null = null;
+  let kpiDesta: 'mes' | null = null;
   let limite: number | undefined;
   const api = {
     select: (cols?: string, opts?: { count?: string; head?: boolean }) => {
-      if (tabela === 'rotas' && (cols ?? '').includes('iniciada_em')) {
-        kpiDesta = mockKpiContador++ % 2 === 0 ? 'semana' : 'mes';
-      }
+      if (ehConsultaDoMes(tabela, cols, opts?.head)) kpiDesta = 'mes';
       mockConsultas.push({
         tabela,
         colunas: (cols ?? '').replace(/\s+/g, ' '),
@@ -173,7 +180,6 @@ beforeEach(() => {
   }
   mockFalharRotas = false;
   mockKpiComErro = null;
-  mockKpiContador = 0;
   mockTabelasComErro.clear();
   for (const k of Object.keys(mockSeguradas)) delete mockSeguradas[k];
   mockTabelas.rotas = [
@@ -240,36 +246,30 @@ beforeEach(() => {
 });
 
 describe('useDashboardData — KPI que falha', () => {
-  it('consulta da semana com erro: rotasSemana é null (não 0) e o mês segue', async () => {
-    mockKpiComErro = 'semana';
-    const { result } = renderHook(() => useDashboardData({ periodo: SO_HOJE }));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.kpis.rotasSemana).toBeNull();
-    expect(result.current.kpis.rotasMes).toBe(2);
-  });
-
-  it('consulta do mês com erro: rotasMes, tempo médio e destaque ficam null', async () => {
+  it('consulta do mês com erro: o destaque fica null e os cartões da lista seguem', async () => {
     mockKpiComErro = 'mes';
+    mockTabelas.rotas = [
+      {
+        ...rota('c1', hoje, 'concluida'),
+        paradas: [{ id: 'p', status: 'concluida', is_checkpoint: true }],
+      },
+    ];
     const { result } = renderHook(() => useDashboardData({ periodo: SO_HOJE }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.kpis.rotasMes).toBeNull();
-    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
     expect(result.current.kpis.motoristaDestaque).toBeNull();
-    expect(result.current.kpis.rotasSemana).not.toBeNull();
+    expect(result.current.kpis.totalParadas).toBe(1);
+    expect(result.current.kpis.paradasConcluidas).toBe(1);
   });
 
-  it('sem KPIs carregados (comKpis false): semana, mês, tempo e destaque são null, não 0', async () => {
+  it('sem KPIs carregados (comKpis false): o destaque é null; os cartões da lista seguem', async () => {
     const { result } = renderHook(() =>
       useDashboardData({ periodo: SO_HOJE, filters: {}, comKpis: false }),
     );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.kpis.rotasSemana).toBeNull();
-    expect(result.current.kpis.rotasMes).toBeNull();
-    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
     expect(result.current.kpis.motoristaDestaque).toBeNull();
+    expect(result.current.kpis.tempoMedioMinutos).toBe(0);
   });
 
   it('comKpis false→true com a consulta do mês falhando: continua null, não volta a 0', async () => {
@@ -283,9 +283,8 @@ describe('useDashboardData — KPI que falha', () => {
 
     rerender({ comKpis: true });
 
-    await waitFor(() => expect(result.current.kpis.rotasSemana).not.toBeNull());
-    expect(result.current.kpis.rotasMes).toBeNull();
-    expect(result.current.kpis.tempoMedioMinutos).toBeNull();
+    await waitFor(() => expect(consultasDeMes()).toBe(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.kpis.motoristaDestaque).toBeNull();
   });
 
@@ -382,11 +381,15 @@ describe('useDashboardData — período "hoje"', () => {
     expect(result.current.todayStats.totalHoje).toBe(2);
   });
 
-  it('KPIs do mês não contam rota futura', async () => {
+  it('o destaque do mês não conta rota futura', async () => {
+    const antes = mockTabelas.rotas.filter(
+      (r) => r.status === 'concluida' && r.motorista_id === 'm1',
+    ).length;
+    mockTabelas.rotas.push(rota('c-amanha', amanha, 'concluida'));
     const { result } = renderHook(() => useDashboardData({ periodo: SO_HOJE }));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.kpis.rotasMes).toBe(2);
+    expect(result.current.kpis.motoristaDestaque?.rotasConcluidas).toBe(antes);
   });
 
   it('o total de hoje sai de contagem HEAD (sem baixar as linhas)', async () => {
@@ -565,9 +568,8 @@ describe('useDashboardData — eventos de realtime', () => {
     return chamadas[chamadas.length - 1][0].onRouteUpdate();
   };
   const consultasDeKpi = () =>
-    mockConsultas.filter(
-      (c) => c.tabela === 'rotas' && c.colunas.includes('iniciada_em'),
-    ).length;
+    mockConsultas.filter((c) => ehConsultaDoMes(c.tabela, c.colunas, c.head))
+      .length;
   const consultasDeIncidentes = () =>
     mockConsultas.filter((c) => c.tabela === 'incidentes').length;
 
@@ -576,7 +578,7 @@ describe('useDashboardData — eventos de realtime', () => {
     await waitFor(() => expect(result.current.rotas).toHaveLength(2));
     const kpisAntes = consultasDeKpi();
     const incidentesAntes = consultasDeIncidentes();
-    expect(kpisAntes).toBe(2);
+    expect(kpisAntes).toBe(1);
 
     mockTabelas.rotas.push({
       ...rota('hoje-3', hoje, 'concluida'),
@@ -594,7 +596,6 @@ describe('useDashboardData — eventos de realtime', () => {
     // KPIs de semana/mês e incidentes: só na carga completa.
     expect(consultasDeKpi()).toBe(kpisAntes);
     expect(consultasDeIncidentes()).toBe(incidentesAntes);
-    expect(result.current.kpis.rotasMes).toBe(2);
     // O evento não liga o "atualizando" da tela.
     expect(result.current.refreshing).toBe(false);
   });
@@ -602,17 +603,22 @@ describe('useDashboardData — eventos de realtime', () => {
   it('refresh manual refaz os KPIs', async () => {
     const { result } = renderHook(() => useDashboardData({ periodo: SO_HOJE }));
     await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+    const concluidasAntes =
+      result.current.kpis.motoristaDestaque?.rotasConcluidas ?? 0;
     mockTabelas.rotas.push(rota('hoje-3', hoje, 'concluida'));
 
     await act(async () => {
       await result.current.onRefresh();
     });
 
-    expect(consultasDeKpi()).toBe(4);
-    expect(result.current.kpis.rotasMes).toBe(3);
+    expect(consultasDeKpi()).toBe(2);
+    expect(result.current.kpis.motoristaDestaque?.rotasConcluidas).toBe(
+      concluidasAntes + 1,
+    );
   });
 
   it('evento com a carga completa em voo não descarta os KPIs dela', async () => {
+    mockTabelas.rotas.push(rota('c-hoje', hoje, 'concluida'));
     let soltar: () => void = () => {};
     mockSeguradas.todas = new Promise<void>((r) => {
       soltar = r;
@@ -625,8 +631,10 @@ describe('useDashboardData — eventos de realtime', () => {
     });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
-    expect(result.current.rotas).toHaveLength(2);
+    await waitFor(() =>
+      expect(result.current.kpis.motoristaDestaque).not.toBeNull(),
+    );
+    expect(result.current.rotas).toHaveLength(3);
   });
 });
 
@@ -690,9 +698,8 @@ describe('useDashboardData — estados das paradas (linha de paradas)', () => {
 // `iniciada_em`, a contagem HEAD de hoje e a RPC de nomes do destaque).
 describe('useDashboardData — comKpis', () => {
   const consultasDeKpi = () =>
-    mockConsultas.filter(
-      (c) => c.tabela === 'rotas' && c.colunas.includes('iniciada_em'),
-    ).length;
+    mockConsultas.filter((c) => ehConsultaDoMes(c.tabela, c.colunas, c.head))
+      .length;
   const contagensDeHoje = () =>
     mockConsultas.filter(
       (c) => c.tabela === 'rotas' && c.head && c.colunas === 'id',
@@ -729,8 +736,8 @@ describe('useDashboardData — comKpis', () => {
 
     rerender({ comKpis: true });
 
-    await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
-    expect(consultasDeKpi()).toBe(2);
+    await waitFor(() => expect(consultasDeKpi()).toBe(1));
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.todayStats.totalHoje).toBe(2);
   });
 

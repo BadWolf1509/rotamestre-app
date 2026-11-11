@@ -47,7 +47,7 @@ function segurar(loja: string) {
   mockSeguradas[loja] = { promessa, liberar };
 }
 
-function rota(id: string, loja: string) {
+function rota(id: string, loja: string, comParada = false) {
   return {
     id,
     data: getTodayISO(),
@@ -56,12 +56,14 @@ function rota(id: string, loja: string) {
     distancia_total: 10,
     motorista_id: null,
     usuarios: null,
-    paradas: [],
+    paradas: comParada
+      ? [{ id: `p-${id}`, status: 'concluida', is_checkpoint: true }]
+      : [],
   };
 }
 
 const mockRotas = [
-  rota('a1', 'loja-a'),
+  rota('a1', 'loja-a', true),
   rota('a2', 'loja-a'),
   rota('b1', 'loja-b'),
 ];
@@ -180,14 +182,14 @@ describe('useDashboardData — troca de loja', () => {
       useDashboardData({ periodo: SO_HOJE }),
     );
     await waitFor(() => expect(result.current.rotas).toHaveLength(2));
-    await waitFor(() => expect(result.current.kpis.rotasMes).toBe(2));
+    await waitFor(() => expect(result.current.kpis.totalParadas).toBe(1));
 
     mockLoja = null;
     rerender({});
 
     await waitFor(() => expect(result.current.rotas).toEqual([]));
-    expect(result.current.kpis.rotasMes).toBe(0);
-    expect(result.current.kpis.rotasSemana).toBe(0);
+    expect(result.current.kpis.totalParadas).toBe(0);
+    expect(result.current.kpis.paradasConcluidas).toBe(0);
     expect(result.current.erroCarga).toBeNull();
     expect(result.current.dadosDe).toBeNull();
 
@@ -198,7 +200,7 @@ describe('useDashboardData — troca de loja', () => {
     await waitFor(() => expect(result.current.erroCarga).not.toBeNull());
     // A última carga boa foi da loja A: não pode virar "dados de HH:MM" da B.
     expect(result.current.dadosDe).toBeNull();
-    expect(result.current.kpis.rotasMes).toBe(0);
+    expect(result.current.kpis.totalParadas).toBe(0);
     expect(result.current.rotas).toEqual([]);
   });
 });
