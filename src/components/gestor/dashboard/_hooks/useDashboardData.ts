@@ -240,10 +240,17 @@ function nomeDoEmbed(embed: EmbedNome): string | null {
   return typeof nome === 'string' ? nome : null;
 }
 
-/** Paradas e taxa de sucesso: derivados da lista, acompanham cada evento. */
+/**
+ * Paradas e taxa de sucesso: derivados da lista, acompanham cada evento. Rota
+ * de data futura (período que passa de hoje) ainda não tem parada concluída e
+ * puxaria a taxa para baixo: fica fora da conta. Compara `AAAA-MM-DD` como
+ * texto, sem passar a coluna `date` por `new Date`.
+ */
 function kpisDaLista(
-  rotas: RotaResumo[],
+  todas: RotaResumo[],
 ): Pick<KPIs, 'totalParadas' | 'paradasConcluidas' | 'taxaSucesso'> {
+  const hojeISO = getTodayISO();
+  const rotas = todas.filter((r) => r.data <= hojeISO);
   const totalParadas = rotas.reduce((sum, r) => sum + r.total_paradas, 0);
   const paradasConcluidas = rotas.reduce(
     (sum, r) => sum + r.paradas_concluidas,

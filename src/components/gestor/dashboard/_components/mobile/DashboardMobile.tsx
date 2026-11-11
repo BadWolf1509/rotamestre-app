@@ -58,7 +58,6 @@ function formatTempo(minutos: number | null): string {
  */
 export function DashboardMobile({
   stats,
-  todayStats,
   kpis,
   rotas,
   listaCortada,
@@ -213,14 +212,14 @@ export function DashboardMobile({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.statsStrip}
           testID="gestor-dashboard-stats"
-          accessibilityLabel="Estatísticas do dia"
+          accessibilityLabel="Estatísticas do período"
           accessibilityHint="Deslize para ver mais estatísticas"
         >
           <AnimatedListItem index={0}>
             <View style={styles.statsStripCard}>
               <StatsCard
-                value={todayStats.totalHoje}
-                label="Total Hoje"
+                value={stats.total}
+                label="Total no período"
                 backgroundColor={theme.colors.primaryDark}
                 icon="car-outline"
               />
@@ -283,7 +282,7 @@ export function DashboardMobile({
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <View style={styles.sectionTitleAccent} />
-            <Text style={styles.sectionTitle}>Performance do Mês</Text>
+            <Text style={styles.sectionTitle}>Desempenho</Text>
           </View>
 
           <View style={styles.kpisGrid}>
@@ -451,7 +450,6 @@ export function DashboardMobile({
       avatarUrl,
       avatarInitial,
       firstName,
-      todayStats,
       stats,
       kpis,
       kpiConfig,

@@ -441,6 +441,35 @@ describe('useDashboardData — período "hoje"', () => {
   });
 });
 
+describe('useDashboardData — taxa de sucesso', () => {
+  const par = (id: string, status: string) => ({
+    id,
+    status,
+    is_checkpoint: true,
+  });
+
+  it('não conta no denominador as rotas de data futura do período', async () => {
+    mockTabelas.rotas = [
+      {
+        ...rota('hoje-1', hoje, 'concluida'),
+        paradas: [par('a', 'concluida')],
+      },
+      {
+        ...rota('amanha-1', amanha),
+        paradas: [par('b', 'pendente'), par('c', 'pendente')],
+      },
+    ];
+    const { result } = renderHook(() =>
+      useDashboardData({ periodo: { de: hoje, ate: amanha } }),
+    );
+
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+    // A rota de amanhã segue na lista, mas não puxa a taxa para baixo.
+    expect(result.current.kpis.taxaSucesso).toBe(100);
+    expect(result.current.kpis.totalParadas).toBe(1);
+  });
+});
+
 describe('useDashboardData — incidentes abertos', () => {
   it('conta pela loja gravada no incidente, com ou sem rota', async () => {
     const { result } = renderHook(() => useDashboardData({ periodo: SO_HOJE }));

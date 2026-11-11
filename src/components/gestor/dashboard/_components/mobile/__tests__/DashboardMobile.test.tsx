@@ -208,10 +208,29 @@ describe('DashboardMobile', () => {
     it('deve renderizar stats cards', () => {
       const { getByTestId } = render(<DashboardMobile {...defaultProps} />);
 
-      expect(getByTestId('stats-Total Hoje')).toBeTruthy();
+      expect(getByTestId('stats-Total no período')).toBeTruthy();
       expect(getByTestId('stats-Em Andamento')).toBeTruthy();
       expect(getByTestId('stats-Concluídas')).toBeTruthy();
       expect(getByTestId('stats-km Total')).toBeTruthy();
+    });
+
+    it('a faixa de números segue o período: total vem da lista, não do "hoje"', () => {
+      const { getByTestId, queryByText, getByLabelText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
+
+      // stats.total (10) é a lista do período; todayStats.totalHoje (8) não entra.
+      expect(getByTestId('stats-Total no período')).toHaveTextContent(
+        /^10Total no período$/,
+      );
+      expect(queryByText('Total Hoje')).toBeNull();
+      expect(getByLabelText('Estatísticas do período')).toBeTruthy();
+    });
+
+    it('o título da seção de desempenho não diz "do Mês" (a taxa segue o período)', () => {
+      const { queryByText } = render(<DashboardMobile {...defaultProps} />);
+
+      expect(queryByText('Performance do Mês')).toBeNull();
     });
 
     it('KPI indisponível (null) aparece como "—", não como 0 nem "--"', () => {
@@ -409,10 +428,13 @@ describe('DashboardMobile', () => {
   });
 
   describe('Stats values', () => {
-    it('deve mostrar valor total hoje', () => {
-      const { getByText } = render(<DashboardMobile {...defaultProps} />);
+    it('deve mostrar o total do período (stats.total), não o de hoje', () => {
+      const { getByText, queryByText } = render(
+        <DashboardMobile {...defaultProps} />,
+      );
 
-      expect(getByText('8')).toBeTruthy(); // todayStats.totalHoje
+      expect(getByText('10')).toBeTruthy(); // stats.total
+      expect(queryByText('8')).toBeNull(); // todayStats.totalHoje
     });
 
     it('deve mostrar valor em andamento', () => {
