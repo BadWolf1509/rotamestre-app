@@ -11,11 +11,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { usePeriodoLembrado } from '@/hooks/usePeriodoLembrado';
 import type { ShowToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
 import { useUser } from '@/hooks/useUser';
 import { nomeDoMotorista } from '@/lib/incidentes/nomeDoMotorista';
 import { logger } from '@/lib/logger';
+import { resolverPeriodo, type Periodo } from '@/lib/periodo';
 import type { Theme } from '@/utils/styles';
 
 import {
@@ -28,6 +30,7 @@ import {
 import {
   buscarIncidentes,
   contarIncidentesPorStatus,
+  contarPendentesAntesDoPeriodo,
   TAMANHO_PAGINA_INCIDENTES,
   type ContagemIncidentesPorStatus,
   type FiltrosIncidentes,
@@ -67,7 +70,7 @@ export interface UseIncidentesGestorOptions {
 export interface UseIncidentesGestorReturn {
   // Data
   incidentes: Incidente[];
-  /** Quantos incidentes casam com os filtros na loja inteira. */
+  /** Quantos incidentes casam com os filtros (loja e período). */
   total: number | null;
   /** Há incidentes além dos carregados. */
   temMais: boolean;
@@ -78,6 +81,14 @@ export interface UseIncidentesGestorReturn {
   statusLabels: Record<string, StatusLabel>;
   estatisticasMotorista: EstatisticaMotorista[];
   resumoGeral: ResumoGeral;
+
+  // Período (lembrado por tela) e o aviso dos pendentes de antes dele
+  periodo: Periodo;
+  definirPeriodo: (p: Periodo) => void;
+  /** Abertos + em análise criados antes do período (0 sem início de período). */
+  pendentesAntesDoPeriodo: number;
+  /** Abre "Todo o período" só com os pendentes (aberto e em análise). */
+  verPendentesAnteriores: () => void;
 
   // Filters
   filtroStatus: FiltroStatus;
@@ -159,6 +170,13 @@ export function useIncidentesGestor(
   const categoriaLabels = useMemo(() => createCategoriaLabels(theme), [theme]);
   const statusLabels = useMemo(() => createStatusLabels(theme), [theme]);
 
+  // Período: só se consulta depois de lido do aparelho (`carregado`), e as
+  // dependências são as STRINGS do intervalo, nunca os objetos.
+  const { periodo, definirPeriodo, carregado } =
+    usePeriodoLembrado('incidentes');
+  const { de: periodoDe, ate: periodoAte } = resolverPeriodo(periodo);
+  const [pendentesAntesDoPeriodo, setPendentesAntesDoPeriodo] = useState(0);
+
   // Core state
   const [incidentes, setIncidentes] = useState<Incidente[]>([]);
   const [total, setTotal] = useState<number | null>(null);
@@ -195,9 +213,10 @@ export function useIncidentesGestor(
             unidadeId: unidadeAtiva,
             status: filtroStatus,
             categoria: filtroCategoria,
+            periodo: { de: periodoDe, ate: periodoAte },
           }
         : null,
-    [unidadeAtiva, filtroStatus, filtroCategoria],
+    [unidadeAtiva, filtroStatus, filtroCategoria, periodoDe, periodoAte],
   );
 
   // Fetch incidentes from database
@@ -216,7 +235,7 @@ export function useIncidentesGestor(
       setLoading(false);
       return;
     }
-    if (!userData?.id) return;
+    if (!userData?.id || !carregado) return;
 
     const chave = JSON.stringify(filtros);
     if (chave !== chaveFiltrosRef.current) {
@@ -254,7 +273,22 @@ export function useIncidentesGestor(
       const porStatus = faltam
         ? await contarIncidentesPorStatus(filtros)
         : null;
+      // Aviso dos pendentes de antes do período: falhar aqui não derruba a
+      // lista (o aviso some).
+      let pendentesAntes = 0;
+      if (filtros.periodo.de) {
+        try {
+          pendentesAntes = await contarPendentesAntesDoPeriodo(
+            filtros.unidadeId,
+            filtros.categoria === 'todos' ? null : filtros.categoria,
+            filtros.periodo.de,
+          );
+        } catch (erroAviso) {
+          logger.warn('Erro ao contar pendentes anteriores:', erroAviso);
+        }
+      }
       if (geracao !== geracaoRef.current) return;
+      setPendentesAntesDoPeriodo(pendentesAntes);
 
       setIncidentes(pagina.linhas.map((i) => paraIncidente(i, unidadeNome)));
       setTotal(pagina.total);
@@ -262,6 +296,8 @@ export function useIncidentesGestor(
     } catch (error) {
       if (geracao !== geracaoRef.current) return;
       logger.error('Erro ao buscar incidentes:', error);
+      // O aviso era do período anterior: sem lista nova, ele some.
+      setPendentesAntesDoPeriodo(0);
       showToast('Erro ao carregar incidentes', 'error');
     } finally {
       if (geracao === geracaoRef.current) {
@@ -269,7 +305,14 @@ export function useIncidentesGestor(
         setLoading(false);
       }
     }
-  }, [unidadeLoading, userData?.id, filtros, unidadeNome, showToast]);
+  }, [
+    unidadeLoading,
+    userData?.id,
+    carregado,
+    filtros,
+    unidadeNome,
+    showToast,
+  ]);
 
   useEffect(() => {
     // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
@@ -319,7 +362,7 @@ export function useIncidentesGestor(
   }, [filtros, temMais, unidadeNome, showToast]);
 
   // Top 5 motoristas: dos incidentes carregados (a tela avisa quando há
-  // mais). Os cartões de resumo vêm das contagens da loja inteira.
+  // mais). Os cartões de resumo vêm das contagens da loja no período.
   const { estatisticasMotorista, resumoGeral: resumoCarregados } =
     useIncidentesStats({ incidentes });
   const resumoGeral = useMemo<ResumoGeral>(
@@ -336,6 +379,11 @@ export function useIncidentesGestor(
         : resumoCarregados,
     [contagens, total, resumoCarregados],
   );
+
+  const verPendentesAnteriores = useCallback(() => {
+    definirPeriodo({ tipo: 'todo' });
+    setFiltroStatus('pendentes');
+  }, [definirPeriodo]);
 
   // Modal management
   const modals = useIncidentesModals({
@@ -358,6 +406,12 @@ export function useIncidentesGestor(
     statusLabels,
     estatisticasMotorista,
     resumoGeral,
+
+    // Período
+    periodo,
+    definirPeriodo,
+    pendentesAntesDoPeriodo,
+    verPendentesAnteriores,
 
     // Filters
     filtroStatus,

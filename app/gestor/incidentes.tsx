@@ -8,6 +8,7 @@ import {
   HistoricoMotoristaModal,
   IncidenteDetalhesModal,
 } from '@/components/gestor/incidentes';
+import { SeletorPeriodo } from '@/components/periodo';
 import { Text } from '@/components/Text';
 import { getGestorPageMeta } from '@/constants/gestorPageMeta';
 import {
@@ -35,6 +36,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUser } from '@/hooks/useUser';
 import { formatarDecimal } from '@/lib/formatNumber';
+import { textoPeriodo } from '@/lib/periodo';
 import { styles } from '@/styles/gestor/incidentes.styles';
 import { useUnistyles } from '@/utils/styles';
 
@@ -65,6 +67,11 @@ export default function IncidentesScreen() {
     statusLabels,
     estatisticasMotorista,
     resumoGeral,
+    // Período
+    periodo,
+    definirPeriodo,
+    pendentesAntesDoPeriodo,
+    verPendentesAnteriores,
     // Filters
     filtroStatus,
     filtroCategoria,
@@ -127,6 +134,62 @@ export default function IncidentesScreen() {
         </TouchableOpacity>
       </View>
     ) : null;
+
+  // Texto do período no meio de uma frase: "este mês (01/11 a 30/11)".
+  const periodoEmFrase = (() => {
+    const t = textoPeriodo(periodo);
+    return t.charAt(0).toLowerCase() + t.slice(1);
+  })();
+
+  // Seletor de período e, acima da lista, o aviso dos pendentes de antes
+  // dele (só com início de período; "Todo o período" não tem aviso).
+  const renderPeriodo = () => (
+    <View style={styles.periodoContainer}>
+      <SeletorPeriodo
+        valor={periodo}
+        aoMudar={definirPeriodo}
+        testID="incidentes-periodo"
+      />
+      {/* Celular não tem os chips de status: mostra o filtro ativo (o "Ver"
+          liga "Pendentes") e deixa limpar. */}
+      {!isDesktop && filtroStatus !== 'todos' ? (
+        <View style={styles.avisoPendentes} testID="incidentes-filtro-status">
+          <Text style={styles.avisoPendentesTexto}>
+            {`Mostrando: ${
+              filtroStatus === 'pendentes'
+                ? 'Pendentes'
+                : statusLabels[filtroStatus].label
+            }`}
+          </Text>
+          <TouchableOpacity
+            testID="incidentes-filtro-status-limpar"
+            onPress={() => setFiltroStatus('todos')}
+            accessibilityRole="button"
+            accessibilityLabel="Limpar filtro de status"
+          >
+            <Text style={styles.mobileActionText}>Limpar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {pendentesAntesDoPeriodo > 0 ? (
+        <View style={styles.avisoPendentes} testID="incidentes-aviso-pendentes">
+          <Text style={styles.avisoPendentesTexto}>
+            {pendentesAntesDoPeriodo === 1
+              ? '1 incidente pendente de antes do período'
+              : `${formatarDecimal(pendentesAntesDoPeriodo, 0)} incidentes pendentes de antes do período`}
+          </Text>
+          <TouchableOpacity
+            testID="incidentes-aviso-pendentes-ver"
+            onPress={verPendentesAnteriores}
+            accessibilityRole="button"
+            accessibilityLabel="Ver incidentes pendentes de antes do período"
+          >
+            <Text style={styles.mobileActionText}>Ver</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </View>
+  );
 
   // Remarcar entrega
   const handleRemarcarEntrega = (incidente: Incidente) => {
@@ -242,6 +305,8 @@ export default function IncidentesScreen() {
         loading={loading}
         loadingText="Carregando incidentes..."
       >
+        {renderPeriodo()}
+
         {/* Cards de Resumo */}
         <View style={styles.resumoRow}>
           <View style={styles.resumoCard}>
@@ -308,6 +373,7 @@ export default function IncidentesScreen() {
                 {(
                   [
                     'todos',
+                    'pendentes',
                     'aberto',
                     'em_analise',
                     'resolvido',
@@ -317,7 +383,11 @@ export default function IncidentesScreen() {
                   <FilterChip
                     key={status}
                     label={
-                      status === 'todos' ? 'Todos' : statusLabels[status].label
+                      status === 'todos'
+                        ? 'Todos'
+                        : status === 'pendentes'
+                          ? 'Pendentes'
+                          : statusLabels[status].label
                     }
                     selected={filtroStatus === status}
                     onPress={() => setFiltroStatus(status)}
@@ -363,7 +433,7 @@ export default function IncidentesScreen() {
             emptyState={
               <View style={styles.emptyStateContainer}>
                 <Text style={styles.emptyStateText}>
-                  Nenhum incidente encontrado
+                  {`Nenhum incidente encontrado em ${periodoEmFrase}`}
                 </Text>
               </View>
             }
@@ -379,23 +449,34 @@ export default function IncidentesScreen() {
   // ============================================
 
   const renderMobile = () => {
+    // Seletor e filtro ativo ficam montados durante a carga: só a lista
+    // vira "carregando".
     if (loading) {
-      return <MobileLoading />;
+      return (
+        <View style={styles.mobileContainer}>
+          {renderPeriodo()}
+          <MobileLoading />
+        </View>
+      );
     }
 
     if (incidentes.length === 0) {
       return (
-        <EmptyState
-          compact
-          emoji="⚠️"
-          title="Nenhum incidente"
-          description="Não há incidentes reportados no momento."
-        />
+        <View style={styles.mobileContainer}>
+          {renderPeriodo()}
+          <EmptyState
+            compact
+            emoji="⚠️"
+            title="Nenhum incidente"
+            description={`Não há incidentes em ${periodoEmFrase}.`}
+          />
+        </View>
       );
     }
 
     return (
       <ScrollView style={styles.mobileContainer}>
+        {renderPeriodo()}
         {incidentes.map((incidente) => {
           const cat = categoriaLabels[incidente.categoria];
           const st = statusLabels[incidente.status];

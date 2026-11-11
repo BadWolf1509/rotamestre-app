@@ -20,6 +20,15 @@ import { useIncidentesGestor } from '../useIncidentesGestor';
 
 let mockCliente: ReturnType<typeof criarPostgrestFalso>['cliente'];
 
+jest.mock('@/hooks/usePeriodoLembrado', () => ({
+  // Estes testes não tratam de período: "Todo o período" (os fixtures são de
+  // datas antigas). O período tem testes próprios em useIncidentesGestor.periodo.
+  usePeriodoLembrado: () => ({
+    periodo: { tipo: 'todo' },
+    definirPeriodo: jest.fn(),
+    carregado: true,
+  }),
+}));
 jest.mock('@/lib/supabase', () => ({
   supabase: { from: (t: string) => mockCliente.from(t) },
   isSupabaseConfigured: true,

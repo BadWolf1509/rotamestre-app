@@ -16,12 +16,16 @@
  * pelos motoristas da loja nem pela rota: motorista que atende duas lojas
  * levava para esta loja os incidentes da outra.
  */
+import { limitesEmInstante, type IntervaloDatas } from '@/lib/periodo';
 import { filtroKeysetDesc } from '@/lib/queries/paginacao';
 import { supabase } from '@/lib/supabase';
 
 import type { FiltroCategoria, FiltroStatus } from './types';
 
 export const TAMANHO_PAGINA_INCIDENTES = 50;
+
+/** Status que ainda esperam o gestor (o filtro "Pendentes"). */
+const STATUS_PENDENTES: string[] = ['aberto', 'em_analise'];
 
 /** max-rows do PostgREST no Supabase: nenhuma resposta passa disso. */
 const MAX_LINHAS_POR_REQUISICAO = 1000;
@@ -48,6 +52,8 @@ export interface FiltrosIncidentes {
   unidadeId: string;
   status: FiltroStatus;
   categoria: FiltroCategoria;
+  /** Período do `created_at` (datas locais; `de`/`ate` nulos = sem limite). */
+  periodo: IntervaloDatas;
 }
 
 export interface CursorIncidentes {
@@ -84,9 +90,34 @@ function aplicarFiltros(
   filtros: FiltrosIncidentes,
 ): ConsultaIncidentes {
   let q = consulta.eq('unidade_id', filtros.unidadeId);
-  if (filtros.status !== 'todos') q = q.eq('status', filtros.status);
+  if (filtros.status === 'pendentes') q = q.in('status', STATUS_PENDENTES);
+  else if (filtros.status !== 'todos') q = q.eq('status', filtros.status);
   if (filtros.categoria !== 'todos') q = q.eq('categoria', filtros.categoria);
+  const { desde, antesDe } = limitesEmInstante(filtros.periodo);
+  if (desde) q = q.gte('created_at', desde);
+  if (antesDe) q = q.lt('created_at', antesDe);
   return q;
+}
+
+/**
+ * Incidentes pendentes (aberto ou em análise) criados ANTES do período, que
+ * a lista do período não mostra. `de` é a data local do início do período.
+ */
+export async function contarPendentesAntesDoPeriodo(
+  unidadeId: string,
+  categoria: string | null,
+  de: string,
+): Promise<number> {
+  const { desde } = limitesEmInstante({ de, ate: null });
+  if (!desde) return 0;
+  let q = consultaDeIncidentes('id', { count: 'exact', head: true })
+    .eq('unidade_id', unidadeId)
+    .in('status', STATUS_PENDENTES)
+    .lt('created_at', desde);
+  if (categoria) q = q.eq('categoria', categoria);
+  const { count, error } = await q;
+  if (error) throw error;
+  return count ?? 0;
 }
 
 /**
@@ -171,7 +202,11 @@ export async function contarIncidentesPorStatus(
 ): Promise<ContagemIncidentesPorStatus> {
   const contagens = await Promise.all(
     STATUS_CONTADOS.map(async (status) => {
-      if (filtros.status !== 'todos' && filtros.status !== status) return 0;
+      const fora =
+        filtros.status === 'pendentes'
+          ? !STATUS_PENDENTES.includes(status)
+          : filtros.status !== 'todos' && filtros.status !== status;
+      if (fora) return 0;
       const { count, error } = await aplicarFiltros(
         consultaDeIncidentes('id', { count: 'exact', head: true }),
         { ...filtros, status },
