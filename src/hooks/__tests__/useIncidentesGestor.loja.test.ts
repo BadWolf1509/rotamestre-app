@@ -13,6 +13,15 @@ import { defaultTheme } from '@/utils/styles.base';
 
 import { useIncidentesGestor } from '../useIncidentesGestor';
 
+jest.mock('@/hooks/usePeriodoLembrado', () => ({
+  // Estes testes não tratam de período: "Todo o período" (os fixtures são de
+  // datas antigas). O período tem testes próprios em useIncidentesGestor.periodo.
+  usePeriodoLembrado: () => ({
+    periodo: { tipo: 'todo' },
+    definirPeriodo: jest.fn(),
+    carregado: true,
+  }),
+}));
 jest.mock(
   '@/lib/supabase',
   () => require('@/__tests__/helpers/consultaFalsa').moduloConsultaFalsa,
@@ -134,7 +143,13 @@ describe('useIncidentesGestor — recorte pela loja', () => {
     tabelasFalsas.incidentes = [
       ...tabelasFalsas.incidentes,
       {
-        ...incidente('anonimizado', 'x', 'loja-a', null, '2026-10-24T10:00:00Z'),
+        ...incidente(
+          'anonimizado',
+          'x',
+          'loja-a',
+          null,
+          '2026-10-24T10:00:00Z',
+        ),
         motorista_id: null,
         motorista: null,
       },

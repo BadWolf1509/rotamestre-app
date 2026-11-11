@@ -17,6 +17,15 @@ let mockLojaComErro: string | null = null;
 let mockSegurada: { promessa: Promise<void>; liberar: () => void } | null =
   null;
 
+jest.mock('@/hooks/usePeriodoLembrado', () => ({
+  // Estes testes não tratam de período: "Todo o período" (os fixtures são de
+  // datas antigas). O período tem testes próprios em useIncidentesGestor.periodo.
+  usePeriodoLembrado: () => ({
+    periodo: { tipo: 'todo' },
+    definirPeriodo: jest.fn(),
+    carregado: true,
+  }),
+}));
 jest.mock('@/lib/supabase', () => {
   const base = require('@/__tests__/helpers/consultaFalsa').moduloConsultaFalsa;
   return {

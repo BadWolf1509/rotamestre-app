@@ -93,6 +93,26 @@ export const styles = StyleSheet.create((theme: Theme) => ({
     color: theme.colors.primary,
   },
 
+  // Seletor de período e o aviso dos pendentes de antes dele
+  periodoContainer: {
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  avisoPendentes: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.warningBg,
+  },
+  avisoPendentesTexto: {
+    fontSize: theme.typography.sm,
+    color: theme.colors.warningText,
+  },
+
   // Abaixo da lista: "Mostrando 50 de 130 incidentes" + "Carregar mais"
   rodapeLista: {
     alignItems: 'center',

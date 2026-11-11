@@ -29,7 +29,13 @@ export interface Incidente {
  * Filter by status
  */
 export type FiltroStatus =
-  'todos' | 'aberto' | 'em_analise' | 'resolvido' | 'fechado';
+  | 'todos'
+  /** Aberto + Em análise: o que ainda espera o gestor. */
+  | 'pendentes'
+  | 'aberto'
+  | 'em_analise'
+  | 'resolvido'
+  | 'fechado';
 
 /**
  * Filter by category
