@@ -185,9 +185,13 @@ export async function otimizarRotaComDependencias(
   // cache vale 24 h e prenderia o gestor num resultado que a criação da rota
   // recusa, mesmo com o serviço de volta.
   if (!resultadoFinal.isEstimated && !resultadoFinal.semRotaEntreParadas) {
-    salvarNoCache(hashRota, resultadoFinal).then(() => {
-      logger.debug('[RouteOptimization] Resultado salvo no cache');
-    });
+    salvarNoCache(hashRota, resultadoFinal)
+      .then(() => {
+        logger.debug('[RouteOptimization] Resultado salvo no cache');
+      })
+      .catch((error) =>
+        logger.warn('[RouteOptimization] Erro ao salvar no cache', error),
+      );
   }
 
   return resultadoFinal;

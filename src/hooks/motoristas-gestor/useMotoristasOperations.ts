@@ -161,7 +161,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
   }, [showToast, unidadeAtiva, unidadeLoading]);
 
   useEffect(() => {
-    loadMotoristas();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadMotoristas();
   }, [loadMotoristas]);
 
   // ============================================================================
@@ -191,7 +192,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
         // Create log using centralized logging
         if (userData) {
-          logUserAction(userData.id, 'motorista_criado', {
+          // Rastro de auditoria disparado sem espera; `logAction` já trata e loga a falha.
+          void logUserAction(userData.id, 'motorista_criado', {
             motorista_nome: nome.trim(),
             motorista_email: email.trim(),
           });
@@ -199,7 +201,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
         showToast('Motorista adicionado com sucesso!', 'success');
         onSuccess();
-        loadMotoristas();
+        // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+        void loadMotoristas();
       } catch (error: unknown) {
         logger.error(
           '[Motoristas] Erro inesperado ao adicionar motorista',
@@ -250,7 +253,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
 
         showToast('Motorista atualizado com sucesso!', 'success');
         onSuccess();
-        loadMotoristas();
+        // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+        void loadMotoristas();
       } catch (error: unknown) {
         falhar(error);
       } finally {
@@ -295,7 +299,8 @@ export function useMotoristasOperations(): UseMotoristasOperationsReturn {
           },
         );
         onSuccess();
-        loadMotoristas();
+        // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+        void loadMotoristas();
       } catch (error: unknown) {
         // Rota aberta: o aviso com a lista (por cima da tela) substitui o
         // toast de erro que o withToast acabou de mostrar.

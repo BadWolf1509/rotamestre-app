@@ -145,7 +145,9 @@ export async function obterDoCache(
   const agora = Date.now();
   if (agora - entry.timestamp > CACHE_TTL) {
     optimizationCache.delete(hash);
-    persistirCacheNoStorage();
+    // Disparo proposital: a função de leitura é síncrona e a persistência já trata o
+    // próprio erro (log + segue); a leitura não deve esperar o disco.
+    void persistirCacheNoStorage();
     return null;
   }
 
@@ -190,7 +192,7 @@ export async function salvarNoCache(
     timestamp: Date.now(),
   });
 
-  persistirCacheNoStorage();
+  await persistirCacheNoStorage();
 }
 
 /**

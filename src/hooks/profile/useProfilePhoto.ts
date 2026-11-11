@@ -147,7 +147,8 @@ export function useProfilePhoto({
 
   const showPhotoOptions = useCallback(() => {
     if (Platform.OS === 'web') {
-      updateProfilePhoto('gallery');
+      // Disparo sem espera: updateProfilePhoto trata o próprio erro (log + alerta).
+      void updateProfilePhoto('gallery');
     } else if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -157,9 +158,11 @@ export function useProfilePhoto({
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            updateProfilePhoto('camera');
+            // Disparo sem espera: updateProfilePhoto trata o próprio erro (log + alerta).
+            void updateProfilePhoto('camera');
           } else if (buttonIndex === 2) {
-            updateProfilePhoto('gallery');
+            // Disparo sem espera: updateProfilePhoto trata o próprio erro (log + alerta).
+            void updateProfilePhoto('gallery');
           }
         },
       );

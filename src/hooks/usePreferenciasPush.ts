@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/lib/logger';
 import {
   lerPreferenciasLocais,
   PREFERENCIAS_PADRAO,
@@ -69,7 +70,13 @@ export function usePreferenciasPush() {
       fila.current = fila.current.then(() =>
         salvarPreferencias(uid, atual.current),
       );
-    })();
+    })().catch((error) => {
+      logger.warn(
+        '[usePreferenciasPush] Falha ao carregar as preferências',
+        error,
+      );
+      if (vivo) setCarregando(false);
+    });
     return () => {
       vivo = false;
     };

@@ -60,7 +60,8 @@ export function useLocationWatcher({
     let cancelado = false;
     let sub: Location.LocationSubscription | null = null;
 
-    (async () => {
+    // Disparo proposital, sem espera: o corpo todo está num try/catch com log.
+    void (async () => {
       try {
         const s = await Location.watchPositionAsync(
           { accuracy, timeInterval, distanceInterval },

@@ -6,11 +6,13 @@
 
 import { renderHook, act } from '@testing-library/react-native';
 
+import { logger } from '@/lib/logger';
+
 import { useNavigationActions } from '../useNavigationActions';
 
 // Mock navigation module
 jest.mock('@/lib/navigation', () => ({
-  abrirNavegacao: jest.fn(),
+  abrirNavegacao: jest.fn().mockResolvedValue(undefined),
 }));
 
 const { abrirNavegacao } = require('@/lib/navigation') as {
@@ -61,6 +63,27 @@ describe('useNavigationActions', () => {
         longitude: -46.63,
         endereco: 'Rua Teste, 123',
       });
+    });
+  });
+
+  describe('handleOpenInMaps com falha', () => {
+    it('loga a recusa do app externo em vez de deixar a promessa sem dono', async () => {
+      const falha = new Error('sem app de navegação');
+      abrirNavegacao.mockRejectedValueOnce(falha);
+      const aviso = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      const { result } = renderHook(() =>
+        useNavigationActions(createMockOptions()),
+      );
+
+      await act(async () => {
+        result.current.handleOpenInMaps();
+      });
+
+      expect(aviso).toHaveBeenCalledWith(
+        expect.stringContaining('app de navegação'),
+        falha,
+      );
+      aviso.mockRestore();
     });
   });
 

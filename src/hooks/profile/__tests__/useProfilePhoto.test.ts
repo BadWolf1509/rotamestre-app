@@ -239,6 +239,7 @@ describe('useProfilePhoto', () => {
       // O botão só vale se fizer alguma coisa: sem isto, o aviso continuaria
       // sendo um beco sem saída, só que mais bonito.
       const onConfirm = (showConfirm as jest.Mock).mock.calls[0][2];
+      (Linking.openSettings as jest.Mock).mockResolvedValueOnce(undefined);
       onConfirm();
 
       expect(Linking.openSettings).toHaveBeenCalled();

@@ -39,7 +39,8 @@ export function useSwipeHint(): UseSwipeHintResult {
       }
     };
 
-    loadCount();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadCount();
   }, []);
 
   // Incrementar contagem após um swipe bem-sucedido

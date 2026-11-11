@@ -324,7 +324,7 @@ export function useIncidentSubmit(): UseIncidentSubmitReturn {
 
         // 4. Criar log usando query centralizada (fire-and-forget)
         if (data.rotaId && insertedData) {
-          logIncidenteAction(
+          void logIncidenteAction(
             data.motoristaId,
             insertedData.id,
             'incidente_reportado',

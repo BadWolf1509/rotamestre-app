@@ -44,7 +44,10 @@ const LIMIAR_MOVIMENTO_MAX_METROS = 500;
 function limiarDeMovimento(distanciaRestanteMetros: number): number {
   return Math.min(
     LIMIAR_MOVIMENTO_MAX_METROS,
-    Math.max(LIMIAR_MOVIMENTO_MIN_METROS, FRACAO_LIMIAR_MOVIMENTO * distanciaRestanteMetros),
+    Math.max(
+      LIMIAR_MOVIMENTO_MIN_METROS,
+      FRACAO_LIMIAR_MOVIMENTO * distanciaRestanteMetros,
+    ),
   );
 }
 
@@ -80,11 +83,13 @@ export function useDistanceToStop(
   options?: {
     enabled?: boolean;
     refreshInterval?: number; // ms entre atualizações (padrão: 2 minutos)
-  }
+  },
 ): DistanceInfo {
-  const { enabled = true, refreshInterval = INTERVALO_PADRAO_MS } = options || {};
+  const { enabled = true, refreshInterval = INTERVALO_PADRAO_MS } =
+    options || {};
 
-  const [distanceInfo, setDistanceInfo] = useState<DistanceInfo>(DISTANCIA_VAZIA);
+  const [distanceInfo, setDistanceInfo] =
+    useState<DistanceInfo>(DISTANCIA_VAZIA);
 
   // O GPS entrega objeto novo a cada tick e o destino costuma ser recriado a cada
   // render do chamador. Como dependência de efeito isso refaria a consulta (e o
@@ -102,11 +107,16 @@ export function useDistanceToStop(
   const temDestino = destLat != null && destLng != null;
   const ativo = enabled && temPosicao && temDestino;
 
-  const ultimaConsultaRef = useRef<{ em: number; lat: number; lng: number; restante: number } | null>(null);
+  const ultimaConsultaRef = useRef<{
+    em: number;
+    lat: number;
+    lng: number;
+    restante: number;
+  } | null>(null);
   const chaveDestinoRef = useRef<string | null>(null);
   const requisicaoRef = useRef(0);
 
-  const consultar = (async () => {
+  const consultar = async () => {
     const origem = locationRef.current;
     const alvo = destRef.current;
     if (!origem || !alvo) return;
@@ -127,7 +137,7 @@ export function useDistanceToStop(
     // Resposta atrasada de uma consulta antiga (outra parada) não pode vencer.
     const vigente = () => minha === requisicaoRef.current;
 
-    setDistanceInfo(prev => ({ ...prev, isLoading: true, error: null }));
+    setDistanceInfo((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
       const result = await getDistance(origem, alvo);
@@ -161,7 +171,7 @@ export function useDistanceToStop(
         isEstimated: true,
       });
     }
-  });
+  };
 
   // Troca de parada (ou desligar/ligar): esquece o valor e a janela da anterior
   // e consulta na hora. Sem isso a Início mostrava a distância da parada concluída.
@@ -175,7 +185,8 @@ export function useDistanceToStop(
       ultimaConsultaRef.current = null;
       setDistanceInfo(DISTANCIA_VAZIA);
     }
-    if (chaveDestino) consultar();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    if (chaveDestino) void consultar();
     // `consultar` lê tudo por ref: só a chave do destino deve disparar.
   }, [chaveDestino]);
 
@@ -195,14 +206,16 @@ export function useDistanceToStop(
     const ultima = ultimaConsultaRef.current;
     if (!ultima) {
       // GPS chegou depois do destino: primeira consulta
-      consultar();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void consultar();
       return;
     }
     const andou = calculateHaversineDistance(ultima.lat, ultima.lng, lat, lng);
     if (andou < limiarDeMovimento(ultima.restante)) return;
     const restante = INTERVALO_MINIMO_MOVIMENTO_MS - (Date.now() - ultima.em);
     if (restante <= 0) {
-      consultar();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void consultar();
       return;
     }
     const id = setTimeout(consultar, restante);
@@ -218,7 +231,8 @@ export function useDistanceToStop(
     const id = setInterval(() => {
       const ultima = ultimaConsultaRef.current;
       if (ultima && Date.now() - ultima.em < folga) return;
-      consultar();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void consultar();
     }, refreshInterval);
     return () => clearInterval(id);
   }, [ativo, refreshInterval]);

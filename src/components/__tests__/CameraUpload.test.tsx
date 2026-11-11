@@ -99,6 +99,7 @@ jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 // Spy on Linking.openSettings para o fluxo "Abrir Configurações" de saída de
 // permissão (pedirPermissao/oferecerSaidaParaConfiguracoes).
 jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
 
 describe('CameraUpload Component', () => {
   const mockOnUploadSuccess = jest.fn();

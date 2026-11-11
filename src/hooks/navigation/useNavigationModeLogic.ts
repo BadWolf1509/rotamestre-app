@@ -323,7 +323,8 @@ export function useNavigationModeLogic({
       }
     };
 
-    fetchRoute();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void fetchRoute();
 
     return () => {
       cancelled = true;

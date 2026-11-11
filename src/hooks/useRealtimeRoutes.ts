@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { logger } from '@/lib/logger';
 import { nomeDeCanalUnico } from '@/lib/realtime';
 import { supabase } from '@/lib/supabase';
 
@@ -68,7 +69,11 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     if (session?.access_token) {
       accessTokenRef.current = session.access_token;
       // ✅ Mantém o realtime autenticado no refresh de token SEM recriar o canal
-      supabase.realtime.setAuth(session.access_token);
+      supabase.realtime
+        .setAuth(session.access_token)
+        .catch((error) =>
+          logger.warn('[Realtime] Erro ao reautenticar o socket', error),
+        );
     }
   }, [session?.access_token]);
 
@@ -90,7 +95,11 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     // ✅ CRÍTICO: Definir token ANTES de criar o canal (workaround para Issue 1304)
     // https://github.com/supabase/supabase-js/issues/1304
     if (accessTokenRef.current) {
-      supabase.realtime.setAuth(accessTokenRef.current);
+      supabase.realtime
+        .setAuth(accessTokenRef.current)
+        .catch((error) =>
+          logger.warn('[Realtime] Erro ao reautenticar o socket', error),
+        );
     }
 
     // ✅ Marcar como subscrito
@@ -143,7 +152,8 @@ export function useRealtimeRoutes(options: UseRealtimeRoutesOptions = {}) {
     return () => {
       isSubscribed.current = false;
       currentUnidade.current = null;
-      supabase.removeChannel(channel);
+      // Limpeza no desmonte, sem espera: não há o que fazer com o resultado.
+      void supabase.removeChannel(channel);
 
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);

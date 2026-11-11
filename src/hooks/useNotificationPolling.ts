@@ -114,7 +114,8 @@ export function useNotificationPolling({
 
     const intervalo = setInterval(() => {
       ciclosNaAusenciaRef.current += 1;
-      buscarNovasRef.current?.();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void buscarNovasRef.current?.();
     }, INTERVALO_MS);
 
     return () => {
@@ -143,7 +144,8 @@ export function useNotificationPolling({
     const voltou = ativoAnteriorRef.current && !ativo;
     ativoAnteriorRef.current = ativo;
     if (voltou && userId) {
-      buscarNovasRef.current?.();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void buscarNovasRef.current?.();
       if (jaConectouRef.current || ciclosNaAusenciaRef.current > 0) {
         onRecuperarRef.current?.();
       }

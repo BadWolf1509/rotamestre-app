@@ -120,12 +120,14 @@ export function useHistoricoData(): UseHistoricoDataReturn {
   }, [userData?.id, carregandoUsuario, showError]);
 
   useEffect(() => {
-    loadHistorico();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadHistorico();
   }, [loadHistorico]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadHistorico();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void loadHistorico();
   }, [loadHistorico]);
 
   return {

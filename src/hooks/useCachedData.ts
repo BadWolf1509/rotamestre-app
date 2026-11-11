@@ -230,7 +230,8 @@ export function useCachedData<T>(
   // Execução inicial e quando deps mudam - uses ref to avoid re-execution when loadData changes
   useEffect(() => {
     if (enabled) {
-      loadDataRef.current();
+      // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+      void loadDataRef.current();
     }
     // Spread deps from caller is intentional - allows hook users to provide custom dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps

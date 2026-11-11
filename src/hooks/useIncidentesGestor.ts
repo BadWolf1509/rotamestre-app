@@ -272,7 +272,8 @@ export function useIncidentesGestor(
   }, [unidadeLoading, userData?.id, filtros, unidadeNome, showToast]);
 
   useEffect(() => {
-    fetchIncidentes();
+    // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
+    void fetchIncidentes();
   }, [fetchIncidentes]);
 
   const temMais = total !== null && incidentes.length < total;

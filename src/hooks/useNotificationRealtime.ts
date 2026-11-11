@@ -43,7 +43,13 @@ export function useNotificationRealtime({
   // Refresh do token: só reautentica o socket. O canal depende de o token
   // EXISTIR (`hasToken`), não do valor — senão cada refresh recriava o canal.
   useEffect(() => {
-    if (accessToken) supabase.realtime.setAuth(accessToken);
+    if (accessToken) {
+      supabase.realtime
+        .setAuth(accessToken)
+        .catch((error) =>
+          logger.warn('[Realtime] Erro ao reautenticar o socket', error),
+        );
+    }
   }, [accessToken]);
   const hasToken = !!accessToken;
 
@@ -128,7 +134,8 @@ export function useNotificationRealtime({
       isSubscribed.current = false;
       setConectado(false);
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        // Limpeza no desmonte, sem espera: não há o que fazer com o resultado.
+        void supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
