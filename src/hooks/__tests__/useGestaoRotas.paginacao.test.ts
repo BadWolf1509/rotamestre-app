@@ -400,6 +400,37 @@ describe('useGestaoRotas — mais de 100 rotas', () => {
     expect(mockShowToast).toHaveBeenCalledTimes(2);
   });
 
+  it('o cache vai e vem na chave do período, só na visão sem status nem busca', async () => {
+    montar(437);
+    const { result } = renderHook(() => useGestaoRotas(opcoes));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(100));
+    const getItem = AsyncStorage.getItem as jest.Mock;
+    const setItem = AsyncStorage.setItem as jest.Mock;
+    expect(getItem).toHaveBeenCalledWith('gestao_rotas_cache_u1_todo');
+    expect(setItem).toHaveBeenCalledWith(
+      'gestao_rotas_cache_u1_todo',
+      expect.any(String),
+    );
+
+    act(() =>
+      result.current.definirPeriodo({
+        tipo: 'personalizado',
+        de: '2024-01-01',
+        ate: '2024-01-01',
+      }),
+    );
+    await waitFor(() => expect(result.current.total).toBe(2));
+
+    const chavePeriodo = 'gestao_rotas_cache_u1_2024-01-01_2024-01-01';
+    expect(getItem).toHaveBeenCalledWith(chavePeriodo);
+    expect(setItem).toHaveBeenCalledWith(chavePeriodo, expect.any(String));
+
+    setItem.mockClear();
+    act(() => result.current.setFiltroStatus('concluida'));
+    await waitFor(() => expect(result.current.total).toBe(1));
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
   it('acima do teto exporta as mais recentes e avisa quantas ficaram de fora', async () => {
     consultaMockada().TETO_EXPORTACAO_ROTAS = 150;
     montar(437);

@@ -647,9 +647,9 @@ describe('useGestaoRotas', () => {
         await result.current.exportarParaCSV();
       });
 
-      // Sem rota no período: nada de arquivo vazio, só o aviso da página.
+      // Sem rota: nada de arquivo vazio, só o aviso da página (período "todo").
       expect(mockShowToast).toHaveBeenCalledWith(
-        'Nenhuma rota no período',
+        'Nenhuma rota com estes filtros',
         'info',
         expect.any(Number),
       );
@@ -888,9 +888,9 @@ describe('useGestaoRotas', () => {
         await result.current.exportarParaXLSX();
       });
 
-      // Sem rota no período: nada de arquivo vazio, só o aviso da página.
+      // Sem rota: nada de arquivo vazio, só o aviso da página (período "todo").
       expect(mockShowToast).toHaveBeenCalledWith(
-        'Nenhuma rota no período',
+        'Nenhuma rota com estes filtros',
         'info',
         expect.any(Number),
       );

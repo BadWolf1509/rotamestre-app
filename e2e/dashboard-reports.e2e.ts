@@ -124,9 +124,9 @@ test.describe('Reports and Export E2E Tests', () => {
     }) => {
       await gestorPage.gotoGestaoRotas();
 
-      // "6 rotas encontradas" — o número é o que o filtro devolveu.
+      // "6 rotas no período" (ou "encontradas", em Todo o período) — o número é o que o filtro devolveu.
       await expect(
-        page.getByText(/\d+\s*rotas?\s*encontradas?/i).first(),
+        page.getByText(/\d+\s*rotas?\s*(encontradas?|no período)/i).first(),
       ).toBeVisible({
         timeout: 15000,
       });

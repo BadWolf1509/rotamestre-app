@@ -161,11 +161,6 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   // EXTRACTED HOOKS
   // ============================================
 
-  // Cache management
-  const { loadFromCache, saveToCache } = useRotasCache({
-    unidadeId: unidadeAtiva,
-  });
-
   // Filtros (aplicados no servidor) e ordenação das linhas carregadas
   const {
     rotasFiltradas,
@@ -187,6 +182,16 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
   const periodoDe = intervalo.de;
   const periodoAte = intervalo.ate;
 
+  // Cache (stale-while-revalidate), uma chave por loja e período.
+  const periodoDoCache = useMemo(
+    () => ({ de: periodoDe, ate: periodoAte }),
+    [periodoDe, periodoAte],
+  );
+  const { loadFromCache, saveToCache } = useRotasCache({
+    unidadeId: unidadeAtiva,
+    periodo: periodoDoCache,
+  });
+
   const filtros = useMemo<FiltrosRotas | null>(
     () =>
       unidadeAtiva && carregado
@@ -206,13 +211,8 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
       periodoAte,
     ],
   );
-  // Só a visão sem filtro (inclusive sem período) vai para o cache: é o que
-  // ele guarda, e uma lista de outro período não pode abrir a tela.
-  const visaoPadrao =
-    filtroStatus === 'todas' &&
-    !buscaAplicada.trim() &&
-    periodoDe === null &&
-    periodoAte === null;
+  // Só a visão sem status nem busca vai para o cache, na chave do período.
+  const visaoPadrao = filtroStatus === 'todas' && !buscaAplicada.trim();
 
   // ============================================
   // DATA LOADING
@@ -459,7 +459,13 @@ export function useGestaoRotas(options: UseGestaoRotasOptions) {
 
         // Período sem rota: nada de arquivo vazio, só o aviso.
         if (todas.length === 0) {
-          showToast('Nenhuma rota no período', 'info', 5000);
+          showToast(
+            periodoDe === null && periodoAte === null
+              ? 'Nenhuma rota com estes filtros'
+              : 'Nenhuma rota no período',
+            'info',
+            5000,
+          );
           return;
         }
 
