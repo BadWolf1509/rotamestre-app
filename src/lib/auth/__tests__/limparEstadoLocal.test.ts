@@ -31,6 +31,7 @@ const DA_PESSOA = [
   'gestao_rotas_cache_un1',
   'route_cache_abc',
   '@timeline_last_seen_r1',
+  '@rotamestre:periodo:gestao_rotas:u1',
   '@rotamestre/route-optimization-cache',
   '@rotamestre:unidade_ativa',
   '@rotamestre:conclusao_em_voo',

@@ -50,6 +50,7 @@ export const PREFIXOS_DA_CONTA = [
   'gestao_rotas_cache_', // src/hooks/gestao-rotas/useRotasCache.ts
   'route_cache_', // src/hooks/useRouteDirections.ts
   '@timeline_last_seen_', // src/hooks/useTimelineLastSeen.ts
+  '@rotamestre:periodo:', // src/hooks/usePeriodoLembrado.ts
 ] as const;
 
 export async function limparEstadoLocalDoUsuario(): Promise<void> {
