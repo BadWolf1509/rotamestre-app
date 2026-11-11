@@ -35,12 +35,13 @@ describe('buscarResumoDesempenho pela RPC', () => {
           paradas_concluidas: 1400,
           paradas_puladas: 30,
           entregas_em_rotas_concluidas: 1398,
+          tempo_medio_minutos: '42.5',
         },
       ],
       error: null,
     });
 
-    const resumo = await buscarResumoDesempenho('m1', 30);
+    const resumo = await buscarResumoDesempenho('m1', { dias: 30 });
 
     expect(supabase.rpc).toHaveBeenCalledWith(RPC_RESUMO_DESEMPENHO, {
       p_motorista_id: 'm1',
@@ -55,13 +56,35 @@ describe('buscarResumoDesempenho pela RPC', () => {
       paradasConcluidas: 1400,
       paradasPuladas: 30,
       entregasEmRotasConcluidas: 1398,
+      tempoMedioMinutos: 42.5,
     });
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
+  it('com intervalo manda p_de/p_ate e não manda p_dias', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({ data: [], error: null });
+    await buscarResumoDesempenho('m1', {
+      intervalo: { de: '2026-11-01', ate: '2026-11-10' },
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(RPC_RESUMO_DESEMPENHO, {
+      p_motorista_id: 'm1',
+      p_de: '2026-11-01',
+      p_ate: '2026-11-10',
+    });
+  });
+
+  it('tempoMedioMinutos: nulo quando a linha não traz base', async () => {
+    (supabase.rpc as jest.Mock).mockResolvedValue({
+      data: [{ total_rotas: 1, tempo_medio_minutos: null }],
+      error: null,
+    });
+    const resumo = await buscarResumoDesempenho('m1', { dias: null });
+    expect(resumo.tempoMedioMinutos).toBeNull();
+  });
+
   it('sem período manda p_dias null', async () => {
     (supabase.rpc as jest.Mock).mockResolvedValue({ data: [], error: null });
-    const resumo = await buscarResumoDesempenho('m1', null);
+    const resumo = await buscarResumoDesempenho('m1', { dias: null });
     expect(supabase.rpc).toHaveBeenCalledWith(RPC_RESUMO_DESEMPENHO, {
       p_motorista_id: 'm1',
       p_dias: null,
@@ -74,7 +97,7 @@ describe('buscarResumoDesempenho pela RPC', () => {
   it('erro que não é "função ausente" sobe (sem cair no cliente)', async () => {
     const erro = { code: '42501', message: 'Sem permissão' };
     (supabase.rpc as jest.Mock).mockResolvedValue({ data: null, error: erro });
-    await expect(buscarResumoDesempenho('m1', 7)).rejects.toBe(erro);
+    await expect(buscarResumoDesempenho('m1', { dias: 7 })).rejects.toBe(erro);
     expect(supabase.from).not.toHaveBeenCalled();
   });
 });
@@ -89,7 +112,9 @@ describe('buscarResumoDesempenho sem a RPC no banco', () => {
         error: erro,
       });
 
-      await expect(buscarResumoDesempenho('m1', null)).rejects.toBe(erro);
+      await expect(buscarResumoDesempenho('m1', { dias: null })).rejects.toBe(
+        erro,
+      );
       expect(supabase.from).not.toHaveBeenCalled();
     },
   );

@@ -29,6 +29,7 @@ import type {
   RotaRecente,
 } from '@/components/gestor/motorista-perfil';
 import { RotasAbertasModal } from '@/components/gestor/motoristas/RotasAbertasModal';
+import { SeletorPeriodo } from '@/components/periodo';
 import {
   DesktopCard,
   DesktopModal,
@@ -43,6 +44,7 @@ import {
   valoresEdicaoDe,
 } from '@/hooks/motoristas-gestor/useMotoristasForm';
 import { useDesktopHeaderMenu } from '@/hooks/useDesktopHeaderMenu';
+import { usePeriodoLembrado } from '@/hooks/usePeriodoLembrado';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useToast } from '@/hooks/useToast';
 import { useUnidadeAtiva } from '@/hooks/useUnidadeAtiva';
@@ -54,6 +56,7 @@ import {
 } from '@/lib/gestor/motoristaNaLoja';
 import { buscarPerformanceMotorista } from '@/lib/gestor/performanceMotorista';
 import { logger } from '@/lib/logger';
+import { cortarEmHoje, resolverPeriodo, textoPeriodo } from '@/lib/periodo';
 import { maskPhone } from '@/lib/phone';
 import { supabase } from '@/lib/supabase';
 import { useUnistyles, StyleSheet } from '@/utils/styles';
@@ -80,6 +83,7 @@ export default function MotoristaPerfil() {
   const [performance, setPerformance] = useState<MotoristaPerformance | null>(
     null,
   );
+  const [carregandoPerformance, setCarregandoPerformance] = useState(false);
   const [rotasRecentes, setRotasRecentes] = useState<RotaRecente[]>([]);
   const [showToggleModal, setShowToggleModal] = useState(false);
 
@@ -91,6 +95,19 @@ export default function MotoristaPerfil() {
 
   // Get motorista ID from params
   const motoristaId = Array.isArray(id) ? id[0] : id;
+
+  // Período dos indicadores, com o fim cortado em hoje: rota agendada para dia
+  // que ainda não chegou baixaria a taxa o mês inteiro. Começando depois de
+  // hoje, não consulta (vazio do período). Strings, não o objeto, nas
+  // dependências: o objeto muda de identidade a cada render.
+  const { periodo, definirPeriodo, carregado } =
+    usePeriodoLembrado('perfil_motorista');
+  const intervalo = cortarEmHoje(resolverPeriodo(periodo));
+  const periodoVazio = intervalo === null;
+  const de = intervalo?.de ?? null;
+  const ate = intervalo?.ate ?? null;
+  const textoDoPeriodo = textoPeriodo(periodo, intervalo ?? undefined);
+  const motoristaNome = motorista?.nome;
 
   // Page meta
   const pageMeta = {
@@ -126,17 +143,7 @@ export default function MotoristaPerfil() {
       if (motoristaError) throw motoristaError;
       setMotorista(motoristaData);
 
-      // 2. Performance DESTA loja (RPC da Migration 89): o motorista que
-      // atende outra loja não soma as rotas dela. Sem loja aberta, sem dados.
-      const performanceData = await buscarPerformanceMotorista(
-        motoristaId,
-        motoristaData.nome,
-        unidadeAtiva,
-      );
-      if (obsoleta()) return false;
-      setPerformance(performanceData);
-
-      // 3. Rotas recentes DESTA loja: o motorista que atende outra loja
+      // 2. Rotas recentes DESTA loja: o motorista que atende outra loja
       // traria as rotas dela, e o toque abriria rota que esta não gerencia.
       // Sem loja aberta, lista vazia (fail-closed).
       const { data: rotasData, error: rotasError } = unidadeAtiva
@@ -145,7 +152,9 @@ export default function MotoristaPerfil() {
             .select('id, data, status, distancia_total')
             .eq('motorista_id', motoristaId)
             .eq('unidade_id', unidadeAtiva)
-            .order('created_at', { ascending: false })
+            // Mesma ordem da Gestão de Rotas (índice idx_rotas_unidade_data_id).
+            .order('data', { ascending: false })
+            .order('id', { ascending: false })
             .limit(10)
         : { data: [], error: null };
 
@@ -160,6 +169,47 @@ export default function MotoristaPerfil() {
       return true;
     }
   }, [motoristaId, showToast, unidadeAtiva]);
+
+  // Performance DESTA loja no período (RPC da Migration 90): o motorista que
+  // atende outra loja não soma as rotas dela. Sem loja aberta, sem dados. Só
+  // a carga mais recente escreve, e a troca de período não recarrega a tela.
+  const requisicaoPerformanceRef = useRef(0);
+  useEffect(() => {
+    const minha = ++requisicaoPerformanceRef.current;
+    const vigente = () => minha === requisicaoPerformanceRef.current;
+    if (!carregado || !motoristaId || !motoristaNome) return;
+    if (periodoVazio) {
+      setPerformance(null);
+      setCarregandoPerformance(false);
+      return;
+    }
+    setCarregandoPerformance(true);
+    buscarPerformanceMotorista(motoristaId, motoristaNome, unidadeAtiva, {
+      de,
+      ate,
+    })
+      .then((dados) => {
+        if (vigente()) setPerformance(dados);
+      })
+      .catch((error: unknown) => {
+        if (!vigente()) return;
+        logger.error('Erro ao carregar performance:', error);
+        setPerformance(null);
+        showToast('Não foi possível carregar os indicadores', 'error');
+      })
+      .finally(() => {
+        if (vigente()) setCarregandoPerformance(false);
+      });
+  }, [
+    carregado,
+    motoristaId,
+    motoristaNome,
+    unidadeAtiva,
+    periodoVazio,
+    de,
+    ate,
+    showToast,
+  ]);
 
   // Initial load (e de novo na troca de loja). A carga substituída não
   // desliga o spinner da que a substituiu.
@@ -354,6 +404,26 @@ export default function MotoristaPerfil() {
     </View>
   );
 
+  // Seletor, título com o período e indicadores (ou o vazio do período).
+  const renderDesempenho = () => (
+    <View style={styles.kpisContainer}>
+      <SeletorPeriodo
+        valor={periodo}
+        aoMudar={definirPeriodo}
+        cortarEmHoje
+        testID="seletor-periodo-perfil"
+      />
+      <Text style={styles.kpisTitle}>Performance: {textoDoPeriodo}</Text>
+      {periodoVazio ? (
+        <Text style={styles.emptyRotasText}>Nenhuma rota neste período</Text>
+      ) : carregandoPerformance ? (
+        <ActivityIndicator size="small" color={theme.colors.primary} />
+      ) : performance ? (
+        <PerformanceKPIs performance={performance} />
+      ) : null}
+    </View>
+  );
+
   // ===== Render States =====
 
   // Loading
@@ -429,9 +499,7 @@ export default function MotoristaPerfil() {
                     icon="stats-chart"
                     noPadding={false}
                   >
-                    {performance && (
-                      <PerformanceKPIs performance={performance} />
-                    )}
+                    {renderDesempenho()}
                   </DesktopCard>
 
                   <DesktopCard
@@ -515,7 +583,7 @@ export default function MotoristaPerfil() {
             />
 
             {/* Performance KPIs */}
-            {performance && <PerformanceKPIs performance={performance} />}
+            {renderDesempenho()}
 
             {/* Recent Routes */}
             <RotasRecentes

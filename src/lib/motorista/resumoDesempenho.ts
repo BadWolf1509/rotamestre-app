@@ -11,7 +11,8 @@
  * motorista ativo (lojas com vínculo ativo) ou o gestor ativo, só com as
  * rotas das lojas dele.
  *
- * Período: `dias` = dias corridos para trás a partir de hoje, sobre
+ * Período: `intervalo` (`p_de`/`p_ate`, Migration 90, já cortado em hoje pela
+ * tela) ou `dias` = dias corridos para trás a partir de hoje, sobre
  * `rotas.data` (a coluna `date`); "hoje" é o dia em America/Sao_Paulo.
  *
  * Sem caminho de reserva (R-DB-1): a soma paginada no cliente, para quando a
@@ -19,6 +20,7 @@
  * banco é único, e a reserva não acompanhava a regra da RPC. Qualquer erro
  * sobe: total zerado em silêncio é mentira.
  */
+import type { IntervaloDatas } from '@/lib/periodo';
 import { supabase } from '@/lib/supabase';
 
 export const RPC_RESUMO_DESEMPENHO = 'resumo_desempenho_motorista';
@@ -33,6 +35,8 @@ export interface ResumoDesempenho {
   paradasPuladas: number;
   /** Paradas concluídas dentro de rotas concluídas (base dos marcos). */
   entregasEmRotasConcluidas: number;
+  /** Média da duração das rotas concluídas, em minutos; null sem base. */
+  tempoMedioMinutos: number | null;
 }
 
 interface LinhaResumo {
@@ -45,11 +49,19 @@ interface LinhaResumo {
   paradas_concluidas: number | null;
   paradas_puladas: number | null;
   entregas_em_rotas_concluidas: number | null;
+  // `numeric` no banco; null quando não há rota concluída com duração.
+  tempo_medio_minutos?: number | string | null;
 }
 
 function numero(v: number | string | null | undefined): number {
   const n = Number(v ?? 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+function numeroOuNulo(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 function daLinha(linha: LinhaResumo | undefined): ResumoDesempenho {
@@ -62,17 +74,31 @@ function daLinha(linha: LinhaResumo | undefined): ResumoDesempenho {
     paradasConcluidas: numero(linha?.paradas_concluidas),
     paradasPuladas: numero(linha?.paradas_puladas),
     entregasEmRotasConcluidas: numero(linha?.entregas_em_rotas_concluidas),
+    tempoMedioMinutos: numeroOuNulo(linha?.tempo_medio_minutos),
   };
+}
+
+export interface OpcoesResumoDesempenho {
+  /** Dias corridos para trás de hoje (quem ainda usa `p_dias`). */
+  dias?: number | null;
+  /** Intervalo fechado já cortado pela tela; com ele, `dias` é ignorado. */
+  intervalo?: IntervaloDatas;
 }
 
 export async function buscarResumoDesempenho(
   motoristaId: string,
-  dias: number | null,
+  opcoes: OpcoesResumoDesempenho = {},
 ): Promise<ResumoDesempenho> {
-  const { data, error } = await supabase.rpc(RPC_RESUMO_DESEMPENHO, {
-    p_motorista_id: motoristaId,
-    p_dias: dias,
-  });
+  const { dias = null, intervalo } = opcoes;
+  // Com `intervalo` manda só p_de/p_ate (a RPC ignora p_dias nesse caso).
+  const parametros = intervalo
+    ? {
+        p_motorista_id: motoristaId,
+        p_de: intervalo.de,
+        p_ate: intervalo.ate,
+      }
+    : { p_motorista_id: motoristaId, p_dias: dias };
+  const { data, error } = await supabase.rpc(RPC_RESUMO_DESEMPENHO, parametros);
   if (error) throw error;
 
   // A RPC devolve RETURNS TABLE de uma linha só (agregado sem GROUP BY). O
