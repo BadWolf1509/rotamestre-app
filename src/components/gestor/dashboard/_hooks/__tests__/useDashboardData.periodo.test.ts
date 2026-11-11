@@ -91,10 +91,10 @@ const lista = () =>
   );
 const chamadasDe = (c: Consulta | undefined, metodo: string) =>
   (c?.chamadas ?? []).filter(([m]) => m === metodo).map(([, ...a]) => a);
-// As duas consultas de KPI pedem `iniciada_em`; a 1ª é a da semana.
+// A consulta do mês (motorista destaque): rotas sem paradas embutidas e sem HEAD.
 const kpis = () =>
   mockConsultas.filter(
-    (c) => c.tabela === 'rotas' && c.colunas.includes('iniciada_em'),
+    (c) => c.tabela === 'rotas' && !c.head && !c.colunas.includes('paradas('),
   );
 
 function linhaDeRota(i: number) {
@@ -132,17 +132,43 @@ describe('useDashboardData — período', () => {
     expect(result.current.listaCortada).toBe(false);
   });
 
-  it('"Esta Semana" vai da segunda (09/11) até hoje, e "Rotas no Mês" do dia 1 até hoje', async () => {
+  it('Tempo Médio sai da lista do período: só rota concluída de hoje para trás, e não há mais consulta de semana', async () => {
+    const t = (inicio: string, minutos: number) => ({
+      iniciada_em: inicio,
+      concluida_em: new Date(
+        new Date(inicio).getTime() + minutos * 60000,
+      ).toISOString(),
+    });
+    mockLinhasDaLista = [
+      {
+        ...linhaDeRota(1),
+        status: 'concluida',
+        ...t('2026-11-03T12:00:00Z', 60),
+      },
+      {
+        ...linhaDeRota(2),
+        status: 'concluida',
+        ...t('2026-11-04T12:00:00Z', 120),
+      },
+      { ...linhaDeRota(3), status: 'pendente' },
+      // futura: fica fora, mesmo que tenha horários
+      {
+        ...linhaDeRota(4),
+        data: '2026-11-20',
+        status: 'concluida',
+        ...t('2026-11-20T12:00:00Z', 600),
+      },
+    ];
     const { result } = renderHook(() =>
       useDashboardData({ periodo: resolverPeriodo({ tipo: 'este_mes' }) }),
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    const [semana, mes] = kpis();
-    expect(chamadasDe(semana, 'gte')).toEqual([['data', '2026-11-09']]);
-    expect(chamadasDe(semana, 'lte')).toEqual([['data', '2026-11-10']]);
-    expect(chamadasDe(mes, 'gte')).toEqual([['data', '2026-11-01']]);
-    expect(chamadasDe(mes, 'lte')).toEqual([['data', '2026-11-10']]);
+    expect(result.current.kpis.tempoMedioMinutos).toBe(90);
+    expect(result.current.kpis).not.toHaveProperty('rotasMes');
+    expect(result.current.kpis).not.toHaveProperty('rotasSemana');
+    // só sobra a consulta do mês (motorista destaque)
+    expect(kpis()).toHaveLength(1);
   });
 
   it('"Todo o período": sem início, teto de 60 dias à frente e limite de 500 (pede 501 para saber se cortou)', async () => {

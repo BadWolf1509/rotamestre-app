@@ -178,6 +178,44 @@ describe('GestaoRotas (mobile/tablet)', () => {
     expect(mockExportarCSV).not.toHaveBeenCalled();
   });
 
+  describe('estado vazio', () => {
+    it('sem filtro ativo e período "todo": convida a criar a primeira rota', () => {
+      mockEstadoHook = { periodo: { tipo: 'todo' } };
+      render(<GestaoRotas />);
+
+      expect(
+        screen.getByText('Crie sua primeira rota de entrega'),
+      ).toBeTruthy();
+      expect(screen.getByText('Criar nova rota')).toBeTruthy();
+    });
+
+    it('com busca por motorista: "Ajuste a busca ou o período." e sem convite de criar rota', () => {
+      mockEstadoHook = { periodo: { tipo: 'todo' }, searchQuery: 'Zé' };
+      render(<GestaoRotas />);
+
+      expect(screen.getByText('Ajuste a busca ou o período.')).toBeTruthy();
+      expect(screen.queryByText(/Crie sua primeira rota/)).toBeNull();
+      expect(screen.queryByText('Criar nova rota')).toBeNull();
+    });
+
+    it('com chip de status ativo: "Ajuste a busca ou o período." e sem convite de criar rota', () => {
+      mockEstadoHook = { periodo: { tipo: 'todo' }, filtroStatus: 'pendente' };
+      render(<GestaoRotas />);
+
+      expect(screen.getByText('Ajuste a busca ou o período.')).toBeTruthy();
+      expect(screen.queryByText('Criar nova rota')).toBeNull();
+    });
+
+    it('busca só com espaços não conta como filtro', () => {
+      mockEstadoHook = { periodo: { tipo: 'todo' }, searchQuery: '   ' };
+      render(<GestaoRotas />);
+
+      expect(
+        screen.getByText('Crie sua primeira rota de entrega'),
+      ).toBeTruthy();
+    });
+  });
+
   it('erro de carga aparece com "Tentar novamente", que recarrega', () => {
     mockEstadoHook = { erroCarga: 'Não foi possível carregar as rotas.' };
     render(<GestaoRotas />);
