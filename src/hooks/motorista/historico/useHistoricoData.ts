@@ -3,7 +3,8 @@
  *
  * Antes baixava todas as rotas do motorista (e contava as paradas de todas) e
  * filtrava no aparelho. Agora cada página traz só as suas rotas, ordenadas por
- * `data` desc e `id` desc (índice `idx_rotas_unidade_data_id`), e as paradas
+ * `data` desc e `id` desc (a mesma ordem da Gestão de Rotas; esta consulta é por `motorista_id`, e o
+ * `idx_rotas_unidade_data_id` é por loja: não é ele que a atende), e as paradas
  * contadas são as da página. "Carregar mais" pede a página seguinte.
  */
 
@@ -65,10 +66,19 @@ export function useHistoricoData({
   // de conta com outra em voo deixava a resposta velha sobrescrever a atual.
   const requisicaoRef = useRef(0);
   const carregandoMaisRef = useRef(false);
+  // Consulta (motorista + período + status) a que a lista na tela pertence:
+  // só uma consulta NOVA limpa a lista; refresh e "Carregar mais" que falham a
+  // mantêm (sem rede, a lista que já estava na tela continua útil).
+  const chaveRef = useRef<string | null>(null);
+  // Linhas recebidas do banco (antes de descartar repetidas): é daqui, e não
+  // de `rotas.length`, que sai o `range` da próxima página.
+  const recebidasRef = useRef(0);
+  const [fim, setFim] = useState(true);
 
   const buscarPagina = useCallback(
     async (inicio: number) => {
-      if (!motoristaId) return { linhas: [] as RotaHistorico[], count: 0 };
+      if (!motoristaId)
+        return { linhas: [] as RotaHistorico[], count: 0, recebidas: 0 };
       let consulta = supabase
         .from('rotas')
         .select(
@@ -104,7 +114,11 @@ export function useHistoricoData({
           paradas_concluidas: c?.concluidas ?? 0,
         };
       });
-      return { linhas, count: count ?? inicio + linhas.length };
+      return {
+        linhas,
+        count: count ?? inicio + linhas.length,
+        recebidas: pagina.length,
+      };
     },
     [motoristaId, de, ate, status],
   );
@@ -122,24 +136,38 @@ export function useHistoricoData({
       return;
     }
     if (!motoristaId) {
+      chaveRef.current = null;
       setRotas([]);
       setTotal(0);
+      setFim(true);
       setLoading(false);
       setRefreshing(false);
       return;
     }
 
+    const chave = `${motoristaId}|${de}|${ate}|${status}`;
+    const consultaNova = chaveRef.current !== chave;
+    chaveRef.current = chave;
+    if (consultaNova) {
+      // Período, status ou motorista novos: a lista anterior não vale mais.
+      setRotas([]);
+      setTotal(0);
+      setFim(true);
+      recebidasRef.current = 0;
+    }
+
     try {
-      setLoading(true);
-      const { linhas, count } = await buscarPagina(0);
+      setLoading(consultaNova);
+      const { linhas, count, recebidas } = await buscarPagina(0);
       if (!vigente()) return;
       setRotas(linhas);
       setTotal(count);
+      recebidasRef.current = recebidas;
+      setFim(recebidas < TAMANHO_PAGINA_HISTORICO);
     } catch (error) {
       logger.error('Erro ao carregar histórico', error);
       if (!vigente()) return;
-      setRotas([]);
-      setTotal(0);
+      // Refresh que falha mantém a lista que já estava na tela.
       showError({
         title: 'Erro',
         message: 'Não foi possível carregar o histórico',
@@ -150,7 +178,16 @@ export function useHistoricoData({
         setRefreshing(false);
       }
     }
-  }, [motoristaId, carregandoUsuario, carregado, buscarPagina, showError]);
+  }, [
+    motoristaId,
+    carregandoUsuario,
+    carregado,
+    de,
+    ate,
+    status,
+    buscarPagina,
+    showError,
+  ]);
 
   useEffect(() => {
     // Disparo proposital, sem espera: o carregador trata o próprio erro (try/catch com log).
@@ -159,13 +196,15 @@ export function useHistoricoData({
 
   const carregarMais = useCallback(() => {
     if (carregandoMaisRef.current || loading) return;
-    if (rotas.length === 0 || rotas.length >= total) return;
+    if (rotas.length === 0 || fim) return;
     const geracao = requisicaoRef.current;
     carregandoMaisRef.current = true;
     setCarregandoMais(true);
     const pedir = async () => {
       try {
-        const { linhas, count } = await buscarPagina(rotas.length);
+        const { linhas, count, recebidas } = await buscarPagina(
+          recebidasRef.current,
+        );
         // Outra carga começou (troca de período, refresh): descarta.
         if (geracao !== requisicaoRef.current) return;
         setRotas((atuais) => {
@@ -173,6 +212,8 @@ export function useHistoricoData({
           return [...atuais, ...linhas.filter((r) => !ids.has(r.id))];
         });
         setTotal(count);
+        recebidasRef.current += recebidas;
+        setFim(recebidas < TAMANHO_PAGINA_HISTORICO);
       } catch (error) {
         logger.error('Erro ao carregar mais rotas do histórico', error);
         if (geracao !== requisicaoRef.current) return;
@@ -188,7 +229,7 @@ export function useHistoricoData({
       }
     };
     void pedir();
-  }, [loading, rotas.length, total, buscarPagina, showError]);
+  }, [loading, rotas.length, fim, buscarPagina, showError]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -199,7 +240,7 @@ export function useHistoricoData({
   return {
     rotas,
     total,
-    temMais: rotas.length < total,
+    temMais: rotas.length > 0 && !fim,
     loading,
     carregandoMais,
     refreshing,

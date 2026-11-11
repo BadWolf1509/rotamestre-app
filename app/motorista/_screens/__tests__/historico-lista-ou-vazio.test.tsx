@@ -44,6 +44,7 @@ jest.mock('@/hooks/motorista/historico', () => ({
       taxaSucesso: 0,
     },
     carregando: false,
+    indisponivel: false,
     recarregar: jest.fn(),
   }),
   useHistoricoFilters: () => ({

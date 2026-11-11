@@ -2,7 +2,7 @@
  * useHistoricoMetrics: o cabeçalho vem do resumo do período (RPC), não da
  * soma da lista baixada.
  */
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 const mockBuscar = jest.fn();
 jest.mock('@/lib/motorista/resumoDesempenho', () => ({
@@ -131,9 +131,36 @@ it('resposta velha chegando por último não sobrescreve a do período atual', a
   expect(result.current.metricas?.rotasTotais).toBe(5);
 });
 
-it('erro do resumo: sem números (nada zerado em silêncio)', async () => {
+it('erro do resumo: sem números (nada zerado em silêncio) e marcado como indisponível', async () => {
   mockBuscar.mockRejectedValue(new Error('rede'));
   const { result } = renderHook(() => useHistoricoMetrics(base));
   await waitFor(() => expect(result.current.carregando).toBe(false));
   expect(result.current.metricas).toBeNull();
+  expect(result.current.indisponivel).toBe(true);
+});
+
+it('trocar de período tira os números do anterior enquanto o novo carrega', async () => {
+  mockBuscar.mockResolvedValueOnce(resumo({ totalRotas: 5 }));
+  const { result, rerender } = renderHook(
+    (p: typeof base) => useHistoricoMetrics(p),
+    { initialProps: base },
+  );
+  await waitFor(() => expect(result.current.metricas?.rotasTotais).toBe(5));
+
+  mockBuscar.mockReturnValueOnce(new Promise(() => {}));
+  rerender({ ...base, de: '2026-10-01', ate: '2026-10-31' });
+  await waitFor(() => expect(result.current.metricas).toBeNull());
+  expect(result.current.indisponivel).toBe(false);
+});
+
+it('refresh que falha mantém os números que já estavam na tela', async () => {
+  mockBuscar.mockResolvedValueOnce(resumo({ totalRotas: 5 }));
+  const { result } = renderHook(() => useHistoricoMetrics(base));
+  await waitFor(() => expect(result.current.metricas?.rotasTotais).toBe(5));
+
+  mockBuscar.mockRejectedValue(new Error('rede'));
+  act(() => result.current.recarregar());
+  await waitFor(() => expect(result.current.carregando).toBe(false));
+  expect(result.current.metricas?.rotasTotais).toBe(5);
+  expect(result.current.indisponivel).toBe(false);
 });

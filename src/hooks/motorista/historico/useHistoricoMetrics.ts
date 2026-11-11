@@ -30,6 +30,8 @@ interface Entrada {
 interface Retorno {
   metricas: Metricas | null;
   carregando: boolean;
+  /** O resumo falhou e não há números a mostrar. */
+  indisponivel: boolean;
   recarregar: () => void;
 }
 
@@ -42,6 +44,8 @@ export function useHistoricoMetrics({
 }: Entrada): Retorno {
   const [metricas, setMetricas] = useState<Metricas | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState(false);
+  const chaveRef = useRef<string | null>(null);
   const [recarga, setRecarga] = useState(0);
   // Só a consulta mais recente escreve: trocar de período rápido deixa
   // respostas em voo, e a velha chegando por último sobrescreveria a nova.
@@ -57,6 +61,14 @@ export function useHistoricoMetrics({
       return;
     }
 
+    // Período ou motorista novos: os números do anterior saem da tela. Refresh
+    // mantém os que já estavam (sem rede, continuam úteis).
+    const chave = `${motoristaId}|${de}|${ate}|${ehEsteMes}`;
+    if (chaveRef.current !== chave) {
+      chaveRef.current = chave;
+      setMetricas(null);
+    }
+    setErro(false);
     setCarregando(true);
     const buscar = async () => {
       try {
@@ -85,7 +97,7 @@ export function useHistoricoMetrics({
         });
       } catch (error) {
         logger.error('Erro ao carregar o cabeçalho do histórico', error);
-        if (vigente()) setMetricas(null);
+        if (vigente()) setErro(true);
       } finally {
         if (vigente()) setCarregando(false);
       }
@@ -96,5 +108,10 @@ export function useHistoricoMetrics({
 
   const recarregar = useCallback(() => setRecarga((n) => n + 1), []);
 
-  return { metricas, carregando, recarregar };
+  return {
+    metricas,
+    carregando,
+    indisponivel: erro && metricas === null,
+    recarregar,
+  };
 }

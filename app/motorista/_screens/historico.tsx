@@ -53,6 +53,7 @@ export default function HistoricoMotorista() {
   const {
     metricas,
     carregando: carregandoMetricas,
+    indisponivel: resumoIndisponivel,
     recarregar: recarregarMetricas,
   } = useHistoricoMetrics({
     habilitado: carregado,
@@ -125,6 +126,12 @@ export default function HistoricoMotorista() {
                 : 'Rotas'}
           </Text>
           <Text style={styles.statsSecondaryText}>{textoDoPeriodo}</Text>
+
+          {resumoIndisponivel && (
+            <Text style={styles.statsSecondaryText}>
+              Resumo indisponível — puxe para atualizar
+            </Text>
+          )}
 
           {metricas && (
             <>

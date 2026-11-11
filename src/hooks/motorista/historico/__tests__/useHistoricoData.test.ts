@@ -376,6 +376,121 @@ describe('useHistoricoData', () => {
     expect(result.current.loading).toBe(false);
   });
 
+  it('refresh que falha mantém a lista que estava na tela e só mostra o alerta', async () => {
+    montar([rota('r1'), rota('r2')], []);
+    const { result } = renderHook(() => useHistoricoData(entrada()));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(2));
+
+    montar([], [], { rotas: { message: 'sem rede' } });
+    act(() => result.current.onRefresh());
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+
+    expect(result.current.rotas.map((r) => r.id)).toEqual(['r1', 'r2']);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('trocar de período limpa a lista anterior (e uma falha não a traz de volta)', async () => {
+    montar([rota('r1')], []);
+    const { result, rerender } = renderHook(
+      (p: Props) => useHistoricoData(entrada(p)),
+      { initialProps: {} as Props },
+    );
+    await waitFor(() => expect(result.current.rotas).toHaveLength(1));
+
+    montar([], [], { rotas: { message: 'sem rede' } });
+    rerender({ de: '2026-10-01', ate: '2026-10-31' });
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled());
+    expect(result.current.rotas).toEqual([]);
+  });
+
+  it('Carregar mais que falha mantém a lista e avisa', async () => {
+    const { rotas, paradas } = cenario(120);
+    montar(rotas, paradas);
+    const { result } = renderHook(() => useHistoricoData(entrada()));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(50));
+
+    montar([], [], { rotas: { message: 'sem rede' } });
+    act(() => result.current.carregarMais());
+    await waitFor(() => expect(mockShowError).toHaveBeenCalled());
+    expect(result.current.rotas).toHaveLength(50);
+    expect(result.current.carregandoMais).toBe(false);
+  });
+
+  it('Carregar mais em voo durante a troca de período: a página antiga não entra', async () => {
+    const { rotas, paradas } = cenario(120);
+    montar(rotas, paradas);
+    const { result, rerender } = renderHook(
+      (p: Props) => useHistoricoData(entrada(p)),
+      { initialProps: {} as Props },
+    );
+    await waitFor(() => expect(result.current.rotas).toHaveLength(50));
+
+    // A próxima consulta de rotas (página 2) fica pendente.
+    let soltar: (v: unknown) => void = () => {};
+    const pendente = new Promise((resolve) => {
+      soltar = resolve;
+    });
+    const consultaPendente = {
+      select: () => consultaPendente,
+      eq: () => consultaPendente,
+      gte: () => consultaPendente,
+      lte: () => consultaPendente,
+      order: () => consultaPendente,
+      range: () => consultaPendente,
+      returns: () => consultaPendente,
+      then: (resolve: (r: unknown) => unknown) => pendente.then(resolve),
+    };
+    const normal = mockFrom.getMockImplementation();
+    mockFrom.mockImplementationOnce(() => consultaPendente);
+    mockFrom.mockImplementation(normal as never);
+
+    act(() => result.current.carregarMais());
+    // Troca de período: nova lista (outubro, vazia nos dados do cenário).
+    rerender({ de: '2026-10-01', ate: '2026-10-31' });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.rotas).toEqual([]);
+
+    await act(async () => {
+      soltar({ data: [rota('antiga')], count: 120, error: null });
+      await Promise.resolve();
+    });
+    expect(result.current.rotas).toEqual([]);
+    expect(result.current.carregandoMais).toBe(false);
+  });
+
+  it('temMais não fica preso quando a página traz rota repetida', async () => {
+    const { rotas, paradas } = cenario(100);
+    montar(rotas, paradas);
+    const { result } = renderHook(() => useHistoricoData(entrada()));
+    await waitFor(() => expect(result.current.rotas).toHaveLength(50));
+
+    // A 2ª página repete uma rota da 1ª (entrou rota nova no meio): 49 novas
+    // + 1 repetida, página cheia (50). A 3ª vem vazia e encerra.
+    // (A 1ª página fica antes, porque o fake aplica o range ao array.)
+    const pagina2 = [
+      ...rotas.slice(0, 50),
+      ...rotas.slice(0, 1),
+      ...rotas.slice(50, 99),
+    ];
+    mockFrom.mockImplementation((t: string) =>
+      t === 'rotas'
+        ? consulta(pagina2, undefined, true)
+        : consulta(paradas, undefined, false),
+    );
+    act(() => result.current.carregarMais());
+    await waitFor(() => expect(result.current.rotas).toHaveLength(99));
+    expect(result.current.temMais).toBe(true);
+
+    mockFrom.mockImplementation((t: string) =>
+      t === 'rotas'
+        ? consulta([], undefined, true)
+        : consulta(paradas, undefined, false),
+    );
+    act(() => result.current.carregarMais());
+    await waitFor(() => expect(result.current.temMais).toBe(false));
+  });
+
   it('entrega o AlertDialog do useAlert', () => {
     montar([], []);
     const { result } = renderHook(() => useHistoricoData(entrada()));
