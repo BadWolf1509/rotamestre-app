@@ -100,10 +100,12 @@ export function PainelPersonalizado({
           value={paraDate(escolhendo === 'de' ? de : ate) ?? new Date()}
           mode="date"
           display="default"
-          onChange={(_e, escolhida) => {
+          onChange={(evento, escolhida) => {
             const qual = escolhendo;
             setEscolhendo(null);
-            if (!escolhida) return;
+            // No Android, cancelar chama onChange com o valor original
+            // (new Date() se a ponta estava vazia): só 'set' grava.
+            if (evento.type !== 'set' || !escolhida) return;
             if (qual === 'de') setDe(toLocalISODate(escolhida));
             else setAte(toLocalISODate(escolhida));
           }}

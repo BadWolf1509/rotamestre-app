@@ -1,3 +1,4 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
 import { Modal } from 'react-native';
@@ -132,6 +133,23 @@ describe('SeletorPeriodo', () => {
       expect(aplicar.props.accessibilityState.disabled).toBe(true);
       fireEvent.press(aplicar);
       expect(aoMudar).not.toHaveBeenCalled();
+    });
+
+    it('cancelar o seletor de data (dismissed) não grava hoje', () => {
+      montar({ tipo: 'este_mes' });
+      fireEvent.press(screen.getByTestId('seletor-periodo'));
+      fireEvent.press(screen.getByTestId('seletor-periodo-item-personalizado'));
+      fireEvent.press(screen.getByTestId('seletor-periodo-de'));
+      const mock = DateTimePicker as unknown as jest.Mock;
+      const props = mock.mock.calls[mock.mock.calls.length - 1][0];
+      act(() => {
+        props.onChange({ type: 'dismissed' }, new Date(2026, 10, 10));
+      });
+      expect(screen.getByLabelText('De: Selecionar')).toBeTruthy();
+      expect(
+        screen.getByTestId('seletor-periodo-aplicar').props.accessibilityState
+          .disabled,
+      ).toBe(true);
     });
 
     it('com de > ate, Aplicar fica desabilitado', () => {
