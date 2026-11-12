@@ -568,9 +568,17 @@ export function solicitarEnvioFila(): Promise<{
 }
 
 /**
- * Notificações do envio automático (login, volta da rede). O descarte só
- * notifica com o app fora da tela: aberto, a Início já mostra o aviso com a
- * parada identificada (`AvisosDaFilaDeParadas`).
+ * Resultados já notificados. Na coalescência, `solicitarEnvioFila` devolve a
+ * MESMA promessa a todos os gatilhos que chegam durante um envio (rede e
+ * token renovado juntos, o caso comum depois de muito tempo offline): sem
+ * isto, cada um notificaria o mesmo resultado.
+ */
+const resultadosNotificados = new WeakSet<object>();
+
+/**
+ * Notificações do envio automático (login, volta da rede, token renovado).
+ * O descarte só notifica com o app fora da tela: aberto, a Início já mostra
+ * o aviso com a parada identificada (`AvisosDaFilaDeParadas`).
  */
 async function notificarResultadoDoEnvio(r: {
   fotos: number;
@@ -578,6 +586,8 @@ async function notificarResultadoDoEnvio(r: {
   descartadas?: number;
   incidentes?: number;
 }): Promise<void> {
+  if (resultadosNotificados.has(r)) return;
+  resultadosNotificados.add(r);
   // Incidente enviado conta como ação na frase "Sincronização concluída".
   const acoes = r.acoes + (r.incidentes ?? 0);
   if (r.fotos > 0 || acoes > 0) {
@@ -629,6 +639,27 @@ export function setupOfflineSync(): () => void {
     if (!userId) return;
     void (async () => {
       await gravarUltimoUsuario(userId);
+      if (evento === 'TOKEN_REFRESHED') {
+        // M-3 (3060, 11/11/2026): com o token vencido, a volta da rede não
+        // envia — o gatilho do NetInfo lê a sessão enquanto o refresh ainda
+        // está preso e desiste (lerUsuarioParaEnvio → null). A renovação é o
+        // que destrava, então ela também envia. Agendado fora do callback por
+        // garantia (o callback já volta síncrono): a doc do auth-js pede
+        // callback rápido e registra deadlock se algo de dentro de um
+        // TOKEN_REFRESHED forçar outro refresh. Sem adoção de fotos sem dono,
+        // que é só do login. Com a fila vazia, só lê o estado local.
+        setTimeout(() => {
+          void solicitarEnvioFila()
+            .then(notificarResultadoDoEnvio)
+            .catch((error) =>
+              logger.warn(
+                '[Offline] Falha ao sincronizar depois de renovar o token',
+                error,
+              ),
+            );
+        }, 0);
+        return;
+      }
       if (evento !== 'SIGNED_IN') return;
       // Adoção ANTES do envio: as fotos adotadas entram na contagem de
       // pendentes e sobem antes das ações de parada (solicitarEnvioFila).
