@@ -209,6 +209,48 @@ it('ao entrar (SIGNED_IN), adota/sobe as fotos e depois envia as ações de para
   parar();
 });
 
+// M-3 (3060, 11/11/2026): com o token vencido, só a renovação destrava o envio.
+it('ao renovar o token (TOKEN_REFRESHED), sobe as fotos e envia as ações de parada', async () => {
+  const parar = setupOfflineSync();
+  mockOuvintesAuth.at(-1)?.('TOKEN_REFRESHED', { user: { id: 'mot-1' } });
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(ordem).toEqual(['foto', 'acoes']);
+  parar();
+});
+
+it('rede e renovação do token durante o mesmo envio: uma notificação só', async () => {
+  const { notifySyncComplete } = jest.requireMock('../notifications');
+  let liberar: () => void = () => undefined;
+  (subirFotoDaFilaOffline as jest.Mock).mockImplementationOnce(async () => {
+    ordem.push('foto');
+    await new Promise<void>((r) => {
+      liberar = r;
+    });
+    return true;
+  });
+  const parar = setupOfflineSync();
+  const ouvinteRede = (NetInfo.addEventListener as jest.Mock).mock.calls.at(
+    -1,
+  )[0];
+
+  const pelaRede = ouvinteRede({
+    isConnected: true,
+    isInternetReachable: true,
+  });
+  await new Promise((r) => setTimeout(r, 0));
+  // O getSession das fotos disparou o refresh: o TOKEN_REFRESHED chega com o
+  // envio da rede ainda em curso e herda a mesma promessa (coalescência).
+  mockOuvintesAuth.at(-1)?.('TOKEN_REFRESHED', { user: { id: 'mot-1' } });
+  await new Promise((r) => setTimeout(r, 10));
+  liberar();
+  await pelaRede;
+  await new Promise((r) => setTimeout(r, 10));
+
+  expect(notifySyncComplete).toHaveBeenCalledTimes(1);
+  parar();
+});
+
 // MOT-5: a notificação "Modo Offline" só olhava a fila genérica (que ninguém
 // alimenta) e as fotos. Conclusão/pulo guardados sem foto — o caso comum do
 // pular — não avisavam. Conta só as ações de quem está no aparelho, como as

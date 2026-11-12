@@ -147,7 +147,9 @@ export async function notifySyncComplete(
     parts.push(`${photosCount} ${photosCount === 1 ? 'foto' : 'fotos'}`);
   }
 
-  message += parts.join(' e ') + ' sincronizadas.';
+  // Ação e foto são femininas; singular só quando é um item só no total.
+  const umSo = actionsCount + photosCount === 1;
+  message += parts.join(' e ') + (umSo ? ' sincronizada.' : ' sincronizadas.');
 
   await sendLocalNotification('Sincronização', message, {
     type: 'sync_complete',

@@ -232,3 +232,83 @@ describe('fila de fotos e login', () => {
     parar();
   });
 });
+
+// M-3 (3060, 11/11/2026): com o token vencido, a volta da rede não envia — o
+// gatilho de rede lê a sessão enquanto o refresh ainda está preso e desiste.
+// Quem destrava é a renovação do token, então o TOKEN_REFRESHED também envia.
+describe('fila e renovação do token', () => {
+  // Os mocks (AsyncStorage, FileSystem, supabase) só usam promessas: várias
+  // voltas do setImmediate REAL esgotam tudo o que não está atrás de um timer.
+  async function esvaziarTudoMenosTimers() {
+    for (let i = 0; i < 50; i++) await new Promise((r) => setImmediate(r));
+  }
+
+  it('ao renovar o token (TOKEN_REFRESHED) sobe a fila pendente da pessoa', async () => {
+    mockDisco[INDICE] = JSON.stringify([foto('pB', 'B')]);
+    const parar = setupOfflineSync();
+
+    await mockOuvintesAuth[0]?.('TOKEN_REFRESHED', { user: { id: 'B' } });
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+    expect(mockDisco[CHAVE_ULTIMO]).toBe('B');
+    parar();
+  });
+
+  it('o envio do TOKEN_REFRESHED sai fora do callback do auth (agendado)', async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate'] });
+    try {
+      mockDisco[INDICE] = JSON.stringify([foto('pB', 'B')]);
+      const parar = setupOfflineSync();
+
+      mockOuvintesAuth[0]?.('TOKEN_REFRESHED', { user: { id: 'B' } });
+      await esvaziarTudoMenosTimers();
+      // Sem o timer correr nada é enviado, por mais que as promessas andem: a
+      // doc do auth-js pede callback rápido e registra deadlock se algo de
+      // dentro de um TOKEN_REFRESHED forçar outro refresh.
+      expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
+
+      await jest.runOnlyPendingTimersAsync();
+      await esvaziarTudoMenosTimers();
+      expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+      parar();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('TOKEN_REFRESHED não adota fotos sem dono (isso é só do login)', async () => {
+    mockDisco[INDICE] = JSON.stringify([
+      { ...foto('pSemDono'), semDono: true },
+      foto('pB', 'B'),
+    ]);
+    const parar = setupOfflineSync();
+
+    await mockOuvintesAuth[0]?.('TOKEN_REFRESHED', { user: { id: 'B' } });
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledTimes(1);
+    expect(subirFotoDaFilaOffline).toHaveBeenCalledWith(
+      expect.objectContaining({ paradaId: 'pB' }),
+    );
+    expect((await getOfflinePhotosIndex()).map((f) => f.paradaId)).toEqual([
+      'pSemDono',
+    ]);
+    parar();
+  });
+
+  it('USER_UPDATED e evento sem sessão não disparam o envio', async () => {
+    mockDisco[INDICE] = JSON.stringify([foto('pB', 'B')]);
+    const parar = setupOfflineSync();
+
+    await mockOuvintesAuth[0]?.('USER_UPDATED', { user: { id: 'B' } });
+    await mockOuvintesAuth[0]?.('TOKEN_REFRESHED', null);
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(subirFotoDaFilaOffline).not.toHaveBeenCalled();
+    parar();
+  });
+});

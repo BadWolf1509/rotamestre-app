@@ -620,11 +620,13 @@ export async function lerUsuarioParaEnvio(): Promise<string | null> {
   // Este envio dispara na VOLTA da rede. Uma leitura anterior que estourou o
   // prazo com o refresh do auth-js preso deixa o OFFLINE guardado na leitura
   // compartilhada, e ele seria devolvido agora com a rede boa: a fila ficava
-  // parada até o próximo gatilho (o `TOKEN_REFRESHED` não manda enviar).
+  // parada até o próximo gatilho.
   // Offline sem falta de rede CONFIRMADA é esse OFFLINE velho: descarta e
-  // relê uma vez. Alternativa (também pedir o envio no `TOKEN_REFRESHED`):
-  // cobre o caso, mas dispara a cada renovação horária e só depois do
-  // refresh terminar; a releitura resolve na hora do gatilho certo.
+  // relê uma vez. A releitura NÃO basta com o token vencido: ela cai no
+  // mesmo `getSession` preso no recuo do refresh e volta null (M-3, 3060,
+  // 11/11/2026 — a fila ficou ~5 min parada depois do refresh). Por isso o
+  // `TOKEN_REFRESHED` também manda enviar (`setupOfflineSync`, em
+  // `src/lib/offline.ts`); a releitura segue para o token ainda válido.
   if (!leitura.session && leitura.offline && !(await semRedeConfirmada())) {
     descartarLeituraEmCurso();
     leitura = await lerSessao();

@@ -321,6 +321,21 @@ describe('notifications', () => {
 
       expect(mockScheduleNotificationAsync).toHaveBeenCalled();
     });
+
+    // Bancada da 3060 (11/11/2026): o aparelho mostrou "1 ação sincronizadas".
+    const textoDaNotificacao = () =>
+      mockScheduleNotificationAsync.mock.calls.at(-1)?.[0]?.content?.body;
+
+    it.each([
+      [1, 0, 'Sincronização concluída: 1 ação sincronizada.'],
+      [0, 1, 'Sincronização concluída: 1 foto sincronizada.'],
+      [3, 0, 'Sincronização concluída: 3 ações sincronizadas.'],
+      [1, 1, 'Sincronização concluída: 1 ação e 1 foto sincronizadas.'],
+    ])('concorda o texto: %i ação(ões) e %i foto(s)', async (a, f, texto) => {
+      await notifySyncComplete(a, f);
+
+      expect(textoDaNotificacao()).toBe(texto);
+    });
   });
 
   describe('scheduleRouteReminder', () => {
