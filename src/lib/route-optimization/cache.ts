@@ -217,14 +217,3 @@ export async function estatisticasCache(): Promise<{
     entradas: Array.from(optimizationCache.keys()),
   };
 }
-
-/**
- * Forca carregamento do cache (util para pre-aquecer).
- *
- * Sem chamador em produção: é a sonda que os testes usam para exercitar
- * `carregarCacheDoStorage` (o knip não vê o `require` dinâmico deles).
- * @public
- */
-export async function precarregarCache(): Promise<void> {
-  await carregarCacheDoStorage();
-}

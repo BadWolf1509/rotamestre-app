@@ -1,7 +1,7 @@
 /**
  * Status helpers para componentes de mapa
  *
- * Resolvem cor e label de status de parada para uso nos marcadores
+ * Resolvem o label de status de parada para uso nos marcadores
  * (web MapLibre e mobile). Centralizados para manter consistência visual.
  *
  * NOTA: os builders de InfoWindow (HTML/DOM) do antigo mapa Google Maps web

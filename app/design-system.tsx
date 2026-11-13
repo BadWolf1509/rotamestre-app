@@ -49,6 +49,7 @@ import {
   DesktopCard,
   DesktopModal,
   EmptyState,
+  ErrorBoundary,
   FilterChip,
   GridItem,
   Icon,
@@ -1026,7 +1027,11 @@ export default function DesignSystemScreen() {
   if (!vitrineLiberada(__DEV__, process.env.EXPO_PUBLIC_VITRINE_DS)) {
     return <Redirect href="/" />;
   }
-  return <VitrineDesignSystem />;
+  return (
+    <ErrorBoundary>
+      <VitrineDesignSystem />
+    </ErrorBoundary>
+  );
 }
 
 function VitrineDesignSystem() {

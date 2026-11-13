@@ -89,12 +89,11 @@ describe('routeOptimization', () => {
         cache = require('../route-optimization/cache');
       });
 
-      await expect(cache.precarregarCache()).resolves.toBeUndefined();
+      const stats = await cache.estatisticasCache();
 
       expect(storage.getItem).toHaveBeenCalledWith(
         '@rotamestre/route-optimization-cache',
       );
-      const stats = await cache.estatisticasCache();
       expect(stats.entradas).toContain('hash-persistido');
     });
 
