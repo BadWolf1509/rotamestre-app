@@ -49,7 +49,6 @@ import {
   isPostgrestAbortShape,
 } from '@/lib/queries/queryClient';
 import {
-  ROTA_STATUS_LABELS,
   FILTRO_STATUS_OPTIONS as FILTRO_OPTIONS,
   getRotaStatusLabel,
   type RotaStatus,
@@ -70,8 +69,6 @@ import type { RotaHistorico } from './gestao-rotas';
 // Re-export types for backwards compatibility
 export type { RotaStatus, FiltroStatus, RotaHistorico };
 
-// Constants (re-exports for backwards compatibility)
-export const STATUS_LABELS = ROTA_STATUS_LABELS;
 export const FILTRO_STATUS_OPTIONS = FILTRO_OPTIONS;
 
 interface UseGestaoRotasOptions {

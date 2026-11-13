@@ -129,6 +129,7 @@ const canalFalso: Record<string, unknown> = {};
 canalFalso.on = () => canalFalso;
 canalFalso.subscribe = () => canalFalso;
 
+/** @public — chega aos testes por `require` dentro de `jest.mock`, que o knip não vê. */
 export const moduloConsultaFalsa = {
   supabase: {
     from: (t: string) => consulta(t),

@@ -69,15 +69,3 @@ export function injectDialogStyles(): void {
   `;
   document.head.appendChild(style);
 }
-
-/**
- * Remove estilos injetados (útil para cleanup em testes)
- */
-export function removeDialogStyles(): void {
-  if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-
-  const existingStyle = document.getElementById(STYLE_ID);
-  if (existingStyle) {
-    existingStyle.remove();
-  }
-}

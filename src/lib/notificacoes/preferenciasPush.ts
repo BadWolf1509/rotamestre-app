@@ -31,11 +31,11 @@ import { supabase } from '@/lib/supabase';
 import type { PreferenciasNotificacao } from '@/types/notifications';
 
 /** Aviso das telas quando a escolha ficou só no aparelho por falta de rede. */
-export const AVISO_PREFERENCIA_SEM_REDE =
+const AVISO_PREFERENCIA_SEM_REDE =
   'Sem conexão. A preferência ficou salva e vale assim que a conexão voltar.';
 
 /** Aviso quando o servidor respondeu e recusou (tabela ausente, permissão). */
-export const AVISO_PREFERENCIA_RECUSADA =
+const AVISO_PREFERENCIA_RECUSADA =
   'O servidor recusou a preferência. Ela ficou salva neste aparelho e será enviada de novo na próxima vez que você abrir esta tela.';
 
 /** Por que a escolha ficou só no aparelho. */
@@ -65,7 +65,7 @@ export const PREFERENCIAS_PADRAO: PreferenciasNotificacao = {
 const TABELA = 'preferencias_notificacao';
 const COLUNAS = 'push_ativo, incidentes, rotas, resumo_diario';
 
-export const PREFIXO_PREFERENCIAS_PUSH = '@rotamestre:preferencias_push';
+const PREFIXO_PREFERENCIAS_PUSH = '@rotamestre:preferencias_push';
 const chaveCopia = (uid: string) => `${PREFIXO_PREFERENCIAS_PUSH}:${uid}`;
 const chavePendente = (uid: string) =>
   `${PREFIXO_PREFERENCIAS_PUSH}_pendente:${uid}`;

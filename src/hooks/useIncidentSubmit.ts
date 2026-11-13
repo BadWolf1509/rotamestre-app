@@ -48,7 +48,7 @@ import { storageService } from '@/lib/storage';
 import { gerarUuid } from '@/lib/uuid';
 
 /** Nem a fila do aparelho aceitou: o motorista precisa refazer. */
-export const MENSAGEM_NAO_GUARDOU =
+const MENSAGEM_NAO_GUARDOU =
   'Sem internet, e o reporte não foi salvo no aparelho. Tente de novo quando o sinal voltar.';
 
 const ENDERECO_NAO_INFORMADO = 'Localização não informada';

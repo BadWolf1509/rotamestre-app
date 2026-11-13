@@ -10,7 +10,7 @@
 
 import { temCoordenadaValida } from './coordenadaValida';
 
-export const MAX_WAYPOINTS_GOOGLE_MAPS = 8;
+const MAX_WAYPOINTS_GOOGLE_MAPS = 8;
 
 type ParadaDaRota = {
   ordem: number;

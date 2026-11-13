@@ -38,7 +38,7 @@ export type ConcluirPartida = (
   concluidaEm: string,
 ) => Promise<ResultadoConclusaoPartida>;
 
-export const concluirPartidaSupabase: ConcluirPartida = async (
+const concluirPartidaSupabase: ConcluirPartida = async (
   paradaId,
   concluidaEm,
 ) => {

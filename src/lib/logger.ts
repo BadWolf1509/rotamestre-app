@@ -133,7 +133,7 @@ const breadcrumbs: Breadcrumb[] = [];
 function addBreadcrumb(
   type: Breadcrumb['type'],
   message: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
 ): void {
   const breadcrumb: Breadcrumb = {
     timestamp: Date.now(),
@@ -217,7 +217,10 @@ export const logger = {
    */
   api: (operation: string, details?: Record<string, unknown>) => {
     if (__DEV__) {
-      console.log(`[API] ${operation}`, details ? formatArgs([details])[0] : '');
+      console.log(
+        `[API] ${operation}`,
+        details ? formatArgs([details])[0] : '',
+      );
     }
   },
 
@@ -248,13 +251,19 @@ export const logger = {
     url: string,
     status?: number,
     durationMs?: number,
-    error?: string
+    error?: string,
   ) => {
     const message = status
       ? `${method} ${url} → ${status}${durationMs ? ` (${durationMs}ms)` : ''}`
       : `${method} ${url}`;
 
-    addBreadcrumb('network', message, { method, url, status, durationMs, error });
+    addBreadcrumb('network', message, {
+      method,
+      url,
+      status,
+      durationMs,
+      error,
+    });
 
     if (__DEV__) {
       const emoji = error ? '❌' : status && status >= 400 ? '⚠️' : '🌐';
@@ -303,7 +312,9 @@ export const logger = {
     if (__DEV__) {
       console.group(`[OP:${currentCorrelationId}] ${name}`);
     }
-    addBreadcrumb('info', `Started: ${name}`, { correlationId: currentCorrelationId });
+    addBreadcrumb('info', `Started: ${name}`, {
+      correlationId: currentCorrelationId,
+    });
     return currentCorrelationId;
   },
 
@@ -331,10 +342,7 @@ export const logger = {
 /**
  * Utilitário para medir tempo de execução
  */
-export function measureTime<T>(
-  operation: string,
-  fn: () => T
-): T {
+export function measureTime<T>(operation: string, fn: () => T): T {
   const start = performance.now();
   try {
     const result = fn();
@@ -353,5 +361,3 @@ export function measureTime<T>(
 
 // Export types
 export type { Breadcrumb };
-
-export default logger;

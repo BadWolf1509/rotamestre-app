@@ -15,10 +15,8 @@
  * - Use Platform.OS checks when native alerts are needed for confirmations
  */
 
-import { Platform, Alert } from "react-native";
-
-import { logger } from "@/lib/logger";
-import { toast } from "@/utils/toast";
+import { logger } from '@/lib/logger';
+import { toast } from '@/utils/toast';
 
 /**
  * Show an error to the user with logging.
@@ -52,28 +50,4 @@ export function showInfo(title: string, message: string) {
  */
 export function showSuccess(title: string, message: string) {
   toast.success(message, title);
-}
-
-/**
- * Show a confirmation dialog. Uses native Alert on mobile, window.confirm on web.
- * For complex confirmations with custom UI, use useProfileDialogs pattern instead.
- */
-export function showConfirmation(
-  title: string,
-  message: string,
-  onConfirm: () => void,
-  onCancel?: () => void,
-) {
-  if (Platform.OS === "web") {
-    if (confirm(`${title}\n\n${message}`)) {
-      onConfirm();
-    } else {
-      onCancel?.();
-    }
-  } else {
-    Alert.alert(title, message, [
-      { text: "Cancelar", style: "cancel", onPress: onCancel },
-      { text: "Confirmar", onPress: onConfirm },
-    ]);
-  }
 }

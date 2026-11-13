@@ -159,41 +159,6 @@ export function getStatusColorKey(
 }
 
 /**
- * Get status icon from status type
- */
-export function getStatusIcon(
-  status: RouteStatusType | StopStatusType,
-): IconName {
-  return (
-    ROUTE_STATUS_CONFIG[status as RouteStatusType]?.icon ||
-    STOP_STATUS_CONFIG[status as StopStatusType]?.icon ||
-    'help-circle-outline'
-  );
-}
-
-/**
- * Get status color hex value from status type.
- * Uses a color resolver function to get actual hex values from theme.
- *
- * @param status - Route or stop status
- * @param colorResolver - Function that maps colorKey to hex value
- * @returns Hex color string
- */
-export function getStatusColor(
-  status: RouteStatusType | StopStatusType | string | undefined,
-  colorResolver: (colorKey: StatusColorKey) => string,
-): string {
-  if (!status) return colorResolver('warning');
-
-  const colorKey =
-    ROUTE_STATUS_CONFIG[status as RouteStatusType]?.colorKey ||
-    STOP_STATUS_CONFIG[status as StopStatusType]?.colorKey ||
-    'warning';
-
-  return colorResolver(colorKey);
-}
-
-/**
  * Rótulo legível de qualquer status de rota ou de parada, tolerante ao que vem
  * do banco: normaliza a caixa e, para valor fora das listas (status novo no
  * CHECK), devolve o texto sem o sublinhado em vez de quebrar.

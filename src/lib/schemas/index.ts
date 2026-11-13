@@ -5,22 +5,16 @@
  *
  * Usage:
  * ```typescript
- * import { loginSchema, paradaSchema, type LoginInput } from '@/lib/schemas';
+ * import { loginSchema, type LoginInput } from '@/lib/schemas';
  * ```
+ *
+ * Os schemas de campo, telefone, parada e motorista vêm do próprio arquivo
+ * (`./basic`, `./phone`, `./parada`, `./motorista`): ninguém os importava por
+ * aqui, e a reexportação saiu na faxina de 13/11/2026.
  */
 
-// Basic field schemas
-export {
-  // Constants
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_SPECIAL_REGEX,
-  // Schemas
-  emailSchema,
-  // Functions
-  validatePassword,
-} from './basic';
-
-// Phone schemas (re-exported from phone module)
+// Basic field constants
+export { PASSWORD_MIN_LENGTH, PASSWORD_SPECIAL_REGEX } from './basic';
 
 // Auth schemas
 export {
@@ -35,5 +29,3 @@ export {
   type ResetPasswordInput,
   type TrocarSenhaInput,
 } from './auth';
-
-// Domain schemas

@@ -115,7 +115,7 @@ type Snapshot = {
 };
 
 /** Paradas que não mudaram (mesmo id e updated_at) mantêm o objeto anterior. */
-export function preservarIdentidade(
+function preservarIdentidade(
   anteriores: ParadaData[],
   novas: ParadaData[],
 ): ParadaData[] {

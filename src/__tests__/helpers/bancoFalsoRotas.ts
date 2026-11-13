@@ -142,6 +142,7 @@ function logsQuery() {
   };
 }
 
+/** @public — chega aos testes por `require` dentro de `jest.mock`, que o knip não vê. */
 export const moduloSupabaseFalso = {
   supabase: {
     from: (tabela: string) => (tabela === 'rotas' ? rotasQuery() : logsQuery()),

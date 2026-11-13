@@ -34,7 +34,7 @@ import type { Session } from '@supabase/supabase-js';
 export const PRAZO_LIMPEZA_PUSH_MS = 4000;
 
 /** Prazo para ler quem sai, na exclusão de conta (antes da chamada de rede). */
-export const PRAZO_SESSAO_EXCLUSAO_MS = 4000;
+const PRAZO_SESSAO_EXCLUSAO_MS = 4000;
 
 async function limparPushDestaConta(): Promise<void> {
   const {

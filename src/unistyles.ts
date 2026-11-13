@@ -17,7 +17,7 @@ import {
 } from './utils/styles.base';
 
 // ===== BREAKPOINTS =====
-export const breakpoints = {
+const breakpoints = {
   xs: 0,
   sm: 576,
   md: 768,
@@ -26,16 +26,16 @@ export const breakpoints = {
 } as const;
 
 // ===== THEME =====
-export const lightTheme = defaultTheme;
-export const lightCompactTheme = baseLightCompactTheme;
-export const lightHighContrastTheme = baseLightHighContrastTheme;
-export const lightCompactHighContrastTheme = baseLightCompactHighContrastTheme;
+const lightTheme = defaultTheme;
+const lightCompactTheme = baseLightCompactTheme;
+const lightHighContrastTheme = baseLightHighContrastTheme;
+const lightCompactHighContrastTheme = baseLightCompactHighContrastTheme;
 
 // ===== DARK THEME (optimized for night usage) =====
-export const darkTheme = baseDarkTheme;
-export const darkCompactTheme = baseDarkCompactTheme;
-export const darkHighContrastTheme = baseDarkHighContrastTheme;
-export const darkCompactHighContrastTheme = baseDarkCompactHighContrastTheme;
+const darkTheme = baseDarkTheme;
+const darkCompactTheme = baseDarkCompactTheme;
+const darkHighContrastTheme = baseDarkHighContrastTheme;
+const darkCompactHighContrastTheme = baseDarkCompactHighContrastTheme;
 
 // ===== TYPES =====
 type AppBreakpoints = typeof breakpoints;

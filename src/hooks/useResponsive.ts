@@ -3,16 +3,6 @@ import { Platform, useWindowDimensions } from 'react-native';
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
 
-/**
- * Breakpoints baseados em Material Design e best practices 2025
- * @see https://m3.material.io/foundations/layout/applying-layout
- */
-export const BREAKPOINTS = {
-  mobile: 0,      // 0 - 767px
-  tablet: 768,    // 768 - 1023px
-  desktop: 1024,  // 1024px+
-} as const;
-
 export interface ResponsiveHook {
   /** Largura atual da janela */
   width: number;

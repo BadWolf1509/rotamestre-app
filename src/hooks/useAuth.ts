@@ -24,12 +24,6 @@ export function setMockSession(session: Session | null, user: User | null) {
   mockUser = user;
 }
 
-// Export function to clear mock session (called by signOut)
-export function clearMockSession() {
-  mockSession = null;
-  mockUser = null;
-}
-
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);

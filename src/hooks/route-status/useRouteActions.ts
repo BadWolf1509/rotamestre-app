@@ -31,7 +31,7 @@ import {
 } from '@/services/unifiedLocationTracking';
 
 /** Quanto o Finalizar espera o envio da fila antes de recusar. */
-export const TETO_ENVIO_AO_FINALIZAR_MS = 20_000;
+const TETO_ENVIO_AO_FINALIZAR_MS = 20_000;
 
 interface UseRouteActionsOptions {
   route: RouteData | null;

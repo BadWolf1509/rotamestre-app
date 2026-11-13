@@ -19,7 +19,7 @@ interface PageMeta {
   breadcrumbs: BreadcrumbItem[];
 }
 
-export const gestorPageMeta: Record<GestorPageKey, PageMeta> = {
+const gestorPageMeta: Record<GestorPageKey, PageMeta> = {
   inicio: {
     title: 'Início',
     subtitle: 'Visão geral da sua operação',

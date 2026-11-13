@@ -16,7 +16,7 @@ import type { DataTableColumn, DataTableAction } from './types';
  * Animated skeleton box with shimmer effect.
  * Delegates to ShimmerBox for premium gradient shimmer on web / opacity pulse on native.
  */
-export const SkeletonBox = memo(function SkeletonBox() {
+const SkeletonBox = memo(function SkeletonBox() {
   return <ShimmerBox style={styles.skeletonBox} />;
 });
 

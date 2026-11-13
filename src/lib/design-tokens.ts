@@ -376,24 +376,3 @@ export function getStatusIcon(
       return 'ellipse-outline';
   }
 }
-
-// ============================================
-// DEFAULT EXPORT
-// ============================================
-
-export default {
-  colors,
-  typography,
-  spacing,
-  borderRadius,
-  shadows,
-  opacity,
-  motion,
-  transitions,
-  zIndex,
-  icons,
-  components,
-  getBadgeColor,
-  getStatusColor,
-  getStatusIcon,
-};
