@@ -64,7 +64,7 @@ export interface LocalizarLoteOpcoes {
   onProgresso?: (atual: number, total: number) => void;
 }
 
-export interface ImportParadasOpcoes {
+interface ImportParadasOpcoes {
   /**
    * Linhas do lote que nem chegaram à fase 2 (não localizadas ou removidas na
    * conferência). Entram na conta do toast, que não pode dizer só "sucesso".

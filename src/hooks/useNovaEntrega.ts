@@ -82,7 +82,7 @@ export interface MotoristaDaNovaEntrega {
 }
 
 /** Salvamento do rascunho no servidor. */
-export interface RascunhoDaNovaEntrega {
+interface RascunhoDaNovaEntrega {
   hidratando: boolean;
   salvando: boolean;
   salvoEm: string | null;

@@ -12,19 +12,22 @@ import { View, Text } from 'react-native';
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-export type EmptyStateVariant = 'locked' | 'empty';
+type EmptyStateVariant = 'locked' | 'empty';
 
 export interface EmptyStateProps {
   variant: EmptyStateVariant;
 }
 
-export const EmptyState = memo(function EmptyState({ variant }: EmptyStateProps) {
+export const EmptyState = memo(function EmptyState({
+  variant,
+}: EmptyStateProps) {
   const { theme } = useUnistyles();
 
   const config = {
     locked: {
       icon: 'lock-closed-outline' as const,
-      message: 'A ordem das paradas só pode ser alterada em rotas pendentes ou em andamento.',
+      message:
+        'A ordem das paradas só pode ser alterada em rotas pendentes ou em andamento.',
     },
     empty: {
       icon: 'list-outline' as const,

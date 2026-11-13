@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 
-export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
+type Breakpoint = 'mobile' | 'tablet' | 'desktop';
 
 export interface ResponsiveHook {
   /** Largura atual da janela */

@@ -48,8 +48,6 @@ export const motoristaSchema = z.object({
   ),
 });
 
-export type MotoristaInput = z.infer<typeof motoristaSchema>;
-
 /** Edição de motorista (lista e perfil): sem senha e sem e-mail. */
 export const motoristaEdicaoSchema = motoristaSchema.omit({
   senha: true,

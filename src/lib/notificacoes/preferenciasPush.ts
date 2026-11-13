@@ -39,7 +39,7 @@ const AVISO_PREFERENCIA_RECUSADA =
   'O servidor recusou a preferência. Ela ficou salva neste aparelho e será enviada de novo na próxima vez que você abrir esta tela.';
 
 /** Por que a escolha ficou só no aparelho. */
-export type MotivoNaoSincronizado = 'sem_rede' | 'recusado';
+type MotivoNaoSincronizado = 'sem_rede' | 'recusado';
 
 export type ResultadoDaGravacao =
   | { sincronizado: true }

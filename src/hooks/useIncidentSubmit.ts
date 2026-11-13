@@ -57,7 +57,7 @@ const ENDERECO_NAO_INFORMADO = 'Localização não informada';
 const UPLOAD_MAX_RETRIES = 3;
 const UPLOAD_RETRY_DELAY_MS = 1000;
 
-export interface IncidentSubmitData {
+interface IncidentSubmitData {
   category: string;
   description: string;
   photoUri?: string;

@@ -12,7 +12,6 @@ import { registrarPosicao } from '@/lib/motorista/filaPosicoes';
 import { maisRecente } from '@/lib/motorista/posicaoMaisRecente';
 import {
   PREFERENCIAS_PADRAO,
-  type ModoNavegar,
   type NavigationState,
   type PreferenciasDeNavegacao,
 } from '@/lib/motorista/preferenciasNavegacaoPadrao';
@@ -40,7 +39,7 @@ interface LocationUpdate {
 }
 
 /** Coordenadas e endereço da parada-alvo, como o chamador já os tem. */
-export interface DestinoDaParada {
+interface DestinoDaParada {
   latitude: number;
   longitude: number;
   endereco?: string;
@@ -57,7 +56,6 @@ function destinoValido(
 }
 
 export { PREFERENCIAS_PADRAO };
-export type { ModoNavegar, NavigationState, PreferenciasDeNavegacao };
 
 /**
  * Gravações de preferências em série: ler-modificar-gravar concorrente fazia a

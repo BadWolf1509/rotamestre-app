@@ -29,7 +29,7 @@ import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
  * as ações de fallback.
  */
 
-export type AcaoFallback = {
+type AcaoFallback = {
   label: string;
   accessibilityLabel: string;
   destino: Href;

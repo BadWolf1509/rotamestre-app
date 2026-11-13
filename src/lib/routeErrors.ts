@@ -6,7 +6,7 @@
 // TIPOS DE ERRO
 // ============================================================================
 
-export type RouteErrorCode =
+type RouteErrorCode =
   | 'ZERO_RESULTS'
   | 'NOT_FOUND'
   | 'MAX_WAYPOINTS_EXCEEDED'

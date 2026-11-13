@@ -69,7 +69,7 @@ export interface DistanciaManualReal {
   polyline?: string;
 }
 
-export interface SanidadeGeografica {
+interface SanidadeGeografica {
   maiorDistanciaKm: number;
   paradasDistantes: Parada[];
   requerConfirmacao: boolean;

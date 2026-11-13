@@ -2,7 +2,7 @@
 // Types para Sistema de Notificações
 // ============================================
 
-export type NotificationType =
+type NotificationType =
   // Notificações para GESTOR (sobre ações do motorista)
   | 'rota_iniciada' // Motorista iniciou uma rota
   | 'rota_concluida' // Motorista finalizou uma rota

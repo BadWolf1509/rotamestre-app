@@ -14,8 +14,8 @@ import type { PressableStateWithHover } from '@/types';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-export type ButtonSize = 'small' | 'medium' | 'large';
+type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type ButtonSize = 'small' | 'medium' | 'large';
 
 interface ButtonProps {
   title: string;
@@ -48,16 +48,20 @@ function ButtonComponent({
   const isDisabled = disabled || loading;
   const sizeTokens = theme.components.button.size[size];
   const iconSize = Math.round(sizeTokens.fontSize * 1.2);
-  const platformConfig = platformOverrides[Platform.OS as keyof typeof platformOverrides];
+  const platformConfig =
+    platformOverrides[Platform.OS as keyof typeof platformOverrides];
   const minTouchSize = platformConfig?.touchTarget?.minSize ?? 0;
   const minHeight = Math.max(sizeTokens.height, minTouchSize);
-  const rippleColor = Platform.OS === 'android'
-    ? platformOverrides.android.ripple?.color
-    : undefined;
+  const rippleColor =
+    Platform.OS === 'android'
+      ? platformOverrides.android.ripple?.color
+      : undefined;
 
   // Icon/spinner colors
   const isOutlineOrGhost = variant === 'outline' || variant === 'ghost';
-  const iconColor = isOutlineOrGhost ? theme.colors.primary : theme.colors.white;
+  const iconColor = isOutlineOrGhost
+    ? theme.colors.primary
+    : theme.colors.white;
 
   return (
     <Pressable
@@ -72,7 +76,9 @@ function ButtonComponent({
           isDisabled && styles.disabled,
           pressed && !isDisabled && styles.pressed,
           // Web hover state
-          hovered && !isDisabled && styles[`${variant}Hovered` as keyof typeof styles],
+          hovered &&
+            !isDisabled &&
+            styles[`${variant}Hovered` as keyof typeof styles],
           // Web focus ring for keyboard navigation
           focused && !pressed && !isDisabled && styles.focusRing,
           style,
@@ -97,7 +103,14 @@ function ButtonComponent({
               style={styles.iconLeft}
             />
           )}
-          <Text style={[styles.text, styles[`${variant}Text`], styles[`${size}Text`], textStyle]}>
+          <Text
+            style={[
+              styles.text,
+              styles[`${variant}Text`],
+              styles[`${size}Text`],
+              textStyle,
+            ]}
+          >
             {title}
           </Text>
           {icon && iconPosition === 'right' && (
@@ -124,11 +137,12 @@ const styles = StyleSheet.create((theme: Theme) => ({
     justifyContent: 'center',
     borderRadius: theme.components.button.radius,
     // Web-specific styles (as any needed due to Unistyles type limitations)
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      transitionProperty: 'background-color, transform, box-shadow',
-      transitionDuration: '150ms',
-    } as any),
+    ...(Platform.OS === 'web' &&
+      ({
+        cursor: 'pointer',
+        transitionProperty: 'background-color, transform, box-shadow',
+        transitionDuration: '150ms',
+      } as any)),
   },
 
   primary: {
@@ -216,9 +230,10 @@ const styles = StyleSheet.create((theme: Theme) => ({
   disabled: {
     opacity: 0.5,
     // Web-specific (as any needed due to Unistyles type limitations)
-    ...(Platform.OS === 'web' && {
-      cursor: 'not-allowed',
-    } as any),
+    ...(Platform.OS === 'web' &&
+      ({
+        cursor: 'not-allowed',
+      } as any)),
   },
   pressed: {
     opacity: 0.9,
@@ -226,10 +241,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   focusRing: {
     // Web-specific (as any needed due to Unistyles type limitations)
-    ...(Platform.OS === 'web' && {
-      boxShadow: boxShadow(0, 0, 0, 3, theme.colors.primary, 0.25),
-      outlineWidth: 0,
-    } as any),
+    ...(Platform.OS === 'web' &&
+      ({
+        boxShadow: boxShadow(0, 0, 0, 3, theme.colors.primary, 0.25),
+        outlineWidth: 0,
+      } as any)),
   },
   fullWidth: {
     width: '100%',

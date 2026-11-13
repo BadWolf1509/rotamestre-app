@@ -54,7 +54,7 @@ interface UseLoadActiveRouteOptions {
   motoristaId: string | undefined;
 }
 
-export interface OpcoesCargaDaRota {
+interface OpcoesCargaDaRota {
   /**
    * Carga pedida pelo motorista (puxar para atualizar, "Tentar novamente"):
    * a queda OBSERVADA não vale como atalho nem sem dado em memória — ele

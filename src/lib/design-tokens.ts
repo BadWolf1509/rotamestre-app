@@ -206,9 +206,6 @@ export const spacing = {
   '6xl': defaultTheme.spacing['6xl'],
 } as const;
 
-/** Chave válida da escala de espaçamento. */
-export type SpacingToken = keyof typeof spacing;
-
 // ============================================
 // 4. BORDER RADIUS
 // ============================================

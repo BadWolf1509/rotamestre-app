@@ -19,7 +19,7 @@ import {
   type Periodo,
 } from '@/lib/periodo';
 
-export interface PerformanceStats {
+interface PerformanceStats {
   totalRotas: number;
   rotasConcluidas: number;
   rotasCanceladas: number;

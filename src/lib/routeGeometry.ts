@@ -12,7 +12,7 @@ export interface Coordinate {
   longitude: number;
 }
 
-export type OffRouteStatus = 'on-route' | 'warning' | 'critical';
+type OffRouteStatus = 'on-route' | 'warning' | 'critical';
 
 interface PointToPolylineResult {
   distance: number;

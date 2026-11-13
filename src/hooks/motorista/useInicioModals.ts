@@ -13,7 +13,7 @@ import type { ParadaData } from '@/context/RouteStatusContext';
 
 // --- State ---
 
-export interface InicioModalsState {
+interface InicioModalsState {
   // Modal visibility
   showIncidentWizard: boolean;
   /**

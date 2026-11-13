@@ -52,7 +52,6 @@ import {
   FILTRO_STATUS_OPTIONS as FILTRO_OPTIONS,
   getRotaStatusLabel,
   type RotaStatus,
-  type FiltroStatus,
 } from '@/lib/statusLabels';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
@@ -67,7 +66,7 @@ import {
 import type { RotaHistorico } from './gestao-rotas';
 
 // Re-export types for backwards compatibility
-export type { RotaStatus, FiltroStatus, RotaHistorico };
+export type { RotaStatus, RotaHistorico };
 
 export const FILTRO_STATUS_OPTIONS = FILTRO_OPTIONS;
 

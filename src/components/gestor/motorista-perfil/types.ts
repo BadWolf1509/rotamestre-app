@@ -35,11 +35,3 @@ export interface RotaRecente {
   distancia_total: number | null;
   paradas_count?: number;
 }
-
-export interface KPIItem {
-  value: string | number;
-  label: string;
-  icon: string;
-  color: string;
-  trend?: 'up' | 'down' | 'neutral';
-}

@@ -72,10 +72,3 @@ export interface ResumoParadas {
   emAndamento: number;
   puladas: number;
 }
-
-export interface BaseInfo {
-  label: string;
-  value: string;
-  icon: string;
-  color: string;
-}

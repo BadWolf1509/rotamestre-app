@@ -18,7 +18,7 @@ import { logger } from '@/lib/logger';
 import { useCachedData } from './useCachedData';
 import { useUnidadeAtiva } from './useUnidadeAtiva';
 
-export interface Motorista {
+interface Motorista {
   id: string;
   nome: string;
   email?: string;

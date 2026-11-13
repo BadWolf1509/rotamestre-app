@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { Rota, Checkpoint } from '@/types/rota';
 
-export interface RotaComUnidade extends Rota {
+interface RotaComUnidade extends Rota {
   unidades: {
     nome: string;
   };
