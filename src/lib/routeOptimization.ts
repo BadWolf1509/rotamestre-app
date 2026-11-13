@@ -9,21 +9,16 @@
  * - optimizer.ts: Main optimization algorithm
  */
 
-export type {
-  ParadaParaOtimizar,
-  ResultadoOtimizacao,
-  ValidacaoRotaResult,
-} from './route-optimization/types';
+export type { ParadaParaOtimizar } from './route-optimization/types';
 export {
   MAX_ROUTE_STOPS,
   WAYPOINTS_RECOMENDADO,
 } from './route-optimization/types';
 
-// Cache (estatisticasCache e precarregarCache só servem de sonda aos testes)
+// Cache (estatisticasCache só serve de sonda aos testes)
 export {
   limparCacheOtimizacao,
   estatisticasCache,
-  precarregarCache,
 } from './route-optimization/cache';
 
 // Validation

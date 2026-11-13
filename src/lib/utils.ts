@@ -19,10 +19,8 @@ export {
   CRITICAL_INCIDENT_CATEGORIES,
   // Types
   type TimelineLogEvent,
-  type TimelinePreviewEventType,
   type TimelinePreviewEvent,
   type TimelineSemanticColor,
-  type TimelineEventType,
   type TimelineEventMapped,
   // Functions
   isTimelineLogEvent,

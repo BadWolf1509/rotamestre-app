@@ -9,5 +9,4 @@ export {
   DataTable,
   type DataTableColumn,
   type DataTableAction,
-  type DataTableProps,
 } from './data-table';

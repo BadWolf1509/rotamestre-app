@@ -1,75 +1,13 @@
 /**
- * Central export for all domain types
+ * Tipos utilitários e o estilo web compartilhado.
  *
- * Usage:
- * import { Rota, Parada, Usuario, Coordenadas } from '@/types';
+ * Os tipos de domínio vêm direto do arquivo de cada um
+ * (`@/types/rota`, `@/types/usuario`, `@/types/parada-map`, …): a reexportação
+ * central saiu na faxina de 13/11/2026 porque ninguém importava por ela.
  */
-
-// Endereco types
-export type { Coordenadas, Endereco, EnderecoGeocodificado } from './endereco';
-
-// Usuario types
-export type {
-  TipoUsuario,
-  UnidadeDB,
-  UnidadeComSede,
-  UsuarioUnidade,
-  Usuario,
-  AuthState,
-} from './usuario';
-
-// Rota types
-export type {
-  TipoCheckpoint,
-  StatusRota,
-  StatusCheckpoint,
-  Checkpoint,
-  Rota,
-  RotaOtimizada,
-  ResumoRota,
-} from './rota';
-
-// Notification types
-export type {
-  NotificationType,
-  Notificacao,
-  MotoristaLocation,
-  NotificacaoComDetalhes,
-} from './notifications';
-
-// Unidade types
-export type { Unidade } from './unidade';
-
-// Map parada types (shared across map components)
-export type { ParadaMapItem, ParadaWithCoords, StatusFilter } from './parada-map';
 
 // Web-specific style types (for React Native Web)
-export type {
-  WebViewStyle,
-  WebTextStyle,
-  WebCompatibleViewStyle,
-  WebCompatibleTextStyle,
-  PressableStateWithHover,
-} from './web-styles';
-
-// ============================================================================
-// Type Aliases (for convenience and backwards compatibility)
-// ============================================================================
-
-/**
- * Alias for Checkpoint - commonly called "Parada" in the UI
- */
-export type { Checkpoint as Parada } from './rota';
-
-/**
- * Alias for StatusCheckpoint
- */
-export type { StatusCheckpoint as ParadaStatus } from './rota';
-
-/**
- * Alias for StatusRota
- */
-export type { StatusRota as RotaStatus } from './rota';
+export type { PressableStateWithHover } from './web-styles';
 
 // ============================================================================
 // Utility Types

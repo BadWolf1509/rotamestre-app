@@ -28,9 +28,6 @@ import { GoogleDirectionsResult } from '../types/google-directions';
 // Re-export polyline utilities for backwards compatibility
 export { decodePolyline, encodePolyline, mergePolylines } from '@/lib/polyline';
 
-// PlaceSuggestion is now exported from google-shared.ts
-export type { PlaceSuggestion } from './google-shared';
-
 /**
  * Converte o resultado do OSRM para o formato Google. É o único lugar que faz
  * essa conversão: uma cópia por método deixou a variante web derrubar
