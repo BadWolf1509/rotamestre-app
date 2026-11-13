@@ -8,7 +8,7 @@
 
 **Tech Stack:** React Native + Expo, TypeScript, Supabase JS client, Jest + `@testing-library/react-native`, existing `useCachedData` SWR hook, `@/lib/cache`.
 
-**Spec:** `docs/superpowers/specs/2026-06-23-route-timeline-usetimelinedata-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-06-23-route-timeline-usetimelinedata-design.md`
 
 ## Global Constraints
 

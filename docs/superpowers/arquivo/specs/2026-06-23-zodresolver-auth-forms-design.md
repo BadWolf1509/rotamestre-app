@@ -72,9 +72,7 @@ const {
   formState: { errors },
 } = useForm<Input>({
   resolver: zodResolver(schema),
-  defaultValues: {
-    /* '' por campo */
-  },
+  defaultValues: {/* '' por campo */},
   mode: 'onSubmit',
   reValidateMode: 'onChange', // erro limpa conforme o usuário corrige
 });

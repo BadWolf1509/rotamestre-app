@@ -4,7 +4,7 @@ This file is the canonical design reference for the app. Live source of truth is
 
 ## Brand colors
 
-The brand palette + contrast/shadow rules live in **[`brand-guidelines.md`](../../brand-guidelines.md)** (single source of truth). In short:
+The brand palette + contrast/shadow rules live in **[`brand-guidelines.md`](../../docs/brand-guidelines.md)** (single source of truth). In short:
 
 - **Primary** — Blue `#284093` — navigation areas, primary buttons, dark highlights.
 - **Accent** — Blue `#34699f` — hover, gradients, secondary on blue.

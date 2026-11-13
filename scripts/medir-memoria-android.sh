@@ -8,7 +8,7 @@
 # mudar no meio da série (processo reiniciou: a série não vale) e com 1 se o
 # app não estiver rodando.
 #
-# Roteiro de comparação e leitura: docs/superpowers/plans/2026-10-20-upgrade-expo-sdk-57.md
+# Roteiro de comparação e leitura: docs/superpowers/arquivo/plans/2026-10-20-upgrade-expo-sdk-57.md
 # (Tasks 1 e 5). ADB pode ser apontado por $ADB; padrão é o adb do PATH.
 
 set -euo pipefail

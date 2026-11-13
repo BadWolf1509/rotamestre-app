@@ -8,7 +8,7 @@
 
 **Tech Stack:** PostgreSQL 17.6 / Supabase (RLS, grants por coluna, RPC plpgsql), React Native + Expo Router, Jest.
 
-**Spec:** `docs/superpowers/specs/2026-09-06-rls-endurecimento-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-09-06-rls-endurecimento-design.md`
 
 ## Global Constraints
 

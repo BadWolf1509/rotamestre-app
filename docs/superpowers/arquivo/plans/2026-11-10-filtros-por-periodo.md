@@ -20,7 +20,7 @@ Histórico do motorista.
 **Tech Stack:** React Native 0.88 + Expo SDK 58 + TypeScript, Expo Router,
 Supabase (PostgREST + RPCs SQL), Jest + Testing Library e Unistyles.
 
-**Spec:** `docs/superpowers/specs/2026-11-10-filtros-por-periodo-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-11-10-filtros-por-periodo-design.md`
 
 ## Global Constraints
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Postgres/Supabase (RPC + RLS), React Native + Expo Router, Jest + @testing-library/react-native.
 
-**Spec:** `docs/superpowers/specs/2026-08-07-atualizar-unidade-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-08-07-atualizar-unidade-design.md`
 
 ## Global Constraints
 

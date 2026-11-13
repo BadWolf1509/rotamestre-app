@@ -95,20 +95,20 @@ leitura; não substitua esse fluxo por URL pública.
 
 ## Documentação
 
-| Tema                            | Documento                                                        |
-| ------------------------------- | ---------------------------------------------------------------- |
-| Handoff, estado atual e backlog | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)               |
-| Arquitetura e padrões técnicos  | [CLAUDE.md](CLAUDE.md)                                           |
-| Testes                          | [docs/TESTING.md](docs/TESTING.md)                               |
-| Migrations                      | [database/MIGRATIONS.md](database/MIGRATIONS.md)                 |
-| Publicação no Google Play       | [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md) |
-| Publicação na App Store         | [docs/APP_STORE_DEPLOYMENT.md](docs/APP_STORE_DEPLOYMENT.md)     |
-| Conteúdo da ficha do Play       | [docs/play-store-metadata.md](docs/play-store-metadata.md)       |
-| Histórico do rebuild Android    | [docs/REBUILD_RELAUNCH_PLAN.md](docs/REBUILD_RELAUNCH_PLAN.md)   |
-| Firebase e push                 | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)         |
-| Recuperação de senha            | [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md)           |
-| Marca                           | [brand-guidelines.md](brand-guidelines.md)                       |
-| Contribuição e CI               | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)               |
+| Tema                            | Documento                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Handoff, estado atual e backlog | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)                                                     |
+| Arquitetura e padrões técnicos  | [CLAUDE.md](CLAUDE.md)                                                                                 |
+| Testes                          | [docs/TESTING.md](docs/TESTING.md)                                                                     |
+| Migrations                      | [database/MIGRATIONS.md](database/MIGRATIONS.md)                                                       |
+| Publicação no Google Play       | [docs/GOOGLE_PLAY_DEPLOYMENT.md](docs/GOOGLE_PLAY_DEPLOYMENT.md)                                       |
+| Publicação na App Store         | [docs/APP_STORE_DEPLOYMENT.md](docs/APP_STORE_DEPLOYMENT.md)                                           |
+| Conteúdo da ficha do Play       | [docs/play-store-metadata.md](docs/play-store-metadata.md)                                             |
+| Histórico do rebuild Android    | [docs/superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md](docs/superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md) |
+| Firebase e push                 | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)                                               |
+| Recuperação de senha            | [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md)                                                 |
+| Marca                           | [docs/brand-guidelines.md](docs/brand-guidelines.md)                                                   |
+| Contribuição e CI               | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)                                                     |
 
 ## Licença
 

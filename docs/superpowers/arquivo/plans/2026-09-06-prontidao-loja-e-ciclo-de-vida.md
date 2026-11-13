@@ -8,7 +8,7 @@
 
 **Tech Stack:** React Native + Expo (`expo-location` ~56.0.24, `expo-image-picker` ~56.0.24), TypeScript, Jest + `@testing-library/react-native`.
 
-**Spec:** [`docs/superpowers/specs/2026-09-06-prontidao-loja-e-ciclo-de-vida-design.md`](../specs/2026-09-06-prontidao-loja-e-ciclo-de-vida-design.md)
+**Spec:** [`docs/superpowers/arquivo/specs/2026-09-06-prontidao-loja-e-ciclo-de-vida-design.md`](../specs/2026-09-06-prontidao-loja-e-ciclo-de-vida-design.md)
 
 ## Global Constraints
 

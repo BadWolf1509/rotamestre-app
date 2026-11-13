@@ -4,28 +4,28 @@ Estas diretrizes consolidam os padrões de cores, tipografia e contraste que dev
 
 ## Paleta oficial
 
-| Uso | Hex | Contexto |
-| --- | --- | --- |
-| Azul primário | `#284093` | Fundo principal de áreas navegacionais, botões primários, barras e destaques escuros |
-| Azul realce | `#34699f` | Estados hover, gradientes, elementos secundários sobre fundo azul |
-| Laranja primário | `#f7a02a` | CTA secundários, badges, ícones de atenção |
-| Laranja claro | `#ffbf14` | Gradientes, destaque suave em cartões |
-| Laranja acento | `#fbad02` | Microelementos (indicadores, ícones) |
+| Uso              | Hex       | Contexto                                                                             |
+| ---------------- | --------- | ------------------------------------------------------------------------------------ |
+| Azul primário    | `#284093` | Fundo principal de áreas navegacionais, botões primários, barras e destaques escuros |
+| Azul realce      | `#34699f` | Estados hover, gradientes, elementos secundários sobre fundo azul                    |
+| Laranja primário | `#f7a02a` | CTA secundários, badges, ícones de atenção                                           |
+| Laranja claro    | `#ffbf14` | Gradientes, destaque suave em cartões                                                |
+| Laranja acento   | `#fbad02` | Microelementos (indicadores, ícones)                                                 |
 
 ### Regras gerais
 
-- **Sempre** usar texto branco (`#FFFFFF`) sobre fundos azuis nos botões/cards.  
+- **Sempre** usar texto branco (`#FFFFFF`) sobre fundos azuis nos botões/cards.
 - Em fundos laranja aplicar textos brancos, adicionando sombra leve (`rgba(0,0,0,0.25)`) ou peso extra para garantir contraste.
 - Quando o texto for laranja sobre fundo azul, utilize peso SemiBold/Bold e sombra branca suave para preservar a leitura.
 - Evite misturar azuis e laranjas fora da paleta; gradientes devem respeitar as combinações acima.
 
 ## Tipografia
 
-| Fonte | Uso |
-| --- | --- |
-| **Viga** | Títulos principais (H1/H2), logomarca e seções hero. |
+| Fonte           | Uso                                                                                |
+| --------------- | ---------------------------------------------------------------------------------- |
+| **Viga**        | Títulos principais (H1/H2), logomarca e seções hero.                               |
 | **Nunito Sans** | Corpo do texto, botões, inputs. Variantes: Light, Regular, Medium, SemiBold, Bold. |
-| **Caroni** | Acentos ilustrativos (material promocional). Usar com parcimônia. |
+| **Caroni**      | Acentos ilustrativos (material promocional). Usar com parcimônia.                  |
 
 ### Boas práticas
 
@@ -35,12 +35,12 @@ Estas diretrizes consolidam os padrões de cores, tipografia e contraste que dev
 
 ## Contraste e sombras
 
-1. **Texto branco em azul**  
-   - Certifique-se de que o fundo esteja dentro da faixa `#284093 - #34699f`.  
+1. **Texto branco em azul**
+   - Certifique-se de que o fundo esteja dentro da faixa `#284093 - #34699f`.
    - Adicione sombra `rgba(0, 0, 0, 0.15)` quando houver imagem ou gradiente ao fundo.
-2. **Texto branco em laranja**  
+2. **Texto branco em laranja**
    - Necessário acrescentar sombra `rgba(0, 0, 0, 0.3)` ou duplicar a camada com leve deslocamento (efeito outline).
-3. **Texto laranja em azul**  
+3. **Texto laranja em azul**
    - Utilize o laranja `#fbad02` ou `#ffbf14` em bold, com sombra branca `rgba(255,255,255,0.5)`.
 
 ## Componentes de referência
@@ -52,10 +52,10 @@ Estas diretrizes consolidam os padrões de cores, tipografia e contraste que dev
 
 ## Checklist de revisão
 
-1. Todas as cores devem vir de `theme.colors` (ver `src/utils/styles.ts`).  
-2. Botões e links não podem usar hex fixo fora da paleta.  
-3. Verificar que os componentes usam `Nunito Sans`/`Viga` conforme hierarquia.  
-4. Aplicar sombra ou peso quando houver texto claro sobre fundos saturados.  
+1. Todas as cores devem vir de `theme.colors` (ver `src/utils/styles.ts`).
+2. Botões e links não podem usar hex fixo fora da paleta.
+3. Verificar que os componentes usam `Nunito Sans`/`Viga` conforme hierarquia.
+4. Aplicar sombra ou peso quando houver texto claro sobre fundos saturados.
 5. Assets como logos devem respeitar margens mínimas e não distorcer proporção.
 
 > Qualquer novo componente deve citar esta diretriz no PR ou documentação, garantindo consistência visual em todas as plataformas (web, iOS, Android).

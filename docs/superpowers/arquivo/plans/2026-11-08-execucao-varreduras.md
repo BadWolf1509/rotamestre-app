@@ -13,8 +13,8 @@ mesclados e da migration aplicada; o 7 por último.
 **Stack:** React Native + Expo SDK 58 + TypeScript, Jest + RTL, Supabase (Postgres/RLS, Edge
 Functions Deno), GitHub Actions.
 
-**Spec:** `docs/superpowers/specs/2026-11-08-execucao-varreduras-design.md`. Os ids (G8-, M8-,
-U8-, L8-, B8-) estão em `docs/superpowers/2026-11-08-varredura-refatoracoes.md`; B-7/B-11/T-2 em
+**Spec:** `docs/superpowers/arquivo/specs/2026-11-08-execucao-varreduras-design.md`. Os ids (G8-, M8-,
+U8-, L8-, B8-) estão em `docs/superpowers/arquivo/2026-11-08-varredura-refatoracoes.md`; B-7/B-11/T-2 em
 `docs/superpowers/2026-11-07-varredura-refatoracoes.md`; 26/30 em `docs/PROJECT_CONTEXT.md`.
 O executor lê o item na fonte antes de implementar.
 
