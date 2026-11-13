@@ -1,4 +1,6 @@
 @echo off
+REM Roda a partir da raiz do projeto, de onde quer que seja chamado.
+cd /d "%~dp0.."
 echo ================================================
 echo    RotaMestre - Inicio Rapido Android
 echo ================================================
@@ -20,7 +22,7 @@ echo.
 REM Verificar ANDROID_HOME
 if "%ANDROID_HOME%"=="" (
     echo [AVISO] ANDROID_HOME nao configurado
-    echo Execute primeiro: setup-android-env.bat
+    echo Execute primeiro: scripts\setup-android-env.bat
     echo.
     set /p continue="Continuar mesmo assim? (S/N): "
     if /i not "%continue%"=="S" exit /b 0
@@ -111,7 +113,7 @@ if "%choice%"=="1" (
     )
     echo.
     pause
-    call start-android.bat
+    call "%~dp0start-android.bat"
 ) else if "%choice%"=="6" (
     echo.
     echo Ate logo!
@@ -121,5 +123,5 @@ if "%choice%"=="1" (
     echo.
     echo Opcao invalida!
     timeout /t 2
-    call start-android.bat
+    call "%~dp0start-android.bat"
 )

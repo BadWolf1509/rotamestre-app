@@ -107,7 +107,7 @@ leitura; não substitua esse fluxo por URL pública.
 | Histórico do rebuild Android    | [docs/superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md](docs/superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md) |
 | Firebase e push                 | [docs/FIREBASE_MIGRATION.md](docs/FIREBASE_MIGRATION.md)                                               |
 | Recuperação de senha            | [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md)                                                 |
-| Marca                           | [brand-guidelines.md](brand-guidelines.md)                                                             |
+| Marca                           | [docs/brand-guidelines.md](docs/brand-guidelines.md)                                                   |
 | Contribuição e CI               | [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)                                                     |
 
 ## Licença
