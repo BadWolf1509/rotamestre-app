@@ -8,6 +8,7 @@ import {
   FlatList,
   Platform,
   Keyboard,
+  type Role,
   type TextInputInstance,
 } from 'react-native';
 
@@ -22,6 +23,13 @@ import { gerarUuid } from '@/lib/uuid';
 import type { Coordenadas } from '@/types/endereco';
 import { boxShadow } from '@/utils/color';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
+
+/**
+ * O RN Web renderiza `role="listbox"` (o papel certo da lista do combobox),
+ * mas o tipo `Role` do React Native não o lista. A asserção passa por `string`
+ * porque `'listbox'` e `Role` não se sobrepõem.
+ */
+const ROLE_LISTBOX_WEB = 'listbox' as string as Role;
 
 interface AddressAutocompleteProps {
   value: string;
@@ -503,10 +511,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           accessibilityHint="Toque para selecionar este endereço"
           accessibilityRole={Platform.OS !== 'web' ? 'button' : undefined}
           {...(Platform.OS === 'web'
-            ? ({
-                role: 'option' as any,
-                'aria-selected': isSelected,
-              } as any)
+            ? { role: 'option' as const, 'aria-selected': isSelected }
             : {})}
         >
           <View
@@ -594,7 +599,7 @@ const AddressAutocompleteComponent = function AddressAutocomplete({
           accessibilityRole="list"
           accessibilityLabel={`Sugestões de endereço, ${suggestions.length} resultado${suggestions.length > 1 ? 's' : ''}`}
           accessibilityLiveRegion="polite"
-          {...(Platform.OS === 'web' ? { role: 'listbox' as any } : {})}
+          {...(Platform.OS === 'web' ? { role: ROLE_LISTBOX_WEB } : {})}
         >
           <FlatList
             data={suggestions}

@@ -31,7 +31,7 @@ export function podeAlterarParada(
 export const MENSAGEM_PARADA_JA_FINALIZADA =
   'Esta parada já foi finalizada pelo motorista e não pode mais ser alterada. A tela foi atualizada.';
 
-export const MENSAGEM_PARADA_JA_INICIADA =
+const MENSAGEM_PARADA_JA_INICIADA =
   'O motorista já iniciou esta parada e ela não pode mais ser alterada. A tela foi atualizada.';
 
 /** Aviso certo para o estado vivo de uma parada que deixou de ser alterável. */

@@ -637,6 +637,3 @@ export const photonService = {
     }
   },
 };
-
-// Export tipos úteis
-export type { PhotonFeature, PhotonResponse };

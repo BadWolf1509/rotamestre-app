@@ -97,7 +97,7 @@ export function googleEsgotadoAte(): number | null {
   return esgotadoAteEpochMs;
 }
 
-/** Zera a memória do esgotamento (uso em teste). */
+/** Zera a memória do esgotamento (uso em teste, por `require`). @public */
 export function reiniciarEsgotamentoDoGoogle(): void {
   esgotadoAteEpochMs = null;
 }

@@ -295,11 +295,3 @@ export const confirmationResendRateLimiter = createRateLimiter({
   storagePrefix: '@rotamestre/confirm_resend_limit_',
   resetOnSuccess: false,
 });
-
-export default {
-  createRateLimiter,
-  loginRateLimiter,
-  passwordResetRateLimiter,
-  signupRateLimiter,
-  confirmationResendRateLimiter,
-};

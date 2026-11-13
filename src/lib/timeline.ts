@@ -36,7 +36,7 @@ export const TIMELINE_LOG_EVENTS = [
   'sos_acionado',
 ] as const;
 
-export type TimelineLogEvent = (typeof TIMELINE_LOG_EVENTS)[number];
+type TimelineLogEvent = (typeof TIMELINE_LOG_EVENTS)[number];
 
 /**
  * Eventos da lista acima, para consulta O(1). Evento daqui nunca cai nos ramos
@@ -71,7 +71,7 @@ export const CRITICAL_INCIDENT_CATEGORIES = ['accident', 'vehicle'];
 /**
  * Preview event type for collapsible timeline
  */
-export type TimelinePreviewEventType =
+type TimelinePreviewEventType =
   'inicio' | 'conclusao' | 'parada' | 'incidente' | 'outro';
 
 /**
@@ -93,7 +93,7 @@ export type TimelineSemanticColor =
 /**
  * Full event type for RouteTimeline
  */
-export type TimelineEventType =
+type TimelineEventType =
   'status_change' | 'parada_update' | 'incidente' | 'gps_update';
 
 /**

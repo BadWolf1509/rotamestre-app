@@ -8,9 +8,3 @@ export { Dialog } from './Dialog';
 
 // Types
 export type { DialogProps, DialogVariant, DialogType } from './Dialog.types';
-
-// Sub-components (for advanced use cases)
-export { DialogIcon, getIconName } from './DialogIcon';
-export { DialogButtons } from './DialogButtons';
-export { DialogDestructiveInput } from './DialogDestructiveInput';
-export { DialogWeb } from './DialogWeb';

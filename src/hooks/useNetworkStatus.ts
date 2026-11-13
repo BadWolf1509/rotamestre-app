@@ -6,8 +6,7 @@ import { useEffect, useState, useCallback } from 'react';
 
 import { logger } from '@/lib/logger';
 
-export type ConnectionType =
-  'wifi' | 'cellular' | 'ethernet' | 'none' | 'unknown';
+type ConnectionType = 'wifi' | 'cellular' | 'ethernet' | 'none' | 'unknown';
 
 export interface NetworkStatus {
   isConnected: boolean;

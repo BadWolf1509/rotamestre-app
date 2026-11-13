@@ -31,14 +31,14 @@ import { supabase } from '@/lib/supabase';
  * definitiva (rede, sessão, 5xx), tenta de novo na próxima carga confirmada;
  * 'recusada' = o servidor recusou de verdade, não insiste nesta sessão.
  */
-export type ResultadoConclusaoPartida = 'gravou' | 'rede' | 'recusada';
+type ResultadoConclusaoPartida = 'gravou' | 'rede' | 'recusada';
 
-export type ConcluirPartida = (
+type ConcluirPartida = (
   paradaId: string,
   concluidaEm: string,
 ) => Promise<ResultadoConclusaoPartida>;
 
-export const concluirPartidaSupabase: ConcluirPartida = async (
+const concluirPartidaSupabase: ConcluirPartida = async (
   paradaId,
   concluidaEm,
 ) => {

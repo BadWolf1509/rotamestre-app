@@ -4,14 +4,14 @@
  * In-memory cache with TTL and rate limiting for OSRM demo server.
  */
 
-import type { Coordinate } from "./types";
+import type { Coordinate } from './types';
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-export const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-export const MIN_REQUEST_INTERVAL = 100; // 100ms — self-hosted server supports 10 req/s
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const MIN_REQUEST_INTERVAL = 100; // 100ms — self-hosted server supports 10 req/s
 
 // ============================================================================
 // STATE
@@ -27,7 +27,7 @@ let lastRequestTime = 0;
 export function getCacheKey(type: string, coords: Coordinate[]): string {
   const coordStr = coords
     .map((c) => `${c.latitude.toFixed(4)},${c.longitude.toFixed(4)}`)
-    .join("|");
+    .join('|');
   return `${type}:${coordStr}`;
 }
 

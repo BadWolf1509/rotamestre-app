@@ -32,7 +32,7 @@ export function formatDuration(seconds: number): string {
 // MANEUVER TRANSLATION
 // ============================================================================
 
-export const MANEUVER_TRANSLATIONS: Record<string, Record<string, string>> = {
+const MANEUVER_TRANSLATIONS: Record<string, Record<string, string>> = {
   turn: {
     left: 'Vire à esquerda',
     right: 'Vire à direita',

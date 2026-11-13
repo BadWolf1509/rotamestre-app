@@ -18,7 +18,7 @@ import { emailSchema, passwordSchema } from './basic';
  * dele seria recusada mesmo trocando só o telefone. Aceita letras Unicode,
  * dígitos, espaço e ( ) ' . - ; o trim vem antes da medida.
  */
-export const nomeMotoristaSchema = z
+const nomeMotoristaSchema = z
   .string()
   .trim()
   .min(3, 'Nome deve ter no mínimo 3 caracteres')
@@ -47,8 +47,6 @@ export const motoristaSchema = z.object({
     'A senha não pode começar nem terminar com espaço',
   ),
 });
-
-export type MotoristaInput = z.infer<typeof motoristaSchema>;
 
 /** Edição de motorista (lista e perfil): sem senha e sem e-mail. */
 export const motoristaEdicaoSchema = motoristaSchema.omit({

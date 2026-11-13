@@ -18,7 +18,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import React, {
   useMemo,
   useState,
@@ -37,7 +37,7 @@ import {
   TextInput,
   type ScrollViewInstance,
 } from 'react-native';
-import { UnistylesRuntime } from 'react-native-unistyles';
+import { UnistylesRuntime, type UnistylesThemes } from 'react-native-unistyles';
 
 import {
   Avatar,
@@ -81,6 +81,7 @@ import {
 } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { logger } from '@/lib/logger';
+import { vitrineLiberada } from '@/lib/vitrineDesignSystem';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -168,6 +169,18 @@ const WCAG_REQUIREMENTS = {
 // ============================================
 // UTILITÁRIOS
 // ============================================
+
+/** Nome de tema registrado no Unistyles (`src/unistyles.ts`). */
+type NomeDoTema = keyof UnistylesThemes;
+
+/** Monta o nome do tema a partir das três escolhas da vitrine. */
+function nomeDoTema(
+  base: 'light' | 'dark',
+  compacto: boolean,
+  altoContraste: boolean,
+): NomeDoTema {
+  return `${base}${compacto ? 'Compact' : ''}${altoContraste ? 'HighContrast' : ''}` as const;
+}
 
 function getLuminance(hex: string): number {
   const rgb = hex
@@ -1004,7 +1017,19 @@ function Playground({
 // COMPONENTE PRINCIPAL
 // ============================================
 
+/**
+ * Só abre em dev e no CI (`EXPO_PUBLIC_VITRINE_DS=1` no build do e2e); na
+ * Vercel redireciona. O `process.env` tem de ficar literal aqui para o Metro
+ * injetar o valor — ver `src/lib/vitrineDesignSystem.ts`.
+ */
 export default function DesignSystemScreen() {
+  if (!vitrineLiberada(__DEV__, process.env.EXPO_PUBLIC_VITRINE_DS)) {
+    return <Redirect href="/" />;
+  }
+  return <VitrineDesignSystem />;
+}
+
+function VitrineDesignSystem() {
   const { theme } = useUnistyles();
   const { isDesktop, isMobile } = useResponsive();
   const scrollRef = useRef<ScrollViewInstance>(null);
@@ -1172,33 +1197,27 @@ export default function DesignSystemScreen() {
   const toggleTheme = useCallback(() => {
     // Desativar adaptiveThemes para permitir setTheme manual
     UnistylesRuntime.setAdaptiveThemes(false);
-    const base = isDark ? 'light' : 'dark';
-    const compact = isCompact ? 'Compact' : '';
-    const hc = isHighContrast ? 'HighContrast' : '';
-    const newTheme = `${base}${compact}${hc}` as any;
-    UnistylesRuntime.setTheme(newTheme);
+    UnistylesRuntime.setTheme(
+      nomeDoTema(isDark ? 'light' : 'dark', isCompact, isHighContrast),
+    );
   }, [isDark, isCompact, isHighContrast]);
 
   // Toggle de densidade (compacto/regular)
   const toggleDensity = useCallback(() => {
     // Desativar adaptiveThemes para permitir setTheme manual
     UnistylesRuntime.setAdaptiveThemes(false);
-    const base = isDark ? 'dark' : 'light';
-    const compact = isCompact ? '' : 'Compact';
-    const hc = isHighContrast ? 'HighContrast' : '';
-    const newTheme = `${base}${compact}${hc}` as any;
-    UnistylesRuntime.setTheme(newTheme);
+    UnistylesRuntime.setTheme(
+      nomeDoTema(isDark ? 'dark' : 'light', !isCompact, isHighContrast),
+    );
   }, [isDark, isCompact, isHighContrast]);
 
   // Toggle de alto contraste
   const toggleHighContrast = useCallback(() => {
     // Desativar adaptiveThemes para permitir setTheme manual
     UnistylesRuntime.setAdaptiveThemes(false);
-    const base = isDark ? 'dark' : 'light';
-    const compact = isCompact ? 'Compact' : '';
-    const hc = isHighContrast ? '' : 'HighContrast';
-    const newTheme = `${base}${compact}${hc}` as any;
-    UnistylesRuntime.setTheme(newTheme);
+    UnistylesRuntime.setTheme(
+      nomeDoTema(isDark ? 'dark' : 'light', isCompact, !isHighContrast),
+    );
   }, [isDark, isCompact, isHighContrast]);
 
   const showToast = useCallback((type: typeof toastType) => {

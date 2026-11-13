@@ -54,8 +54,6 @@ import {
   type IncidentReport,
 } from './incident-wizard';
 
-export type { IncidentReport };
-
 interface IncidentReportWizardProps {
   visible: boolean;
   onClose: () => void;

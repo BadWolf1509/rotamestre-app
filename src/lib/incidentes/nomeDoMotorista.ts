@@ -6,7 +6,7 @@
 // "Desconhecido", que é a pessoa existir mas a linha de `usuarios` não vir (a
 // RLS escondeu).
 
-export const MOTORISTA_REMOVIDO = 'Motorista removido';
+const MOTORISTA_REMOVIDO = 'Motorista removido';
 
 export function nomeDoMotorista(
   motoristaId: string | null,

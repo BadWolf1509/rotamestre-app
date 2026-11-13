@@ -14,14 +14,7 @@
  */
 
 // Types
-export type {
-  Coordinate,
-  RouteStep,
-  RouteResult,
-  DistanceResult,
-  DirectionsResultLeg,
-  DirectionsResult,
-} from "./types";
+export type { Coordinate, DirectionsResult } from './types';
 
 // API
 export {
@@ -30,21 +23,13 @@ export {
   optimizeWaypoints,
   decodePolyline,
   getOptimizedDirections,
-} from "./api";
+} from './api';
 
 // Formatting
-export { formatDistance, formatDuration } from "./formatting";
+export { formatDistance, formatDuration } from './formatting';
 
 // Fallback
-export { calculateHaversineDistance, estimateRouteDistance } from "./fallback";
-
-// TSP Solver
-export { solveTSP } from "./tsp";
-export type { TSPResult } from "./tsp";
-
-// Table API
-export { getDistanceMatrix } from "./table";
-export type { DistanceMatrix } from "./table";
+export { calculateHaversineDistance, estimateRouteDistance } from './fallback';
 
 // Cache
-export { clearCache, getCacheStats } from "./cache";
+export { clearCache, getCacheStats } from './cache';

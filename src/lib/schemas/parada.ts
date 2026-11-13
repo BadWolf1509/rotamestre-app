@@ -27,8 +27,6 @@ export const paradaSchema = z.object({
   longitude: z.number().optional(),
 });
 
-export type ParadaInput = z.infer<typeof paradaSchema>;
-
 /**
  * Formulário dos modais de adicionar e editar parada de uma rota existente.
  *

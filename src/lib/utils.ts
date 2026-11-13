@@ -14,15 +14,11 @@ export { groupBy, escapeHtml } from './common';
 // Timeline utilities
 export {
   // Constants
-  TIMELINE_LOG_EVENTS,
   INCIDENTE_LABELS,
   CRITICAL_INCIDENT_CATEGORIES,
   // Types
-  type TimelineLogEvent,
-  type TimelinePreviewEventType,
   type TimelinePreviewEvent,
   type TimelineSemanticColor,
-  type TimelineEventType,
   type TimelineEventMapped,
   // Functions
   isTimelineLogEvent,

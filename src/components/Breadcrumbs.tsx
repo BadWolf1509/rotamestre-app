@@ -28,7 +28,7 @@ import {
 
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
-export interface BreadcrumbItem {
+interface BreadcrumbItem {
   /** Display text */
   label: string;
   /** Navigation callback. Omit for the current (active) item. */

@@ -1,5 +1,3 @@
-import type { Session } from '@supabase/supabase-js';
-
 export type TipoUsuario = 'gestor' | 'motorista';
 
 /**
@@ -75,10 +73,4 @@ export interface Usuario {
   // NOVO: Todas as vinculações do usuário com unidades
   // Retornado quando faz join com select('*, usuario_unidades(*)')
   usuario_unidades?: UsuarioUnidade[];
-}
-
-export interface AuthState {
-  usuario: Usuario | null;
-  session: Session | null;
-  loading: boolean;
 }

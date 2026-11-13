@@ -245,7 +245,7 @@ export async function requestLocationPermissions(): Promise<LocationPermissions>
   return { foreground: foregroundGranted, background: backgroundGranted };
 }
 
-export function showBackgroundLocationDisclosure(): Promise<boolean> {
+function showBackgroundLocationDisclosure(): Promise<boolean> {
   return new Promise((resolve) => {
     let resolved = false;
     const finish = (value: boolean) => {

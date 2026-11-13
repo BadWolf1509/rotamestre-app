@@ -13,7 +13,7 @@ import type { IconName } from '@/types/icons';
 import { formatarDuracao } from './formatarDuracao';
 
 /** O que a ação principal faz; quem chama decide como (rota, diálogo…). */
-export type DestinoDaAcaoPrincipal =
+type DestinoDaAcaoPrincipal =
   | 'iniciar-rota'
   | 'navegar'
   | 'finalizar-rota'

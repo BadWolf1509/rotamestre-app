@@ -48,15 +48,7 @@ import type {
 } from './incidentes-gestor';
 
 // Re-export types for backwards compatibility
-export type {
-  Incidente,
-  FiltroStatus,
-  FiltroCategoria,
-  CategoriaLabel,
-  StatusLabel,
-  EstatisticaMotorista,
-  ResumoGeral,
-};
+export type { Incidente, FiltroStatus, FiltroCategoria };
 
 export interface UseIncidentesGestorOptions {
   /**

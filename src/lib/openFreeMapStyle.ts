@@ -126,8 +126,6 @@ export async function getOpenFreeMapStyle(): Promise<StyleSpecification> {
   return cachedStylePromise;
 }
 
-export { OPENFREEMAP_STYLE_URL };
-
 type StyleImageMissingEvent = {
   id: string;
 };

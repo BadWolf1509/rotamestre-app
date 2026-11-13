@@ -35,7 +35,7 @@ const VAZIO_CRIAR: ValoresCriarMotorista = {
 const VAZIO_EDITAR: ValoresEditarMotorista = { nome: '', telefone: '' };
 
 /** Formulário de criação (lista de Motoristas). */
-export function useFormCriarMotorista(): UseFormReturn<ValoresCriarMotorista> {
+function useFormCriarMotorista(): UseFormReturn<ValoresCriarMotorista> {
   return useForm<ValoresCriarMotorista>({
     resolver: zodResolver(motoristaSchema, undefined, { raw: true }),
     defaultValues: VAZIO_CRIAR,

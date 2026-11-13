@@ -29,7 +29,7 @@ import { PostgrestClient } from '@supabase/postgrest-js';
 
 export type LinhaFalsa = Record<string, unknown>;
 
-export interface RequisicaoFalsa {
+interface RequisicaoFalsa {
   metodo: string;
   tabela: string;
   url: URL;

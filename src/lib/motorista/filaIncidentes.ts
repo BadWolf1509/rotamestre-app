@@ -395,7 +395,7 @@ export async function sincronizarFilaIncidentes(
 // Porta real (Supabase)
 // ---------------------------------------------------------------------------
 
-export const portaIncidentesSupabase: PortaIncidentes = {
+const portaIncidentesSupabase: PortaIncidentes = {
   async subirFoto(incidente, fotoLocal) {
     // Nome novo a cada tentativa: um upload que passou com a resposta perdida
     // não é sobrescrito (a policy do bucket não dá UPDATE em `storage.objects`).

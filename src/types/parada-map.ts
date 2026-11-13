@@ -23,15 +23,6 @@ export interface ParadaMapItem {
 export type StatusFilter = 'all' | 'pendente' | 'em_andamento' | 'concluida';
 
 /**
- * Parada with guaranteed non-null coordinates (after filtering).
- * Used by components that require valid coordinates (e.g. MapaRN).
- */
-export type ParadaWithCoords = ParadaMapItem & {
-  latitude: number;
-  longitude: number;
-};
-
-/**
  * Props do mapa de paradas, iguais nas duas plataformas: `MapaAdapter` (nativo
  * e web) as repassa por spread a `MapaMobile` e `MapaWebMapLibre`. Prop nova
  * entra aqui, e só aqui, para não chegar a uma plataforma só.

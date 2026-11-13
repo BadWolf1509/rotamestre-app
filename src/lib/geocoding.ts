@@ -44,7 +44,7 @@ import type { Coordenadas, EnderecoGeocodificado } from '../types/endereco';
 /**
  * Fonte do resultado de geocodificação
  */
-export type GeocodingSource = 'google' | 'viacep' | 'photon';
+type GeocodingSource = 'google' | 'viacep' | 'photon';
 
 /**
  * Sugestão unificada com metadados de fonte

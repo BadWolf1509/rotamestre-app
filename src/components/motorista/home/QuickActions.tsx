@@ -305,45 +305,6 @@ export function FloatingActionButton({
   );
 }
 
-// Bottom Actions Bar - Fixo no bottom da tela
-interface BottomActionsBarProps {
-  state: RouteStatus;
-  onViewAllStops?: () => void;
-  onContactSupport?: () => void;
-  onReportIncident?: () => void;
-  onOpenSettings?: () => void;
-  onViewSummary?: () => void;
-  onViewHistory?: () => void;
-  bottomInset?: number;
-}
-
-export function BottomActionsBar({
-  state,
-  onViewAllStops,
-  onContactSupport,
-  onReportIncident,
-  onOpenSettings,
-  onViewSummary,
-  onViewHistory,
-  bottomInset = 0,
-}: BottomActionsBarProps) {
-  return (
-    <View
-      style={[bottomBarStyles.container, { paddingBottom: bottomInset + 16 }]}
-    >
-      <QuickActions
-        state={state}
-        onViewAllStops={onViewAllStops}
-        onContactSupport={onContactSupport}
-        onReportIncident={onReportIncident}
-        onOpenSettings={onOpenSettings}
-        onViewSummary={onViewSummary}
-        onViewHistory={onViewHistory}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create((theme: Theme) => ({
   container: {
     width: '100%',
@@ -412,17 +373,5 @@ const fabStyles = StyleSheet.create((theme: Theme) => ({
     fontSize: theme.typography.fontSize.xs,
     marginTop: theme.spacing['0.5'],
     fontFamily: theme.typography.fontSansSemiBold,
-  },
-}));
-
-const bottomBarStyles = StyleSheet.create((theme: Theme) => ({
-  container: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: theme.spacing['4'],
-    paddingTop: theme.spacing['2'],
-    backgroundColor: 'transparent',
   },
 }));

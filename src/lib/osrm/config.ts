@@ -51,5 +51,3 @@ export const OSRM_BASE_URL: string =
 if (OSRM_BASE_URL !== OSRM_SELF_HOSTED) {
   logger.info('[OSRM] Usando endpoint alternativo', { url: OSRM_BASE_URL });
 }
-
-export { OSRM_SELF_HOSTED, OSRM_DEMO_PUBLICO };

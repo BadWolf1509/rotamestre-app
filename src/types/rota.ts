@@ -2,7 +2,7 @@ import type { MotivoSkip } from '@/constants/skipReasons';
 
 import { Endereco, Coordenadas } from './endereco';
 
-export type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
+type TipoCheckpoint = 'entrega' | 'retirada' | 'origem';
 /**
  * Espelha o CHECK `rotas_status_check` do banco, que é a fonte autoritativa:
  * `pendente, em_andamento, concluida, cancelada, nao_executada`.
@@ -87,21 +87,4 @@ export interface Rota {
   otimizacao_distancia_depois?: number | null; // em km
   otimizada_em?: string | null;
   otimizada_por?: string | null;
-}
-
-export interface RotaOtimizada {
-  rota_original: Rota;
-  ordem_otimizada: number[];
-  distancia_total: number; // em km
-  tempo_estimado: number; // em minutos
-  polyline: string;
-}
-
-export interface ResumoRota {
-  distancia_km: string;
-  tempo_estimado: string;
-  total_entregas: number;
-  total_retiradas: number;
-  checkpoints_concluidos: number;
-  progresso_percentual: number;
 }

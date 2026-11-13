@@ -37,12 +37,7 @@ import type { UserProfile } from './profile/types';
 import type { Usuario } from '../types/usuario';
 
 // Re-export types for backwards compatibility
-export type {
-  UserProfile,
-  PhotoSource,
-  ConfirmDialogState,
-  AlertDialogState,
-} from './profile/types';
+export type { UserProfile } from './profile/types';
 
 /** `Usuario` (campos opcionais) → `UserProfile` (com os valores neutros). */
 function paraPerfil(u: Usuario): UserProfile {

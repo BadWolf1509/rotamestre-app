@@ -71,13 +71,6 @@ export interface RotaQueryRow {
   unidades: { nome: string } | { nome: string }[] | null;
 }
 
-/** Dados para atualização de parada */
-export interface ParadaUpdateData {
-  status: string;
-  concluida_em: string;
-  foto_url?: string;
-}
-
 export interface RouteStatusContextData {
   routeStatus: RouteStatus;
   route: RouteData | null;

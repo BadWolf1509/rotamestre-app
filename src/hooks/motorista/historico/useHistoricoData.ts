@@ -18,7 +18,7 @@ import { supabase } from '@/lib/supabase';
 
 import type { FiltroStatus, RotaHistorico } from './types';
 
-export const TAMANHO_PAGINA_HISTORICO = 50;
+const TAMANHO_PAGINA_HISTORICO = 50;
 
 interface Entrada {
   /** Período lembrado já lido do aparelho. */

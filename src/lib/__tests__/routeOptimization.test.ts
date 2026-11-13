@@ -82,11 +82,11 @@ describe('routeOptimization', () => {
       });
 
       let storage!: { getItem: jest.Mock };
-      let cache!: typeof import('../routeOptimization');
+      let cache!: typeof import('../route-optimization/cache');
       jest.isolateModules(() => {
         storage = require('@react-native-async-storage/async-storage');
         storage.getItem.mockResolvedValue(entradaPersistida);
-        cache = require('../routeOptimization');
+        cache = require('../route-optimization/cache');
       });
 
       await expect(cache.precarregarCache()).resolves.toBeUndefined();

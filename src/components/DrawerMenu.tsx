@@ -12,4 +12,3 @@
  */
 
 export { DrawerMenu } from './drawer';
-export type { DrawerMenuProps, GestorData, MenuItem } from './drawer';

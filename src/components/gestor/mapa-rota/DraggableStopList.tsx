@@ -8,5 +8,4 @@
 export {
   DraggableStopList,
   type DraggableStopListControl,
-  type DraggableStopListProps,
 } from './DraggableStopList/index';

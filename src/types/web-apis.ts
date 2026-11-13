@@ -3,9 +3,15 @@
  *
  * These APIs are available in most modern browsers but not included
  * in TypeScript's standard lib.dom.d.ts.
+ *
+ * Quem usa lê por `import('@/types/web-apis').X` dentro de expressão de tipo,
+ * que o knip e o ESLint não enxergam — daí o `@public` em cada um.
  */
 
-/** Web Battery Status API (navigator.getBattery()) */
+/**
+ * Web Battery Status API (navigator.getBattery())
+ * @public
+ */
 export interface BatteryManager extends EventTarget {
   readonly charging: boolean;
   readonly chargingTime: number;
@@ -13,11 +19,15 @@ export interface BatteryManager extends EventTarget {
   readonly level: number;
 }
 
+/** @public */
 export interface NavigatorWithBattery extends Navigator {
   getBattery(): Promise<BatteryManager>;
 }
 
-/** Web User Activation API (navigator.userActivation) */
+/**
+ * Web User Activation API (navigator.userActivation)
+ * @public
+ */
 export interface NavigatorWithUserActivation extends Navigator {
   readonly userActivation: {
     readonly hasBeenActive: boolean;
@@ -25,7 +35,10 @@ export interface NavigatorWithUserActivation extends Navigator {
   };
 }
 
-/** Safari/older browser webkit AudioContext prefix */
+/**
+ * Safari/older browser webkit AudioContext prefix
+ * @public
+ */
 export interface WindowWithWebkitAudio extends Window {
   webkitAudioContext?: typeof AudioContext;
 }

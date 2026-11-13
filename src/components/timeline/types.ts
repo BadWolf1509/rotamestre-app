@@ -4,7 +4,7 @@
 
 import type { Ionicons } from '@expo/vector-icons';
 
-export type EventType = 'status_change' | 'parada_update' | 'incidente' | 'gps_update';
+type EventType = 'status_change' | 'parada_update' | 'incidente' | 'gps_update';
 export type FilterType = 'todos' | 'status' | 'paradas' | 'incidentes';
 
 export interface TimelineEvent {

@@ -206,9 +206,6 @@ export const spacing = {
   '6xl': defaultTheme.spacing['6xl'],
 } as const;
 
-/** Chave válida da escala de espaçamento. */
-export type SpacingToken = keyof typeof spacing;
-
 // ============================================
 // 4. BORDER RADIUS
 // ============================================
@@ -376,24 +373,3 @@ export function getStatusIcon(
       return 'ellipse-outline';
   }
 }
-
-// ============================================
-// DEFAULT EXPORT
-// ============================================
-
-export default {
-  colors,
-  typography,
-  spacing,
-  borderRadius,
-  shadows,
-  opacity,
-  motion,
-  transitions,
-  zIndex,
-  icons,
-  components,
-  getBadgeColor,
-  getStatusColor,
-  getStatusIcon,
-};

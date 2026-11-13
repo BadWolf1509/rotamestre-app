@@ -70,6 +70,13 @@ Use `listarFontes` / `lerFontes` / `exigirVolume` de `src/__tests__/helpers/font
   limiar. **Não atualize o baseline para acomodar isso**: antes de acusar um PR,
   rode o mesmo comando na `main` e compare o conjunto de testes vermelhos, que é
   como essa divergência foi separada de regressão real.
+- **A vitrine `/design-system` só abre com `EXPO_PUBLIC_VITRINE_DS=1` no
+  build** (ou em dev): na `dist` de produção sem a flag, que é o que a Vercel
+  serve, a rota redireciona para `/` (`src/lib/vitrineDesignSystem.ts`, desde
+  13/11/2026). O `test.yml` liga a flag nos dois `build:web` do e2e; para rodar
+  o `design-system.e2e.ts` local contra a `dist`, builde com
+  `EXPO_PUBLIC_VITRINE_DS=1 npm run build:web` — sem ela, os testes da vitrine
+  falham por cair na Início.
 - **`VISUAL_REGRESSION=1` liga a comparação de screenshot — e só ela.** Os
   testes `@visual` de `visual-critical.e2e.ts` e `design-system.e2e.ts` se
   pulam sem essa variável (o CI a define em `test.yml`), pelo motivo do item

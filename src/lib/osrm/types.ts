@@ -93,34 +93,6 @@ export interface DirectionsResult {
   sem_rota_entre_paradas?: boolean;
 }
 
-export interface OSRMTripResponse {
-  code: string;
-  trips: Array<{
-    distance: number;
-    duration: number;
-    geometry: string;
-    legs: Array<{
-      distance: number;
-      duration: number;
-      steps: Array<{
-        distance: number;
-        duration: number;
-        name: string;
-        maneuver: {
-          type: string;
-          modifier?: string;
-          location: [number, number];
-        };
-      }>;
-    }>;
-  }>;
-  waypoints: Array<{
-    location: [number, number];
-    waypoint_index: number;
-    trips_index: number;
-  }>;
-}
-
 export interface OSRMTableResponse {
   code: string;
   /** `null` no par sem rota de carro (ilha, coordenada fora do extrato). */

@@ -13,9 +13,4 @@ export {
   useRouteStatus,
   useRouteStatusSeHouver,
 } from './route-status/RouteStatusProvider';
-export type {
-  RouteStatus,
-  RouteData,
-  ParadaData,
-  RouteStatusContextData,
-} from './route-status/types';
+export type { RouteStatus, RouteData, ParadaData } from './route-status/types';
