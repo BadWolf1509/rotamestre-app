@@ -77,6 +77,14 @@ jobs:
       - name: TypeScript type check
         run: npm run type-check
 
+      - name: Testes importam só o que existe
+        # O type-check acima não olha os testes (o tsconfig.json exclui
+        # __tests__ e *.test.ts). Nome removido que só um teste condicional
+        # importa passaria calado no tsc e no jest; este step reprova só erro
+        # de import/membro inexistente (TS2305/2307/2614/2694/2724) — os erros
+        # de tipagem de mock dos testes não entram. tools/scripts/typecheck-testes.cjs
+        run: npm run typecheck:tests
+
       - name: Lint check
         run: npm run lint
 

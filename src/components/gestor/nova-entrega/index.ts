@@ -8,5 +8,4 @@ export * from './RouteDateSelector';
 export * from './RouteReviewModal';
 export * from './BulkStopImporter';
 export { FormularioParada } from './FormularioParada';
-
 export { novaEntregaStyles } from './styles';

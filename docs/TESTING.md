@@ -409,7 +409,11 @@ open coverage/lcov-report/index.html
 
 O workflow `.github/workflows/quality.yml` executa:
 
-1. **Type Check**: `npm run type-check`
+1. **Type Check**: `npm run type-check` — **não olha os testes** (o
+   `tsconfig.json` exclui `__tests__` e `*.test.ts`); por isso, logo depois,
+   `npm run typecheck:tests` roda o `tsc` com `tsconfig.testes.json` e reprova
+   só import de nome ou módulo que não existe (TS2305/2307/2614/2694/2724). Os
+   erros de tipagem de mock dos testes (centenas) não entram.
 2. **Lint**: `npm run lint`
 3. **Testes**: `npm test -- --coverage`
 4. **Security Audit**: `npm audit --audit-level=moderate`

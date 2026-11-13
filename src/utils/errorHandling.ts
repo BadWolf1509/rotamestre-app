@@ -12,7 +12,6 @@
  * Platform notes:
  * - Alert.alert works on iOS/Android but NOT on web
  * - Use toast for web-compatible notifications
- * - Use Platform.OS checks when native alerts are needed for confirmations
  */
 
 import { logger } from '@/lib/logger';

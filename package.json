@@ -36,6 +36,7 @@
     "test:e2e:headed": "npx playwright test --headed",
     "test:e2e:debug": "npx playwright test --debug",
     "type-check": "tsc --noEmit",
+    "typecheck:tests": "node tools/scripts/typecheck-testes.cjs",
     "validate": "npm run type-check && npm run lint && npm test",
     "coverage-report": "node scripts/coverage-report.js",
     "play:status": "node scripts/play-status.mjs",

@@ -11,7 +11,6 @@ let gerarHashRota: typeof import('../cache').gerarHashRota;
 let obterDoCache: typeof import('../cache').obterDoCache;
 let salvarNoCache: typeof import('../cache').salvarNoCache;
 let limparCacheOtimizacao: typeof import('../cache').limparCacheOtimizacao;
-let _precarregarCache: typeof import('../cache').precarregarCache;
 let estatisticasCache: typeof import('../cache').estatisticasCache;
 
 // Mock logger
@@ -144,7 +143,6 @@ describe('cache operations', () => {
     obterDoCache = cacheModule.obterDoCache;
     salvarNoCache = cacheModule.salvarNoCache;
     limparCacheOtimizacao = cacheModule.limparCacheOtimizacao;
-    _precarregarCache = cacheModule.precarregarCache;
     estatisticasCache = cacheModule.estatisticasCache;
   });
 
@@ -261,7 +259,9 @@ describe('cache operations', () => {
     });
   });
 
-  describe('precarregarCache', () => {
+  // O carregamento do AsyncStorage acontece na 1ª leitura (obterDoCache,
+  // estatisticasCache): é ela que estes testes exercitam.
+  describe('carregamento do AsyncStorage', () => {
     it('loads valid entries from AsyncStorage', async () => {
       const cacheData = {
         version: 1,
@@ -282,8 +282,6 @@ describe('cache operations', () => {
       );
 
       const freshModule = require('../cache');
-      await freshModule.precarregarCache();
-
       const cached = await freshModule.obterDoCache('preloaded-hash');
       expect(cached).not.toBeNull();
       expect(cached.distanciaTotalMetros).toBe(1000);
@@ -297,9 +295,6 @@ describe('cache operations', () => {
       );
 
       const freshModule = require('../cache');
-
-      // Should not throw
-      await freshModule.precarregarCache();
 
       const stats = await freshModule.estatisticasCache();
       expect(stats.tamanho).toBe(0);
@@ -323,8 +318,6 @@ describe('cache operations', () => {
       );
 
       const freshModule = require('../cache');
-      await freshModule.precarregarCache();
-
       const stats = await freshModule.estatisticasCache();
       expect(stats.tamanho).toBe(0);
     });
@@ -351,8 +344,6 @@ describe('cache operations', () => {
       );
 
       const freshModule = require('../cache');
-      await freshModule.precarregarCache();
-
       const stats = await freshModule.estatisticasCache();
       expect(stats.tamanho).toBe(1);
       expect(stats.entradas).toContain('valid-hash');

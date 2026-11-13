@@ -5,7 +5,6 @@
 export { useRotasCache } from './useRotasCache';
 export { useRotasFiltering, ordenarRotas } from './useRotasFiltering';
 export { useTimelineData } from './useTimelineData';
-
 export { exportRotasToCSV } from './routeExport';
 export { exportRotasToXLSX } from './routeExportXLSX';
 export type {

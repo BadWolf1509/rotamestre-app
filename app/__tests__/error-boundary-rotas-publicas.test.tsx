@@ -4,8 +4,10 @@ import React from 'react';
 const FALHA = 'falha simulada no render';
 
 // Cada tela tem um ponto de injeção diferente porque não há dependência comum
-// às cinco: index chama useSegments, first-password chama useResponsive,
-// exclusao-de-conta chama useAuth e as duas páginas legais renderizam LegalPage.
+// às seis: index chama useSegments, first-password e a vitrine do design system
+// chamam useResponsive, exclusao-de-conta chama useAuth e as duas páginas legais
+// renderizam LegalPage. (No Jest `__DEV__` é true, então a vitrine passa pela
+// guarda de produção e chega ao conteúdo.)
 // Em todos os casos a chamada acontece DURANTE o render, que é o que o
 // ErrorBoundary precisa capturar.
 
@@ -57,6 +59,10 @@ const TELAS: { nome: string; carregar: () => React.ComponentType }[] = [
   {
     nome: 'termos-de-uso',
     carregar: () => require('../termos-de-uso').default,
+  },
+  {
+    nome: 'design-system',
+    carregar: () => require('../design-system').default,
   },
 ];
 
