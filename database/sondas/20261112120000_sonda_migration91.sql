@@ -176,7 +176,10 @@ BEGIN
     RESET ROLE;
     PERFORM set_config('request.jwt.claims', '', true);
     SELECT status INTO v_status FROM public.rotas WHERE id = v_r3;
-    SELECT count(*) INTO v_n FROM public.notificacoes WHERE rota_id = v_r3 AND usuario_id = v_m2;
+    -- Só o título do cancelamento: o gatilho de INSERT em rotas já gravou para
+    -- M2 o aviso de nova rota (de outro título), quando ele ainda era ativo.
+    SELECT count(*) INTO v_n FROM public.notificacoes
+     WHERE rota_id = v_r3 AND usuario_id = v_m2 AND titulo = 'Rota cancelada pelo gestor';
     r := r || CASE WHEN v_res = 'cancelada' AND v_status = 'cancelada' AND v_n = 0
       THEN ' | 4 OK: M2 fora da loja: cancela sem aviso'
       ELSE ' | 4 FALHOU: resultado ' || coalesce(v_res, 'nulo') || ', rota ' || coalesce(v_status, 'nula')

@@ -3985,9 +3985,9 @@ período recortando, SEM_PERMISSAO e 42501, índices, catálogo. Rollback coláv
 
 ---
 
-### ⏳ Migration 91: aviso de cancelamento ao motorista com tipo próprio (`rota_cancelada`)
+### ✅ Migration 91: aviso de cancelamento ao motorista com tipo próprio (`rota_cancelada`)
 
-**Arquivo:** `20261112120000_aviso_cancelamento_tipo_proprio.sql` · **⏳ não aplicada** (aguarda o OK do gestor).
+**Arquivo:** `20261112120000_aviso_cancelamento_tipo_proprio.sql` · **✅ aplicada em 13/11/2026** pelo CLI (`db query --remote --yes`), registrada com a versão do arquivo (`RETURNING`), depois da `send-push-notification` v20 (#780, 54d428b5). **Sonda medida:** sozinha antes de aplicar, 5 OK | 3 FALHOU (casos 1, 5 e 6, os discriminantes); com o corpo na mesma execução, 8/8 OK (desfeita; a função viva seguiu com o md5 da M86); depois de aplicar, 8/8 OK, sem resíduo. 4 notificações antigas corrigidas, 0 restantes; as 63 de expiração intactas. A primeira rodada mostrou um defeito da sonda no caso 4 (contava o aviso de nova rota do gatilho de INSERT), corrigido no filtro pelo título.
 **Ordem obrigatória:** (1) publicar a Edge Function `send-push-notification`
 com `rota_cancelada` em `PUSH_NOTIFICATION_TYPES` — sem isso, o push do
 cancelamento é descartado calado; (2) aplicar como `postgres`, com a sonda
