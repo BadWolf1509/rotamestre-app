@@ -6,8 +6,9 @@
  * QUEM RECEBE CADA TIPO (triggers do banco + `send-push-notification`):
  * - só gestor: rota_iniciada/concluida/atrasada, parada_pulada/reaberta,
  *   sos_acionado, incidente_reportado;
- * - só motorista: nova_rota_atribuida, lembretes, rota_parada_* e
- *   rota_reordenada (edição da rota pelo gestor);
+ * - só motorista: nova_rota_atribuida, lembretes, rota_parada_*,
+ *   rota_reordenada (edição da rota pelo gestor) e rota_cancelada
+ *   (cancelamento pelo gestor, Migration 91);
  * - os dois: rota_nao_executada.
  *
  * O destino tem de existir para quem recebe: `_screens/` do motorista é
@@ -33,6 +34,7 @@ const SO_MOTORISTA = new Set([
   'rota_parada_removida',
   'rota_parada_editada',
   'rota_reordenada',
+  'rota_cancelada',
 ]);
 
 const SO_GESTOR = new Set([
@@ -58,7 +60,7 @@ function destinoMotorista(tipo: string): DestinoNotificacao {
   if (EDICAO_DA_ROTA.has(tipo)) {
     return { caminho: '/motorista/paradas', modo: 'navigate' };
   }
-  if (tipo === 'rota_nao_executada') {
+  if (tipo === 'rota_nao_executada' || tipo === 'rota_cancelada') {
     return { caminho: '/motorista/historico', modo: 'navigate' };
   }
   return { caminho: '/motorista', modo: 'navigate' };

@@ -79,6 +79,7 @@ describe('categoriaDoTipo', () => {
     'rota_concluida',
     'rota_atrasada',
     'rota_nao_executada',
+    'rota_cancelada',
     'parada_pulada',
     'parada_reaberta',
     'rota_parada_adicionada',

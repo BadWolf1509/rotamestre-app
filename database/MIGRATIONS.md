@@ -3417,7 +3417,7 @@ anúncio de sucesso. A versão nova acrescenta `motorista_indisponivel` a
 
 **Verificação.** Guarda estática
 `database/__tests__/migration78-reativar-rota-motorista-indisponivel.test.ts`;
-sonda `database/sondas/20261027102000_sonda_migration78.sql` (7 casos, desfeita
+sonda `database/sondas/20261027102000_sonda_migration78.sql` (8 casos, desfeita
 pelo RAISE): vínculo inativo, cadastro desativado, motorista ativo, rota sem
 motorista, `situacao_mudou` antes do motorista, gestor de outra loja, catálogo.
 Rollback colável (corpo da Migration 71).
@@ -3763,7 +3763,7 @@ caminho das Migrations 37 e 83) × pg_cron (não há no projeto); DELETE único
 **Verificação.** Guarda estática
 `database/__tests__/migration85-places-teto-e-limpeza.test.ts` (inclui: o
 corpo da cota é o da 84 fora as duas mudanças); sonda
-`database/sondas/20261108120000_sonda_migration85.sql` (7 casos, desfeita
+`database/sondas/20261108120000_sonda_migration85.sql` (8 casos, desfeita
 pelo RAISE): details 1000, autocomplete 1000, sem `sub` → NULL e anon sem
 EXECUTE, limpeza padrão (apaga 9 e 20 dias, mantém 8 e hoje), piso 0/NULL,
 API sem EXECUTE na limpeza, catálogo. Guarda nova
@@ -3890,7 +3890,7 @@ a regra de hoje) × só papel `motorista`.
 
 **Verificação.** Guarda estática
 `database/__tests__/migration88-iniciar-rota.test.ts`; sonda
-`database/sondas/20261108123000_sonda_migration88.sql` (7 casos, desfeita pelo
+`database/sondas/20261108123000_sonda_migration88.sql` (8 casos, desfeita pelo
 RAISE): iniciada (com o aviso ao gestor), ja_iniciada sem mudança, ja_iniciada
 completando início pela metade, situacao_mudou (cancelada e concluida),
 sem_permissao (outro motorista, gestor, vínculo inativo, cadastro inativo, sem
@@ -3929,7 +3929,7 @@ Resposta: jsonb `{success, code}` (escolhida) × RAISE 42501.
 
 **Verificação.** Guarda estática
 `database/__tests__/migration89-desempenho-motorista-por-loja.test.ts`; sonda
-`database/sondas/20261108124000_sonda_migration89.sql` (7 casos, desfeita pelo
+`database/sondas/20261108124000_sonda_migration89.sql` (8 casos, desfeita pelo
 RAISE): números de A só com as rotas de A, de B só com as de B, gestor das duas
 lojas vendo cada uma separada (e a view somando), SEM_PERMISSAO (gestor de outra
 loja, vínculo inativo, motorista, sem sessão, loja nula), zeros sem rota na
@@ -3982,6 +3982,50 @@ posicional e nomeada; negativo 22023), novembro só com novembro, período
 vencendo `p_dias`, tempo médio, `na_loja` sem período igual à anterior, com
 período recortando, SEM_PERMISSAO e 42501, índices, catálogo. Rollback colável
 (restaura corpos e ACLs das Migrations 55 e 89).
+
+---
+
+### ⏳ Migration 91: aviso de cancelamento ao motorista com tipo próprio (`rota_cancelada`)
+
+**Arquivo:** `20261112120000_aviso_cancelamento_tipo_proprio.sql` · **⏳ não aplicada** (aguarda o OK do gestor).
+**Ordem obrigatória:** (1) publicar a Edge Function `send-push-notification`
+com `rota_cancelada` em `PUSH_NOTIFICATION_TYPES` — sem isso, o push do
+cancelamento é descartado calado; (2) aplicar como `postgres`, com a sonda
+antes (corpo sem BEGIN/COMMIT + sonda numa execução só) e depois.
+
+**O que faz.** Achado da validação da pendência 36 (11/11, 3060): o
+cancelamento enviava o push certo, mas gravava a notificação com o tipo
+`rota_nao_executada`, o da expiração — a Migration 86 reaproveitou o tipo
+para não exigir Edge Function nem versão nova do app.
+
+- `cancelar_rota` recriada a partir da versão viva (a da Migration 86; md5 do
+  corpo conferido no catálogo em 12/11), trocando só o tipo do aviso para
+  `rota_cancelada`. Título, mensagem, destinatário, EXCEPTION do bloco, ACL e
+  o resto do corpo iguais; COMMENT da Migration 91. `reativar_rota` não muda
+  (segue `nova_rota_atribuida`).
+- Corrige as notificações de cancelamento já gravadas: `tipo =
+'rota_nao_executada' AND titulo = 'Rota cancelada pelo gestor'` (título que
+  só a Migration 86 grava) → `rota_cancelada`. Eram 4 linhas em 12/11, de 10
+  a 12/11.
+- App (no mesmo PR): o tipo entra em `NotificationType`, no destino do toque
+  (só motorista → Histórico) e no ícone/cor da lista (`ban`, cinza). Push:
+  categoria "rota" das preferências (padrão) e prioridade alta. Versões até a
+  1.16.1 mostram o ícone genérico e o toque não navega (nem no push nem no
+  sino, que antes levava ao Histórico); título e mensagem
+  chegam iguais.
+
+**Alternativas.** Tipo próprio (escolhida: o banco distingue cancelamento de
+expiração) × manter `rota_nao_executada` (nada a publicar, mas o dado segue
+misturado) × distinguir pelo título no app (o texto vira contrato e o banco
+não muda). Linhas antigas: corrigir (escolhida: filtro inequívoco, volume
+mínimo) × deixar.
+
+**Verificação.** Guarda estática
+`database/__tests__/migration91-aviso-cancelamento-tipo-proprio.test.ts`;
+sonda `database/sondas/20261112120000_sonda_migration91.sql` (8 casos,
+desfeita pelo RAISE; sem a migration, saem FALHOU os casos 1, 5 e 6). Depois da M91, o caso
+1 da sonda da Migration 86 sai FALHOU (espera o tipo antigo) — é o esperado.
+Rollback colável (corpo e COMMENT da Migration 86 e o tipo das linhas).
 
 ---
 
