@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "coverage",
+    "dist",
+    "web-build"
+  ]
+}
