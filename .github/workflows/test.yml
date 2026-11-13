@@ -223,6 +223,8 @@ jobs:
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          # Abre /design-system na dist do e2e; a Vercel não tem a flag (src/lib/vitrineDesignSystem.ts).
+          EXPO_PUBLIC_VITRINE_DS: '1'
 
       - name: Testes de mapa (autenticados)
         # Os testes de mapa vivem no describe `@auth`, que o job
@@ -361,6 +363,8 @@ jobs:
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          # Abre /design-system na dist do e2e; a Vercel não tem a flag (src/lib/vitrineDesignSystem.ts).
+          EXPO_PUBLIC_VITRINE_DS: '1'
 
       - name: Run visual regression tests (public only - no auth required)
         # OS TRÊS STEPS DE TESTE ABAIXO NÃO SÃO REDUNDANTES, por mais que

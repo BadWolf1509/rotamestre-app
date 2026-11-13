@@ -18,7 +18,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import React, {
   useMemo,
   useState,
@@ -81,6 +81,7 @@ import {
 } from '@/design-system';
 import { useResponsive } from '@/hooks/useResponsive';
 import { logger } from '@/lib/logger';
+import { vitrineLiberada } from '@/lib/vitrineDesignSystem';
 import { StyleSheet, useUnistyles, type Theme } from '@/utils/styles';
 
 // ============================================
@@ -1016,7 +1017,19 @@ function Playground({
 // COMPONENTE PRINCIPAL
 // ============================================
 
+/**
+ * Só abre em dev e no CI (`EXPO_PUBLIC_VITRINE_DS=1` no build do e2e); na
+ * Vercel redireciona. O `process.env` tem de ficar literal aqui para o Metro
+ * injetar o valor — ver `src/lib/vitrineDesignSystem.ts`.
+ */
 export default function DesignSystemScreen() {
+  if (!vitrineLiberada(__DEV__, process.env.EXPO_PUBLIC_VITRINE_DS)) {
+    return <Redirect href="/" />;
+  }
+  return <VitrineDesignSystem />;
+}
+
+function VitrineDesignSystem() {
   const { theme } = useUnistyles();
   const { isDesktop, isMobile } = useResponsive();
   const scrollRef = useRef<ScrollViewInstance>(null);
