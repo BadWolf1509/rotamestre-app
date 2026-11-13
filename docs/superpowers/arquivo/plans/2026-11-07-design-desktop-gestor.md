@@ -16,7 +16,7 @@ A Início desktop ganha dois componentes novos, `ResumoDoDia` e `LinhaDeParadas`
 
 **Stack:** React Native + Expo (web), Unistyles (`StyleSheet.create((theme) => …)`, `theme.colors.*`), Jest + `@testing-library/react-native` e Playwright (e2e).
 
-**Spec:** `docs/superpowers/specs/2026-11-07-design-desktop-gestor-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-11-07-design-desktop-gestor-design.md`
 
 ## Restrições globais
 

@@ -126,7 +126,7 @@ token, `tokensDaConta`), mantendo o fallback do SOS.
 
 - [ ] Cada item: teste vermelho → correção → verde → commit.
 - [ ] Suíte, tsc, eslint → verdes. Relatório `exec-nucleo.md` (com o que a pendência 33
-  precisa provar no dev client).
+      precisa provar no dev client).
 
 ### Task 4: Trilha UI (`v0511-ui`, branch `refactor/v0511-ui`)
 
@@ -142,7 +142,7 @@ escopo; a aplicação no resto do repositório e a guarda estática ficam para a
 
 - [ ] Cada item: teste vermelho → correção → verde → commit.
 - [ ] Suíte, tsc, eslint → verdes. Relatório `exec-ui.md` com a assinatura do `Touchable` e
-  a lista de pontos restantes.
+      a lista de pontos restantes.
 
 ### Task 5: Trilha ferramentas e Edge Functions (`v0511-tooling`, branch `refactor/v0511-tooling`)
 
@@ -159,33 +159,37 @@ aviso novo — medir antes e registrar a lista), B-DB-5, B-DB-4, R-DB-2, R-DB-4,
 R-DB-10, B-TOOL-4/R-TOOL-12 só em `docs/TESTING.md`.
 
 - [ ] Cada item: teste vermelho → correção → verde → commit (Edge Function: teste Deno se
-  houver o padrão; senão, guarda estática em Jest, como as existentes).
+      houver o padrão; senão, guarda estática em Jest, como as existentes).
 - [ ] Suíte, tsc, eslint → verdes. Relatório `exec-tooling.md` (o deploy das funções fica
-  para o usuário).
+      para o usuário).
 
 ## Fase 2 — integração (sequencial, na branch `refactor/varredura-05-11`)
 
 ### Task 6: Juntar as trilhas
+
 - [ ] `git merge --no-ff` de cada `refactor/v0511-*` na integração, uma por vez; conflito
-  se resolve a favor das duas intenções e vai no ledger.
+      se resolve a favor das duas intenções e vai no ledger.
 - [ ] Suíte inteira, tsc, `npm run lint` → verdes.
 
 ### Task 7: `Touchable` no repositório inteiro (R-UI-1 resto + R-UI-6) e call sites de R-UI-2
+
 - [ ] Migrar os pontos restantes do inventário de `ui.md`, com `accessibilityRole`; trocar os
-  `UNSAFE_*ByType(TouchableOpacity)` dos testes.
+      `UNSAFE_*ByType(TouchableOpacity)` dos testes.
 - [ ] Guarda estática: nenhum `TouchableOpacity`/`Animated.View` com array de 2+ estilos do
-  Unistyles (provar em vermelho plantando um caso).
+      Unistyles (provar em vermelho plantando um caso).
 - [ ] Suíte, tsc, lint → verdes.
 
 ### Task 8: Dependências (R-TOOL-2, B-TOOL-3, R-TOOL-1) — worktree com `node_modules` próprio
+
 - [ ] Remover a junction da integração (`cmd //c rmdir node_modules`) e rodar `npm ci`.
 - [ ] R-TOOL-2 (dependências mortas), B-TOOL-3 (script), commit; depois R-TOOL-1
-  (`npx expo install --fix`, 11 pacotes) num commit isolado.
+      (`npx expo install --fix`, 11 pacotes) num commit isolado.
 - [ ] Suíte, tsc, lint, `npx expo install --check` → verdes.
 
 ### Task 9: Docs
+
 - [ ] `CLAUDE.md` (knip: o número medido; estados vazios; R-DB-8), `PROJECT_CONTEXT.md`
-  (pendência 32: `criarCadeia` já entrou; pendência nova com o que ficou para o aparelho e
-  para o banco), `HISTORICO.md`.
+      (pendência 32: `criarCadeia` já entrou; pendência nova com o que ficou para o aparelho e
+      para o banco), `HISTORICO.md`.
 
 ### Task 10: Revisão final do branch inteiro (modelo mais capaz) e uma rodada de correção.

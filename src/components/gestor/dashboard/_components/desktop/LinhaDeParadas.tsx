@@ -2,7 +2,7 @@
  * LinhaDeParadas — um ponto por parada real da rota, na ordem dela.
  *
  * O desenho de cada estado segue a tabela da spec da revisão de design do
- * desktop do gestor (docs/superpowers/specs/2026-11-07-design-desktop-gestor-design.md):
+ * desktop do gestor (docs/superpowers/arquivo/specs/2026-11-07-design-desktop-gestor-design.md):
  * - concluída: ponto cheio em `success`;
  * - em andamento: ponto com anel em `info`;
  * - pendente: ponto vazado, só a borda em `gray500` (componente gráfico pede

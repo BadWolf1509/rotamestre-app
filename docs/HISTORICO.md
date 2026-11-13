@@ -1963,7 +1963,7 @@ Três coisas para levar adiante:
 | 25/08/2026 | 1.12.3 publicada em teste interno e fechado, validada no aparelho pela Play                    | PRs #438/#440/#441                           |
 
 O histórico completo do rebuild está em
-[REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md), agora tratado como
+[REBUILD_RELAUNCH_PLAN.md](superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md), agora tratado como
 registro de decisão e rollout — não como checklist inicial ainda não executado.
 
 ## Cortes do PROJECT_CONTEXT.md

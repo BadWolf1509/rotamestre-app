@@ -2,7 +2,7 @@
 
 **Data:** 2026-06-23
 **Status:** Aprovado (design) — pronto para plano de implementação
-**Relacionado:** seção 8 (follow-up C3) de `docs/superpowers/specs/2026-06-22-security-hardening-multitenant-design.md`; advisor `public_bucket_allows_listing`.
+**Relacionado:** seção 8 (follow-up C3) de `docs/superpowers/arquivo/specs/2026-06-22-security-hardening-multitenant-design.md`; advisor `public_bucket_allows_listing`.
 
 ## 1. Contexto e problema
 

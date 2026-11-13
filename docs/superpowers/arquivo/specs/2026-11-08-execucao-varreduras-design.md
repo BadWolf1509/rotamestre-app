@@ -1,6 +1,6 @@
 # Execução das varreduras (08/11 + pendências anteriores) — design
 
-**Fonte dos achados:** `docs/superpowers/2026-11-08-varredura-refatoracoes.md` (ids G8-, M8-, U8-,
+**Fonte dos achados:** `docs/superpowers/arquivo/2026-11-08-varredura-refatoracoes.md` (ids G8-, M8-, U8-,
 L8-, B8-), `docs/superpowers/2026-11-07-varredura-refatoracoes.md` (B-6, B-7, B-11, T-2) e as
 pendências 26, 30 e 35 de `docs/PROJECT_CONTEXT.md`. O executor lê o item na fonte antes de
 implementar.

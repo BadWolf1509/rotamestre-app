@@ -8,7 +8,7 @@
 
 **Tech Stack:** Postgres/Supabase (RPC + RLS), React Native + Expo Router, react-hook-form + Zod, Jest + @testing-library/react-native.
 
-**Spec:** `docs/superpowers/specs/2026-08-06-onboarding-self-service-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-08-06-onboarding-self-service-design.md`
 
 ## Global Constraints
 

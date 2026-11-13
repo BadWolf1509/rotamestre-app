@@ -127,7 +127,7 @@ Installed in `.claude/`:
 ## External services in use
 
 - **Supabase** project `xezslsyxjivunmhhyxtd` — Postgres + Auth + Storage + Realtime. The one platform account never lost (data + backend live here).
-- **App identity** (rebuilt 2026-06 after the original Firebase/Play/Expo accounts were lost — see memory + `docs/REBUILD_RELAUNCH_PLAN.md`): Android package **`br.tec.rotamestre.app`** · EAS project **`c6401a59-af97-484a-93b7-c75016bf331d`** (owner `@wellington.ribeiro.mkt`) · Firebase **`rota-mestre-97084`** (FCM push, validated end-to-end). All wired in `app.config.js`.
+- **App identity** (rebuilt 2026-06 after the original Firebase/Play/Expo accounts were lost — see memory + `docs/superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md`): Android package **`br.tec.rotamestre.app`** · EAS project **`c6401a59-af97-484a-93b7-c75016bf331d`** (owner `@wellington.ribeiro.mkt`) · Firebase **`rota-mestre-97084`** (FCM push, validated end-to-end). All wired in `app.config.js`.
 - **Vercel** — auto-deploy on push to `main`; CSP whitelists Supabase, OSRM, Photon, OpenStreetMap tiles.
 - **EAS** — Android builds (production `.aab`; internal/preview `.apk` with
   install link/QR) and iOS store builds. Supabase env vars live

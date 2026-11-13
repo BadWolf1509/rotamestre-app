@@ -2,7 +2,7 @@
 
 > Registro histórico e plano de rollout. Atualizado em 24/07/2026.
 > Para o estado operacional atual, comece por
-> [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
+> [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md).
 
 ## Decisão
 
@@ -68,7 +68,7 @@ material de publicação foi preparado. O estado exato das trilhas não vive no
 Git: confirme no Play Console a versão ativa, o teste fechado exigido e a
 elegibilidade para produção.
 
-Runbook: [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md).
+Runbook: [GOOGLE_PLAY_DEPLOYMENT.md](../../GOOGLE_PLAY_DEPLOYMENT.md).
 
 ### 4. Migração de usuários — próxima etapa
 
@@ -119,4 +119,4 @@ transição e só então encerrar suportes específicos ao cliente antigo.
 4. Alterações de package, assinatura, projeto Firebase ou EAS exigem registro de
    decisão e plano de rollback.
 5. O estado do rollout deve ser atualizado em
-   [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) após cada avanço.
+   [PROJECT_CONTEXT.md](../../PROJECT_CONTEXT.md) após cada avanço.

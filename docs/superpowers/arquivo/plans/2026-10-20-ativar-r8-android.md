@@ -12,7 +12,7 @@
 
 ## Decisões
 
-1. **Ordem: com o SDK 57, não antes.** A 1.13.0 sai sem R8 (já leva mudanças nativas). O plano do SDK 57 (`origin/docs/plano-sdk-57`, `docs/superpowers/plans/2026-10-20-upgrade-expo-sdk-57.md`) exige uma bateria no aparelho; o R8 aproveita a mesma bateria. **Mas não pode contaminar a medição de memória** daquele plano (Decisão 4 de lá: "uma variável só"). Proposta: R8 é **um commit separado no mesmo PR do SDK 57** (ou um PR logo depois, sem empilhar), e:
+1. **Ordem: com o SDK 57, não antes.** A 1.13.0 sai sem R8 (já leva mudanças nativas). O plano do SDK 57 (`origin/docs/plano-sdk-57`, `docs/superpowers/arquivo/plans/2026-10-20-upgrade-expo-sdk-57.md`) exige uma bateria no aparelho; o R8 aproveita a mesma bateria. **Mas não pode contaminar a medição de memória** daquele plano (Decisão 4 de lá: "uma variável só"). Proposta: R8 é **um commit separado no mesmo PR do SDK 57** (ou um PR logo depois, sem empilhar), e:
    - a medição de memória (Tasks 1 e 5 do SDK 57) usa o APK **sem** R8;
    - o roteiro funcional (Task 4 do SDK 57) roda **uma vez**, no APK **com** R8 — cobre os dois.
      **Decidido pelo usuário em 20/10/2026: commit separado dentro do PR do SDK 57.** Este plano roda na branch `chore/expo-sdk-57`, depois da Task 2 daquele plano (troca de SDK) e antes da Task 4 (roteiro no aparelho); o APK da Task 5 de lá (medição) sai do commit anterior a este.

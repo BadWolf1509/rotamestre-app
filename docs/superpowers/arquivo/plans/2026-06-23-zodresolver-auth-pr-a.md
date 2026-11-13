@@ -10,7 +10,7 @@
 
 **Tech Stack:** react-hook-form ^7.80, @hookform/resolvers ^5.4 (`zodResolver`), zod ^4.4, `@testing-library/react-native`.
 
-**Spec:** `docs/superpowers/specs/2026-06-23-zodresolver-auth-forms-design.md`
+**Spec:** `docs/superpowers/arquivo/specs/2026-06-23-zodresolver-auth-forms-design.md`
 
 ## Global Constraints
 

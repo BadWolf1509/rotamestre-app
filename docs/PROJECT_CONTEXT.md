@@ -571,7 +571,7 @@ app.rotamestre.tec.br ── Expo Web / React Native
 - **Google Play: procedimento** — [GOOGLE_PLAY_DEPLOYMENT.md](GOOGLE_PLAY_DEPLOYMENT.md)
 - **Google Play: textos, assets e declarações** — [play-store-metadata.md](play-store-metadata.md)
 - **App Store / iOS: procedimento** — [APP_STORE_DEPLOYMENT.md](APP_STORE_DEPLOYMENT.md)
-- **Reconstrução da identidade Android** — [REBUILD_RELAUNCH_PLAN.md](REBUILD_RELAUNCH_PLAN.md)
+- **Reconstrução da identidade Android** — [REBUILD_RELAUNCH_PLAN.md](superpowers/arquivo/REBUILD_RELAUNCH_PLAN.md)
 - **Firebase e push** — [FIREBASE_MIGRATION.md](FIREBASE_MIGRATION.md)
 - **Recuperação de senha** — [PASSWORD_RECOVERY.md](PASSWORD_RECOVERY.md)
 - **Templates de email do Auth** — [`../supabase/templates/README.md`](../supabase/templates/README.md) — e por que colar no painel

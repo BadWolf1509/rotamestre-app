@@ -1,7 +1,7 @@
 /**
  * Guarda do R8 no build release Android: o aviso de ofuscação da Play some só
  * com minificação ligada, e o `shrinkResources` só vale junto dela.
- * Plano: docs/superpowers/plans/2026-10-20-ativar-r8-android.md
+ * Plano: docs/superpowers/arquivo/plans/2026-10-20-ativar-r8-android.md
  */
 
 type PluginEntry = string | [string, Record<string, unknown>];

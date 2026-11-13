@@ -153,7 +153,7 @@ git push -u origin chore/node-22-upgrade
 ```bash
 gh pr create --base main --head chore/node-22-upgrade \
   --title "chore: upgrade Node 20 -> 22 (+ size-limit 13, fecha #332 #335)" \
-  --body "Migra dev/CI/EAS/Vercel para Node 22 (Node 20 EOL 30/04/2026). Inclui size-limit 13, destravado pelo Node 22. Requer setar Node 22.x no dashboard do Vercel. Ver docs/superpowers/specs/2026-08-04-node-22-upgrade-design.md."
+  --body "Migra dev/CI/EAS/Vercel para Node 22 (Node 20 EOL 30/04/2026). Inclui size-limit 13, destravado pelo Node 22. Requer setar Node 22.x no dashboard do Vercel. Ver docs/superpowers/arquivo/specs/2026-08-04-node-22-upgrade-design.md."
 ```
 
 - [ ] **Step 3: Aguardar e confirmar o CI (em Node 22.x)**

@@ -57,7 +57,7 @@ git checkout -b fix/security-rls-multitenant
 ```sql
 -- Migration: security_hardening_multitenant
 -- Fecha furos multi-tenant (validado no banco vivo 2026-06-22).
--- Spec: docs/superpowers/specs/2026-06-22-security-hardening-multitenant-design.md
+-- Spec: docs/superpowers/arquivo/specs/2026-06-22-security-hardening-multitenant-design.md
 -- C1/C2: guard de tenant + search_path nas RPCs. C4: revogar funções platform-wide.
 -- A1: escopar push_notification_logs por unidade. A3: views anon + security_invoker.
 -- A4: remover grant INSERT morto em notificacoes.
@@ -436,7 +436,7 @@ gh pr create --base main --title "fix(security): hardening RLS/RPC multi-tenant"
 
 ```bash
 git checkout main && git pull
-git add docs/superpowers/specs/2026-06-22-security-hardening-multitenant-design.md docs/superpowers/plans/2026-06-22-security-hardening-multitenant.md
+git add docs/superpowers/arquivo/specs/2026-06-22-security-hardening-multitenant-design.md docs/superpowers/arquivo/plans/2026-06-22-security-hardening-multitenant.md
 git commit -m "docs(security): spec + plano do hardening RLS multi-tenant"
 ```
 
