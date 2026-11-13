@@ -39,6 +39,15 @@ describe('destinoDaNotificacao', () => {
         modo: 'navigate',
       });
     });
+
+    it('rota_cancelada (cancelamento pelo gestor, Migration 91) vai para o histórico', () => {
+      expect(destinoDaNotificacao('rota_cancelada', 'r1', 'motorista')).toEqual(
+        {
+          caminho: '/motorista/historico',
+          modo: 'navigate',
+        },
+      );
+    });
   });
 
   describe('gestor', () => {
@@ -87,6 +96,13 @@ describe('destinoDaNotificacao', () => {
       expect(destinoDaNotificacao('rota_reordenada', 'r1', null)?.caminho).toBe(
         '/motorista/paradas',
       );
+    });
+
+    it('rota_cancelada só vai ao motorista: sem papel, abre o histórico dele', () => {
+      expect(destinoDaNotificacao('rota_cancelada', 'r1', null)).toEqual({
+        caminho: '/motorista/historico',
+        modo: 'navigate',
+      });
     });
 
     it('tipo dos dois papéis vai para a raiz, que roteia pelo papel', () => {

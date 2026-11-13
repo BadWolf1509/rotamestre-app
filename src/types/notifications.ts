@@ -16,6 +16,7 @@ export type NotificationType =
   | 'nova_rota_atribuida' // Nova rota foi atribuída ao motorista
   | 'lembrete_rota_pendente' // Lembrete às 16h sobre rota pendente
   | 'lembrete_rota_urgente' // Aviso urgente às 20h (2h antes expiração)
+  | 'rota_cancelada' // Gestor cancelou a rota (Migration 91)
   // Notificações para AMBOS (gestor e motorista)
   | 'rota_nao_executada'; // Rota expirou sem ser executada
 

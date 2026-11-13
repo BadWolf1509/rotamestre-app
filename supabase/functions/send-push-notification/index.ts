@@ -75,6 +75,9 @@ const PUSH_NOTIFICATION_TYPES = [
   'rota_atrasada',
   'rota_nao_executada',
 
+  // Cancelamento pelo gestor (para motorista; Migration 91)
+  'rota_cancelada',
+
   // Paradas (para gestor)
   'parada_pulada',
   'parada_reaberta',
@@ -102,6 +105,7 @@ const NOTIFICATION_PRIORITY: Record<string, 'high' | 'normal'> = {
   rota_concluida: 'normal',
   rota_atrasada: 'normal',
   rota_nao_executada: 'high',
+  rota_cancelada: 'high',
 
   // Paradas
   parada_pulada: 'normal',

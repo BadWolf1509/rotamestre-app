@@ -102,6 +102,8 @@ export function NotificationList({ onClose }: NotificationListProps) {
         return 'alarm';
       case 'lembrete_rota_urgente':
         return 'alarm';
+      case 'rota_cancelada':
+        return 'ban';
       // Notificação para AMBOS
       case 'rota_nao_executada':
         return 'alert-circle';
@@ -143,6 +145,8 @@ export function NotificationList({ onClose }: NotificationListProps) {
         return theme.colors.info;
       case 'lembrete_rota_urgente':
         return theme.colors.error;
+      case 'rota_cancelada':
+        return theme.colors.gray500;
       case 'rota_nao_executada':
         return theme.colors.warning;
       case 'rota_parada_adicionada':
